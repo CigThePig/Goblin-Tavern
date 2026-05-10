@@ -194,7 +194,7 @@ Each future module should be able to register:
 - actions
 - report sections
 - issue seed generators
-- validation/migrations later
+- validation/migrations later (migrations are placeholder-only until post-Phase 20)
 
 ### 4. Use registries for expandable concepts
 
@@ -674,11 +674,16 @@ export function createRng(seed: string, calls?: number): SimRng
 - probability 0 always false
 - probability 1 always true
 - throws or clamps invalid values; prefer throwing in dev/test
-- increments call count unless probability is exactly 0 or 1. Pick one convention and document it.
+- does **not** increment the call count when probability is exactly 0 or 1 (the outcome is deterministic and no randomness was consumed)
 
-Recommended convention:
+**Canonical RNG call-counting convention.** Deterministic-outcome calls do not advance the RNG. This applies uniformly to:
 
-> `chance(0)` and `chance(1)` do not consume RNG calls because the outcome is deterministic.
+- `chance(0)` / `chance(1)`
+- `pick(items)` when `items.length === 1`
+- `weightedPick(items)` when only one entry has positive weight
+- any future helper whose result is fully determined by its input
+
+The wrapper enforces this rule — callers must not be expected to guard call sites with `if`-checks. The reason is replay safety: if callers guard inconsistently, two runs with the same seed diverge.
 
 `pick(items)`:
 

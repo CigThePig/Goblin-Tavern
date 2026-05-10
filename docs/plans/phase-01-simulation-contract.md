@@ -672,7 +672,7 @@ Memory collection
 Pressure collection
 Issue seed collection
 Report collection
-Save/load migration hooks
+Save/load migration hooks (deferred — placeholder only; full save/load is out of scope until post-Phase 20)
 ```
 
 The core engine does **not** own:

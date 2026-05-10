@@ -117,6 +117,8 @@ type StaffState = {
 }
 ```
 
+**Role typing clarification.** `role: StaffRoleId` is a registry string ID — the canonical type for this field — because the staff role registry (§11.1) is the source of truth for what roles exist. An earlier draft typed this as `role: StaffRole` (a literal union of `'cook' | 'server' | 'cleaner_bouncer'`), which conflicts with the `CLAUDE.md` rule that expandable concepts go through registries. If you see `StaffRole` as a hard-coded union elsewhere (including the Phase 5 staff defaults), treat it as legacy shorthand — implement `StaffRoleId` as `string` validated against `staffRegistry`. The same rule applies to `currentPriority: StaffPriorityId`, which is validated against `staffPriorityRegistry`.
+
 Names can be simple placeholders for now. Do not write character backstories yet.
 
 Example placeholder staff:

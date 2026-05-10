@@ -1479,6 +1479,8 @@ These should plug into the existing module and registry architecture.
 
 Before card development begins, at least one small fake expansion should be added to prove the architecture works.
 
+Implementation note: this expansion test is enforced as **Phase 20 readiness condition 14** (see `phases-16-20.md` §20.14). Phase 20 is where the test actually runs; this section defines what the test means and why it exists.
+
 Example: Candle Shortage Expansion
 
 Adds:

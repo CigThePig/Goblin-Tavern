@@ -72,7 +72,7 @@ src/
       TavernState.ts
       defaults.ts
       schemas.ts
-      migrations.ts
+      migrations.ts            # placeholder only — full save/load is deferred until post-Phase 20
 
     registries/
       Registry.ts
@@ -1009,6 +1009,8 @@ export type StaffRole =
   | 'cleaner_bouncer'
 ```
 
+**Forward note:** the literal union above is Phase 5 shorthand. Phase 11 introduces the staff role registry and replaces this type with `StaffRoleId` (a `string` validated against `staffRegistry`). When Phase 11 lands, remove this union and switch the `role` field to `StaffRoleId`. See `phases-11-15.md` §11 "Role typing clarification" for full reasoning.
+
 Suggested defaults:
 
 ```txt
@@ -1171,6 +1173,8 @@ export type PressureState = {
   topCauses: string[]
 }
 ```
+
+**Canonical naming:** these IDs (`pests`, `structural_decay`, `reputation_drift`, etc.) are the canonical form. Because they live under `state.pressures`, the `_pressure` suffix would be redundant. Phase 18 references the same IDs without the `_pressure` suffix; if you see `pest_pressure` or `reputation_drift_pressure` in older drafts of Phase 18, treat the short form here as authoritative.
 
 Initial pressure IDs:
 

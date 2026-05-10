@@ -257,6 +257,8 @@ These should be used in tests after every simulation tick once the engine exists
 
 ### 6.6 Add Basic Migration Container
 
+**Scope note: full save/load is deferred until post-Phase 20.** This section only introduces the placeholder shape (`SaveEnvelope`, `migrateSaveEnvelope`) so future versioning code has a stable home. No save reading, save writing, file I/O, or migration step logic is in scope for Phases 6–20. The placeholder must exist because module-state validation (§6.1.1) and module version pinning depend on the envelope's shape, not because save/load itself is being built.
+
 Do not build complex migrations yet, but add a place for them.
 
 ```ts

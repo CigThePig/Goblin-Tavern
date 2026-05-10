@@ -7,6 +7,10 @@ import {
   ensureRequiredStockRegistered,
   stockRegistry,
 } from '../registries/stockRegistry'
+import {
+  customerRegistry,
+  ensureRequiredCustomerGroupsRegistered,
+} from '../registries/customerRegistry'
 import { createInitialStockModuleState } from '../modules/stock/state'
 import type {
   AreaState,
@@ -101,84 +105,27 @@ function createInitialStaff(): Record<string, StaffState> {
   }
 }
 
+// Phase 10 §10.1 — Customer-group defaults are sourced from
+// `customerRegistry` rather than inlined. The registry holds the Phase 5
+// numbers for the existing fields plus the new Phase 10 fields
+// (`loyalty`, `preferredStockTags`, `dislikedTags`). Importing the
+// registry has the side effect of self-registering the five required
+// groups via `ensureRequiredCustomerGroupsRegistered`.
 function createInitialCustomerGroups(): Record<string, CustomerGroupState> {
-  return {
-    local_goblins: {
-      id: 'local_goblins',
-      label: 'Local Goblins',
-      patronage: 65,
-      satisfaction: 55,
-      wealth: 25,
-      rowdiness: 50,
-      dangerTolerance: 75,
-      filthTolerance: 85,
-      priceSensitivity: 80,
-      damageRisk: 30,
-      tabRisk: 35,
-      tags: [],
-      activeGrudges: [],
-    },
-    miners: {
-      id: 'miners',
-      label: 'Miners',
-      patronage: 45,
-      satisfaction: 50,
-      wealth: 45,
-      rowdiness: 70,
-      dangerTolerance: 70,
-      filthTolerance: 60,
-      priceSensitivity: 50,
-      damageRisk: 55,
-      tabRisk: 30,
-      tags: [],
-      activeGrudges: [],
-    },
-    merchants: {
-      id: 'merchants',
-      label: 'Merchants',
-      patronage: 25,
-      satisfaction: 40,
-      wealth: 75,
-      rowdiness: 15,
-      dangerTolerance: 20,
-      filthTolerance: 20,
-      priceSensitivity: 35,
-      damageRisk: 10,
-      tabRisk: 15,
-      tags: [],
-      activeGrudges: [],
-    },
-    ogres: {
-      id: 'ogres',
-      label: 'Ogres',
-      patronage: 15,
-      satisfaction: 45,
-      wealth: 65,
-      rowdiness: 90,
-      dangerTolerance: 90,
-      filthTolerance: 70,
-      priceSensitivity: 30,
-      damageRisk: 90,
-      tabRisk: 25,
-      tags: [],
-      activeGrudges: [],
-    },
-    adventurers: {
-      id: 'adventurers',
-      label: 'Adventurers',
-      patronage: 20,
-      satisfaction: 50,
-      wealth: 70,
-      rowdiness: 65,
-      dangerTolerance: 95,
-      filthTolerance: 45,
-      priceSensitivity: 25,
-      damageRisk: 60,
-      tabRisk: 20,
-      tags: [],
-      activeGrudges: [],
-    },
+  ensureRequiredCustomerGroupsRegistered()
+  const groups: Record<string, CustomerGroupState> = {}
+  for (const def of customerRegistry.all()) {
+    groups[def.id] = {
+      id: def.id,
+      label: def.label,
+      tags: [...def.tags],
+      ...def.defaultState,
+      preferredStockTags: [...def.defaultState.preferredStockTags],
+      dislikedTags: [...def.defaultState.dislikedTags],
+      activeGrudges: [...def.defaultState.activeGrudges],
+    }
   }
+  return groups
 }
 
 function createInitialReputation(): ReputationState {

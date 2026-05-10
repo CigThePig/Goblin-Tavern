@@ -1,6 +1,32 @@
-import type { SimulationModule } from '../../core/module'
+export {
+  stockModule,
+  stockRegistry,
+  ensureRequiredStockRegistered,
+  effectiveQuality,
+  isPerishable,
+  addCoin,
+  spendCoin,
+  getDailyProfitLoss,
+  sellStockItem,
+  consumeStockItem,
+  restockItem,
+  wasteStockItem,
+  getStockModuleState,
+  createInitialStockModuleState,
+} from './stockModule'
 
-export const stockModule: SimulationModule = {
-  id: 'stock',
-  version: '0.1.0',
-}
+export type {
+  StockDefinition,
+  StockDefaultState,
+  CoinLedgerEntry,
+  CoinLedgerCategory,
+  ShortageRecord,
+  StockModuleState,
+} from './types'
+
+export type {
+  SellResult,
+  SellOptions,
+  ConsumeResult,
+  WasteResult,
+} from './sales'

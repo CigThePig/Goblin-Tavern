@@ -143,9 +143,11 @@ describe('Phase 5 — Base Tavern State', () => {
     expect(state.causes).toEqual([])
   })
 
-  it('modules state starts empty', () => {
+  it('modules state seeds the stock slice (Phase 9 §9.3)', () => {
     const state = createInitialTavernState()
-    expect(state.modules).toEqual({})
+    expect(state.modules).toEqual({
+      stock: { ledger: [], shortages: [] },
+    })
   })
 
   it('all meter-like values are between 0 and 100', () => {

@@ -169,9 +169,15 @@ describe('Phase 6 — Module schema composition (§6.1.1)', () => {
     const result = safeValidateState(state, { modules: [] })
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.warnings).toHaveLength(1)
-      expect(result.warnings[0]?.path).toBe('modules.unknown_mod')
-      expect(result.warnings[0]?.code).toBe('unknown_module_key')
+      // Phase 9 §9.3 seeds `state.modules.stock` by default, so when no
+      // module schemas are registered there will be at least two warnings.
+      // The contract this test pins is that *unknown* keys produce a
+      // warning, not a hard failure.
+      const unknownWarning = result.warnings.find(
+        (w) => w.path === 'modules.unknown_mod',
+      )
+      expect(unknownWarning).toBeDefined()
+      expect(unknownWarning?.code).toBe('unknown_module_key')
     }
   })
 

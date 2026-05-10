@@ -20,14 +20,22 @@ export type AreaState = {
   activeProblems: string[]
 }
 
+// Phase 9 §"Stock State" — Phase 9 extends the Phase 5 stock shape with
+// `basePrice` (per-unit restock cost), `salePrice` (per-unit customer
+// price), and an optional `storageAreaId`. This mirrors the additive
+// precedent set for `CustomerGroupState` (forward note in Phase 10 §"Customer
+// Group State"). The Phase 5 placeholder field `unitValue` is replaced by
+// the explicit two-price model the economy needs.
 export type StockState = {
   id: string
   label: string
   quantity: number
   quality: number
   spoilage: number
-  unitValue: number
+  basePrice: number
+  salePrice: number
   tags: string[]
+  storageAreaId?: string
 }
 
 export type StaffRole = 'cook' | 'server' | 'cleaner_bouncer'

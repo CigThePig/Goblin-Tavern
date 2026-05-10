@@ -81,9 +81,12 @@ describe('Registry', () => {
 })
 
 describe('Placeholder registry instances', () => {
-  it('exist and start empty for every expandable concept', () => {
+  // Phase 8 populates `areaRegistry` with the five required areas at module
+  // load time, so the empty-on-import assertion below now applies only to
+  // the registries that have not yet been claimed by a later phase. Mirrors
+  // the precedent set when Phase 7 expanded the phase pipeline list.
+  it('exist and start empty for every still-empty expandable concept', () => {
     const registries = [
-      areaRegistry,
       stockRegistry,
       customerRegistry,
       staffRegistry,
@@ -96,6 +99,11 @@ describe('Placeholder registry instances', () => {
     for (const registry of registries) {
       expect(registry.all()).toEqual([])
     }
+  })
+
+  it('areaRegistry is populated by the Phase 8 area system', () => {
+    const ids = areaRegistry.all().map((a) => a.id).sort()
+    expect(ids).toEqual(['cellar', 'kitchen', 'main_room', 'privy', 'roof'].sort())
   })
 })
 

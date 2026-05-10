@@ -3,6 +3,11 @@ import {
   areaRegistry,
   ensureRequiredAreasRegistered,
 } from '../registries/areaRegistry'
+import {
+  ensureRequiredStockRegistered,
+  stockRegistry,
+} from '../registries/stockRegistry'
+import { createInitialStockModuleState } from '../modules/stock/state'
 import type {
   AreaState,
   CustomerGroupState,
@@ -33,63 +38,23 @@ function createInitialAreas(): Record<string, AreaState> {
   return areas
 }
 
+// Phase 9 §9.1 — Stock defaults are sourced from `stockRegistry` rather
+// than inlined. The registry holds the Phase 5 quantity/quality/spoilage
+// numbers plus the new Phase 9 price/storage fields. Importing the
+// registry has the side effect of self-registering the six required
+// items via `ensureRequiredStockRegistered`.
 function createInitialStock(): Record<string, StockState> {
-  return {
-    ale: {
-      id: 'ale',
-      label: 'Ale',
-      quantity: 80,
-      quality: 45,
-      spoilage: 5,
-      unitValue: 2,
-      tags: ['drink', 'alcohol', 'service_item'],
-    },
-    stew: {
-      id: 'stew',
-      label: 'Stew',
-      quantity: 40,
-      quality: 35,
-      spoilage: 20,
-      unitValue: 2,
-      tags: ['food', 'prepared', 'service_item'],
-    },
-    ingredients: {
-      id: 'ingredients',
-      label: 'Ingredients',
-      quantity: 60,
-      quality: 45,
-      spoilage: 15,
-      unitValue: 1,
-      tags: ['food', 'raw'],
-    },
-    mushrooms: {
-      id: 'mushrooms',
-      label: 'Mushrooms',
-      quantity: 45,
-      quality: 40,
-      spoilage: 25,
-      unitValue: 1,
-      tags: ['food', 'raw', 'goblin_favourite', 'risky'],
-    },
-    firewood: {
-      id: 'firewood',
-      label: 'Firewood',
-      quantity: 50,
-      quality: 50,
-      spoilage: 0,
-      unitValue: 1,
-      tags: ['fuel', 'utility'],
-    },
-    mugs: {
-      id: 'mugs',
-      label: 'Mugs',
-      quantity: 35,
-      quality: 35,
-      spoilage: 0,
-      unitValue: 1,
-      tags: ['equipment', 'service_item', 'breakable'],
-    },
+  ensureRequiredStockRegistered()
+  const stock: Record<string, StockState> = {}
+  for (const def of stockRegistry.all()) {
+    stock[def.id] = {
+      id: def.id,
+      label: def.label,
+      tags: [...def.tags],
+      ...def.defaultState,
+    }
   }
+  return stock
 }
 
 function createInitialStaff(): Record<string, StaffState> {
@@ -284,7 +249,13 @@ export function createInitialTavernState(overrides?: Partial<TavernState>): Tave
     memories: [],
     causes: [],
     pressures: createInitialPressures(),
-    modules: {},
+    // Phase 9 §9.3 — `state.modules.stock` is seeded with an empty ledger
+    // and an empty shortage list. The slot is owned by the stock module;
+    // its state schema (registered on the module) validates this shape via
+    // Phase 6 §6.1.1 composition.
+    modules: {
+      stock: createInitialStockModuleState(),
+    },
   }
 
   if (!overrides) {

@@ -69,4 +69,25 @@ export type SimContext = {
   modifyStock(id: string, changes: Partial<StockState>, meta: MutationMeta): void
   modifyStaff(id: string, changes: Partial<StaffState>, meta: MutationMeta): void
   modifyCustomerGroup(id: string, changes: Partial<CustomerGroupState>, meta: MutationMeta): void
+
+  /**
+   * Phase 9 §9.3 — Coin mutations route through `modifyCoin` so the
+   * Phase 9 ledger helpers (`addCoin` / `spendCoin`) never write to
+   * `state.coin` directly. Defensive add per Phase 7 §7.3.1 forward note:
+   * Phase 17 will turn `meta` into a full `CauseDraft`.
+   */
+  modifyCoin(delta: number, meta: MutationMeta): void
+
+  /**
+   * Phase 9 §9.3 — Module-state mutations route through `modifyModuleState`
+   * so a module's namespaced slice under `state.modules` cannot be written
+   * silently. The updater receives the current slice (or `undefined` when
+   * unseeded) and returns the next value. `meta` is the Phase 7 §7.3.1
+   * placeholder that Phase 17 will widen to `CauseDraft`.
+   */
+  modifyModuleState<T>(
+    moduleId: string,
+    updater: (current: T | undefined) => T,
+    meta: MutationMeta,
+  ): void
 }

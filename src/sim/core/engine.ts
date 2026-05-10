@@ -197,6 +197,26 @@ function createContext(
         },
       }
     },
+    modifyCoin(delta, _meta): void {
+      if (!Number.isFinite(delta)) {
+        throw new Error(`ctx.modifyCoin: delta must be a finite number, got ${delta}`)
+      }
+      runtime.current = {
+        ...runtime.current,
+        coin: runtime.current.coin + delta,
+      }
+    },
+    modifyModuleState(moduleId, updater, _meta): void {
+      const current = runtime.current.modules[moduleId]
+      const next = updater(current as never)
+      runtime.current = {
+        ...runtime.current,
+        modules: {
+          ...runtime.current.modules,
+          [moduleId]: next,
+        },
+      }
+    },
   }
 
   // The mutation helpers do not yet wire a real cause draft (Phase 17),

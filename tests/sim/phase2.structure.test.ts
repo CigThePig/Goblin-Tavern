@@ -81,13 +81,13 @@ describe('Registry', () => {
 })
 
 describe('Placeholder registry instances', () => {
-  // Phase 8 populates `areaRegistry` with the five required areas at module
-  // load time, so the empty-on-import assertion below now applies only to
-  // the registries that have not yet been claimed by a later phase. Mirrors
-  // the precedent set when Phase 7 expanded the phase pipeline list.
+  // Phase 8 populates `areaRegistry`; Phase 9 populates `stockRegistry`.
+  // Both register their entries at module load time, so the empty-on-import
+  // assertion below now applies only to the registries that have not yet
+  // been claimed by a later phase. Mirrors the precedent set when Phase 7
+  // expanded the phase pipeline list.
   it('exist and start empty for every still-empty expandable concept', () => {
     const registries = [
-      stockRegistry,
       customerRegistry,
       staffRegistry,
       actionRegistry,
@@ -104,6 +104,13 @@ describe('Placeholder registry instances', () => {
   it('areaRegistry is populated by the Phase 8 area system', () => {
     const ids = areaRegistry.all().map((a) => a.id).sort()
     expect(ids).toEqual(['cellar', 'kitchen', 'main_room', 'privy', 'roof'].sort())
+  })
+
+  it('stockRegistry is populated by the Phase 9 stock system', () => {
+    const ids = stockRegistry.all().map((s) => s.id).sort()
+    expect(ids).toEqual(
+      ['ale', 'firewood', 'ingredients', 'mugs', 'mushrooms', 'stew'].sort(),
+    )
   })
 })
 

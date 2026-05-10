@@ -56,8 +56,10 @@ export const StockItemStateSchema = z.object({
   quantity: nonNegativeNumber(),
   quality: meter(),
   spoilage: meter(),
-  unitValue: z.number(),
+  basePrice: z.number().min(0),
+  salePrice: z.number().min(0),
   tags: z.array(z.string()),
+  storageAreaId: z.string().optional(),
 })
 
 export const StaffStateSchema = z.object({

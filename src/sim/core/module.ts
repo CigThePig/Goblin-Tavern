@@ -1,3 +1,4 @@
+import type { z } from 'zod'
 import type { SimulationPhase } from './phases'
 import type { SimContext } from './context'
 
@@ -14,4 +15,9 @@ export type SimulationModule = {
   dependsOn?: string[]
   hooks?: Partial<Record<SimulationPhase, SimulationHook[]>>
   register?: (ctx: RegistrationContext) => void
+  // Phase 6 §6.1.1: optional schema for the module's namespaced state at
+  // `state.modules[id]`. `validateState` composes these from currently
+  // registered modules. Unknown keys with no registered schema are reported
+  // as warnings, not failures.
+  stateSchema?: z.ZodType<unknown>
 }

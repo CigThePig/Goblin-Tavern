@@ -954,6 +954,8 @@ stock_shortage_pressure
 landlord_pressure
 ```
 
+**Naming reconciliation.** The IDs above carry the `_pressure` suffix for readability inside Phase 18, but the canonical IDs used by `state.pressures` (defined in Phase 5) drop the suffix: `pest_pressure` is stored as `pests`, `maintenance_pressure` corresponds to Phase 5's `structural_decay` (decide between `structural_decay` and `maintenance` at implementation time and update Phase 5 defaults to match), and `reputation_drift_pressure` is stored as `reputation_drift`. Use the short form everywhere `state.pressures` is indexed; the long form here is documentation shorthand only. The two files must agree before implementation begins.
+
 Some already exist as state concepts from earlier phases. This phase formalizes them as pressure models with causes and reports.
 
 ## Pressure Shape
@@ -2586,6 +2588,7 @@ Conditions:
 11. Repetition audit is acceptable.
 12. Strategy comparison produces distinct tavern identities.
 13. Meaningful-card-capacity report shows enough seed variety.
+14. A small fake expansion (per Phase 1 §9.2) — adding one stock item, one owner action, one customer-group effect, one issue seed generator, and one report section — registers and runs end-to-end with no edits to files under src/sim/core/, src/sim/state/, or src/sim/registries/Registry.ts. The expansion test must be built and executed during Phase 20, not stubbed.
 ```
 
 Only then begin card development.

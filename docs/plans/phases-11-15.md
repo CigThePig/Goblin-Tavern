@@ -117,6 +117,8 @@ type StaffState = {
 }
 ```
 
+**Role typing clarification.** `role: StaffRoleId` is a registry string ID — the canonical type for this field — because the staff role registry (§11.1) is the source of truth for what roles exist. An earlier draft typed this as `role: StaffRole` (a literal union of `'cook' | 'server' | 'cleaner_bouncer'`), which conflicts with the `CLAUDE.md` rule that expandable concepts go through registries. If you see `StaffRole` as a hard-coded union elsewhere (including the Phase 5 staff defaults), treat it as legacy shorthand — implement `StaffRoleId` as `string` validated against `staffRegistry`. The same rule applies to `currentPriority: StaffPriorityId`, which is validated against `staffPriorityRegistry`.
+
 Names can be simple placeholders for now. Do not write character backstories yet.
 
 Example placeholder staff:
@@ -393,6 +395,8 @@ Notes: Reduced unpaid tabs at the cost of sales speed.
 
 ## Sub-Batching Recommendation
 
+Note: the **Do Not Do** rules in the section below the sub-batch list apply to all sub-batches 11a–11e jointly — splitting work does not relax those constraints.
+
 Phase 11 is large enough to deserve atomic task splitting. Recommended sub-batches:
 
 ```txt
@@ -454,6 +458,8 @@ Do not:
 ## Goal
 
 Implement the full daily service loop where customers arrive, staff perform, stock is consumed, coin is earned, mess and damage are created, satisfaction shifts, and daily reports summarize what happened.
+
+**Phase ordering note.** Phase 13 (Owner Actions) runs *before* daily service every day — owner actions are applied during the `applyOwnerActions` phase, which precedes `beforeService` and `service` in the pipeline (see Phase 7 §7.1). When implementing Phase 12, assume owner actions have already taken effect for the current day; the inputs Phase 12 reads are post-owner-action state. Phase 12 does not need to invoke Phase 13 logic — the engine pipeline handles ordering.
 
 This is the phase where the tavern first feels alive as a working business.
 
@@ -1447,6 +1453,8 @@ Keep the math modest.
 
 ### 14.7 Add Customer Weekly Trend
 
+Scope note: Phase 14.7 intentionally uses weekly aggregates only. Per-day customer records are introduced by the Phase 16 history log; do not invent an ad-hoc per-day customer array here just to compute trends — the aggregate inputs listed below are sufficient and forward-compatible with the Phase 16 history log when it lands.
+
 At end of week, customer groups should shift slightly based on repeated experience.
 
 Examples:
@@ -2002,9 +2010,9 @@ Rainy Month
 
 ### 15.11 Add End-of-Batch Policy Bot Sanity Check
 
-Before declaring this batch (Phases 11–15) complete, run a stripped policy bot smell test.
+**Purpose vs. Phase 20.3.** This is a 3-bot *smell test* gate, not the full Phase 20 strategy comparison (which uses 8+ policy bots over 1–6 months). Phase 15.11's job is to catch a stagnant simulation *before* Phases 16–19 instrument it with causes, pressures, and seeds; Phase 20.3's job is to prove strategic diversity once the full system is built. If 15.11 fails, fix the sim now, while the surface area is small — do not skip ahead to 20.3.
 
-This is not the full Phase 20 strategy comparison. It is the minimum check to catch sim-is-stagnant problems before instrumenting them with causes, pressures, and seeds in Phases 16–19.
+Before declaring this batch (Phases 11–15) complete, run a stripped policy bot smell test.
 
 Run three minimum-viable bots:
 

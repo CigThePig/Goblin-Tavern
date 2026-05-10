@@ -672,7 +672,7 @@ Memory collection
 Pressure collection
 Issue seed collection
 Report collection
-Save/load migration hooks
+Save/load migration hooks (deferred — placeholder only; full save/load is out of scope until post-Phase 20)
 ```
 
 The core engine does **not** own:
@@ -1478,6 +1478,8 @@ These should plug into the existing module and registry architecture.
 ## 9.2 Expansion Test
 
 Before card development begins, at least one small fake expansion should be added to prove the architecture works.
+
+Implementation note: this expansion test is enforced as **Phase 20 readiness condition 14** (see `phases-16-20.md` §20.14). Phase 20 is where the test actually runs; this section defines what the test means and why it exists.
 
 Example: Candle Shortage Expansion
 

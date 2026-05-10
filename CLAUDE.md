@@ -6,7 +6,7 @@ A text-based goblin tavern management simulation built **simulation-first**: a h
 
 No code exists yet. The repo currently contains only the design and implementation plans under `docs/plans/`. Phase 1 (Simulation Contract) is complete on paper; Phases 2–20 are specified but not yet implemented.
 
-The active development branch is `claude/setup-repo-docs-8UDlt`. Do not push to `main`.
+Work proceeds against whatever branch is checked out; coordinate branch and merge decisions with the user before pushing or opening pull requests.
 
 ## Core Design Rule
 
@@ -52,10 +52,3 @@ When code lands, it should follow the structure defined in `docs/plans/phases-02
 - **No `Math.random()` in sim code.** Even for one-off helpers — use the seeded RNG from context.
 - **No browser/runtime dependencies in `src/sim/`.** The simulation must run headless in tests and (eventually) in any host environment.
 - **Keep state serializable.** If you find yourself reaching for a `Map` or class, convert at the boundary.
-
-## Git Workflow
-
-- Develop on `claude/setup-repo-docs-8UDlt`.
-- Never push to `main` without explicit permission.
-- Use `git push -u origin <branch>`; retry network failures with exponential backoff (2s, 4s, 8s, 16s).
-- Do not create pull requests unless the user asks for one.

@@ -35,6 +35,79 @@ The result should be a repo structure where an agent can clearly see:
 - where debug simulation tools live
 - where future card-facing issue seed systems will eventually plug in
 
+## Tooling (pinned)
+
+These choices are fixed for the whole project. Later phases install their own dependencies, but the toolchain itself does not change.
+
+- **Package manager:** `npm`.
+- **Language:** TypeScript with `strict: true`, `noUncheckedIndexedAccess: true`, `exactOptionalPropertyTypes: true`.
+- **Test runner:** `Vitest`. Config lives at `vitest.config.ts` at the repo root. Test glob is `tests/**/*.test.ts`.
+- **Runtime target:** Node 20+. This pins `structuredClone` as available, which Phase 5 relies on for state cloning.
+- **Deferred dependencies (do not install in Phase 2):**
+  - `prando` — introduced in Phase 4 as the seeded RNG.
+  - `zod` — introduced in Phase 6 for module/state schema validation.
+
+## Agent Execution Checklist
+
+Create the following in this order. Each item is a single small file. No file should contain gameplay logic.
+
+**Project scaffolding (repo root):**
+
+1. `package.json` — name `goblin-tavern`, `private: true`, dev deps `vitest`, `typescript`, `@types/node`. Scripts: `"test": "vitest run"`, `"test:watch": "vitest"`, `"typecheck": "tsc --noEmit"`.
+2. `tsconfig.json` — `target` ES2022, `module` ESNext, `moduleResolution` Bundler, `strict: true`, `noUncheckedIndexedAccess: true`, `exactOptionalPropertyTypes: true`, `include` `["src/**/*", "tests/**/*"]`.
+3. `vitest.config.ts` — test glob `tests/**/*.test.ts`.
+
+**Core simulation seams (`src/sim/core/`):**
+
+4. `src/sim/core/phases.ts` — exports `SimulationPhase` union (see "Required Core Types" below).
+5. `src/sim/core/context.ts` — exports `SimContext` placeholder type (`unknown`-bodied for now; later phases extend it).
+6. `src/sim/core/module.ts` — exports `SimulationHook`, `SimulationModule`, `RegistrationContext` (see "Simulation module interface" below).
+7. `src/sim/core/result.ts` — exports `SimulationResult` placeholder.
+8. `src/sim/core/types.ts` — barrel re-exporting from `phases.ts`, `context.ts`, `module.ts`, `result.ts`. No new types defined here.
+9. `src/sim/core/engine.ts` — placeholder export of an `engine` const or `runSimulation` stub. No logic yet.
+
+**State seams (`src/sim/state/`):**
+
+10. `src/sim/state/TavernState.ts` — empty exported `TavernState` placeholder type (`Record<string, unknown>` is fine in Phase 2; Phase 5 fills it in).
+11. `src/sim/state/defaults.ts` — empty placeholder file with a TODO comment for Phase 5.
+12. `src/sim/state/schemas.ts` — empty placeholder file with a TODO comment for Phase 6.
+13. `src/sim/state/migrations.ts` — placeholder only. Full save/load is deferred until post-Phase 20.
+
+**Registries (`src/sim/registries/`):**
+
+14. `src/sim/registries/Registry.ts` — the generic `Registry<T>` class (see "Generic Registry Utility" below).
+15. `src/sim/registries/areaRegistry.ts` — `Registry<AreaDefinition>` instance, type stub.
+16. `src/sim/registries/stockRegistry.ts` — `Registry<StockDefinition>` instance, type stub.
+17. `src/sim/registries/customerRegistry.ts` — `Registry<CustomerGroupDefinition>` instance, type stub.
+18. `src/sim/registries/staffRegistry.ts` — `Registry<StaffRoleDefinition>` instance, type stub.
+19. `src/sim/registries/actionRegistry.ts` — `Registry<OwnerActionDefinition>` instance, type stub.
+20. `src/sim/registries/reputationRegistry.ts` — `Registry<ReputationAxisDefinition>` instance, type stub.
+21. `src/sim/registries/pressureRegistry.ts` — `Registry<PressureDefinition>` instance, type stub.
+22. `src/sim/registries/issueSeedRegistry.ts` — `Registry<IssueSeedFamilyDefinition>` instance, type stub.
+23. `src/sim/registries/moduleRegistry.ts` — `Registry<SimulationModule>` instance.
+
+Each registry file should only define its definition type (with at minimum `id`, `label`, `tags: string[]`) and export an empty registry instance. No defaults are registered in Phase 2.
+
+**Module folders (`src/sim/modules/<name>/`):**
+
+24. For each of `calendar`, `economy`, `areas`, `stock`, `customers`, `staff`, `ownerActions`, `weekly`, `monthly`, `memories`, `causes`, `pressures`, `reports`, `issueSeeds`: create `index.ts` and `types.ts`. In Phase 2 each `index.ts` exports a `SimulationModule` with `id` matching the folder name and `version: '0.1.0'`, and each `types.ts` is empty with a TODO comment for the phase that owns it.
+
+**Testing helpers (`src/sim/testing/`):**
+
+25. `src/sim/testing/createTestState.ts`, `runDay.ts`, `runWeek.ts`, `runMonth.ts`, `policyBots.ts`, `simAssertions.ts` — each a placeholder file with a TODO comment. No bodies in Phase 2.
+
+**Utilities (`src/sim/utils/`):**
+
+26. `src/sim/utils/clamp.ts` — `export function clamp(value: number, min: number, max: number): number`.
+27. `src/sim/utils/ids.ts` — placeholder, comment-only. ID generation is added by a later phase.
+28. `src/sim/utils/math.ts` — placeholder, comment-only.
+29. `src/sim/utils/object.ts` — placeholder, comment-only.
+
+**Tests (`tests/sim/`):**
+
+30. `tests/sim/phase2.structure.test.ts` — covers the five tests listed under "Testing Requirements" below.
+31. `tests/sim/phase3.calendar.test.ts`, `tests/sim/phase4.rng.test.ts`, `tests/sim/phase5.state.test.ts` — empty `describe` skeletons only in Phase 2; later phases fill them in.
+
 ## Design Intent
 
 The simulation must be built as a **headless rules engine**. It should not depend on React, Phaser, DOM APIs, localStorage, browser events, visual card systems, or UI components.
@@ -156,7 +229,7 @@ tests/
     phase5.state.test.ts
 ```
 
-If the existing repo uses a different test folder convention, adapt the location but preserve the conceptual separation.
+Tests live at `tests/sim/<phaseN>.<topic>.test.ts`. This is the canonical location for the project; do not relocate tests.
 
 ## Core Architectural Rules
 
@@ -245,7 +318,7 @@ export type SimulationPhase =
 
 ### Simulation module interface
 
-In `src/sim/core/types.ts` or a dedicated module type file:
+In `src/sim/core/module.ts`:
 
 ```ts
 import type { SimulationPhase } from './phases'
@@ -289,6 +362,8 @@ Phase 2 can keep `reports`, `causes`, `stateDiffs`, and `issueSeeds` as placehol
 ## Generic Registry Utility
 
 Create a small generic registry utility in `src/sim/registries/Registry.ts`.
+
+> Registries are runtime infrastructure, not simulation state. The `Registry` class lives outside `TavernState` and is never serialized; the no-class-instances rule applies only to state, so using a `class` here does not violate the Phase 2 purity rules.
 
 It should support:
 
@@ -420,14 +495,23 @@ The calendar is the first real simulation system because every later system depe
 
 Daily operations, weekly wages, supplier invoices, staff fatigue cycles, monthly rent, inspections, and reputation shifts all need a shared time model.
 
+## Agent Execution Checklist
+
+1. `src/sim/modules/calendar/types.ts` — export `CalendarState` and `DayType` (see "Time Model" and "Day Types" below).
+2. `src/sim/modules/calendar/index.ts` — export `createInitialCalendar`, `getDayType`, `advanceCalendar`, `isEndOfWeek`, `isEndOfMonth`, `getCalendarLabel`, and `calendarModule` (see "Required Functions" and "Calendar Module Hook" below).
+3. `tests/sim/phase3.calendar.test.ts` — implement the ten tests listed under "Testing Requirements" below.
+
+All calendar functions are pure: they take inputs and return new values. None of them mutate their arguments, read clocks, or touch I/O.
+
 ## Time Model
 
-Use a simplified 28-day month.
+Use a simplified 28-day month and a 12-month year.
 
 ```txt
 1 month = 4 weeks
 1 week = 7 days
 1 month = 28 days
+1 year = 12 months = 336 days
 ```
 
 The simulation should support indefinite progression.
@@ -503,24 +587,21 @@ Advances one day.
 
 Rules:
 
+- returns a new `CalendarState` object; does not mutate the input
 - day increments by 1
 - totalDaysElapsed increments by 1
 - dayOfWeek cycles 1–7
 - week updates 1–4
 - month increments after day 28
 - day resets to 1 after day 28
-- year increments after month 12 if using years
-- dayType updates based on dayOfWeek
+- year increments after month 12 (months reset to 1)
+- dayType updates based on the new dayOfWeek
 
 ```ts
 export function isEndOfWeek(calendar: CalendarState): boolean
 ```
 
-True when the current simulated day is dayOfWeek 7 before advancement or when resolving end-of-day logic for Maintenance Day. Be consistent and document whether it checks pre-advance or post-advance state.
-
-Recommended convention:
-
-> `isEndOfWeek(calendar)` returns true for the current day if that day is the seventh day of the week.
+`isEndOfWeek(calendar)` returns true when `calendar.dayOfWeek === 7`. The check is on the **current** state — call it before `advanceCalendar` to ask "is today the last day of the week?". Maintenance Day (dayOfWeek 7) is the end-of-week trigger; consumers run their end-of-week effects on Maintenance Day before advancement.
 
 ```ts
 export function isEndOfMonth(calendar: CalendarState): boolean
@@ -567,7 +648,7 @@ Minimum tests:
 6. `isEndOfWeek` returns true on dayOfWeek 7.
 7. `isEndOfMonth` returns true on day 28.
 8. Advancing 28 days reaches Month 2, Day 1.
-9. Advancing 336 days reaches Year 2, Month 1, Day 1 if using 12-month years.
+9. Advancing 336 days reaches Year 2, Month 1, Day 1.
 10. Calendar output is deterministic and contains no randomness.
 
 ## Acceptance Criteria
@@ -609,22 +690,21 @@ This is mandatory for simulation debugging, balance tests, card seed validation,
 
 If a tavern collapses on Day 19 because ogres broke every chair and the cook served blue stew, the developer must be able to rerun the exact same sequence.
 
+## Agent Execution Checklist
+
+1. Add `prando` to `package.json` `dependencies`. Run `npm install`.
+2. `src/sim/core/rng.ts` — export `RngState`, `SimRng`, and `createRng` (see "RNG Wrapper" below). Internally wrap `prando` so the rest of the simulation never imports it directly.
+3. `tests/sim/phase4.rng.test.ts` — implement the twelve tests listed under "Testing Requirements" below. Test 12 is a static scan; see "Pin the static scan" note in the testing section.
+
 ## Required Rule
 
 Simulation code must never call `Math.random()` directly.
 
 All randomness must go through a seeded RNG wrapper.
 
-## Recommended Dependency
+## Dependency
 
-Use one of:
-
-- `prando`
-- `seedrandom`
-
-Preferred: `prando`, because it is simple and well-suited to reproducible seeded sequences.
-
-If avoiding dependencies for now, implement a tiny deterministic PRNG locally, but keep the same wrapper API so it can be swapped later.
+Use `prando`. The wrapper API in `src/sim/core/rng.ts` is the only place in the codebase that imports `prando` directly; every other simulation file consumes the `SimRng` interface, so the underlying library is swappable later without touching callers.
 
 ## RNG Wrapper
 
@@ -673,7 +753,7 @@ export function createRng(seed: string, calls?: number): SimRng
 - accepts probability from 0 to 1
 - probability 0 always false
 - probability 1 always true
-- throws or clamps invalid values; prefer throwing in dev/test
+- throws on values outside `[0, 1]` (including `NaN`)
 - does **not** increment the call count when probability is exactly 0 or 1 (the outcome is deterministic and no randomness was consumed)
 
 **Canonical RNG call-counting convention.** Deterministic-outcome calls do not advance the RNG. This applies uniformly to:
@@ -693,8 +773,9 @@ The wrapper enforces this rule — callers must not be expected to guard call si
 
 `weightedPick(items)`:
 
-- ignores or rejects non-positive weights; prefer rejecting for safety
+- rejects non-positive weights (throws if any entry has `weight <= 0`)
 - throws if total weight <= 0
+- throws on empty array
 - deterministic for same seed/call position
 
 ## Replay Requirement
@@ -761,8 +842,9 @@ Minimum tests:
 
 For test 12, a simple static scan test is acceptable:
 
-- scan `src/sim`
-- fail if `Math.random` appears outside an allowed test/mock file
+- scan all `.ts` files under `src/sim`
+- fail if the literal string `Math.random` appears in any scanned file
+- the scan does not need an allow-list because no file under `src/sim` is permitted to use `Math.random`; test files (which may reference the string in assertions) live under `tests/` and are not scanned
 
 ## Acceptance Criteria
 
@@ -798,6 +880,14 @@ Create the first complete serializable state model for the tavern simulation.
 This state should be large enough to support future systems, but not overloaded with final gameplay details.
 
 Phase 5 defines the initial shape of the tavern as a simulation object.
+
+## Agent Execution Checklist
+
+1. `src/sim/state/TavernState.ts` — replace the Phase 2 placeholder with the full type set: `TavernState`, `TavernMetaState`, `AreaState`, `StockState`, `StaffState`, `StaffRole`, `CustomerGroupState`, `ReputationState`, `MemoryState`, `CauseState`, `PressureState`. See the sections below for exact shapes.
+2. `src/sim/state/defaults.ts` — implement `createInitialTavernState(overrides?: Partial<TavernState>): TavernState` and `cloneTavernState(state: TavernState): TavernState`. The defaults must match the suggested values in this phase exactly.
+3. `src/sim/state/schemas.ts` — leave as a stub. Zod schemas land in Phase 6 (see "Module-State Validation Deferral" below).
+4. `src/sim/state/migrations.ts` — keep the Phase 2 placeholder. Full save/load is deferred until post-Phase 20.
+5. `tests/sim/phase5.state.test.ts` — implement the fourteen tests listed under "Testing Requirements" below.
 
 ## Design Intent
 
@@ -1287,13 +1377,13 @@ Create a utility for safe cloning:
 export function cloneTavernState(state: TavernState): TavernState
 ```
 
-For now, JSON clone is acceptable because state must be serializable:
+Use `structuredClone`. Phase 2 pins Node 20+, where `structuredClone` is a built-in global:
 
 ```ts
 return structuredClone(state)
 ```
 
-If `structuredClone` support is uncertain in the project environment, use JSON clone temporarily, but document the limitation.
+Because `TavernState` is JSON-compatible by rule, `structuredClone` is sufficient — there are no class instances, functions, Maps, Sets, or circular references to worry about. Do not fall back to `JSON.parse(JSON.stringify(state))`; the explicit clone API documents intent.
 
 ## Testing Requirements
 

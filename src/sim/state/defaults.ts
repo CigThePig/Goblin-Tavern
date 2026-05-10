@@ -1,4 +1,8 @@
 import { createInitialCalendar } from '../modules/calendar/index'
+import {
+  areaRegistry,
+  ensureRequiredAreasRegistered,
+} from '../registries/areaRegistry'
 import type {
   AreaState,
   CustomerGroupState,
@@ -9,69 +13,24 @@ import type {
   TavernState,
 } from './TavernState'
 
+// Phase 8 §8.1 — Area defaults are sourced from `areaRegistry` rather than
+// inlined. The registry holds the same Phase 5 numbers, so this is a
+// consolidation rather than a value change. Importing the registry has the
+// side effect of self-registering the five required areas via
+// `ensureRequiredAreasRegistered`.
 function createInitialAreas(): Record<string, AreaState> {
-  return {
-    main_room: {
-      id: 'main_room',
-      label: 'Main Room',
-      condition: 60,
-      cleanliness: 45,
-      mess: 20,
-      damage: 15,
-      smell: 25,
-      risk: 20,
-      tags: ['public', 'service', 'customer_facing'],
-      activeProblems: [],
-    },
-    kitchen: {
-      id: 'kitchen',
-      label: 'Kitchen',
-      condition: 55,
-      cleanliness: 40,
-      mess: 30,
-      damage: 10,
-      smell: 35,
-      risk: 30,
-      tags: ['food', 'staff_work', 'cleanliness_sensitive'],
-      activeProblems: [],
-    },
-    cellar: {
-      id: 'cellar',
-      label: 'Cellar',
-      condition: 45,
-      cleanliness: 30,
-      mess: 35,
-      damage: 20,
-      smell: 45,
-      risk: 40,
-      tags: ['storage', 'damp', 'pests'],
-      activeProblems: [],
-    },
-    privy: {
-      id: 'privy',
-      label: 'Privy',
-      condition: 40,
-      cleanliness: 25,
-      mess: 45,
-      damage: 20,
-      smell: 70,
-      risk: 50,
-      tags: ['sanitation', 'smell', 'inspection_relevant'],
-      activeProblems: [],
-    },
-    roof: {
-      id: 'roof',
-      label: 'Roof',
-      condition: 50,
-      cleanliness: 50,
-      mess: 0,
-      damage: 35,
-      smell: 0,
-      risk: 35,
-      tags: ['structure', 'weather_sensitive'],
-      activeProblems: [],
-    },
+  ensureRequiredAreasRegistered()
+  const areas: Record<string, AreaState> = {}
+  for (const def of areaRegistry.all()) {
+    areas[def.id] = {
+      id: def.id,
+      label: def.label,
+      tags: [...def.tags],
+      ...def.defaultState,
+      activeProblems: [...def.defaultState.activeProblems],
+    }
   }
+  return areas
 }
 
 function createInitialStock(): Record<string, StockState> {

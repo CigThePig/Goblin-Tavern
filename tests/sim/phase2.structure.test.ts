@@ -100,25 +100,27 @@ describe('Placeholder registry instances', () => {
 })
 
 describe('Simulation phases', () => {
-  it('include daily, weekly, and monthly hooks', () => {
+  // Phase 7 §7.1 replaced the Phase 2 placeholder list with the canonical
+  // pipeline. Keep this assertion in sync with src/sim/core/phases.ts.
+  it('include daily, weekly, monthly, and engine-housekeeping phases', () => {
     const required: SimulationPhase[] = [
-      'init',
       'startDay',
-      'beforeForecast',
+      'applyDayTypeModifiers',
       'forecastTraffic',
       'beforeOwnerActions',
-      'ownerActions',
+      'applyOwnerActions',
       'afterOwnerActions',
+      'assignStaffPriorities',
       'beforeService',
       'service',
       'afterService',
+      'closing',
       'endDay',
       'endWeek',
       'endMonth',
-      'generatePressures',
-      'generateIssueSeeds',
       'generateReports',
       'validate',
+      'advanceCalendar',
     ]
     for (const phase of required) {
       expect(SIMULATION_PHASES).toContain(phase)
@@ -187,18 +189,18 @@ describe('Simulation module type surface', () => {
     expect(mod.hooks?.startDay?.[0]).toBe(hook)
   })
 
-  it('exposes a SimulationResult shape with placeholder collections', () => {
+  // Phase 7 §7.4 replaced the Phase 2 placeholder result with the canonical
+  // SimResult shape. Keep this assertion in sync with src/sim/core/result.ts.
+  it('exposes a SimResult shape with state, reports, logs, and validation', () => {
     const result: SimulationResult = {
       state: createInitialTavernState(),
       reports: [],
-      causes: [],
-      stateDiffs: [],
-      issueSeeds: [],
-      debug: {},
+      logs: [],
+      validation: { errors: [], warnings: [] },
     }
     expect(result.reports).toEqual([])
-    expect(result.causes).toEqual([])
-    expect(result.stateDiffs).toEqual([])
-    expect(result.issueSeeds).toEqual([])
+    expect(result.logs).toEqual([])
+    expect(result.validation.errors).toEqual([])
+    expect(result.validation.warnings).toEqual([])
   })
 })

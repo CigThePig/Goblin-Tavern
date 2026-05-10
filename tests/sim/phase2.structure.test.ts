@@ -21,6 +21,7 @@ import type {
   RegistrationContext,
 } from '../../src/sim/core/module'
 import type { SimulationResult } from '../../src/sim/core/result'
+import { createInitialTavernState } from '../../src/sim/state/defaults'
 
 import { calendarModule } from '../../src/sim/modules/calendar'
 import { economyModule } from '../../src/sim/modules/economy'
@@ -188,7 +189,7 @@ describe('Simulation module type surface', () => {
 
   it('exposes a SimulationResult shape with placeholder collections', () => {
     const result: SimulationResult = {
-      state: {},
+      state: createInitialTavernState(),
       reports: [],
       causes: [],
       stateDiffs: [],

@@ -19,6 +19,12 @@ import { serviceModule } from '../modules/service/index'
 import { staffModule } from '../modules/staff/index'
 import { stockModule } from '../modules/stock/index'
 import { weeklyModule } from '../modules/weekly/index'
+// Phase 27 §27.4 — expanded world modules.
+import { worldModule } from '../modules/world/index'
+import { cultureModule } from '../modules/cultures/index'
+import { factionModule } from '../modules/factions/index'
+import { supplierModule } from '../modules/suppliers/index'
+import { regularModule } from '../modules/regulars/index'
 
 // Phase 20 §20.1 — Cardless playtest runner.
 //
@@ -46,6 +52,17 @@ export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   stockModule,
   staffModule,
   customersModule,
+  // Phase 27 §27.4 — world skeleton modules sit between the state
+  // owners and the input/service modules. They currently register no-
+  // op hooks against the new Phase 27 phases; later phases (29, 30)
+  // give them real behaviour. The world module itself is listed first
+  // so its `state.modules.world` slot is reserved before domain
+  // modules that may eventually depend on it.
+  worldModule,
+  cultureModule,
+  factionModule,
+  supplierModule,
+  regularModule,
   ownerActionsModule,
   serviceModule,
   weeklyModule,

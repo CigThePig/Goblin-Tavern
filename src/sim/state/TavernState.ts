@@ -209,6 +209,15 @@ export type HistoryEntry = {
 // source/target enums, direction/weight, related actors/locations, and
 // `ageDays` / `expiresAfterDays` so the cause module can prune.
 // `CauseState` is kept as an alias for legacy imports.
+// Phase 27 §27.2 — Cause type expansion (canonical home).
+//
+// World mutations (`modifyCulture`, `modifyFaction`, `modifySupplier`,
+// `modifyRegular`, `modifyNotableNpc`, `modifyLocalEvent`,
+// `modifySocialRumour`, `modifyTavernIdentity`) need to attribute their
+// changes to a cause just like Phase 7's existing helpers. Phase 27 is
+// the canonical place to widen the cause source/target unions with the
+// world kinds — later phases (28–35) assume these values already exist
+// and use them directly.
 export type CauseSourceType =
   | 'owner_action'
   | 'service'
@@ -221,6 +230,12 @@ export type CauseSourceType =
   | 'memory'
   | 'pressure'
   | 'system'
+  | 'culture'
+  | 'faction'
+  | 'supplier'
+  | 'regular'
+  | 'local_event'
+  | 'rumour'
 
 export type CauseTargetType =
   | 'coin'
@@ -232,6 +247,14 @@ export type CauseTargetType =
   | 'pressure'
   | 'memory'
   | 'global'
+  | 'culture'
+  | 'faction'
+  | 'supplier'
+  | 'regular'
+  | 'notable_npc'
+  | 'local_event'
+  | 'rumour'
+  | 'tavern_identity'
 
 export type CauseDirection = 'increase' | 'decrease' | 'neutral'
 

@@ -118,15 +118,20 @@ describe('Phase 5 — Base Tavern State', () => {
 
   it('initial pressures exist', () => {
     const state = createInitialTavernState()
+    // Phase 18 §"Naming reconciliation" — the canonical pressure id set
+    // drops the `_pressure` suffix, replaces `structural_decay` with
+    // `maintenance`, and adds `stock_shortage` and `landlord`.
     expect(Object.keys(state.pressures).sort()).toEqual(
       [
         'debt',
         'food_safety',
         'inspection',
+        'landlord',
+        'maintenance',
         'pests',
         'reputation_drift',
         'staff_burnout',
-        'structural_decay',
+        'stock_shortage',
         'violence',
       ].sort(),
     )

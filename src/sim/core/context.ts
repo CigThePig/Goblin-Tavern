@@ -1,6 +1,18 @@
-import type { TavernState, AreaState, StockState, StaffState, CustomerGroupState, ReputationState } from '../state/TavernState'
+import type {
+  AreaState,
+  CustomerGroupState,
+  EntityRef,
+  HistoryEntry,
+  MemoryState,
+  ReputationState,
+  StaffState,
+  StockState,
+  TavernState,
+} from '../state/TavernState'
 import type { ValidationSummary } from '../state/types'
 import type { DayType } from '../modules/calendar/types'
+import type { HistoryEntryDraft } from '../modules/history/types'
+import type { MemoryDraft } from '../modules/memories/memoryTypes'
 import type { SimRng } from './rng'
 import type { ReportSection, SimLog, SimLogLevel } from './reports'
 
@@ -122,4 +134,37 @@ export type SimContext = {
     updater: (current: T | undefined) => T,
     meta: MutationMeta,
   ): void
+
+  // Phase 16 §16.2 — Memory context API.
+  //
+  // Modules write memories through `addMemory` (never by reaching into
+  // `state.memories` directly). The memory module looks up the registry
+  // entry for the draft's `id`, applies the configured stacking strategy,
+  // stamps the entry with the current calendar coordinate, and records
+  // the new id in the memory module's per-day slice so the report can
+  // surface "new today" lines.
+  addMemory(draft: MemoryDraft): MemoryState
+  removeMemory(id: string): boolean
+  hasMemory(id: string): boolean
+  getMemory(id: string): MemoryState | undefined
+  getMemoriesByTag(tag: string): MemoryState[]
+  getMemoriesForActor(actor: EntityRef): MemoryState[]
+  getMemoriesForLocation(location: EntityRef): MemoryState[]
+  getMemoryStrength(id: string): number
+
+  /**
+   * Phase 16 §16.4 — Trigger memory aging/expiration. Invoked by the
+   * memory module's `endDay` hook (and exposed on the context so future
+   * phases can drive aging from elsewhere — e.g. multi-day jumps).
+   */
+  ageMemoriesEndOfDay(): void
+
+  // Phase 16 §16.8 — History log API.
+  //
+  // History entries are append-only debug records describing what
+  // happened (owner actions, weekly summaries, monthly resolutions,
+  // memory churn). Memories influence the sim; history records do not.
+  addHistory(draft: HistoryEntryDraft): HistoryEntry
+  getRecentHistory(days: number): HistoryEntry[]
+  getHistoryByTag(tag: string): HistoryEntry[]
 }

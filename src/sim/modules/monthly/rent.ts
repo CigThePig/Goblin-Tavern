@@ -44,6 +44,27 @@ export function resolveRent(
       missedPayments: rent.missedPayments,
       arrears: 0,
     }
+    // Phase 16 §16.3 — memory + history records for rent paid. The
+    // first paid rent also drops a permanent `first_rent_paid` fact.
+    ctx.addMemory({
+      id: 'rent_paid_recently',
+      source: SOURCE,
+      metadata: { amount: amountDue },
+    })
+    if (!ctx.hasMemory('first_rent_paid')) {
+      ctx.addMemory({
+        id: 'first_rent_paid',
+        source: SOURCE,
+        metadata: { amount: amountDue },
+      })
+    }
+    ctx.addHistory({
+      category: 'monthly',
+      summary: `Rent paid in full (${amountDue} coin).`,
+      tags: ['monthly', 'rent', 'paid'],
+      relatedSystems: ['monthly'],
+      mechanicalRefs: ['resolveRent'],
+    })
     return {
       next,
       resolution: {
@@ -63,6 +84,20 @@ export function resolveRent(
     missedPayments: rent.missedPayments + 1,
     arrears: amountDue,
   }
+  // Phase 16 §16.3 — missed rent stacks `rent_missed_recently` strength;
+  // repeated misses keep the memory live for the full 28-day window.
+  ctx.addMemory({
+    id: 'rent_missed_recently',
+    source: SOURCE,
+    metadata: { amount: amountDue, missedPayments: next.missedPayments },
+  })
+  ctx.addHistory({
+    category: 'monthly',
+    summary: `Rent went unpaid (${amountDue} coin owed; ${next.missedPayments} miss total).`,
+    tags: ['monthly', 'rent', 'unpaid', 'risk'],
+    relatedSystems: ['monthly'],
+    mechanicalRefs: ['resolveRent'],
+  })
   return {
     next,
     resolution: {

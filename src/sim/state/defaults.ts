@@ -183,6 +183,7 @@ export function createInitialTavernState(overrides?: Partial<TavernState>): Tave
     customerGroups: createInitialCustomerGroups(),
     reputation: createInitialReputation(),
     memories: [],
+    history: [],
     causes: [],
     pressures: createInitialPressures(),
     // Phase 9 §9.3 — `state.modules.stock` is seeded with an empty ledger

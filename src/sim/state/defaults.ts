@@ -17,6 +17,7 @@ import {
 } from '../registries/staffRegistry'
 import { createInitialStockModuleState } from '../modules/stock/state'
 import { createInitialOwnerActionsModuleState } from '../modules/ownerActions/ownerActionsModule'
+import { createInitialWeeklyModuleState } from '../modules/weekly/state'
 import type {
   AreaState,
   CustomerGroupState,
@@ -189,6 +190,9 @@ export function createInitialTavernState(overrides?: Partial<TavernState>): Tave
       // module's schema validation passes even on day zero before any
       // input has been processed.
       ownerActions: createInitialOwnerActionsModuleState(),
+      // Phase 14 §14.1 — seed an empty weekly slice so the module's
+      // schema validates on day zero before any week has accumulated.
+      weekly: createInitialWeeklyModuleState(),
     },
   }
 

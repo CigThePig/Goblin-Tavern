@@ -1,7 +1,7 @@
 import { advanceCalendar, isEndOfMonth, isEndOfWeek } from '../modules/calendar/index'
 import { cloneTavernState } from '../state/defaults'
 import { safeValidateState } from '../state/validation'
-import type { TavernState, AreaState, StockState, StaffState, CustomerGroupState } from '../state/TavernState'
+import type { TavernState, AreaState, StockState, StaffState, CustomerGroupState, ReputationState } from '../state/TavernState'
 import type { ValidationIssue, ValidationSummary } from '../state/types'
 
 import { createRng } from './rng'
@@ -204,6 +204,12 @@ function createContext(
       runtime.current = {
         ...runtime.current,
         coin: runtime.current.coin + delta,
+      }
+    },
+    modifyReputation(next: ReputationState, _meta): void {
+      runtime.current = {
+        ...runtime.current,
+        reputation: { ...next },
       }
     },
     modifyModuleState(moduleId, updater, _meta): void {

@@ -18,6 +18,7 @@ import {
 import { createInitialStockModuleState } from '../modules/stock/state'
 import { createInitialOwnerActionsModuleState } from '../modules/ownerActions/ownerActionsModule'
 import { createInitialWeeklyModuleState } from '../modules/weekly/state'
+import { createInitialMonthlyModuleState } from '../modules/monthly/monthlyModule'
 import type {
   AreaState,
   CustomerGroupState,
@@ -122,6 +123,10 @@ function createInitialReputation(): ReputationState {
     strange: 35,
     reliable: 30,
     goblinAuthentic: 70,
+    // Phase 15 §15.5 — `respectable` joins the canonical axis set. The
+    // seed value is intentionally low: the Crooked Keg starts dirty,
+    // cheap, and rough — the player must earn respectability.
+    respectable: 25,
   }
 }
 
@@ -193,6 +198,10 @@ export function createInitialTavernState(overrides?: Partial<TavernState>): Tave
       // Phase 14 §14.1 — seed an empty weekly slice so the module's
       // schema validates on day zero before any week has accumulated.
       weekly: createInitialWeeklyModuleState(),
+      // Phase 15 §15.1 — seed an empty monthly slice (rent, landlord,
+      // inspection, rival, accumulator) so the schema validates on day
+      // zero before any month has begun.
+      monthly: createInitialMonthlyModuleState(),
     },
   }
 

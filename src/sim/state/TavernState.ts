@@ -92,6 +92,9 @@ export type CustomerGroupState = {
   activeGrudges: string[]
 }
 
+// Phase 15 §15.5 — Reputation is multi-axis. The `respectable` axis was
+// added in Phase 15 alongside the monthly module; the other eight axes
+// are unchanged from Phase 5.
 export type ReputationState = {
   cheap: number
   tasty: number
@@ -101,6 +104,7 @@ export type ReputationState = {
   strange: number
   reliable: number
   goblinAuthentic: number
+  respectable: number
 }
 
 export type MemoryState = {

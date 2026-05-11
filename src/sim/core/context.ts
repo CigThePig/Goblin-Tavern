@@ -1,4 +1,4 @@
-import type { TavernState, AreaState, StockState, StaffState, CustomerGroupState } from '../state/TavernState'
+import type { TavernState, AreaState, StockState, StaffState, CustomerGroupState, ReputationState } from '../state/TavernState'
 import type { ValidationSummary } from '../state/types'
 import type { DayType } from '../modules/calendar/types'
 import type { SimRng } from './rng'
@@ -100,6 +100,15 @@ export type SimContext = {
    * Phase 17 will turn `meta` into a full `CauseDraft`.
    */
   modifyCoin(delta: number, meta: MutationMeta): void
+
+  /**
+   * Phase 15 §15.5 — Reputation is multi-axis; the monthly module
+   * computes the full next shape and writes it through this helper so
+   * the engine stays the only place that swaps state references. As
+   * with every other `modify*` helper, `meta` is the Phase 7 §7.3.1
+   * placeholder that Phase 17 will widen to `CauseDraft`.
+   */
+  modifyReputation(next: ReputationState, meta: MutationMeta): void
 
   /**
    * Phase 9 §9.3 — Module-state mutations route through `modifyModuleState`

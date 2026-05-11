@@ -114,6 +114,8 @@ export const ReputationStateSchema = z.object({
   strange: meter(),
   reliable: meter(),
   goblinAuthentic: meter(),
+  // Phase 15 §15.5 — `respectable` axis joined the canonical set in Phase 15.
+  respectable: meter(),
 })
 
 export const MemoryStateSchema = z.object({

@@ -101,11 +101,14 @@ describe('Phase 25 — Expanded world and social state', () => {
     expect(Object.keys(state).sort()).toContain('world')
   })
 
-  it('2. every world branch defaults to an empty record except tavernIdentity', () => {
+  it('2. every world branch defaults to an empty record except tavernIdentity (and Phase 29-seeded suppliers)', () => {
     const state = createInitialTavernState()
     expect(state.world.cultures).toEqual({})
     expect(state.world.factions).toEqual({})
-    expect(state.world.suppliers).toEqual({})
+    // Phase 29 §29.2 seeds `state.world.suppliers` from the registry, so
+    // the branch is no longer empty at day zero. The rest of the world
+    // branches stay empty until their respective phases fill them.
+    expect(typeof state.world.suppliers).toBe('object')
     expect(state.world.regulars).toEqual({})
     expect(state.world.notableNpcs).toEqual({})
     expect(state.world.localEvents).toEqual({})
@@ -234,8 +237,11 @@ describe('Phase 25 — Expanded world and social state', () => {
     expect(Object.keys(normalized.world.regulars).sort()).toEqual(
       Object.keys(before.regulars).sort(),
     )
-    // Empty containers stay empty.
-    expect(normalized.world.suppliers).toEqual({})
+    // Phase 29 seeds suppliers in default state; normalization must not
+    // touch the keys, only clamp meters where applicable.
+    expect(Object.keys(normalized.world.suppliers).sort()).toEqual(
+      Object.keys(before.suppliers).sort(),
+    )
     expect(normalized.world.notableNpcs).toEqual({})
     expect(normalized.world.socialRumours).toEqual({})
   })

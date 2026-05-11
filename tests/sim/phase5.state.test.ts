@@ -143,17 +143,19 @@ describe('Phase 5 — Base Tavern State', () => {
     expect(state.causes).toEqual([])
   })
 
-  it('modules state seeds the stock and owner-actions slices (Phase 9 §9.3 / Phase 13 §13.1)', () => {
+  it('modules state seeds the stock, owner-actions, and weekly slices (Phase 9 §9.3 / Phase 13 §13.1 / Phase 14 §14.1)', () => {
     const state = createInitialTavernState()
-    expect(state.modules).toEqual({
-      stock: { ledger: [], shortages: [] },
-      ownerActions: {
-        actionPointsUsed: 0,
-        actionPointBudget: 3,
-        applied: [],
-        rejected: [],
-      },
+    expect(state.modules.stock).toEqual({ ledger: [], shortages: [] })
+    expect(state.modules.ownerActions).toEqual({
+      actionPointsUsed: 0,
+      actionPointBudget: 3,
+      applied: [],
+      rejected: [],
     })
+    // Phase 14 §14.1 — weekly slice is seeded with empty accumulators
+    // and no finalized week. The full default shape is asserted in
+    // `phase14.weekly.test.ts`; here we only confirm the slice exists.
+    expect(state.modules.weekly).toBeDefined()
   })
 
   it('all meter-like values are between 0 and 100', () => {

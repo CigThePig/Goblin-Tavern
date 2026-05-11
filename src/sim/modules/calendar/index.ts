@@ -1,5 +1,10 @@
 import type { SimulationModule } from '../../core/module'
-import type { CalendarState, DayType } from './types'
+import type {
+  CalendarState,
+  CalendarTag,
+  DayType,
+  SeasonId,
+} from './types'
 
 const DAYS_PER_WEEK = 7
 const WEEKS_PER_MONTH = 4
@@ -27,8 +32,64 @@ export function getDayType(dayOfWeek: number): DayType {
   return dayType
 }
 
+// Phase 23 §"Required Calendar Helpers" — months 1-3 mudwake, 4-6 highsun,
+// 7-9 redleaf, 10-12 deepfrost. Pure, deterministic, no RNG.
+export function getSeason(month: number): SeasonId {
+  if (!Number.isInteger(month) || month < 1 || month > MONTHS_PER_YEAR) {
+    throw new Error(`Invalid month: ${month}`)
+  }
+  if (month <= 3) return 'mudwake'
+  if (month <= 6) return 'highsun'
+  if (month <= 9) return 'redleaf'
+  return 'deepfrost'
+}
+
+// Phase 23 §"Required Calendar Helpers" — derives the unified tag list from
+// the rest of the calendar fields. Pure and deterministic; never consumes
+// RNG. The output is order-stable and deduplicated.
+export function getCalendarTags(
+  calendar: Omit<CalendarState, 'tags'>,
+): CalendarTag[] {
+  const tags: CalendarTag[] = []
+  const add = (tag: CalendarTag) => {
+    if (!tags.includes(tag)) tags.push(tag)
+  }
+
+  add(calendar.dayType)
+  add(`season_${calendar.season}` as CalendarTag)
+
+  if (calendar.dayType === 'payday') add('miner_payday')
+  if (calendar.dayType === 'local_night') add('local_crowd')
+
+  if (calendar.week === 4) add('inspection_window')
+  if (calendar.day >= 22 && calendar.day <= 28) add('rent_due_soon')
+
+  if (calendar.month === 7 && calendar.week === 2) {
+    add('mushroom_festival')
+    add('festival_window')
+  }
+
+  if (calendar.season === 'deepfrost') add('winter_shortage_risk')
+  if (calendar.season === 'mudwake' || calendar.season === 'deepfrost') {
+    add('road_danger_risk')
+  }
+
+  if (calendar.dayType === 'market_day' || calendar.season === 'highsun') {
+    add('merchant_traffic')
+  }
+
+  return tags
+}
+
+export function hasCalendarTag(
+  calendar: CalendarState,
+  tag: CalendarTag,
+): boolean {
+  return calendar.tags.includes(tag)
+}
+
 export function createInitialCalendar(): CalendarState {
-  return {
+  const base = {
     day: 1,
     week: 1,
     month: 1,
@@ -36,6 +97,11 @@ export function createInitialCalendar(): CalendarState {
     totalDaysElapsed: 0,
     dayOfWeek: 1,
     dayType: getDayType(1),
+    season: getSeason(1),
+  }
+  return {
+    ...base,
+    tags: getCalendarTags(base),
   }
 }
 
@@ -55,8 +121,8 @@ export function advanceCalendar(calendar: CalendarState): CalendarState {
 
   const dayOfWeek = (calendar.dayOfWeek % DAYS_PER_WEEK) + 1
   const week = Math.floor((day - 1) / DAYS_PER_WEEK) + 1
-
-  return {
+  const season = getSeason(month)
+  const base = {
     day,
     week,
     month,
@@ -64,6 +130,12 @@ export function advanceCalendar(calendar: CalendarState): CalendarState {
     totalDaysElapsed: calendar.totalDaysElapsed + 1,
     dayOfWeek,
     dayType: getDayType(dayOfWeek),
+    season,
+  }
+
+  return {
+    ...base,
+    tags: getCalendarTags(base),
   }
 }
 
@@ -75,8 +147,12 @@ export function isEndOfMonth(calendar: CalendarState): boolean {
   return calendar.day === DAYS_PER_MONTH
 }
 
+// Phase 23 §"Report Integration" — keep the existing human-readable date,
+// append the season as a short label so reports stay readable without
+// dumping the full tag list. Full tags are available via `calendar.tags`
+// for debug helpers.
 export function getCalendarLabel(calendar: CalendarState): string {
-  return `Year ${calendar.year}, Month ${calendar.month}, Week ${calendar.week}, Day ${calendar.day} — ${formatDayType(calendar.dayType)}`
+  return `Year ${calendar.year}, Month ${calendar.month}, Week ${calendar.week}, Day ${calendar.day} — ${formatDayType(calendar.dayType)}, ${formatSeason(calendar.season)}`
 }
 
 function formatDayType(dayType: DayType): string {
@@ -86,9 +162,18 @@ function formatDayType(dayType: DayType): string {
     .join(' ')
 }
 
+function formatSeason(season: SeasonId): string {
+  return season.charAt(0).toUpperCase() + season.slice(1)
+}
+
 export const calendarModule: SimulationModule = {
   id: 'calendar',
   version: '0.1.0',
 }
 
-export type { CalendarState, DayType } from './types'
+export type {
+  CalendarState,
+  CalendarTag,
+  DayType,
+  SeasonId,
+} from './types'

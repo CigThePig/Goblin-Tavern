@@ -12,6 +12,10 @@ const meter = () => z.number().min(0).max(100)
 const nonNegativeNumber = () => z.number().min(0)
 const nonNegativeInt = () => z.number().int().min(0)
 
+// Phase 23 §"Schema Update" — adds `season` (enum) and `tags` (open
+// string array). Tags are intentionally not enum-constrained at this
+// stage so later phases can extend the tag vocabulary without breaking
+// older saves; the calendar module owns the canonical `CalendarTag` union.
 export const CalendarStateSchema = z.object({
   day: z.number().int().min(1).max(28),
   week: z.number().int().min(1).max(4),
@@ -28,6 +32,8 @@ export const CalendarStateSchema = z.object({
     'brawl_night',
     'maintenance_day',
   ]),
+  season: z.enum(['mudwake', 'highsun', 'redleaf', 'deepfrost']),
+  tags: z.array(z.string()),
 })
 
 export const TavernMetaStateSchema = z.object({

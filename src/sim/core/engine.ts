@@ -4,14 +4,22 @@ import { safeValidateState } from '../state/validation'
 import type {
   AreaState,
   CauseEntry,
+  CultureWorldState,
   CustomerGroupState,
   EntityRef,
+  FactionWorldState,
   HistoryEntry,
+  LocalEventWorldState,
   MemoryState,
+  NotableNpcWorldState,
   PressureState,
+  RegularWorldState,
   ReputationState,
+  SocialRumourState,
   StaffState,
   StockState,
+  SupplierWorldState,
+  TavernIdentityState,
   TavernState,
 } from '../state/TavernState'
 import type { ValidationIssue, ValidationSummary } from '../state/types'
@@ -231,6 +239,19 @@ const SOURCE_PREFIX_TO_TYPE: ReadonlyArray<[string, CauseSourceType]> = [
   ['memory', 'memory'],
   ['pressures', 'pressure'],
   ['pressure', 'pressure'],
+  // Phase 27 §27.2 — world source prefixes.
+  ['cultures', 'culture'],
+  ['culture', 'culture'],
+  ['factions', 'faction'],
+  ['faction', 'faction'],
+  ['suppliers', 'supplier'],
+  ['supplier', 'supplier'],
+  ['regulars', 'regular'],
+  ['regular', 'regular'],
+  ['localEvents', 'local_event'],
+  ['local_event', 'local_event'],
+  ['rumours', 'rumour'],
+  ['rumour', 'rumour'],
 ]
 
 function inferSourceType(draft: CauseDraft): CauseSourceType {
@@ -700,6 +721,180 @@ function createContext(
           [moduleId]: next,
         },
       }
+    },
+
+    // Phase 27 §27.2 — World mutation helpers.
+    //
+    // Each helper clones the world branch immutably, validates the
+    // target id, and applies the partial change. `meta` is the
+    // mutation's `CauseDraft`; the engine records the cause through
+    // `addCauseInternal` so the existing cause contract continues to
+    // hold for world changes (the same way `modifyArea` already
+    // records causes elsewhere in later phases).
+    modifyCulture(id, changes, meta): void {
+      const culture = requireRecord<CultureWorldState>(
+        runtime.current.world.cultures,
+        id,
+        'Culture',
+      )
+      runtime.current = {
+        ...runtime.current,
+        world: {
+          ...runtime.current.world,
+          cultures: {
+            ...runtime.current.world.cultures,
+            [id]: { ...culture, ...changes },
+          },
+        },
+      }
+      addCauseInternal(meta, { target: id, targetType: 'culture' })
+    },
+    modifyFaction(id, changes, meta): void {
+      const faction = requireRecord<FactionWorldState>(
+        runtime.current.world.factions,
+        id,
+        'Faction',
+      )
+      runtime.current = {
+        ...runtime.current,
+        world: {
+          ...runtime.current.world,
+          factions: {
+            ...runtime.current.world.factions,
+            [id]: { ...faction, ...changes },
+          },
+        },
+      }
+      addCauseInternal(meta, { target: id, targetType: 'faction' })
+    },
+    modifySupplier(id, changes, meta): void {
+      const supplier = requireRecord<SupplierWorldState>(
+        runtime.current.world.suppliers,
+        id,
+        'Supplier',
+      )
+      runtime.current = {
+        ...runtime.current,
+        world: {
+          ...runtime.current.world,
+          suppliers: {
+            ...runtime.current.world.suppliers,
+            [id]: { ...supplier, ...changes },
+          },
+        },
+      }
+      addCauseInternal(meta, { target: id, targetType: 'supplier' })
+    },
+    modifyRegular(id, changes, meta): void {
+      const regular = requireRecord<RegularWorldState>(
+        runtime.current.world.regulars,
+        id,
+        'Regular',
+      )
+      runtime.current = {
+        ...runtime.current,
+        world: {
+          ...runtime.current.world,
+          regulars: {
+            ...runtime.current.world.regulars,
+            [id]: { ...regular, ...changes },
+          },
+        },
+      }
+      addCauseInternal(meta, { target: id, targetType: 'regular' })
+    },
+    modifyNotableNpc(id, changes, meta): void {
+      const npc = requireRecord<NotableNpcWorldState>(
+        runtime.current.world.notableNpcs,
+        id,
+        'NotableNpc',
+      )
+      runtime.current = {
+        ...runtime.current,
+        world: {
+          ...runtime.current.world,
+          notableNpcs: {
+            ...runtime.current.world.notableNpcs,
+            [id]: { ...npc, ...changes },
+          },
+        },
+      }
+      addCauseInternal(meta, { target: id, targetType: 'notable_npc' })
+    },
+    modifyLocalEvent(id, changes, meta): void {
+      const event = requireRecord<LocalEventWorldState>(
+        runtime.current.world.localEvents,
+        id,
+        'LocalEvent',
+      )
+      runtime.current = {
+        ...runtime.current,
+        world: {
+          ...runtime.current.world,
+          localEvents: {
+            ...runtime.current.world.localEvents,
+            [id]: { ...event, ...changes },
+          },
+        },
+      }
+      addCauseInternal(meta, { target: id, targetType: 'local_event' })
+    },
+    modifySocialRumour(id, changes, meta): void {
+      const rumour = requireRecord<SocialRumourState>(
+        runtime.current.world.socialRumours,
+        id,
+        'SocialRumour',
+      )
+      runtime.current = {
+        ...runtime.current,
+        world: {
+          ...runtime.current.world,
+          socialRumours: {
+            ...runtime.current.world.socialRumours,
+            [id]: { ...rumour, ...changes },
+          },
+        },
+      }
+      addCauseInternal(meta, { target: id, targetType: 'rumour' })
+    },
+    modifyTavernIdentity(changes, meta): void {
+      const current = runtime.current.world.tavernIdentity
+      const next: TavernIdentityState = { ...current, ...changes }
+      runtime.current = {
+        ...runtime.current,
+        world: {
+          ...runtime.current.world,
+          tavernIdentity: next,
+        },
+      }
+      addCauseInternal(meta, {
+        target: runtime.current.meta.tavernId,
+        targetType: 'tavern_identity',
+      })
+    },
+
+    // Phase 27 §27.3 — World query helpers. Thin readers; return
+    // `undefined` for unknown ids.
+    getCulture(id): CultureWorldState | undefined {
+      return runtime.current.world.cultures[id]
+    },
+    getFaction(id): FactionWorldState | undefined {
+      return runtime.current.world.factions[id]
+    },
+    getSupplier(id): SupplierWorldState | undefined {
+      return runtime.current.world.suppliers[id]
+    },
+    getRegular(id): RegularWorldState | undefined {
+      return runtime.current.world.regulars[id]
+    },
+    getNotableNpc(id): NotableNpcWorldState | undefined {
+      return runtime.current.world.notableNpcs[id]
+    },
+    getLocalEvent(id): LocalEventWorldState | undefined {
+      return runtime.current.world.localEvents[id]
+    },
+    getSocialRumour(id): SocialRumourState | undefined {
+      return runtime.current.world.socialRumours[id]
     },
 
     // Phase 16 §16.2 — Memory context API.

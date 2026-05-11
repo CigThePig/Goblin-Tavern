@@ -215,6 +215,9 @@ export const CauseEntrySchema = z.object({
   id: z.string(),
   timestamp: CalendarStampSchema,
   source: z.string(),
+  // Phase 27 §27.2 — widened with world source/target kinds so the
+  // expanded `ctx.modify*` helpers can attribute their changes through
+  // the same cause contract as the Phase 7 originals.
   sourceType: z.enum([
     'owner_action',
     'service',
@@ -227,6 +230,12 @@ export const CauseEntrySchema = z.object({
     'memory',
     'pressure',
     'system',
+    'culture',
+    'faction',
+    'supplier',
+    'regular',
+    'local_event',
+    'rumour',
   ]),
   target: z.string(),
   targetType: z.enum([
@@ -239,6 +248,14 @@ export const CauseEntrySchema = z.object({
     'pressure',
     'memory',
     'global',
+    'culture',
+    'faction',
+    'supplier',
+    'regular',
+    'notable_npc',
+    'local_event',
+    'rumour',
+    'tavern_identity',
   ]),
   amount: z.number(),
   direction: z.enum(['increase', 'decrease', 'neutral']),

@@ -12,6 +12,10 @@ import type { CalendarStamp, EntityRef } from '../../state/TavernState'
 // `state/TavernState.ts` so the Zod schema can validate it, and is
 // re-exported here for module-author convenience.
 
+// Phase 27 §27.2 — Cause type expansion (canonical home in
+// `state/TavernState.ts`). Mirror the same unions here so module
+// authors can import either path interchangeably without a circular
+// dependency.
 export type CauseSourceType =
   | 'owner_action'
   | 'service'
@@ -24,6 +28,12 @@ export type CauseSourceType =
   | 'memory'
   | 'pressure'
   | 'system'
+  | 'culture'
+  | 'faction'
+  | 'supplier'
+  | 'regular'
+  | 'local_event'
+  | 'rumour'
 
 export type CauseTargetType =
   | 'coin'
@@ -35,6 +45,14 @@ export type CauseTargetType =
   | 'pressure'
   | 'memory'
   | 'global'
+  | 'culture'
+  | 'faction'
+  | 'supplier'
+  | 'regular'
+  | 'notable_npc'
+  | 'local_event'
+  | 'rumour'
+  | 'tavern_identity'
 
 export type CauseDirection = 'increase' | 'decrease' | 'neutral'
 

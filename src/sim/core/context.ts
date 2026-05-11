@@ -1,13 +1,21 @@
 import type {
   AreaState,
   CauseEntry,
+  CultureWorldState,
   CustomerGroupState,
   EntityRef,
+  FactionWorldState,
   HistoryEntry,
+  LocalEventWorldState,
   MemoryState,
+  NotableNpcWorldState,
+  RegularWorldState,
   ReputationState,
+  SocialRumourState,
   StaffState,
   StockState,
+  SupplierWorldState,
+  TavernIdentityState,
   TavernState,
 } from '../state/TavernState'
 import type { ValidationSummary } from '../state/types'
@@ -152,6 +160,56 @@ export type SimContext = {
     updater: (current: T | undefined) => T,
     meta: MutationMeta,
   ): void
+
+  // Phase 27 §27.2 — World mutation helpers.
+  //
+  // The expanded world systems (cultures, factions, suppliers, regulars,
+  // notable NPCs, local events, social rumours, tavern identity) all
+  // live on `state.world`. These helpers gate writes through the same
+  // cause contract as `modifyArea`/`modifyStock`/etc.: the caller passes
+  // a `CauseDraft` (alias `MutationMeta`) describing why the change
+  // happened, the engine clones the target branch, applies the changes,
+  // and preserves JSON-safe state.
+  //
+  // Each helper throws when the target id does not exist on
+  // `state.world.*`. `modifyTavernIdentity` operates on the singleton
+  // record and does not need an id.
+  modifyCulture(id: string, changes: Partial<CultureWorldState>, meta: MutationMeta): void
+  modifyFaction(id: string, changes: Partial<FactionWorldState>, meta: MutationMeta): void
+  modifySupplier(id: string, changes: Partial<SupplierWorldState>, meta: MutationMeta): void
+  modifyRegular(id: string, changes: Partial<RegularWorldState>, meta: MutationMeta): void
+  modifyNotableNpc(
+    id: string,
+    changes: Partial<NotableNpcWorldState>,
+    meta: MutationMeta,
+  ): void
+  modifyLocalEvent(
+    id: string,
+    changes: Partial<LocalEventWorldState>,
+    meta: MutationMeta,
+  ): void
+  modifySocialRumour(
+    id: string,
+    changes: Partial<SocialRumourState>,
+    meta: MutationMeta,
+  ): void
+  modifyTavernIdentity(
+    changes: Partial<TavernIdentityState>,
+    meta: MutationMeta,
+  ): void
+
+  // Phase 27 §27.3 — World query helpers.
+  //
+  // Thin readers so modules do not scatter direct `state.world.*` paths
+  // through the codebase. Each returns `undefined` for an unknown id,
+  // matching the `Map.get` convention used by existing helpers.
+  getCulture(id: string): CultureWorldState | undefined
+  getFaction(id: string): FactionWorldState | undefined
+  getSupplier(id: string): SupplierWorldState | undefined
+  getRegular(id: string): RegularWorldState | undefined
+  getNotableNpc(id: string): NotableNpcWorldState | undefined
+  getLocalEvent(id: string): LocalEventWorldState | undefined
+  getSocialRumour(id: string): SocialRumourState | undefined
 
   // Phase 16 §16.2 — Memory context API.
   //

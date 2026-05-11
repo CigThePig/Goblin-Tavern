@@ -11,6 +11,10 @@ import {
   customerRegistry,
   ensureRequiredCustomerGroupsRegistered,
 } from '../registries/customerRegistry'
+import {
+  ensureRequiredStaffRolesRegistered,
+  staffRegistry,
+} from '../registries/staffRegistry'
 import { createInitialStockModuleState } from '../modules/stock/state'
 import type {
   AreaState,
@@ -61,48 +65,26 @@ function createInitialStock(): Record<string, StockState> {
   return stock
 }
 
+// Phase 11 §11.1 — Staff defaults are sourced from `staffRegistry`
+// rather than inlined. Each registered role declares the canonical
+// staff member it seeds (id, name, base meters, wage) so the engine
+// can spawn a working tavern without hard-coded literals. Importing
+// the registry has the side effect of self-registering the three
+// required roles via `ensureRequiredStaffRolesRegistered`.
 function createInitialStaff(): Record<string, StaffState> {
-  return {
-    cook: {
-      id: 'cook',
-      name: 'Gribna',
-      role: 'cook',
-      skill: 55,
-      morale: 45,
-      stress: 35,
-      fatigue: 20,
-      loyalty: 50,
-      wage: 12,
-      tags: [],
-      activeProblems: [],
-    },
-    server: {
-      id: 'server',
-      name: 'Nix',
-      role: 'server',
-      skill: 50,
-      morale: 50,
-      stress: 25,
-      fatigue: 20,
-      loyalty: 45,
-      wage: 10,
-      tags: [],
-      activeProblems: [],
-    },
-    cleaner_bouncer: {
-      id: 'cleaner_bouncer',
-      name: 'Bruk',
-      role: 'cleaner_bouncer',
-      skill: 45,
-      morale: 40,
-      stress: 30,
-      fatigue: 25,
-      loyalty: 55,
-      wage: 11,
-      tags: [],
-      activeProblems: [],
-    },
+  ensureRequiredStaffRolesRegistered()
+  const staff: Record<string, StaffState> = {}
+  for (const def of staffRegistry.all()) {
+    staff[def.defaultStaffId] = {
+      id: def.defaultStaffId,
+      name: def.defaultStaffName,
+      role: def.id,
+      tags: [...def.defaultTags],
+      ...def.defaultState,
+      activeFlags: [...def.defaultState.activeFlags],
+    }
   }
+  return staff
 }
 
 // Phase 10 §10.1 — Customer-group defaults are sourced from

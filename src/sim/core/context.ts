@@ -16,15 +16,31 @@ import type { ReportSection, SimLog, SimLogLevel } from './reports'
 // mutation surface (`modifyCoin`, `modifyReputation`, `modifyPressure`).
 // See §7.3 "Later phases will add" and §7.3.1 forward note.
 
+/**
+ * Phase 13 §13.2 — Per-action owner input. Mirrored here as a structural
+ * type so `SimInput.ownerActions` stays typed without forcing the core
+ * module to import from the ownerActions module (which would create a
+ * cycle: ownerActions/types.ts already imports from this file). The
+ * canonical type lives at `modules/ownerActions/types.ts`; this is the
+ * same shape used by name only.
+ */
+export type SimInputOwnerAction = {
+  actionId: string
+  targetId?: string
+  amount?: number
+  options?: Record<string, unknown>
+}
+
 export type SimInput = {
   /** Seed for the deterministic RNG threaded through `ctx.rng`. */
   seed: string
   /**
-   * Phase 7 placeholder for owner-action input. Phase 13 fills this in with
-   * the real owner-action shape; Phase 7 only needs the field to exist so
-   * the engine signature does not churn later.
+   * Phase 13 §13.2 — per-day owner action input. Up to 3 action points
+   * may be consumed per day; the owner-actions module enforces the
+   * budget and rejects entries that overflow it, reference an unknown
+   * action id, or fail the action's `canApply`.
    */
-  ownerActions?: ReadonlyArray<unknown>
+  ownerActions?: ReadonlyArray<SimInputOwnerAction>
   /**
    * Phase 11 §11.3 — per-day staff priority assignment. Keys are staff
    * ids; values are `StaffPriorityId`s validated against the role's

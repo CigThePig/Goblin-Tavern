@@ -16,6 +16,7 @@ import {
   staffRegistry,
 } from '../registries/staffRegistry'
 import { createInitialStockModuleState } from '../modules/stock/state'
+import { createInitialOwnerActionsModuleState } from '../modules/ownerActions/ownerActionsModule'
 import type {
   AreaState,
   CustomerGroupState,
@@ -184,6 +185,10 @@ export function createInitialTavernState(overrides?: Partial<TavernState>): Tave
     // Phase 6 §6.1.1 composition.
     modules: {
       stock: createInitialStockModuleState(),
+      // Phase 13 §13.1 — seed an empty owner-actions slice so the
+      // module's schema validation passes even on day zero before any
+      // input has been processed.
+      ownerActions: createInitialOwnerActionsModuleState(),
     },
   }
 

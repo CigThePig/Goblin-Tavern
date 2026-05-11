@@ -143,10 +143,16 @@ describe('Phase 5 — Base Tavern State', () => {
     expect(state.causes).toEqual([])
   })
 
-  it('modules state seeds the stock slice (Phase 9 §9.3)', () => {
+  it('modules state seeds the stock and owner-actions slices (Phase 9 §9.3 / Phase 13 §13.1)', () => {
     const state = createInitialTavernState()
     expect(state.modules).toEqual({
       stock: { ledger: [], shortages: [] },
+      ownerActions: {
+        actionPointsUsed: 0,
+        actionPointBudget: 3,
+        applied: [],
+        rejected: [],
+      },
     })
   })
 

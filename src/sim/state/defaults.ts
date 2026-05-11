@@ -19,6 +19,7 @@ import { createInitialStockModuleState } from '../modules/stock/state'
 import { createInitialOwnerActionsModuleState } from '../modules/ownerActions/ownerActionsModule'
 import { createInitialWeeklyModuleState } from '../modules/weekly/state'
 import { createInitialMonthlyModuleState } from '../modules/monthly/monthlyModule'
+import { createInitialCauseModuleState } from '../modules/causes/causeModule'
 import type {
   AreaState,
   CustomerGroupState,
@@ -203,6 +204,9 @@ export function createInitialTavernState(overrides?: Partial<TavernState>): Tave
       // inspection, rival, accumulator) so the schema validates on day
       // zero before any month has begun.
       monthly: createInitialMonthlyModuleState(),
+      // Phase 17 §17.2 — seed an empty causes slice so the schema
+      // validates on day zero before any cause has been added.
+      causes: createInitialCauseModuleState(),
     },
   }
 

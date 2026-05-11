@@ -188,14 +188,50 @@ export const HistoryEntrySchema = z.object({
   mechanicalRefs: z.array(z.string()).optional(),
 })
 
+// Phase 17 §"Cause Shape" — widened from the Phase 5 placeholder. The
+// shape now carries a calendar stamp, typed source/target enums, a
+// direction, a weight, related actors/locations/systems, and aging
+// fields so causes can be pruned. The Phase 16 `CalendarStamp` and
+// `EntityRef` schemas back the timestamp and ref arrays.
 export const CauseEntrySchema = z.object({
   id: z.string(),
-  day: z.number().int(),
+  timestamp: CalendarStampSchema,
   source: z.string(),
+  sourceType: z.enum([
+    'owner_action',
+    'service',
+    'area',
+    'stock',
+    'staff',
+    'customer',
+    'weekly',
+    'monthly',
+    'memory',
+    'pressure',
+    'system',
+  ]),
   target: z.string(),
+  targetType: z.enum([
+    'coin',
+    'area',
+    'stock',
+    'staff',
+    'customer',
+    'reputation',
+    'pressure',
+    'memory',
+    'global',
+  ]),
   amount: z.number(),
+  direction: z.enum(['increase', 'decrease', 'neutral']),
+  weight: z.number().min(0),
   readable: z.string(),
   tags: z.array(z.string()),
+  relatedActors: z.array(EntityRefSchema),
+  relatedLocations: z.array(EntityRefSchema),
+  relatedSystems: z.array(z.string()),
+  ageDays: nonNegativeInt(),
+  expiresAfterDays: nonNegativeInt().optional(),
 })
 
 export const PressureStateSchema = z.object({

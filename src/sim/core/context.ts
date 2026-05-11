@@ -1,5 +1,6 @@
 import type {
   AreaState,
+  CauseEntry,
   CustomerGroupState,
   EntityRef,
   HistoryEntry,
@@ -13,8 +14,10 @@ import type { ValidationSummary } from '../state/types'
 import type { DayType } from '../modules/calendar/types'
 import type { HistoryEntryDraft } from '../modules/history/types'
 import type { MemoryDraft } from '../modules/memories/memoryTypes'
+import type { CauseDraft } from '../modules/causes/causeTypes'
 import type { SimRng } from './rng'
 import type { ReportSection, SimLog, SimLogLevel } from './reports'
+import type { StateDiff, TaggedStateDiff, PhaseBoundary } from './diff'
 
 // Phase 7 §7.3 — SimContext.
 //
@@ -63,16 +66,22 @@ export type SimInput = {
 }
 
 /**
- * Phase 7 §7.3.1 — Mutation metadata placeholder.
+ * Phase 7 §7.3.1 / Phase 17 §17.2.1 — Mutation metadata.
  *
- * Phase 17 upgrades this argument to a full `CauseDraft` and enforces it
- * at the type level. Until then, callers pass `{ source: string }` so no
- * significant mutation is silent.
+ * Phase 17 widens this argument to a full `CauseDraft` and enforces it
+ * at the type level: every `ctx.modify*` call must attribute the change
+ * to a source. The legacy `reason` field (Phase 7 placeholder) is kept
+ * as an alias for `readable` so older call sites still compile without
+ * change. `source` remains mandatory; passing `{ source }` alone is
+ * equivalent to a `CauseDraft` with default direction/weight inferred
+ * from the mutation. Module authors who want a richer cause should pass
+ * the full draft shape — including `readable`, `tags`, `targetType`,
+ * and related actor/location refs — so the cause module can produce
+ * useful reports.
  */
-export type MutationMeta = {
-  source: string
-  reason?: string
-}
+export type MutationMeta = CauseDraft
+
+export type { CauseDraft }
 
 export type AddLogInput = SimLog | { message: string; level?: SimLogLevel; data?: Record<string, unknown> } | string
 
@@ -167,4 +176,42 @@ export type SimContext = {
   addHistory(draft: HistoryEntryDraft): HistoryEntry
   getRecentHistory(days: number): HistoryEntry[]
   getHistoryByTag(tag: string): HistoryEntry[]
+
+  // Phase 17 §17.2 — Cause context API.
+  //
+  // Modules call `addCause` whenever a significant state change deserves
+  // attribution. The cause module ages and prunes entries on `endDay`,
+  // and the cause report flags significant state diffs that have no
+  // matching cause. The Phase 7 §7.3.1 forward note ("Phase 17 will widen
+  // `meta` to `CauseDraft`") is fulfilled here.
+  addCause(draft: CauseDraft): CauseEntry
+  getCausesForTarget(target: string): CauseEntry[]
+  getCausesByTag(tag: string): CauseEntry[]
+  getRecentCauses(days: number): CauseEntry[]
+  getTopCausesForTarget(target: string, limit: number): CauseEntry[]
+
+  /**
+   * Phase 17 §17.6 — Trigger cause aging/expiration. Invoked by the
+   * cause module's `endDay` hook (and exposed on the context so future
+   * phases can drive aging from elsewhere — e.g. multi-day jumps).
+   */
+  ageCausesEndOfDay(): void
+
+  // Phase 17 §17.2.1 — Pressure mutation helper.
+  //
+  // Pressures live at `state.pressures[id]` (Phase 5 seed; Phase 18 adds
+  // the full calculation/feedback loop pipeline). Phase 17 gates writes
+  // through `modifyPressure` so the same cause contract that covers
+  // coin/area/stock applies to pressure shifts.
+  modifyPressure(id: string, change: number, cause: CauseDraft): void
+
+  // Phase 17 §17.8 — Phase-boundary state diffs.
+  //
+  // The engine snapshots state at the start of `applyOwnerActions`,
+  // `beforeService`, the first day of the week, and the first day of
+  // the month, then publishes a tagged diff after each boundary closes.
+  // Modules can read the current day's diffs via `getDiff(boundary)`;
+  // `SimResult.diffs` carries them out of `simulateDay`.
+  getDiff(boundary: PhaseBoundary): StateDiff | undefined
+  getDiffs(): ReadonlyArray<TaggedStateDiff>
 }

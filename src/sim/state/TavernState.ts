@@ -188,15 +188,59 @@ export type HistoryEntry = {
   mechanicalRefs?: string[]
 }
 
-export type CauseState = {
+// Phase 17 §"Cause Shape" — replaces the Phase 5 placeholder. The earlier
+// `CauseState` shape (`id, day, source, target, amount, readable, tags`)
+// is widened to the Phase 17 contract: calendar stamps, typed
+// source/target enums, direction/weight, related actors/locations, and
+// `ageDays` / `expiresAfterDays` so the cause module can prune.
+// `CauseState` is kept as an alias for legacy imports.
+export type CauseSourceType =
+  | 'owner_action'
+  | 'service'
+  | 'area'
+  | 'stock'
+  | 'staff'
+  | 'customer'
+  | 'weekly'
+  | 'monthly'
+  | 'memory'
+  | 'pressure'
+  | 'system'
+
+export type CauseTargetType =
+  | 'coin'
+  | 'area'
+  | 'stock'
+  | 'staff'
+  | 'customer'
+  | 'reputation'
+  | 'pressure'
+  | 'memory'
+  | 'global'
+
+export type CauseDirection = 'increase' | 'decrease' | 'neutral'
+
+export type CauseEntry = {
   id: string
-  day: number
+  timestamp: CalendarStamp
   source: string
+  sourceType: CauseSourceType
   target: string
+  targetType: CauseTargetType
   amount: number
+  direction: CauseDirection
+  weight: number
   readable: string
   tags: string[]
+  relatedActors: EntityRef[]
+  relatedLocations: EntityRef[]
+  relatedSystems: string[]
+  ageDays: number
+  expiresAfterDays?: number
 }
+
+/** @deprecated Phase 17 — use `CauseEntry`. Kept for legacy imports. */
+export type CauseState = CauseEntry
 
 export type PressureState = {
   id: string
@@ -220,7 +264,7 @@ export type TavernState = {
 
   memories: MemoryState[]
   history: HistoryEntry[]
-  causes: CauseState[]
+  causes: CauseEntry[]
   pressures: Record<string, PressureState>
 
   modules: Record<string, unknown>

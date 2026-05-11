@@ -236,18 +236,21 @@ describe('Simulation module type surface', () => {
     expect(mod.hooks?.startDay?.[0]).toBe(hook)
   })
 
-  // Phase 7 §7.4 replaced the Phase 2 placeholder result with the canonical
-  // SimResult shape. Keep this assertion in sync with src/sim/core/result.ts.
-  it('exposes a SimResult shape with state, reports, logs, and validation', () => {
+  // Phase 7 §7.4 / Phase 17 §17.8 — `SimResult` now also carries the
+  // ordered phase-boundary diffs. Keep this assertion in sync with
+  // src/sim/core/result.ts.
+  it('exposes a SimResult shape with state, reports, logs, validation, and diffs', () => {
     const result: SimulationResult = {
       state: createInitialTavernState(),
       reports: [],
       logs: [],
       validation: { errors: [], warnings: [] },
+      diffs: [],
     }
     expect(result.reports).toEqual([])
     expect(result.logs).toEqual([])
     expect(result.validation.errors).toEqual([])
     expect(result.validation.warnings).toEqual([])
+    expect(result.diffs).toEqual([])
   })
 })

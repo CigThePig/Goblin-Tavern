@@ -3,10 +3,12 @@ import { cloneTavernState } from '../state/defaults'
 import { safeValidateState } from '../state/validation'
 import type {
   AreaState,
+  CauseEntry,
   CustomerGroupState,
   EntityRef,
   HistoryEntry,
   MemoryState,
+  PressureState,
   ReputationState,
   StaffState,
   StockState,
@@ -26,6 +28,13 @@ import type {
 } from '../modules/memories/memoryModule'
 import type { MemoryDraft, MemoryDefinition } from '../modules/memories/memoryTypes'
 import type { HistoryEntryDraft } from '../modules/history/types'
+import type {
+  CauseDraft,
+  CauseDirection,
+  CauseSourceType,
+  CauseTargetType,
+} from '../modules/causes/causeTypes'
+import { ageCauses } from '../modules/causes/causeAging'
 
 import { createRng } from './rng'
 import type {
@@ -38,6 +47,8 @@ import { SIMULATION_PHASES, type SimulationPhase } from './phases'
 import type { ReportSection, SimLog, SimLogLevel } from './reports'
 import type { SimulationModule } from './module'
 import type { SimResult } from './result'
+import { ChangeTracker } from './changeTracker'
+import type { PhaseBoundary, StateDiff, TaggedStateDiff } from './diff'
 
 // Phase 7 §7.4 / §7.5 — Engine entry point and module ordering.
 //
@@ -196,6 +207,51 @@ type EngineRuntime = {
   hookSource: string
   validationErrors: ValidationIssue[]
   validationWarnings: ValidationIssue[]
+  changeTracker: ChangeTracker
+  causeCounter: number
+}
+
+// Phase 17 §"Cause Shape" — helpers to infer the `sourceType` and
+// `targetType` from the mutation context. Source inference favours the
+// caller-supplied value, then falls back to the source-string prefix
+// (e.g. `ownerActions.clean_area` → `owner_action`).
+
+const SOURCE_PREFIX_TO_TYPE: ReadonlyArray<[string, CauseSourceType]> = [
+  ['ownerActions', 'owner_action'],
+  ['owner_action', 'owner_action'],
+  ['service', 'service'],
+  ['weekly', 'weekly'],
+  ['monthly', 'monthly'],
+  ['areas', 'area'],
+  ['stock', 'stock'],
+  ['staff', 'staff'],
+  ['customers', 'customer'],
+  ['customer', 'customer'],
+  ['memories', 'memory'],
+  ['memory', 'memory'],
+  ['pressures', 'pressure'],
+  ['pressure', 'pressure'],
+]
+
+function inferSourceType(draft: CauseDraft): CauseSourceType {
+  if (draft.sourceType) return draft.sourceType
+  const src = draft.source
+  for (const [prefix, type] of SOURCE_PREFIX_TO_TYPE) {
+    if (src === prefix || src.startsWith(`${prefix}.`)) return type
+  }
+  return 'system'
+}
+
+function inferDirection(amount: number): CauseDirection {
+  if (amount > 0) return 'increase'
+  if (amount < 0) return 'decrease'
+  return 'neutral'
+}
+
+function defaultReadable(draft: CauseDraft): string {
+  if (draft.readable && draft.readable.length > 0) return draft.readable
+  if (draft.reason && draft.reason.length > 0) return draft.reason
+  return draft.source
 }
 
 function createContext(
@@ -398,6 +454,80 @@ function createContext(
     return updated
   }
 
+  // ---------- Phase 17 §17.2 — cause helpers ----------
+
+  const buildCauseFromDraft = (
+    draft: CauseDraft,
+    defaults: {
+      target?: string
+      targetType?: CauseTargetType
+      amount?: number
+      tags?: string[]
+    } = {},
+  ): CauseEntry => {
+    runtime.causeCounter += 1
+    const stamp = stampFromCalendar(runtime.current.calendar)
+    const id = `c-${stamp.absoluteDay}-${runtime.causeCounter}`
+    const amount = draft.amount ?? defaults.amount ?? 0
+    const direction = draft.direction ?? inferDirection(amount)
+    const weight = draft.weight ?? Math.abs(amount)
+    const target = draft.target ?? defaults.target ?? 'global'
+    const targetType =
+      draft.targetType ?? defaults.targetType ?? ('global' as CauseTargetType)
+    const tags: string[] = []
+    for (const t of defaults.tags ?? []) {
+      if (!tags.includes(t)) tags.push(t)
+    }
+    for (const t of draft.tags ?? []) {
+      if (!tags.includes(t)) tags.push(t)
+    }
+    return {
+      id,
+      timestamp: stamp,
+      source: draft.source,
+      sourceType: inferSourceType(draft),
+      target,
+      targetType,
+      amount,
+      direction,
+      weight,
+      readable: defaultReadable(draft),
+      tags,
+      relatedActors: draft.relatedActors
+        ? draft.relatedActors.map((a) => ({ ...a }))
+        : [],
+      relatedLocations: draft.relatedLocations
+        ? draft.relatedLocations.map((l) => ({ ...l }))
+        : [],
+      relatedSystems: draft.relatedSystems ? [...draft.relatedSystems] : [],
+      ageDays: 0,
+      ...(draft.expiresAfterDays !== undefined
+        ? { expiresAfterDays: draft.expiresAfterDays }
+        : {}),
+    }
+  }
+
+  const appendCause = (entry: CauseEntry): void => {
+    runtime.current = {
+      ...runtime.current,
+      causes: [...runtime.current.causes, entry],
+    }
+  }
+
+  const addCauseInternal = (
+    draft: CauseDraft,
+    defaults: {
+      target?: string
+      targetType?: CauseTargetType
+      amount?: number
+      tags?: string[]
+    } = {},
+  ): CauseEntry => {
+    const entry = buildCauseFromDraft(draft, defaults)
+    appendCause(entry)
+    return entry
+  }
+
   // ---------- Phase 16 §16.8 — history helpers ----------
 
   let historyCounter = 0
@@ -525,6 +655,31 @@ function createContext(
         reputation: { ...next },
       }
     },
+    modifyPressure(id, change, _cause): void {
+      if (!Number.isFinite(change)) {
+        throw new Error(
+          `ctx.modifyPressure: change must be a finite number, got ${change}`,
+        )
+      }
+      const existing = runtime.current.pressures[id]
+      if (!existing) {
+        throw new Error(`ctx.modifyPressure: unknown pressure id '${id}'`)
+      }
+      const nextValue = Math.max(0, Math.min(100, existing.value + change))
+      const trend = nextValue > existing.value ? 1 : nextValue < existing.value ? -1 : 0
+      const updated: PressureState = {
+        ...existing,
+        value: nextValue,
+        trend,
+      }
+      runtime.current = {
+        ...runtime.current,
+        pressures: {
+          ...runtime.current.pressures,
+          [id]: updated,
+        },
+      }
+    },
     modifyModuleState(moduleId, updater, _meta): void {
       const current = runtime.current.modules[moduleId]
       const next = updater(current as never)
@@ -596,6 +751,47 @@ function createContext(
     },
     getHistoryByTag(tag): HistoryEntry[] {
       return runtime.current.history.filter((e) => e.tags.includes(tag))
+    },
+
+    // Phase 17 §17.2 — Cause context API.
+    addCause(draft): CauseEntry {
+      return addCauseInternal(draft)
+    },
+    getCausesForTarget(target): CauseEntry[] {
+      return runtime.current.causes.filter((c) => c.target === target)
+    },
+    getCausesByTag(tag): CauseEntry[] {
+      return runtime.current.causes.filter((c) => c.tags.includes(tag))
+    },
+    getRecentCauses(days): CauseEntry[] {
+      if (days <= 0) return []
+      const cutoff = runtime.current.calendar.totalDaysElapsed - days
+      return runtime.current.causes.filter(
+        (c) => c.timestamp.absoluteDay >= cutoff,
+      )
+    },
+    getTopCausesForTarget(target, limit): CauseEntry[] {
+      const matching = runtime.current.causes
+        .filter((c) => c.target === target)
+        .slice()
+      matching.sort((a, b) => b.weight - a.weight)
+      if (limit <= 0) return []
+      return matching.slice(0, limit)
+    },
+    ageCausesEndOfDay(): void {
+      const { next, expired } = ageCauses(runtime.current.causes, 1)
+      runtime.current = { ...runtime.current, causes: next }
+      void expired
+    },
+
+    // Phase 17 §17.8 — Phase-boundary state diffs.
+    getDiff(boundary: PhaseBoundary): StateDiff | undefined {
+      const tagged = runtime.changeTracker.getByBoundary(boundary)
+      if (!tagged) return undefined
+      return { changes: tagged.changes, significantChanges: tagged.significantChanges }
+    },
+    getDiffs(): ReadonlyArray<TaggedStateDiff> {
+      return runtime.changeTracker.all()
     },
   }
 
@@ -671,9 +867,20 @@ export function simulateDay(
     hookSource: ENGINE_SOURCE,
     validationErrors: [],
     validationWarnings: [],
+    changeTracker: new ChangeTracker(),
+    causeCounter: 0,
   }
 
   const ctx = createContext(runtime, input, sortedModules)
+
+  // Phase 17 §17.8 — Snapshot the full-day baseline up front. The
+  // owner-action / service / week / month boundaries are snapshotted as
+  // the engine crosses them below.
+  runtime.changeTracker.snapshot('day', runtime.current)
+  const isEndWeekDay = isEndOfWeek(runtime.current.calendar)
+  const isEndMonthDay = isEndOfMonth(runtime.current.calendar)
+  if (isEndWeekDay) runtime.changeTracker.snapshot('end_week', runtime.current)
+  if (isEndMonthDay) runtime.changeTracker.snapshot('end_month', runtime.current)
 
   for (const phase of SIMULATION_PHASES) {
     if (phase === 'endWeek' && !isEndOfWeek(runtime.current.calendar)) {
@@ -683,11 +890,34 @@ export function simulateDay(
       continue
     }
 
+    if (phase === 'beforeOwnerActions') {
+      runtime.changeTracker.snapshot('owner_actions', runtime.current)
+    }
+    if (phase === 'beforeService') {
+      // Close the owner-action diff *before* service mutates state.
+      runtime.changeTracker.finalize('owner_actions', runtime.current)
+      runtime.changeTracker.snapshot('service', runtime.current)
+    }
+
     if (phase === 'generateReports') {
       collectReports(sortedModules, ctx, runtime)
     }
 
     runHooks(phase, sortedModules, ctx, runtime)
+
+    if (phase === 'closing') {
+      // Service finished. Close the service-phase diff so reports can
+      // read it from `ctx.getDiff('service')` during `generateReports`.
+      runtime.changeTracker.finalize('service', runtime.current)
+    }
+
+    if (phase === 'endWeek') {
+      runtime.changeTracker.finalize('end_week', runtime.current)
+    }
+
+    if (phase === 'endMonth') {
+      runtime.changeTracker.finalize('end_month', runtime.current)
+    }
 
     if (phase === 'validate') {
       collectModuleValidations(sortedModules, ctx, runtime)
@@ -704,6 +934,10 @@ export function simulateDay(
     }
   }
 
+  // Phase 17 §17.8 — Close the day-level diff after the calendar tick.
+  // The diff captures the full mechanical movement of the simulated day.
+  runtime.changeTracker.finalize('day', runtime.current)
+
   return {
     state: runtime.current,
     reports: runtime.reports,
@@ -712,6 +946,7 @@ export function simulateDay(
       errors: runtime.validationErrors,
       warnings: runtime.validationWarnings,
     },
+    diffs: [...runtime.changeTracker.all()],
   }
 }
 

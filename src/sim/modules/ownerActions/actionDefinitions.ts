@@ -94,6 +94,20 @@ const cleanArea: OwnerActionDefinition = {
       { source: 'ownerActions.clean_area', reason: 'clean_area' },
     )
 
+    // Phase 17 §17.3 — record the cause so reports can explain why
+    // cleanliness moved without re-deriving from owner-action data.
+    ctx.addCause({
+      source: 'ownerActions.clean_area',
+      sourceType: 'owner_action',
+      target: `area:${area.id}.cleanliness`,
+      targetType: 'area',
+      amount: nextCleanliness - area.cleanliness,
+      readable: `Owner cleaned ${area.label}.`,
+      tags: ['owner_action', 'clean_area', area.id, 'cleanliness'],
+      relatedLocations: [{ kind: 'area', id: area.id }],
+      relatedSystems: ['areas'],
+    })
+
     // Phase 16 §16.3 — clean_area drops an `area_cleaned_recently`
     // memory and a debug-facing history entry.
     ctx.addMemory({
@@ -177,6 +191,18 @@ const repairArea: OwnerActionDefinition = {
       source: `ownerActions.repair_area.${area.id}`,
       category: 'repair',
       tags: ['repair', area.id],
+    })
+
+    ctx.addCause({
+      source: 'ownerActions.repair_area',
+      sourceType: 'owner_action',
+      target: `area:${area.id}.damage`,
+      targetType: 'area',
+      amount: nextDamage - area.damage,
+      readable: `Owner repaired ${area.label} (${cost} coin).`,
+      tags: ['owner_action', 'repair_area', area.id, 'damage'],
+      relatedLocations: [{ kind: 'area', id: area.id }],
+      relatedSystems: ['areas'],
     })
 
     ctx.addMemory({
@@ -447,6 +473,20 @@ const waterDownAle: OwnerActionDefinition = {
       { quantity: nextQuantity, quality: nextQuality, tags: nextTags },
       { source: 'ownerActions.water_down_ale', reason: 'water_down_ale' },
     )
+
+    // Phase 17 §17.3 — water_down_ale records a quality-decrease cause
+    // so reports can explain the drop without inspecting owner action
+    // history.
+    ctx.addCause({
+      source: 'ownerActions.water_down_ale',
+      sourceType: 'owner_action',
+      target: `stock:${ale.id}.quality`,
+      targetType: 'stock',
+      amount: nextQuality - ale.quality,
+      readable: 'Owner watered down ale, increasing quantity but lowering quality.',
+      tags: ['owner_action', 'water_down_ale', 'ale', 'quality', 'deception'],
+      relatedSystems: ['stock', 'reputation'],
+    })
 
     // Phase 16 §16.3 — `water_down_ale` is the canonical example of a
     // "deception" memory: it stacks strength so repeat use compounds

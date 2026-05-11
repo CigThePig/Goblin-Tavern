@@ -84,6 +84,22 @@ export function resolveWages(ctx: SimContext): WeeklyWageResolution {
       tags: ['wages', 'weekly'],
     })
     for (const member of staff) applyPaidEffects(ctx, member)
+    // Phase 16 §16.3 — wages paid memory + history record.
+    ctx.addMemory({
+      id: 'wages_paid_recently',
+      source: SOURCE,
+      relatedSystems: ['staff'],
+      actors: staff.map((s) => ({ kind: 'staff' as const, id: s.id })),
+      metadata: { totalDue },
+    })
+    ctx.addHistory({
+      category: 'weekly',
+      summary: `Wages paid in full (${totalDue} coin).`,
+      tags: ['weekly', 'wages', 'paid'],
+      relatedActors: staff.map((s) => ({ kind: 'staff' as const, id: s.id })),
+      relatedSystems: ['staff'],
+      mechanicalRefs: ['resolveWages'],
+    })
     return {
       totalDue,
       paid: true,
@@ -94,6 +110,23 @@ export function resolveWages(ctx: SimContext): WeeklyWageResolution {
 
   // Insufficient coin — pay nobody. Recommended behaviour from §14.2.
   for (const member of staff) applyUnpaidEffects(ctx, member)
+  // Phase 16 §16.3 — repeated unpaid weeks stack strength on this memory,
+  // which feeds the `repeated_unpaid_wages` pattern detector.
+  ctx.addMemory({
+    id: 'wages_unpaid_recently',
+    source: SOURCE,
+    relatedSystems: ['staff'],
+    actors: staff.map((s) => ({ kind: 'staff' as const, id: s.id })),
+    metadata: { totalDue },
+  })
+  ctx.addHistory({
+    category: 'weekly',
+    summary: `Wages went unpaid (${totalDue} coin shortfall).`,
+    tags: ['weekly', 'wages', 'unpaid', 'risk'],
+    relatedActors: staff.map((s) => ({ kind: 'staff' as const, id: s.id })),
+    relatedSystems: ['staff'],
+    mechanicalRefs: ['resolveWages'],
+  })
   return {
     totalDue,
     paid: false,

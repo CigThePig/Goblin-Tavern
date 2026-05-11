@@ -107,15 +107,85 @@ export type ReputationState = {
   respectable: number
 }
 
+// Phase 16 §"Calendar Stamp" — a stable, serializable timestamp used by
+// memories and history. `absoluteDay` mirrors `CalendarState.totalDaysElapsed`
+// so the age of any stamped entry can be computed without re-resolving
+// week/month boundaries.
+export type CalendarStamp = {
+  year: number
+  month: number
+  week: number
+  day: number
+  absoluteDay: number
+}
+
+// Phase 16 §"Memory Shape" — a memory's `actors` and `locations` reference
+// other simulation entities (staff, customer groups, areas, stock items).
+// Kept as a plain `{ kind, id }` pair so the array stays JSON-compatible.
+export type EntityRef = {
+  kind:
+    | 'staff'
+    | 'customer_group'
+    | 'area'
+    | 'stock'
+    | 'role'
+    | 'system'
+    | 'other'
+  id: string
+}
+
+// Phase 16 §"Memory Shape" / §16.1 — `MemoryState` is the on-state record
+// for a single memory instance. The Phase 5 placeholder shape
+// (`id, type, strength, ageDays, durationDays?, tags, relatedIds, data?`)
+// is replaced with the Phase 16 shape: typed actor/location refs,
+// calendar stamps, decay rate, source, and structured metadata. The
+// `'hook'` type is renamed to `'future_hook'` and `'pattern'` joins the
+// canonical set.
+export type MemoryType = 'fact' | 'timed' | 'grudge' | 'pattern' | 'future_hook'
+
 export type MemoryState = {
   id: string
-  type: 'fact' | 'timed' | 'grudge' | 'hook'
+  type: MemoryType
+  /** Definition id from the memory registry, if this memory has one. */
+  definitionId?: string
+  label?: string
   strength: number
   ageDays: number
   durationDays?: number
+  decayRate?: number
+  createdAt: CalendarStamp
+  expiresAt?: CalendarStamp
+  actors: EntityRef[]
+  locations: EntityRef[]
+  relatedSystems: string[]
   tags: string[]
-  relatedIds: string[]
-  data?: Record<string, unknown>
+  source?: string
+  metadata?: Record<string, unknown>
+}
+
+// Phase 16 §"History Log Shape" — append-only debug record that lives
+// alongside (but distinct from) `state.memories`. Memories influence the
+// simulation; history records what already happened.
+export type HistoryCategory =
+  | 'owner_action'
+  | 'service'
+  | 'weekly'
+  | 'monthly'
+  | 'state_change'
+  | 'memory'
+  | 'pressure'
+  | 'system'
+
+export type HistoryEntry = {
+  id: string
+  timestamp: CalendarStamp
+  category: HistoryCategory
+  summary: string
+  tags: string[]
+  relatedActors: EntityRef[]
+  relatedLocations: EntityRef[]
+  relatedSystems: string[]
+  mechanicalRefs?: string[]
 }
 
 export type CauseState = {
@@ -149,6 +219,7 @@ export type TavernState = {
   reputation: ReputationState
 
   memories: MemoryState[]
+  history: HistoryEntry[]
   causes: CauseState[]
   pressures: Record<string, PressureState>
 

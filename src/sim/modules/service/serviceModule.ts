@@ -157,6 +157,75 @@ const afterServiceHook: SimulationHook = (ctx: SimContext): void => {
   const satisfactionChanges = collectSatisfactionChanges(ctx)
   next.satisfactionChanges = satisfactionChanges
   writeResult(ctx, next, 'after_service')
+
+  // Phase 16 §16.3 — fold today's incidents and shortages into
+  // memories. The memory module never decides *what* happened — it
+  // just records the events each system already produced.
+  emitServiceMemories(ctx, next, satisfactionChanges)
+}
+
+function emitServiceMemories(
+  ctx: SimContext,
+  result: DailyServiceResult,
+  satisfactionChanges: CustomerSatisfactionChange[],
+): void {
+  // Brawls → `recent_brawl`. A single major brawl is enough to drop
+  // the memory; stacking strength means multiple brawls in a window
+  // compound.
+  const brawl = result.incidents.find((i) => i.id === 'minor_brawl')
+  if (brawl) {
+    ctx.addMemory({
+      id: 'recent_brawl',
+      source: SOURCE,
+      metadata: { severity: brawl.severity, actorGroup: brawl.actorGroup },
+      ...(brawl.actorGroup
+        ? { actors: [{ kind: 'customer_group', id: brawl.actorGroup }] }
+        : {}),
+      ...(brawl.areaId
+        ? { locations: [{ kind: 'area', id: brawl.areaId }] }
+        : {}),
+    })
+    ctx.addHistory({
+      category: 'service',
+      summary: `Brawl during service (severity ${brawl.severity}).`,
+      tags: ['service', 'incident', 'brawl'],
+      relatedSystems: ['service'],
+      mechanicalRefs: ['minor_brawl'],
+      ...(brawl.actorGroup
+        ? { relatedActors: [{ kind: 'customer_group' as const, id: brawl.actorGroup }] }
+        : {}),
+      ...(brawl.areaId
+        ? { relatedLocations: [{ kind: 'area' as const, id: brawl.areaId }] }
+        : {}),
+    })
+  }
+
+  // Shortages by stock id → `ale_shortage_recently` / `stew_shortage_recently`.
+  const shortageStocks = new Set<string>()
+  for (const shortage of result.shortages) shortageStocks.add(shortage.stockId)
+  if (shortageStocks.has('ale')) {
+    ctx.addMemory({
+      id: 'ale_shortage_recently',
+      source: SOURCE,
+    })
+  }
+  if (shortageStocks.has('stew')) {
+    ctx.addMemory({
+      id: 'stew_shortage_recently',
+      source: SOURCE,
+    })
+  }
+
+  // Merchant satisfaction drop → `merchants_unhappy_recently`.
+  const merchantChange = satisfactionChanges.find((s) => s.groupId === 'merchants')
+  if (merchantChange && merchantChange.delta <= -2) {
+    ctx.addMemory({
+      id: 'merchants_unhappy_recently',
+      source: SOURCE,
+      actors: [{ kind: 'customer_group', id: 'merchants' }],
+      metadata: { delta: merchantChange.delta, after: merchantChange.after },
+    })
+  }
 }
 
 function collectSatisfactionChanges(

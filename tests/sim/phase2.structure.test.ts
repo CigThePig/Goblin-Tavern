@@ -33,6 +33,7 @@ import { ownerActionsModule } from '../../src/sim/modules/ownerActions'
 import { weeklyModule } from '../../src/sim/modules/weekly'
 import { monthlyModule } from '../../src/sim/modules/monthly'
 import { memoriesModule } from '../../src/sim/modules/memories'
+import { historyModule } from '../../src/sim/modules/history'
 import { causesModule } from '../../src/sim/modules/causes'
 import { pressuresModule } from '../../src/sim/modules/pressures'
 import { reportsModule } from '../../src/sim/modules/reports'
@@ -189,6 +190,7 @@ describe('Core sim modules', () => {
       weeklyModule,
       monthlyModule,
       memoriesModule,
+      historyModule,
       causesModule,
       pressuresModule,
       reportsModule,
@@ -206,6 +208,7 @@ describe('Core sim modules', () => {
       'weekly',
       'monthly',
       'memories',
+      'history',
       'causes',
       'pressures',
       'reports',

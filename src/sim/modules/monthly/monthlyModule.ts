@@ -407,6 +407,31 @@ const endMonthHook: SimulationHook = (ctx: SimContext): void => {
     accumulatorAfterRent,
     ctx.state.calendar.month,
   )
+  // Phase 16 §16.3 — a fresh inspector warning seeds both a "recently
+  // warned" memory and a `future_hook` so later phases can spot a
+  // follow-up visit. We also drop a history entry summarizing the
+  // resolution either way.
+  if (inspectionOutcome.resolution.warningIssuedThisMonth) {
+    ctx.addMemory({
+      id: 'inspection_warning_recently',
+      source: 'monthly.inspection',
+      metadata: {
+        suspicion: inspectionOutcome.resolution.suspicionAfter,
+        warningCount: inspectionOutcome.resolution.warningCount,
+      },
+    })
+    ctx.addMemory({
+      id: 'inspector_followup_possible',
+      source: 'monthly.inspection',
+    })
+    ctx.addHistory({
+      category: 'monthly',
+      summary: `Inspector issued a warning (suspicion ${inspectionOutcome.resolution.suspicionAfter}).`,
+      tags: ['monthly', 'inspection', 'warning'],
+      relatedSystems: ['inspection'],
+      mechanicalRefs: ['resolveInspection'],
+    })
+  }
   const landlordOutcome = resolveLandlord(
     ctx.state,
     slice.landlord,

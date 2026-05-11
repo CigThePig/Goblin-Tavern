@@ -118,15 +118,74 @@ export const ReputationStateSchema = z.object({
   respectable: meter(),
 })
 
+// Phase 16 §"Calendar Stamp" — stable timestamp shared by memories and
+// history entries. `absoluteDay` mirrors `CalendarState.totalDaysElapsed`.
+export const CalendarStampSchema = z.object({
+  year: z.number().int().min(1),
+  month: z.number().int().min(1).max(12),
+  week: z.number().int().min(1).max(4),
+  day: z.number().int().min(1).max(28),
+  absoluteDay: nonNegativeInt(),
+})
+
+export const EntityRefSchema = z.object({
+  kind: z.enum([
+    'staff',
+    'customer_group',
+    'area',
+    'stock',
+    'role',
+    'system',
+    'other',
+  ]),
+  id: z.string(),
+})
+
+// Phase 16 §"Memory Shape" — replaces the Phase 5 placeholder. The
+// `'hook'` type was renamed to `'future_hook'` and `'pattern'` joined
+// the canonical set; the new optional fields (`label`, `definitionId`,
+// `createdAt`, `expiresAt`, `actors`, `locations`, `relatedSystems`,
+// `decayRate`, `source`, `metadata`) give memories enough context for
+// later phases to reason about them.
 export const MemoryStateSchema = z.object({
   id: z.string(),
-  type: z.enum(['fact', 'timed', 'grudge', 'hook']),
+  type: z.enum(['fact', 'timed', 'grudge', 'pattern', 'future_hook']),
+  definitionId: z.string().optional(),
+  label: z.string().optional(),
   strength: z.number(),
   ageDays: nonNegativeInt(),
   durationDays: nonNegativeInt().optional(),
+  decayRate: z.number().optional(),
+  createdAt: CalendarStampSchema,
+  expiresAt: CalendarStampSchema.optional(),
+  actors: z.array(EntityRefSchema),
+  locations: z.array(EntityRefSchema),
+  relatedSystems: z.array(z.string()),
   tags: z.array(z.string()),
-  relatedIds: z.array(z.string()),
-  data: z.record(z.string(), z.unknown()).optional(),
+  source: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+})
+
+// Phase 16 §"History Log Shape" — append-only debug log.
+export const HistoryEntrySchema = z.object({
+  id: z.string(),
+  timestamp: CalendarStampSchema,
+  category: z.enum([
+    'owner_action',
+    'service',
+    'weekly',
+    'monthly',
+    'state_change',
+    'memory',
+    'pressure',
+    'system',
+  ]),
+  summary: z.string(),
+  tags: z.array(z.string()),
+  relatedActors: z.array(EntityRefSchema),
+  relatedLocations: z.array(EntityRefSchema),
+  relatedSystems: z.array(z.string()),
+  mechanicalRefs: z.array(z.string()).optional(),
 })
 
 export const CauseEntrySchema = z.object({
@@ -181,6 +240,7 @@ export function buildTavernStateSchema(modules: ReadonlyArray<SimulationModule>)
     customerGroups: z.record(z.string(), CustomerGroupStateSchema),
     reputation: ReputationStateSchema,
     memories: z.array(MemoryStateSchema),
+    history: z.array(HistoryEntrySchema),
     causes: z.array(CauseEntrySchema),
     pressures: z.record(z.string(), PressureStateSchema),
     modules: buildModulesSchema(modules),

@@ -94,6 +94,23 @@ const cleanArea: OwnerActionDefinition = {
       { source: 'ownerActions.clean_area', reason: 'clean_area' },
     )
 
+    // Phase 16 §16.3 — clean_area drops an `area_cleaned_recently`
+    // memory and a debug-facing history entry.
+    ctx.addMemory({
+      id: 'area_cleaned_recently',
+      locations: [{ kind: 'area', id: area.id }],
+      source: 'ownerActions.clean_area',
+      metadata: { areaId: area.id },
+    })
+    ctx.addHistory({
+      category: 'owner_action',
+      summary: `Owner cleaned ${area.label}.`,
+      tags: ['owner_action', 'clean_area', area.id],
+      relatedLocations: [{ kind: 'area', id: area.id }],
+      relatedSystems: ['areas'],
+      mechanicalRefs: ['clean_area'],
+    })
+
     return {
       actionId: cleanArea.id,
       label: `Cleaned ${area.label}`,
@@ -160,6 +177,21 @@ const repairArea: OwnerActionDefinition = {
       source: `ownerActions.repair_area.${area.id}`,
       category: 'repair',
       tags: ['repair', area.id],
+    })
+
+    ctx.addMemory({
+      id: 'area_repaired_recently',
+      locations: [{ kind: 'area', id: area.id }],
+      source: 'ownerActions.repair_area',
+      metadata: { areaId: area.id, coinSpent: cost },
+    })
+    ctx.addHistory({
+      category: 'owner_action',
+      summary: `Owner repaired ${area.label} (${cost} coin).`,
+      tags: ['owner_action', 'repair_area', area.id],
+      relatedLocations: [{ kind: 'area', id: area.id }],
+      relatedSystems: ['areas'],
+      mechanicalRefs: ['repair_area'],
     })
 
     return {
@@ -343,6 +375,21 @@ const payStaffBonus: OwnerActionDefinition = {
       tags: ['bonus', staff.id],
     })
 
+    ctx.addMemory({
+      id: 'staff_bonus_paid_recently',
+      actors: [{ kind: 'staff', id: staff.id }],
+      source: 'ownerActions.pay_staff_bonus',
+      metadata: { staffId: staff.id, amount },
+    })
+    ctx.addHistory({
+      category: 'owner_action',
+      summary: `Owner paid ${staff.name} a ${amount}-coin bonus.`,
+      tags: ['owner_action', 'pay_staff_bonus', staff.id],
+      relatedActors: [{ kind: 'staff', id: staff.id }],
+      relatedSystems: ['staff'],
+      mechanicalRefs: ['pay_staff_bonus'],
+    })
+
     return {
       actionId: payStaffBonus.id,
       label: `Paid Bonus: ${staff.name}`,
@@ -400,6 +447,22 @@ const waterDownAle: OwnerActionDefinition = {
       { quantity: nextQuantity, quality: nextQuality, tags: nextTags },
       { source: 'ownerActions.water_down_ale', reason: 'water_down_ale' },
     )
+
+    // Phase 16 §16.3 — `water_down_ale` is the canonical example of a
+    // "deception" memory: it stacks strength so repeat use compounds
+    // the customer-trust risk over the 14-day window.
+    ctx.addMemory({
+      id: 'watered_ale_recently',
+      source: 'ownerActions.water_down_ale',
+      metadata: { stretchedBy: stretch, qualityBefore: ale.quality, qualityAfter: nextQuality },
+    })
+    ctx.addHistory({
+      category: 'owner_action',
+      summary: `Owner watered down ale (+${stretch} qty, -15 quality).`,
+      tags: ['owner_action', 'water_down_ale', 'deception'],
+      relatedSystems: ['stock', 'reputation'],
+      mechanicalRefs: ['water_down_ale'],
+    })
 
     return {
       actionId: waterDownAle.id,
@@ -557,6 +620,21 @@ const patchRoof: OwnerActionDefinition = {
       })
     }
 
+    ctx.addMemory({
+      id: 'roof_patched_recently',
+      locations: [{ kind: 'area', id: roof.id }],
+      source: 'ownerActions.patch_roof',
+      metadata: { coinSpent: cost },
+    })
+    ctx.addHistory({
+      category: 'owner_action',
+      summary: `Owner patched the roof (${cost} coin).`,
+      tags: ['owner_action', 'patch_roof', 'roof'],
+      relatedLocations: [{ kind: 'area', id: roof.id }],
+      relatedSystems: ['areas'],
+      mechanicalRefs: ['patch_roof'],
+    })
+
     return {
       actionId: patchRoof.id,
       label: 'Patched Roof',
@@ -620,6 +698,20 @@ const fumigateCellar: OwnerActionDefinition = {
       source: 'ownerActions.fumigate_cellar',
       category: 'repair',
       tags: ['fumigate', 'cellar'],
+    })
+
+    ctx.addMemory({
+      id: 'cellar_fumigated_recently',
+      locations: [{ kind: 'area', id: cellar.id }],
+      source: 'ownerActions.fumigate_cellar',
+    })
+    ctx.addHistory({
+      category: 'owner_action',
+      summary: `Owner fumigated the cellar (${FUMIGATE_COST} coin).`,
+      tags: ['owner_action', 'fumigate_cellar', 'cellar', 'pests'],
+      relatedLocations: [{ kind: 'area', id: cellar.id }],
+      relatedSystems: ['areas'],
+      mechanicalRefs: ['fumigate_cellar'],
     })
 
     return {

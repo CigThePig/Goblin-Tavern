@@ -1,9 +1,12 @@
 import type { z } from 'zod'
 import type {
   AreaStateSchema,
+  CalendarStampSchema,
   CalendarStateSchema,
   CauseEntrySchema,
   CustomerGroupStateSchema,
+  EntityRefSchema,
+  HistoryEntrySchema,
   MemoryStateSchema,
   PressureStateSchema,
   ReputationStateSchema,
@@ -26,7 +29,10 @@ export type StaffState = z.infer<typeof StaffStateSchema>
 export type CustomerGroupState = z.infer<typeof CustomerGroupStateSchema>
 export type ReputationState = z.infer<typeof ReputationStateSchema>
 export type CalendarState = z.infer<typeof CalendarStateSchema>
+export type CalendarStamp = z.infer<typeof CalendarStampSchema>
+export type EntityRef = z.infer<typeof EntityRefSchema>
 export type MemoryState = z.infer<typeof MemoryStateSchema>
+export type HistoryEntry = z.infer<typeof HistoryEntrySchema>
 export type CauseEntry = z.infer<typeof CauseEntrySchema>
 export type PressureState = z.infer<typeof PressureStateSchema>
 export type TavernMetaState = z.infer<typeof TavernMetaStateSchema>

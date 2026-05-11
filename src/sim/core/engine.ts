@@ -1,8 +1,31 @@
 import { advanceCalendar, isEndOfMonth, isEndOfWeek } from '../modules/calendar/index'
 import { cloneTavernState } from '../state/defaults'
 import { safeValidateState } from '../state/validation'
-import type { TavernState, AreaState, StockState, StaffState, CustomerGroupState, ReputationState } from '../state/TavernState'
+import type {
+  AreaState,
+  CustomerGroupState,
+  EntityRef,
+  HistoryEntry,
+  MemoryState,
+  ReputationState,
+  StaffState,
+  StockState,
+  TavernState,
+} from '../state/TavernState'
 import type { ValidationIssue, ValidationSummary } from '../state/types'
+import {
+  MEMORIES_MODULE_ID,
+  createInitialMemoryModuleState,
+  memoryRegistry,
+  ageMemories,
+  bumpStrength,
+  stampFromCalendar,
+} from '../modules/memories/index'
+import type {
+  MemoryModuleState,
+} from '../modules/memories/memoryModule'
+import type { MemoryDraft, MemoryDefinition } from '../modules/memories/memoryTypes'
+import type { HistoryEntryDraft } from '../modules/history/types'
 
 import { createRng } from './rng'
 import type {
@@ -24,6 +47,77 @@ import type { SimResult } from './result'
 // Validation, calendar advancement, and report collection are built in.
 
 const ENGINE_SOURCE = 'engine'
+
+// Phase 16 §16.2 — Helpers for memory draft → memory state assembly.
+function mergeTags(
+  draftTags: ReadonlyArray<string> | undefined,
+  defTags: ReadonlyArray<string> | undefined,
+): string[] {
+  const out: string[] = []
+  for (const tag of defTags ?? []) {
+    if (!out.includes(tag)) out.push(tag)
+  }
+  for (const tag of draftTags ?? []) {
+    if (!out.includes(tag)) out.push(tag)
+  }
+  return out
+}
+
+function mergeStrings(
+  a: ReadonlyArray<string> | undefined,
+  b: ReadonlyArray<string> | undefined,
+): string[] {
+  const out: string[] = []
+  for (const s of a ?? []) if (!out.includes(s)) out.push(s)
+  for (const s of b ?? []) if (!out.includes(s)) out.push(s)
+  return out
+}
+
+function projectExpiry(
+  stamp: { year: number; month: number; week: number; day: number; absoluteDay: number },
+  durationDays: number,
+): typeof stamp {
+  // Project an expiry stamp `durationDays` ahead. The calendar wraps
+  // at 28 days per month / 12 months per year (Phase 3); replicate the
+  // arithmetic here so the projected stamp stays JSON-safe.
+  const totalDays = stamp.absoluteDay + durationDays
+  // We do not have access to the engine's calendar helpers without a
+  // circular import, so synthesize an approximate stamp directly. The
+  // values are advisory — `ageDays >= durationDays` is the canonical
+  // expiration check; `expiresAt` is for debug/report inspection.
+  let dayOfMonth = stamp.day + durationDays
+  let month = stamp.month
+  let year = stamp.year
+  while (dayOfMonth > 28) {
+    dayOfMonth -= 28
+    month += 1
+    if (month > 12) {
+      month = 1
+      year += 1
+    }
+  }
+  const week = Math.floor((dayOfMonth - 1) / 7) + 1
+  return {
+    year,
+    month,
+    week,
+    day: dayOfMonth,
+    absoluteDay: totalDays,
+  }
+}
+
+function countByDefinition(
+  memories: ReadonlyArray<MemoryState>,
+  defId: string,
+): number {
+  let count = 0
+  for (const m of memories) {
+    if (m.definitionId === defId || m.id === defId || m.id.startsWith(`${defId}__`)) {
+      count += 1
+    }
+  }
+  return count
+}
 
 function topologicallySortModules(
   modules: ReadonlyArray<SimulationModule>,
@@ -117,6 +211,225 @@ function createContext(
       throw new Error(`ctx.modify${kind}: unknown ${kind.toLowerCase()} id '${id}'`)
     }
     return value
+  }
+
+  // ---------- Phase 16 §16.2 — memory helpers ----------
+
+  const findMemoryIndex = (id: string): number => {
+    return runtime.current.memories.findIndex((m) => m.id === id)
+  }
+
+  const updateMemoryModuleState = (
+    updater: (current: MemoryModuleState) => MemoryModuleState,
+    reason: string,
+  ): void => {
+    runtime.current = {
+      ...runtime.current,
+      modules: {
+        ...runtime.current.modules,
+        [MEMORIES_MODULE_ID]: updater(
+          (runtime.current.modules[MEMORIES_MODULE_ID] as
+            | MemoryModuleState
+            | undefined) ?? createInitialMemoryModuleState(),
+        ),
+      },
+    }
+    void reason
+  }
+
+  const writeMemories = (next: MemoryState[]): void => {
+    runtime.current = { ...runtime.current, memories: next }
+  }
+
+  const recordNew = (id: string): void => {
+    updateMemoryModuleState((current) => {
+      if (current.newToday.includes(id)) return current
+      return { ...current, newToday: [...current.newToday, id] }
+    }, 'memory_added')
+  }
+
+  const recordExpired = (ids: ReadonlyArray<string>): void => {
+    if (ids.length === 0) return
+    updateMemoryModuleState((current) => {
+      const merged = [...current.expiredToday]
+      for (const id of ids) {
+        if (!merged.includes(id)) merged.push(id)
+      }
+      return { ...current, expiredToday: merged }
+    }, 'memory_expired')
+  }
+
+  const buildMemoryFromDraft = (
+    draft: MemoryDraft,
+    definition: MemoryDefinition | undefined,
+    instanceId: string,
+  ): MemoryState => {
+    const type = draft.type ?? definition?.type ?? 'timed'
+    const strength = draft.strength ?? definition?.defaultStrength ?? 50
+    const durationDays =
+      draft.durationDays ?? definition?.defaultDurationDays
+    const decayRate = draft.decayRate ?? definition?.defaultDecayRate
+    const tags = mergeTags(draft.tags, definition?.tags)
+    const relatedSystems = mergeStrings(
+      draft.relatedSystems,
+      definition?.relatedSystems,
+    )
+    const stamp = stampFromCalendar(runtime.current.calendar)
+    const memory: MemoryState = {
+      id: instanceId,
+      type,
+      strength,
+      ageDays: 0,
+      createdAt: stamp,
+      actors: draft.actors ? draft.actors.map((a) => ({ ...a })) : [],
+      locations: draft.locations
+        ? draft.locations.map((l) => ({ ...l }))
+        : [],
+      relatedSystems,
+      tags,
+    }
+    if (definition?.id !== undefined) memory.definitionId = definition.id
+    else memory.definitionId = draft.id
+    if (definition?.label !== undefined) memory.label = definition.label
+    if (draft.label !== undefined) memory.label = draft.label
+    if (durationDays !== undefined) {
+      memory.durationDays = durationDays
+      memory.expiresAt = projectExpiry(stamp, durationDays)
+    }
+    if (decayRate !== undefined) memory.decayRate = decayRate
+    if (draft.source !== undefined) memory.source = draft.source
+    if (draft.metadata !== undefined) memory.metadata = { ...draft.metadata }
+    return memory
+  }
+
+  const addMemoryInternal = (draft: MemoryDraft): MemoryState => {
+    const def = memoryRegistry.has(draft.id)
+      ? memoryRegistry.get(draft.id)
+      : undefined
+    const stacking = def?.stacking ?? 'replace'
+    const existingIdx = findMemoryIndex(draft.id)
+
+    // Stack strategy: keep all instances around with unique state ids
+    // (definitionId stays equal to the registry id so queries can find
+    // the whole group).
+    if (stacking === 'stack') {
+      const memories = [...runtime.current.memories]
+      const counter = countByDefinition(memories, draft.id) + 1
+      const instanceId = `${draft.id}__${counter}`
+      const built = buildMemoryFromDraft(draft, def, instanceId)
+      memories.push(built)
+      writeMemories(memories)
+      recordNew(instanceId)
+      return built
+    }
+
+    if (existingIdx === -1) {
+      const built = buildMemoryFromDraft(draft, def, draft.id)
+      writeMemories([...runtime.current.memories, built])
+      recordNew(built.id)
+      return built
+    }
+
+    const existing = runtime.current.memories[existingIdx]!
+
+    if (stacking === 'replace') {
+      const built = buildMemoryFromDraft(draft, def, draft.id)
+      const memories = [...runtime.current.memories]
+      memories[existingIdx] = built
+      writeMemories(memories)
+      recordNew(built.id)
+      return built
+    }
+
+    if (stacking === 'refresh') {
+      const stamp = stampFromCalendar(runtime.current.calendar)
+      const durationDays =
+        draft.durationDays ??
+        existing.durationDays ??
+        def?.defaultDurationDays
+      const refreshed: MemoryState = {
+        ...existing,
+        ageDays: 0,
+        createdAt: stamp,
+      }
+      if (durationDays !== undefined) {
+        refreshed.durationDays = durationDays
+        refreshed.expiresAt = projectExpiry(stamp, durationDays)
+      }
+      // A refresh may also lift the strength back to the default.
+      if (draft.strength !== undefined) {
+        refreshed.strength = draft.strength
+      } else if (def?.defaultStrength !== undefined) {
+        refreshed.strength = bumpStrength(existing.strength, 0) // no-op floor/ceil
+        if (refreshed.strength < def.defaultStrength) {
+          refreshed.strength = def.defaultStrength
+        }
+      }
+      const memories = [...runtime.current.memories]
+      memories[existingIdx] = refreshed
+      writeMemories(memories)
+      recordNew(refreshed.id)
+      return refreshed
+    }
+
+    // increase_strength
+    const stamp = stampFromCalendar(runtime.current.calendar)
+    const bump =
+      draft.strength ?? def?.defaultStrength ?? 25
+    const nextStrength = bumpStrength(existing.strength, bump)
+    const durationDays =
+      draft.durationDays ??
+      existing.durationDays ??
+      def?.defaultDurationDays
+    const updated: MemoryState = {
+      ...existing,
+      strength: nextStrength,
+      ageDays: 0,
+      createdAt: stamp,
+    }
+    if (durationDays !== undefined) {
+      updated.durationDays = durationDays
+      updated.expiresAt = projectExpiry(stamp, durationDays)
+    }
+    const memories = [...runtime.current.memories]
+    memories[existingIdx] = updated
+    writeMemories(memories)
+    recordNew(updated.id)
+    return updated
+  }
+
+  // ---------- Phase 16 §16.8 — history helpers ----------
+
+  let historyCounter = 0
+
+  const addHistoryInternal = (draft: HistoryEntryDraft): HistoryEntry => {
+    const stamp = stampFromCalendar(runtime.current.calendar)
+    historyCounter += 1
+    const id =
+      draft.id ??
+      `h-${stamp.absoluteDay}-${historyCounter}`
+    const entry: HistoryEntry = {
+      id,
+      timestamp: stamp,
+      category: draft.category,
+      summary: draft.summary,
+      tags: draft.tags ? [...draft.tags] : [],
+      relatedActors: draft.relatedActors
+        ? draft.relatedActors.map((a) => ({ ...a }))
+        : [],
+      relatedLocations: draft.relatedLocations
+        ? draft.relatedLocations.map((l) => ({ ...l }))
+        : [],
+      relatedSystems: draft.relatedSystems ? [...draft.relatedSystems] : [],
+    }
+    if (draft.mechanicalRefs && draft.mechanicalRefs.length > 0) {
+      entry.mechanicalRefs = [...draft.mechanicalRefs]
+    }
+    runtime.current = {
+      ...runtime.current,
+      history: [...runtime.current.history, entry],
+    }
+    return entry
   }
 
   const ctx: SimContext = {
@@ -222,6 +535,67 @@ function createContext(
           [moduleId]: next,
         },
       }
+    },
+
+    // Phase 16 §16.2 — Memory context API.
+    addMemory(draft): MemoryState {
+      return addMemoryInternal(draft)
+    },
+    removeMemory(id): boolean {
+      const idx = findMemoryIndex(id)
+      if (idx === -1) return false
+      const memories = [...runtime.current.memories]
+      memories.splice(idx, 1)
+      writeMemories(memories)
+      return true
+    },
+    hasMemory(id): boolean {
+      return findMemoryIndex(id) !== -1
+    },
+    getMemory(id): MemoryState | undefined {
+      const idx = findMemoryIndex(id)
+      if (idx === -1) return undefined
+      return runtime.current.memories[idx]
+    },
+    getMemoriesByTag(tag): MemoryState[] {
+      return runtime.current.memories.filter((m) => m.tags.includes(tag))
+    },
+    getMemoriesForActor(actor: EntityRef): MemoryState[] {
+      return runtime.current.memories.filter((m) =>
+        m.actors.some((a) => a.kind === actor.kind && a.id === actor.id),
+      )
+    },
+    getMemoriesForLocation(location: EntityRef): MemoryState[] {
+      return runtime.current.memories.filter((m) =>
+        m.locations.some((l) => l.kind === location.kind && l.id === location.id),
+      )
+    },
+    getMemoryStrength(id): number {
+      const idx = findMemoryIndex(id)
+      if (idx === -1) return 0
+      return runtime.current.memories[idx]!.strength
+    },
+    ageMemoriesEndOfDay(): void {
+      const { next, expired } = ageMemories(runtime.current.memories, 1)
+      writeMemories(next)
+      if (expired.length > 0) {
+        recordExpired(expired.map((m) => m.id))
+      }
+    },
+
+    // Phase 16 §16.8 — History context API.
+    addHistory(draft): HistoryEntry {
+      return addHistoryInternal(draft)
+    },
+    getRecentHistory(days): HistoryEntry[] {
+      if (days <= 0) return []
+      const cutoff = runtime.current.calendar.totalDaysElapsed - days
+      return runtime.current.history.filter(
+        (e) => e.timestamp.absoluteDay >= cutoff,
+      )
+    },
+    getHistoryByTag(tag): HistoryEntry[] {
+      return runtime.current.history.filter((e) => e.tags.includes(tag))
     },
   }
 

@@ -278,20 +278,20 @@ export const GeneratedNameSchema = z.object({
 
 export const CultureWorldStateSchema = z.object({
   id: z.string().min(1),
-  knownName: z.string().min(1),
+  label: z.string().min(1),
   familiarity: meter(),
   comfort: meter(),
   tension: meter(),
   namingProfileId: z.string().min(1),
-  preferredGoods: z.array(z.string()),
-  dislikedConditions: z.array(z.string()),
+  preferredStockTags: z.array(z.string()),
+  dislikedTags: z.array(z.string()),
   importantCalendarTags: z.array(z.string()),
   tags: z.array(z.string()),
 })
 
 export const FactionWorldStateSchema = z.object({
   id: z.string().min(1),
-  name: z.string().min(1),
+  label: z.string().min(1),
   cultureId: z.string().optional(),
   relationship: meter(),
   influence: meter(),
@@ -303,7 +303,8 @@ export const FactionWorldStateSchema = z.object({
 
 export const SupplierWorldStateSchema = z.object({
   id: z.string().min(1),
-  name: GeneratedNameSchema,
+  label: z.string().min(1),
+  name: GeneratedNameSchema.optional(),
   supplierType: z.string().min(1),
   reliability: meter(),
   relationship: meter(),
@@ -317,65 +318,83 @@ export const SupplierWorldStateSchema = z.object({
   activeFlags: z.array(z.string()),
 })
 
-export const RegularCustomerWorldStateSchema = z.object({
+export const RegularWorldStateSchema = z.object({
   id: z.string().min(1),
   name: GeneratedNameSchema,
-  groupId: z.string().min(1),
+  customerGroupId: z.string().min(1),
   cultureId: z.string().optional(),
+  factionId: z.string().optional(),
   loyalty: meter(),
   irritation: meter(),
+  visits: z.number().int().min(0),
   favoriteStockId: z.string().optional(),
-  knownIncidents: z.array(z.string()),
+  knownIncidentIds: z.array(z.string()),
   firstSeenDay: z.number().int().min(0),
   lastSeenDay: z.number().int().min(0),
-  personalityTags: z.array(z.string()),
+  tags: z.array(z.string()),
   activeFlags: z.array(z.string()),
 })
 
 export const NotableNpcWorldStateSchema = z.object({
   id: z.string().min(1),
   name: GeneratedNameSchema,
-  npcType: z.string().min(1),
-  groupId: z.string().optional(),
+  kind: z.string().min(1),
+  customerGroupId: z.string().optional(),
   cultureId: z.string().optional(),
   factionId: z.string().optional(),
-  relationship: meter(),
+  firstSeenDay: z.number().int().min(0),
+  lastSeenDay: z.number().int().min(0).optional(),
   tags: z.array(z.string()),
   activeFlags: z.array(z.string()),
 })
 
 export const LocalEventWorldStateSchema = z.object({
   id: z.string().min(1),
-  eventType: z.string().min(1),
-  status: z.enum(['pending', 'active', 'resolved', 'expired']),
-  startDay: z.number().int().min(0),
-  endDay: z.number().int().min(0).optional(),
+  definitionId: z.string().min(1),
+  label: z.string().min(1),
+  startedDay: z.number().int().min(0),
+  endsDay: z.number().int().min(0).optional(),
+  intensity: meter(),
   relatedFactionIds: z.array(z.string()),
   relatedCultureIds: z.array(z.string()),
   tags: z.array(z.string()),
+  activeFlags: z.array(z.string()),
 })
+```
+
+Note: arc stage progression (`seeded` → `rising` → `active` → `climax` → `resolved` → `failed`) belongs to Phase 35's `LocalArcState`, not to this base local-event record. Local events here are persistent simulation facts; arc stages live in the Phase 35 arc module state.
+
+```ts
 
 export const SocialRumourWorldStateSchema = z.object({
   id: z.string().min(1),
-  sourceEventId: z.string().optional(),
-  subject: EntityRefSchema,
-  spread: meter(),
+  label: z.string().min(1),
+  strength: meter(),
   accuracy: z.enum(['true', 'partial', 'false', 'unknown']),
+  sourceEntityId: z.string().optional(),
+  targetEntityId: z.string().optional(),
+  subject: EntityRefSchema.optional(),
+  firstHeardDay: z.number().int().min(0),
+  lastSpreadDay: z.number().int().min(0),
   tags: z.array(z.string()),
+  involvedRefs: z.array(EntityRefSchema).optional(),
 })
 
 export const TavernIdentityWorldStateSchema = z.object({
-  establishedTraits: z.array(z.string()),
+  foundingDay: z.number().int().min(0),
   knownFor: z.array(z.string()),
-  localNicknames: z.array(z.string()),
-  signatureGoods: z.array(z.string()),
+  houseRules: z.array(z.string()),
+  atmosphereTags: z.array(z.string()),
+  // optional richer descriptors — may be empty until later phases populate them
+  localNicknames: z.array(z.string()).optional(),
+  signatureGoods: z.array(z.string()).optional(),
 })
 
 export const WorldStateSchema = z.object({
   cultures: z.record(z.string(), CultureWorldStateSchema),
   factions: z.record(z.string(), FactionWorldStateSchema),
   suppliers: z.record(z.string(), SupplierWorldStateSchema),
-  regulars: z.record(z.string(), RegularCustomerWorldStateSchema),
+  regulars: z.record(z.string(), RegularWorldStateSchema),
   notableNpcs: z.record(z.string(), NotableNpcWorldStateSchema),
   localEvents: z.record(z.string(), LocalEventWorldStateSchema),
   tavernIdentity: TavernIdentityWorldStateSchema,
@@ -709,7 +728,7 @@ Add world mutation helpers to `src/sim/core/context.ts`:
 modifyCulture(id: string, changes: Partial<CultureWorldState>, meta: MutationMeta): void
 modifyFaction(id: string, changes: Partial<FactionWorldState>, meta: MutationMeta): void
 modifySupplier(id: string, changes: Partial<SupplierWorldState>, meta: MutationMeta): void
-modifyRegular(id: string, changes: Partial<RegularCustomerWorldState>, meta: MutationMeta): void
+modifyRegular(id: string, changes: Partial<RegularWorldState>, meta: MutationMeta): void
 modifyNotableNpc(id: string, changes: Partial<NotableNpcWorldState>, meta: MutationMeta): void
 modifyLocalEvent(id: string, changes: Partial<LocalEventWorldState>, meta: MutationMeta): void
 modifySocialRumour(id: string, changes: Partial<SocialRumourWorldState>, meta: MutationMeta): void
@@ -725,15 +744,17 @@ These should be implemented in `src/sim/core/engine.ts` using the same mutation 
 - update change tracker
 - preserve JSON-safe state
 
-### Cause Type Question
+### Cause Type Expansion (canonical home)
 
-Current `CauseTargetType` does not include expanded world domains. It currently includes:
+Phase 27 is the canonical place to extend `CauseTargetType` and cause source types with world kinds. Later phases (28–35) must assume these have already been added here and use them directly. Do not hedge or duplicate this expansion elsewhere.
+
+Current `CauseTargetType` includes:
 
 ```ts
 'coin' | 'area' | 'stock' | 'staff' | 'customer' | 'reputation' | 'pressure' | 'memory' | 'global'
 ```
 
-Update `CauseTargetType` in `src/sim/state/TavernState.ts`, `src/sim/modules/causes/causeTypes.ts`, and `CauseEntrySchema` to include:
+Update `CauseTargetType` in `src/sim/state/TavernState.ts`, `src/sim/modules/causes/causeTypes.ts`, and `CauseEntrySchema` to add:
 
 ```ts
 | 'culture'
@@ -746,7 +767,7 @@ Update `CauseTargetType` in `src/sim/state/TavernState.ts`, `src/sim/modules/cau
 | 'tavern_identity'
 ```
 
-Also update source types if needed:
+Also update cause source types to add:
 
 ```ts
 | 'culture'
@@ -771,7 +792,7 @@ Recommended `SimContext` additions:
 getCulture(id: string): CultureWorldState | undefined
 getFaction(id: string): FactionWorldState | undefined
 getSupplier(id: string): SupplierWorldState | undefined
-getRegular(id: string): RegularCustomerWorldState | undefined
+getRegular(id: string): RegularWorldState | undefined
 getNotableNpc(id: string): NotableNpcWorldState | undefined
 getLocalEvent(id: string): LocalEventWorldState | undefined
 getSocialRumour(id: string): SocialRumourWorldState | undefined
@@ -1434,6 +1455,8 @@ export type SupplierDefinition = {
 }
 ```
 
+Extends the skeleton from Phase 22 with supplier-specific operational fields (`supplierType`, `namingProfileId`, `defaultDebtTolerance`, `defaultPriceBias`, `deliveryPattern`). All Phase 22 field names are preserved.
+
 Create:
 
 ```ts
@@ -1837,11 +1860,11 @@ Recommended type:
 ```ts
 export type CultureDefinition = {
   id: string
-  displayName: string
+  label: string
   namingProfileId: string
   description: string
-  preferredGoods: string[]
-  dislikedConditions: string[]
+  preferredStockTags: string[]
+  dislikedTags: string[]
   importantCalendarTags: string[]
   areaTraitPreferences?: {
     likes: string[]
@@ -1948,13 +1971,13 @@ function createInitialCultures(): Record<string, CultureWorldState> {
   for (const def of cultureRegistry.all()) {
     cultures[def.id] = {
       id: def.id,
-      knownName: def.displayName,
+      label: def.label,
       familiarity: def.defaultFamiliarity,
       comfort: def.defaultComfort,
       tension: def.defaultTension,
       namingProfileId: def.namingProfileId,
-      preferredGoods: [...def.preferredGoods],
-      dislikedConditions: [...def.dislikedConditions],
+      preferredStockTags: [...def.preferredStockTags],
+      dislikedTags: [...def.dislikedTags],
       importantCalendarTags: [...def.importantCalendarTags],
       tags: [...def.tags],
     }
@@ -1983,7 +2006,7 @@ Recommended type:
 ```ts
 export type FactionDefinition = {
   id: string
-  displayName: string
+  label: string
   cultureId?: string
   description: string
   defaultRelationship: number
@@ -1995,6 +2018,13 @@ export type FactionDefinition = {
   likedPolicies: string[]
   tags: string[]
 }
+```
+
+Note: Phase 22's skeleton included a separate `pressureTags` field. Fold that purpose into `tags` here — there is no behaviour Phase 22's `pressureTags` needs that an entry in `tags` cannot serve. Saves one array per faction definition.
+
+```ts
+// `pressureTags` from Phase 22 are now expressed as entries in `tags`,
+// e.g., tags: ['town_watch_pressure', 'inspection_authority']
 ```
 
 Starter factions:
@@ -2023,7 +2053,7 @@ function createInitialFactions(): Record<string, FactionWorldState> {
   for (const def of factionRegistry.all()) {
     factions[def.id] = {
       id: def.id,
-      name: def.displayName,
+      label: def.label,
       cultureId: def.cultureId,
       relationship: def.defaultRelationship,
       influence: def.defaultInfluence,
@@ -2097,11 +2127,11 @@ If merchants are dissatisfied, do not create a loyal merchant regular.
 Use Phase 24 RNG streams and Phase 22 naming profiles.
 
 ```ts
-const rng = ctx.rng.stream('npc_identity') // if Phase 24 implemented stream helper
-const name = generateName(culture.namingProfileId, rng, { generatedBy: 'regular_customer' })
+const rng = ctx.getRngStream('regular_identity') // Phase 24 added this stream
+const name = generateName(profile, rng, 'regular_customer')
 ```
 
-If Phase 24 implemented named streams differently, follow that actual API.
+The `regular_identity` stream isolates regular-customer name generation from staff/supplier/NPC streams (see Phase 24).
 
 Do not call `generateName()` in reports. Generate once, store in `state.world.regulars`, then reuse.
 

@@ -752,15 +752,18 @@ type NamingProfile = {
   label: string;
   tags: string[];
 
-  givenNamePatterns: NamePattern[];
-  familyNamePatterns?: NamePattern[];
-  nicknamePatterns?: NamePattern[];
-  titlePatterns?: NamePattern[];
+  // Part pools
+  given: string[];
+  family?: string[];
+  nicknames?: string[];
+  titles?: string[];
 
-  useFamilyNameChance: number;
-  useNicknameChance: number;
-  useTitleChance?: number;
+  // Weighted patterns combine parts via templates like '{given} {family}'.
+  // Pattern weights encode the chance of using a family name, nickname, or title —
+  // no separate useFamilyNameChance / useNicknameChance fields are needed.
+  patterns: NamePattern[];
 
+  // Optional procedural syllable pools for profiles that want generated parts.
   syllables?: {
     starts: string[];
     middles?: string[];
@@ -773,7 +776,7 @@ type NamingProfile = {
 };
 ```
 
-Exact type names may change during implementation.
+Exact type names may change during implementation; the canonical shapes are defined in Phase 22.
 
 The important requirement is that naming logic must be data-driven and registry-backed.
 

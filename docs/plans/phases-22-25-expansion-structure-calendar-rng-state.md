@@ -190,6 +190,8 @@ src/sim/content/
     textIngredientTypes.ts
 ```
 
+`descriptors.ts` holds shared adjective/noun fragment pools used by later phases to build report-section descriptors. These are mechanical labels and tag-fragments, never card prose. Phase 39 consumes these pools when building text-ingredient generators. Phase 22 may leave the file with an empty `export {}` placeholder and a JSDoc explaining its intent.
+
 Why `src/sim/content` instead of more top-level `modules`?
 
 Because these are mostly data definitions, registries, generators, and shared domain types. They should feed modules without becoming daily simulation modules yet.
@@ -279,6 +281,11 @@ export type NamingProfile = {
   nicknames?: string[]
   titles?: string[]
   patterns: NamePattern[]
+  syllables?: {
+    starts: string[]
+    middles?: string[]
+    ends: string[]
+  }
   reservedNames?: string[]
 }
 
@@ -315,6 +322,8 @@ export type CultureDefinition = {
 
 The current `CustomerGroupState` already has `preferredStockTags` and `dislikedTags`. Culture definitions should complement that existing customer-group shape, not replace it.
 
+Note: Phase 30 extends this skeleton with `description`, `areaTraitPreferences?`, `conflictTags`, `defaultFamiliarity`, `defaultComfort`, and `defaultTension`. The skeleton fields here keep the same names (`label`, `preferredStockTags`, `dislikedTags`) — Phase 30 only adds, never renames.
+
 ### Faction Types
 
 Create `src/sim/content/factions/factionTypes.ts`.
@@ -329,6 +338,8 @@ export type FactionDefinition = {
   pressureTags: string[]
 }
 ```
+
+Note: Phase 30 extends this skeleton with `description`, `defaultInfluence`, `defaultTrust`, `defaultFear`, `interests`, `likedPolicies`, and `dislikedPolicies`. Phase 30 folds `pressureTags` into `tags`. The `label` field name stays the same — Phase 30 only adds, never renames.
 
 ### Supplier Types
 
@@ -348,6 +359,8 @@ export type SupplierDefinition = {
 ```
 
 The `goodsProvided` IDs must be intended to reference current `state.stock` keys such as `ale`, `stew`, `mushrooms`, or future stock IDs from `stockRegistry`.
+
+Note: Phase 29 extends this skeleton with `supplierType`, `namingProfileId`, `defaultDebtTolerance`, `defaultPriceBias`, and `deliveryPattern`. The `label` field name stays the same — Phase 29 only adds, never renames.
 
 ### NPC Types
 
@@ -783,10 +796,13 @@ export type RngStreamId =
   | 'npc_identity'
   | 'staff_identity'
   | 'supplier_identity'
+  | 'regular_identity'
   | 'faction_behaviour'
   | 'seasonal_events'
   | 'issue_seed_selection'
 ```
+
+The `regular_identity` stream isolates regular-customer name generation from other NPC streams. This matches Phase 21 contract §7.2 and is used by Phase 30 regular-emergence logic.
 
 Add:
 
@@ -1102,7 +1118,8 @@ export type FactionWorldState = {
   label: string
   relationship: number
   influence: number
-  suspicion: number
+  trust: number
+  fear: number
   cultureId?: string
   tags: string[]
   activeFlags: string[]
@@ -1182,9 +1199,11 @@ export type SocialRumourState = {
   accuracy: 'true' | 'partial' | 'false' | 'unknown'
   sourceEntityId?: string
   targetEntityId?: string
+  subject?: EntityRef
   firstHeardDay: number
   lastSpreadDay: number
   tags: string[]
+  involvedRefs?: EntityRef[]
 }
 
 export type WorldState = {
@@ -1249,6 +1268,7 @@ Add:
 | 'notable_npc'
 | 'local_event'
 | 'rumour'
+| 'tavern_identity'
 ```
 
 Then update `EntityRefSchema` in `src/sim/state/schemas.ts` to match.
@@ -1309,7 +1329,8 @@ Important meter fields should use the existing `meter()` helper:
 - `tension`
 - `relationship`
 - `influence`
-- `suspicion`
+- `trust`
+- `fear`
 - `reliability`
 - `debtTolerance`
 - `loyalty`

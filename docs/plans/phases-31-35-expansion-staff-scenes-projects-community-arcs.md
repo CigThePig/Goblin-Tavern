@@ -261,23 +261,13 @@ Add optional or defaulted fields first, then ensure defaults populate them for a
 Recommended final shape:
 
 ```ts
-export type StaffGeneratedName = {
-  display: string
-  profileId: string
-  parts: {
-    given?: string
-    family?: string
-    nickname?: string
-    title?: string
-  }
-  generatedBy: 'staff_identity' | 'manual' | string
-}
+import type { GeneratedName } from '../../content/naming/nameTypes'
 
 export type StaffIdentityState = {
   groupId: string
   cultureId?: string
   namingProfileId: string
-  generatedName: StaffGeneratedName
+  generatedName: GeneratedName
   personalityTags: string[]
   workStyle: StaffWorkStyle
   stressResponse: StaffStressResponse
@@ -354,48 +344,22 @@ If `src/sim/content/staff/` does not exist yet, create it. The Phase 22 structur
 
 ## 31.3 Naming Types
 
-Create or extend `src/sim/content/naming/nameTypes.ts`.
+Do not redefine naming types here. Import them from Phase 22:
 
 ```ts
-export type GeneratedName = {
-  display: string
-  profileId: string
-  parts: {
-    given?: string
-    family?: string
-    nickname?: string
-    title?: string
-  }
-  generatedBy: string
-}
-
-export type NamePattern = {
-  id: string
-  weight: number
-  format: string
-}
-
-export type NamingProfile = {
-  id: string
-  displayName: string
-  tags: string[]
-  givenNames?: string[]
-  familyNames?: string[]
-  nicknames?: string[]
-  titles?: string[]
-  syllables?: {
-    starts: string[]
-    middles: string[]
-    ends: string[]
-  }
-  patterns: NamePattern[]
-  useFamilyNameChance: number
-  useNicknameChance: number
-  reservedNames?: string[]
-}
+import type {
+  GeneratedName,
+  NamingProfile,
+  NamePattern,
+  NamePartKind,
+} from '../naming/nameTypes'
 ```
 
-Keep the shape deliberately simple. The goal is reliable deterministic names, not a fantasy linguistics engine with a monocle.
+Phase 22's `NamingProfile` already includes the optional `syllables?: { starts, middles?, ends }` field for procedural variety. `NamePattern` uses `{ id, weight, template, partKinds, tags }` — `template` plus `partKinds` is more expressive than a single `format` string and lets weighted patterns subsume profile-level "use family name chance" parameters (a pattern `'{given} {family}'` at weight 8 plus a pattern `'{given}'` at weight 2 encodes an 80% family-name chance directly).
+
+`GeneratedName` keeps Phase 22's `patternId` field — useful for tests answering "which pattern produced this name?".
+
+Phase 31 should not re-export or wrap these types under different names.
 
 ---
 
@@ -403,54 +367,50 @@ Keep the shape deliberately simple. The goal is reliable deterministic names, no
 
 Create initial profiles in `src/sim/content/naming/namingProfiles.ts`.
 
-Minimum profiles:
+Minimum profiles use Phase 22's `NamingProfile` shape:
 
 ```ts
 export const namingProfiles: NamingProfile[] = [
   {
     id: 'goblin_common',
-    displayName: 'Common Goblin',
+    label: 'Common Goblin',
     tags: ['goblin', 'short', 'sharp'],
-    givenNames: ['Nib', 'Grakka', 'Snit', 'Brak', 'Miz', 'Skib', 'Vro', 'Takka'],
-    familyNames: ['Cracket', 'Mugbit', 'Tallowmug', 'Greasewick', 'Bentspoon'],
+    given: ['Nib', 'Grakka', 'Snit', 'Brak', 'Miz', 'Skib', 'Vro', 'Takka'],
+    family: ['Cracket', 'Mugbit', 'Tallowmug', 'Greasewick', 'Bentspoon'],
     nicknames: ['the Quick', 'Soupnose', 'Ashfingers', 'Mug-Cheater'],
     patterns: [
-      { id: 'given_only', weight: 50, format: '{given}' },
-      { id: 'given_family', weight: 35, format: '{given} {family}' },
-      { id: 'given_nickname', weight: 15, format: '{given} {nickname}' },
+      { id: 'given_only',     weight: 50, template: '{given}',           partKinds: ['given'],           tags: ['casual'] },
+      { id: 'given_family',   weight: 35, template: '{given} {family}',  partKinds: ['given', 'family'], tags: ['formal'] },
+      { id: 'given_nickname', weight: 15, template: '{given} {nickname}', partKinds: ['given', 'nickname'], tags: ['informal'] },
     ],
-    useFamilyNameChance: 45,
-    useNicknameChance: 18,
   },
   {
     id: 'human_town',
-    displayName: 'Town Human',
+    label: 'Town Human',
     tags: ['human', 'town'],
-    givenNames: ['Mara', 'Tomlin', 'Bessa', 'Harl', 'Edda', 'Corvin'],
-    familyNames: ['Vetch', 'Cooper', 'Marl', 'Rusk', 'Briar', 'Tanner'],
+    given: ['Mara', 'Tomlin', 'Bessa', 'Harl', 'Edda', 'Corvin'],
+    family: ['Vetch', 'Cooper', 'Marl', 'Rusk', 'Briar', 'Tanner'],
     patterns: [
-      { id: 'given_family', weight: 80, format: '{given} {family}' },
-      { id: 'given_only', weight: 20, format: '{given}' },
+      { id: 'given_family', weight: 80, template: '{given} {family}', partKinds: ['given', 'family'], tags: ['formal'] },
+      { id: 'given_only',   weight: 20, template: '{given}',          partKinds: ['given'],           tags: ['casual'] },
     ],
-    useFamilyNameChance: 85,
-    useNicknameChance: 5,
   },
   {
     id: 'dwarf_caravan',
-    displayName: 'Dwarven Caravan',
+    label: 'Dwarven Caravan',
     tags: ['dwarf', 'caravan', 'trade'],
-    givenNames: ['Borren', 'Hilda', 'Korrim', 'Dagna', 'Varric', 'Beldi'],
-    familyNames: ['Stonekeg', 'Copperbraid', 'Ironpike', 'Ashbarrel', 'Deepmalt'],
-    patterns: [
-      { id: 'given_family', weight: 90, format: '{given} {family}' },
-      { id: 'title_given_family', weight: 10, format: '{title} {given} {family}' },
-    ],
+    given: ['Borren', 'Hilda', 'Korrim', 'Dagna', 'Varric', 'Beldi'],
+    family: ['Stonekeg', 'Copperbraid', 'Ironpike', 'Ashbarrel', 'Deepmalt'],
     titles: ['Auntie', 'Uncle', 'Master', 'Mistress'],
-    useFamilyNameChance: 95,
-    useNicknameChance: 8,
+    patterns: [
+      { id: 'given_family',       weight: 90, template: '{given} {family}',         partKinds: ['given', 'family'],          tags: ['formal'] },
+      { id: 'title_given_family', weight: 10, template: '{title} {given} {family}', partKinds: ['title', 'given', 'family'], tags: ['ceremonial'] },
+    ],
   },
 ]
 ```
+
+Weighted patterns encode the chance of using family names, nicknames, or titles — no separate `useFamilyNameChance` / `useNicknameChance` fields are needed.
 
 These are starter examples. Keep the list small enough to test but diverse enough to prove the generator supports distinct profiles.
 
@@ -469,32 +429,23 @@ Requirements:
 - Avoid infinite loops when a profile has sparse pools.
 - Respect reserved names if present.
 
-Suggested API:
+Phase 24 already established the canonical signature:
 
 ```ts
-import type { Rng } from '../../core/rng'
+import type { SimRng } from '../../core/rng'
 import type { GeneratedName, NamingProfile } from './nameTypes'
 
-export function generateName(args: {
-  profile: NamingProfile
-  rng: Rng
-  generatedBy: string
-  existingDisplayNames?: ReadonlySet<string>
-}): GeneratedName
+export function generateName(
+  profile: NamingProfile,
+  rng: SimRng,
+  generatedBy: string,
+  options?: { existingDisplayNames?: ReadonlySet<string> },
+): GeneratedName
 ```
 
-If `src/sim/core/rng.ts` does not currently export a reusable `Rng` interface, add a small exported type that describes only the methods used by the generator.
+Phase 31 adds the optional `options?` parameter additively — Phase 24 callers passing three arguments still work. The `existingDisplayNames` set lets the generator retry briefly to avoid duplicate display names (capped at a small fixed number of attempts so the function stays deterministic).
 
-Example:
-
-```ts
-export type RngLike = {
-  nextInt: (min: number, max: number) => number
-  nextFloat?: () => number
-}
-```
-
-Use whatever shape matches the actual `createRng` result in `src/sim/core/rng.ts`.
+Use the existing `SimRng` type from `src/sim/core/rng.ts`; do not introduce a parallel `RngLike` interface.
 
 ---
 
@@ -1715,22 +1666,7 @@ Rumours should be stateful if they matter beyond the report. Store them in:
 state.world.socialRumours
 ```
 
-Expected rumour fields from Phase 25 may vary. Recommended shape:
-
-```ts
-export type SocialRumourState = {
-  id: string
-  sourceType: string
-  sourceId: string
-  summary: string
-  strength: number
-  accuracy: 'true' | 'partial' | 'false' | 'unknown'
-  firstHeardDay: number
-  lastMentionedDay: number
-  tags: string[]
-  involvedRefs: EntityRef[]
-}
-```
+Use the canonical `SocialRumourState` shape defined in Phase 25. Do not redefine it here. Weekly community routines write into the same store that the world-state branch already validates.
 
 Rumour examples:
 
@@ -1784,7 +1720,7 @@ ctx.addCause({
 })
 ```
 
-If `CauseTargetType` does not yet include `regular`, `supplier`, or `faction`, either extend it in Phase 26 or use the closest existing target type with explicit target strings. Prefer extending once in Phase 26/34 if this was not already done.
+Phase 27 already added `regular`, `supplier`, `faction`, `culture`, `notable_npc`, `local_event`, `rumour`, and `tavern_identity` to `CauseTargetType`. Use them directly here.
 
 ---
 

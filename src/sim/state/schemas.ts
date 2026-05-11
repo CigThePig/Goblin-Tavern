@@ -43,6 +43,22 @@ export const TavernMetaStateSchema = z.object({
   createdAtDay: nonNegativeInt(),
 })
 
+// Phase 28 §28.1 — Upgrade record carried on `AreaState.upgrades`. The
+// status enum mirrors `AreaUpgradeStatus` on the TS type; `progress` is
+// optional because an `available` upgrade has not been started, and
+// `installedAtDay` is only set once an upgrade is actually installed.
+export const AreaUpgradeStateSchema = z.object({
+  id: z.string(),
+  status: z.enum(['available', 'in_progress', 'installed', 'damaged', 'disabled']),
+  progress: nonNegativeNumber().optional(),
+  installedAtDay: nonNegativeInt().optional(),
+  tags: z.array(z.string()),
+})
+
+// Phase 28 §28.1 — Phase 8's `AreaState` is extended with `traits`,
+// `atmosphere`, and `upgrades`. Existing meter fields are unchanged.
+// Older saves are repaired via `normalizeArea` in `normalize.ts` so the
+// schema can require the new fields outright.
 export const AreaStateSchema = z.object({
   id: z.string(),
   label: z.string(),
@@ -54,6 +70,9 @@ export const AreaStateSchema = z.object({
   risk: meter(),
   tags: z.array(z.string()),
   activeProblems: z.array(z.string()),
+  traits: z.array(z.string()),
+  atmosphere: z.array(z.string()),
+  upgrades: z.record(z.string(), AreaUpgradeStateSchema),
 })
 
 export const StockItemStateSchema = z.object({

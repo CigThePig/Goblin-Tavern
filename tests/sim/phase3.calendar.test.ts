@@ -157,7 +157,7 @@ describe('Phase 3 — Calendar', () => {
     expect(cal.day).toBe(9)
     expect(cal.week).toBe(2)
     expect(cal.dayType).toBe<DayType>('quiet_day')
-    expect(getCalendarLabel(cal)).toBe('Year 1, Month 1, Week 2, Day 9 — Quiet Day')
+    expect(getCalendarLabel(cal)).toBe('Year 1, Month 1, Week 2, Day 9 — Quiet Day, Mudwake')
   })
 
   it('getDayType rejects values outside 1-7', () => {

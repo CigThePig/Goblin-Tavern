@@ -152,7 +152,7 @@ export const MemoryStateSchema = z.object({
   type: z.enum(['fact', 'timed', 'grudge', 'pattern', 'future_hook']),
   definitionId: z.string().optional(),
   label: z.string().optional(),
-  strength: z.number(),
+  strength: meter(),
   ageDays: nonNegativeInt(),
   durationDays: nonNegativeInt().optional(),
   decayRate: z.number().optional(),

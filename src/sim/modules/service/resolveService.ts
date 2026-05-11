@@ -432,6 +432,60 @@ export function applyStaffStressFatigue(
         },
         { source: SOURCE, reason: 'service_recovery' },
       )
+      // Phase 17 §17.5 — attribute the staff meter movements so the cause
+      // report can explain why stress/fatigue/morale shifted during
+      // service. Only emit when the delta crosses the diff-significance
+      // threshold (DEFAULT_THRESHOLDS.meter = 5) so trivial drift does
+      // not flood the cause log.
+      if (Math.abs(change.stressDelta) >= 5) {
+        const driver =
+          totalIncidents > 0
+            ? `${totalIncidents} service incident${totalIncidents === 1 ? '' : 's'} stressed ${staff.name}.`
+            : `${staff.name}'s service priority strained them.`
+        ctx.addCause({
+          source: SOURCE,
+          sourceType: 'service',
+          target: `staff:${staff.id}.stress`,
+          targetType: 'staff',
+          amount: change.stressDelta,
+          readable: driver,
+          tags: ['service', 'staff', staff.id, 'stress'],
+          relatedActors: [{ kind: 'staff', id: staff.id }],
+          relatedSystems: ['staff', 'service'],
+          expiresAfterDays: 7,
+        })
+      }
+      if (Math.abs(change.fatigueDelta) >= 5) {
+        ctx.addCause({
+          source: SOURCE,
+          sourceType: 'service',
+          target: `staff:${staff.id}.fatigue`,
+          targetType: 'staff',
+          amount: change.fatigueDelta,
+          readable: `${staff.name} grew fatigued from serving ${totalTraffic} visitors.`,
+          tags: ['service', 'staff', staff.id, 'fatigue'],
+          relatedActors: [{ kind: 'staff', id: staff.id }],
+          relatedSystems: ['staff', 'service'],
+          expiresAfterDays: 7,
+        })
+      }
+      if (Math.abs(change.moraleDelta) >= 5) {
+        ctx.addCause({
+          source: SOURCE,
+          sourceType: 'service',
+          target: `staff:${staff.id}.morale`,
+          targetType: 'staff',
+          amount: change.moraleDelta,
+          readable:
+            change.moraleDelta > 0
+              ? `Service went smoothly — ${staff.name}'s morale rose.`
+              : `A rough service shift dragged ${staff.name}'s morale down.`,
+          tags: ['service', 'staff', staff.id, 'morale'],
+          relatedActors: [{ kind: 'staff', id: staff.id }],
+          relatedSystems: ['staff', 'service'],
+          expiresAfterDays: 7,
+        })
+      }
     }
 
     if (fatigueDelta > 0 && change.notes.length === 0) {

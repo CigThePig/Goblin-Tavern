@@ -20,6 +20,7 @@ import type {
   ResponseSlot,
 } from '../issues/issueSeedTypes'
 import { scoreAppliedEffects } from '../issues/impactScoring'
+import type { CoinLedgerEntry, StockModuleState } from '../stock/types'
 
 // Phase 19 §19.10 — Response resolver.
 //
@@ -68,11 +69,28 @@ function selectConsequence(
   return { profile, slot }
 }
 
+function appendCoinLedgerEntry(
+  state: TavernState,
+  entry: CoinLedgerEntry,
+): void {
+  const slice =
+    (state.modules.stock as StockModuleState | undefined) ??
+    { ledger: [], shortages: [] }
+  state.modules = {
+    ...state.modules,
+    stock: {
+      ...slice,
+      ledger: [...slice.ledger, entry],
+    },
+  }
+}
+
 /** Apply a single effect preview to a (mutable copy of) state.
  *  Returns whether the effect was applied. */
 function applyStateEffect(
   state: TavernState,
   preview: EffectPreview,
+  source: string,
 ): { applied: boolean; notes?: string[] } {
   if (preview.kind !== 'state_change' && preview.kind !== 'pressure') {
     return { applied: false, notes: ['non-state effect, recorded only'] }
@@ -92,7 +110,23 @@ function applyStateEffect(
   }
   const path = preview.target
   if (path === 'coin') {
-    state.coin = Math.max(0, state.coin + amount)
+    const before = state.coin
+    const next = Math.max(0, before + amount)
+    const applied = next - before
+    state.coin = next
+    // Phase 9 §9.3 — coin moves are always paired with a ledger entry.
+    // Even though the resolver is a preview-only transform (the engine
+    // never runs it), the returned state is meant to be self-consistent
+    // so callers can commit it; downstream `getDailyProfitLoss` reads
+    // the ledger, not the bare coin field.
+    if (applied !== 0) {
+      appendCoinLedgerEntry(state, {
+        source,
+        amount: applied,
+        category: 'other',
+        tags: ['response'],
+      })
+    }
     return { applied: true }
   }
   if (path.startsWith('areas.')) {
@@ -254,9 +288,11 @@ export function resolveResponseIntent(
   let memoriesAdded: MemoryDraft[] = []
   let futureHooksAdded: MemoryDraft[] = []
 
+  const effectSource = `response.${intent.verb}`
+
   if (profile) {
     for (const preview of profile.immediateEffects) {
-      const { applied: ok, notes } = applyStateEffect(after, preview)
+      const { applied: ok, notes } = applyStateEffect(after, preview, effectSource)
       const result: EffectResult = {
         ...preview,
         applied: ok,
@@ -265,7 +301,7 @@ export function resolveResponseIntent(
       applied.push(result)
       if (ok && preview.kind === 'state_change') {
         causesAdded.push({
-          source: `response.${intent.verb}`,
+          source: effectSource,
           target: targetForEffect(preview),
           readable: preview.readable,
           amount: preview.amount ?? 0,

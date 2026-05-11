@@ -31,6 +31,7 @@ import type {
   StaffState,
   StockState,
   TavernState,
+  WorldState,
 } from './TavernState'
 
 // Phase 8 §8.1 — Area defaults are sourced from `areaRegistry` rather than
@@ -180,6 +181,28 @@ function createInitialPressures(): Record<string, PressureState> {
   return pressures
 }
 
+// Phase 25 §"Default World State" — empty but valid containers for the
+// new top-level `world` branch. Phase 25 deliberately does not seed real
+// cultures, factions, suppliers, or regulars; later phases populate them
+// from the Phase 22 content registries.
+export function createInitialWorldState(): WorldState {
+  return {
+    cultures: {},
+    factions: {},
+    suppliers: {},
+    regulars: {},
+    notableNpcs: {},
+    localEvents: {},
+    tavernIdentity: {
+      foundingDay: 0,
+      knownFor: [],
+      houseRules: [],
+      atmosphereTags: [],
+    },
+    socialRumours: {},
+  }
+}
+
 export function createInitialTavernState(overrides?: Partial<TavernState>): TavernState {
   const base: TavernState = {
     meta: {
@@ -195,6 +218,10 @@ export function createInitialTavernState(overrides?: Partial<TavernState>): Tave
     staff: createInitialStaff(),
     customerGroups: createInitialCustomerGroups(),
     reputation: createInitialReputation(),
+    // Phase 25 §"Default World State" — empty `world` branch seeded so
+    // schemas validate from day zero. Cultures, factions, suppliers,
+    // regulars, etc. are added by later phases.
+    world: createInitialWorldState(),
     memories: [],
     history: [],
     causes: [],

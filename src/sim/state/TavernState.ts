@@ -1,4 +1,6 @@
 import type { CalendarState } from '../modules/calendar/types'
+import type { GeneratedName, NamingProfileId } from '../content/naming/nameTypes'
+import type { RngStreamState } from '../core/rng'
 
 export type TavernMetaState = {
   tavernId: string
@@ -122,6 +124,11 @@ export type CalendarStamp = {
 // Phase 16 §"Memory Shape" — a memory's `actors` and `locations` reference
 // other simulation entities (staff, customer groups, areas, stock items).
 // Kept as a plain `{ kind, id }` pair so the array stays JSON-compatible.
+//
+// Phase 25 §"EntityRef Expansion" — widened with world-entity kinds
+// (`culture`, `faction`, `supplier`, `regular`, `notable_npc`,
+// `local_event`, `rumour`, `tavern_identity`) so memories and causes can
+// point at the new `state.world` records introduced in this phase.
 export type EntityRef = {
   kind:
     | 'staff'
@@ -131,6 +138,14 @@ export type EntityRef = {
     | 'role'
     | 'system'
     | 'other'
+    | 'culture'
+    | 'faction'
+    | 'supplier'
+    | 'regular'
+    | 'notable_npc'
+    | 'local_event'
+    | 'rumour'
+    | 'tavern_identity'
   id: string
 }
 
@@ -251,6 +266,129 @@ export type PressureState = {
   topCauses: string[]
 }
 
+// Phase 25 §"Required World State Types" — serializable containers for
+// the wider tavern world: cultures, factions, suppliers, regulars,
+// notable NPCs, local events, tavern identity, and social rumours.
+// Phase 25 only defines the shapes and the empty default containers;
+// later phases (26+) populate and mutate them.
+export type CultureWorldState = {
+  id: string
+  label: string
+  familiarity: number
+  comfort: number
+  tension: number
+  namingProfileId: NamingProfileId
+  preferredStockTags: string[]
+  dislikedTags: string[]
+  importantCalendarTags: string[]
+  tags: string[]
+}
+
+export type FactionWorldState = {
+  id: string
+  label: string
+  relationship: number
+  influence: number
+  trust: number
+  fear: number
+  cultureId?: string
+  tags: string[]
+  activeFlags: string[]
+}
+
+export type SupplierWorldState = {
+  id: string
+  name?: GeneratedName
+  label: string
+  supplierType: string
+  reliability: number
+  relationship: number
+  debtTolerance: number
+  priceBias: number
+  goodsProvided: string[]
+  factionId?: string
+  cultureId?: string
+  lastDeliveryDay?: number
+  tags: string[]
+  activeFlags: string[]
+}
+
+export type RegularWorldState = {
+  id: string
+  name: GeneratedName
+  customerGroupId: string
+  cultureId?: string
+  factionId?: string
+  loyalty: number
+  irritation: number
+  visits: number
+  favoriteStockId?: string
+  firstSeenDay: number
+  lastSeenDay: number
+  knownIncidentIds: string[]
+  tags: string[]
+  activeFlags: string[]
+}
+
+export type NotableNpcWorldState = {
+  id: string
+  name: GeneratedName
+  kind: string
+  cultureId?: string
+  factionId?: string
+  customerGroupId?: string
+  firstSeenDay: number
+  lastSeenDay?: number
+  tags: string[]
+  activeFlags: string[]
+}
+
+export type LocalEventWorldState = {
+  id: string
+  definitionId: string
+  label: string
+  startedDay: number
+  endsDay?: number
+  intensity: number
+  relatedFactionIds: string[]
+  relatedCultureIds: string[]
+  tags: string[]
+  activeFlags: string[]
+}
+
+export type TavernIdentityState = {
+  foundingDay: number
+  knownFor: string[]
+  houseRules: string[]
+  atmosphereTags: string[]
+}
+
+export type SocialRumourState = {
+  id: string
+  label: string
+  strength: number
+  accuracy: 'true' | 'partial' | 'false' | 'unknown'
+  sourceEntityId?: string
+  targetEntityId?: string
+  subject?: EntityRef
+  firstHeardDay: number
+  lastSpreadDay: number
+  tags: string[]
+  involvedRefs?: EntityRef[]
+}
+
+export type WorldState = {
+  cultures: Record<string, CultureWorldState>
+  factions: Record<string, FactionWorldState>
+  suppliers: Record<string, SupplierWorldState>
+  regulars: Record<string, RegularWorldState>
+  notableNpcs: Record<string, NotableNpcWorldState>
+  localEvents: Record<string, LocalEventWorldState>
+  tavernIdentity: TavernIdentityState
+  socialRumours: Record<string, SocialRumourState>
+  rngStreams?: Partial<RngStreamState>
+}
+
 export type TavernState = {
   meta: TavernMetaState
   calendar: CalendarState
@@ -261,6 +399,8 @@ export type TavernState = {
   staff: Record<string, StaffState>
   customerGroups: Record<string, CustomerGroupState>
   reputation: ReputationState
+
+  world: WorldState
 
   memories: MemoryState[]
   history: HistoryEntry[]

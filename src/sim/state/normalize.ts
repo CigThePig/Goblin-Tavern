@@ -1,8 +1,16 @@
 import { clamp } from '../utils/clamp'
 import type {
   AreaState,
+  CultureWorldState,
+  FactionWorldState,
+  LocalEventWorldState,
+  NotableNpcWorldState,
+  RegularWorldState,
+  SocialRumourState,
   StockState,
+  SupplierWorldState,
   TavernState,
+  WorldState,
 } from './TavernState'
 
 // Phase 6 §6.4 — Normalization helpers.
@@ -44,6 +52,106 @@ export function normalizeStockItem(item: StockState): StockState {
   }
 }
 
+// Phase 25 §"Normalization" — clamp the numeric meter fields on world
+// records to [0, 100]. This does NOT invent missing entries or fill in
+// generated names; it only repairs slight numeric drift on existing
+// records. Normalization must never create simulation truth.
+function normalizeCulture(culture: CultureWorldState): CultureWorldState {
+  return {
+    ...culture,
+    familiarity: clampPercent(culture.familiarity),
+    comfort: clampPercent(culture.comfort),
+    tension: clampPercent(culture.tension),
+  }
+}
+
+function normalizeFaction(faction: FactionWorldState): FactionWorldState {
+  return {
+    ...faction,
+    relationship: clampPercent(faction.relationship),
+    influence: clampPercent(faction.influence),
+    trust: clampPercent(faction.trust),
+    fear: clampPercent(faction.fear),
+  }
+}
+
+function normalizeSupplier(supplier: SupplierWorldState): SupplierWorldState {
+  return {
+    ...supplier,
+    reliability: clampPercent(supplier.reliability),
+    relationship: clampPercent(supplier.relationship),
+    debtTolerance: clampPercent(supplier.debtTolerance),
+  }
+}
+
+function normalizeRegular(regular: RegularWorldState): RegularWorldState {
+  return {
+    ...regular,
+    loyalty: clampPercent(regular.loyalty),
+    irritation: clampPercent(regular.irritation),
+    visits: clampNonNegative(regular.visits),
+  }
+}
+
+function normalizeNotableNpc(npc: NotableNpcWorldState): NotableNpcWorldState {
+  return { ...npc }
+}
+
+function normalizeLocalEvent(event: LocalEventWorldState): LocalEventWorldState {
+  return {
+    ...event,
+    intensity: clampPercent(event.intensity),
+  }
+}
+
+function normalizeSocialRumour(rumour: SocialRumourState): SocialRumourState {
+  return {
+    ...rumour,
+    strength: clampPercent(rumour.strength),
+  }
+}
+
+export function normalizeWorldState(world: WorldState): WorldState {
+  const cultures: Record<string, CultureWorldState> = {}
+  for (const [id, culture] of Object.entries(world.cultures)) {
+    cultures[id] = normalizeCulture(culture)
+  }
+  const factions: Record<string, FactionWorldState> = {}
+  for (const [id, faction] of Object.entries(world.factions)) {
+    factions[id] = normalizeFaction(faction)
+  }
+  const suppliers: Record<string, SupplierWorldState> = {}
+  for (const [id, supplier] of Object.entries(world.suppliers)) {
+    suppliers[id] = normalizeSupplier(supplier)
+  }
+  const regulars: Record<string, RegularWorldState> = {}
+  for (const [id, regular] of Object.entries(world.regulars)) {
+    regulars[id] = normalizeRegular(regular)
+  }
+  const notableNpcs: Record<string, NotableNpcWorldState> = {}
+  for (const [id, npc] of Object.entries(world.notableNpcs)) {
+    notableNpcs[id] = normalizeNotableNpc(npc)
+  }
+  const localEvents: Record<string, LocalEventWorldState> = {}
+  for (const [id, event] of Object.entries(world.localEvents)) {
+    localEvents[id] = normalizeLocalEvent(event)
+  }
+  const socialRumours: Record<string, SocialRumourState> = {}
+  for (const [id, rumour] of Object.entries(world.socialRumours)) {
+    socialRumours[id] = normalizeSocialRumour(rumour)
+  }
+  return {
+    ...world,
+    cultures,
+    factions,
+    suppliers,
+    regulars,
+    notableNpcs,
+    localEvents,
+    socialRumours,
+  }
+}
+
 export function normalizeTavernState(state: TavernState): TavernState {
   const areas: Record<string, AreaState> = {}
   for (const [id, area] of Object.entries(state.areas)) {
@@ -53,5 +161,5 @@ export function normalizeTavernState(state: TavernState): TavernState {
   for (const [id, item] of Object.entries(state.stock)) {
     stock[id] = normalizeStockItem(item)
   }
-  return { ...state, areas, stock }
+  return { ...state, areas, stock, world: normalizeWorldState(state.world) }
 }

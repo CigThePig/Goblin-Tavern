@@ -134,6 +134,10 @@ export const CalendarStampSchema = z.object({
   absoluteDay: nonNegativeInt(),
 })
 
+// Phase 25 §"EntityRef Expansion" — the `kind` enum is widened with
+// world-entity kinds so memories and causes can reference cultures,
+// factions, suppliers, regulars, notable NPCs, local events, social
+// rumours, and the tavern's own identity record.
 export const EntityRefSchema = z.object({
   kind: z.enum([
     'staff',
@@ -143,6 +147,14 @@ export const EntityRefSchema = z.object({
     'role',
     'system',
     'other',
+    'culture',
+    'faction',
+    'supplier',
+    'regular',
+    'notable_npc',
+    'local_event',
+    'rumour',
+    'tavern_identity',
   ]),
   id: z.string(),
 })
@@ -249,6 +261,142 @@ export const PressureStateSchema = z.object({
   topCauses: z.array(z.string()),
 })
 
+// Phase 25 §"Schema Additions" — schemas for the new top-level `world`
+// branch. Identity-style numbers (familiarity, comfort, tension,
+// relationship, influence, trust, fear, reliability, debtTolerance,
+// loyalty, irritation, intensity, strength) reuse `meter()`. `priceBias`
+// is intentionally a free number because it may be negative.
+export const GeneratedNameSchema = z.object({
+  display: z.string(),
+  profileId: z.string(),
+  parts: z.record(z.string(), z.string()),
+  patternId: z.string(),
+  generatedBy: z.string(),
+})
+
+const RngStateSchema = z.object({
+  seed: z.string(),
+  calls: nonNegativeInt(),
+})
+
+export const CultureWorldStateSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  familiarity: meter(),
+  comfort: meter(),
+  tension: meter(),
+  namingProfileId: z.string(),
+  preferredStockTags: z.array(z.string()),
+  dislikedTags: z.array(z.string()),
+  importantCalendarTags: z.array(z.string()),
+  tags: z.array(z.string()),
+})
+
+export const FactionWorldStateSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  relationship: meter(),
+  influence: meter(),
+  trust: meter(),
+  fear: meter(),
+  cultureId: z.string().optional(),
+  tags: z.array(z.string()),
+  activeFlags: z.array(z.string()),
+})
+
+export const SupplierWorldStateSchema = z.object({
+  id: z.string(),
+  name: GeneratedNameSchema.optional(),
+  label: z.string(),
+  supplierType: z.string(),
+  reliability: meter(),
+  relationship: meter(),
+  debtTolerance: meter(),
+  priceBias: z.number(),
+  goodsProvided: z.array(z.string()),
+  factionId: z.string().optional(),
+  cultureId: z.string().optional(),
+  lastDeliveryDay: nonNegativeInt().optional(),
+  tags: z.array(z.string()),
+  activeFlags: z.array(z.string()),
+})
+
+export const RegularWorldStateSchema = z.object({
+  id: z.string(),
+  name: GeneratedNameSchema,
+  customerGroupId: z.string(),
+  cultureId: z.string().optional(),
+  factionId: z.string().optional(),
+  loyalty: meter(),
+  irritation: meter(),
+  visits: nonNegativeInt(),
+  favoriteStockId: z.string().optional(),
+  firstSeenDay: nonNegativeInt(),
+  lastSeenDay: nonNegativeInt(),
+  knownIncidentIds: z.array(z.string()),
+  tags: z.array(z.string()),
+  activeFlags: z.array(z.string()),
+})
+
+export const NotableNpcWorldStateSchema = z.object({
+  id: z.string(),
+  name: GeneratedNameSchema,
+  kind: z.string(),
+  cultureId: z.string().optional(),
+  factionId: z.string().optional(),
+  customerGroupId: z.string().optional(),
+  firstSeenDay: nonNegativeInt(),
+  lastSeenDay: nonNegativeInt().optional(),
+  tags: z.array(z.string()),
+  activeFlags: z.array(z.string()),
+})
+
+export const LocalEventWorldStateSchema = z.object({
+  id: z.string(),
+  definitionId: z.string(),
+  label: z.string(),
+  startedDay: nonNegativeInt(),
+  endsDay: nonNegativeInt().optional(),
+  intensity: meter(),
+  relatedFactionIds: z.array(z.string()),
+  relatedCultureIds: z.array(z.string()),
+  tags: z.array(z.string()),
+  activeFlags: z.array(z.string()),
+})
+
+export const TavernIdentityStateSchema = z.object({
+  foundingDay: nonNegativeInt(),
+  knownFor: z.array(z.string()),
+  houseRules: z.array(z.string()),
+  atmosphereTags: z.array(z.string()),
+})
+
+export const SocialRumourStateSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  strength: meter(),
+  accuracy: z.enum(['true', 'partial', 'false', 'unknown']),
+  sourceEntityId: z.string().optional(),
+  targetEntityId: z.string().optional(),
+  subject: EntityRefSchema.optional(),
+  firstHeardDay: nonNegativeInt(),
+  lastSpreadDay: nonNegativeInt(),
+  tags: z.array(z.string()),
+  involvedRefs: z.array(EntityRefSchema).optional(),
+})
+
+export const WorldStateSchema = z.object({
+  cultures: z.record(z.string(), CultureWorldStateSchema),
+  factions: z.record(z.string(), FactionWorldStateSchema),
+  suppliers: z.record(z.string(), SupplierWorldStateSchema),
+  regulars: z.record(z.string(), RegularWorldStateSchema),
+  notableNpcs: z.record(z.string(), NotableNpcWorldStateSchema),
+  localEvents: z.record(z.string(), LocalEventWorldStateSchema),
+  tavernIdentity: TavernIdentityStateSchema,
+  socialRumours: z.record(z.string(), SocialRumourStateSchema),
+  rngStreams: z.record(z.string(), RngStateSchema).optional(),
+})
+
 // Phase 6 §6.1.1 — Module schema composition.
 //
 // Each registered simulation module may declare a `stateSchema` for its
@@ -281,6 +429,8 @@ export function buildTavernStateSchema(modules: ReadonlyArray<SimulationModule>)
     staff: z.record(z.string(), StaffStateSchema),
     customerGroups: z.record(z.string(), CustomerGroupStateSchema),
     reputation: ReputationStateSchema,
+    // Phase 25 §"Schema Additions" — top-level `world` branch.
+    world: WorldStateSchema,
     memories: z.array(MemoryStateSchema),
     history: z.array(HistoryEntrySchema),
     causes: z.array(CauseEntrySchema),

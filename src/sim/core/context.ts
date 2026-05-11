@@ -25,6 +25,13 @@ export type SimInput = {
    * the engine signature does not churn later.
    */
   ownerActions?: ReadonlyArray<unknown>
+  /**
+   * Phase 11 §11.3 — per-day staff priority assignment. Keys are staff
+   * ids; values are `StaffPriorityId`s validated against the role's
+   * `allowedPriorities` by the staff module. Staff members omitted from
+   * this map fall back to the role's default priority.
+   */
+  staffPriorities?: Record<string, string>
 }
 
 /**

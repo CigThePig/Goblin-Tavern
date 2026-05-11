@@ -62,18 +62,28 @@ export const StockItemStateSchema = z.object({
   storageAreaId: z.string().optional(),
 })
 
+// Phase 11 §11.1 — `role` is a registry-validated string (`StaffRoleId`),
+// not a hard-coded union, per the "Role typing clarification" forward
+// note. The schema accepts any string; the staff module's validate hook
+// surfaces unknown role ids as structural issues so registry membership
+// is enforced at the module layer (mirrors how Phase 8 area validation
+// works). `currentPriority` is similarly registry-string typed and
+// optional.
 export const StaffStateSchema = z.object({
   id: z.string(),
   name: z.string(),
-  role: z.enum(['cook', 'server', 'cleaner_bouncer']),
+  role: z.string(),
   skill: meter(),
   morale: meter(),
   stress: meter(),
   fatigue: meter(),
   loyalty: meter(),
   wage: z.number(),
+  paidThisWeek: z.boolean(),
+  currentPriority: z.string().optional(),
+  unavailable: z.boolean().optional(),
   tags: z.array(z.string()),
-  activeProblems: z.array(z.string()),
+  activeFlags: z.array(z.string()),
 })
 
 export const CustomerGroupStateSchema = z.object({

@@ -38,20 +38,35 @@ export type StockState = {
   storageAreaId?: string
 }
 
+// Phase 11 §11.1 / "Role typing clarification" — `StaffRoleId` is a
+// registry string. The earlier Phase 5 placeholder typed `role` as the
+// hard-coded union `'cook' | 'server' | 'cleaner_bouncer'`; that union is
+// kept exported as `StaffRole` for legacy shorthand, but the canonical
+// field type is `StaffRoleId` (a string validated against
+// `staffRegistry`). Same precedent applies to `StaffPriorityId`
+// (validated against `staffPriorityRegistry`).
+export type StaffRoleId = string
+export type StaffPriorityId = string
+
+/** @deprecated Phase 11 — legacy union kept only for backwards-compatible
+ *  type imports. Prefer `StaffRoleId`. */
 export type StaffRole = 'cook' | 'server' | 'cleaner_bouncer'
 
 export type StaffState = {
   id: string
   name: string
-  role: StaffRole
+  role: StaffRoleId
   skill: number
   morale: number
   stress: number
   fatigue: number
   loyalty: number
   wage: number
+  paidThisWeek: boolean
+  currentPriority?: StaffPriorityId
+  unavailable?: boolean
   tags: string[]
-  activeProblems: string[]
+  activeFlags: string[]
 }
 
 // Phase 10 §"Customer Group State" — Phase 10 extends the Phase 5 shape

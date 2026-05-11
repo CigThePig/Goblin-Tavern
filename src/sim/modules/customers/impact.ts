@@ -76,6 +76,26 @@ export function applyCustomerImpact(
     reason: `traffic:${group.id}`,
   })
 
+  // Phase 17 §17.4 — destructive groups carry their main-room damage
+  // forward as an attributable cause so the service report can answer
+  // "why did the main room take damage?".
+  if (damageGain > 0) {
+    ctx.addCause({
+      source: 'customers.impact',
+      sourceType: 'service',
+      target: 'area:main_room.damage',
+      targetType: 'area',
+      amount: damageGain,
+      direction: 'increase',
+      weight: damageGain * 4,
+      readable: `${group.label ?? group.id} traffic caused +${damageGain} main room damage.`,
+      tags: ['service', 'customer_impact', group.id, 'damage', 'main_room'],
+      relatedActors: [{ kind: 'customer_group', id: group.id }],
+      relatedLocations: [{ kind: 'area', id: 'main_room' }],
+      relatedSystems: ['customers', 'areas'],
+    })
+  }
+
   if (damageGain > 0) {
     turnout.notes.push(
       `${group.label ?? group.id} traffic caused +${damageGain} main room damage.`,

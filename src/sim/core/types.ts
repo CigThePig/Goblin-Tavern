@@ -15,5 +15,19 @@ export type {
 } from './module'
 export type { SimulationResult, SimResult } from './result'
 export type { ReportSection, SimLog, SimLogLevel } from './reports'
-export type { StateDiff } from './diff'
+export type {
+  StateChange,
+  StateDiff,
+  DiffThresholds,
+  TaggedStateDiff,
+  PhaseBoundary,
+} from './diff'
+export {
+  DEFAULT_THRESHOLDS,
+  createStateDiff,
+  filterSignificantChanges,
+  tagDiff,
+} from './diff'
+export { ChangeTracker } from './changeTracker'
+export type { EffectKind, EffectPreview, EffectResult } from './effect'
 export { simulateDay, runSimulation } from './engine'

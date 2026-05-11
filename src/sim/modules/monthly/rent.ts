@@ -65,6 +65,18 @@ export function resolveRent(
       relatedSystems: ['monthly'],
       mechanicalRefs: ['resolveRent'],
     })
+    // Phase 17 §17.5 — paid rent is a positive landlord-opinion cause.
+    ctx.addCause({
+      source: 'monthly.rent',
+      sourceType: 'monthly',
+      target: 'pressure:landlord',
+      targetType: 'pressure',
+      amount: -10,
+      readable: `Rent paid in full (${amountDue} coin).`,
+      tags: ['monthly', 'rent', 'paid', 'landlord'],
+      relatedSystems: ['monthly', 'landlord'],
+      expiresAfterDays: 14,
+    })
     return {
       next,
       resolution: {
@@ -97,6 +109,22 @@ export function resolveRent(
     tags: ['monthly', 'rent', 'unpaid', 'risk'],
     relatedSystems: ['monthly'],
     mechanicalRefs: ['resolveRent'],
+  })
+  // Phase 17 §17.5 — missed rent drives landlord pressure up. Weight
+  // reflects the seriousness; tags carry the rent/landlord pair so the
+  // cause report groups them naturally.
+  ctx.addCause({
+    source: 'monthly.rent',
+    sourceType: 'monthly',
+    target: 'pressure:landlord',
+    targetType: 'pressure',
+    amount: 25,
+    weight: 50,
+    direction: 'increase',
+    readable: `Rent went unpaid (${amountDue} coin owed) — landlord pressure rising.`,
+    tags: ['monthly', 'rent', 'unpaid', 'landlord', 'pressure', 'risk'],
+    relatedSystems: ['monthly', 'landlord'],
+    expiresAfterDays: 28,
   })
   return {
     next,

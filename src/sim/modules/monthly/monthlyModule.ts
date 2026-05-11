@@ -431,6 +431,20 @@ const endMonthHook: SimulationHook = (ctx: SimContext): void => {
       relatedSystems: ['inspection'],
       mechanicalRefs: ['resolveInspection'],
     })
+    // Phase 17 §17.5 — inspector warning drives inspection pressure.
+    ctx.addCause({
+      source: 'monthly.inspection',
+      sourceType: 'monthly',
+      target: 'pressure:inspection',
+      targetType: 'pressure',
+      amount: 20,
+      weight: 45,
+      direction: 'increase',
+      readable: `Inspector warning issued (suspicion ${inspectionOutcome.resolution.suspicionAfter}).`,
+      tags: ['monthly', 'inspection', 'warning', 'pressure', 'risk'],
+      relatedSystems: ['monthly', 'inspection'],
+      expiresAfterDays: 28,
+    })
   }
   const landlordOutcome = resolveLandlord(
     ctx.state,

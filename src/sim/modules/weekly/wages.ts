@@ -43,6 +43,20 @@ function applyPaidEffects(ctx: SimContext, staff: StaffState): void {
     },
     { source: SOURCE, reason: 'wages_paid' },
   )
+  // Phase 17 §17.5 — record the wage-paid cause so morale movement is
+  // attributable. Weight is modest because the bump is small.
+  ctx.addCause({
+    source: 'weekly.wages',
+    sourceType: 'weekly',
+    target: `staff:${staff.id}.morale`,
+    targetType: 'staff',
+    amount: nextMorale - staff.morale,
+    readable: `Paid wages stabilized ${staff.name}'s morale.`,
+    tags: ['weekly', 'wages', 'paid', staff.id, 'morale'],
+    relatedActors: [{ kind: 'staff', id: staff.id }],
+    relatedSystems: ['staff'],
+    expiresAfterDays: 7,
+  })
 }
 
 function applyUnpaidEffects(ctx: SimContext, staff: StaffState): void {
@@ -62,6 +76,22 @@ function applyUnpaidEffects(ctx: SimContext, staff: StaffState): void {
     },
     { source: SOURCE, reason: 'wages_unpaid' },
   )
+  // Phase 17 §17.5 — unpaid wages are the canonical "morale dropped"
+  // cause. Weight reflects the multi-meter hit so reports prioritise
+  // it.
+  ctx.addCause({
+    source: 'weekly.wages',
+    sourceType: 'weekly',
+    target: `staff:${staff.id}.morale`,
+    targetType: 'staff',
+    amount: nextMorale - staff.morale,
+    weight: 30,
+    readable: `Wages went unpaid — ${staff.name} morale dropped.`,
+    tags: ['weekly', 'wages', 'unpaid', staff.id, 'morale', 'risk'],
+    relatedActors: [{ kind: 'staff', id: staff.id }],
+    relatedSystems: ['staff'],
+    expiresAfterDays: 14,
+  })
 }
 
 export function resolveWages(ctx: SimContext): WeeklyWageResolution {

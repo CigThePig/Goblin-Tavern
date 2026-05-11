@@ -167,4 +167,67 @@ export function applySatisfactionUpdate(
     { satisfaction: next },
     { source: SOURCE, reason: 'service_satisfaction' },
   )
+
+  // Phase 17 §17.4 — record the dominant negative driver as a cause so
+  // reports can answer "why is this group unhappy?". We always emit a
+  // top-level satisfaction cause (target = customer:<id>.satisfaction)
+  // and add a more specific cause for each strong contributor.
+  const causeTags = ['service', 'satisfaction', group.id]
+  ctx.addCause({
+    source: SOURCE,
+    sourceType: 'service',
+    target: `customer:${group.id}.satisfaction`,
+    targetType: 'customer',
+    amount: next - group.satisfaction,
+    readable:
+      next > group.satisfaction
+        ? `${group.label ?? group.id} satisfaction improved (+${next - group.satisfaction}).`
+        : `${group.label ?? group.id} satisfaction fell (${next - group.satisfaction}).`,
+    tags: causeTags,
+    relatedActors: [{ kind: 'customer_group', id: group.id }],
+    relatedSystems: ['customers'],
+  })
+  if (cleanliness < 0) {
+    ctx.addCause({
+      source: SOURCE,
+      sourceType: 'service',
+      target: `customer:${group.id}.satisfaction`,
+      targetType: 'customer',
+      amount: cleanliness,
+      weight: Math.abs(cleanliness) * 2,
+      readable: `Main room cleanliness fell below ${group.label ?? group.id} tolerance.`,
+      tags: [...causeTags, 'cleanliness', 'main_room'],
+      relatedActors: [{ kind: 'customer_group', id: group.id }],
+      relatedLocations: [{ kind: 'area', id: 'main_room' }],
+      relatedSystems: ['customers', 'areas'],
+    })
+  }
+  if (danger < 0) {
+    ctx.addCause({
+      source: SOURCE,
+      sourceType: 'service',
+      target: `customer:${group.id}.satisfaction`,
+      targetType: 'customer',
+      amount: danger,
+      weight: Math.abs(danger) * 2,
+      readable: `Dangerous areas drove ${group.label ?? group.id} away.`,
+      tags: [...causeTags, 'dangerous'],
+      relatedActors: [{ kind: 'customer_group', id: group.id }],
+      relatedSystems: ['customers', 'areas'],
+    })
+  }
+  if (shortage < 0) {
+    ctx.addCause({
+      source: SOURCE,
+      sourceType: 'service',
+      target: `customer:${group.id}.satisfaction`,
+      targetType: 'customer',
+      amount: shortage,
+      weight: Math.abs(shortage) * 2,
+      readable: `${group.label ?? group.id} hit ${-shortage / 2} shortage(s).`,
+      tags: [...causeTags, 'shortage'],
+      relatedActors: [{ kind: 'customer_group', id: group.id }],
+      relatedSystems: ['customers', 'stock'],
+    })
+  }
 }

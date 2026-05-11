@@ -22,6 +22,7 @@ import { createInitialMonthlyModuleState } from '../modules/monthly/monthlyModul
 import { createInitialCauseModuleState } from '../modules/causes/causeModule'
 import { createInitialPressureModuleState } from '../modules/pressures/pressureModule'
 import { createInitialFeedbackModuleState } from '../modules/feedback/feedbackLoopModule'
+import { createInitialIssueSeedModuleState } from '../modules/issues/issueSeedTypes'
 import type {
   AreaState,
   CustomerGroupState,
@@ -222,6 +223,9 @@ export function createInitialTavernState(overrides?: Partial<TavernState>): Tave
       // slices. The first end-of-day pass fills them with snapshots.
       pressures: createInitialPressureModuleState(),
       feedback: createInitialFeedbackModuleState(),
+      // Phase 19 — seed an empty issue-seeds slice so the schema
+      // validates on day zero before any seed has been generated.
+      issueSeeds: createInitialIssueSeedModuleState(),
     },
   }
 

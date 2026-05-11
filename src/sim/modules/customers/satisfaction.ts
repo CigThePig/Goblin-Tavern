@@ -4,9 +4,19 @@ import type { CustomerGroupState } from '../../state/TavernState'
 import { clampPercent } from '../../state/normalize'
 import { isAreaDangerous } from '../areas/derived'
 import { effectiveQuality, isPerishable } from '../stock/spoilage'
+import type { ServiceQualityModifiers } from '../staff/types'
 
 import { highestStockPrice } from './forecast'
 import type { CustomerTurnout } from './types'
+
+// Phase 12 §12.8 — satisfaction adjustments derived from staff service
+// quality and structured incidents (read from the service module slice
+// when present). The shape mirrors `DailyServiceResult.incidents`
+// loosely so this file does not depend on the service module's types.
+type ServiceAdjustmentInputs = {
+  serviceQuality?: ServiceQualityModifiers
+  incidents?: ReadonlyArray<{ actorGroup?: string; id: string }>
+}
 
 // Phase 10 §10.5 — Customer satisfaction.
 //
@@ -80,10 +90,31 @@ function serviceSignal(turnout: CustomerTurnout): number {
   return 0
 }
 
+function foodQualitySignal(
+  quality: ServiceQualityModifiers | undefined,
+): number {
+  if (!quality) return 0
+  if (quality.foodQualityModifier === 0) return 0
+  return Math.round(quality.foodQualityModifier)
+}
+
+function incidentSignal(
+  group: CustomerGroupState,
+  inputs: ServiceAdjustmentInputs | undefined,
+): number {
+  if (!inputs?.incidents) return 0
+  const groupIncidents = inputs.incidents.filter(
+    (i) => i.actorGroup === group.id,
+  )
+  if (groupIncidents.length === 0) return 0
+  return -groupIncidents.length
+}
+
 export function applySatisfactionUpdate(
   ctx: SimContext,
   group: CustomerGroupState,
   turnout: CustomerTurnout,
+  inputs: ServiceAdjustmentInputs = {},
 ): void {
   const cleanliness = cleanlinessSignal(group, ctx)
   const danger = dangerSignal(group, ctx)
@@ -91,8 +122,11 @@ export function applySatisfactionUpdate(
   const quality = qualitySignal(group, ctx)
   const shortage = shortageSignal(turnout)
   const service = serviceSignal(turnout)
+  const food = foodQualitySignal(inputs.serviceQuality)
+  const incidents = incidentSignal(group, inputs)
 
-  const delta = cleanliness + danger + price + quality + shortage + service
+  const delta =
+    cleanliness + danger + price + quality + shortage + service + food + incidents
   if (delta === 0) return
 
   const next = clampPercent(group.satisfaction + delta)
@@ -117,6 +151,13 @@ export function applySatisfactionUpdate(
   if (quality > 0) turnout.notes.push('Stock quality was a draw.')
   if (quality < 0) turnout.notes.push('Stock quality was disappointing.')
   if (shortage < 0) turnout.notes.push(`Shortages left visitors unhappy (${shortage}).`)
+  if (food > 0) turnout.notes.push('Cook lifted food quality.')
+  if (food < 0) {
+    turnout.notes.push('Cook stretched ingredients — food suffered.')
+  }
+  if (incidents < 0) {
+    turnout.notes.push(`${-incidents} incident(s) hurt satisfaction.`)
+  }
   if (service > 0 && turnout.notes.length === 0) {
     turnout.notes.push('Service went smoothly.')
   }

@@ -2,6 +2,7 @@ import type { SimContext } from '../../core/context'
 import type { CustomerGroupState } from '../../state/TavernState'
 
 import { clampPercent } from '../../state/normalize'
+import type { ServiceQualityModifiers } from '../staff/types'
 
 import type { CustomerTurnout } from './types'
 
@@ -16,29 +17,49 @@ import type { CustomerTurnout } from './types'
 
 const SOURCE = 'customers'
 
+export type CustomerImpactOptions = {
+  serviceQuality?: ServiceQualityModifiers
+}
+
 export function applyCustomerImpact(
   ctx: SimContext,
   group: CustomerGroupState,
   turnout: CustomerTurnout,
+  options: CustomerImpactOptions = {},
 ): void {
   if (turnout.visitors <= 0) return
   const room = ctx.state.areas['main_room']
   if (!room) return
 
   // Baseline mess: rough cleanliness drop scaled by visitors / 5.
-  const messGain = Math.max(1, Math.round(turnout.visitors / 4))
+  const baseMess = Math.max(1, Math.round(turnout.visitors / 4))
   const cleanlinessDrop = Math.max(0, Math.round(turnout.visitors / 6))
 
   // Rowdy groups add extra mess and damage.
   const rowdyExtra = group.rowdiness >= 70
     ? Math.round((group.rowdiness - 50) / 20)
     : 0
-  const damageGain = group.damageRisk >= 60
+  const rawDamage = group.damageRisk >= 60
     ? Math.max(1, Math.round((group.damageRisk - 40) * turnout.visitors / 80))
     : 0
 
+  // Phase 12 §12.5 — staff `messControl` reduces mess accumulation;
+  // `fightControl` reduces damage from rowdy groups. Both knobs are
+  // optional: when no service quality is published (e.g. the customers
+  // module runs without the staff module), the maths reduce to the
+  // Phase 10 baseline.
+  const quality = options.serviceQuality
+  const messReduction = quality
+    ? Math.max(0, Math.round(quality.messControl))
+    : 0
+  const fightFactor = quality
+    ? Math.max(0, 1 - quality.fightControl / 4)
+    : 1
+  const messGain = Math.max(0, baseMess + rowdyExtra - messReduction)
+  const damageGain = Math.round(rawDamage * fightFactor)
+
   const nextCleanliness = clampPercent(room.cleanliness - cleanlinessDrop)
-  const nextMess = clampPercent(room.mess + messGain + rowdyExtra)
+  const nextMess = clampPercent(room.mess + messGain)
   const nextDamage = damageGain > 0
     ? clampPercent(room.damage + damageGain)
     : room.damage

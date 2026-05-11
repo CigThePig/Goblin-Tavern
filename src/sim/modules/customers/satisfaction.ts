@@ -1,0 +1,129 @@
+import type { SimContext } from '../../core/context'
+import type { CustomerGroupState } from '../../state/TavernState'
+
+import { clampPercent } from '../../state/normalize'
+import { isAreaDangerous } from '../areas/derived'
+import { effectiveQuality, isPerishable } from '../stock/spoilage'
+
+import { highestStockPrice } from './forecast'
+import type { CustomerTurnout } from './types'
+
+// Phase 10 §10.5 — Customer satisfaction.
+//
+// Satisfaction reacts to: stock availability (shortages), effective stock
+// quality (after spoilage), main-room cleanliness vs filthTolerance,
+// danger vs dangerTolerance, and price vs priceSensitivity. The actual
+// mutation is routed through `ctx.modifyCustomerGroup` so the Phase 7
+// §7.3.1 cause contract holds end-to-end.
+
+const SOURCE = 'customers'
+
+function cleanlinessSignal(
+  group: CustomerGroupState,
+  ctx: SimContext,
+): number {
+  const room = ctx.state.areas['main_room']
+  if (!room) return 0
+  if (room.cleanliness >= group.filthTolerance) return 1
+  // Squared sensitivity factor mirrors `forecast.cleanlinessPenalty`:
+  // tolerant groups take a much smaller hit than sensitive groups even
+  // when their gap-below-tolerance is larger.
+  const gap = group.filthTolerance - room.cleanliness
+  const sensitivity = 1 - group.filthTolerance / 100
+  return -Math.round(gap * Math.pow(sensitivity, 2) * 0.5)
+}
+
+function dangerSignal(group: CustomerGroupState, ctx: SimContext): number {
+  let dangerous = 0
+  for (const area of Object.values(ctx.state.areas)) {
+    if (isAreaDangerous(area)) dangerous += 1
+  }
+  if (dangerous === 0) return 0
+  if (group.dangerTolerance >= 75) return 0
+  const margin = 75 - group.dangerTolerance
+  return -Math.round(dangerous * (margin / 25))
+}
+
+function priceSignal(group: CustomerGroupState, ctx: SimContext): number {
+  const maxPrice = highestStockPrice(ctx.state)
+  if (maxPrice <= 1) return 0
+  const sensitivity = group.priceSensitivity / 100
+  if (sensitivity < 0.3) return 0
+  return -Math.round((maxPrice - 1) * sensitivity * 0.6)
+}
+
+function qualitySignal(group: CustomerGroupState, ctx: SimContext): number {
+  // Average effective quality of preferred items (only those in stock).
+  let totalEffective = 0
+  let count = 0
+  for (const item of Object.values(ctx.state.stock)) {
+    if (item.quantity <= 0) continue
+    if (!group.preferredStockTags.some((tag) => item.tags.includes(tag))) continue
+    const q = isPerishable(item) ? effectiveQuality(item) : item.quality
+    totalEffective += q
+    count += 1
+  }
+  if (count === 0) return 0
+  const avg = totalEffective / count
+  // Centred at 50: each 10 above is +1, each 10 below is -1 (rounded).
+  return Math.round((avg - 50) / 10)
+}
+
+function shortageSignal(turnout: CustomerTurnout): number {
+  if (turnout.shortages.length === 0) return 0
+  return -2 * turnout.shortages.length
+}
+
+function serviceSignal(turnout: CustomerTurnout): number {
+  // Some visitors arrived and were served (coin earned) → mild bump.
+  if (turnout.visitors > 0 && turnout.coinEarned > 0) return 1
+  return 0
+}
+
+export function applySatisfactionUpdate(
+  ctx: SimContext,
+  group: CustomerGroupState,
+  turnout: CustomerTurnout,
+): void {
+  const cleanliness = cleanlinessSignal(group, ctx)
+  const danger = dangerSignal(group, ctx)
+  const price = priceSignal(group, ctx)
+  const quality = qualitySignal(group, ctx)
+  const shortage = shortageSignal(turnout)
+  const service = serviceSignal(turnout)
+
+  const delta = cleanliness + danger + price + quality + shortage + service
+  if (delta === 0) return
+
+  const next = clampPercent(group.satisfaction + delta)
+  if (next === group.satisfaction) {
+    turnout.satisfactionChange = 0
+    return
+  }
+  turnout.satisfactionChange = next - group.satisfaction
+
+  if (cleanliness < 0) {
+    turnout.notes.push(`Main room cleanliness hurt satisfaction (${cleanliness}).`)
+  }
+  if (cleanliness > 0) {
+    turnout.notes.push('Main room cleanliness was tolerable.')
+  }
+  if (danger < 0) {
+    turnout.notes.push(`Dangerous areas reduced satisfaction (${danger}).`)
+  }
+  if (price < 0) {
+    turnout.notes.push(`Prices stung price-sensitive visitors (${price}).`)
+  }
+  if (quality > 0) turnout.notes.push('Stock quality was a draw.')
+  if (quality < 0) turnout.notes.push('Stock quality was disappointing.')
+  if (shortage < 0) turnout.notes.push(`Shortages left visitors unhappy (${shortage}).`)
+  if (service > 0 && turnout.notes.length === 0) {
+    turnout.notes.push('Service went smoothly.')
+  }
+
+  ctx.modifyCustomerGroup(
+    group.id,
+    { satisfaction: next },
+    { source: SOURCE, reason: 'service_satisfaction' },
+  )
+}

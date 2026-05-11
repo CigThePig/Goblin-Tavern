@@ -54,6 +54,10 @@ export type StaffState = {
   activeProblems: string[]
 }
 
+// Phase 10 §"Customer Group State" — Phase 10 extends the Phase 5 shape
+// with three additive fields: `loyalty`, `preferredStockTags`, and
+// `dislikedTags`. The forward note in §"Customer Group State" pins this
+// as an additive change (mirrors the `StaffRoleId` precedent), not a fork.
 export type CustomerGroupState = {
   id: string
   label: string
@@ -64,8 +68,11 @@ export type CustomerGroupState = {
   dangerTolerance: number
   filthTolerance: number
   priceSensitivity: number
+  loyalty: number
   damageRisk: number
   tabRisk: number
+  preferredStockTags: string[]
+  dislikedTags: string[]
   tags: string[]
   activeGrudges: string[]
 }

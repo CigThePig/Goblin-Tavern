@@ -86,8 +86,11 @@ export const CustomerGroupStateSchema = z.object({
   dangerTolerance: meter(),
   filthTolerance: meter(),
   priceSensitivity: meter(),
+  loyalty: meter(),
   damageRisk: meter(),
   tabRisk: meter(),
+  preferredStockTags: z.array(z.string()),
+  dislikedTags: z.array(z.string()),
   tags: z.array(z.string()),
   activeGrudges: z.array(z.string()),
 })

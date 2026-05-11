@@ -20,6 +20,8 @@ import { createInitialOwnerActionsModuleState } from '../modules/ownerActions/ow
 import { createInitialWeeklyModuleState } from '../modules/weekly/state'
 import { createInitialMonthlyModuleState } from '../modules/monthly/monthlyModule'
 import { createInitialCauseModuleState } from '../modules/causes/causeModule'
+import { createInitialPressureModuleState } from '../modules/pressures/pressureModule'
+import { createInitialFeedbackModuleState } from '../modules/feedback/feedbackLoopModule'
 import type {
   AreaState,
   CustomerGroupState,
@@ -131,27 +133,36 @@ function createInitialReputation(): ReputationState {
   }
 }
 
+// Phase 18 §"Naming reconciliation" — the canonical pressure id set drops
+// the `_pressure` suffix used in the Phase 18 doc shorthand. Phase 18
+// also folds in `stock_shortage` and `landlord`, and replaces the Phase
+// 5 placeholder `structural_decay` with `maintenance` (the broader
+// concept covering damage, cleanliness, and repair backlog).
 function createInitialPressures(): Record<string, PressureState> {
   const baseValues: Record<string, number> = {
+    food_safety: 35,
     inspection: 25,
     staff_burnout: 25,
     pests: 35,
-    food_safety: 35,
     debt: 10,
+    maintenance: 35,
     violence: 30,
-    structural_decay: 35,
     reputation_drift: 20,
+    stock_shortage: 20,
+    landlord: 20,
   }
 
   const labels: Record<string, string> = {
+    food_safety: 'Food Safety',
     inspection: 'Inspection',
     staff_burnout: 'Staff Burnout',
     pests: 'Pests',
-    food_safety: 'Food Safety',
     debt: 'Debt',
+    maintenance: 'Maintenance',
     violence: 'Violence',
-    structural_decay: 'Structural Decay',
     reputation_drift: 'Reputation Drift',
+    stock_shortage: 'Stock Shortage',
+    landlord: 'Landlord',
   }
 
   const pressures: Record<string, PressureState> = {}
@@ -207,6 +218,10 @@ export function createInitialTavernState(overrides?: Partial<TavernState>): Tave
       // Phase 17 §17.2 — seed an empty causes slice so the schema
       // validates on day zero before any cause has been added.
       causes: createInitialCauseModuleState(),
+      // Phase 18 §18.1 — seed empty pressure-module and feedback-loop
+      // slices. The first end-of-day pass fills them with snapshots.
+      pressures: createInitialPressureModuleState(),
+      feedback: createInitialFeedbackModuleState(),
     },
   }
 

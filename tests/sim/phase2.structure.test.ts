@@ -36,6 +36,7 @@ import { memoriesModule } from '../../src/sim/modules/memories'
 import { historyModule } from '../../src/sim/modules/history'
 import { causesModule } from '../../src/sim/modules/causes'
 import { pressuresModule } from '../../src/sim/modules/pressures'
+import { feedbackModule } from '../../src/sim/modules/feedback'
 import { reportsModule } from '../../src/sim/modules/reports'
 import { issueSeedsModule } from '../../src/sim/modules/issueSeeds'
 
@@ -84,21 +85,33 @@ describe('Registry', () => {
 describe('Placeholder registry instances', () => {
   // Phase 8 populates `areaRegistry`; Phase 9 populates `stockRegistry`;
   // Phase 10 populates `customerRegistry`; Phase 11 populates
-  // `staffRegistry`; Phase 13 populates `actionRegistry`. Each registers
-  // its entries at module load time, so the empty-on-import assertion
-  // below now applies only to the registries that have not yet been
-  // claimed by a later phase. Mirrors the precedent set when Phase 7
-  // expanded the phase pipeline list.
+  // `staffRegistry`; Phase 13 populates `actionRegistry`; Phase 18
+  // populates `pressureRegistry`. Each registers its entries at module
+  // load time, so the empty-on-import assertion below now applies only
+  // to the registries that have not yet been claimed by a later phase.
   it('exist and start empty for every still-empty expandable concept', () => {
-    const registries = [
-      reputationRegistry,
-      pressureRegistry,
-      issueSeedRegistry,
-      moduleRegistry,
-    ]
+    const registries = [reputationRegistry, issueSeedRegistry, moduleRegistry]
     for (const registry of registries) {
       expect(registry.all()).toEqual([])
     }
+  })
+
+  it('pressureRegistry is populated by the Phase 18 pressure system', () => {
+    const ids = pressureRegistry.all().map((p) => p.id).sort()
+    expect(ids).toEqual(
+      [
+        'food_safety',
+        'inspection',
+        'staff_burnout',
+        'pests',
+        'debt',
+        'maintenance',
+        'violence',
+        'reputation_drift',
+        'stock_shortage',
+        'landlord',
+      ].sort(),
+    )
   })
 
   it('areaRegistry is populated by the Phase 8 area system', () => {
@@ -193,6 +206,7 @@ describe('Core sim modules', () => {
       historyModule,
       causesModule,
       pressuresModule,
+      feedbackModule,
       reportsModule,
       issueSeedsModule,
     ]
@@ -211,6 +225,7 @@ describe('Core sim modules', () => {
       'history',
       'causes',
       'pressures',
+      'feedback',
       'reports',
       'issueSeeds',
     ]

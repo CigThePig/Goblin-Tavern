@@ -1,9 +1,12 @@
-import { Registry } from './Registry'
+// Phase 2 placeholder file kept around to preserve the import path used
+// by `tests/sim/phase2.structure.test.ts`. The canonical pressure
+// registry lives in `src/sim/modules/pressures/pressureRegistry.ts`
+// (Phase 18 §"Required Outputs"); this file simply re-exports it.
 
-export type PressureDefinition = {
-  id: string
-  label: string
-  tags: string[]
-}
+export {
+  pressureRegistry,
+  REQUIRED_PRESSURE_DEFINITIONS,
+  ensureRequiredPressuresRegistered,
+} from '../modules/pressures/pressureRegistry'
 
-export const pressureRegistry = new Registry<PressureDefinition>()
+export type { PressureDefinition } from '../modules/pressures/pressureRegistry'

@@ -15,7 +15,7 @@ import type { DayType } from '../modules/calendar/types'
 import type { HistoryEntryDraft } from '../modules/history/types'
 import type { MemoryDraft } from '../modules/memories/memoryTypes'
 import type { CauseDraft } from '../modules/causes/causeTypes'
-import type { SimRng } from './rng'
+import type { RngStreamId, SimRng, SimRngStreams } from './rng'
 import type { ReportSection, SimLog, SimLogLevel } from './reports'
 import type { StateDiff, TaggedStateDiff, PhaseBoundary } from './diff'
 
@@ -90,6 +90,15 @@ export type SimContext = {
   readonly state: TavernState
   readonly input: SimInput
   readonly rng: SimRng
+
+  // Phase 24 §"Context Changes" — named RNG streams.
+  //
+  // Identity-style randomness (names, suppliers, regulars, NPC identity)
+  // must use named streams via `getRngStream(streamId)` so an extra
+  // service roll does not shift a generated name. `ctx.rng` remains the
+  // default service stream for backwards compatibility.
+  readonly rngStreams: SimRngStreams
+  getRngStream(streamId: RngStreamId): SimRng
 
   readonly reports: ReadonlyArray<ReportSection>
   readonly logs: ReadonlyArray<SimLog>

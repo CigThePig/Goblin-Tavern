@@ -111,3 +111,83 @@ export function createRng(seed: string, calls: number = 0): SimRng {
 
   return { state, float, int, chance, pick, weightedPick }
 }
+
+// Phase 24 §"Required RNG Stream Types" — named RNG streams.
+//
+// Different identity-style systems (names, suppliers, regulars) must use
+// isolated streams so a per-day service roll cannot accidentally shift a
+// generated name. Each stream derives its seed from the run's base seed
+// (`${seed}:${streamId}`), keeps its own call counter, and can be
+// snapshotted to a plain JSON-safe record.
+
+export type RngStreamId =
+  | 'service'
+  | 'economy'
+  | 'incidents'
+  | 'names'
+  | 'npc_identity'
+  | 'staff_identity'
+  | 'supplier_identity'
+  | 'regular_identity'
+  | 'faction_behaviour'
+  | 'seasonal_events'
+  | 'issue_seed_selection'
+
+export type RngStreamState = Record<RngStreamId, RngState>
+
+export type SimRngStreams = {
+  baseSeed: string
+  get: (streamId: RngStreamId) => SimRng
+  snapshot: () => RngStreamState
+}
+
+const ALL_STREAM_IDS: ReadonlyArray<RngStreamId> = [
+  'service',
+  'economy',
+  'incidents',
+  'names',
+  'npc_identity',
+  'staff_identity',
+  'supplier_identity',
+  'regular_identity',
+  'faction_behaviour',
+  'seasonal_events',
+  'issue_seed_selection',
+]
+
+export function createRngStreams(
+  seed: string,
+  initialState?: Partial<RngStreamState>,
+): SimRngStreams {
+  const cache = new Map<RngStreamId, SimRng>()
+
+  const get = (streamId: RngStreamId): SimRng => {
+    const existing = cache.get(streamId)
+    if (existing) return existing
+
+    const prior = initialState?.[streamId]
+    const streamSeed = prior?.seed ?? `${seed}:${streamId}`
+    const rng = createRng(streamSeed, prior?.calls ?? 0)
+    cache.set(streamId, rng)
+    return rng
+  }
+
+  const snapshot = (): RngStreamState => {
+    const out = {} as RngStreamState
+    for (const id of ALL_STREAM_IDS) {
+      const rng = cache.get(id)
+      if (rng) {
+        out[id] = { seed: rng.state.seed, calls: rng.state.calls }
+      } else {
+        const prior = initialState?.[id]
+        out[id] = {
+          seed: prior?.seed ?? `${seed}:${id}`,
+          calls: prior?.calls ?? 0,
+        }
+      }
+    }
+    return out
+  }
+
+  return { baseSeed: seed, get, snapshot }
+}

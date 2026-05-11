@@ -9,6 +9,33 @@ export type TavernMetaState = {
   createdAtDay: number
 }
 
+// Phase 28 §28.1 — Area trait, upgrade, and atmosphere shapes.
+//
+// Phase 8 treated areas as bundles of mechanical meters (condition,
+// cleanliness, mess, damage, smell, risk). Phase 28 turns each area into
+// a place with persistent identity: a list of trait ids (`cozy`,
+// `sticky_floor`, …), an atmosphere tag list, and a per-upgrade record
+// that tracks status, build progress, and install timing. The mechanical
+// meters from Phase 8 are unchanged; the new fields stack on top.
+export type AreaTraitId = string
+export type AreaUpgradeId = string
+export type AtmosphereTag = string
+
+export type AreaUpgradeStatus =
+  | 'available'
+  | 'in_progress'
+  | 'installed'
+  | 'damaged'
+  | 'disabled'
+
+export type AreaUpgradeState = {
+  id: AreaUpgradeId
+  status: AreaUpgradeStatus
+  progress?: number
+  installedAtDay?: number
+  tags: string[]
+}
+
 export type AreaState = {
   id: string
   label: string
@@ -20,6 +47,9 @@ export type AreaState = {
   risk: number
   tags: string[]
   activeProblems: string[]
+  traits: AreaTraitId[]
+  atmosphere: AtmosphereTag[]
+  upgrades: Record<AreaUpgradeId, AreaUpgradeState>
 }
 
 // Phase 9 §"Stock State" — Phase 9 extends the Phase 5 stock shape with

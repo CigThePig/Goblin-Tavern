@@ -1,6 +1,7 @@
 import { clamp } from '../utils/clamp'
 import type {
   AreaState,
+  AreaUpgradeState,
   CultureWorldState,
   FactionWorldState,
   LocalEventWorldState,
@@ -31,7 +32,20 @@ export function clampNonNegative(value: number): number {
   return Math.max(0, value)
 }
 
+// Phase 28 §28.1 — repair pre-Phase-28 saves that lack the new identity
+// fields. Missing arrays default to `[]` and missing upgrade records
+// default to `{}`. This keeps `validateState` from rejecting older saves
+// the moment Phase 28 lands; new state created via `createInitialTavernState`
+// is already populated by the area registry.
 export function normalizeArea(area: AreaState): AreaState {
+  const rawUpgrades = (area as Partial<AreaState>).upgrades ?? {}
+  const upgrades: Record<string, AreaUpgradeState> = {}
+  for (const [id, upgrade] of Object.entries(rawUpgrades)) {
+    upgrades[id] = {
+      ...upgrade,
+      tags: upgrade?.tags ? [...upgrade.tags] : [],
+    }
+  }
   return {
     ...area,
     condition: clampPercent(area.condition),
@@ -40,6 +54,9 @@ export function normalizeArea(area: AreaState): AreaState {
     damage: clampPercent(area.damage),
     smell: clampPercent(area.smell),
     risk: clampPercent(area.risk),
+    traits: area.traits ? [...area.traits] : [],
+    atmosphere: area.atmosphere ? [...area.atmosphere] : [],
+    upgrades,
   }
 }
 

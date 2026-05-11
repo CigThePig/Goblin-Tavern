@@ -27,6 +27,12 @@ const SPOILED_FOOD_PER_ITEM = 8
 const KITCHEN_SMELL_HINT = 5
 const FUMIGATION_RELIEF = -12
 
+// Phase 28 §28.8 — `pest_prone` is the trait that says a storage room
+// has the cracks and crumbs rats actually thrive in. Worth a small bump
+// when food stock is sitting in that room. Kept light here; Phase 38
+// pressure webs will tune it more aggressively.
+const PEST_PRONE_TRAIT_BONUS = 6
+
 export function calculatePest(ctx: SimContext): PressureCalculationResult {
   const causes: PressureCauseRef[] = []
   const locations: EntityRef[] = []
@@ -87,6 +93,28 @@ export function calculatePest(ctx: SimContext): PressureCalculationResult {
       tags: ['stock', 'spoilage'],
       relatedSystems: ['stock'],
     })
+  }
+
+  // Phase 28 §28.8 — A `pest_prone` cellar with food stock in it is the
+  // exact picture of rat heaven. Trigger only when both are true so this
+  // does not stack with the generic cellar-cleanliness signals.
+  if (cellar && cellar.traits.includes('pest_prone')) {
+    let foodInCellar = 0
+    for (const item of Object.values(ctx.state.stock)) {
+      if (item.storageAreaId === cellar.id && item.tags.includes('food')) {
+        foodInCellar += 1
+      }
+    }
+    if (foodInCellar > 0) {
+      pushCause(causes, {
+        id: 'pest_prone_cellar_food',
+        readable: `Pest-prone cellar holding ${foodInCellar} food item(s).`,
+        amount: PEST_PRONE_TRAIT_BONUS,
+        tags: ['cellar', 'trait', 'pest_prone'],
+        relatedLocations: [{ kind: 'area', id: cellar.id }],
+        relatedSystems: ['areas', 'stock'],
+      })
+    }
   }
 
   const kitchen = ctx.state.areas['kitchen']

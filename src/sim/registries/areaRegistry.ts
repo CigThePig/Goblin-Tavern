@@ -21,6 +21,12 @@ export type AreaDefinition = {
 
 export const areaRegistry = new Registry<AreaDefinition>()
 
+// Phase 28 §28.5 — Each required area now seeds with a small starter set
+// of traits and atmosphere tags grounded in the room's existing meters.
+// `upgrades` starts empty: every upgrade is "not built yet" on day zero.
+// The trait ids and atmosphere tags here match the starter sets in
+// `src/sim/content/tavern/areaTraitRegistry.ts` so a Phase 26 cross-ref
+// pass cannot find a dangling reference.
 const REQUIRED_AREAS: AreaDefinition[] = [
   {
     id: 'main_room',
@@ -34,6 +40,9 @@ const REQUIRED_AREAS: AreaDefinition[] = [
       smell: 25,
       risk: 20,
       activeProblems: [],
+      traits: ['sticky_floor', 'dangerous_corner'],
+      atmosphere: ['cheap', 'rowdy', 'lived_in'],
+      upgrades: {},
     },
   },
   {
@@ -48,6 +57,9 @@ const REQUIRED_AREAS: AreaDefinition[] = [
       smell: 35,
       risk: 30,
       activeProblems: [],
+      traits: ['smells_of_smoke', 'food_prep_visible'],
+      atmosphere: ['hot', 'busy', 'rough'],
+      upgrades: {},
     },
   },
   {
@@ -62,6 +74,9 @@ const REQUIRED_AREAS: AreaDefinition[] = [
       smell: 45,
       risk: 40,
       activeProblems: [],
+      traits: ['pest_prone', 'drafty'],
+      atmosphere: ['damp', 'shadowed'],
+      upgrades: {},
     },
   },
   {
@@ -76,6 +91,9 @@ const REQUIRED_AREAS: AreaDefinition[] = [
       smell: 70,
       risk: 50,
       activeProblems: [],
+      traits: ['inspection_sensitive'],
+      atmosphere: ['grim', 'smelly'],
+      upgrades: {},
     },
   },
   {
@@ -90,6 +108,9 @@ const REQUIRED_AREAS: AreaDefinition[] = [
       smell: 0,
       risk: 35,
       activeProblems: [],
+      traits: ['weather_exposed'],
+      atmosphere: ['leaky'],
+      upgrades: {},
     },
   },
 ]

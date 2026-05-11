@@ -112,6 +112,12 @@ describe('Phase 8 — Area system', () => {
       risk: 0,
       tags: [],
       activeProblems: [],
+      // Phase 28 §28.1 — identity fields are required on AreaState.
+      // Tests that build sample areas pass empty defaults; the helpers
+      // under test do not depend on these fields.
+      traits: [],
+      atmosphere: [],
+      upgrades: {},
       ...overrides,
     })
 
@@ -179,6 +185,9 @@ describe('Phase 8 — Area registry & derived helpers', () => {
       risk: 20,
       tags: [],
       activeProblems: [],
+      traits: [],
+      atmosphere: [],
+      upgrades: {},
     }
     expect(isAreaFilthy(filthy)).toBe(true)
     expect(isAreaDamaged(filthy)).toBe(false)
@@ -202,6 +211,9 @@ describe('Phase 8 — Area registry & derived helpers', () => {
       risk: 60,
       tags: ['inspection_relevant'],
       activeProblems: [],
+      traits: [],
+      atmosphere: [],
+      upgrades: {},
     }
     expect(isAreaInspectionRisk(filthy)).toBe(true)
 

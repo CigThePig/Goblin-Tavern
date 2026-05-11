@@ -11,13 +11,27 @@ import {
   ensureRequiredAreasRegistered,
 } from '../../registries/areaRegistry'
 import { clampPercent } from '../../state/normalize'
+import { ensureRequiredAreaTraitsRegistered } from '../../content/tavern/areaTraitRegistry'
 import {
+  areaUpgradeRegistry,
+  ensureRequiredAreaUpgradesRegistered,
+} from '../../content/tavern/areaUpgradeRegistry'
+import {
+  describeAreaAtmosphere,
   getAreaQualityBand,
+  getInstalledUpgradeIds,
   isAreaDamaged,
   isAreaDangerous,
   isAreaFilthy,
   isAreaInspectionRisk,
 } from './derived'
+
+// Phase 28 — make sure the area trait and upgrade registries are
+// populated before any area report or validation runs. Tests sometimes
+// import modules in unusual orders; touching the ensure helpers here
+// keeps both registries hot the moment `areasModule` is imported.
+ensureRequiredAreaTraitsRegistered()
+ensureRequiredAreaUpgradesRegistered()
 
 // Phase 8 §8.2 — Area module.
 //
@@ -97,6 +111,20 @@ function applyPassiveDecay(ctx: SimContext): void {
       { source: SOURCE, reason: 'weather_decay' },
     )
   }
+
+  // Phase 28 §28.8 — a sticky floor catches an extra boot every couple
+  // of days. The bump is deterministic (driven off `totalDaysElapsed`)
+  // so replays are stable and a test can rely on a clear difference
+  // between the trait present and trait absent — without leaning on the
+  // RNG state, which other modules also draw from.
+  const dayParity = ctx.state.calendar.totalDaysElapsed % 2
+  if (main && main.traits.includes('sticky_floor') && dayParity === 0) {
+    ctx.modifyArea(
+      'main_room',
+      { risk: clampPercent(main.risk + 1) },
+      { source: SOURCE, reason: 'sticky_floor_trait' },
+    )
+  }
 }
 
 function describeStatus(area: AreaState): string {
@@ -118,6 +146,22 @@ function buildAreaReport(ctx: SimContext): ReportSection {
     lines.push(`  Smell: ${area.smell}`)
     lines.push(`  Risk: ${area.risk}`)
     lines.push(`  Status: ${describeStatus(area)}`)
+
+    // Phase 28 §28.7 — compact identity lines. We deliberately keep
+    // these one-line summaries: the report layer is not a card writer,
+    // it is the simulation surfacing facts.
+    const atmosphereLine = describeAreaAtmosphere(area)
+    if (atmosphereLine.length > 0) {
+      lines.push(`  Atmosphere: ${atmosphereLine.join(', ')}`)
+    }
+    const installed = getInstalledUpgradeIds(area)
+    if (installed.length > 0) {
+      lines.push(`  Upgrades installed: ${installed.join(', ')}`)
+    }
+    const availableUpgrade = pickSuggestedUpgrade(area)
+    if (availableUpgrade) {
+      lines.push(`  Upgrade available: ${availableUpgrade}`)
+    }
   }
 
   let worstArea: AreaState | undefined
@@ -141,6 +185,24 @@ function buildAreaReport(ctx: SimContext): ReportSection {
       worstAreaCondition: worstArea?.condition,
     },
   }
+}
+
+// Phase 28 §28.7 — pick a single upgrade label per area to surface in
+// the report. We prefer upgrades that are not already installed and
+// that fit this area's id, but skip silently when nothing is available.
+// This keeps the area report compact rather than dumping the whole
+// upgrade catalogue every day.
+function pickSuggestedUpgrade(area: AreaState): string | undefined {
+  for (const def of areaUpgradeRegistry.all()) {
+    if (def.allowedAreaIds && !def.allowedAreaIds.includes(area.id)) continue
+    if (def.allowedAreaTags && !def.allowedAreaTags.some((t) => area.tags.includes(t))) {
+      continue
+    }
+    const existing = area.upgrades[def.id]
+    if (existing && existing.status === 'installed') continue
+    return def.label
+  }
+  return undefined
 }
 
 function validateAreas(ctx: SimContext): ValidationIssue[] {

@@ -16,4 +16,15 @@ export {
   isAreaInspectionRisk,
 } from './areasModule'
 
+// Phase 28 §28.6 — surface the trait/upgrade/atmosphere helpers so
+// downstream modules can reach them without importing through `derived`.
+export {
+  hasAreaTrait,
+  hasAreaAtmosphere,
+  hasInstalledUpgrade,
+  getInstalledUpgradeIds,
+  getAreaMechanicalTags,
+  describeAreaAtmosphere,
+} from './derived'
+
 export type { AreaQualityBand, AreaDefinition } from './types'

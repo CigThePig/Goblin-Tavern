@@ -28,6 +28,12 @@ const RELIABLE_REP = -6
 const WARNING_MEMORY = 14
 const SUSPICION_FROM_MONTHLY = 12
 
+// Phase 28 §28.8 — `inspection_sensitive` is the trait an inspector
+// notices first. Apply a small bump when a sensitive area is also
+// objectively dirty, so the trait reinforces existing cleanliness signals
+// instead of duplicating them.
+const INSPECTION_SENSITIVE_DIRTY = 6
+
 type MonthlySlice = {
   inspection?: { suspicion?: number }
 }
@@ -112,6 +118,22 @@ export function calculateInspection(ctx: SimContext): PressureCalculationResult 
       amount: RELIABLE_REP,
       tags: ['reputation', 'reliable'],
       relatedSystems: ['reputation'],
+    })
+  }
+
+  // Phase 28 §28.8 — area trait reinforcement. Inspection-sensitive
+  // areas only matter when they are also dirty; otherwise the trait is
+  // background flavour.
+  for (const area of Object.values(ctx.state.areas)) {
+    if (!area.traits.includes('inspection_sensitive')) continue
+    if (area.cleanliness > 40 && area.smell < 65) continue
+    pushCause(causes, {
+      id: `inspection_sensitive_${area.id}`,
+      readable: `${area.label} is inspection-sensitive and unclean (${area.cleanliness}).`,
+      amount: INSPECTION_SENSITIVE_DIRTY,
+      tags: ['trait', 'inspection_sensitive', area.id],
+      relatedLocations: [{ kind: 'area', id: area.id }],
+      relatedSystems: ['areas'],
     })
   }
 

@@ -20,6 +20,11 @@ import type {
   CustomerModuleState,
   CustomerTurnout,
 } from './types'
+import type {
+  ServiceQualityModifiers,
+  StaffModuleState,
+} from '../staff/types'
+import type { StaffState, TavernState } from '../../state/TavernState'
 
 // Phase 10 §10.2 — Customer module.
 //
@@ -107,21 +112,75 @@ const forecastHook: SimulationHook = (ctx: SimContext): void => {
   setForecasts(ctx, forecasts)
 }
 
-function turnoutVisitorsFromForecast(forecast: CustomerForecast): number {
-  // Phase 10 resolves simple turnout directly from the forecast. Phase 12
-  // will introduce richer turnout logic; Phase 10 stays close to the
-  // forecast so reports read consistently.
-  return Math.max(0, Math.round(forecast.expected))
+function readServiceQuality(
+  state: TavernState,
+): ServiceQualityModifiers | undefined {
+  const slice = state.modules['staff'] as StaffModuleState | undefined
+  return slice?.serviceQuality
+}
+
+function findCook(state: TavernState): StaffState | undefined {
+  for (const member of Object.values(state.staff)) {
+    if (member.role === 'cook') return member
+  }
+  return undefined
+}
+
+function effectivenessSnapshot(staff: StaffState): number {
+  // Mirror `getStaffEffectiveness` without importing the staff module —
+  // keeps the customer/staff coupling at the data layer only.
+  const raw =
+    staff.skill +
+    Math.round(staff.morale * 0.2) -
+    Math.round(staff.stress * 0.25) -
+    Math.round(staff.fatigue * 0.25)
+  return Math.max(0, Math.min(100, Math.round(raw)))
+}
+
+function cookStretchFactor(state: TavernState): number {
+  const cook = findCook(state)
+  if (!cook) return 1
+  if (cook.currentPriority !== 'stretch_ingredients') return 1
+  const eff = effectivenessSnapshot(cook)
+  // ~20% reduction at average effectiveness; ~35% at very high; floor 50%.
+  const reduction = 0.2 + 0.15 * (eff / 100)
+  return Math.max(0.5, 1 - reduction)
+}
+
+function turnoutVisitorsFromForecast(
+  forecast: CustomerForecast,
+  quality: ServiceQualityModifiers | undefined,
+  loyalty: number,
+  ctx: SimContext,
+): number {
+  // Phase 12 §12.2 — Actual turnout adds a small deterministic
+  // variation on top of the forecast. The Phase 10 forecast already
+  // includes a ±2 jitter; the +/-1 here is a second tiny shake that
+  // models "did the regulars show up tonight?". Service speed nudges
+  // visitor counts upward when staff can absorb more flow.
+  const base = Math.max(0, Math.round(forecast.expected))
+  const variation = ctx.rng.int(-1, 1)
+  const speedBoost = quality
+    ? Math.round(quality.serviceSpeed * (loyalty / 80))
+    : 0
+  return Math.max(0, base + variation + speedBoost)
 }
 
 const serviceHook: SimulationHook = (ctx: SimContext): void => {
   const moduleState = getCustomerModuleState(ctx.state)
   const turnouts: CustomerTurnout[] = []
+  const serviceQuality = readServiceQuality(ctx.state)
+  const stretchFactor = cookStretchFactor(ctx.state)
 
   for (const forecast of moduleState.forecasts) {
     const group = ctx.state.customerGroups[forecast.groupId]
     if (!group) continue
-    const visitors = turnoutVisitorsFromForecast(forecast)
+    const visitors = turnoutVisitorsFromForecast(
+      forecast,
+      serviceQuality,
+      group.loyalty,
+      ctx,
+    )
     const turnout: CustomerTurnout = {
       groupId: group.id,
       visitors,
@@ -132,7 +191,10 @@ const serviceHook: SimulationHook = (ctx: SimContext): void => {
     }
 
     if (visitors > 0) {
-      const purchase = resolveGroupPurchases(ctx, group, visitors)
+      const purchase = resolveGroupPurchases(ctx, group, visitors, {
+        ...(serviceQuality ? { serviceQuality } : {}),
+        stretchFactor,
+      })
       turnout.coinEarned = purchase.coinEarned
       turnout.shortages = purchase.shortages
       if (purchase.itemsBought.length > 0) {
@@ -141,7 +203,12 @@ const serviceHook: SimulationHook = (ctx: SimContext): void => {
           .join(', ')
         turnout.notes.push(`Bought: ${summary}.`)
       }
-      applyCustomerImpact(ctx, group, turnout)
+      applyCustomerImpact(
+        ctx,
+        group,
+        turnout,
+        serviceQuality ? { serviceQuality } : {},
+      )
     }
 
     turnouts.push(turnout)
@@ -150,16 +217,30 @@ const serviceHook: SimulationHook = (ctx: SimContext): void => {
   setTurnouts(ctx, turnouts)
 }
 
+function readIncidents(
+  state: TavernState,
+): ReadonlyArray<{ actorGroup?: string; id: string }> {
+  const slice = state.modules['service'] as
+    | { result?: { incidents?: ReadonlyArray<{ actorGroup?: string; id: string }> } }
+    | undefined
+  return slice?.result?.incidents ?? []
+}
+
 const afterServiceHook: SimulationHook = (ctx: SimContext): void => {
   const moduleState = getCustomerModuleState(ctx.state)
   const updatedTurnouts: CustomerTurnout[] = []
+  const serviceQuality = readServiceQuality(ctx.state)
+  const incidents = readIncidents(ctx.state)
   for (const turnout of moduleState.turnouts) {
     const group = ctx.state.customerGroups[turnout.groupId]
     if (!group) {
       updatedTurnouts.push(turnout)
       continue
     }
-    applySatisfactionUpdate(ctx, group, turnout)
+    applySatisfactionUpdate(ctx, group, turnout, {
+      ...(serviceQuality ? { serviceQuality } : {}),
+      incidents,
+    })
     updatedTurnouts.push(turnout)
   }
   setTurnouts(ctx, updatedTurnouts)

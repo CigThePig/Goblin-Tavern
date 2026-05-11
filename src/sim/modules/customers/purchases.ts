@@ -3,8 +3,9 @@ import type { CustomerGroupState, StockState } from '../../state/TavernState'
 
 import { sellStockItem } from '../stock/sales'
 import type { ShortageRecord } from '../stock/types'
+import type { ServiceQualityModifiers } from '../staff/types'
 
-// Phase 10 §10.4 — Customer purchase behaviour.
+// Phase 10 §10.4 / Phase 12 §12.3 — Customer purchase behaviour.
 //
 // Each visitor buys a small basket of preferred items via the Phase 9
 // `sellStockItem` helper, which is the only sanctioned path to mutate
@@ -12,11 +13,24 @@ import type { ShortageRecord } from '../stock/types'
 // sale path that writes to stock or coin without going through these
 // helpers"). Shortages bubble up through the returned `SellResult` and
 // are surfaced in the group's per-day turnout.
+//
+// Phase 12 §12.3 adds two optional knobs:
+//   - `serviceQuality`: when present, `serviceSpeed` slightly boosts
+//     per-visitor consumption (faster service → more rounds).
+//   - `stretchFactor`: cook `stretch_ingredients` priority reduces
+//     per-visitor consumption (≤ 1). Phase 12 §"Tests" guarantees
+//     this knob exists ("cook stretch_ingredients reduces stock use").
 
 export type GroupPurchaseResult = {
   coinEarned: number
   shortages: ShortageRecord[]
   itemsBought: Array<{ stockId: string; quantity: number }>
+}
+
+export type ResolvePurchaseOptions = {
+  serviceQuality?: ServiceQualityModifiers
+  /** Per-visitor consumption multiplier in (0, 1]; defaults to 1. */
+  stretchFactor?: number
 }
 
 // Per-visitor purchase intent. Local goblins want cheap ale and stew,
@@ -49,6 +63,7 @@ export function resolveGroupPurchases(
   ctx: SimContext,
   group: CustomerGroupState,
   visitors: number,
+  options: ResolvePurchaseOptions = {},
 ): GroupPurchaseResult {
   const result: GroupPurchaseResult = {
     coinEarned: 0,
@@ -60,6 +75,15 @@ export function resolveGroupPurchases(
   const basket = basketFor(group.id)
   const seenShortageStockIds = new Set<string>()
 
+  const quality = options.serviceQuality
+  const stretchFactor = Math.max(0.5, options.stretchFactor ?? 1)
+  // Phase 12 §12.3 — `serviceSpeed` slightly boosts per-visitor
+  // consumption (faster service → more rounds), capped so a single
+  // boosted day cannot drain a week's worth of stock.
+  const speedBoost = quality
+    ? Math.max(0, Math.min(0.5, quality.serviceSpeed / 4))
+    : 0
+
   for (const stockId of basket) {
     const item = ctx.state.stock[stockId]
     if (!itemMatchesPreferences(item, group)) continue
@@ -67,8 +91,10 @@ export function resolveGroupPurchases(
     // Each visitor buys 1 of this item if available. Bigger spenders
     // (high wealth + low price sensitivity) buy slightly more.
     const spendBoost = group.wealth >= 70 && group.priceSensitivity <= 40 ? 1 : 0
-    const perVisitor = 1 + spendBoost
-    const quantity = visitors * perVisitor
+    const perVisitorBase = 1 + spendBoost + speedBoost
+    const perVisitor = perVisitorBase * stretchFactor
+    const quantity = Math.max(0, Math.round(visitors * perVisitor))
+    if (quantity <= 0) continue
 
     const sale = sellStockItem(ctx, stockId, quantity, {
       buyerGroupId: group.id,

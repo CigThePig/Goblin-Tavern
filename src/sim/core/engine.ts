@@ -36,7 +36,7 @@ import type {
 } from '../modules/causes/causeTypes'
 import { ageCauses } from '../modules/causes/causeAging'
 
-import { createRng } from './rng'
+import { createRngStreams } from './rng'
 import type {
   AddLogInput,
   MutationMeta,
@@ -259,7 +259,13 @@ function createContext(
   input: SimInput,
   modules: ReadonlyArray<SimulationModule>,
 ): SimContext {
-  const rng = createRng(input.seed)
+  // Phase 24 §"Engine Changes" — RNG streams.
+  //
+  // `createRngStreams` builds isolated, deterministic streams keyed by
+  // `RngStreamId`. Existing call sites that reach for `ctx.rng` get the
+  // `service` stream so per-day, ad-hoc rolls keep their old behaviour.
+  const rngStreams = createRngStreams(input.seed)
+  const rng = rngStreams.get('service')
 
   const requireRecord = <T>(record: Record<string, T>, id: string, kind: string): T => {
     const value = record[id]
@@ -568,6 +574,10 @@ function createContext(
     },
     input,
     rng,
+    rngStreams,
+    getRngStream(streamId) {
+      return rngStreams.get(streamId)
+    },
     get reports() {
       return runtime.reports
     },

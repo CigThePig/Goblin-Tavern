@@ -16,6 +16,7 @@ export function createInitialLocalArcsModuleState(): LocalArcsModuleState {
     activeMarketConditionIds: [],
     cooldowns: {},
     recentlyAppliedEffects: [],
+    monthlyCalendarTagsSeen: [],
   }
 }
 
@@ -24,5 +25,11 @@ export function getLocalArcsModuleState(state: TavernState): LocalArcsModuleStat
     | LocalArcsModuleState
     | undefined
   if (!slice) return createInitialLocalArcsModuleState()
+  // Migration: older serialized slices may lack `monthlyCalendarTagsSeen`.
+  // Fill in the default so the daily hook and monthly seeding pass can
+  // always rely on the field.
+  if (slice.monthlyCalendarTagsSeen === undefined) {
+    return { ...slice, monthlyCalendarTagsSeen: [] }
+  }
   return slice
 }

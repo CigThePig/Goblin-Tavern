@@ -217,8 +217,12 @@ describe('Phase 35 §35.5 — Starting and progressing arcs', () => {
   it('arc seeded by hand progresses stage across months', () => {
     const base = plentyOfStock(withCoin(createInitialTavernState(), 500))
     // Seed a mushroom_blight in the `seeded` stage on day 1; after
-    // running two months (~56 days) it should have progressed past
-    // `seeded` per the registry's progress rules.
+    // running two months (~56 days) it should have progressed through
+    // rising into active per the registry's progress rules
+    // (seeded → rising at age 14, rising → active at age 28). The
+    // monthly tick fires on day 28 of each month, which corresponds
+    // to totalDaysElapsed=27 and 55, so the arc reaches age 55 by the
+    // end of month 2.
     const fixture = makeArcRecord({
       id: 'arc:mb:fixture',
       stage: 'seeded',
@@ -230,8 +234,11 @@ describe('Phase 35 §35.5 — Starting and progressing arcs', () => {
     const after = runMonths(seeded, 2)
     const updated = after.world.localEvents['arc:mb:fixture']
     expect(updated).toBeDefined()
-    expect(updated!.stage).not.toBe('seeded')
-    expect(updated!.ageDays).toBeGreaterThan(0)
+    expect(updated!.stage).toBe('active')
+    expect(updated!.ageDays).toBe(55)
+    const historyStages = updated!.arcHistory?.map((h) => h.stage) ?? []
+    expect(historyStages).toContain('rising')
+    expect(historyStages).toContain('active')
   })
 
   it('arc reaching maxDurationDays resolves', () => {
@@ -247,6 +254,133 @@ describe('Phase 35 §35.5 — Starting and progressing arcs', () => {
     const after = runMonths(seeded, 1)
     const updated = after.world.localEvents['arc:mb:long']
     expect(updated!.stage).toBe('resolved')
+  })
+})
+
+describe('Phase 35 — Codex review fixes', () => {
+  it('daily hook records calendar tags seen during the month', () => {
+    // `miner_payday` is added on payday day types (days 5/12/19/26)
+    // and `festival_window` on month 7 week 2 — neither falls on
+    // day 28, the only day pickArcsToStart runs. The monthly tag
+    // history makes those tags visible to the monthly seeding pass.
+    const base = plentyOfStock(withCoin(createInitialTavernState(), 500))
+    // Run one full month worth of days but stop before the monthly
+    // tick clears the history (day 27, 0-indexed elapsed=27 means
+    // the day-28 tick hasn't run yet).
+    let current = base
+    for (let i = 0; i < 27; i += 1) {
+      current = runDay(current).state
+    }
+    const slice = getLocalArcsModuleState(current)
+    expect(slice.monthlyCalendarTagsSeen).toContain('miner_payday')
+  })
+
+  it('calendar-gated arc can seed even though gating tag never falls on day 28', () => {
+    // miner_payday_boom is gated on calendar_tag:miner_payday. The
+    // monthly seeding pass runs on day 28 (week 4 maintenance day);
+    // without the monthly tag history this arc would be permanently
+    // unreachable.
+    //
+    // To force a deterministic pick, disqualify the other definitions:
+    //   - mushroom_blight, rival_tavern_expansion: occupy two of three
+    //     active-arc slots with rising fixtures so `hasActiveArcForDefinition`
+    //     filters them out (and they don't consume the last slot).
+    //   - inspection_campaign: seed a recently-resolved instance so the
+    //     56-day repeat cooldown disqualifies it.
+    //   - festival_approaching: requires `festival_window`, which only
+    //     fires month 7 week 2. The test runs from month 1.
+    // That leaves miner_payday_boom as the only candidate after the fix.
+    let base = plentyOfStock(withCoin(createInitialTavernState(), 500))
+    base = seedArcRecord(
+      base,
+      makeArcRecord({
+        id: 'arc:mb:occupier',
+        definitionId: 'mushroom_blight',
+        stage: 'rising',
+        ageDays: 14,
+        startedDay: 0,
+        lastUpdatedDay: 0,
+      }),
+    )
+    base = seedArcRecord(
+      base,
+      makeArcRecord({
+        id: 'arc:rt:occupier',
+        definitionId: 'rival_tavern_expansion',
+        stage: 'rising',
+        ageDays: 14,
+        startedDay: 0,
+        lastUpdatedDay: 0,
+      }),
+    )
+    base = seedArcRecord(
+      base,
+      makeArcRecord({
+        id: 'arc:ic:cooldown',
+        definitionId: 'inspection_campaign',
+        stage: 'resolved',
+        ageDays: 56,
+        startedDay: 0,
+        lastUpdatedDay: 0,
+      }),
+    )
+    const after = runMonths(base, 1)
+    const minerArcs = listAllArcs(after).filter(
+      (a) => a.definitionId === 'miner_payday_boom',
+    )
+    expect(minerArcs.length).toBeGreaterThan(0)
+  })
+
+  it('arc visits climax stage before resolving across natural progression', () => {
+    // Regression for the bug where the max-duration check in
+    // computeArcProgress fired before the active → climax rule, so
+    // arcs jumped straight from active to resolved without ever
+    // observing climax.
+    const base = plentyOfStock(withCoin(createInitialTavernState(), 500))
+    const fixture = makeArcRecord({
+      id: 'arc:mb:climax-walk',
+      stage: 'seeded',
+      lastUpdatedDay: 0,
+      ageDays: 0,
+      startedDay: 0,
+    })
+    const seeded = seedArcRecord(base, fixture)
+    // Walk far enough to pass the climax → resolved threshold.
+    const after = runMonths(seeded, 5)
+    const updated = after.world.localEvents['arc:mb:climax-walk']
+    expect(updated).toBeDefined()
+    const historyStages = updated!.arcHistory?.map((h) => h.stage) ?? []
+    expect(historyStages).toContain('climax')
+    expect(historyStages).toContain('resolved')
+    expect(historyStages.indexOf('climax')).toBeLessThan(
+      historyStages.indexOf('resolved'),
+    )
+    expect(updated!.stage).toBe('resolved')
+  })
+
+  it('climax-stage effects are recorded in recentlyAppliedEffects', () => {
+    // Hand-seed mushroom_blight at active stage age 28; after two
+    // monthly ticks the second tick crosses the active → climax
+    // threshold (afterDays=56 absolute) and the effects loop runs
+    // with arc.stage='climax'. Tracks the regression where the
+    // pre-fix code force-resolved at maxDuration and skipped climax.
+    const base = plentyOfStock(withCoin(createInitialTavernState(), 500))
+    const fixture = makeArcRecord({
+      id: 'arc:mb:to-climax',
+      stage: 'active',
+      lastUpdatedDay: 0,
+      ageDays: 28,
+      startedDay: 0,
+    })
+    const seeded = seedArcRecord(base, fixture)
+    const after = runMonths(seeded, 2)
+    const updated = after.world.localEvents['arc:mb:to-climax']
+    expect(updated!.stage).toBe('climax')
+    const slice = getLocalArcsModuleState(after)
+    const climaxEffects = slice.recentlyAppliedEffects.filter(
+      (r) => r.arcId === 'arc:mb:to-climax' && r.appliedAtStage === 'climax',
+    )
+    expect(climaxEffects.length).toBeGreaterThan(0)
   })
 })
 

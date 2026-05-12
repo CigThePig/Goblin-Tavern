@@ -161,9 +161,30 @@ const localEventUpdateHook: SimulationHook = (ctx: SimContext): void => {
   // Refresh aggregated tag bundles so downstream consumers see a
   // current snapshot. Active-arc bookkeeping mostly happens on the
   // monthly tick; the daily hook just rebuilds the derived sets.
+  //
+  // The hook also unions today's calendar tags into
+  // `monthlyCalendarTagsSeen` so the monthly seeding pass can satisfy
+  // `calendar_tag` start conditions whose tag never falls on day 28
+  // (e.g. `miner_payday` only fires on payday day types).
   const slice = getLocalArcsModuleState(ctx.state)
   const bundles = collectArcTagBundles(ctx.state)
+
+  const todayTags = ctx.state.calendar.tags as readonly string[]
+  let nextSeen = slice.monthlyCalendarTagsSeen
+  let seenChanged = false
+  if (todayTags.length > 0) {
+    const seenSet = new Set(slice.monthlyCalendarTagsSeen)
+    for (const tag of todayTags) {
+      if (!seenSet.has(tag)) {
+        seenSet.add(tag)
+        seenChanged = true
+      }
+    }
+    if (seenChanged) nextSeen = [...seenSet].sort()
+  }
+
   if (
+    !seenChanged &&
     arraysEqual(slice.activeArcIds, bundles.activeArcIds) &&
     arraysEqual(slice.activeArcTags, bundles.activeArcTags) &&
     arraysEqual(slice.activeIssueSeedTags, bundles.activeIssueSeedTags) &&
@@ -171,7 +192,11 @@ const localEventUpdateHook: SimulationHook = (ctx: SimContext): void => {
   ) {
     return
   }
-  writeSlice(ctx, bundles, 'refresh_active_tags')
+  writeSlice(
+    ctx,
+    { ...bundles, monthlyCalendarTagsSeen: nextSeen },
+    'refresh_active_tags',
+  )
 }
 
 function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
@@ -270,8 +295,16 @@ const endMonthHook: SimulationHook = (ctx: SimContext): void => {
   }
 
   // 2. Seed new arcs (at most one per monthly tick) using current
-  // post-progress state.
-  const newDefinitions = pickArcsToStart({ ctx, monthlySlice, cooldowns })
+  // post-progress state. The slice's `monthlyCalendarTagsSeen` carries
+  // tags observed earlier in the month so `calendar_tag` start
+  // conditions can fire even though day 28 itself never produces those
+  // tags.
+  const newDefinitions = pickArcsToStart({
+    ctx,
+    monthlySlice,
+    cooldowns,
+    seenCalendarTags: slice.monthlyCalendarTagsSeen,
+  })
   for (const def of newDefinitions) {
     const instance = createArcInstance({ definition: def, today })
     addArcToWorld(ctx, instance)
@@ -324,6 +357,9 @@ const endMonthHook: SimulationHook = (ctx: SimContext): void => {
       lastMonthlyTickDay: today,
       cooldowns,
       recentlyAppliedEffects: recentlyApplied,
+      // Reset the running tag history after the seeding pass has read
+      // it, so the next month accumulates from scratch.
+      monthlyCalendarTagsSeen: [],
       ...bundles,
     },
     'monthly_tick',
@@ -431,6 +467,7 @@ const LocalArcsModuleStateSchema = z.object({
   activeMarketConditionIds: z.array(z.string()),
   cooldowns: z.record(z.string(), z.number().int().min(0)),
   recentlyAppliedEffects: z.array(LocalArcsAppliedEffectRecordSchema),
+  monthlyCalendarTagsSeen: z.array(z.string()),
 })
 
 export const localArcsModule: SimulationModule = {

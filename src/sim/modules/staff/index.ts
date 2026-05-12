@@ -18,6 +18,7 @@ export {
   getStaffStressPenalty,
   derivePriorityModifiers,
   summarizeStaff,
+  validateStaffIdentityProfileRegistration,
 } from './staffModule'
 
 export {

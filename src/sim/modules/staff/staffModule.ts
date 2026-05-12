@@ -19,6 +19,8 @@ import {
   isPriorityAllowedForRole,
   staffPriorityRegistry,
 } from '../../registries/staffPriorityRegistry'
+import { namingProfileRegistry } from '../../content/naming/namingProfiles'
+import { staffIdentityProfileRegistry } from '../../content/staff/staffIdentityProfiles'
 import { clampPercent } from '../../state/normalize'
 
 import {
@@ -242,6 +244,18 @@ function describeStaffLine(
   const lines: string[] = []
   lines.push(`${staff.name} — ${roleLabel}`)
   lines.push(`  Priority: ${priorityLabel}`)
+  // Phase 31 §31.10 — compact identity strip. The Phase 11 report
+  // stayed structured/debuggable; identity adds work style, stress
+  // response, and the leading personality tag without turning the
+  // report into prose.
+  if (staff.identity) {
+    const id = staff.identity
+    const personality =
+      id.personalityTags.length > 0 ? id.personalityTags[0] : 'unflagged'
+    lines.push(
+      `  Identity: ${id.workStyle}, ${id.stressResponse}, ${personality} (${id.namingProfileId})`,
+    )
+  }
   lines.push(`  Skill: ${staff.skill}`)
   lines.push(`  Morale: ${staff.morale}`)
   lines.push(`  Stress: ${staff.stress}`)
@@ -339,9 +353,87 @@ function validateStaff(ctx: SimContext): ValidationIssue[] {
         })
       }
     }
+
+    // Phase 31 §31.11 — required identity. The schema keeps `identity`
+    // optional during the migration window so older saves still parse;
+    // the module-level validator surfaces missing identity as a
+    // structural issue. Registry membership is enforced here too — a
+    // reference to an unknown naming profile or identity profile is a
+    // hard error, matching the §31.11 "invalid staff identity profile
+    // reference fails validation" requirement.
+    const identity = staff.identity
+    if (!identity) {
+      issues.push({
+        path: `staff.${staff.id}.identity`,
+        message: `Staff '${staff.id}' is missing required identity`,
+        code: 'missing_staff_identity',
+      })
+    } else {
+      if (!namingProfileRegistry.has(identity.namingProfileId)) {
+        issues.push({
+          path: `staff.${staff.id}.identity.namingProfileId`,
+          message: `Staff '${staff.id}' identity references unknown naming profile '${identity.namingProfileId}'`,
+          code: 'unknown_naming_profile_ref',
+        })
+      }
+      if (identity.generatedName.profileId !== identity.namingProfileId) {
+        issues.push({
+          path: `staff.${staff.id}.identity.generatedName.profileId`,
+          message: `Staff '${staff.id}' generated-name profileId does not match identity namingProfileId`,
+          code: 'staff_identity_profile_mismatch',
+        })
+      }
+      if (
+        identity.cultureId !== undefined &&
+        !(identity.cultureId in ctx.state.world.cultures)
+      ) {
+        issues.push({
+          path: `staff.${staff.id}.identity.cultureId`,
+          message: `Staff '${staff.id}' identity references unknown culture '${identity.cultureId}'`,
+          code: 'unknown_culture_ref',
+        })
+      }
+      if (identity.generatedName.display.length === 0) {
+        issues.push({
+          path: `staff.${staff.id}.identity.generatedName.display`,
+          message: `Staff '${staff.id}' identity has empty display name`,
+          code: 'empty_staff_identity_name',
+        })
+      }
+    }
   }
 
   return issues
+}
+
+// Phase 31 §31.11 — `validateStaffIdentityProfileRegistration` lets
+// tests check that an arbitrary `StaffIdentityProfile` resolves against
+// the currently registered naming profiles. Used by the Phase 31 test
+// "Invalid staff identity profile reference fails validation".
+export function validateStaffIdentityProfileRegistration(args: {
+  staffId: string
+  profileId: string
+}): ValidationIssue[] {
+  if (!staffIdentityProfileRegistry.has(args.profileId)) {
+    return [
+      {
+        path: `staff.${args.staffId}.identity.profileId`,
+        message: `Unknown staff identity profile '${args.profileId}'`,
+        code: 'unknown_staff_identity_profile',
+      },
+    ]
+  }
+  const profile = staffIdentityProfileRegistry.get(args.profileId)
+  if (!namingProfileRegistry.has(profile.namingProfileId)) {
+    return [
+      {
+        path: `staff.${args.staffId}.identity.namingProfileId`,
+        message: `Staff identity profile '${args.profileId}' references unknown naming profile '${profile.namingProfileId}'`,
+        code: 'unknown_naming_profile_ref',
+      },
+    ]
+  }
+  return []
 }
 
 // ---------- Module schema ----------

@@ -321,7 +321,13 @@ describe('Phase 11 — Staff report (§11.6)', () => {
     const report = result.reports.find((r) => r.id === 'staff')
     expect(report).toBeDefined()
     const text = report!.lines.join('\n')
-    expect(text).toMatch(/Gribna/)
+    // Phase 31 §31.8 replaces the literal 'Gribna' default name with a
+    // deterministic generated name. The report still has to surface
+    // the cook's display name — match against whatever name the
+    // identity factory produced rather than a baked-in string.
+    const cookName = result.state.staff.cook!.name
+    expect(cookName.length).toBeGreaterThan(0)
+    expect(text).toContain(cookName)
     expect(text).toMatch(/Cook/)
     expect(text).toMatch(/Quality/)
     expect(text).toMatch(/Effectiveness:/)

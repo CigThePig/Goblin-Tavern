@@ -64,6 +64,7 @@ export function createInitialAttributionModuleState(): AttributionModuleState {
     attributions: [],
     generatedToday: [],
     lastUpdatedDay: -1,
+    recentDistrustByRumour: {},
   }
 }
 
@@ -262,6 +263,7 @@ function applyDrafts(
   }
 
   const next: AttributionModuleState = {
+    ...current,
     attributions: [...byKey.values()],
     generatedToday,
     lastUpdatedDay: state.calendar.totalDaysElapsed,
@@ -610,6 +612,7 @@ const AttributionModuleStateSchema = z.object({
   attributions: z.array(AttributionStateSchema),
   generatedToday: z.array(z.string()),
   lastUpdatedDay: z.number().int(),
+  recentDistrustByRumour: z.record(z.string(), z.number().int().min(0)),
 })
 
 function buildReport(ctx: SimContext): ReportSection {

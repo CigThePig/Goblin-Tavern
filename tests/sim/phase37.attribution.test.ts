@@ -282,6 +282,7 @@ describe('Phase 37 §37.3 — Attribution module state', () => {
       attributions: [],
       generatedToday: [],
       lastUpdatedDay: -1,
+      recentDistrustByRumour: {},
     })
   })
 })

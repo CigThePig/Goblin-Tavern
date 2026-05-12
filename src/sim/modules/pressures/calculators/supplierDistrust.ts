@@ -85,7 +85,7 @@ export function calculateSupplierDistrust(
   for (const supplier of suppliers) {
     const ref: EntityRef = { kind: 'supplier', id: supplier.id }
     const blame = publicBlameStrengthAgainst(ctx.state, ref)
-    if (blame >= 30) {
+    if (blame >= 25) {
       pushActor(ref)
       pushCause(causes, {
         id: `blame_${supplier.id}`,
@@ -97,7 +97,7 @@ export function calculateSupplierDistrust(
       })
     }
     const lateMem = memoryStrengthAboutByTags(ctx, ref, ['late_payment'])
-    if (lateMem >= 30) {
+    if (lateMem >= 25) {
       pushActor(ref)
       pushCause(causes, {
         id: `late_payment_mem_${supplier.id}`,
@@ -109,7 +109,7 @@ export function calculateSupplierDistrust(
       })
     }
     const disputeMem = memoryStrengthAboutByTags(ctx, ref, ['delivery_dispute'])
-    if (disputeMem >= 30) {
+    if (disputeMem >= 25) {
       pushActor(ref)
       pushCause(causes, {
         id: `delivery_dispute_mem_${supplier.id}`,
@@ -124,7 +124,7 @@ export function calculateSupplierDistrust(
     const paidOnTime = memoryStrengthAboutByTags(ctx, ref, ['paid_on_time'])
     const gratitude = gratitudeStrengthAgainst(ctx.state, ref)
     const reliefScore = fairDeal + paidOnTime + gratitude
-    if (reliefScore >= 30) {
+    if (reliefScore >= 25) {
       pushActor(ref)
       pushCause(causes, {
         id: `relief_${supplier.id}`,

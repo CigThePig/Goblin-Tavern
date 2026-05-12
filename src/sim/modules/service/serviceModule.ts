@@ -195,17 +195,23 @@ function emitServiceMemories(
   // compound.
   const brawl = result.incidents.find((i) => i.id === 'minor_brawl')
   if (brawl) {
-    ctx.addMemory({
-      id: 'recent_brawl',
-      source: SOURCE,
-      metadata: { severity: brawl.severity, actorGroup: brawl.actorGroup },
-      ...(brawl.actorGroup
-        ? { actors: [{ kind: 'customer_group', id: brawl.actorGroup }] }
-        : {}),
-      ...(brawl.areaId
-        ? { locations: [{ kind: 'area', id: brawl.areaId }] }
-        : {}),
-    })
+    const owner = brawl.actorGroup
+      ? ({ kind: 'customer_group', id: brawl.actorGroup } as const)
+      : ({ kind: 'tavern_identity', id: ctx.state.meta.tavernId } as const)
+    ctx.addEntityMemory(
+      owner,
+      {
+        id: 'recent_brawl',
+        source: SOURCE,
+        metadata: { severity: brawl.severity, actorGroup: brawl.actorGroup },
+        ...(brawl.areaId
+          ? { locations: [{ kind: 'area', id: brawl.areaId }] }
+          : {}),
+      },
+      brawl.areaId
+        ? { subjects: [{ kind: 'area', id: brawl.areaId }] }
+        : undefined,
+    )
     ctx.addHistory({
       category: 'service',
       summary: `Brawl during service (severity ${brawl.severity}).`,

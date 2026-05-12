@@ -4,6 +4,7 @@ import type {
   CustomerWeeklyTrendEntry,
   MaintenanceBacklogEntry,
   StaffWeeklyTrendEntry,
+  WeeklyCommunityResult,
   WeeklyEconomyTotals,
   WeeklyResult,
   WeeklySignalTotals,
@@ -101,6 +102,91 @@ function formatSignalLines(signals: WeeklySignalTotals): string[] {
   ]
 }
 
+// Phase 34 §34.7 — Community report block. Compact, debug-readable;
+// supplier/regular/faction trend entries surface their deltas plus the
+// notes that motivated them, and rumours surface their strength and
+// accuracy tag. Nothing here is card prose; the block is structural.
+function formatCommunityLines(community: WeeklyCommunityResult): string[] {
+  const lines: string[] = []
+
+  if (
+    community.supplierTrend.length === 0 &&
+    community.regularTrend.length === 0 &&
+    community.factionTrend.length === 0 &&
+    community.rumours.length === 0
+  ) {
+    lines.push('  (quiet week)')
+    return lines
+  }
+
+  if (community.supplierTrend.length > 0) {
+    lines.push('  Suppliers:')
+    for (const entry of community.supplierTrend) {
+      const parts: string[] = []
+      if (entry.relationshipDelta !== 0) {
+        parts.push(`relationship ${formatSigned(entry.relationshipDelta)}`)
+      }
+      if (entry.reliabilityDelta !== 0) {
+        parts.push(`reliability ${formatSigned(entry.reliabilityDelta)}`)
+      }
+      if (entry.pricePressureDelta !== 0) {
+        parts.push(`price pressure ${formatSigned(entry.pricePressureDelta)}`)
+      }
+      lines.push(
+        `    ${entry.supplierId}: ${parts.length > 0 ? parts.join(', ') : 'no change'}`,
+      )
+      if (entry.notes.length > 0) lines.push(`      ${entry.notes.join(' ')}`)
+    }
+  }
+
+  if (community.regularTrend.length > 0) {
+    lines.push('  Regulars:')
+    for (const entry of community.regularTrend) {
+      const parts: string[] = []
+      if (entry.loyaltyDelta !== 0) parts.push(`loyalty ${formatSigned(entry.loyaltyDelta)}`)
+      if (entry.irritationDelta !== 0) {
+        parts.push(`irritation ${formatSigned(entry.irritationDelta)}`)
+      }
+      lines.push(
+        `    ${entry.regularId}: ${parts.length > 0 ? parts.join(', ') : 'no change'} (${entry.visitsThisWeek} visit${entry.visitsThisWeek === 1 ? '' : 's'})`,
+      )
+      if (entry.notes.length > 0) lines.push(`      ${entry.notes.join(' ')}`)
+    }
+  }
+
+  if (community.factionTrend.length > 0) {
+    lines.push('  Factions:')
+    for (const entry of community.factionTrend) {
+      const parts: string[] = []
+      if (entry.satisfactionDelta !== 0) {
+        parts.push(`relationship ${formatSigned(entry.satisfactionDelta)}`)
+      }
+      if (entry.tensionDelta !== 0) {
+        parts.push(`tension ${formatSigned(entry.tensionDelta)}`)
+      }
+      lines.push(
+        `    ${entry.factionId}: ${parts.length > 0 ? parts.join(', ') : 'no change'}`,
+      )
+      if (entry.notes.length > 0) lines.push(`      ${entry.notes.join(' ')}`)
+    }
+  }
+
+  if (community.rumours.length > 0) {
+    lines.push('  Rumours:')
+    for (const rumour of community.rumours) {
+      lines.push(
+        `    "${rumour.summary}" — strength ${rumour.strength}, ${rumour.accuracy}`,
+      )
+    }
+  }
+
+  for (const note of community.notes) {
+    lines.push(`  ${note}`)
+  }
+
+  return lines
+}
+
 export function buildWeeklyReportSection(result: WeeklyResult): ReportSection {
   const lines: string[] = []
   lines.push('Economy:')
@@ -152,6 +238,12 @@ export function buildWeeklyReportSection(result: WeeklyResult): ReportSection {
 
   lines.push('Signals:')
   lines.push(...formatSignalLines(result.signals))
+  lines.push('')
+
+  // Phase 34 §34.7 — Community block always renders, even when quiet,
+  // so downstream readers can rely on its presence.
+  lines.push('Community:')
+  lines.push(...formatCommunityLines(result.community))
 
   return {
     id: 'weekly',
@@ -185,6 +277,26 @@ export function buildWeeklyReportSection(result: WeeklyResult): ReportSection {
         ...s,
         relatedStockIds: [...s.relatedStockIds],
       })),
+      community: {
+        supplierTrend: result.community.supplierTrend.map((s) => ({
+          ...s,
+          notes: [...s.notes],
+        })),
+        regularTrend: result.community.regularTrend.map((r) => ({
+          ...r,
+          notes: [...r.notes],
+        })),
+        factionTrend: result.community.factionTrend.map((f) => ({
+          ...f,
+          notes: [...f.notes],
+        })),
+        rumours: result.community.rumours.map((r) => ({
+          ...r,
+          tags: [...r.tags],
+          involvedRefs: r.involvedRefs.map((ref) => ({ ...ref })),
+        })),
+        notes: [...result.community.notes],
+      },
     },
   }
 }

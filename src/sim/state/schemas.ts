@@ -450,6 +450,26 @@ export const NotableNpcWorldStateSchema = z.object({
   activeFlags: z.array(z.string()),
 })
 
+// Phase 35 §35.2 — arc lifecycle stages.
+export const LocalArcStageSchema = z.enum([
+  'seeded',
+  'rising',
+  'active',
+  'climax',
+  'resolved',
+  'failed',
+])
+
+export const LocalArcHistoryRecordSchema = z.object({
+  day: nonNegativeInt(),
+  stage: LocalArcStageSchema,
+  note: z.string(),
+})
+
+// Phase 25 §"World State Schema" / Phase 35 §35.3 — extended with
+// optional arc fields. Legacy local-event records without arc semantics
+// still validate; Phase 35 arcs add `type`, `stage`, `lastUpdatedDay`,
+// `ageDays`, `relatedRefs`, `activeEffects`, and `arcHistory`.
 export const LocalEventWorldStateSchema = z.object({
   id: z.string(),
   definitionId: z.string(),
@@ -461,6 +481,14 @@ export const LocalEventWorldStateSchema = z.object({
   relatedCultureIds: z.array(z.string()),
   tags: z.array(z.string()),
   activeFlags: z.array(z.string()),
+  // Phase 35 §35.3 — arc-specific fields.
+  type: z.string().optional(),
+  stage: LocalArcStageSchema.optional(),
+  lastUpdatedDay: nonNegativeInt().optional(),
+  ageDays: nonNegativeInt().optional(),
+  relatedRefs: z.array(EntityRefSchema).optional(),
+  activeEffects: z.array(z.string()).optional(),
+  arcHistory: z.array(LocalArcHistoryRecordSchema).optional(),
 })
 
 export const TavernIdentityStateSchema = z.object({

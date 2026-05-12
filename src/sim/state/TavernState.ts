@@ -461,6 +461,31 @@ export type NotableNpcWorldState = {
   activeFlags: string[]
 }
 
+// Phase 35 §35.2 — arc lifecycle stages. Stored as a plain string on
+// the record so legacy local-event entries without arc semantics still
+// validate; `world.localEvents` widens to cover both shapes.
+export type LocalArcStageId =
+  | 'seeded'
+  | 'rising'
+  | 'active'
+  | 'climax'
+  | 'resolved'
+  | 'failed'
+
+export type LocalArcHistoryRecord = {
+  day: number
+  stage: LocalArcStageId
+  note: string
+}
+
+// Phase 25 §"Required World State Types" / Phase 35 §35.3 — local
+// events double as the storage for Phase 35 local arcs. The Phase 25
+// fields (id, definitionId, label, startedDay, endsDay, intensity,
+// relatedFactionIds, relatedCultureIds, tags, activeFlags) stay the
+// canonical shape; Phase 35 adds optional arc fields (`type`, `stage`,
+// `lastUpdatedDay`, `ageDays`, `relatedRefs`, `activeEffects`,
+// `arcHistory`) on top so an existing local-event record continues to
+// validate without rewriting Phase 25 callers.
 export type LocalEventWorldState = {
   id: string
   definitionId: string
@@ -472,6 +497,14 @@ export type LocalEventWorldState = {
   relatedCultureIds: string[]
   tags: string[]
   activeFlags: string[]
+  // Phase 35 §35.3 — arc-specific fields.
+  type?: string
+  stage?: LocalArcStageId
+  lastUpdatedDay?: number
+  ageDays?: number
+  relatedRefs?: EntityRef[]
+  activeEffects?: string[]
+  arcHistory?: LocalArcHistoryRecord[]
 }
 
 export type TavernIdentityState = {

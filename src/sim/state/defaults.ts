@@ -23,6 +23,7 @@ import { createInitialCauseModuleState } from '../modules/causes/causeModule'
 import { createInitialPressureModuleState } from '../modules/pressures/pressureModule'
 import { createInitialFeedbackModuleState } from '../modules/feedback/feedbackLoopModule'
 import { createInitialIssueSeedModuleState } from '../modules/issues/issueSeedTypes'
+import { createInitialLocalArcsModuleState } from '../modules/localArcs/state'
 import { createInitialSupplierModuleState } from '../modules/suppliers/state'
 import {
   ensureRequiredSuppliersRegistered,
@@ -396,6 +397,10 @@ export function createInitialTavernState(overrides?: Partial<TavernState>): Tave
       // no creations, no visits) so the module's schema validates from
       // day zero before any regular has emerged.
       regulars: createInitialRegularModuleState(),
+      // Phase 35 §35.3 — seed an empty local arcs slice (no active
+      // arcs, no cooldowns, no applied effects) so the module's schema
+      // validates from day zero before any arc has seeded.
+      localArcs: createInitialLocalArcsModuleState(),
     },
   }
 

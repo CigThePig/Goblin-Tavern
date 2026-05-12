@@ -6,6 +6,7 @@ import type { TavernState } from '../state/TavernState'
 import { createInitialTavernState } from '../state/defaults'
 
 import { areasModule } from '../modules/areas/index'
+import { attributionModule } from '../modules/attribution/index'
 import { causesModule } from '../modules/causes/index'
 import { customersModule } from '../modules/customers/index'
 import { feedbackModule } from '../modules/feedback/index'
@@ -75,6 +76,11 @@ export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   memoriesModule,
   historyModule,
   causesModule,
+  // Phase 37 §37.1 — Attribution sits after causes/memories/scenes so
+  // its rules can read today's settled simulation truth, but before the
+  // pressure/feedback/issue-seed analytical stack so those layers can
+  // optionally fold in attribution-driven signals.
+  attributionModule,
   pressuresModule,
   feedbackModule,
   issueSeedsModule,

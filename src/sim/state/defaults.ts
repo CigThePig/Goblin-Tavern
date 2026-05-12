@@ -19,6 +19,7 @@ import { createInitialStockModuleState } from '../modules/stock/state'
 import { createInitialOwnerActionsModuleState } from '../modules/ownerActions/ownerActionsModule'
 import { createInitialWeeklyModuleState } from '../modules/weekly/state'
 import { createInitialMonthlyModuleState } from '../modules/monthly/monthlyModule'
+import { createInitialAttributionModuleState } from '../modules/attribution/attributionModule'
 import { createInitialCauseModuleState } from '../modules/causes/causeModule'
 import { createInitialPressureModuleState } from '../modules/pressures/pressureModule'
 import { createInitialFeedbackModuleState } from '../modules/feedback/feedbackLoopModule'
@@ -401,6 +402,10 @@ export function createInitialTavernState(overrides?: Partial<TavernState>): Tave
       // arcs, no cooldowns, no applied effects) so the module's schema
       // validates from day zero before any arc has seeded.
       localArcs: createInitialLocalArcsModuleState(),
+      // Phase 37 §37.3 — seed an empty attribution slice (no beliefs
+      // yet) so the module's schema validates from day zero before any
+      // attribution rule has fired.
+      attribution: createInitialAttributionModuleState(),
     },
   }
 

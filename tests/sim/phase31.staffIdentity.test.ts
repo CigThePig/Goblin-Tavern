@@ -46,12 +46,12 @@ describe('Phase 31 — Default staff identity', () => {
     }
   })
 
-  it('2. Default staff names match identity.generatedName.display', () => {
+  it('2. Default staff names match identity.namingProfileId profile', () => {
     const state = createInitialTavernState()
     for (const staff of Object.values(state.staff)) {
       expect(staff.identity).toBeDefined()
-      expect(staff.name.length).toBeGreaterThan(0)
-      expect(staff.name).toBe(staff.identity!.generatedName.display)
+      expect(staff.name.display.length).toBeGreaterThan(0)
+      expect(staff.name.profileId).toBe(staff.identity!.namingProfileId)
     }
   })
 
@@ -220,7 +220,7 @@ describe('Phase 31 — Determinism', () => {
     for (const id of Object.keys(a.staff)) {
       expect(b.staff[id]).toBeDefined()
       expect(a.staff[id]!.identity).toEqual(b.staff[id]!.identity)
-      expect(a.staff[id]!.name).toBe(b.staff[id]!.name)
+      expect(a.staff[id]!.name).toEqual(b.staff[id]!.name)
     }
   })
 
@@ -279,7 +279,8 @@ describe('Phase 31 — Migration: ensureStaffIdentityFields', () => {
     const repaired = ensureStaffIdentityFields(ensureWorldBranch(stripped))
     for (const staff of Object.values(repaired.staff)) {
       expect(staff.identity).toBeDefined()
-      expect(staff.name).toBe(staff.identity!.generatedName.display)
+      expect(staff.name.display.length).toBeGreaterThan(0)
+      expect(staff.name.profileId).toBe(staff.identity!.namingProfileId)
     }
   })
 })

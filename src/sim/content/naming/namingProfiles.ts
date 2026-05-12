@@ -88,6 +88,104 @@ export const STARTER_NAMING_PROFILES: NamingProfile[] = [
       },
     ],
   },
+  // Audit fixes pass 1 §1.5 — four culture-aligned naming profiles so
+  // the customer-group and supplier rosters can route their generated
+  // identities through visibly distinct profiles rather than collapsing
+  // everyone onto `goblin_common`.
+  {
+    id: 'miner_workcrew',
+    label: 'Mining Workcrew',
+    tags: ['miner', 'workcrew', 'short'],
+    given: ['Hodd', 'Brunn', 'Kev', 'Marn', 'Tess', 'Yorra', 'Plym', 'Drev'],
+    family: ['Pickbreaker', 'Ironback', 'Coalhand', 'Slatebreaker', 'Deeprun'],
+    patterns: [
+      {
+        id: 'given_family',
+        weight: 9,
+        template: '{given} {family}',
+        partKinds: ['given', 'family'],
+        tags: ['formal'],
+      },
+      {
+        id: 'given_only',
+        weight: 1,
+        template: '{given}',
+        partKinds: ['given'],
+        tags: ['casual'],
+      },
+    ],
+  },
+  {
+    id: 'merchant_roadfolk',
+    label: 'Merchant Roadfolk',
+    tags: ['merchant', 'road', 'trade'],
+    given: ['Alric', 'Renna', 'Veska', 'Tomis', 'Hessa', 'Brell', 'Mavin', 'Larissa'],
+    family: ['Caravan', 'Roads', 'Mileson', 'Wagonley', 'Sterling', 'Postmark'],
+    titles: ['Trader', 'Factor', 'Master', 'Mistress'],
+    patterns: [
+      {
+        id: 'given_family',
+        weight: 7,
+        template: '{given} {family}',
+        partKinds: ['given', 'family'],
+        tags: ['formal'],
+      },
+      {
+        id: 'title_given_family',
+        weight: 3,
+        template: '{title} {given} {family}',
+        partKinds: ['title', 'given', 'family'],
+        tags: ['professional'],
+      },
+    ],
+  },
+  {
+    id: 'ogre_clans',
+    label: 'Ogre Clans',
+    tags: ['ogre', 'clan', 'loud'],
+    given: ['Grollix', 'Marrok', 'Ulluk', 'Drazga', 'Bellor', 'Korragh'],
+    family: ['Clobberkin', 'Boneclan', 'Stoneblood', 'Crackjaw', 'Ironbrood'],
+    patterns: [
+      {
+        id: 'given_family',
+        weight: 7,
+        template: '{given} {family}',
+        partKinds: ['given', 'family'],
+        tags: ['formal'],
+      },
+      {
+        id: 'given_only',
+        weight: 3,
+        template: '{given}',
+        partKinds: ['given'],
+        tags: ['casual'],
+      },
+    ],
+  },
+  {
+    id: 'adventuring_bands',
+    label: 'Adventuring Bands',
+    tags: ['adventurer', 'band', 'epithet'],
+    given: ['Kael', 'Mira', 'Doran', 'Talvi', 'Sevren', 'Aldra'],
+    family: ['Vance', 'Roth', 'Briar', 'Cael'],
+    nicknames: ['the Bold', 'of the Wastes', 'Ironforge', 'Quickfoot', 'the Scarred'],
+    patterns: [
+      {
+        id: 'given_nickname',
+        weight: 7,
+        template: '{given} {nickname}',
+        partKinds: ['given', 'nickname'],
+        tags: ['epithet'],
+      },
+      {
+        id: 'given_family',
+        weight: 3,
+        template: '{given} {family}',
+        partKinds: ['given', 'family'],
+        tags: ['formal'],
+      },
+    ],
+  },
 ]
 
 let initialized = false

@@ -153,11 +153,15 @@ function injectRegular(
   state: TavernState,
   regular: RegularWorldState,
 ): TavernState {
+  // Audit fixes pass 1 §1.3 — `createInitialTavernState` now seeds a
+  // small starter regulars roster. The Phase 39 regular-customer seed
+  // tests want a single high-irritation injected regular to dominate
+  // the calculator's avg-irritation term, so clear the starters first.
   return {
     ...state,
     world: {
       ...state.world,
-      regulars: { ...state.world.regulars, [regular.id]: regular },
+      regulars: { [regular.id]: regular },
     },
   }
 }

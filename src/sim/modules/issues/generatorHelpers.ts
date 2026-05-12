@@ -398,7 +398,7 @@ export function displayNameForRef(
   switch (ref.kind) {
     case 'staff': {
       const s = state.staff[ref.id]
-      return s?.name ?? ref.id
+      return s?.name.display ?? ref.id
     }
     case 'customer_group': {
       const g = state.customerGroups[ref.id]

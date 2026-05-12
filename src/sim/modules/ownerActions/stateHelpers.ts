@@ -34,7 +34,24 @@ export function createInitialOwnerActionsModuleState(): OwnerActionsModuleState 
     applied: [],
     rejected: [],
     projects: {},
-    policies: {},
+    // Audit fixes pass 1 §1.4 — one starter policy enabled from day
+    // zero. The `policy_backlash` pressure calculator early-exits at 0
+    // when no policies are active, so policy-related seeds, attribution
+    // rules, and feedback loops never fire in cardless gate runs unless
+    // an instance exists. The cheap-payday tags overlap merchants'
+    // `dislikedTags` (`risky`), which lets the calculator's
+    // disliking-groups term move the pressure off zero.
+    policies: {
+      cheap_payday_specials: {
+        id: 'cheap_payday_specials',
+        policyType: 'cheap_payday_specials',
+        label: 'Cheap Payday Specials',
+        enabled: true,
+        startedAtDay: 0,
+        tags: ['policy', 'cheap', 'payday', 'food', 'risky'],
+        effects: ['miners love it', 'merchants grumble about cheapness'],
+      },
+    },
     recentSocialActions: [],
   }
 }

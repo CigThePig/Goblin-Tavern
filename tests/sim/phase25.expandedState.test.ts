@@ -104,13 +104,14 @@ describe('Phase 25 — Expanded world and social state', () => {
   it('2. every world branch defaults to an empty record except tavernIdentity (and registry-seeded branches)', () => {
     const state = createInitialTavernState()
     // Phase 29 §29.2 seeds `state.world.suppliers`; Phase 30 §§30.3/30.5
-    // seed `state.world.cultures` and `state.world.factions`. The rest
-    // of the world branches stay empty until their respective phases
-    // (regulars/notableNpcs/localEvents/rumours) fill them.
+    // seed `state.world.cultures` and `state.world.factions`. Audit
+    // fixes pass 1 §1.3 also seeds `state.world.regulars` with a small
+    // deterministic starter roster. `notableNpcs`, `localEvents`, and
+    // `socialRumours` stay empty until their respective phases fill them.
     expect(typeof state.world.cultures).toBe('object')
     expect(typeof state.world.factions).toBe('object')
     expect(typeof state.world.suppliers).toBe('object')
-    expect(state.world.regulars).toEqual({})
+    expect(typeof state.world.regulars).toBe('object')
     expect(state.world.notableNpcs).toEqual({})
     expect(state.world.localEvents).toEqual({})
     expect(state.world.socialRumours).toEqual({})

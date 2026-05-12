@@ -165,11 +165,14 @@ describe('Phase 33 — Owner action types', () => {
 })
 
 describe('Phase 33 — Module slice defaults', () => {
-  it('createInitialTavernState seeds empty projects/policies/recentSocialActions', () => {
+  it('createInitialTavernState seeds empty projects/recentSocialActions and one starter policy', () => {
     const state = createInitialTavernState()
     const slice = getOwnerActionsModuleState(state)
     expect(slice.projects).toEqual({})
-    expect(slice.policies).toEqual({})
+    // Audit fixes pass 1 §1.4 — one starter policy is now enabled at
+    // day 0 so the policy backlash pressure / seed pipeline has
+    // something to bite during cardless gate runs.
+    expect(slice.policies['cheap_payday_specials']?.enabled).toBe(true)
     expect(slice.recentSocialActions).toEqual([])
   })
 })

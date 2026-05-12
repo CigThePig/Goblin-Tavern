@@ -559,6 +559,38 @@ function createContext(
     return entry
   }
 
+  // Audit fixes pass 1 §1.2 — the Phase 7 `modify*` helpers each accept a
+  // `MutationMeta` (alias `CauseDraft`) describing the change. Older
+  // versions of these helpers swallowed the meta; this helper walks the
+  // partial `changes` map, finds the numeric fields that actually moved,
+  // and emits one cause per change using the diff-path target convention
+  // (`areas.<id>.<field>`, `staff.<id>.<field>`, etc.) so the
+  // cause-coverage audit's `cause.target === change.path` lookup
+  // matches at least one entry per significant change.
+  const emitDiffPathCausesForRecord = (
+    meta: CauseDraft | undefined,
+    before: Record<string, unknown>,
+    after: Record<string, unknown>,
+    changes: Record<string, unknown>,
+    targetForField: (field: string) => string,
+    targetType: CauseTargetType,
+    extraTags: string[],
+  ): void => {
+    if (!meta) return
+    for (const field of Object.keys(changes)) {
+      const beforeVal = before[field]
+      const afterVal = after[field]
+      if (typeof beforeVal !== 'number' || typeof afterVal !== 'number') continue
+      if (afterVal === beforeVal) continue
+      addCauseInternal(meta, {
+        target: targetForField(field),
+        targetType,
+        amount: afterVal - beforeVal,
+        tags: [...extraTags, field],
+      })
+    }
+  }
+
   // ---------- Phase 16 §16.8 — history helpers ----------
 
   let historyCounter = 0
@@ -631,51 +663,95 @@ function createContext(
       }
       return { errors: result.errors, warnings: result.warnings }
     },
-    modifyArea(id, changes, _meta): void {
+    modifyArea(id, changes, meta): void {
       const area = requireRecord<AreaState>(runtime.current.areas, id, 'Area')
+      const next = { ...area, ...changes }
       runtime.current = {
         ...runtime.current,
         areas: {
           ...runtime.current.areas,
-          [id]: { ...area, ...changes },
+          [id]: next,
         },
       }
+      // Audit fixes pass 1 §1.2 — emit one cause per significant numeric
+      // change so the cause-coverage audit's diff-path lookup
+      // (`cause.target === change.path`) finds at least one matching
+      // entry. Non-numeric / unchanged fields are skipped.
+      emitDiffPathCausesForRecord(
+        meta,
+        area as unknown as Record<string, unknown>,
+        next as unknown as Record<string, unknown>,
+        changes as unknown as Record<string, unknown>,
+        (field) => `areas.${id}.${field}`,
+        'area',
+        ['area', id],
+      )
     },
-    modifyStock(id, changes, _meta): void {
+    modifyStock(id, changes, meta): void {
       const item = requireRecord<StockState>(runtime.current.stock, id, 'Stock')
+      const next = { ...item, ...changes }
       runtime.current = {
         ...runtime.current,
         stock: {
           ...runtime.current.stock,
-          [id]: { ...item, ...changes },
+          [id]: next,
         },
       }
+      emitDiffPathCausesForRecord(
+        meta,
+        item as unknown as Record<string, unknown>,
+        next as unknown as Record<string, unknown>,
+        changes as unknown as Record<string, unknown>,
+        (field) => `stock.${id}.${field}`,
+        'stock',
+        ['stock', id],
+      )
     },
-    modifyStaff(id, changes, _meta): void {
+    modifyStaff(id, changes, meta): void {
       const member = requireRecord<StaffState>(runtime.current.staff, id, 'Staff')
+      const next = { ...member, ...changes }
       runtime.current = {
         ...runtime.current,
         staff: {
           ...runtime.current.staff,
-          [id]: { ...member, ...changes },
+          [id]: next,
         },
       }
+      emitDiffPathCausesForRecord(
+        meta,
+        member as unknown as Record<string, unknown>,
+        next as unknown as Record<string, unknown>,
+        changes as unknown as Record<string, unknown>,
+        (field) => `staff.${id}.${field}`,
+        'staff',
+        ['staff', id],
+      )
     },
-    modifyCustomerGroup(id, changes, _meta): void {
+    modifyCustomerGroup(id, changes, meta): void {
       const group = requireRecord<CustomerGroupState>(
         runtime.current.customerGroups,
         id,
         'CustomerGroup',
       )
+      const next = { ...group, ...changes }
       runtime.current = {
         ...runtime.current,
         customerGroups: {
           ...runtime.current.customerGroups,
-          [id]: { ...group, ...changes },
+          [id]: next,
         },
       }
+      emitDiffPathCausesForRecord(
+        meta,
+        group as unknown as Record<string, unknown>,
+        next as unknown as Record<string, unknown>,
+        changes as unknown as Record<string, unknown>,
+        (field) => `customers.${id}.${field}`,
+        'customer',
+        ['customer', id],
+      )
     },
-    modifyCoin(delta, _meta): void {
+    modifyCoin(delta, meta): void {
       if (!Number.isFinite(delta)) {
         throw new Error(`ctx.modifyCoin: delta must be a finite number, got ${delta}`)
       }
@@ -683,14 +759,41 @@ function createContext(
         ...runtime.current,
         coin: runtime.current.coin + delta,
       }
+      if (delta !== 0 && meta) {
+        addCauseInternal(meta, {
+          target: 'coin',
+          targetType: 'coin',
+          amount: delta,
+          tags: ['coin'],
+        })
+      }
     },
-    modifyReputation(next: ReputationState, _meta): void {
+    modifyReputation(next: ReputationState, meta): void {
+      const before = runtime.current.reputation
       runtime.current = {
         ...runtime.current,
         reputation: { ...next },
       }
+      if (meta) {
+        for (const key of Object.keys(before) as (keyof ReputationState)[]) {
+          const beforeVal = before[key]
+          const afterVal = next[key]
+          if (
+            typeof beforeVal === 'number' &&
+            typeof afterVal === 'number' &&
+            afterVal !== beforeVal
+          ) {
+            addCauseInternal(meta, {
+              target: `reputation.${String(key)}`,
+              targetType: 'reputation',
+              amount: afterVal - beforeVal,
+              tags: ['reputation', String(key)],
+            })
+          }
+        }
+      }
     },
-    modifyPressure(id, change, _cause): void {
+    modifyPressure(id, change, cause): void {
       if (!Number.isFinite(change)) {
         throw new Error(
           `ctx.modifyPressure: change must be a finite number, got ${change}`,
@@ -713,6 +816,14 @@ function createContext(
           ...runtime.current.pressures,
           [id]: updated,
         },
+      }
+      if (cause && nextValue !== existing.value) {
+        addCauseInternal(cause, {
+          target: `pressures.${id}.value`,
+          targetType: 'pressure',
+          amount: nextValue - existing.value,
+          tags: ['pressure', id],
+        })
       }
     },
     modifyModuleState(moduleId, updater, _meta): void {

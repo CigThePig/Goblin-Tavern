@@ -104,11 +104,16 @@ function runWeek(
 }
 
 function injectRegular(state: TavernState, regular: RegularWorldState): TavernState {
+  // Audit fixes pass 1 §1.3 — `createInitialTavernState` now seeds a
+  // small starter regulars roster. Tests that pin behaviour on a single
+  // injected regular must clear the starters first, otherwise the
+  // shared `regular_identity` RNG stream advances differently when
+  // additional regulars iterate before the injected one.
   return {
     ...state,
     world: {
       ...state.world,
-      regulars: { ...state.world.regulars, [regular.id]: regular },
+      regulars: { [regular.id]: regular },
     },
   }
 }
@@ -154,15 +159,19 @@ describe('Phase 34 §34.1 — Weekly community shape', () => {
 
   it('community is empty-but-valid when no entities moved', () => {
     // A clean week with plenty of stock and no actions should leave
-    // suppliers, regulars (none seeded by default), and factions
-    // largely unmoved — the community block should be present and
-    // mostly empty.
+    // suppliers and factions largely unmoved — the community block
+    // should be present with the expected array fields. Audit fixes
+    // pass 1 §1.3 now seeds starter regulars, so `regularTrend` is no
+    // longer empty by default; the trend entries describe routine
+    // visits with no irritation movement.
     const base = plentyOfStock(withCoin(createInitialTavernState(), 500))
     const state = runWeek(base)
     const community = getWeeklyModuleState(state).lastWeeklyResult!.community
-    expect(community.regularTrend).toEqual([])
-    // Default state has no regulars, so the regular trend stays empty;
-    // supplier and faction trends may have entries from organic
+    expect(Array.isArray(community.regularTrend)).toBe(true)
+    for (const entry of community.regularTrend) {
+      expect(entry.irritationDelta).toBe(0)
+    }
+    // Supplier and faction trends may have entries from organic
     // shortages, but the structure must always be present.
     expect(Array.isArray(community.supplierTrend)).toBe(true)
     expect(Array.isArray(community.factionTrend)).toBe(true)

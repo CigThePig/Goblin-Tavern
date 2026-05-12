@@ -63,9 +63,14 @@ export function ensureAreaIdentityFields<T extends { areas?: Record<string, Part
 // same identity it would have had if it were freshly created. Callers
 // wiring this into the save envelope path should run it before
 // `validateState`, mirroring `ensureWorldBranch` / `ensureAreaIdentityFields`.
+//
+// Audit fixes pass 1 §1.1 — `staff.name` is now `GeneratedName` rather
+// than a plain display string. Pre-pass-1 saves carry a `string` here;
+// promote it to a synthetic `GeneratedName` so newer code can read
+// `staff.name.display` uniformly.
 export function ensureStaffIdentityFields<
   T extends {
-    staff?: Record<string, { id: string; name?: string; role: string; identity?: unknown }>
+    staff?: Record<string, { id: string; name?: unknown; role: string; identity?: unknown }>
   },
 >(state: T): T {
   if (!state.staff) return state
@@ -75,32 +80,59 @@ export function ensureStaffIdentityFields<
   let changed = false
   const existingNames = new Set<string>()
   for (const [, member] of staffEntries) {
-    if (typeof member?.name === 'string') existingNames.add(member.name)
+    const display = readStaffNameDisplay(member?.name)
+    if (display) existingNames.add(display)
   }
   const streams = createRngStreams('initial-staff-identity')
   const rng = streams.get('staff_identity')
   const orderedEntries = [...staffEntries].sort(([a], [b]) => a.localeCompare(b))
   const nextStaff: Record<string, unknown> = { ...state.staff }
   for (const [id, member] of orderedEntries) {
-    if (member?.identity) continue
+    const hasIdentity = Boolean(member?.identity)
+    const nameIsGenerated = isGeneratedNameLike(member?.name)
+    if (hasIdentity && nameIsGenerated) continue
     changed = true
-    const identity = createStaffIdentity({
+    const { identity, generatedName } = createStaffIdentity({
       staffId: member.id,
       roleId: member.role,
       rng,
       existingNames,
     })
-    existingNames.add(identity.generatedName.display)
+    existingNames.add(generatedName.display)
+    const existingDisplay = readStaffNameDisplay(member?.name)
+    const resolvedName = nameIsGenerated
+      ? (member.name as { display: string; profileId: string })
+      : existingDisplay
+        ? {
+            display: existingDisplay,
+            profileId: identity.namingProfileId,
+            parts: { given: existingDisplay },
+            patternId: 'legacy_display',
+            generatedBy: 'migration:ensureStaffIdentityFields',
+          }
+        : generatedName
     nextStaff[id] = {
       ...member,
-      name: typeof member.name === 'string' && member.name.length > 0
-        ? member.name
-        : identity.generatedName.display,
-      identity,
+      name: resolvedName,
+      identity: hasIdentity ? member.identity : identity,
     }
   }
   if (!changed) return state
   return { ...state, staff: nextStaff as T['staff'] }
+}
+
+function isGeneratedNameLike(value: unknown): value is { display: string } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { display?: unknown }).display === 'string'
+  )
+}
+
+function readStaffNameDisplay(value: unknown): string | undefined {
+  if (typeof value === 'string' && value.length > 0) return value
+  if (isGeneratedNameLike(value)) return value.display
+  return undefined
 }
 
 export {}

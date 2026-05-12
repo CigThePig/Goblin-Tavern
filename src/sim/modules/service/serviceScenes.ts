@@ -183,7 +183,7 @@ function buildStockQualityComplaint(
     satisfactionDelta: satChange.delta,
     visitors,
   }
-  if (cook) textIngredients.staffName = cook.name
+  if (cook) textIngredients.staffName = cook.name.display
 
   return {
     sceneType: 'stock_quality_complaint',
@@ -406,7 +406,7 @@ function buildUnpaidTabScene(
       worstGroupId: group?.id ?? null,
       worstGroupName: group?.label ?? null,
       worstTabs,
-      serverName: server?.name ?? null,
+      serverName: server?.name.display ?? null,
       serverPriority: server?.currentPriority ?? null,
     },
     possibleIssueSeedIds: ['unpaid_tab_argument', 'tab_problem'],
@@ -452,7 +452,7 @@ function buildBrawlAftermath(
       brawlSeverity: brawl.severity,
       actorGroupId: brawl.actorGroup ?? null,
       areaId: area?.id ?? null,
-      bouncerName: bouncer?.name ?? null,
+      bouncerName: bouncer?.name.display ?? null,
       bouncerPriority: bouncer?.currentPriority ?? null,
     },
     possibleIssueSeedIds: ['brawl_aftermath', 'violence_concern'],
@@ -513,7 +513,7 @@ function buildStaffMoment(
     causes: positive ? ['service_smooth'] : ['staff_stress', 'staff_fatigue'],
     textIngredients: {
       staffId: staff.id,
-      staffName: staff.name,
+      staffName: staff.name.display,
       role: staff.role,
       stress: staff.stress,
       fatigue: staff.fatigue,

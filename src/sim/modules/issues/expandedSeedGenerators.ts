@@ -166,7 +166,7 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
   const responseSlots: ResponseSlot[] = [
     {
       id: 'comfort_staff',
-      labelHint: `Comfort ${chosen.name}`,
+      labelHint: `Comfort ${chosen.name.display}`,
       allowedVerbs: ['appease'],
       shape: 'relationship_sacrifice',
       targetOptions: [ref],
@@ -174,7 +174,7 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
     },
     {
       id: 'publicly_back_staff',
-      labelHint: `Publicly back ${chosen.name}`,
+      labelHint: `Publicly back ${chosen.name.display}`,
       allowedVerbs: ['rebrand', 'appease'],
       shape: 'reputation_play',
       targetOptions: [ref],
@@ -190,7 +190,7 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
     },
     {
       id: 'blame_staff',
-      labelHint: `Blame ${chosen.name}`,
+      labelHint: `Blame ${chosen.name.display}`,
       allowedVerbs: ['blame'],
       shape: 'relationship_sacrifice',
       targetOptions: [ref],
@@ -344,12 +344,12 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
   if (burnout) pressureContext.push(`burnout ${burnout.value}`)
 
   const ingredients: TextIngredients = buildTextIngredients({
-    subject: chosen.name,
+    subject: chosen.name.display,
     problemNoun: blameAttribution ? 'public blame' : 'loyalty test',
     sensoryDetails: ['tight jaw', 'long silence'],
     actorOpinions: { [chosen.id]: 'feels watched' },
     recentContext: ['tense week of service'],
-    stakesReadable: [`${chosen.name} may quit`, 'service may collapse'],
+    stakesReadable: [`${chosen.name.display} may quit`, 'service may collapse'],
     namedEntities: [namedEntityIngredient(ctx.state, 'staff', ref)],
     socialContext: blameAttribution ? ['publicly blamed'] : ['quietly slighted'],
     relevantMemories,
@@ -377,7 +377,7 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
       causes,
       pressures: pressureSnapshotsFor(ctx, ['staff_loyalty_risk', 'staff_burnout']),
       stakes: [
-        stake('quit_stake', `staff:${chosen.id}`, `${chosen.name} may quit`, 'loss', ['staff']),
+        stake('quit_stake', `staff:${chosen.id}`, `${chosen.name.display} may quit`, 'loss', ['staff']),
         stake('loyalty_stake', `staff:${chosen.id}`, 'Loyalty may break', 'risk', ['staff']),
       ],
       responseSlots,

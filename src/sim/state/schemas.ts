@@ -128,7 +128,6 @@ export const StaffIdentityStateSchema = z.object({
   groupId: z.string(),
   cultureId: z.string().optional(),
   namingProfileId: z.string(),
-  generatedName: GeneratedNameSchema,
   personalityTags: z.array(z.string()),
   workStyle: StaffWorkStyleSchema,
   stressResponse: StaffStressResponseSchema,
@@ -153,7 +152,7 @@ export const StaffIdentityStateSchema = z.object({
 // older saves before they reach validation.
 export const StaffStateSchema = z.object({
   id: z.string(),
-  name: z.string(),
+  name: GeneratedNameSchema,
   role: z.string(),
   skill: meter(),
   morale: meter(),

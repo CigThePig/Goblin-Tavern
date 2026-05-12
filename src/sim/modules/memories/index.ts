@@ -43,3 +43,31 @@ export { ageMemories, bumpStrength } from './memoryDecay'
 export { detectPatterns } from './patternDetection'
 
 export { buildMemoryReport } from './memoryReport'
+
+// Phase 36 §36.1–§36.2 — Entity-scoped memory helpers.
+export {
+  memoriesForOwner,
+  memoriesAboutEntity,
+  grudgesAgainst,
+  gratitudeToward,
+  strongestMemoryFor,
+  memoryBelongsTo,
+  memoryIsAbout,
+  memoryOwner,
+  memorySubjects,
+  memoryTargets,
+  memoryBeneficiaries,
+  memoryWitnesses,
+  memoryCredited,
+  memoryBlamed,
+  withEntityMemoryMetadata,
+  attachEntityOwnerToDraft,
+  applyEntityMemoryFilters,
+  addEntityMemoryViaCtx,
+} from './entityMemory'
+
+export type {
+  EntityMemoryMetadata,
+  EntityMemoryRole,
+  EntityMemoryQueryOptions,
+} from './entityMemory'

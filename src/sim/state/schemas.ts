@@ -87,6 +87,56 @@ export const StockItemStateSchema = z.object({
   storageAreaId: z.string().optional(),
 })
 
+// Phase 22 / Phase 24 — `GeneratedName` is the structured output of the
+// deterministic name generator. The schema is declared early because
+// Phase 31 staff identity and Phase 30 world entities both reference
+// it; world schemas re-export the same constant below.
+export const GeneratedNameSchema = z.object({
+  display: z.string(),
+  profileId: z.string(),
+  parts: z.record(z.string(), z.string()),
+  patternId: z.string(),
+  generatedBy: z.string(),
+})
+
+// Phase 31 §31.1 — persistent staff identity schema. Mirrors the
+// `StaffIdentityState` shape on the TS side. `cultureId` and
+// `backgroundHook` are optional because Phase 31 only requires a
+// `groupId` + naming-profile pointer to anchor identity; cultures and
+// background hooks are filled in where the identity profile provides
+// them.
+export const StaffWorkStyleSchema = z.enum([
+  'steady',
+  'fast',
+  'careful',
+  'social',
+  'rough',
+  'methodical',
+  'improviser',
+])
+
+export const StaffStressResponseSchema = z.enum([
+  'withdraws',
+  'snaps',
+  'rushes',
+  'overworks',
+  'gets_sloppy',
+  'asks_for_help',
+])
+
+export const StaffIdentityStateSchema = z.object({
+  groupId: z.string(),
+  cultureId: z.string().optional(),
+  namingProfileId: z.string(),
+  generatedName: GeneratedNameSchema,
+  personalityTags: z.array(z.string()),
+  workStyle: StaffWorkStyleSchema,
+  stressResponse: StaffStressResponseSchema,
+  loyalties: z.array(z.string()),
+  dislikes: z.array(z.string()),
+  backgroundHook: z.string().optional(),
+})
+
 // Phase 11 §11.1 — `role` is a registry-validated string (`StaffRoleId`),
 // not a hard-coded union, per the "Role typing clarification" forward
 // note. The schema accepts any string; the staff module's validate hook
@@ -94,6 +144,13 @@ export const StockItemStateSchema = z.object({
 // is enforced at the module layer (mirrors how Phase 8 area validation
 // works). `currentPriority` is similarly registry-string typed and
 // optional.
+//
+// Phase 31 §31.1 — `identity` is optional at the schema level so
+// pre-Phase-31 saves can still parse during the migration window. The
+// staff module's validate hook (Phase 31 §31.11) surfaces missing
+// identity as a structural issue on fresh state; the
+// `ensureStaffIdentityFields` migration helper attaches defaults to
+// older saves before they reach validation.
 export const StaffStateSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -109,6 +166,7 @@ export const StaffStateSchema = z.object({
   unavailable: z.boolean().optional(),
   tags: z.array(z.string()),
   activeFlags: z.array(z.string()),
+  identity: StaffIdentityStateSchema.optional(),
 })
 
 // Phase 30 §30.2 — schema extended with cultural linkage fields. The
@@ -311,13 +369,9 @@ export const PressureStateSchema = z.object({
 // relationship, influence, trust, fear, reliability, debtTolerance,
 // loyalty, irritation, intensity, strength) reuse `meter()`. `priceBias`
 // is intentionally a free number because it may be negative.
-export const GeneratedNameSchema = z.object({
-  display: z.string(),
-  profileId: z.string(),
-  parts: z.record(z.string(), z.string()),
-  patternId: z.string(),
-  generatedBy: z.string(),
-})
+// `GeneratedNameSchema` is declared earlier (alongside the Phase 31
+// staff identity schema) so the staff schema can reference it without
+// a forward reference.
 
 const RngStateSchema = z.object({
   seed: z.string(),

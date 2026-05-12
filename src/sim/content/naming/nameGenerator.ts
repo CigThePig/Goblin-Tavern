@@ -58,7 +58,13 @@ function pickPattern(profile: NamingProfile, rng: SimRng): NamePattern {
   )
 }
 
-export function generateName(
+// Phase 31 §31.5 — `existingDisplayNames` lets callers retry briefly
+// when a freshly generated display name collides with one already in
+// use (existing staff/regulars/etc.). The retry count is capped so the
+// generator stays deterministic and never spins on a sparse pool.
+const MAX_DUPLICATE_RETRIES = 8
+
+function buildOnce(
   profile: NamingProfile,
   rng: SimRng,
   generatedBy: string,
@@ -90,6 +96,10 @@ export function generateName(
     display = display.split(placeholder).join(value)
   }
 
+  if (profile.reservedNames && profile.reservedNames.includes(display)) {
+    return { display: `${display} the Younger`, profileId: profile.id, parts, patternId: pattern.id, generatedBy }
+  }
+
   return {
     display,
     profileId: profile.id,
@@ -97,4 +107,26 @@ export function generateName(
     patternId: pattern.id,
     generatedBy,
   }
+}
+
+export function generateName(
+  profile: NamingProfile,
+  rng: SimRng,
+  generatedBy: string,
+  options?: { existingDisplayNames?: ReadonlySet<string> },
+): GeneratedName {
+  const existing = options?.existingDisplayNames
+  if (!existing || existing.size === 0) {
+    return buildOnce(profile, rng, generatedBy)
+  }
+
+  let last = buildOnce(profile, rng, generatedBy)
+  for (let i = 0; i < MAX_DUPLICATE_RETRIES; i++) {
+    if (!existing.has(last.display)) return last
+    last = buildOnce(profile, rng, generatedBy)
+  }
+  // Retry budget exhausted — return the last candidate even if it
+  // collides. The caller can disambiguate via the staff id (e.g. by
+  // appending a numeric suffix) without giving up determinism.
+  return last
 }

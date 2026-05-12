@@ -2,6 +2,7 @@ import { staffPriorityRegistry } from '../../registries/staffPriorityRegistry'
 import type {
   StaffPriorityId,
   StaffState,
+  StaffWorkStyle,
 } from '../../state/TavernState'
 import {
   canStaffWork,
@@ -44,6 +45,21 @@ const PER_PRIORITY: Record<StaffPriorityId, Partial<ServiceQualityModifiers>> = 
   minor_repairs: { repairSupport: 1, messControl: 0.2 },
   prevent_fights: { fightControl: 1 },
   intimidate_debtors: { tabControl: 0.8 },
+}
+
+// Phase 31 §31.9 — small, additive work-style nudges on top of the
+// per-priority modifiers above. Intentionally tiny: priority is still
+// the dominant signal, identity merely flavours it. Values are not
+// scaled by effectiveness — they are flat per-staff contributions so
+// the work-style "feel" reads even when a staff member is exhausted.
+const PER_WORKSTYLE: Record<StaffWorkStyle, Partial<ServiceQualityModifiers>> = {
+  fast: { serviceSpeed: 0.1 },
+  careful: { foodQualityModifier: 0.1, serviceSpeed: -0.05 },
+  rough: { fightControl: 0.1 },
+  steady: { messControl: 0.05, tabControl: 0.05 },
+  social: { tabControl: 0.05, serviceSpeed: 0.05 },
+  methodical: { repairSupport: 0.1, serviceSpeed: -0.05 },
+  improviser: { foodQualityModifier: 0.05, serviceSpeed: 0.05 },
 }
 
 function emptyModifiers(): ServiceQualityModifiers {
@@ -120,6 +136,23 @@ export function derivePriorityModifiers(
       contribution.repairSupport ?? 0,
       eff,
     )
+
+    // Phase 31 §31.9 — small flat nudge from the staff member's work
+    // style. Identity must not dominate the numeric staff system, so
+    // the magnitudes here are roughly an order of magnitude below the
+    // priority contributions above.
+    const workStyle = staff.identity?.workStyle
+    if (workStyle) {
+      const styleContribution = PER_WORKSTYLE[workStyle]
+      if (styleContribution) {
+        result.foodQualityModifier += styleContribution.foodQualityModifier ?? 0
+        result.serviceSpeed += styleContribution.serviceSpeed ?? 0
+        result.tabControl += styleContribution.tabControl ?? 0
+        result.messControl += styleContribution.messControl ?? 0
+        result.fightControl += styleContribution.fightControl ?? 0
+        result.repairSupport += styleContribution.repairSupport ?? 0
+      }
+    }
   }
 
   // Round to one decimal so reports stay readable but Phase 12 still

@@ -84,6 +84,53 @@ export type StaffPriorityId = string
  *  type imports. Prefer `StaffRoleId`. */
 export type StaffRole = 'cook' | 'server' | 'cleaner_bouncer'
 
+// Phase 31 §31.1 — staff identity work styles. Each value is a small,
+// neutral handle describing how a staff member tends to approach the
+// job; performance hooks in Phase 31 §31.9 attach modest mechanical
+// modifiers to specific values. Later phases (32 service scenes, 33
+// social actions) read identity fields directly.
+export type StaffWorkStyle =
+  | 'steady'
+  | 'fast'
+  | 'careful'
+  | 'social'
+  | 'rough'
+  | 'methodical'
+  | 'improviser'
+
+// Phase 31 §31.1 — staff stress response. Plumbing for Phase 32 §32.3
+// "Staff Moment" scene generation: when a staff member's stress climbs,
+// the scene builder reads this value to decide what kind of scene to
+// emit.
+export type StaffStressResponse =
+  | 'withdraws'
+  | 'snaps'
+  | 'rushes'
+  | 'overworks'
+  | 'gets_sloppy'
+  | 'asks_for_help'
+
+// Phase 31 §31.1 — persistent staff identity. Each staff member carries
+// a deterministic generated name, a culture/naming-profile pointer, a
+// short personality tag list, and a single work style + stress response.
+// Identity is serializable JSON: every field is a primitive, an array
+// of primitives, or a `GeneratedName` (itself JSON-shaped). The plan
+// pins this as state — names are generated once at creation and reused,
+// never regenerated when a report is re-viewed (CLAUDE.md §"Persistent
+// identity is state, not display").
+export type StaffIdentityState = {
+  groupId: string
+  cultureId?: string
+  namingProfileId: NamingProfileId
+  generatedName: GeneratedName
+  personalityTags: string[]
+  workStyle: StaffWorkStyle
+  stressResponse: StaffStressResponse
+  loyalties: string[]
+  dislikes: string[]
+  backgroundHook?: string
+}
+
 export type StaffState = {
   id: string
   name: string
@@ -99,6 +146,12 @@ export type StaffState = {
   unavailable?: boolean
   tags: string[]
   activeFlags: string[]
+  // Phase 31 §31.1 — persistent identity. Optional during the migration
+  // window for pre-Phase-31 saves; new state created via
+  // `createInitialTavernState` always populates it (see §31.8) and the
+  // staff module's validate hook flags missing identity as a structural
+  // issue.
+  identity?: StaffIdentityState
 }
 
 // Phase 10 §"Customer Group State" — Phase 10 extends the Phase 5 shape

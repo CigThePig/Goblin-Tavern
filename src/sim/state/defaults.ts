@@ -28,6 +28,9 @@ import {
   ensureRequiredSuppliersRegistered,
   supplierRegistry,
 } from '../content/suppliers/supplierRegistry'
+import { createStaffIdentity } from '../content/staff/staffIdentityFactory'
+import { ensureRequiredStaffIdentityProfilesRegistered } from '../content/staff/staffIdentityProfiles'
+import { createRngStreams } from '../core/rng'
 import {
   cultureRegistry,
   ensureRequiredCulturesRegistered,
@@ -90,23 +93,48 @@ function createInitialStock(): Record<string, StockState> {
   return stock
 }
 
-// Phase 11 §11.1 — Staff defaults are sourced from `staffRegistry`
-// rather than inlined. Each registered role declares the canonical
-// staff member it seeds (id, name, base meters, wage) so the engine
-// can spawn a working tavern without hard-coded literals. Importing
-// the registry has the side effect of self-registering the three
-// required roles via `ensureRequiredStaffRolesRegistered`.
+// Phase 11 §11.1 / Phase 31 §31.8 — Staff defaults are sourced from
+// `staffRegistry` rather than inlined. Phase 31 adds deterministic
+// identity to every seeded staff member.
+//
+// `createInitialTavernState` does not accept a seed (Phase 31 §31.8
+// "Determinism Note"), so default staff identity uses a stable internal
+// seed (`'initial-staff-identity'`) routed through the canonical
+// `staff_identity` RNG stream. Same default state -> same default
+// identities, every time. Later simulation-spawned staff can use the
+// daily input seed via `ctx.getRngStream('staff_identity')`.
+//
+// The generated display name is also copied onto `staff.name` for
+// backwards compatibility — the Phase 11 reports and any caller that
+// still reads `staff.name` keeps working.
 function createInitialStaff(): Record<string, StaffState> {
   ensureRequiredStaffRolesRegistered()
+  ensureRequiredStaffIdentityProfilesRegistered()
+  const streams = createRngStreams('initial-staff-identity')
+  const identityRng = streams.get('staff_identity')
+  const existingNames = new Set<string>()
   const staff: Record<string, StaffState> = {}
-  for (const def of staffRegistry.all()) {
+  // Phase 31 §31.8 — iterate in a stable registry order so a future
+  // refactor of the registry's storage doesn't shift staff names.
+  const orderedDefs = [...staffRegistry.all()].sort((a, b) =>
+    a.id.localeCompare(b.id),
+  )
+  for (const def of orderedDefs) {
+    const identity = createStaffIdentity({
+      staffId: def.defaultStaffId,
+      roleId: def.id,
+      rng: identityRng,
+      existingNames,
+    })
+    existingNames.add(identity.generatedName.display)
     staff[def.defaultStaffId] = {
       id: def.defaultStaffId,
-      name: def.defaultStaffName,
+      name: identity.generatedName.display,
       role: def.id,
       tags: [...def.defaultTags],
       ...def.defaultState,
       activeFlags: [...def.defaultState.activeFlags],
+      identity,
     }
   }
   return staff

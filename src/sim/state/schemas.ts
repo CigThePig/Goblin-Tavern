@@ -111,6 +111,10 @@ export const StaffStateSchema = z.object({
   activeFlags: z.array(z.string()),
 })
 
+// Phase 30 §30.2 — schema extended with cultural linkage fields. The
+// numeric Phase 10 meters are unchanged; the new fields are required
+// strings/records so future migrations can lean on the Phase 6
+// validator instead of optional shims.
 export const CustomerGroupStateSchema = z.object({
   id: z.string(),
   label: z.string(),
@@ -128,6 +132,11 @@ export const CustomerGroupStateSchema = z.object({
   dislikedTags: z.array(z.string()),
   tags: z.array(z.string()),
   activeGrudges: z.array(z.string()),
+  cultureId: z.string(),
+  namingProfileId: z.string(),
+  trafficPattern: z.string(),
+  spendingProfile: z.string(),
+  relationshipToOtherGroups: z.record(z.string(), z.number()),
 })
 
 export const ReputationStateSchema = z.object({

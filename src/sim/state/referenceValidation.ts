@@ -191,14 +191,50 @@ export function validateEntityRef(
   }
 }
 
-// Phase 26 §26.4 — Walk every world-branch record that points at
-// another id and report broken pointers. The checks here are the
+// Phase 26 §26.4 / Phase 30 §30.11 — Walk every world-branch record
+// (and Phase 30's culturally-linked customer group entries) that points
+// at another id and report broken pointers. The checks here are the
 // minimum set required by the phase spec; later phases can extend the
 // world without touching this helper as long as new pointers are
 // reported through the same `ValidationIssue` channel.
 export function validateWorldReferences(state: TavernState): ValidationIssue[] {
   const issues: ValidationIssue[] = []
   const world = state.world
+
+  // Phase 30 §30.11 — customer groups must point at a registered
+  // culture and a registered naming profile, and any relationship-map
+  // keys must refer to other groups that exist.
+  for (const [id, group] of Object.entries(state.customerGroups)) {
+    if (!(group.cultureId in world.cultures)) {
+      issues.push(
+        makeIssue(
+          `customerGroups.${id}.cultureId`,
+          `Customer group '${id}' references unknown culture '${group.cultureId}'`,
+          'unknown_culture_ref',
+        ),
+      )
+    }
+    if (!namingProfileRegistry.has(group.namingProfileId)) {
+      issues.push(
+        makeIssue(
+          `customerGroups.${id}.namingProfileId`,
+          `Customer group '${id}' references unknown naming profile '${group.namingProfileId}'`,
+          'unknown_naming_profile_ref',
+        ),
+      )
+    }
+    for (const otherId of Object.keys(group.relationshipToOtherGroups)) {
+      if (!(otherId in state.customerGroups)) {
+        issues.push(
+          makeIssue(
+            `customerGroups.${id}.relationshipToOtherGroups.${otherId}`,
+            `Customer group '${id}' references unknown customer_group '${otherId}'`,
+            'unknown_customer_group_ref',
+          ),
+        )
+      }
+    }
+  }
 
   // Cultures: naming profile must exist in the naming registry.
   for (const [id, culture] of Object.entries(world.cultures)) {

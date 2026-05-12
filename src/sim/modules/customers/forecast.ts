@@ -5,6 +5,7 @@ import type {
   TavernState,
 } from '../../state/TavernState'
 import type { DayType } from '../calendar/types'
+import { getCultureForecastModifier } from '../cultures/customerInfluence'
 
 import type { CustomerForecast } from './types'
 
@@ -156,6 +157,9 @@ export function forecastTrafficForGroup(
   const filthPenalty = cleanlinessPenalty(group, state)
   const priceHit = pricePenalty(group, state)
   const stockMod = stockModifier(group, state)
+  // Phase 30 §30.8 — culture influence. The helper is pure and lives in
+  // the cultures module so forecasting does not own culture logic.
+  const cultureInfluence = getCultureForecastModifier(state, group)
 
   // Small deterministic jitter so identical inputs still feel like
   // distinct days when reports are read in sequence. Pulled from
@@ -164,7 +168,14 @@ export function forecastTrafficForGroup(
 
   const base = (group.patronage * 0.4)
   const expected = clampForecastVisitors(
-    base + dayMod + satMod + stockMod - filthPenalty - priceHit + jitter,
+    base +
+      dayMod +
+      satMod +
+      stockMod +
+      cultureInfluence.modifier -
+      filthPenalty -
+      priceHit +
+      jitter,
   )
 
   const notes: string[] = []
@@ -178,6 +189,7 @@ export function forecastTrafficForGroup(
   }
   if (stockMod > 0) notes.push('Preferred stock was available.')
   if (stockMod < 0) notes.push('Preferred stock was missing or disliked stock was prominent.')
+  for (const note of cultureInfluence.notes) notes.push(note)
 
   return {
     groupId: group.id,

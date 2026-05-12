@@ -1,3 +1,5 @@
 export { cultureModule, CULTURES_MODULE_ID } from './cultureModule'
 export { buildCultureReport } from './cultureReport'
+export { getCultureForecastModifier } from './customerInfluence'
+export type { CultureForecastModifier } from './customerInfluence'
 export type { CultureModuleState } from './types'

@@ -1,28 +1,333 @@
 import { z } from 'zod'
 
-import type { SimulationModule } from '../../core/module'
+import type { SimulationHook, SimulationModule } from '../../core/module'
 import type { SimContext } from '../../core/context'
+import type { ValidationIssue } from '../../state/types'
+import type {
+  CustomerGroupState,
+  RegularWorldState,
+} from '../../state/TavernState'
+import { generateName } from '../../content/naming/nameGenerator'
+import {
+  ensureStarterNamingProfilesRegistered,
+  namingProfileRegistry,
+} from '../../content/naming/namingProfiles'
 
-// Phase 27 §27.4 — Regular-customer module skeleton.
+import {
+  REGULARS_MODULE_ID,
+  createInitialRegularModuleState,
+  getRegularModuleState,
+} from './state'
+import { buildRegularReport } from './regularReport'
+import type {
+  RegularEmergenceCandidate,
+  RegularModuleState,
+} from './types'
+
+// Phase 27 §27.4 / Phase 30 §30.6 — Regular customer module.
 //
-// Owns the `regularCustomerUpdate` phase hook. Phase 30 §30.6 lands
-// the emergence logic; Phase 27 wires the seam.
+// Phase 27 reserved the seam; Phase 30 wires the actual behaviour:
+//   - `startDay` resets the per-day slice so reports only reflect today.
+//   - `regularCustomerUpdate` evaluates each customer group for
+//     emergence eligibility, optionally rolls a name through the
+//     `regular_identity` RNG stream (Phase 24), and writes the resulting
+//     `RegularWorldState` to `state.world.regulars`. Existing regulars
+//     are then evaluated for whether they visit today.
+//
+// Emergence is intentionally conservative: regulars should feel
+// notable, not pour out of the wall like named confetti. Each group
+// gets at most one creation candidate per day, and the rolled chance
+// is small (5–15%) gated behind loyalty/satisfaction thresholds.
+//
+// All randomness routes through `ctx.getRngStream('regular_identity')`
+// so an extra service roll cannot shift a generated regular's name
+// across re-runs of the same seed.
 
 const SOURCE = 'regulars'
+const STREAM_ID = 'regular_identity' as const
 
-export const REGULARS_MODULE_ID = SOURCE
+const MIN_LOYALTY_FOR_EMERGENCE = 70
+const MIN_SATISFACTION_FOR_EMERGENCE = 55
+const MAX_REGULARS_PER_GROUP = 3
+const HIGH_IRRITATION_THRESHOLD = 70
 
-const RegularModuleStateSchema = z.object({}).passthrough().optional()
-
-const regularUpdateHook = (_ctx: SimContext): void => {
-  // Phase 27 leaves this empty on purpose.
+function emergenceChance(group: CustomerGroupState): number {
+  // Base 5% chance, scaled up with loyalty and satisfaction above the
+  // minimum thresholds, plus a small bump for high patronage groups.
+  const loyaltyBonus = Math.max(0, group.loyalty - MIN_LOYALTY_FOR_EMERGENCE)
+  const satisfactionBonus = Math.max(
+    0,
+    group.satisfaction - MIN_SATISFACTION_FOR_EMERGENCE,
+  )
+  const patronageBonus = Math.max(0, group.patronage - 40)
+  const raw = 0.05 + loyaltyBonus * 0.003 + satisfactionBonus * 0.002 + patronageBonus * 0.001
+  return Math.min(0.18, Math.round(raw * 1000) / 1000)
 }
+
+function regularsForGroup(ctx: SimContext, groupId: string): RegularWorldState[] {
+  const out: RegularWorldState[] = []
+  for (const regular of Object.values(ctx.state.world.regulars)) {
+    if (regular.customerGroupId === groupId) out.push(regular)
+  }
+  return out
+}
+
+function makeRegularId(
+  ctx: SimContext,
+  group: CustomerGroupState,
+  index: number,
+): string {
+  const baseDay = ctx.state.calendar.totalDaysElapsed
+  return `${group.id}_regular_${baseDay}_${index}`
+}
+
+function pickFavoriteStockId(
+  ctx: SimContext,
+  group: CustomerGroupState,
+): string | undefined {
+  const preferred = group.preferredStockTags
+  if (preferred.length === 0) return undefined
+  for (const tag of preferred) {
+    const matches = Object.values(ctx.state.stock).filter((s) =>
+      s.tags.includes(tag),
+    )
+    if (matches.length > 0) {
+      const rng = ctx.getRngStream(STREAM_ID)
+      const pick = rng.pick(matches)
+      return pick.id
+    }
+  }
+  return undefined
+}
+
+function createRegular(
+  ctx: SimContext,
+  group: CustomerGroupState,
+  candidate: RegularEmergenceCandidate,
+): RegularWorldState | undefined {
+  ensureStarterNamingProfilesRegistered()
+  const profileId = group.namingProfileId
+  if (!namingProfileRegistry.has(profileId)) return undefined
+  const profile = namingProfileRegistry.get(profileId)
+  const rng = ctx.getRngStream(STREAM_ID)
+  const name = generateName(profile, rng, 'regular_customer')
+
+  const existing = regularsForGroup(ctx, group.id)
+  const id = makeRegularId(ctx, group, existing.length + 1)
+  const today = ctx.state.calendar.totalDaysElapsed
+  const favoriteStockId = pickFavoriteStockId(ctx, group)
+
+  const regular: RegularWorldState = {
+    id,
+    name,
+    customerGroupId: group.id,
+    ...(group.cultureId ? { cultureId: group.cultureId } : {}),
+    loyalty: Math.max(50, Math.min(100, group.loyalty)),
+    irritation: 0,
+    visits: 0,
+    ...(favoriteStockId ? { favoriteStockId } : {}),
+    knownIncidentIds: [],
+    firstSeenDay: today,
+    lastSeenDay: today,
+    tags: ['regular', ...(group.cultureId ? [`culture:${group.cultureId}`] : [])],
+    activeFlags: [],
+  }
+
+  ctx.state.world.regulars[id] = regular
+  ctx.addCause({
+    source: `${SOURCE}.emergence`,
+    sourceType: 'regular',
+    target: id,
+    targetType: 'regular',
+    amount: 1,
+    direction: 'increase',
+    readable: `${name.display} became a regular (${group.label}: ${candidate.reason}).`,
+    tags: ['regular', 'emergence', group.id],
+    relatedActors: [{ kind: 'customer_group', id: group.id }],
+  })
+  return regular
+}
+
+function shouldVisit(
+  ctx: SimContext,
+  regular: RegularWorldState,
+  group: CustomerGroupState | undefined,
+): boolean {
+  if (!group) return false
+  if (regular.irritation >= HIGH_IRRITATION_THRESHOLD) {
+    // Irritated regulars need a particularly nudging day to come back.
+    return ctx.getRngStream(STREAM_ID).chance(0.05)
+  }
+  // Base chance scales with group patronage and the regular's loyalty.
+  const base = 0.15 + (regular.loyalty / 100) * 0.35 + (group.patronage / 100) * 0.25
+  const dayType = ctx.getDayType()
+  const culture = group.cultureId ? ctx.getCulture(group.cultureId) : undefined
+  const matchesCalendar = culture?.importantCalendarTags.includes(dayType)
+  const probability = Math.min(0.9, base + (matchesCalendar ? 0.15 : 0))
+  return ctx.getRngStream(STREAM_ID).chance(probability)
+}
+
+const startDayHook: SimulationHook = (ctx: SimContext): void => {
+  ctx.modifyModuleState<RegularModuleState>(
+    REGULARS_MODULE_ID,
+    () => createInitialRegularModuleState(),
+    { source: `${SOURCE}.day_initialize` },
+  )
+}
+
+const regularUpdateHook: SimulationHook = (ctx: SimContext): void => {
+  const candidates: RegularEmergenceCandidate[] = []
+  const createdToday: string[] = []
+  const visitedToday: string[] = []
+  const rng = ctx.getRngStream(STREAM_ID)
+
+  for (const group of Object.values(ctx.state.customerGroups)) {
+    const existing = regularsForGroup(ctx, group.id)
+    if (
+      group.loyalty < MIN_LOYALTY_FOR_EMERGENCE ||
+      group.satisfaction < MIN_SATISFACTION_FOR_EMERGENCE
+    ) {
+      continue
+    }
+    if (existing.length >= MAX_REGULARS_PER_GROUP) continue
+
+    const chance = emergenceChance(group)
+    const reason =
+      group.satisfaction >= 70
+        ? 'high_loyalty_satisfaction'
+        : 'loyalty_threshold'
+    const candidate: RegularEmergenceCandidate = {
+      groupId: group.id,
+      chance,
+      reason,
+      tags: ['regular_emergence', group.id],
+    }
+    candidates.push(candidate)
+    if (rng.chance(chance)) {
+      const created = createRegular(ctx, group, candidate)
+      if (created) createdToday.push(created.id)
+    }
+  }
+
+  // Decide which existing regulars (including the freshly created ones)
+  // visit today. A visit increments `visits`, refreshes `lastSeenDay`,
+  // and nudges loyalty slightly upward; an absent regular's irritation
+  // drifts up a little when the day has high traffic potential.
+  const today = ctx.state.calendar.totalDaysElapsed
+  for (const regular of Object.values(ctx.state.world.regulars)) {
+    const group = ctx.state.customerGroups[regular.customerGroupId]
+    if (shouldVisit(ctx, regular, group)) {
+      visitedToday.push(regular.id)
+      const nextLoyalty = Math.min(100, regular.loyalty + 1)
+      const nextIrritation = Math.max(0, regular.irritation - 2)
+      ctx.modifyRegular(
+        regular.id,
+        {
+          visits: regular.visits + 1,
+          lastSeenDay: today,
+          loyalty: nextLoyalty,
+          irritation: nextIrritation,
+        },
+        {
+          source: `${SOURCE}.visit`,
+          sourceType: 'regular',
+          targetType: 'regular',
+          readable: `${regular.name.display} visited (loyalty ${regular.loyalty} → ${nextLoyalty}).`,
+          tags: ['regular', 'visit', regular.customerGroupId],
+        },
+      )
+    } else if (group && group.patronage >= 40) {
+      const nextIrritation = Math.min(100, regular.irritation + 1)
+      if (nextIrritation !== regular.irritation) {
+        ctx.modifyRegular(
+          regular.id,
+          { irritation: nextIrritation },
+          {
+            source: `${SOURCE}.absent_drift`,
+            sourceType: 'regular',
+            targetType: 'regular',
+            readable: `${regular.name.display} stayed away (irritation ${regular.irritation} → ${nextIrritation}).`,
+            tags: ['regular', 'absent', regular.customerGroupId],
+          },
+        )
+      }
+    }
+  }
+
+  ctx.modifyModuleState<RegularModuleState>(
+    REGULARS_MODULE_ID,
+    (current) => {
+      const base = current ?? createInitialRegularModuleState()
+      return {
+        ...base,
+        candidatesToday: candidates,
+        createdToday,
+        visitedToday,
+      }
+    },
+    { source: `${SOURCE}.update` },
+  )
+}
+
+function validateRegularState(ctx: SimContext): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  const slice = getRegularModuleState(ctx.state)
+  for (let i = 0; i < slice.createdToday.length; i++) {
+    const id = slice.createdToday[i]!
+    if (!(id in ctx.state.world.regulars)) {
+      issues.push({
+        path: `modules.regulars.createdToday[${i}]`,
+        message: `Unknown regular id '${id}' in createdToday`,
+        code: 'unknown_regular_ref',
+      })
+    }
+  }
+  for (let i = 0; i < slice.visitedToday.length; i++) {
+    const id = slice.visitedToday[i]!
+    if (!(id in ctx.state.world.regulars)) {
+      issues.push({
+        path: `modules.regulars.visitedToday[${i}]`,
+        message: `Unknown regular id '${id}' in visitedToday`,
+        code: 'unknown_regular_ref',
+      })
+    }
+  }
+  for (let i = 0; i < slice.candidatesToday.length; i++) {
+    const candidate = slice.candidatesToday[i]!
+    if (!(candidate.groupId in ctx.state.customerGroups)) {
+      issues.push({
+        path: `modules.regulars.candidatesToday[${i}].groupId`,
+        message: `Unknown customer_group id '${candidate.groupId}' in candidate`,
+        code: 'unknown_customer_group_ref',
+      })
+    }
+  }
+  return issues
+}
+
+const RegularEmergenceCandidateSchema = z.object({
+  groupId: z.string(),
+  chance: z.number().min(0).max(1),
+  reason: z.string(),
+  tags: z.array(z.string()),
+})
+
+const RegularModuleStateSchema = z.object({
+  candidatesToday: z.array(RegularEmergenceCandidateSchema),
+  createdToday: z.array(z.string()),
+  visitedToday: z.array(z.string()),
+})
+
+export { REGULARS_MODULE_ID, createInitialRegularModuleState, getRegularModuleState }
 
 export const regularModule: SimulationModule = {
   id: REGULARS_MODULE_ID,
-  version: '0.1.0',
+  version: '0.2.0',
   hooks: {
+    startDay: [startDayHook],
     regularCustomerUpdate: [regularUpdateHook],
   },
+  buildReport: buildRegularReport,
+  validate: validateRegularState,
   stateSchema: RegularModuleStateSchema,
 }

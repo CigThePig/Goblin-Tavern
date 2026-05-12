@@ -1,3 +1,11 @@
-export { regularModule, REGULARS_MODULE_ID } from './regularModule'
+export {
+  regularModule,
+  REGULARS_MODULE_ID,
+  createInitialRegularModuleState,
+  getRegularModuleState,
+} from './regularModule'
 export { buildRegularReport } from './regularReport'
-export type { RegularModuleState } from './types'
+export type {
+  RegularEmergenceCandidate,
+  RegularModuleState,
+} from './types'

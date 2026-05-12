@@ -44,4 +44,14 @@ export type LocalArcsModuleState = {
    * slice never grows without bound.
    */
   recentlyAppliedEffects: LocalArcsAppliedEffectRecord[]
+  /**
+   * Calendar tags observed at least once since the last monthly seeding
+   * pass. The daily `localEventUpdate` hook unions today's
+   * `state.calendar.tags` into this list; the `endMonth` hook reads it
+   * to evaluate `calendar_tag` start conditions and then clears it.
+   * Without this history, arcs gated on tags that never appear on day
+   * 28 (e.g. `miner_payday`, `festival_window`) would be unreachable
+   * via the monthly seeding pass.
+   */
+  monthlyCalendarTagsSeen: string[]
 }

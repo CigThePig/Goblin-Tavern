@@ -40,10 +40,18 @@ function evaluateCondition(
   state: TavernState,
   monthlySlice: MonthlyModuleState,
   condition: LocalArcCondition,
+  seenCalendarTags: readonly string[],
 ): boolean {
   switch (condition.kind) {
     case 'calendar_tag':
-      return state.calendar.tags.includes(condition.id as never)
+      // Honor both today's snapshot and the running monthly history so
+      // a tag that fired earlier in the month (e.g. `miner_payday` on
+      // a payday day, `festival_window` during month 7 week 2) can
+      // still satisfy a start condition evaluated on day 28.
+      return (
+        state.calendar.tags.includes(condition.id as never) ||
+        seenCalendarTags.includes(condition.id)
+      )
     case 'month_modifier':
       return monthlySlice.currentModifier.id === condition.id
     case 'pressure_above': {
@@ -77,9 +85,12 @@ function passesStartConditions(
   state: TavernState,
   monthlySlice: MonthlyModuleState,
   definition: LocalArcDefinition,
+  seenCalendarTags: readonly string[],
 ): boolean {
   for (const condition of definition.startConditions) {
-    if (!evaluateCondition(state, monthlySlice, condition)) return false
+    if (!evaluateCondition(state, monthlySlice, condition, seenCalendarTags)) {
+      return false
+    }
   }
   return true
 }
@@ -165,8 +176,9 @@ export function pickArcsToStart(args: {
   ctx: SimContext
   monthlySlice: MonthlyModuleState
   cooldowns: Record<string, number>
+  seenCalendarTags: readonly string[]
 }): LocalArcDefinition[] {
-  const { ctx, monthlySlice, cooldowns } = args
+  const { ctx, monthlySlice, cooldowns, seenCalendarTags } = args
   const state = ctx.state
   const today = state.calendar.totalDaysElapsed
   const activeCount = listActiveArcs(state).length
@@ -177,7 +189,7 @@ export function pickArcsToStart(args: {
   for (const definition of localArcRegistry.all()) {
     if (hasActiveArcForDefinition(state, definition.id)) continue
     if (!isCooledDown(state, cooldowns, definition.id, today)) continue
-    if (!passesStartConditions(state, monthlySlice, definition)) continue
+    if (!passesStartConditions(state, monthlySlice, definition, seenCalendarTags)) continue
     candidates.push(definition)
   }
   if (candidates.length === 0) return []
@@ -239,16 +251,13 @@ export function computeArcProgress(
   if (!definition) return undefined
 
   const nextAge = (arc.ageDays ?? 0) + (today - (arc.lastUpdatedDay ?? today))
-  // Force resolution at max duration regardless of remaining rules.
-  if (nextAge >= definition.maxDurationDays) {
-    return {
-      arcId: arc.id,
-      previousStage: arc.stage,
-      nextStage: 'resolved',
-      reason: `age>=${definition.maxDurationDays} (max duration)`,
-    }
-  }
 
+  // Evaluate explicit progress rules first so that on a tick which
+  // crosses both the next-stage threshold and `maxDurationDays`, the
+  // arc still records the registered stage (e.g. `active → climax`)
+  // before resolving. Starter definitions all set `climax → resolved`
+  // at `afterDays == maxDurationDays`, so without this ordering the
+  // climax stage is skipped entirely.
   const rulesFromHere = definition.progressRules.filter(
     (r) => r.fromStage === arc.stage,
   )
@@ -266,13 +275,29 @@ export function computeArcProgress(
     return adjusted
   })
   const next = pickNextStage(adjustedRules, ageInSegment)
-  if (!next) return undefined
-  return {
-    arcId: arc.id,
-    previousStage: arc.stage,
-    nextStage: next.toStage,
-    reason: next.reason,
+  if (next) {
+    return {
+      arcId: arc.id,
+      previousStage: arc.stage,
+      nextStage: next.toStage,
+      reason: next.reason,
+    }
   }
+
+  // Safety net: an arc whose definition has no remaining progress rule
+  // from its current stage but has overshot `maxDurationDays` still
+  // resolves so duration accounting stays honest for future definitions
+  // that might omit an explicit terminal rule.
+  if (nextAge >= definition.maxDurationDays) {
+    return {
+      arcId: arc.id,
+      previousStage: arc.stage,
+      nextStage: 'resolved',
+      reason: `age>=${definition.maxDurationDays} (max duration)`,
+    }
+  }
+
+  return undefined
 }
 
 function computeStageStartAge(

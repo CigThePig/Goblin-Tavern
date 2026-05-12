@@ -153,6 +153,23 @@ const comfortStressedStaff: OwnerActionDefinition = {
       source: 'ownerActions.comfort_stressed_staff',
       metadata: { staffId: staff.id },
     })
+    // Phase 36 §36.5 — staff-scoped entity memory recording the owner's
+    // intervention. The legacy `staff_comforted_recently` memory above
+    // is kept for backwards compatibility; this entry adds an owner
+    // pointer + a credit edge so attribution queries can find it.
+    ctx.addEntityMemory(
+      { kind: 'staff', id: staff.id },
+      {
+        id: 'staff_comforted_after_bad_shift',
+        source: 'ownerActions.comfort_stressed_staff',
+        tags: ['staff', 'morale', 'identity', 'social'],
+      },
+      {
+        credited: [
+          { kind: 'tavern_identity', id: ctx.state.meta.tavernId },
+        ],
+      },
+    )
     ctx.addHistory({
       category: 'owner_action',
       summary: `Owner comforted ${staff.name}.`,

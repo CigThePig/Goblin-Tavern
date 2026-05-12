@@ -22,6 +22,7 @@ import type { ValidationSummary } from '../state/types'
 import type { DayType } from '../modules/calendar/types'
 import type { HistoryEntryDraft } from '../modules/history/types'
 import type { MemoryDraft } from '../modules/memories/memoryTypes'
+import type { EntityMemoryMetadata } from '../modules/memories/entityMemory'
 import type { CauseDraft } from '../modules/causes/causeTypes'
 import type { RngStreamId, SimRng, SimRngStreams } from './rng'
 import type { ReportSection, SimLog, SimLogLevel } from './reports'
@@ -220,6 +221,22 @@ export type SimContext = {
   // the new id in the memory module's per-day slice so the report can
   // surface "new today" lines.
   addMemory(draft: MemoryDraft): MemoryState
+  /**
+   * Phase 36 §36.4 — Entity-scoped memory creation.
+   *
+   * Thin wrapper around `addMemory` that stamps `metadata.owner` with
+   * the supplied entity ref and (when the entity is not already in
+   * `actors`) appends it there so the existing actor queries keep
+   * finding the memory. Use this for any memory that semantically
+   * belongs to a specific staff member, regular, supplier, faction,
+   * area, or local arc; reach for `addMemory` only when the memory is
+   * truly tavern-level.
+   */
+  addEntityMemory(
+    owner: EntityRef,
+    draft: MemoryDraft,
+    metadata?: Omit<EntityMemoryMetadata, 'owner'>,
+  ): MemoryState
   removeMemory(id: string): boolean
   hasMemory(id: string): boolean
   getMemory(id: string): MemoryState | undefined

@@ -119,3 +119,30 @@ export function stampFromCalendar(calendar: CalendarState): CalendarStamp {
     absoluteDay: calendar.totalDaysElapsed,
   }
 }
+
+// Phase 36 §36.2 — entity-scoped query helpers live in `entityMemory.ts`
+// because they need the `EntityMemoryMetadata` shape; re-export them
+// here so callers reach for `memoryQueries` as the single import point
+// for memory reads.
+export {
+  memoriesForOwner,
+  memoriesAboutEntity,
+  grudgesAgainst,
+  gratitudeToward,
+  strongestMemoryFor,
+  memoryBelongsTo,
+  memoryIsAbout,
+  memoryOwner,
+  memorySubjects,
+  memoryTargets,
+  memoryBeneficiaries,
+  memoryWitnesses,
+  memoryCredited,
+  memoryBlamed,
+} from './entityMemory'
+
+export type {
+  EntityMemoryMetadata,
+  EntityMemoryRole,
+  EntityMemoryQueryOptions,
+} from './entityMemory'

@@ -116,6 +116,23 @@ export function tickProjects(ctx: SimContext): void {
           appliedEffects,
         },
       })
+      // Phase 36 §36.5 — projects completed against an area also write
+      // an area-scoped entity memory so later attribution / pressure
+      // hooks can treat the area as "recently upgraded".
+      if (project.targetType === 'area' && project.targetId) {
+        ctx.addEntityMemory(
+          { kind: 'area', id: project.targetId },
+          {
+            id: 'area_recently_upgraded',
+            source: `ownerActions.project.${project.projectType}.complete`,
+            locations: [{ kind: 'area', id: project.targetId }],
+            tags: ['area', 'project', project.projectType],
+          },
+          {
+            sourceProjectIds: [project.id],
+          },
+        )
+      }
       ctx.addHistory({
         category: 'owner_action',
         summary: `Project ${project.label} completed.`,

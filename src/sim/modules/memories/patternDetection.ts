@@ -1,6 +1,12 @@
-import type { MemoryState, TavernState } from '../../state/TavernState'
-import type { MemoryDraft } from './memoryTypes'
+import type {
+  EntityRef,
+  MemoryState,
+  TavernState,
+} from '../../state/TavernState'
+import type { MemoryDefinition, MemoryDraft } from './memoryTypes'
 import { getMemoriesByDefinition } from './memoryQueries'
+import { memoriesForOwner, memoryOwner } from './entityMemory'
+import { memoryRegistry } from './memoryRegistry'
 
 // Phase 16 §16.6 — Pattern detection.
 //
@@ -94,6 +100,214 @@ function detectMerchantDecline(memories: ReadonlyArray<MemoryState>): MemoryDraf
   }
 }
 
+// Phase 36 §36.6 — Entity-focused pattern detection.
+//
+// The detectors below scan the existing memory log for repeated
+// entity-scoped events (blame, complaint, supplier distrust, area
+// problems) and emit pattern memories whose ownership / actors point at
+// the involved entity. Each emission stays additive: the registry entry
+// for the new pattern memory uses `refresh` stacking, so re-emitting on
+// successive weeks does not create duplicate state records.
+
+const RECENT_WINDOW_DAYS = 14
+const MINIMUM_BLAME_COUNT = 2
+const MINIMUM_IGNORED_COMPLAINTS = 2
+const MINIMUM_SUPPLIER_SIGNALS = 2
+const MINIMUM_AREA_SIGNALS = 3
+
+function isRecent(memory: MemoryState, absoluteDay: number): boolean {
+  return absoluteDay - memory.createdAt.absoluteDay <= RECENT_WINDOW_DAYS
+}
+
+function collectActors(
+  memories: ReadonlyArray<MemoryState>,
+  kind: EntityRef['kind'],
+): EntityRef[] {
+  const seen = new Map<string, EntityRef>()
+  for (const memory of memories) {
+    for (const actor of memory.actors) {
+      if (actor.kind !== kind) continue
+      const key = `${actor.kind}:${actor.id}`
+      if (!seen.has(key)) seen.set(key, actor)
+    }
+    const owner = memoryOwner(memory)
+    if (owner && owner.kind === kind) {
+      const key = `${owner.kind}:${owner.id}`
+      if (!seen.has(key)) seen.set(key, owner)
+    }
+  }
+  return [...seen.values()]
+}
+
+function lookupDef(id: string): MemoryDefinition | undefined {
+  return memoryRegistry.has(id) ? memoryRegistry.get(id) : undefined
+}
+
+function makeEntityPatternDraft(args: {
+  registryId: string
+  instanceSuffix: string
+  owner: EntityRef
+  matchCount: number
+  source: string
+  locations?: EntityRef[]
+}): MemoryDraft {
+  const { registryId, instanceSuffix, owner, matchCount, source, locations } =
+    args
+  const def = lookupDef(registryId)
+  const draft: MemoryDraft = {
+    id: `${registryId}__${instanceSuffix}`,
+    type: def?.type ?? 'pattern',
+    strength: Math.min(100, (def?.defaultStrength ?? 50) + matchCount * 5),
+    tags: def?.tags ? [...def.tags] : ['pattern'],
+    relatedSystems: def?.relatedSystems ? [...def.relatedSystems] : [],
+    actors: [owner],
+    source,
+    metadata: {
+      owner,
+      patternDefinitionId: registryId,
+      entityKind: owner.kind,
+      entityId: owner.id,
+      matchCount,
+    },
+  }
+  if (def?.label !== undefined) draft.label = def.label
+  if (def?.defaultDurationDays !== undefined) {
+    draft.durationDays = def.defaultDurationDays
+  }
+  if (def?.defaultDecayRate !== undefined) {
+    draft.decayRate = def.defaultDecayRate
+  }
+  if (locations) draft.locations = locations
+  return draft
+}
+
+function detectStaffScapegoated(state: TavernState): MemoryDraft[] {
+  const drafts: MemoryDraft[] = []
+  const blameMemories = state.memories.filter(
+    (m) =>
+      m.tags.includes('blame') &&
+      m.tags.includes('staff') &&
+      isRecent(m, state.calendar.totalDaysElapsed),
+  )
+  if (blameMemories.length === 0) return drafts
+
+  const staffActors = collectActors(blameMemories, 'staff')
+  for (const staff of staffActors) {
+    const matching = memoriesForOwner(blameMemories, staff)
+    if (matching.length < MINIMUM_BLAME_COUNT) continue
+    drafts.push(
+      makeEntityPatternDraft({
+        registryId: 'staff_feels_scapegoated',
+        instanceSuffix: staff.id,
+        owner: staff,
+        matchCount: matching.length,
+        source: 'memories.pattern_detection.staff_scapegoat',
+      }),
+    )
+  }
+  return drafts
+}
+
+function detectRegularIgnored(state: TavernState): MemoryDraft[] {
+  const drafts: MemoryDraft[] = []
+  const ignored = state.memories.filter(
+    (m) =>
+      m.tags.includes('regular') &&
+      (m.tags.includes('complaint') || m.tags.includes('irritation')) &&
+      isRecent(m, state.calendar.totalDaysElapsed),
+  )
+  if (ignored.length === 0) return drafts
+
+  const regulars = collectActors(ignored, 'regular')
+  for (const regular of regulars) {
+    const matching = memoriesForOwner(ignored, regular)
+    if (matching.length < MINIMUM_IGNORED_COMPLAINTS) continue
+    drafts.push(
+      makeEntityPatternDraft({
+        registryId: 'regular_feels_ignored',
+        instanceSuffix: regular.id,
+        owner: regular,
+        matchCount: matching.length,
+        source: 'memories.pattern_detection.regular_ignored',
+      }),
+    )
+  }
+  return drafts
+}
+
+function detectSupplierDistrust(state: TavernState): MemoryDraft[] {
+  const drafts: MemoryDraft[] = []
+  const supplierMemories = state.memories.filter(
+    (m) =>
+      m.tags.includes('supplier') &&
+      (m.tags.includes('blame') ||
+        m.tags.includes('payment') ||
+        m.tags.includes('stock')),
+  )
+  if (supplierMemories.length === 0) return drafts
+
+  const suppliers = collectActors(supplierMemories, 'supplier')
+  for (const supplier of suppliers) {
+    const matching = memoriesForOwner(supplierMemories, supplier)
+    if (matching.length < MINIMUM_SUPPLIER_SIGNALS) continue
+    // Look for the three-signal pattern (late payment, blame, weak
+    // relationship). Each individual tag firing twice is also enough.
+    const hasLate = matching.some((m) => m.tags.includes('payment'))
+    const hasBlame = matching.some((m) => m.tags.includes('blame'))
+    const hasRelationship = matching.some((m) => m.tags.includes('relationship'))
+    const score =
+      (hasLate ? 1 : 0) + (hasBlame ? 1 : 0) + (hasRelationship ? 1 : 0)
+    if (matching.length < 3 && score < 2) continue
+    drafts.push(
+      makeEntityPatternDraft({
+        registryId: 'supplier_distrust_pattern',
+        instanceSuffix: supplier.id,
+        owner: supplier,
+        matchCount: matching.length,
+        source: 'memories.pattern_detection.supplier_distrust',
+      }),
+    )
+  }
+  return drafts
+}
+
+function detectAreaBadReputation(state: TavernState): MemoryDraft[] {
+  const drafts: MemoryDraft[] = []
+  // Look at memories that point at an area location and that carry
+  // negative tags. Aggregate by area id.
+  const buckets = new Map<string, MemoryState[]>()
+  for (const memory of state.memories) {
+    const isAtmosphereProblem =
+      memory.tags.includes('atmosphere') ||
+      memory.tags.includes('risk') ||
+      memory.tags.includes('violence') ||
+      memory.tags.includes('cleanliness') ||
+      memory.tags.includes('maintenance')
+    if (!isAtmosphereProblem) continue
+    for (const location of memory.locations) {
+      if (location.kind !== 'area') continue
+      const list = buckets.get(location.id) ?? []
+      list.push(memory)
+      buckets.set(location.id, list)
+    }
+  }
+  for (const [areaId, memories] of buckets) {
+    if (memories.length < MINIMUM_AREA_SIGNALS) continue
+    const owner: EntityRef = { kind: 'area', id: areaId }
+    drafts.push(
+      makeEntityPatternDraft({
+        registryId: 'area_bad_reputation',
+        instanceSuffix: areaId,
+        owner,
+        matchCount: memories.length,
+        source: 'memories.pattern_detection.area_bad_reputation',
+        locations: [{ kind: 'area', id: areaId }],
+      }),
+    )
+  }
+  return drafts
+}
+
 export function detectPatterns(state: TavernState): PatternResult {
   const out: MemoryDraft[] = []
   const ale = detectRepeatedAleShortages(state.memories)
@@ -104,5 +318,10 @@ export function detectPatterns(state: TavernState): PatternResult {
   if (roof) out.push(roof)
   const merch = detectMerchantDecline(state.memories)
   if (merch) out.push(merch)
+  // Phase 36 §36.6 — entity-focused pattern memories.
+  for (const draft of detectStaffScapegoated(state)) out.push(draft)
+  for (const draft of detectRegularIgnored(state)) out.push(draft)
+  for (const draft of detectSupplierDistrust(state)) out.push(draft)
+  for (const draft of detectAreaBadReputation(state)) out.push(draft)
   return out
 }

@@ -1,5 +1,7 @@
 import type { ReportSection } from '../../core/reports'
-import type { MemoryState, TavernState } from '../../state/TavernState'
+import type { EntityRef, MemoryState, TavernState } from '../../state/TavernState'
+
+import { memoryOwner } from './entityMemory'
 
 // Phase 16 §16.9 — Memory report.
 //
@@ -95,6 +97,18 @@ export function buildMemoryReport(inputs: MemoryReportInputs): ReportSection {
     for (const memory of expiredToday) {
       lines.push(`  - ${memory.id}`)
     }
+    lines.push('')
+  }
+
+  // Phase 36 §36.7 — Entity memory sections. Only surface memories that
+  // are tied to a named entity AND that pass the salience filter: high
+  // strength, or newly created today. Pure low-strength dust stays out
+  // of the report so the section does not become a wall of text.
+  const entitySections = buildEntitySections(memories, newToday)
+  for (const section of entitySections) {
+    lines.push(section.title)
+    for (const line of section.lines) lines.push(`  - ${line}`)
+    lines.push('')
   }
 
   return {
@@ -113,8 +127,98 @@ export function buildMemoryReport(inputs: MemoryReportInputs): ReportSection {
       futureHookIds: hooks.map((m) => m.id),
       expiredIds: expiredToday.map((m) => m.id),
       newIds: newToday.map((m) => m.id),
+      entitySections: entitySections.map((section) => ({
+        title: section.title,
+        memoryIds: section.memoryIds,
+      })),
     },
   }
+}
+
+// ---------- Phase 36 §36.7 — Entity memory report helpers ----------
+
+const ENTITY_SECTION_TITLES: Record<string, string> = {
+  staff: 'Important Staff Memories:',
+  regular: 'Important Regular Memories:',
+  supplier: 'Supplier Grudges and Gratitude:',
+  faction: 'Faction Memory:',
+  area: 'Area Reputation Memory:',
+  local_event: 'Arc Memory:',
+}
+
+const ENTITY_SECTION_ORDER: string[] = [
+  'staff',
+  'regular',
+  'supplier',
+  'faction',
+  'area',
+  'local_event',
+]
+
+const ENTITY_REPORT_STRENGTH = 50
+const ENTITY_REPORT_LIMIT_PER_KIND = 4
+
+function memoryEntityRef(memory: MemoryState): EntityRef | undefined {
+  const owner = memoryOwner(memory)
+  if (owner) return owner
+  // Fall back to the first actor or location for legacy memories.
+  if (memory.actors.length > 0) return memory.actors[0]
+  if (memory.locations.length > 0) return memory.locations[0]
+  return undefined
+}
+
+function isReportable(
+  memory: MemoryState,
+  newTodayIds: ReadonlySet<string>,
+): boolean {
+  if (memory.strength >= ENTITY_REPORT_STRENGTH) return true
+  if (newTodayIds.has(memory.id)) return true
+  return false
+}
+
+function describeEntityMemory(memory: MemoryState, owner: EntityRef): string {
+  const idLabel = memory.label ?? memory.definitionId ?? memory.id
+  return `${owner.kind}:${owner.id} — ${idLabel} (strength ${Math.round(memory.strength)})`
+}
+
+type EntitySection = {
+  title: string
+  lines: string[]
+  memoryIds: string[]
+}
+
+function buildEntitySections(
+  memories: ReadonlyArray<MemoryState>,
+  newToday: ReadonlyArray<MemoryState>,
+): EntitySection[] {
+  const newTodayIds = new Set(newToday.map((m) => m.id))
+  const buckets = new Map<string, MemoryState[]>()
+  for (const memory of memories) {
+    const owner = memoryEntityRef(memory)
+    if (!owner) continue
+    if (!ENTITY_SECTION_TITLES[owner.kind]) continue
+    if (!isReportable(memory, newTodayIds)) continue
+    const bucket = buckets.get(owner.kind) ?? []
+    bucket.push(memory)
+    buckets.set(owner.kind, bucket)
+  }
+
+  const sections: EntitySection[] = []
+  for (const kind of ENTITY_SECTION_ORDER) {
+    const bucket = buckets.get(kind)
+    if (!bucket || bucket.length === 0) continue
+    bucket.sort((a, b) => b.strength - a.strength)
+    const trimmed = bucket.slice(0, ENTITY_REPORT_LIMIT_PER_KIND)
+    sections.push({
+      title: ENTITY_SECTION_TITLES[kind]!,
+      lines: trimmed.map((memory) => {
+        const owner = memoryEntityRef(memory)!
+        return describeEntityMemory(memory, owner)
+      }),
+      memoryIds: trimmed.map((m) => m.id),
+    })
+  }
+  return sections
 }
 
 export { MEMORY_REPORT_ID, MEMORY_REPORT_SOURCE }

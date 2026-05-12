@@ -35,6 +35,10 @@ import type {
   MemoryModuleState,
 } from '../modules/memories/memoryModule'
 import type { MemoryDraft, MemoryDefinition } from '../modules/memories/memoryTypes'
+import {
+  attachEntityOwnerToDraft,
+  type EntityMemoryMetadata,
+} from '../modules/memories/entityMemory'
 import type { HistoryEntryDraft } from '../modules/history/types'
 import type {
   CauseDraft,
@@ -900,6 +904,15 @@ function createContext(
     // Phase 16 §16.2 — Memory context API.
     addMemory(draft): MemoryState {
       return addMemoryInternal(draft)
+    },
+    // Phase 36 §36.4 — Entity-scoped memory creation.
+    addEntityMemory(
+      owner: EntityRef,
+      draft: MemoryDraft,
+      metadata?: Omit<EntityMemoryMetadata, 'owner'>,
+    ): MemoryState {
+      const enriched = attachEntityOwnerToDraft(draft, owner, metadata)
+      return addMemoryInternal(enriched)
     },
     removeMemory(id): boolean {
       const idx = findMemoryIndex(id)

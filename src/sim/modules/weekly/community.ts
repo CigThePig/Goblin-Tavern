@@ -740,6 +740,136 @@ export type ResolveWeeklyCommunityArgs = {
   baseWeeklyResult: WeeklyResult
 }
 
+function emitEntityMemoriesFromTrends(
+  ctx: SimContext,
+  supplierTrend: ReadonlyArray<WeeklySupplierTrendEntry>,
+  regularTrend: ReadonlyArray<WeeklyRegularTrendEntry>,
+  factionTrend: ReadonlyArray<WeeklyFactionTrendEntry>,
+  socialActions: ReadonlyArray<OwnerSocialActionRecord>,
+): void {
+  // Phase 36 §36.5 — Weekly community converts repeated signals into
+  // entity memories. Emissions are additive: they sit alongside the
+  // existing rumour / cause / history records and never overwrite the
+  // trend deltas themselves.
+  const today = ctx.state.calendar.totalDaysElapsed
+  const tavernRef: EntityRef = {
+    kind: 'tavern_identity',
+    id: ctx.state.meta.tavernId,
+  }
+
+  for (const trend of supplierTrend) {
+    if (trend.reliabilityDelta <= -3) {
+      ctx.addEntityMemory(
+        { kind: 'supplier', id: trend.supplierId },
+        {
+          id: 'supplier_blamed_for_bad_stock',
+          source: `${SOURCE}.supplier_trend`,
+          tags: ['supplier', 'blame', 'stock', 'weekly'],
+        },
+        {
+          subjects: [tavernRef],
+          blamed: [tavernRef],
+        },
+      )
+    }
+    if (trend.relationshipDelta >= 3) {
+      ctx.addEntityMemory(
+        { kind: 'supplier', id: trend.supplierId },
+        {
+          id: 'supplier_given_fair_deal',
+          source: `${SOURCE}.supplier_trend`,
+          tags: ['supplier', 'gratitude', 'weekly'],
+        },
+        {
+          credited: [tavernRef],
+        },
+      )
+    }
+  }
+
+  for (const trend of regularTrend) {
+    if (trend.irritationDelta >= 3) {
+      const regular = ctx.state.world.regulars[trend.regularId]
+      if (regular) {
+        ctx.addEntityMemory(
+          { kind: 'regular', id: regular.id },
+          {
+            id: 'regular_complaint_ignored',
+            source: `${SOURCE}.regular_trend`,
+            tags: ['regular', 'complaint', 'weekly'],
+          },
+          {
+            blamed: [tavernRef],
+          },
+        )
+      }
+    }
+    if (trend.loyaltyDelta >= 2) {
+      ctx.addEntityMemory(
+        { kind: 'regular', id: trend.regularId },
+        {
+          id: 'regular_helped_by_owner',
+          source: `${SOURCE}.regular_trend`,
+          tags: ['regular', 'gratitude', 'weekly'],
+        },
+        {
+          credited: [tavernRef],
+        },
+      )
+    }
+  }
+
+  for (const trend of factionTrend) {
+    if (trend.satisfactionDelta >= 3) {
+      ctx.addEntityMemory(
+        { kind: 'faction', id: trend.factionId },
+        {
+          id: 'faction_event_hosted',
+          source: `${SOURCE}.faction_trend`,
+          tags: ['faction', 'gratitude', 'weekly'],
+        },
+        {
+          credited: [tavernRef],
+        },
+      )
+    }
+    if (trend.tensionDelta >= 2) {
+      ctx.addEntityMemory(
+        { kind: 'faction', id: trend.factionId },
+        {
+          id: 'faction_publicly_insulted',
+          source: `${SOURCE}.faction_trend`,
+          tags: ['faction', 'blame', 'weekly'],
+        },
+        {
+          blamed: [tavernRef],
+        },
+      )
+    }
+  }
+
+  // Apology social actions write an owner-credited gratitude memory.
+  for (const record of socialActions) {
+    if (record.actionId !== 'apologize_to_regular') continue
+    if (record.outcome !== 'improved') continue
+    if (today - record.day >= 7) continue
+    const regular = ctx.state.world.regulars[record.targetId]
+    if (!regular) continue
+    ctx.addEntityMemory(
+      { kind: 'regular', id: regular.id },
+      {
+        id: 'regular_helped_by_owner',
+        source: `${SOURCE}.apology`,
+        tags: ['regular', 'gratitude', 'apology'],
+      },
+      {
+        credited: [tavernRef],
+        sourceEventId: record.id,
+      },
+    )
+  }
+}
+
 export function resolveWeeklyCommunity(
   args: ResolveWeeklyCommunityArgs,
 ): WeeklyCommunityResult {
@@ -756,6 +886,14 @@ export function resolveWeeklyCommunity(
     supplierTrend,
     regularTrend,
     factionTrend,
+  )
+
+  emitEntityMemoriesFromTrends(
+    ctx,
+    supplierTrend,
+    regularTrend,
+    factionTrend,
+    socialActions,
   )
 
   const notes: string[] = []

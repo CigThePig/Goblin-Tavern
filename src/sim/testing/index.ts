@@ -116,3 +116,50 @@ export {
 export { runDay, type RunDayResult } from './runDay'
 export { runWeek, type RunWeekResult } from './runWeek'
 export { runMonth, type RunMonthResult } from './runMonth'
+
+// Phase 40 §40.16 — Expanded readiness exports.
+export {
+  EXPANDED_READINESS_THRESHOLDS,
+  EXPANDED_READINESS_SECTION_IDS,
+  buildExpandedReadinessReport,
+  buildIdentityRichnessReport,
+  buildEntityMemoryQualityReport,
+  buildAttributionQualityReport,
+  buildExpandedPressureQualityReport,
+  buildTextIngredientQualityReport,
+  buildNamedEntityRepetitionAudit,
+  buildArcAndCalendarUseReport,
+  buildSocialConsequenceQualityReport,
+  detectCardProseSmell,
+  evaluateExpandedCardReadinessGate,
+  formatExpandedReadinessReport,
+  type ExpandedReadinessReport,
+  type ExpandedReadinessSection,
+  type ExpandedReadinessConfig,
+  type IdentityRichnessReport,
+  type EntityMemoryQualityReport,
+  type AttributionQualityReport,
+  type ExpandedPressureQualityReport,
+  type TextIngredientQualityReport,
+  type NamedEntityRepetitionAudit,
+  type ArcAndCalendarUseReport,
+  type SocialConsequenceQualityReport,
+  type ExpandedCardReadinessGateConditions,
+  type ExpandedCardReadinessGateInput,
+  type ExpandedCardReadinessGateResult,
+} from './expandedReadinessReport'
+
+export {
+  EXPANDED_SEED_FAMILIES,
+  buildExpandedSeedCoverageReport,
+  type ExpandedSeedCoverageReport,
+  type ExpandedSeedFamilyId,
+} from './expandedSeedCoverageReport'
+
+export {
+  auditExpandedSeed,
+  auditRunForExpandedContradictions,
+  auditStateForExpandedContradictions,
+  type ExpandedContradictionAuditResult,
+  type ExpandedContradictionEvidence,
+} from './expandedContradictionAudit'

@@ -12,6 +12,7 @@ import { feedbackModule } from '../modules/feedback/index'
 import { historyModule } from '../modules/history/index'
 import { issueSeedsModule } from '../modules/issues/index'
 import { memoriesModule } from '../modules/memories/index'
+import { localArcsModule } from '../modules/localArcs/index'
 import { monthlyModule } from '../modules/monthly/index'
 import { ownerActionsModule } from '../modules/ownerActions/index'
 import { pressuresModule } from '../modules/pressures/index'
@@ -67,6 +68,10 @@ export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   serviceModule,
   weeklyModule,
   monthlyModule,
+  // Phase 35 §35.5 — local arcs run after the monthly module so they
+  // observe the finalized month (modifier, accumulator) before seeding
+  // or progressing arcs.
+  localArcsModule,
   memoriesModule,
   historyModule,
   causesModule,

@@ -209,6 +209,9 @@ export function buildEmptyResult(state: TavernState): DailyServiceResult {
     staffChanges: [],
     incidents: [],
     serviceQuality: emptyServiceQuality(),
+    // Phase 32 §32.1 — scenes array is always present (possibly empty)
+    // so downstream callers can iterate without null-checking.
+    scenes: [],
   }
 }
 

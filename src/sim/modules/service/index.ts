@@ -20,6 +20,9 @@ export {
   satisfactionAdjustmentsFromService,
 } from './resolveService'
 
+// Phase 32 — scene builder exports.
+export { buildServiceScenes, SERVICE_SCENE_LIMITS } from './serviceScenes'
+
 export type {
   AreaChangeSummary,
   CustomerSatisfactionChange,
@@ -28,5 +31,9 @@ export type {
   PurchaseSummary,
   ServiceIncidentSummary,
   ServiceModuleState,
+  ServiceScene,
+  ServiceSceneSeverity,
+  ServiceSceneTextIngredients,
+  ServiceSceneType,
   StaffChangeSummary,
 } from './types'

@@ -185,6 +185,41 @@ export const REQUIRED_MEMORY_DEFINITIONS: MemoryDefinition[] = [
     stacking: 'increase_strength',
   },
 
+  // Phase 32 §32.5 — scene-driven memories. The service scene builder
+  // emits these only when the scene should influence future days; the
+  // scene itself stays a structural record on the daily result so the
+  // history/cause trail does not double-record.
+  {
+    id: 'regular_complained_recently',
+    type: 'timed',
+    label: 'Regular Complained',
+    defaultDurationDays: 7,
+    defaultStrength: 35,
+    tags: ['service', 'scene', 'regulars', 'complaint'],
+    relatedSystems: ['service', 'regulars'],
+    stacking: 'increase_strength',
+  },
+  {
+    id: 'staff_snapped_recently',
+    type: 'timed',
+    label: 'Staff Snapped',
+    defaultDurationDays: 7,
+    defaultStrength: 40,
+    tags: ['service', 'scene', 'staff', 'stress'],
+    relatedSystems: ['service', 'staff'],
+    stacking: 'increase_strength',
+  },
+  {
+    id: 'area_problem_publicly_noticed',
+    type: 'timed',
+    label: 'Area Problem Publicly Noticed',
+    defaultDurationDays: 7,
+    defaultStrength: 30,
+    tags: ['service', 'scene', 'areas'],
+    relatedSystems: ['service', 'areas'],
+    stacking: 'increase_strength',
+  },
+
   // --- Pattern memories ---
   {
     id: 'repeated_ale_shortages',

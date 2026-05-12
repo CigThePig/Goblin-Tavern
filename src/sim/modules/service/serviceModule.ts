@@ -12,6 +12,7 @@ import {
   resolveService,
 } from './resolveService'
 import type { ResolveServiceInputs } from './resolveService'
+import { buildServiceScenes } from './serviceScenes'
 import type {
   AreaChangeSummary,
   CustomerSatisfactionChange,
@@ -19,6 +20,7 @@ import type {
   PurchaseSummary,
   ServiceIncidentSummary,
   ServiceModuleState,
+  ServiceScene,
   StaffChangeSummary,
 } from './types'
 
@@ -69,6 +71,8 @@ export function createInitialServiceModuleState(): ServiceModuleState {
         repairSupport: 0,
         staffSummaries: [],
       },
+      // Phase 32 §32.1 — scene array always seeded.
+      scenes: [],
     },
   }
 }
@@ -156,12 +160,29 @@ const afterServiceHook: SimulationHook = (ctx: SimContext): void => {
   // we only mirror the deltas for the service report).
   const satisfactionChanges = collectSatisfactionChanges(ctx)
   next.satisfactionChanges = satisfactionChanges
+
+  // Phase 32 §32.4 — build structured scenes from the resolved result.
+  // The builder is pure: it only reads state. Memories/history emitted
+  // below are derived from the selected scenes plus the existing
+  // incident/shortage records (Phase 16 §16.3).
+  const scenes = buildServiceScenes({
+    ctx,
+    resultBeforeScenes: next,
+    satisfactionChanges,
+  })
+  next.scenes = scenes
+
   writeResult(ctx, next, 'after_service')
 
   // Phase 16 §16.3 — fold today's incidents and shortages into
   // memories. The memory module never decides *what* happened — it
   // just records the events each system already produced.
   emitServiceMemories(ctx, next, satisfactionChanges)
+  // Phase 32 §32.5 — scene-driven memories and history. Only the
+  // scenes that should influence future days are mirrored as memories;
+  // a structural history entry is always emitted so audit trails can
+  // pick up every scene that ran.
+  emitSceneMemoriesAndHistory(ctx, scenes)
 }
 
 function emitServiceMemories(
@@ -225,6 +246,117 @@ function emitServiceMemories(
       actors: [{ kind: 'customer_group', id: 'merchants' }],
       metadata: { delta: merchantChange.delta, after: merchantChange.after },
     })
+  }
+}
+
+function emitSceneMemoriesAndHistory(
+  ctx: SimContext,
+  scenes: ReadonlyArray<ServiceScene>,
+): void {
+  for (const scene of scenes) {
+    // Phase 32 §32.5 — history is always emitted so the audit trail has
+    // a structured pointer at the scene. Memories are emitted only when
+    // the scene type should influence future days.
+    const relatedActors: typeof scene.involvedEntityRefs = scene.involvedEntityRefs.filter(
+      (ref) =>
+        ref.kind === 'staff' ||
+        ref.kind === 'regular' ||
+        ref.kind === 'customer_group' ||
+        ref.kind === 'supplier' ||
+        ref.kind === 'faction' ||
+        ref.kind === 'notable_npc',
+    )
+    const relatedLocations: typeof scene.involvedEntityRefs = scene.involvedEntityRefs.filter(
+      (ref) => ref.kind === 'area',
+    )
+    ctx.addHistory({
+      category: 'service',
+      summary: sceneHistorySummary(scene),
+      tags: ['service', 'scene', scene.sceneType, ...scene.tags],
+      relatedActors,
+      relatedLocations,
+      relatedSystems: ['service'],
+      mechanicalRefs: [scene.id],
+    })
+
+    if (scene.sceneType === 'regular_complaint' && scene.regularIds.length > 0) {
+      ctx.addMemory({
+        id: 'regular_complained_recently',
+        source: SOURCE,
+        actors: scene.involvedEntityRefs.filter(
+          (r) => r.kind === 'regular' || r.kind === 'customer_group',
+        ),
+        metadata: {
+          sceneId: scene.id,
+          severity: scene.numericSeverity,
+          topic: scene.textIngredients.complaintTopic ?? null,
+        },
+      })
+    }
+
+    if (
+      scene.sceneType === 'staff_moment' &&
+      scene.staffIds.length > 0 &&
+      scene.tags.includes('strained')
+    ) {
+      const staffActors = scene.involvedEntityRefs.filter((r) => r.kind === 'staff')
+      ctx.addMemory({
+        id: 'staff_snapped_recently',
+        source: SOURCE,
+        actors: staffActors,
+        metadata: {
+          sceneId: scene.id,
+          severity: scene.numericSeverity,
+          stressResponse: scene.textIngredients.stressResponse ?? null,
+        },
+      })
+    }
+
+    if (scene.sceneType === 'area_problem_noticed' && scene.areaId) {
+      ctx.addMemory({
+        id: 'area_problem_publicly_noticed',
+        source: SOURCE,
+        locations: [{ kind: 'area', id: scene.areaId }],
+        actors: scene.involvedEntityRefs.filter((r) => r.kind === 'customer_group'),
+        metadata: {
+          sceneId: scene.id,
+          severity: scene.numericSeverity,
+          trait: scene.textIngredients.trait ?? null,
+        },
+      })
+    }
+  }
+}
+
+function sceneHistorySummary(scene: ServiceScene): string {
+  switch (scene.sceneType) {
+    case 'regular_complaint': {
+      const regular = scene.textIngredients.regularName ?? 'A regular'
+      const topic = scene.textIngredients.complaintTopic ?? 'service'
+      return `${regular} complained (${topic}).`
+    }
+    case 'stock_quality_complaint': {
+      const stock = scene.textIngredients.stockId ?? 'stock'
+      const group = scene.textIngredients.groupName ?? 'customers'
+      return `${group} flagged quality of ${stock}.`
+    }
+    case 'area_problem_noticed': {
+      const area = scene.textIngredients.areaLabel ?? scene.areaId ?? 'an area'
+      return `Customers noticed a problem in ${area}.`
+    }
+    case 'unpaid_tab_argument': {
+      return `Unpaid tabs caused friction (${scene.textIngredients.totalUnpaid ?? 0} coin).`
+    }
+    case 'brawl_aftermath': {
+      return `Brawl aftermath in ${scene.areaId ?? 'the tavern'}.`
+    }
+    case 'staff_moment': {
+      const staff = scene.textIngredients.staffName ?? 'A staff member'
+      const tone = scene.textIngredients.tone ?? 'service'
+      return `${staff} had a ${tone} moment.`
+    }
+    default:
+      return `Service scene: ${scene.sceneType}.`
   }
 }
 
@@ -349,6 +481,18 @@ function buildDailyServiceReport(ctx: SimContext): ReportSection {
     lines.push('')
   }
 
+  // Phase 32 §32.6 — compact scene subsection. Stays structured /
+  // debug-readable; explicitly not prose.
+  lines.push('Service Scenes:')
+  if (result.scenes.length === 0) {
+    lines.push('  (none)')
+  } else {
+    for (const scene of result.scenes) {
+      lines.push(formatScene(scene))
+    }
+  }
+  lines.push('')
+
   const drivers = findDayDrivers(result)
   if (drivers.positive) {
     lines.push(`Largest positive driver: ${drivers.positive}`)
@@ -393,6 +537,22 @@ function formatSigned(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`
 }
 
+function formatScene(scene: ServiceScene): string {
+  const involved: string[] = []
+  if (scene.regularIds.length > 0) {
+    involved.push(`regulars=${scene.regularIds.join(',')}`)
+  }
+  if (scene.staffIds.length > 0) {
+    involved.push(`staff=${scene.staffIds.join(',')}`)
+  }
+  if (scene.involvedGroupIds.length > 0) {
+    involved.push(`groups=${scene.involvedGroupIds.join(',')}`)
+  }
+  if (scene.areaId) involved.push(`area=${scene.areaId}`)
+  const tail = involved.length > 0 ? ` [${involved.join(' ')}]` : ''
+  return `  ${scene.severity} ${scene.sceneType} (${scene.numericSeverity})${tail}`
+}
+
 function formatIncident(incident: ServiceIncidentSummary): string {
   const parts = [`severity ${incident.severity}`]
   if (incident.actorGroup) parts.push(`actor:${incident.actorGroup}`)
@@ -435,6 +595,20 @@ function cloneResultForData(result: DailyServiceResult): DailyServiceResult {
         ...s,
       })),
     },
+    // Phase 32 §32.1 — deep-clone scenes so report `data` consumers
+    // cannot mutate the live result.
+    scenes: result.scenes.map((s) => ({
+      ...s,
+      involvedEntityRefs: s.involvedEntityRefs.map((r) => ({ ...r })),
+      involvedGroupIds: [...s.involvedGroupIds],
+      staffIds: [...s.staffIds],
+      regularIds: [...s.regularIds],
+      supplierIds: [...s.supplierIds],
+      tags: [...s.tags],
+      causes: [...s.causes],
+      textIngredients: { ...s.textIngredients },
+      possibleIssueSeedIds: [...s.possibleIssueSeedIds],
+    })),
   }
 }
 
@@ -540,6 +714,61 @@ const ServiceQualitySchema = z.object({
   staffSummaries: z.array(StaffEffectivenessSummarySchema),
 })
 
+// Phase 32 §32.1 — structured scene record. `textIngredients` is a
+// JSON-safe map of primitives so the future card layer can read named
+// values out without re-deriving them. `numericSeverity` is 0–100 to
+// stay consistent with the existing incident severity meter.
+const EntityRefSchema = z.object({
+  kind: z.enum([
+    'staff',
+    'customer_group',
+    'area',
+    'stock',
+    'role',
+    'system',
+    'other',
+    'culture',
+    'faction',
+    'supplier',
+    'regular',
+    'notable_npc',
+    'local_event',
+    'rumour',
+    'tavern_identity',
+  ]),
+  id: z.string(),
+})
+
+const ServiceSceneSchema = z.object({
+  id: z.string(),
+  sceneType: z.enum([
+    'staff_customer_friction',
+    'regular_complaint',
+    'supplier_arrival_during_rush',
+    'area_problem_noticed',
+    'stock_quality_complaint',
+    'cultural_seating_friction',
+    'unpaid_tab_argument',
+    'brawl_aftermath',
+    'staff_moment',
+  ]),
+  severity: z.enum(['minor', 'moderate', 'major']),
+  numericSeverity: z.number().min(0).max(100),
+  areaId: z.string().optional(),
+  involvedEntityRefs: z.array(EntityRefSchema),
+  involvedGroupIds: z.array(z.string()),
+  staffIds: z.array(z.string()),
+  regularIds: z.array(z.string()),
+  supplierIds: z.array(z.string()),
+  tags: z.array(z.string()),
+  causes: z.array(z.string()),
+  textIngredients: z.record(
+    z.string(),
+    z.union([z.string(), z.number(), z.boolean(), z.null()]),
+  ),
+  possibleIssueSeedIds: z.array(z.string()),
+})
+
 const DailyServiceResultSchema = z.object({
   dayKey: z.string(),
   trafficByGroup: z.record(z.string(), z.number().min(0)),
@@ -555,6 +784,7 @@ const DailyServiceResultSchema = z.object({
   staffChanges: z.array(StaffChangeSchema),
   incidents: z.array(IncidentSchema),
   serviceQuality: ServiceQualitySchema,
+  scenes: z.array(ServiceSceneSchema),
 })
 
 const ServiceModuleStateSchema = z.object({

@@ -103,21 +103,25 @@ function runServiceDay(
 describe('Phase 13 — Owner action registry', () => {
   it('registers all ten required actions with action-point cost 1', () => {
     ensureRequiredOwnerActionsRegistered()
-    const ids = actionRegistry.all().map((a) => a.id).sort()
-    expect(ids).toEqual(
-      [
-        'clean_area',
-        'repair_area',
-        'restock_item',
-        'adjust_prices',
-        'pay_staff_bonus',
-        'water_down_ale',
-        'improve_stew',
-        'patch_roof',
-        'fumigate_cellar',
-        'buy_mugs',
-      ].sort(),
-    )
+    // Phase 33 widens the registry with project, policy, and social
+    // definitions. The Phase 13 set must still be present; the
+    // assertion now uses containment so Phase 33 + later additions do
+    // not require re-listing every action here.
+    const ids = new Set(actionRegistry.all().map((a) => a.id))
+    for (const id of [
+      'clean_area',
+      'repair_area',
+      'restock_item',
+      'adjust_prices',
+      'pay_staff_bonus',
+      'water_down_ale',
+      'improve_stew',
+      'patch_roof',
+      'fumigate_cellar',
+      'buy_mugs',
+    ]) {
+      expect(ids.has(id)).toBe(true)
+    }
     for (const def of actionRegistry.all()) {
       expect(def.actionPointCost).toBe(1)
       expect(typeof def.label).toBe('string')
@@ -535,6 +539,11 @@ describe('Phase 13 — State safety', () => {
             },
           ],
           rejected: [],
+          // Phase 33 §33.3 — empty persistent slices are valid; only
+          // the unknown applied action should trigger the assertion.
+          projects: {},
+          policies: {},
+          recentSocialActions: [],
         },
       },
     }

@@ -151,11 +151,17 @@ describe('Phase 5 — Base Tavern State', () => {
   it('modules state seeds the stock, owner-actions, and weekly slices (Phase 9 §9.3 / Phase 13 §13.1 / Phase 14 §14.1)', () => {
     const state = createInitialTavernState()
     expect(state.modules.stock).toEqual({ ledger: [], shortages: [] })
+    // Phase 33 §33.3 widened the owner-actions slice with persistent
+    // project / policy / social-action records. Empty maps + array are
+    // the default-seeded shape.
     expect(state.modules.ownerActions).toEqual({
       actionPointsUsed: 0,
       actionPointBudget: 3,
       applied: [],
       rejected: [],
+      projects: {},
+      policies: {},
+      recentSocialActions: [],
     })
     // Phase 14 §14.1 — weekly slice is seeded with empty accumulators
     // and no finalized week. The full default shape is asserted in

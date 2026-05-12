@@ -185,6 +185,41 @@ export const REQUIRED_MEMORY_DEFINITIONS: MemoryDefinition[] = [
     stacking: 'increase_strength',
   },
 
+  // Phase 33 §33.5 / §33.7 — owner project + social-action memories.
+  // These power the weekly community routine planned for Phase 34: a
+  // recently-comforted staff member or a recently-apologized-to regular
+  // should weigh on later scene generation and rumour propagation.
+  {
+    id: 'project_completed_recently',
+    type: 'timed',
+    label: 'Project Completed',
+    defaultDurationDays: 21,
+    defaultStrength: 50,
+    tags: ['owner_action', 'project', 'milestone'],
+    relatedSystems: ['ownerActions', 'projects'],
+    stacking: 'refresh',
+  },
+  {
+    id: 'staff_comforted_recently',
+    type: 'timed',
+    label: 'Staff Comforted',
+    defaultDurationDays: 7,
+    defaultStrength: 35,
+    tags: ['owner_action', 'social', 'staff', 'morale'],
+    relatedSystems: ['ownerActions', 'staff'],
+    stacking: 'refresh',
+  },
+  {
+    id: 'regular_apologized_to_recently',
+    type: 'timed',
+    label: 'Regular Apologized To',
+    defaultDurationDays: 10,
+    defaultStrength: 40,
+    tags: ['owner_action', 'social', 'regulars'],
+    relatedSystems: ['ownerActions', 'regulars'],
+    stacking: 'refresh',
+  },
+
   // Phase 32 §32.5 — scene-driven memories. The service scene builder
   // emits these only when the scene should influence future days; the
   // scene itself stays a structural record on the daily result so the

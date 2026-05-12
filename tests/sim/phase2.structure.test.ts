@@ -139,21 +139,26 @@ describe('Placeholder registry instances', () => {
   })
 
   it('actionRegistry is populated by the Phase 13 owner-action system', () => {
-    const ids = actionRegistry.all().map((a) => a.id).sort()
-    expect(ids).toEqual(
-      [
-        'clean_area',
-        'repair_area',
-        'restock_item',
-        'adjust_prices',
-        'pay_staff_bonus',
-        'water_down_ale',
-        'improve_stew',
-        'patch_roof',
-        'fumigate_cellar',
-        'buy_mugs',
-      ].sort(),
-    )
+    // Phase 33 §33.4 / §33.6 / §33.7 widen the registry with project,
+    // policy, and social-action definitions. The Phase 13 set must still
+    // be present; the assertion now checks containment rather than
+    // exact equality so later phases can extend the registry without
+    // dragging this test along.
+    const ids = new Set(actionRegistry.all().map((a) => a.id))
+    for (const id of [
+      'clean_area',
+      'repair_area',
+      'restock_item',
+      'adjust_prices',
+      'pay_staff_bonus',
+      'water_down_ale',
+      'improve_stew',
+      'patch_roof',
+      'fumigate_cellar',
+      'buy_mugs',
+    ]) {
+      expect(ids.has(id)).toBe(true)
+    }
   })
 })
 
@@ -232,7 +237,11 @@ describe('Core sim modules', () => {
 
     expect(modules.map((m) => m.id)).toEqual(expectedIds)
     for (const mod of modules) {
-      expect(mod.version).toBe('0.1.0')
+      // Phase 33 §33.3 / §33.5 bumped ownerActions to 0.2.0 when the
+      // module gained persistent project / policy / social slices.
+      // Other modules still ship 0.1.0.
+      const expected = mod.id === 'ownerActions' ? '0.2.0' : '0.1.0'
+      expect(mod.version).toBe(expected)
     }
   })
 })

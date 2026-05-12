@@ -57,6 +57,7 @@ function listStaff(ctx: SimContext): ActionTarget[] {
 const cleanArea: OwnerActionDefinition = {
   id: 'clean_area',
   label: 'Clean Area',
+  category: 'immediate',
   tags: ['cleanliness', 'maintenance'],
   targetType: 'area',
   actionPointCost: 1,
@@ -155,6 +156,7 @@ function repairCost(damage: number): number {
 const repairArea: OwnerActionDefinition = {
   id: 'repair_area',
   label: 'Repair Area',
+  category: 'immediate',
   tags: ['repair', 'maintenance'],
   targetType: 'area',
   actionPointCost: 1,
@@ -247,6 +249,7 @@ const DEFAULT_RESTOCK_AMOUNT = 40
 const restockItemAction: OwnerActionDefinition = {
   id: 'restock_item',
   label: 'Restock Item',
+  category: 'immediate',
   tags: ['supply', 'stock'],
   targetType: 'stock',
   actionPointCost: 1,
@@ -308,6 +311,7 @@ const restockItemAction: OwnerActionDefinition = {
 const adjustPrices: OwnerActionDefinition = {
   id: 'adjust_prices',
   label: 'Adjust Prices',
+  category: 'immediate',
   tags: ['pricing', 'economy'],
   targetType: 'stock',
   actionPointCost: 1,
@@ -357,6 +361,7 @@ const DEFAULT_BONUS = 10
 const payStaffBonus: OwnerActionDefinition = {
   id: 'pay_staff_bonus',
   label: 'Pay Staff Bonus',
+  category: 'immediate',
   tags: ['staff', 'wages'],
   targetType: 'staff',
   actionPointCost: 1,
@@ -442,6 +447,7 @@ const payStaffBonus: OwnerActionDefinition = {
 const waterDownAle: OwnerActionDefinition = {
   id: 'water_down_ale',
   label: 'Water Down Ale',
+  category: 'immediate',
   tags: ['stock', 'cheat', 'risk'],
   targetType: 'stock',
   actionPointCost: 1,
@@ -530,6 +536,7 @@ const IMPROVE_STEW_INGREDIENTS = 5
 const improveStew: OwnerActionDefinition = {
   id: 'improve_stew',
   label: 'Improve Stew',
+  category: 'immediate',
   tags: ['stock', 'food_quality'],
   targetType: 'stock',
   actionPointCost: 1,
@@ -615,6 +622,7 @@ function patchRoofCost(damage: number): number {
 const patchRoof: OwnerActionDefinition = {
   id: 'patch_roof',
   label: 'Patch Roof',
+  category: 'immediate',
   tags: ['repair', 'roof', 'weather'],
   targetType: 'area',
   actionPointCost: 1,
@@ -703,6 +711,7 @@ const FUMIGATE_COST = 5
 const fumigateCellar: OwnerActionDefinition = {
   id: 'fumigate_cellar',
   label: 'Fumigate Cellar',
+  category: 'immediate',
   tags: ['cellar', 'pests', 'sanitation'],
   targetType: 'area',
   actionPointCost: 1,
@@ -782,6 +791,7 @@ const DEFAULT_MUG_BUY = 10
 const buyMugs: OwnerActionDefinition = {
   id: 'buy_mugs',
   label: 'Buy Mugs',
+  category: 'immediate',
   tags: ['stock', 'supply', 'service_capacity'],
   targetType: 'stock',
   actionPointCost: 1,
@@ -864,6 +874,11 @@ export {
 
 // Defensive helper used by the report builder: pull a fallback label
 // from the relevant registry when an applied action does not carry one.
+// Phase 33 adds the new target kinds (customer_group, regular, supplier,
+// faction, project, policy); for those the registries live on
+// `state.world.*` / module state, so this helper just returns the id.
+// Reports that want a richer label should fetch from the appropriate
+// world branch themselves.
 export function describeTargetLabel(
   targetType: OwnerActionDefinition['targetType'],
   targetId: string | undefined,

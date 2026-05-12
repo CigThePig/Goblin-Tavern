@@ -52,6 +52,30 @@ export function computeNovelty(
   return Math.max(0, Math.min(MAX_NOVELTY, Math.round(novelty)))
 }
 
+/** Phase 39 §39.17 — Bonus/penalty constants for expanded-world seeds. */
+const NAMED_ENTITY_WITH_MEMORY_BONUS = 10
+const ACTIVE_ARC_MILESTONE_BONUS = 8
+const PUBLIC_FALSE_ATTRIBUTION_BONUS = 6
+const RISING_EXPANDED_PRESSURE_BONUS = 5
+const TEMPLATE_RECENT_OVERUSE_PENALTY = 15
+const ACTOR_WEEKLY_OVERUSE_PENALTY = 10
+const NAMED_ENTITY_WEEKLY_OVERUSE_PENALTY = 8
+const NAMED_ENTITY_OVERUSE_THRESHOLD = 3
+
+const EXPANDED_PRESSURE_IDS = new Set([
+  'supplier_distrust',
+  'regular_customer_loss',
+  'staff_loyalty_risk',
+  'faction_anger',
+  'cultural_tension',
+  'rival_tavern_pressure',
+  'festival_readiness',
+  'market_instability',
+  'rumour_pressure',
+  'policy_backlash',
+  'arc_escalation',
+])
+
 /** Compute card-worthiness 0–100. */
 export function computeCardWorthiness(input: RankingInput): number {
   const { seed, templateId, cooldowns, absoluteDay } = input
@@ -80,6 +104,9 @@ export function computeCardWorthiness(input: RankingInput): number {
     const daysSince = absoluteDay - entry.lastGeneratedDay
     if (daysSince < RECENT_FEATURE_WINDOW_DAYS) {
       score -= TEMPLATE_REPETITION_PENALTY
+      if (entry.timesGenerated >= 3) {
+        score -= TEMPLATE_RECENT_OVERUSE_PENALTY
+      }
     }
   }
 
@@ -101,7 +128,78 @@ export function computeCardWorthiness(input: RankingInput): number {
     score += UNRESOLVED_DURATION_REWARD * Math.min(5, oldestCauseAge - 2)
   }
 
+  // Phase 39 §39.17 — Expanded seed bonuses/penalties.
+  const namedEntities = seed.textIngredients.namedEntities ?? []
+  const hasMemory = (seed.textIngredients.relevantMemories?.length ?? 0) > 0
+  const hasPublicBlame = (seed.textIngredients.perceivedBlame?.length ?? 0) > 0
+  const hasArcContext = (seed.textIngredients.arcContext?.length ?? 0) > 0
+
+  if (namedEntities.length > 0 && hasMemory) {
+    score += NAMED_ENTITY_WITH_MEMORY_BONUS
+  }
+  if (hasArcContext) {
+    score += ACTIVE_ARC_MILESTONE_BONUS
+  }
+  if (hasPublicBlame) {
+    score += PUBLIC_FALSE_ATTRIBUTION_BONUS
+  }
+  if (seed.pressures.some((p) => EXPANDED_PRESSURE_IDS.has(p.id) && p.trend === 'rising')) {
+    score += RISING_EXPANDED_PRESSURE_BONUS
+  }
+
+  // Actor/named-entity overuse penalties. Inspect the cooldown table for
+  // sibling templates that already feature the same actor this week.
+  const seedActorIds = collectActorIds(seed)
+  if (seedActorIds.length > 0) {
+    const actorAppearances = countActorAppearancesThisWeek(
+      cooldowns,
+      seedActorIds,
+      absoluteDay,
+    )
+    if (actorAppearances >= NAMED_ENTITY_OVERUSE_THRESHOLD) {
+      score -= ACTOR_WEEKLY_OVERUSE_PENALTY
+    }
+  }
+  // Penalise named-entity overuse separately so a fast-cycling supplier
+  // doesn't dominate a week.
+  const namedEntityIds = namedEntities.map((entry) => entry.ref.id)
+  if (namedEntityIds.length > 0) {
+    const namedAppearances = countActorAppearancesThisWeek(
+      cooldowns,
+      namedEntityIds,
+      absoluteDay,
+    )
+    if (namedAppearances >= NAMED_ENTITY_OVERUSE_THRESHOLD) {
+      score -= NAMED_ENTITY_WEEKLY_OVERUSE_PENALTY
+    }
+  }
+
   return Math.max(0, Math.min(100, Math.round(score)))
+}
+
+function collectActorIds(seed: { primaryActor?: { id: string }; affectedActors: Array<{ id: string }> }): string[] {
+  const out: string[] = []
+  if (seed.primaryActor) out.push(seed.primaryActor.id)
+  for (const a of seed.affectedActors) {
+    if (!out.includes(a.id)) out.push(a.id)
+  }
+  return out
+}
+
+function countActorAppearancesThisWeek(
+  cooldowns: Record<string, CooldownEntry>,
+  actorIds: string[],
+  absoluteDay: number,
+): number {
+  let total = 0
+  for (const entry of Object.values(cooldowns)) {
+    const daysSince = absoluteDay - entry.lastGeneratedDay
+    if (daysSince >= RECENT_FEATURE_WINDOW_DAYS) continue
+    for (const actorId of actorIds) {
+      if (entry.actorIds.includes(actorId)) total += 1
+    }
+  }
+  return total
 }
 
 /** Sort seeds by card-worthiness, then severity, then urgency. */

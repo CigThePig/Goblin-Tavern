@@ -23,7 +23,9 @@ export type IssueSeedTiming =
   | 'end_week'
   | 'end_month'
 
-/** Phase 19 §"Issue Seed Shape" — the seed type. */
+/** Phase 19 §"Issue Seed Shape" — the seed type. Phase 39 §39.2 adds the
+ *  expanded-world types alongside the canonical Phase 19 list so existing
+ *  consumers keep working. */
 export type IssueSeedType =
   | 'crisis'
   | 'complaint'
@@ -37,8 +39,16 @@ export type IssueSeedType =
   | 'debt_pressure'
   | 'inspection_threat'
   | 'monthly_review'
+  | 'relationship_test'
+  | 'social_conflict'
+  | 'policy_reaction'
+  | 'festival_preparation'
+  | 'rumour'
+  | 'arc_milestone'
 
-/** Phase 19 §19.7 — canonical seed family ids. */
+/** Phase 19 §19.7 / Phase 39 §39.1 — canonical seed family ids. The
+ *  expanded families are appended additively; the original ten remain
+ *  so Phase 20 coverage reports and tests keep working. */
 export type IssueSeedFamilyId =
   | 'food_safety'
   | 'stock_shortage'
@@ -50,6 +60,48 @@ export type IssueSeedFamilyId =
   | 'inspection'
   | 'reputation_shift'
   | 'monthly_review'
+  | 'staff_identity'
+  | 'regular_customer'
+  | 'supplier_relationship'
+  | 'faction_request'
+  | 'culture_conflict'
+  | 'area_atmosphere'
+  | 'seasonal_arc'
+  | 'policy_backlash'
+  | 'rumour_crisis'
+  | 'rival_tavern'
+
+/** Phase 39 §39.1 — the original ten canonical families. */
+export const CORE_ISSUE_SEED_FAMILIES = [
+  'food_safety',
+  'stock_shortage',
+  'maintenance',
+  'staff_burnout',
+  'customer_complaint',
+  'violence',
+  'debt_rent',
+  'inspection',
+  'reputation_shift',
+  'monthly_review',
+] as const
+
+/** Phase 39 §39.1 — the expanded families added in Phase 39. */
+export const EXPANDED_ISSUE_SEED_FAMILIES = [
+  'staff_identity',
+  'regular_customer',
+  'supplier_relationship',
+  'faction_request',
+  'culture_conflict',
+  'area_atmosphere',
+  'seasonal_arc',
+  'policy_backlash',
+  'rumour_crisis',
+  'rival_tavern',
+] as const
+
+export type CoreIssueSeedFamilyId = (typeof CORE_ISSUE_SEED_FAMILIES)[number]
+export type ExpandedIssueSeedFamilyId =
+  (typeof EXPANDED_ISSUE_SEED_FAMILIES)[number]
 
 /** Phase 19 §"Response Intent Shape" — verbs the response intent layer
  *  may use. */
@@ -135,7 +187,10 @@ export type ConsequenceProfile = {
   impactScore: number
 }
 
-/** Phase 19 §19.12 — text ingredient budget limits (discipline rails). */
+/** Phase 19 §19.12 / Phase 39 §39.3 — text ingredient budget limits.
+ *  Phase 39 extends the limits with expanded-world fields. Ingredients
+ *  remain fragments, not prose; the card layer is responsible for any
+ *  rendering. */
 export const TEXT_INGREDIENT_LIMITS = {
   sensoryDetails: { maxEntries: 3, maxWordsPerEntry: 6 },
   actorOpinions: { maxEntries: 2, maxWordsPerEntry: 8 },
@@ -143,9 +198,25 @@ export const TEXT_INGREDIENT_LIMITS = {
   stakesReadable: { maxEntries: 3, maxWordsPerEntry: 12 },
   problemNoun: { maxEntries: 1, maxWordsPerEntry: 4 },
   subject: { maxEntries: 1, maxWordsPerEntry: 4 },
+  namedEntities: { maxEntries: 4, maxWordsPerEntry: 5 },
+  socialContext: { maxEntries: 3, maxWordsPerEntry: 10 },
+  relevantMemories: { maxEntries: 3, maxWordsPerEntry: 10 },
+  perceivedBlame: { maxEntries: 2, maxWordsPerEntry: 12 },
+  pressureContext: { maxEntries: 3, maxWordsPerEntry: 10 },
+  calendarContext: { maxEntries: 2, maxWordsPerEntry: 8 },
+  marketContext: { maxEntries: 2, maxWordsPerEntry: 8 },
+  arcContext: { maxEntries: 2, maxWordsPerEntry: 10 },
 } as const
 
-/** Phase 19 §19.12 — text ingredients. Short fragments, not card prose. */
+/** Phase 39 §39.3 — named-entity text ingredient entry. */
+export type NamedEntityIngredient = {
+  role: string
+  ref: EntityRef
+  displayName: string
+}
+
+/** Phase 19 §19.12 / Phase 39 §39.3 — text ingredients. Short fragments,
+ *  not card prose. */
 export type TextIngredients = {
   subject: string
   problemNoun?: string
@@ -153,6 +224,15 @@ export type TextIngredients = {
   actorOpinions: Record<string, string>
   recentContext: string[]
   stakesReadable: string[]
+
+  namedEntities?: NamedEntityIngredient[]
+  socialContext?: string[]
+  relevantMemories?: string[]
+  perceivedBlame?: string[]
+  pressureContext?: string[]
+  calendarContext?: string[]
+  marketContext?: string[]
+  arcContext?: string[]
 }
 
 /** Phase 19 §19.5 — validation result attached to a seed. Invalid seeds

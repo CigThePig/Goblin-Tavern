@@ -16,7 +16,8 @@ import {
   computeNovelty,
   rankSeeds,
 } from './issueSeedRanking'
-import { validateSeed } from './issueSeedValidation'
+import { validateSeed, validateSeedAgainstState } from './issueSeedValidation'
+import { EXPANDED_ISSUE_SEED_FAMILIES } from './issueSeedTypes'
 import { buildIssueSeedReport } from './issueSeedReport'
 import {
   createInitialIssueSeedModuleState,
@@ -113,7 +114,17 @@ const generateSeedsHook: SimulationHook = (ctx: SimContext): void => {
       cooldowns: slice.cooldowns,
       absoluteDay,
     })
-    seed.validation = validateSeed(seed, { strictTextBudget: false })
+    // Phase 39 §39.16 — expanded families use the state-aware validator
+    // so missing world refs / missing pressure snapshots / missing
+    // memory/attribution backing rejects the seed.
+    seed.validation = EXPANDED_ISSUE_SEED_FAMILIES.includes(
+      seed.family as (typeof EXPANDED_ISSUE_SEED_FAMILIES)[number],
+    )
+      ? validateSeedAgainstState(seed, {
+          state: ctx.state,
+          strictTextBudget: false,
+        })
+      : validateSeed(seed, { strictTextBudget: false })
 
     if (!seed.validation.valid) {
       rejected.push({

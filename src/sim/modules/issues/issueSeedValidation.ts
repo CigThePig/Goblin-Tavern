@@ -1,9 +1,14 @@
+import type { EntityRef, TavernState } from '../../state/TavernState'
 import type {
   IssueSeed,
+  IssueSeedFamilyId,
   SeedValidation,
   TextIngredients,
 } from './issueSeedTypes'
-import { TEXT_INGREDIENT_LIMITS } from './issueSeedTypes'
+import {
+  EXPANDED_ISSUE_SEED_FAMILIES,
+  TEXT_INGREDIENT_LIMITS,
+} from './issueSeedTypes'
 
 // Phase 19 §19.5 — Seed validation.
 //
@@ -142,7 +147,209 @@ export function validateTextIngredients(
     }
   }
 
+  // Phase 39 §39.3 / §39.16 — expanded text ingredient arrays.
+  const EXPANDED_ARRAY_FIELDS = [
+    'namedEntities',
+    'socialContext',
+    'relevantMemories',
+    'perceivedBlame',
+    'pressureContext',
+    'calendarContext',
+    'marketContext',
+    'arcContext',
+  ] as const
+
+  for (const field of EXPANDED_ARRAY_FIELDS) {
+    const values = ingredients[field]
+    if (!values) continue
+    const limits = TEXT_INGREDIENT_LIMITS[field]
+    if (values.length > limits.maxEntries) {
+      push(`${field} has more than ${limits.maxEntries} entries`)
+    }
+    for (const entry of values) {
+      const text =
+        field === 'namedEntities'
+          ? (entry as { displayName: string }).displayName
+          : (entry as string)
+      if (wordCount(text) > limits.maxWordsPerEntry) {
+        push(`${field} "${text}" exceeds ${limits.maxWordsPerEntry} words`)
+      }
+    }
+  }
+
   return { errors, warnings }
+}
+
+// Phase 39 §39.16 — Reference resolution.
+//
+// Expanded seeds name world entities. The seed must point at entities the
+// simulation still believes in: a regular that was banned, a supplier
+// that left town, or an arc that resolved last week should not appear in
+// a freshly generated seed.
+
+function entityRefResolves(state: TavernState, ref: EntityRef): boolean {
+  switch (ref.kind) {
+    case 'staff':
+      return Boolean(state.staff[ref.id])
+    case 'customer_group':
+      return Boolean(state.customerGroups[ref.id])
+    case 'area':
+      return Boolean(state.areas[ref.id])
+    case 'stock':
+      return Boolean(state.stock[ref.id])
+    case 'supplier':
+      return Boolean(state.world.suppliers[ref.id])
+    case 'faction':
+      return Boolean(state.world.factions[ref.id])
+    case 'regular':
+      return Boolean(state.world.regulars[ref.id])
+    case 'culture':
+      return Boolean(state.world.cultures[ref.id])
+    case 'notable_npc':
+      return Boolean(state.world.notableNpcs[ref.id])
+    case 'local_event':
+      return Boolean(state.world.localEvents[ref.id])
+    case 'rumour':
+      return Boolean(state.world.socialRumours[ref.id])
+    case 'tavern_identity':
+      return state.meta.tavernId === ref.id
+    case 'role':
+    case 'system':
+    case 'other':
+      // System/role refs are by definition non-state; treat as resolved.
+      return true
+    default:
+      return true
+  }
+}
+
+const EXPANDED_FAMILY_SET: ReadonlySet<string> = new Set(
+  EXPANDED_ISSUE_SEED_FAMILIES,
+)
+
+const EXPANDED_PRESSURE_FAMILY_REQUIREMENT: Record<string, string[]> = {
+  staff_identity: ['staff_loyalty_risk', 'staff_burnout'],
+  regular_customer: ['regular_customer_loss'],
+  supplier_relationship: ['supplier_distrust', 'market_instability'],
+  faction_request: ['faction_anger', 'cultural_tension'],
+  culture_conflict: ['cultural_tension'],
+  area_atmosphere: ['maintenance'],
+  seasonal_arc: ['arc_escalation', 'festival_readiness'],
+  policy_backlash: ['policy_backlash', 'faction_anger'],
+  rumour_crisis: ['rumour_pressure', 'reputation_drift'],
+  rival_tavern: ['rival_tavern_pressure'],
+}
+
+const FAMILIES_REQUIRING_MEMORY_OR_ATTRIBUTION: ReadonlySet<string> = new Set([
+  'rumour_crisis',
+  'supplier_relationship',
+  'staff_identity',
+  'regular_customer',
+])
+
+export type ExpandedSeedStateOptions = {
+  state: TavernState
+  strictTextBudget?: boolean
+}
+
+/** Phase 39 §39.16 — validation that requires live state.
+ *
+ * The pure `validateSeed` continues to check Phase 1 §4.10 conditions
+ * without reading state (so tests can construct fixtures freely). This
+ * function adds the expanded checks that need state: ref resolution,
+ * matching pressure snapshots, attribution/memory backing, etc. */
+export function validateSeedAgainstState(
+  seed: IssueSeed,
+  options: ExpandedSeedStateOptions,
+): SeedValidation {
+  const base = validateSeed(seed, options)
+  if (!EXPANDED_FAMILY_SET.has(seed.family)) return base
+
+  const { state } = options
+  const errors = [...base.errors]
+  const warnings = [...base.warnings]
+  const contractChecks = { ...base.contractChecks }
+
+  // 1. namedEntities refs resolve.
+  const named = seed.textIngredients.namedEntities ?? []
+  for (const entry of named) {
+    if (!entityRefResolves(state, entry.ref)) {
+      errors.push(`namedEntity ref ${entry.ref.kind}:${entry.ref.id} does not resolve`)
+    }
+  }
+  // 2. primary/affected actor refs resolve.
+  if (seed.primaryActor && !entityRefResolves(state, seed.primaryActor)) {
+    errors.push(
+      `primaryActor ${seed.primaryActor.kind}:${seed.primaryActor.id} does not resolve`,
+    )
+  }
+  for (const actor of seed.affectedActors) {
+    if (!entityRefResolves(state, actor)) {
+      errors.push(`affectedActor ${actor.kind}:${actor.id} does not resolve`)
+    }
+  }
+  // 3. matching pressure snapshot.
+  const requiredPressures = EXPANDED_PRESSURE_FAMILY_REQUIREMENT[seed.family]
+  if (requiredPressures && requiredPressures.length > 0) {
+    const snapshotIds = new Set(seed.pressures.map((p) => p.id))
+    const hasMatch = requiredPressures.some((p) => snapshotIds.has(p))
+    if (!hasMatch) {
+      errors.push(
+        `Family ${seed.family} requires at least one of these pressure snapshots: ${requiredPressures.join(', ')}`,
+      )
+    }
+  }
+  // 4. memory/attribution requirement for relationship-driven families.
+  if (FAMILIES_REQUIRING_MEMORY_OR_ATTRIBUTION.has(seed.family)) {
+    const hasMemory =
+      (seed.textIngredients.relevantMemories?.length ?? 0) > 0
+    const hasBlame =
+      (seed.textIngredients.perceivedBlame?.length ?? 0) > 0
+    if (!hasMemory && !hasBlame) {
+      errors.push(
+        `Family ${seed.family} requires a memory or attribution ingredient`,
+      )
+    }
+  }
+  // 5. response slots targeting named entity kinds must resolve.
+  for (const slot of seed.responseSlots) {
+    for (const target of slot.targetOptions) {
+      if (!entityRefResolves(state, target)) {
+        errors.push(
+          `Response slot ${slot.id} target ${target.kind}:${target.id} does not resolve`,
+        )
+      }
+    }
+  }
+  // 6. seasonal_arc seeds must reference an active or recently-ended arc.
+  if (seed.family === 'seasonal_arc') {
+    const arcRef = seed.primaryActor
+    if (arcRef) {
+      const arc = state.world.localEvents[arcRef.id]
+      if (!arc) {
+        errors.push(`Seasonal arc seed references missing arc ${arcRef.id}`)
+      } else if (
+        arc.stage === 'resolved' ||
+        arc.stage === 'failed'
+      ) {
+        // Allow if recently ended.
+        const lastUpdated = arc.lastUpdatedDay ?? arc.startedDay
+        const today = state.calendar.totalDaysElapsed
+        if (today - lastUpdated > 7) {
+          errors.push(
+            `Seasonal arc seed references arc ${arcRef.id} resolved more than 7 days ago`,
+          )
+        }
+      }
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+    contractChecks,
+  }
 }
 
 /** Validate a seed against the Phase 1 Contract §4.10 conditions. */

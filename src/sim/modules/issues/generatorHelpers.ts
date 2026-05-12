@@ -12,11 +12,25 @@ import type {
   IssueSeedFamilyId,
   IssueSeedTiming,
   IssueSeedType,
+  NamedEntityIngredient,
   ResponseSlot,
   StakeRef,
   TextIngredients,
 } from './issueSeedTypes'
 import { scoreProfile } from './impactScoring'
+import {
+  memoriesAboutEntity,
+  memoriesForOwner,
+  strongestMemoryFor,
+} from '../memories/entityMemory'
+import type { MemoryState } from '../memories/memoryTypes'
+import {
+  attributionsByTarget,
+} from '../attribution/attributionQueries'
+import type {
+  AttributionState,
+  AttributionType,
+} from '../attribution/attributionTypes'
 
 // Phase 19 — Shared helpers for seed generators.
 //
@@ -159,7 +173,10 @@ export function pressureCauseRefsAsEntries(
   }))
 }
 
-/** Build a basic text ingredients object, trimmed to fit budgets. */
+/** Build a basic text ingredients object, trimmed to fit budgets.
+ *  Phase 39 §39.3 extends the helper with expanded-world arrays so
+ *  Phase 39 generators can feed named entities, social context, memory
+ *  fragments, pressure context, and arc context to the card layer. */
 export function buildTextIngredients(input: {
   subject: string
   problemNoun?: string
@@ -167,8 +184,16 @@ export function buildTextIngredients(input: {
   actorOpinions?: Record<string, string>
   recentContext?: string[]
   stakesReadable?: string[]
+  namedEntities?: NamedEntityIngredient[]
+  socialContext?: string[]
+  relevantMemories?: string[]
+  perceivedBlame?: string[]
+  pressureContext?: string[]
+  calendarContext?: string[]
+  marketContext?: string[]
+  arcContext?: string[]
 }): TextIngredients {
-  return {
+  const out: TextIngredients = {
     subject: input.subject,
     ...(input.problemNoun !== undefined
       ? { problemNoun: input.problemNoun }
@@ -180,6 +205,31 @@ export function buildTextIngredients(input: {
     recentContext: (input.recentContext ?? []).slice(0, 3),
     stakesReadable: (input.stakesReadable ?? []).slice(0, 3),
   }
+  if (input.namedEntities && input.namedEntities.length > 0) {
+    out.namedEntities = input.namedEntities.slice(0, 4)
+  }
+  if (input.socialContext && input.socialContext.length > 0) {
+    out.socialContext = input.socialContext.slice(0, 3)
+  }
+  if (input.relevantMemories && input.relevantMemories.length > 0) {
+    out.relevantMemories = input.relevantMemories.slice(0, 3)
+  }
+  if (input.perceivedBlame && input.perceivedBlame.length > 0) {
+    out.perceivedBlame = input.perceivedBlame.slice(0, 2)
+  }
+  if (input.pressureContext && input.pressureContext.length > 0) {
+    out.pressureContext = input.pressureContext.slice(0, 3)
+  }
+  if (input.calendarContext && input.calendarContext.length > 0) {
+    out.calendarContext = input.calendarContext.slice(0, 2)
+  }
+  if (input.marketContext && input.marketContext.length > 0) {
+    out.marketContext = input.marketContext.slice(0, 2)
+  }
+  if (input.arcContext && input.arcContext.length > 0) {
+    out.arcContext = input.arcContext.slice(0, 2)
+  }
+  return out
 }
 
 /** Build a stake ref. */
@@ -305,4 +355,168 @@ export function customerRef(id: string): EntityRef {
 }
 export function systemRef(id: string): EntityRef {
   return { kind: 'system', id }
+}
+
+// Phase 39 §39.4 — Expanded-world EntityRef helpers. World entities
+// (suppliers, factions, regulars, cultures, local arcs) are persistent
+// state; their refs live alongside the Phase 19 refs so seeds can name
+// them without re-rolling identity.
+export function supplierRef(id: string): EntityRef {
+  return { kind: 'supplier', id }
+}
+export function factionRef(id: string): EntityRef {
+  return { kind: 'faction', id }
+}
+export function regularRef(id: string): EntityRef {
+  return { kind: 'regular', id }
+}
+export function cultureRef(id: string): EntityRef {
+  return { kind: 'culture', id }
+}
+export function localArcRef(id: string): EntityRef {
+  return { kind: 'local_event', id }
+}
+export function serviceSceneRef(id: string): EntityRef {
+  return { kind: 'other', id: `scene:${id}` }
+}
+export function projectRef(id: string): EntityRef {
+  return { kind: 'other', id: `project:${id}` }
+}
+export function rumourRef(id: string): EntityRef {
+  return { kind: 'rumour', id }
+}
+export function tavernIdentityRef(id: string): EntityRef {
+  return { kind: 'tavern_identity', id }
+}
+
+// Phase 39 §39.4 — Display helpers. Read display names from persistent
+// state so report text never re-rolls identity each day.
+export function displayNameForRef(
+  state: TavernState,
+  ref: EntityRef,
+): string {
+  switch (ref.kind) {
+    case 'staff': {
+      const s = state.staff[ref.id]
+      return s?.name ?? ref.id
+    }
+    case 'customer_group': {
+      const g = state.customerGroups[ref.id]
+      return g?.label ?? g?.id ?? ref.id
+    }
+    case 'area': {
+      const a = state.areas[ref.id]
+      return a?.label ?? ref.id
+    }
+    case 'stock': {
+      const stock = state.stock[ref.id]
+      return stock?.label ?? ref.id
+    }
+    case 'supplier': {
+      const supplier = state.world.suppliers[ref.id]
+      return supplier?.name?.display ?? supplier?.label ?? ref.id
+    }
+    case 'faction': {
+      const faction = state.world.factions[ref.id]
+      return faction?.label ?? ref.id
+    }
+    case 'regular': {
+      const regular = state.world.regulars[ref.id]
+      return regular?.name?.display ?? ref.id
+    }
+    case 'culture': {
+      const culture = state.world.cultures[ref.id]
+      return culture?.label ?? ref.id
+    }
+    case 'notable_npc': {
+      const npc = state.world.notableNpcs[ref.id]
+      return npc?.name?.display ?? ref.id
+    }
+    case 'local_event': {
+      const event = state.world.localEvents[ref.id]
+      return event?.label ?? ref.id
+    }
+    case 'rumour': {
+      const rumour = state.world.socialRumours[ref.id]
+      return rumour?.label ?? ref.id
+    }
+    case 'tavern_identity':
+      return state.meta.tavernName ?? 'the tavern'
+    default:
+      return ref.id
+  }
+}
+
+/** Build a single named-entity ingredient entry. */
+export function namedEntityIngredient(
+  state: TavernState,
+  role: string,
+  ref: EntityRef,
+): NamedEntityIngredient {
+  return {
+    role,
+    ref,
+    displayName: displayNameForRef(state, ref),
+  }
+}
+
+// Phase 39 §39.4 — Memory / attribution query helpers. Generators use
+// these to surface the strongest "why this seed exists right now" hint
+// without coupling to raw state shape.
+export function strongestMemoryText(
+  state: TavernState,
+  entity: EntityRef,
+  tags?: string[],
+): string | undefined {
+  const memory = strongestMemoryFor(state, entity, tags)
+  if (memory) return memoryToReadable(memory)
+  const aboutMatches = memoriesAboutEntity(state, entity, tags ? { tags } : undefined)
+  if (aboutMatches.length === 0) return undefined
+  let best: MemoryState | undefined
+  for (const m of aboutMatches) {
+    if (!best || m.strength > best.strength) best = m
+  }
+  return best ? memoryToReadable(best) : undefined
+}
+
+function memoryToReadable(memory: MemoryState): string {
+  if (memory.label) return memory.label
+  return memory.id.replace(/_/g, ' ')
+}
+
+export function strongestAttributionText(
+  state: TavernState,
+  target: EntityRef,
+  types?: AttributionType[],
+): string | undefined {
+  let attributions = attributionsByTarget(state, target)
+  if (types && types.length > 0) {
+    attributions = attributions.filter((a) => types.includes(a.attributionType))
+  }
+  if (attributions.length === 0) return undefined
+  let best: AttributionState | undefined
+  for (const a of attributions) {
+    const score = a.strength * (a.publicness + 50)
+    const bestScore = best ? best.strength * (best.publicness + 50) : -1
+    if (score > bestScore) best = a
+  }
+  return best?.readable
+}
+
+// Phase 39 §39.4 — Helper to pull every memory tied to an entity once.
+export function entityMemoryList(
+  state: TavernState,
+  entity: EntityRef,
+  tags?: string[],
+): MemoryState[] {
+  const owned = memoriesForOwner(state, entity, tags ? { tags } : undefined)
+  const about = memoriesAboutEntity(state, entity, tags ? { tags } : undefined)
+  const seen = new Set<string>()
+  const out: MemoryState[] = []
+  for (const m of [...owned, ...about]) {
+    if (seen.has(m.id)) continue
+    seen.add(m.id)
+    out.push(m)
+  }
+  return out
 }

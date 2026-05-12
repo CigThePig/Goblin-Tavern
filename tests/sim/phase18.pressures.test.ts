@@ -151,23 +151,29 @@ describe('Phase 18 — Module shape', () => {
   })
 
   it('pressure registry self-registers the 10 canonical pressures', () => {
-    const ids = pressureRegistry.all().map((p) => p.id).sort()
-    expect(ids).toEqual([...PRESSURE_IDS].sort())
+    // Phase 38 §38.1 — expanded pressures register alongside the canonical
+    // ten, so check containment instead of exact equality.
+    const ids = pressureRegistry.all().map((p) => p.id)
+    for (const id of PRESSURE_IDS) {
+      expect(ids).toContain(id)
+    }
     expect(REQUIRED_PRESSURE_DEFINITIONS.length).toBe(10)
   })
 
   it('feedback loop registry self-registers the 6 required loops', () => {
-    const ids = feedbackLoopRegistry.all().map((l) => l.id).sort()
-    expect(ids).toEqual(
-      [
-        'deferred_maintenance_revenue_spiral',
-        'staff_burnout_service_decline_loop',
-        'rowdy_damage_identity_loop',
-        'cheap_low_quality_reputation_loop',
-        'stock_shortage_reliability_loop',
-        'filth_merchant_loss_loop',
-      ].sort(),
-    )
+    // Phase 38 §38.15 — expanded loops register alongside the canonical
+    // six, so check containment instead of exact equality.
+    const ids = feedbackLoopRegistry.all().map((l) => l.id)
+    for (const required of [
+      'deferred_maintenance_revenue_spiral',
+      'staff_burnout_service_decline_loop',
+      'rowdy_damage_identity_loop',
+      'cheap_low_quality_reputation_loop',
+      'stock_shortage_reliability_loop',
+      'filth_merchant_loss_loop',
+    ]) {
+      expect(ids).toContain(required)
+    }
   })
 
   it('initial state seeds the pressure & feedback module slices', () => {
@@ -485,7 +491,9 @@ describe('Phase 18 §18.13/18.14 — Reports', () => {
     const report = result.reports.find((r) => r.id === 'feedback_loops')
     expect(report).toBeDefined()
     const data = report!.data as { totalCount?: number; activeIds?: string[] }
-    expect(data.totalCount).toBe(6)
+    // Phase 38 §38.15 — expanded loops join the registry. The canonical
+    // six remain; assert at least that many are reported.
+    expect(data.totalCount).toBeGreaterThanOrEqual(6)
     expect(Array.isArray(data.activeIds)).toBe(true)
   })
 
@@ -498,7 +506,10 @@ describe('Phase 18 §18.13/18.14 — Reports', () => {
     const dominant = getDominantPressures(result.state, 3)
     expect(dominant.length).toBe(3)
     expect(dominant[0]!.value).toBeGreaterThanOrEqual(dominant[1]!.value)
-    expect(getAllPressureSnapshots(result.state).length).toBe(10)
+    // Phase 38 §38.1 — expanded pressures take the snapshot count above
+    // the canonical ten; assert "at least ten" so the canonical
+    // expectation still holds.
+    expect(getAllPressureSnapshots(result.state).length).toBeGreaterThanOrEqual(10)
   })
 
   it('rising pressures helper returns only rising trends', () => {

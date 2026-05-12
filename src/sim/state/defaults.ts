@@ -193,6 +193,10 @@ function createInitialReputation(): ReputationState {
 // 5 placeholder `structural_decay` with `maintenance` (the broader
 // concept covering damage, cleanliness, and repair backlog).
 function createInitialPressures(): Record<string, PressureState> {
+  // Phase 38 §38.1 — Expanded pressure ids are seeded alongside the
+  // canonical ten so `state.pressures[id]` exists from day zero. Starting
+  // values are low; the per-day calculator pass shapes them from
+  // memories, attributions, world state, and arcs.
   const baseValues: Record<string, number> = {
     food_safety: 35,
     inspection: 25,
@@ -204,6 +208,18 @@ function createInitialPressures(): Record<string, PressureState> {
     reputation_drift: 20,
     stock_shortage: 20,
     landlord: 20,
+    // Phase 38 §38.1 — Expanded ids.
+    supplier_distrust: 0,
+    regular_customer_loss: 0,
+    staff_loyalty_risk: 0,
+    faction_anger: 0,
+    cultural_tension: 0,
+    rival_tavern_pressure: 0,
+    festival_readiness: 0,
+    market_instability: 0,
+    rumour_pressure: 0,
+    policy_backlash: 0,
+    arc_escalation: 0,
   }
 
   const labels: Record<string, string> = {
@@ -217,6 +233,17 @@ function createInitialPressures(): Record<string, PressureState> {
     reputation_drift: 'Reputation Drift',
     stock_shortage: 'Stock Shortage',
     landlord: 'Landlord',
+    supplier_distrust: 'Supplier Distrust',
+    regular_customer_loss: 'Regular Customer Loss',
+    staff_loyalty_risk: 'Staff Loyalty Risk',
+    faction_anger: 'Faction Anger',
+    cultural_tension: 'Cultural Tension',
+    rival_tavern_pressure: 'Rival Tavern Pressure',
+    festival_readiness: 'Festival Readiness',
+    market_instability: 'Market Instability',
+    rumour_pressure: 'Rumour Pressure',
+    policy_backlash: 'Policy Backlash',
+    arc_escalation: 'Arc Escalation',
   }
 
   const pressures: Record<string, PressureState> = {}

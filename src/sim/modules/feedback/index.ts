@@ -11,7 +11,10 @@ export {
 
 export type { FeedbackModuleState } from './feedbackLoopModule'
 export type { FeedbackLoopDefinition } from './feedbackLoopRegistry'
-export { REQUIRED_FEEDBACK_LOOPS } from './feedbackLoopRegistry'
+export {
+  REQUIRED_FEEDBACK_LOOPS,
+  EXPANDED_FEEDBACK_LOOPS,
+} from './feedbackLoopRegistry'
 
 export type {
   FeedbackEvidence,

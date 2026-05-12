@@ -97,21 +97,23 @@ describe('Placeholder registry instances', () => {
   })
 
   it('pressureRegistry is populated by the Phase 18 pressure system', () => {
-    const ids = pressureRegistry.all().map((p) => p.id).sort()
-    expect(ids).toEqual(
-      [
-        'food_safety',
-        'inspection',
-        'staff_burnout',
-        'pests',
-        'debt',
-        'maintenance',
-        'violence',
-        'reputation_drift',
-        'stock_shortage',
-        'landlord',
-      ].sort(),
-    )
+    // Phase 38 §38.1 — expanded pressures register alongside the canonical
+    // ten, so check containment rather than exact equality.
+    const ids = pressureRegistry.all().map((p) => p.id)
+    for (const id of [
+      'food_safety',
+      'inspection',
+      'staff_burnout',
+      'pests',
+      'debt',
+      'maintenance',
+      'violence',
+      'reputation_drift',
+      'stock_shortage',
+      'landlord',
+    ]) {
+      expect(ids).toContain(id)
+    }
   })
 
   it('areaRegistry is populated by the Phase 8 area system', () => {

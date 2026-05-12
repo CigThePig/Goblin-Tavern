@@ -318,8 +318,29 @@ function validatePressures(ctx: SimContext): ValidationIssue[] {
 }
 
 // Phase 6 §6.1.1 — schema for `state.modules.pressures`.
+//
+// Phase 38 §38.2 widens the EntityRef kinds to match the canonical
+// `EntityRef` type so expanded pressures can reference world entities
+// (supplier, regular, faction, culture, local_event, …) without
+// stringifying ids.
 const EntityRefSchema = z.object({
-  kind: z.enum(['staff', 'customer_group', 'area', 'stock', 'role', 'system', 'other']),
+  kind: z.enum([
+    'staff',
+    'customer_group',
+    'area',
+    'stock',
+    'role',
+    'system',
+    'other',
+    'culture',
+    'faction',
+    'supplier',
+    'regular',
+    'notable_npc',
+    'local_event',
+    'rumour',
+    'tavern_identity',
+  ]),
   id: z.string(),
 })
 

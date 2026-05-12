@@ -30,6 +30,47 @@ export const PRESSURE_IDS = [
 
 export type PressureId = (typeof PRESSURE_IDS)[number]
 
+// Phase 38 §38.1 — Expanded pressure ids.
+//
+// Layered on top of the Phase 18 canonical list rather than replacing it
+// so existing tests and consumers keep working. The expanded calculators
+// read memories (Phase 36), attributions (Phase 37), suppliers,
+// regulars, factions, owner projects/policies, and local arcs to produce
+// social, market, and arc pressures.
+export const EXPANDED_PRESSURE_IDS = [
+  'supplier_distrust',
+  'regular_customer_loss',
+  'staff_loyalty_risk',
+  'faction_anger',
+  'cultural_tension',
+  'rival_tavern_pressure',
+  'festival_readiness',
+  'market_instability',
+  'rumour_pressure',
+  'policy_backlash',
+  'arc_escalation',
+] as const
+
+export type ExpandedPressureId = (typeof EXPANDED_PRESSURE_IDS)[number]
+export type AnyPressureId = PressureId | ExpandedPressureId | string
+
+// Phase 38 §38.16 — Pressure category buckets used by the report.
+export type PressureCategory = 'core' | 'social' | 'market' | 'arc'
+
+export const EXPANDED_PRESSURE_CATEGORIES: Record<ExpandedPressureId, PressureCategory> = {
+  supplier_distrust: 'market',
+  regular_customer_loss: 'social',
+  staff_loyalty_risk: 'social',
+  faction_anger: 'social',
+  cultural_tension: 'social',
+  rival_tavern_pressure: 'market',
+  festival_readiness: 'arc',
+  market_instability: 'market',
+  rumour_pressure: 'social',
+  policy_backlash: 'social',
+  arc_escalation: 'arc',
+}
+
 export type PressureTrend = 'rising' | 'stable' | 'falling'
 
 /**

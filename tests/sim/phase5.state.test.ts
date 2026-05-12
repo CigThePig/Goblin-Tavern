@@ -121,20 +121,25 @@ describe('Phase 5 — Base Tavern State', () => {
     // Phase 18 §"Naming reconciliation" — the canonical pressure id set
     // drops the `_pressure` suffix, replaces `structural_decay` with
     // `maintenance`, and adds `stock_shortage` and `landlord`.
-    expect(Object.keys(state.pressures).sort()).toEqual(
-      [
-        'debt',
-        'food_safety',
-        'inspection',
-        'landlord',
-        'maintenance',
-        'pests',
-        'reputation_drift',
-        'staff_burnout',
-        'stock_shortage',
-        'violence',
-      ].sort(),
-    )
+    //
+    // Phase 38 §38.1 — the expanded pressure ids are also seeded on
+    // state.pressures from day zero, so check containment of the canonical
+    // ten rather than exact equality.
+    const ids = Object.keys(state.pressures)
+    for (const required of [
+      'debt',
+      'food_safety',
+      'inspection',
+      'landlord',
+      'maintenance',
+      'pests',
+      'reputation_drift',
+      'staff_burnout',
+      'stock_shortage',
+      'violence',
+    ]) {
+      expect(ids).toContain(required)
+    }
     for (const pressure of Object.values(state.pressures)) {
       expect(pressure.trend).toBe(0)
       expect(Array.isArray(pressure.tags)).toBe(true)

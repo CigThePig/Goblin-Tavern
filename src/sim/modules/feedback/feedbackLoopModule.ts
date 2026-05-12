@@ -160,8 +160,27 @@ function validateFeedback(ctx: SimContext): ValidationIssue[] {
   return issues
 }
 
+// Phase 38 §38.15 widens the EntityRef kinds to match the canonical
+// `EntityRef` type so expanded feedback loops can reference world
+// entities (supplier, regular, faction, culture, local_event, …).
 const EntityRefSchema = z.object({
-  kind: z.enum(['staff', 'customer_group', 'area', 'stock', 'role', 'system', 'other']),
+  kind: z.enum([
+    'staff',
+    'customer_group',
+    'area',
+    'stock',
+    'role',
+    'system',
+    'other',
+    'culture',
+    'faction',
+    'supplier',
+    'regular',
+    'notable_npc',
+    'local_event',
+    'rumour',
+    'tavern_identity',
+  ]),
   id: z.string(),
 })
 

@@ -9,6 +9,11 @@ import type { TavernState } from '../../state/TavernState'
 import { getStockModuleState } from '../stock/state'
 import type { CoinLedgerEntry } from '../stock/types'
 import type { CustomerModuleState } from '../customers/types'
+import type { RegularModuleState } from '../regulars/types'
+import type {
+  DailyServiceResult,
+  ServiceModuleState,
+} from '../service/types'
 
 import {
   WEEKLY_MODULE_ID,
@@ -22,9 +27,14 @@ import { resolveWages } from './wages'
 import { computeMaintenanceBacklog } from './maintenance'
 import { addSignalTotals, computeDailySignals } from './signals'
 import { computeCustomerTrend, computeStaffTrend } from './trends'
+import {
+  emptyWeeklyCommunityResult,
+  resolveWeeklyCommunity,
+} from './community'
 import { buildWeeklyReportSection } from './report'
 import type {
   CustomerWeeklyTrendEntry,
+  WeeklyCommunityResult,
   WeeklyEconomyTotals,
   WeeklyModuleState,
   WeeklyResult,
@@ -116,12 +126,26 @@ function freshAccumulator(state: TavernState): WeeklyModuleState {
     signalNotes: [],
     supplierInvoices: [],
     weekFinalized: false,
+    // Phase 34 §34.1 — community accumulators.
+    regularVisitsById: {},
+    regularSceneCounts: {},
+    groupSceneCounts: {},
+    sceneTypeCounts: {},
   }
 }
 
 function readCustomerModuleState(state: TavernState): CustomerModuleState | undefined {
   const slice = state.modules['customers'] as CustomerModuleState | undefined
   return slice
+}
+
+function readRegularModuleState(state: TavernState): RegularModuleState | undefined {
+  return state.modules['regulars'] as RegularModuleState | undefined
+}
+
+function readServiceResult(state: TavernState): DailyServiceResult | undefined {
+  const slice = state.modules['service'] as ServiceModuleState | undefined
+  return slice?.result
 }
 
 function totalDamageInState(state: TavernState): number {
@@ -345,6 +369,38 @@ const endDayHook: SimulationHook = (ctx: SimContext): void => {
   const nextSignalNotes =
     notes.length > 0 ? [...slice.signalNotes, ...notes] : slice.signalNotes
 
+  // Phase 34 §34.1 — accumulate community signals.
+  //
+  // Regular visit counts come from the regulars module's `visitedToday`
+  // list; scene counts come from the daily service result that landed
+  // before this hook (service runs in `service`/`afterService`, weekly
+  // accumulates in `endDay`). Both feed `resolveWeeklyCommunity` on
+  // `endWeek` without re-walking history.
+  const regularSlice = readRegularModuleState(ctx.state)
+  const regularVisitsById = { ...slice.regularVisitsById }
+  if (regularSlice) {
+    for (const id of regularSlice.visitedToday) {
+      regularVisitsById[id] = (regularVisitsById[id] ?? 0) + 1
+    }
+  }
+
+  const serviceResult = readServiceResult(ctx.state)
+  const regularSceneCounts = { ...slice.regularSceneCounts }
+  const groupSceneCounts = { ...slice.groupSceneCounts }
+  const sceneTypeCounts = { ...slice.sceneTypeCounts }
+  if (serviceResult) {
+    for (const scene of serviceResult.scenes) {
+      sceneTypeCounts[scene.sceneType] =
+        (sceneTypeCounts[scene.sceneType] ?? 0) + 1
+      for (const id of scene.regularIds) {
+        regularSceneCounts[id] = (regularSceneCounts[id] ?? 0) + 1
+      }
+      for (const id of scene.involvedGroupIds) {
+        groupSceneCounts[id] = (groupSceneCounts[id] ?? 0) + 1
+      }
+    }
+  }
+
   writeSlice(
     ctx,
     {
@@ -358,6 +414,10 @@ const endDayHook: SimulationHook = (ctx: SimContext): void => {
       salesByStockId,
       signals: addSignalTotals(slice.signals, deltas),
       signalNotes: nextSignalNotes,
+      regularVisitsById,
+      regularSceneCounts,
+      groupSceneCounts,
+      sceneTypeCounts,
     },
     'accumulate_day',
   )
@@ -409,7 +469,13 @@ const endWeekHook: SimulationHook = (ctx: SimContext): void => {
     ? []
     : [...sliceAfterWages.supplierInvoices]
 
-  const result: WeeklyResult = {
+  // Phase 34 §34.2 — resolve community block after the rest of the
+  // weekly result is in hand but before the report is built. The
+  // community routine reads supplier/regular/faction state, the
+  // recent social-action ring, and this week's scene/visit
+  // accumulators; it mutates state for any meaningful relationship
+  // shifts and produces a structured `WeeklyCommunityResult`.
+  const baseForCommunity: WeeklyResult = {
     weekKey: sliceAfterWages.weekKey,
     weekNumber: sliceAfterWages.weekNumber,
     monthNumber: sliceAfterWages.monthNumber,
@@ -425,7 +491,16 @@ const endWeekHook: SimulationHook = (ctx: SimContext): void => {
     supplierInvoices,
     ...highlights,
     ...bestWorst,
+    community: emptyWeeklyCommunityResult(),
   }
+
+  const community: WeeklyCommunityResult = resolveWeeklyCommunity({
+    ctx,
+    currentWeeklyState: sliceAfterWages,
+    baseWeeklyResult: baseForCommunity,
+  })
+
+  const result: WeeklyResult = { ...baseForCommunity, community }
 
   replaceSlice(
     ctx,
@@ -533,6 +608,79 @@ const SupplierInvoiceSchema = z.object({
   relatedStockIds: z.array(z.string()),
 })
 
+// Phase 34 §34.1 — community block schemas. Validated as part of the
+// weekly module state so a finalized result with malformed community
+// data fails state validation immediately.
+const EntityRefSchema = z.object({
+  kind: z.enum([
+    'staff',
+    'customer_group',
+    'area',
+    'stock',
+    'role',
+    'system',
+    'other',
+    'culture',
+    'faction',
+    'supplier',
+    'regular',
+    'notable_npc',
+    'local_event',
+    'rumour',
+    'tavern_identity',
+  ]),
+  id: z.string(),
+})
+
+const WeeklySupplierTrendSchema = z.object({
+  supplierId: z.string(),
+  relationshipDelta: z.number(),
+  reliabilityDelta: z.number(),
+  pricePressureDelta: z.number(),
+  notes: z.array(z.string()),
+})
+
+const WeeklyRegularTrendSchema = z.object({
+  regularId: z.string(),
+  loyaltyDelta: z.number(),
+  irritationDelta: z.number(),
+  visitsThisWeek: z.number(),
+  notes: z.array(z.string()),
+})
+
+const WeeklyFactionTrendSchema = z.object({
+  factionId: z.string(),
+  satisfactionDelta: z.number(),
+  tensionDelta: z.number(),
+  notes: z.array(z.string()),
+})
+
+const WeeklyCommunityRumourSchema = z.object({
+  id: z.string(),
+  sourceType: z.enum([
+    'service_scene',
+    'memory',
+    'policy',
+    'incident',
+    'supplier',
+    'faction',
+  ]),
+  sourceId: z.string(),
+  strength: z.number().min(0).max(100),
+  accuracy: z.enum(['true', 'partial', 'false', 'unknown']),
+  tags: z.array(z.string()),
+  involvedRefs: z.array(EntityRefSchema),
+  summary: z.string(),
+})
+
+const WeeklyCommunityResultSchema = z.object({
+  supplierTrend: z.array(WeeklySupplierTrendSchema),
+  regularTrend: z.array(WeeklyRegularTrendSchema),
+  factionTrend: z.array(WeeklyFactionTrendSchema),
+  rumours: z.array(WeeklyCommunityRumourSchema),
+  notes: z.array(z.string()),
+})
+
 const WeeklyResultSchema = z.object({
   weekKey: z.string(),
   weekNumber: z.number(),
@@ -551,6 +699,7 @@ const WeeklyResultSchema = z.object({
   signals: SignalSchema,
   signalNotes: z.array(z.string()),
   supplierInvoices: z.array(SupplierInvoiceSchema),
+  community: WeeklyCommunityResultSchema,
 })
 
 const WeeklyModuleStateSchema = z.object({
@@ -574,6 +723,11 @@ const WeeklyModuleStateSchema = z.object({
   lastWeeklyResult: WeeklyResultSchema.optional(),
   supplierInvoices: z.array(SupplierInvoiceSchema),
   weekFinalized: z.boolean(),
+  // Phase 34 §34.1 — community accumulators.
+  regularVisitsById: z.record(z.string(), z.number()),
+  regularSceneCounts: z.record(z.string(), z.number()),
+  groupSceneCounts: z.record(z.string(), z.number()),
+  sceneTypeCounts: z.record(z.string(), z.number()),
 })
 
 export const weeklyModule: SimulationModule = {

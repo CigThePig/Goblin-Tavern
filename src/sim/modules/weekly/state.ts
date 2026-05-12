@@ -57,6 +57,11 @@ export function createInitialWeeklyModuleState(): WeeklyModuleState {
     signalNotes: [],
     supplierInvoices: [],
     weekFinalized: false,
+    // Phase 34 §34.1 — community accumulators.
+    regularVisitsById: {},
+    regularSceneCounts: {},
+    groupSceneCounts: {},
+    sceneTypeCounts: {},
   }
 }
 

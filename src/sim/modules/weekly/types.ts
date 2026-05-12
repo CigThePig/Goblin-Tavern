@@ -1,3 +1,5 @@
+import type { EntityRef } from '../../state/TavernState'
+
 // Phase 14 — Weekly routine module types.
 //
 // The weekly module accumulates daily activity across a 7-day window and,
@@ -5,6 +7,14 @@
 // a maintenance backlog, applies modest staff/customer trend adjustments,
 // and accumulates reputation signals. Phase 14 §"Do Not Do" — no rent,
 // no landlord cards, no issue seeds, no narrative; this is data only.
+//
+// Phase 34 §34.1 — adds the `community` block to `WeeklyResult`. The block
+// surfaces supplier/regular/faction trend entries plus the rumours
+// generated for the week. Trend entries are deterministic summaries fed
+// by service scenes, social actions, and policy state from Phases 32–33;
+// rumours persist on `state.world.socialRumours` when they matter beyond
+// the current report. Card prose is forbidden (Phase 21 contract); these
+// records are structured "ingredients" only.
 
 export type WeeklySignalAxis =
   | 'cheap'
@@ -70,6 +80,70 @@ export type SupplierInvoice = {
   relatedStockIds: string[]
 }
 
+// Phase 34 §34.1 — Weekly community trend entries.
+//
+// Each entry summarizes a single named world entity's movement across
+// the week. Deltas are bounded; the weekly community routine resists
+// large single-week swings so the simulation stays steady. `notes` is a
+// debug-friendly list of plain strings — not card prose.
+export type WeeklySupplierTrendEntry = {
+  supplierId: string
+  relationshipDelta: number
+  reliabilityDelta: number
+  pricePressureDelta: number
+  notes: string[]
+}
+
+export type WeeklyRegularTrendEntry = {
+  regularId: string
+  loyaltyDelta: number
+  irritationDelta: number
+  visitsThisWeek: number
+  notes: string[]
+}
+
+export type WeeklyFactionTrendEntry = {
+  factionId: string
+  satisfactionDelta: number
+  tensionDelta: number
+  notes: string[]
+}
+
+// Phase 34 §34.6 — Weekly community rumour record. Rumours that matter
+// beyond the report are also written to `state.world.socialRumours`
+// using the canonical Phase 25 `SocialRumourState` shape; the weekly
+// version is a flatter view exposed on `WeeklyResult.community.rumours`
+// so the report and downstream readers don't have to re-walk world
+// state. `id` matches the world-state record when one exists.
+export type WeeklyCommunityRumourSource =
+  | 'service_scene'
+  | 'memory'
+  | 'policy'
+  | 'incident'
+  | 'supplier'
+  | 'faction'
+
+export type WeeklyCommunityRumourAccuracy = 'true' | 'partial' | 'false' | 'unknown'
+
+export type WeeklyCommunityRumour = {
+  id: string
+  sourceType: WeeklyCommunityRumourSource
+  sourceId: string
+  strength: number
+  accuracy: WeeklyCommunityRumourAccuracy
+  tags: string[]
+  involvedRefs: EntityRef[]
+  summary: string
+}
+
+export type WeeklyCommunityResult = {
+  supplierTrend: WeeklySupplierTrendEntry[]
+  regularTrend: WeeklyRegularTrendEntry[]
+  factionTrend: WeeklyFactionTrendEntry[]
+  rumours: WeeklyCommunityRumour[]
+  notes: string[]
+}
+
 export type WeeklyResult = {
   weekKey: string
   weekNumber: number
@@ -93,6 +167,10 @@ export type WeeklyResult = {
   signalNotes: string[]
 
   supplierInvoices: SupplierInvoice[]
+
+  // Phase 34 §34.1 — Weekly community block. Always present; the
+  // arrays are empty on weeks where nothing in the community moved.
+  community: WeeklyCommunityResult
 }
 
 export type WeeklyModuleState = {
@@ -144,4 +222,18 @@ export type WeeklyModuleState = {
 
   /** Has the current accumulation window already had endWeek run on it? */
   weekFinalized: boolean
+
+  // Phase 34 §34.1 — Weekly community accumulators.
+  //
+  // These count cross-day signals the weekly community routine reads at
+  // `endWeek` to update supplier/regular/faction state. They reset on
+  // `startDay` of each new week alongside the other accumulators.
+  /** Visits by `regular` id this week (incremented from world.regulars deltas). */
+  regularVisitsById: Record<string, number>
+  /** Service scenes involving a regular, by regular id. */
+  regularSceneCounts: Record<string, number>
+  /** Service scenes involving a customer group, by group id. */
+  groupSceneCounts: Record<string, number>
+  /** Service scene `sceneType` counts. */
+  sceneTypeCounts: Record<string, number>
 }

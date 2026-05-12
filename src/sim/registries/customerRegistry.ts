@@ -87,7 +87,7 @@ const REQUIRED_CUSTOMER_GROUPS: CustomerGroupDefinition[] = [
     label: 'Miners',
     tags: ['worker', 'rowdy', 'drink_focused'],
     cultureId: 'miner_workcrew',
-    namingProfileId: 'goblin_common',
+    namingProfileId: 'miner_workcrew',
     trafficPattern: 'payday_burst',
     spendingProfile: 'binge_spend',
     relationshipToOtherGroups: {
@@ -111,7 +111,7 @@ const REQUIRED_CUSTOMER_GROUPS: CustomerGroupDefinition[] = [
       dislikedTags: [],
       activeGrudges: [],
       cultureId: 'miner_workcrew',
-      namingProfileId: 'goblin_common',
+      namingProfileId: 'miner_workcrew',
       trafficPattern: 'payday_burst',
       spendingProfile: 'binge_spend',
       relationshipToOtherGroups: {
@@ -127,7 +127,7 @@ const REQUIRED_CUSTOMER_GROUPS: CustomerGroupDefinition[] = [
     label: 'Merchants',
     tags: ['wealthy', 'cleanliness_sensitive', 'high_spend'],
     cultureId: 'merchant_roadfolk',
-    namingProfileId: 'goblin_common',
+    namingProfileId: 'merchant_roadfolk',
     trafficPattern: 'market_day',
     spendingProfile: 'high_margin',
     relationshipToOtherGroups: {
@@ -151,7 +151,7 @@ const REQUIRED_CUSTOMER_GROUPS: CustomerGroupDefinition[] = [
       dislikedTags: ['filth', 'danger', 'risky'],
       activeGrudges: [],
       cultureId: 'merchant_roadfolk',
-      namingProfileId: 'goblin_common',
+      namingProfileId: 'merchant_roadfolk',
       trafficPattern: 'market_day',
       spendingProfile: 'high_margin',
       relationshipToOtherGroups: {
@@ -167,7 +167,7 @@ const REQUIRED_CUSTOMER_GROUPS: CustomerGroupDefinition[] = [
     label: 'Ogres',
     tags: ['rowdy', 'dangerous', 'high_spend', 'incident_prone'],
     cultureId: 'ogre_clans',
-    namingProfileId: 'goblin_common',
+    namingProfileId: 'ogre_clans',
     trafficPattern: 'brawl_night',
     spendingProfile: 'binge_spend',
     relationshipToOtherGroups: {
@@ -191,7 +191,7 @@ const REQUIRED_CUSTOMER_GROUPS: CustomerGroupDefinition[] = [
       dislikedTags: [],
       activeGrudges: [],
       cultureId: 'ogre_clans',
-      namingProfileId: 'goblin_common',
+      namingProfileId: 'ogre_clans',
       trafficPattern: 'brawl_night',
       spendingProfile: 'binge_spend',
       relationshipToOtherGroups: {
@@ -207,7 +207,7 @@ const REQUIRED_CUSTOMER_GROUPS: CustomerGroupDefinition[] = [
     label: 'Adventurers',
     tags: ['dangerous', 'high_spend', 'incident_prone'],
     cultureId: 'adventuring_bands',
-    namingProfileId: 'goblin_common',
+    namingProfileId: 'adventuring_bands',
     trafficPattern: 'irregular',
     spendingProfile: 'high_margin',
     relationshipToOtherGroups: {
@@ -231,7 +231,7 @@ const REQUIRED_CUSTOMER_GROUPS: CustomerGroupDefinition[] = [
       dislikedTags: ['filth'],
       activeGrudges: [],
       cultureId: 'adventuring_bands',
-      namingProfileId: 'goblin_common',
+      namingProfileId: 'adventuring_bands',
       trafficPattern: 'irregular',
       spendingProfile: 'high_margin',
       relationshipToOtherGroups: {

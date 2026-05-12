@@ -42,6 +42,18 @@ export type PolicyStarterDefinition = {
 }
 
 export const POLICY_STARTERS: PolicyStarterDefinition[] = [
+  // Audit fixes pass 1 §1.4 — a baseline policy that exists from day
+  // zero so the policy backlash pressure calculator has something to
+  // bite even when the owner takes no input. The `risky` tag matches
+  // merchants' `dislikedTags`, so the calculator's disliking-groups
+  // term contributes immediately.
+  {
+    id: 'cheap_payday_specials',
+    policyType: 'cheap_payday_specials',
+    label: 'Cheap Payday Specials',
+    tags: ['policy', 'cheap', 'payday', 'food', 'risky'],
+    effects: ['miners love it', 'merchants grumble about cheapness'],
+  },
   {
     id: 'allow_tabs_for_regulars',
     policyType: 'allow_tabs_for_regulars',

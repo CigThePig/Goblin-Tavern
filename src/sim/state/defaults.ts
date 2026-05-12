@@ -42,12 +42,18 @@ import {
   factionRegistry,
 } from '../content/factions/factionRegistry'
 import { createInitialRegularModuleState } from '../modules/regulars/state'
+import { generateName } from '../content/naming/nameGenerator'
+import {
+  ensureStarterNamingProfilesRegistered,
+  namingProfileRegistry,
+} from '../content/naming/namingProfiles'
 import type {
   AreaState,
   CultureWorldState,
   CustomerGroupState,
   FactionWorldState,
   PressureState,
+  RegularWorldState,
   ReputationState,
   StaffState,
   StockState,
@@ -106,9 +112,9 @@ function createInitialStock(): Record<string, StockState> {
 // identities, every time. Later simulation-spawned staff can use the
 // daily input seed via `ctx.getRngStream('staff_identity')`.
 //
-// The generated display name is also copied onto `staff.name` for
-// backwards compatibility — the Phase 11 reports and any caller that
-// still reads `staff.name` keeps working.
+// Audit fixes pass 1 §1.1 — the generated `GeneratedName` lives on
+// `staff.name`; readers wanting just the display string use
+// `staff.name.display`.
 function createInitialStaff(): Record<string, StaffState> {
   ensureRequiredStaffRolesRegistered()
   ensureRequiredStaffIdentityProfilesRegistered()
@@ -122,16 +128,16 @@ function createInitialStaff(): Record<string, StaffState> {
     a.id.localeCompare(b.id),
   )
   for (const def of orderedDefs) {
-    const identity = createStaffIdentity({
+    const { identity, generatedName } = createStaffIdentity({
       staffId: def.defaultStaffId,
       roleId: def.id,
       rng: identityRng,
       existingNames,
     })
-    existingNames.add(identity.generatedName.display)
+    existingNames.add(generatedName.display)
     staff[def.defaultStaffId] = {
       id: def.defaultStaffId,
-      name: identity.generatedName.display,
+      name: generatedName,
       role: def.id,
       tags: [...def.defaultTags],
       ...def.defaultState,
@@ -342,19 +348,94 @@ function createInitialFactions(): Record<string, FactionWorldState> {
   return factions
 }
 
+// Audit fixes pass 1 §1.3 — Seed a roster of starter regulars at day 0
+// across the registered customer groups, so identity richness, regular
+// memories, and the `regular_customer` seed family can be exercised
+// during cardless gate runs without waiting for the emergence
+// thresholds in `regularModule` to be cleared. Names are generated once,
+// deterministically, through the `regular_identity` RNG stream so the
+// roster does not drift across re-renders.
+type StarterRegularSpec = {
+  groupId: string
+  loyalty: number
+}
+
+const STARTER_REGULAR_SPECS: StarterRegularSpec[] = [
+  { groupId: 'local_goblins', loyalty: 72 },
+  { groupId: 'local_goblins', loyalty: 65 },
+  { groupId: 'miners', loyalty: 68 },
+  { groupId: 'merchants', loyalty: 62 },
+  { groupId: 'ogres', loyalty: 60 },
+  { groupId: 'adventurers', loyalty: 64 },
+]
+
+function createInitialRegulars(
+  customerGroups: Record<string, CustomerGroupState>,
+): Record<string, RegularWorldState> {
+  ensureStarterNamingProfilesRegistered()
+  const streams = createRngStreams('initial-regulars')
+  const rng = streams.get('regular_identity')
+  const regulars: Record<string, RegularWorldState> = {}
+  const existingDisplayNames = new Set<string>()
+
+  let perGroupIndex: Record<string, number> = {}
+  for (const spec of STARTER_REGULAR_SPECS) {
+    const group = customerGroups[spec.groupId]
+    if (!group) continue
+    const profileId = namingProfileRegistry.has(group.namingProfileId)
+      ? group.namingProfileId
+      : 'goblin_common'
+    const profile = namingProfileRegistry.get(profileId)
+    const name = generateName(profile, rng, 'regular_customer', {
+      existingDisplayNames,
+    })
+    existingDisplayNames.add(name.display)
+
+    perGroupIndex[spec.groupId] = (perGroupIndex[spec.groupId] ?? 0) + 1
+    const index = perGroupIndex[spec.groupId]!
+    const id = `starter_regular_${spec.groupId}_${index}`
+    const cultureId = group.cultureId
+    const tags = ['regular', 'starter']
+    if (cultureId) tags.push(`culture:${cultureId}`)
+
+    regulars[id] = {
+      id,
+      name,
+      customerGroupId: group.id,
+      ...(cultureId ? { cultureId } : {}),
+      loyalty: spec.loyalty,
+      irritation: 0,
+      visits: 0,
+      firstSeenDay: 0,
+      lastSeenDay: 0,
+      knownIncidentIds: [],
+      tags,
+      activeFlags: [],
+    }
+  }
+  return regulars
+}
+
 // Phase 25 §"Default World State" / Phase 29 §29.2 / Phase 30 §§30.3,
 // 30.5 — containers for the top-level `world` branch. Phase 25
 // deliberately left every record empty; Phase 29 started seeding the
 // supplier branch from the registry; Phase 30 adds culture and faction
-// seeding so the entire world identity layer exists from day zero. The
-// regulars/notableNpcs/localEvents/socialRumours branches still start
-// empty — those entities only emerge during play.
-export function createInitialWorldState(): WorldState {
+// seeding so the entire world identity layer exists from day zero.
+//
+// Audit fixes pass 1 §1.3 — `regulars` is now also seeded from day zero
+// so the identity, memory, and seed pipelines exercise this branch
+// during cardless evaluation runs. `notableNpcs`, `localEvents`, and
+// `socialRumours` still start empty — those entities only emerge during
+// play.
+export function createInitialWorldState(
+  customerGroups?: Record<string, CustomerGroupState>,
+): WorldState {
+  const groups = customerGroups ?? createInitialCustomerGroups()
   return {
     cultures: createInitialCultures(),
     factions: createInitialFactions(),
     suppliers: createInitialSuppliers(),
-    regulars: {},
+    regulars: createInitialRegulars(groups),
     notableNpcs: {},
     localEvents: {},
     tavernIdentity: {
@@ -368,6 +449,7 @@ export function createInitialWorldState(): WorldState {
 }
 
 export function createInitialTavernState(overrides?: Partial<TavernState>): TavernState {
+  const customerGroups = createInitialCustomerGroups()
   const base: TavernState = {
     meta: {
       tavernId: 'the_crooked_keg',
@@ -380,12 +462,13 @@ export function createInitialTavernState(overrides?: Partial<TavernState>): Tave
     areas: createInitialAreas(),
     stock: createInitialStock(),
     staff: createInitialStaff(),
-    customerGroups: createInitialCustomerGroups(),
+    customerGroups,
     reputation: createInitialReputation(),
-    // Phase 25 §"Default World State" — empty `world` branch seeded so
-    // schemas validate from day zero. Cultures, factions, suppliers,
-    // regulars, etc. are added by later phases.
-    world: createInitialWorldState(),
+    // Phase 25 §"Default World State" — world branch seeded so schemas
+    // validate from day zero. Cultures, factions, suppliers, and (since
+    // audit fixes pass 1 §1.3) starter regulars all come from the
+    // registry/seed factories.
+    world: createInitialWorldState(customerGroups),
     memories: [],
     history: [],
     causes: [],

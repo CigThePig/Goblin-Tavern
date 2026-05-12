@@ -64,7 +64,13 @@ export function getCalendarTags(
   if (calendar.week === 4) add('inspection_window')
   if (calendar.day >= 22 && calendar.day <= 28) add('rent_due_soon')
 
-  if (calendar.month === 7 && calendar.week === 2) {
+  // Audit fixes pass 1 §1.6 — the gate evaluation runs only 3 months,
+  // starting at month 1 week 1. Holding the festival at month 7 means
+  // the festival prep loop, festival_readiness pressure, and
+  // festival_approaching arc never fire during cardless gate runs. Move
+  // the festival to month 2 week 4 so it lands inside the gate window
+  // alongside (but harmlessly co-occurring with) `rent_due_soon`.
+  if (calendar.month === 2 && calendar.week === 4) {
     add('mushroom_festival')
     add('festival_window')
   }

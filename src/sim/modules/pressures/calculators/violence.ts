@@ -113,7 +113,7 @@ export function calculateViolence(ctx: SimContext): PressureCalculationResult {
     if (member.currentPriority === 'keep_peace' || member.skill >= 60) {
       pushCause(causes, {
         id: `bouncer_${member.id}`,
-        readable: `${member.name} keeping order (skill ${member.skill}).`,
+        readable: `${member.name.display} keeping order (skill ${member.skill}).`,
         amount: BOUNCER_RELIEF,
         tags: ['staff', 'bouncer'],
         relatedActors: [{ kind: 'staff', id: member.id }],

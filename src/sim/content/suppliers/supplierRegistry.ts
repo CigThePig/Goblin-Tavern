@@ -46,7 +46,7 @@ const REQUIRED_SUPPLIERS: SupplierDefinition[] = [
     id: 'mudroad_grain_runner',
     label: 'Mudroad Grain Runner',
     supplierType: 'caravan',
-    namingProfileId: 'goblin_common',
+    namingProfileId: 'merchant_roadfolk',
     goodsProvided: ['ingredients'],
     defaultReliability: 55,
     defaultRelationship: 40,

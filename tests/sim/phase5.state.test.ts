@@ -159,15 +159,22 @@ describe('Phase 5 — Base Tavern State', () => {
     // Phase 33 §33.3 widened the owner-actions slice with persistent
     // project / policy / social-action records. Empty maps + array are
     // the default-seeded shape.
-    expect(state.modules.ownerActions).toEqual({
+    // Audit fixes pass 1 §1.4 — the policies map is seeded with a
+    // single starter policy so the policy-backlash pipeline has
+    // something to bite at day 0. Other fields remain at the Phase 33
+    // defaults.
+    expect(state.modules.ownerActions).toMatchObject({
       actionPointsUsed: 0,
       actionPointBudget: 3,
       applied: [],
       rejected: [],
       projects: {},
-      policies: {},
       recentSocialActions: [],
     })
+    const ownerActions = state.modules.ownerActions as {
+      policies: Record<string, { enabled: boolean }>
+    }
+    expect(ownerActions.policies['cheap_payday_specials']?.enabled).toBe(true)
     // Phase 14 §14.1 — weekly slice is seeded with empty accumulators
     // and no finalized week. The full default shape is asserted in
     // `phase14.weekly.test.ts`; here we only confirm the slice exists.

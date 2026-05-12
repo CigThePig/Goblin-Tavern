@@ -13,6 +13,7 @@
 // how `createInitialStaff` wires this for the canonical seeded staff.
 
 import type { SimRng } from '../../core/rng'
+import type { GeneratedName } from '../naming/nameTypes'
 import { generateName } from '../naming/nameGenerator'
 import {
   ensureStarterNamingProfilesRegistered,
@@ -34,9 +35,14 @@ export type CreateStaffIdentityArgs = {
   profileId?: string
 }
 
+export type CreateStaffIdentityResult = {
+  identity: StaffIdentityState
+  generatedName: GeneratedName
+}
+
 export function createStaffIdentity(
   args: CreateStaffIdentityArgs,
-): StaffIdentityState {
+): CreateStaffIdentityResult {
   ensureRequiredStaffIdentityProfilesRegistered()
   ensureStarterNamingProfilesRegistered()
 
@@ -61,7 +67,6 @@ export function createStaffIdentity(
     groupId: profile.groupId,
     ...(profile.cultureId !== undefined ? { cultureId: profile.cultureId } : {}),
     namingProfileId: profile.namingProfileId,
-    generatedName,
     personalityTags: [...profile.personalityTags],
     workStyle,
     stressResponse,
@@ -70,7 +75,7 @@ export function createStaffIdentity(
     ...(backgroundHook ? { backgroundHook } : {}),
   }
 
-  return identity
+  return { identity, generatedName }
 }
 
 function resolveProfile(args: CreateStaffIdentityArgs): StaffIdentityProfile {

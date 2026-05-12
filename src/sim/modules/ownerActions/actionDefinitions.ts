@@ -47,7 +47,7 @@ function listStock(ctx: SimContext): ActionTarget[] {
 function listStaff(ctx: SimContext): ActionTarget[] {
   return Object.values(ctx.state.staff).map((s) => ({
     id: s.id,
-    label: s.name,
+    label: s.name.display,
     hint: `morale ${s.morale}, stress ${s.stress}`,
   }))
 }
@@ -414,7 +414,7 @@ const payStaffBonus: OwnerActionDefinition = {
     })
     ctx.addHistory({
       category: 'owner_action',
-      summary: `Owner paid ${staff.name} a ${amount}-coin bonus.`,
+      summary: `Owner paid ${staff.name.display} a ${amount}-coin bonus.`,
       tags: ['owner_action', 'pay_staff_bonus', staff.id],
       relatedActors: [{ kind: 'staff', id: staff.id }],
       relatedSystems: ['staff'],
@@ -423,7 +423,7 @@ const payStaffBonus: OwnerActionDefinition = {
 
     return {
       actionId: payStaffBonus.id,
-      label: `Paid Bonus: ${staff.name}`,
+      label: `Paid Bonus: ${staff.name.display}`,
       targetId: staff.id,
       actionPointCost: payStaffBonus.actionPointCost,
       effects: [

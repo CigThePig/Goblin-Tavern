@@ -58,15 +58,18 @@ describe('Phase 23 — Calendar Tags', () => {
     expect(cal.tags).toContain<CalendarTag>('season_highsun')
   })
 
-  it('4. month 7 week 2 includes mushroom_festival and festival_window', () => {
-    const cal = advanceToMonthWeek(7, 2)
-    expect(cal.month).toBe(7)
-    expect(cal.week).toBe(2)
+  it('4. month 2 week 4 includes mushroom_festival and festival_window', () => {
+    // Audit fixes pass 1 §1.6 — the festival window moved from month 7
+    // week 2 into the 3-month gate run window so cardless evaluation
+    // exercises festival prep at least once per run.
+    const cal = advanceToMonthWeek(2, 4)
+    expect(cal.month).toBe(2)
+    expect(cal.week).toBe(4)
     expect(cal.tags).toContain<CalendarTag>('mushroom_festival')
     expect(cal.tags).toContain<CalendarTag>('festival_window')
 
     // Outside the festival window the tags drop off.
-    const offFestival = advanceToMonthWeek(7, 3)
+    const offFestival = advanceToMonthWeek(2, 3)
     expect(offFestival.tags).not.toContain<CalendarTag>('mushroom_festival')
     expect(offFestival.tags).not.toContain<CalendarTag>('festival_window')
   })

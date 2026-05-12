@@ -50,7 +50,8 @@ describe('Phase 11 — Staff registry & priority registry', () => {
     for (const id of ['cook', 'server', 'cleaner_bouncer']) {
       const member = state.staff[id]
       expect(member).toBeDefined()
-      expect(typeof member!.name).toBe('string')
+      expect(typeof member!.name.display).toBe('string')
+      expect(member!.name.display.length).toBeGreaterThan(0)
       expect(member!.paidThisWeek).toBe(true)
       expect(Array.isArray(member!.activeFlags)).toBe(true)
       expect(Array.isArray(member!.tags)).toBe(true)
@@ -325,7 +326,7 @@ describe('Phase 11 — Staff report (§11.6)', () => {
     // deterministic generated name. The report still has to surface
     // the cook's display name — match against whatever name the
     // identity factory produced rather than a baked-in string.
-    const cookName = result.state.staff.cook!.name
+    const cookName = result.state.staff.cook!.name.display
     expect(cookName.length).toBeGreaterThan(0)
     expect(text).toContain(cookName)
     expect(text).toMatch(/Cook/)

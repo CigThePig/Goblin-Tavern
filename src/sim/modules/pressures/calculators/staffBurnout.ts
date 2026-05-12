@@ -36,7 +36,7 @@ export function calculateStaffBurnout(ctx: SimContext): PressureCalculationResul
       actors.push({ kind: 'staff', id: member.id })
       pushCause(causes, {
         id: `stress_${member.id}`,
-        readable: `${member.name} is stressed (${member.stress}).`,
+        readable: `${member.name.display} is stressed (${member.stress}).`,
         amount: STRESS_HIGH_PER_STAFF,
         tags: ['staff', 'stress'],
         relatedActors: [{ kind: 'staff', id: member.id }],
@@ -47,7 +47,7 @@ export function calculateStaffBurnout(ctx: SimContext): PressureCalculationResul
       actors.push({ kind: 'staff', id: member.id })
       pushCause(causes, {
         id: `fatigue_${member.id}`,
-        readable: `${member.name} is fatigued (${member.fatigue}).`,
+        readable: `${member.name.display} is fatigued (${member.fatigue}).`,
         amount: FATIGUE_HIGH_PER_STAFF,
         tags: ['staff', 'fatigue'],
         relatedActors: [{ kind: 'staff', id: member.id }],
@@ -57,7 +57,7 @@ export function calculateStaffBurnout(ctx: SimContext): PressureCalculationResul
     if (member.morale <= 30) {
       pushCause(causes, {
         id: `morale_${member.id}`,
-        readable: `${member.name} morale low (${member.morale}).`,
+        readable: `${member.name.display} morale low (${member.morale}).`,
         amount: LOW_MORALE_PER_STAFF,
         tags: ['staff', 'morale'],
         relatedActors: [{ kind: 'staff', id: member.id }],
@@ -67,7 +67,7 @@ export function calculateStaffBurnout(ctx: SimContext): PressureCalculationResul
     if (member.morale >= 70 && member.stress <= 40 && member.fatigue <= 40) {
       pushCause(causes, {
         id: `morale_relief_${member.id}`,
-        readable: `${member.name} is in good shape (morale ${member.morale}).`,
+        readable: `${member.name.display} is in good shape (morale ${member.morale}).`,
         amount: MORALE_RELIEF,
         tags: ['staff', 'morale'],
         relatedActors: [{ kind: 'staff', id: member.id }],

@@ -242,7 +242,7 @@ function describeStaffLine(
 
   const effectiveness = summary?.effectiveness ?? getStaffEffectiveness(staff)
   const lines: string[] = []
-  lines.push(`${staff.name} — ${roleLabel}`)
+  lines.push(`${staff.name.display} — ${roleLabel}`)
   lines.push(`  Priority: ${priorityLabel}`)
   // Phase 31 §31.10 — compact identity strip. The Phase 11 report
   // stayed structured/debuggable; identity adds work style, stress
@@ -376,9 +376,9 @@ function validateStaff(ctx: SimContext): ValidationIssue[] {
           code: 'unknown_naming_profile_ref',
         })
       }
-      if (identity.generatedName.profileId !== identity.namingProfileId) {
+      if (staff.name.profileId !== identity.namingProfileId) {
         issues.push({
-          path: `staff.${staff.id}.identity.generatedName.profileId`,
+          path: `staff.${staff.id}.name.profileId`,
           message: `Staff '${staff.id}' generated-name profileId does not match identity namingProfileId`,
           code: 'staff_identity_profile_mismatch',
         })
@@ -393,10 +393,10 @@ function validateStaff(ctx: SimContext): ValidationIssue[] {
           code: 'unknown_culture_ref',
         })
       }
-      if (identity.generatedName.display.length === 0) {
+      if (staff.name.display.length === 0) {
         issues.push({
-          path: `staff.${staff.id}.identity.generatedName.display`,
-          message: `Staff '${staff.id}' identity has empty display name`,
+          path: `staff.${staff.id}.name.display`,
+          message: `Staff '${staff.id}' has empty display name`,
           code: 'empty_staff_identity_name',
         })
       }

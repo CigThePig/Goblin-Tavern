@@ -288,7 +288,10 @@ describe('Phase 35 — Codex review fixes', () => {
     //   - inspection_campaign: seed a recently-resolved instance so the
     //     56-day repeat cooldown disqualifies it.
     //   - festival_approaching: requires `festival_window`, which only
-    //     fires month 7 week 2. The test runs from month 1.
+    //     fires month 2 week 4 (audit fixes pass 1 §1.6). The test
+    //     setup runs from month 1; if the monthly seeding pass happens
+    //     to land on day 28 of month 2 with the festival tag in the
+    //     month-tag history, festival_approaching could be a candidate.
     // That leaves miner_payday_boom as the only candidate after the fix.
     let base = plentyOfStock(withCoin(createInitialTavernState(), 500))
     base = seedArcRecord(

@@ -86,7 +86,7 @@ export function calculateStaffLoyaltyRisk(
       pushActor(ref)
       pushCause(causes, {
         id: `blame_${member.id}`,
-        readable: `${member.name} is publicly blamed (strength ${Math.round(blame)}).`,
+        readable: `${member.name.display} is publicly blamed (strength ${Math.round(blame)}).`,
         amount: Math.round(blame / PUBLIC_BLAME_DIVISOR),
         tags: ['staff', 'blame', 'attribution'],
         relatedActors: [ref],
@@ -98,7 +98,7 @@ export function calculateStaffLoyaltyRisk(
       pushActor(ref)
       pushCause(causes, {
         id: `scapegoat_${member.id}`,
-        readable: `${member.name} remembers being scapegoated (strength ${Math.round(scapegoatMem)}).`,
+        readable: `${member.name.display} remembers being scapegoated (strength ${Math.round(scapegoatMem)}).`,
         amount: Math.round(scapegoatMem / SCAPEGOAT_MEMORY_DIVISOR),
         tags: ['staff', 'memory', 'scapegoat'],
         relatedActors: [ref],
@@ -114,7 +114,7 @@ export function calculateStaffLoyaltyRisk(
       pushActor(ref)
       pushCause(causes, {
         id: `relief_${member.id}`,
-        readable: `${member.name} remembers being protected/rewarded (relief ${Math.round(relief)}).`,
+        readable: `${member.name.display} remembers being protected/rewarded (relief ${Math.round(relief)}).`,
         amount: -Math.round(relief / RELIEF_DIVISOR),
         tags: ['staff', 'relief'],
         relatedActors: [ref],

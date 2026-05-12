@@ -118,11 +118,15 @@ export type StaffStressResponse =
 // pins this as state — names are generated once at creation and reused,
 // never regenerated when a report is re-viewed (CLAUDE.md §"Persistent
 // identity is state, not display").
+//
+// Audit fixes pass 1 §1.1 — `generatedName` previously lived on identity
+// AND was duplicated as a display string on `StaffState.name`. The
+// duplicate is removed: `staff.name` now holds the full `GeneratedName`
+// object, and identity no longer carries its own copy.
 export type StaffIdentityState = {
   groupId: string
   cultureId?: string
   namingProfileId: NamingProfileId
-  generatedName: GeneratedName
   personalityTags: string[]
   workStyle: StaffWorkStyle
   stressResponse: StaffStressResponse
@@ -133,7 +137,7 @@ export type StaffIdentityState = {
 
 export type StaffState = {
   id: string
-  name: string
+  name: GeneratedName
   role: StaffRoleId
   skill: number
   morale: number

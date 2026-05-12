@@ -458,8 +458,8 @@ export function applyStaffStressFatigue(
       if (Math.abs(change.stressDelta) >= 5) {
         const driver =
           totalIncidents > 0
-            ? `${totalIncidents} service incident${totalIncidents === 1 ? '' : 's'} stressed ${staff.name}.`
-            : `${staff.name}'s service priority strained them.`
+            ? `${totalIncidents} service incident${totalIncidents === 1 ? '' : 's'} stressed ${staff.name.display}.`
+            : `${staff.name.display}'s service priority strained them.`
         ctx.addCause({
           source: SOURCE,
           sourceType: 'service',
@@ -480,7 +480,7 @@ export function applyStaffStressFatigue(
           target: `staff:${staff.id}.fatigue`,
           targetType: 'staff',
           amount: change.fatigueDelta,
-          readable: `${staff.name} grew fatigued from serving ${totalTraffic} visitors.`,
+          readable: `${staff.name.display} grew fatigued from serving ${totalTraffic} visitors.`,
           tags: ['service', 'staff', staff.id, 'fatigue'],
           relatedActors: [{ kind: 'staff', id: staff.id }],
           relatedSystems: ['staff', 'service'],
@@ -496,8 +496,8 @@ export function applyStaffStressFatigue(
           amount: change.moraleDelta,
           readable:
             change.moraleDelta > 0
-              ? `Service went smoothly — ${staff.name}'s morale rose.`
-              : `A rough service shift dragged ${staff.name}'s morale down.`,
+              ? `Service went smoothly — ${staff.name.display}'s morale rose.`
+              : `A rough service shift dragged ${staff.name.display}'s morale down.`,
           tags: ['service', 'staff', staff.id, 'morale'],
           relatedActors: [{ kind: 'staff', id: staff.id }],
           relatedSystems: ['staff', 'service'],

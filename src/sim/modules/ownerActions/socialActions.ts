@@ -35,7 +35,7 @@ function reject(code: string, reason: string): ActionValidationResult {
 function listStaff(ctx: SimContext): ActionTarget[] {
   return Object.values(ctx.state.staff).map((s) => ({
     id: s.id,
-    label: s.name,
+    label: s.name.display,
     hint: `morale ${s.morale}, stress ${s.stress}`,
   }))
 }
@@ -172,7 +172,7 @@ const comfortStressedStaff: OwnerActionDefinition = {
     )
     ctx.addHistory({
       category: 'owner_action',
-      summary: `Owner comforted ${staff.name}.`,
+      summary: `Owner comforted ${staff.name.display}.`,
       tags: ['owner_action', 'social', 'comfort_stressed_staff', staff.id],
       relatedActors: [{ kind: 'staff', id: staff.id }],
       relatedSystems: ['ownerActions', 'staff'],
@@ -181,7 +181,7 @@ const comfortStressedStaff: OwnerActionDefinition = {
 
     return {
       actionId: comfortStressedStaff.id,
-      label: `Comforted ${staff.name}`,
+      label: `Comforted ${staff.name.display}`,
       targetId: staff.id,
       actionPointCost: 1,
       effects: [

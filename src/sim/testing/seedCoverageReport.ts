@@ -16,7 +16,10 @@ import { getRejectedSeedsToday } from '../modules/issues/index'
 // Neither report writes cards; they only measure whether the seed
 // machinery has enough variety to support card development.
 
-export const REQUIRED_FAMILIES: ReadonlyArray<IssueSeedFamilyId> = [
+// Phase 19 §20.8 — original ten families. Phase 39 §39.1 splits the
+// list so callers can distinguish the original Phase 20 readiness gate
+// from the Phase 40 expanded gate.
+export const CORE_REQUIRED_FAMILIES: ReadonlyArray<IssueSeedFamilyId> = [
   'food_safety',
   'stock_shortage',
   'maintenance',
@@ -27,6 +30,24 @@ export const REQUIRED_FAMILIES: ReadonlyArray<IssueSeedFamilyId> = [
   'inspection',
   'reputation_shift',
   'monthly_review',
+]
+
+export const EXPANDED_REQUIRED_FAMILIES: ReadonlyArray<IssueSeedFamilyId> = [
+  'staff_identity',
+  'regular_customer',
+  'supplier_relationship',
+  'faction_request',
+  'culture_conflict',
+  'area_atmosphere',
+  'seasonal_arc',
+  'policy_backlash',
+  'rumour_crisis',
+  'rival_tavern',
+]
+
+export const REQUIRED_FAMILIES: ReadonlyArray<IssueSeedFamilyId> = [
+  ...CORE_REQUIRED_FAMILIES,
+  ...EXPANDED_REQUIRED_FAMILIES,
 ]
 
 export type SeedCoverageFamilyEntry = {

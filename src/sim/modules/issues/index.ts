@@ -13,11 +13,14 @@ export type { IssueSeedModuleState } from './issueSeedTypes'
 export type {
   ConsequenceProfile,
   CooldownEntry,
+  CoreIssueSeedFamilyId,
+  ExpandedIssueSeedFamilyId,
   IssueSeed,
   IssueSeedFamilyId,
   IssueSeedQuery,
   IssueSeedTiming,
   IssueSeedType,
+  NamedEntityIngredient,
   ResponseIntent,
   ResponseIntentShape,
   ResponseIntentVerb,
@@ -28,18 +31,38 @@ export type {
   TextIngredients,
 } from './issueSeedTypes'
 
-export { TEXT_INGREDIENT_LIMITS } from './issueSeedTypes'
+export {
+  CORE_ISSUE_SEED_FAMILIES,
+  EXPANDED_ISSUE_SEED_FAMILIES,
+  TEXT_INGREDIENT_LIMITS,
+} from './issueSeedTypes'
 
 export type { IssueSeedGenerator } from './issueSeedRegistry'
 
-export { ensureRequiredSeedGeneratorsRegistered } from './issueSeedGenerators'
+export {
+  ALL_SEED_GENERATORS,
+  ensureRequiredSeedGeneratorsRegistered,
+} from './issueSeedGenerators'
+
+export { EXPANDED_SEED_GENERATORS } from './expandedSeedGenerators'
 
 export {
   CONTRADICTION_GUARDS,
+  EXPANDED_CONTRADICTION_GUARDS,
+  activeArcExistsGuard,
   aleStockHighGuard,
-  unpaidWagesGuard,
+  areaTraitStillPresentGuard,
+  cultureExistsGuard,
+  factionExistsGuard,
   merchantPresenceGuard,
+  policyStillActiveGuard,
+  projectStillIncompleteGuard,
+  regularExistsGuard,
   roofRepairedTodayGuard,
+  rumourStillActiveGuard,
+  staffStillEmployedGuard,
+  supplierExistsGuard,
+  unpaidWagesGuard,
 } from './contradictionGuards'
 
 export type { ContradictionResult } from './contradictionGuards'
@@ -51,7 +74,12 @@ export {
   rankSeeds,
 } from './issueSeedRanking'
 
-export { validateSeed, validateTextIngredients, CONTRACT_CHECK_IDS } from './issueSeedValidation'
+export {
+  CONTRACT_CHECK_IDS,
+  validateSeed,
+  validateSeedAgainstState,
+  validateTextIngredients,
+} from './issueSeedValidation'
 
 export {
   buildIssueSeedReport,
@@ -78,11 +106,25 @@ export {
 export {
   areaRef,
   buildTextIngredients,
+  cultureRef,
   customerRef,
+  displayNameForRef,
   effect,
+  entityMemoryList,
+  factionRef,
+  localArcRef,
   makeProfile,
+  namedEntityIngredient,
+  projectRef,
+  regularRef,
+  rumourRef,
+  serviceSceneRef,
   staffRef,
-  stockRef,
-  systemRef,
   stake,
+  stockRef,
+  strongestAttributionText,
+  strongestMemoryText,
+  supplierRef,
+  systemRef,
+  tavernIdentityRef,
 } from './generatorHelpers'

@@ -1,6 +1,11 @@
 import type { SimContext } from '../../core/context'
-import type { TavernState } from '../../state/TavernState'
-import type { IssueSeed, IssueSeedFamilyId } from './issueSeedTypes'
+import type { EntityRef, TavernState } from '../../state/TavernState'
+import type {
+  CoreIssueSeedFamilyId,
+  IssueSeed,
+  IssueSeedFamilyId,
+} from './issueSeedTypes'
+import { listActiveArcs } from '../localArcs/arcEngine'
 
 // Phase 19 §19.6 — Contradiction guards.
 //
@@ -52,9 +57,12 @@ function recentMemoryToday(
   return memory.ageDays <= 0
 }
 
-/** Each family's guard. Returns null/undefined when allowed. */
+/** Each family's guard. Returns null/undefined when allowed.
+ *  The map is keyed by the core family ids; expanded families (Phase 39)
+ *  rely on entity-existence guards exported below rather than a single
+ *  family-wide veto. */
 export const CONTRADICTION_GUARDS: Record<
-  IssueSeedFamilyId,
+  CoreIssueSeedFamilyId,
   (ctx: SimContext) => ContradictionResult
 > = {
   food_safety(ctx) {
@@ -184,3 +192,159 @@ export function roofRepairedTodayGuard(ctx: SimContext): ContradictionResult {
   }
   return { allowed: true }
 }
+
+// Phase 39 §39.15 — Expanded entity-existence guards.
+//
+// The expanded seed families name persistent world entities (suppliers,
+// regulars, factions, cultures, local arcs, policies, projects, rumours,
+// staff, area traits). Each guard verifies that the named entity still
+// exists / is still active before its seed may generate. A seed pointing
+// at a banned regular or a repealed policy would contradict the visible
+// state.
+
+export function supplierExistsGuard(
+  ctx: SimContext,
+  ref: EntityRef,
+): ContradictionResult {
+  const supplier = ctx.state.world.suppliers[ref.id]
+  if (!supplier) {
+    return { allowed: false, reason: `Supplier ${ref.id} no longer exists` }
+  }
+  return { allowed: true }
+}
+
+export function regularExistsGuard(
+  ctx: SimContext,
+  ref: EntityRef,
+): ContradictionResult {
+  const regular = ctx.state.world.regulars[ref.id]
+  if (!regular) {
+    return { allowed: false, reason: `Regular ${ref.id} no longer exists` }
+  }
+  return { allowed: true }
+}
+
+export function factionExistsGuard(
+  ctx: SimContext,
+  ref: EntityRef,
+): ContradictionResult {
+  const faction = ctx.state.world.factions[ref.id]
+  if (!faction) {
+    return { allowed: false, reason: `Faction ${ref.id} no longer exists` }
+  }
+  return { allowed: true }
+}
+
+export function cultureExistsGuard(
+  ctx: SimContext,
+  ref: EntityRef,
+): ContradictionResult {
+  const culture = ctx.state.world.cultures[ref.id]
+  if (!culture) {
+    return { allowed: false, reason: `Culture ${ref.id} no longer exists` }
+  }
+  return { allowed: true }
+}
+
+export function activeArcExistsGuard(
+  ctx: SimContext,
+  ref: EntityRef,
+): ContradictionResult {
+  for (const arc of listActiveArcs(ctx.state)) {
+    if (arc.id === ref.id) return { allowed: true }
+  }
+  return { allowed: false, reason: `Arc ${ref.id} is not active` }
+}
+
+export function policyStillActiveGuard(
+  ctx: SimContext,
+  policyId: string,
+): ContradictionResult {
+  const owner = ctx.state.modules.ownerActions as
+    | { policies?: Record<string, { id: string; enabled: boolean }> }
+    | undefined
+  const policy = owner?.policies?.[policyId]
+  if (!policy || !policy.enabled) {
+    return { allowed: false, reason: `Policy ${policyId} is no longer active` }
+  }
+  return { allowed: true }
+}
+
+export function projectStillIncompleteGuard(
+  ctx: SimContext,
+  projectId: string,
+): ContradictionResult {
+  const owner = ctx.state.modules.ownerActions as
+    | { projects?: Record<string, { id: string; status: string }> }
+    | undefined
+  const project = owner?.projects?.[projectId]
+  if (!project) {
+    return { allowed: false, reason: `Project ${projectId} does not exist` }
+  }
+  if (project.status !== 'active') {
+    return {
+      allowed: false,
+      reason: `Project ${projectId} is ${project.status}`,
+    }
+  }
+  return { allowed: true }
+}
+
+export function rumourStillActiveGuard(
+  ctx: SimContext,
+  rumourId: string,
+): ContradictionResult {
+  const rumour = ctx.state.world.socialRumours[rumourId]
+  if (!rumour) {
+    return { allowed: false, reason: `Rumour ${rumourId} no longer exists` }
+  }
+  if (rumour.strength <= 0) {
+    return { allowed: false, reason: `Rumour ${rumourId} has faded` }
+  }
+  return { allowed: true }
+}
+
+export function staffStillEmployedGuard(
+  ctx: SimContext,
+  ref: EntityRef,
+): ContradictionResult {
+  const staff = ctx.state.staff[ref.id]
+  if (!staff) {
+    return { allowed: false, reason: `Staff ${ref.id} no longer employed` }
+  }
+  if (staff.unavailable) {
+    return { allowed: false, reason: `Staff ${ref.id} is unavailable` }
+  }
+  return { allowed: true }
+}
+
+export function areaTraitStillPresentGuard(
+  ctx: SimContext,
+  areaId: string,
+  trait: string,
+): ContradictionResult {
+  const area = ctx.state.areas[areaId] as
+    | { id: string; tags: string[]; activeFlags?: string[] }
+    | undefined
+  if (!area) {
+    return { allowed: false, reason: `Area ${areaId} does not exist` }
+  }
+  if (!area.tags.includes(trait) && !(area.activeFlags ?? []).includes(trait)) {
+    return { allowed: false, reason: `Area ${areaId} no longer has trait ${trait}` }
+  }
+  return { allowed: true }
+}
+
+/** Phase 39 §39.15 — registry of expanded entity-existence guards. */
+export const EXPANDED_CONTRADICTION_GUARDS = {
+  supplierExistsGuard,
+  regularExistsGuard,
+  factionExistsGuard,
+  cultureExistsGuard,
+  activeArcExistsGuard,
+  policyStillActiveGuard,
+  projectStillIncompleteGuard,
+  rumourStillActiveGuard,
+  staffStillEmployedGuard,
+  areaTraitStillPresentGuard,
+} as const

@@ -150,7 +150,12 @@ describe('Phase 19 — Module shape', () => {
     const result = runDay(plentyOfStock(createInitialTavernState()))
     void result
     const ids = issueSeedGeneratorRegistry.all().map((g) => g.id).sort()
-    expect(ids.length).toBe(10)
+    // Phase 39 extends the registry; the original ten must still be
+    // present, but additional Phase 39+ generators may be registered.
+    expect(REQUIRED_SEED_GENERATORS.length).toBe(10)
+    for (const gen of REQUIRED_SEED_GENERATORS) {
+      expect(ids).toContain(gen.id)
+    }
     const families = new Set(
       REQUIRED_SEED_GENERATORS.map((g) => g.family),
     )

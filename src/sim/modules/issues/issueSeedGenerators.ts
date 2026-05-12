@@ -33,6 +33,7 @@ import {
   urgencyFromPressures,
 } from './generatorHelpers'
 import type { IssueSeedGenerator } from './issueSeedRegistry'
+import { EXPANDED_SEED_GENERATORS } from './expandedSeedGenerators'
 
 // Phase 19 §19.7 — Initial seed families.
 //
@@ -1837,12 +1838,22 @@ export const REQUIRED_SEED_GENERATORS: IssueSeedGenerator[] = [
   },
 ]
 
+// Phase 39 §39.5–§39.14 — the expanded families are registered alongside
+// the original ten. Generators that depend on world entities (suppliers,
+// regulars, factions, cultures, arcs, policies) self-skip when those
+// entities aren't present, so the expanded set is safe to register on
+// every initialization.
+export const ALL_SEED_GENERATORS: IssueSeedGenerator[] = [
+  ...REQUIRED_SEED_GENERATORS,
+  ...EXPANDED_SEED_GENERATORS,
+]
+
 let initialized = false
 export function ensureRequiredSeedGeneratorsRegistered(
   registry: { register(g: IssueSeedGenerator): void; has(id: string): boolean },
 ): void {
   if (initialized) return
-  for (const gen of REQUIRED_SEED_GENERATORS) {
+  for (const gen of ALL_SEED_GENERATORS) {
     if (!registry.has(gen.id)) registry.register(gen)
   }
   initialized = true

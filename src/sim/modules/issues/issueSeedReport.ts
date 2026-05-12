@@ -2,6 +2,7 @@ import type { SimContext } from '../../core/context'
 import type { ReportSection } from '../../core/reports'
 import { getAllSeedsToday, getRejectedSeedsToday } from './issueSeedQueries'
 import type { IssueSeed } from './issueSeedTypes'
+import { EXPANDED_ISSUE_SEED_FAMILIES } from './issueSeedTypes'
 
 // Phase 19 §19.13 — Issue seed report.
 //
@@ -73,6 +74,40 @@ export function buildIssueSeedReport(ctx: SimContext): ReportSection {
     }
   }
 
+  // Phase 39 §39.18 — Expanded family summary block.
+  const expandedSet = new Set<string>(EXPANDED_ISSUE_SEED_FAMILIES)
+  const expandedSeeds = valid.filter((s) => expandedSet.has(s.family))
+  const expandedFamilyCounts: Record<string, number> = {}
+  for (const seed of expandedSeeds) {
+    expandedFamilyCounts[seed.family] =
+      (expandedFamilyCounts[seed.family] ?? 0) + 1
+  }
+  if (expandedSeeds.length > 0) {
+    lines.push('')
+    lines.push('Expanded issue seed families today:')
+    const sorted = Object.entries(expandedFamilyCounts).sort(
+      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+    )
+    for (const [family, count] of sorted) {
+      lines.push(`- ${family}: ${count}`)
+    }
+
+    const namedSeedFuel: Array<{ name: string; family: string }> = []
+    for (const seed of expandedSeeds) {
+      const named = seed.textIngredients.namedEntities?.[0]
+      if (named) {
+        namedSeedFuel.push({ name: named.displayName, family: seed.family })
+      }
+    }
+    if (namedSeedFuel.length > 0) {
+      lines.push('')
+      lines.push('Top named seed fuel:')
+      for (const entry of namedSeedFuel.slice(0, 5)) {
+        lines.push(`- ${entry.name}: ${entry.family}`)
+      }
+    }
+  }
+
   return {
     id: ISSUE_SEEDS_REPORT_ID,
     source: ISSUE_SEEDS_REPORT_SOURCE,
@@ -85,6 +120,8 @@ export function buildIssueSeedReport(ctx: SimContext): ReportSection {
       topSeedIds: valid.slice(0, 5).map((s) => s.id),
       rejectedSummary: rejected,
       validSeeds: valid,
+      expandedFamilyCounts,
+      expandedSeedCount: expandedSeeds.length,
     },
   }
 }

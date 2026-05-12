@@ -23,6 +23,11 @@ import { createInitialCauseModuleState } from '../modules/causes/causeModule'
 import { createInitialPressureModuleState } from '../modules/pressures/pressureModule'
 import { createInitialFeedbackModuleState } from '../modules/feedback/feedbackLoopModule'
 import { createInitialIssueSeedModuleState } from '../modules/issues/issueSeedTypes'
+import { createInitialSupplierModuleState } from '../modules/suppliers/state'
+import {
+  ensureRequiredSuppliersRegistered,
+  supplierRegistry,
+} from '../content/suppliers/supplierRegistry'
 import type {
   AreaState,
   CustomerGroupState,
@@ -30,6 +35,7 @@ import type {
   ReputationState,
   StaffState,
   StockState,
+  SupplierWorldState,
   TavernState,
   WorldState,
 } from './TavernState'
@@ -181,15 +187,53 @@ function createInitialPressures(): Record<string, PressureState> {
   return pressures
 }
 
-// Phase 25 §"Default World State" — empty but valid containers for the
-// new top-level `world` branch. Phase 25 deliberately does not seed real
-// cultures, factions, suppliers, or regulars; later phases populate them
-// from the Phase 22 content registries.
+// Phase 29 §29.2 — Seed `state.world.suppliers` from the supplier
+// registry. The Phase 22 skeleton reserved the slot empty; Phase 29 fills
+// it with the registered starter suppliers so the rest of the simulation
+// can read them as persistent world entities. Names are static and
+// generated-name-shaped (per §29.2 "Determinism Note") because default
+// state generation does not currently accept a seed — true random names
+// will be produced later during `identityGeneration` when `ctx.rng` is
+// available.
+function createInitialSuppliers(): Record<string, SupplierWorldState> {
+  ensureRequiredSuppliersRegistered()
+  const suppliers: Record<string, SupplierWorldState> = {}
+  for (const def of supplierRegistry.all()) {
+    suppliers[def.id] = {
+      id: def.id,
+      label: def.label,
+      name: {
+        display: def.label,
+        profileId: def.namingProfileId,
+        parts: {},
+        patternId: 'given_family',
+        generatedBy: 'supplier_registry',
+      },
+      supplierType: def.supplierType,
+      reliability: def.defaultReliability,
+      relationship: def.defaultRelationship,
+      debtTolerance: def.defaultDebtTolerance,
+      priceBias: def.defaultPriceBias,
+      goodsProvided: [...def.goodsProvided],
+      ...(def.factionId !== undefined ? { factionId: def.factionId } : {}),
+      ...(def.cultureId !== undefined ? { cultureId: def.cultureId } : {}),
+      tags: [...def.tags],
+      activeFlags: [],
+    }
+  }
+  return suppliers
+}
+
+// Phase 25 §"Default World State" / Phase 29 §29.2 — containers for the
+// top-level `world` branch. Phase 25 deliberately left every record
+// empty; Phase 29 starts seeding the supplier branch from the registry
+// so suppliers are persistent simulation facts from day zero. Other
+// branches (cultures, factions, regulars, …) fill in later phases.
 export function createInitialWorldState(): WorldState {
   return {
     cultures: {},
     factions: {},
-    suppliers: {},
+    suppliers: createInitialSuppliers(),
     regulars: {},
     notableNpcs: {},
     localEvents: {},
@@ -253,6 +297,10 @@ export function createInitialTavernState(overrides?: Partial<TavernState>): Tave
       // Phase 19 — seed an empty issue-seeds slice so the schema
       // validates on day zero before any seed has been generated.
       issueSeeds: createInitialIssueSeedModuleState(),
+      // Phase 29 §29.4 — seed an empty supplier slice (no active market
+      // conditions, no deliveries today, no price adjustments) so the
+      // module's schema validates from day zero.
+      suppliers: createInitialSupplierModuleState(),
     },
   }
 

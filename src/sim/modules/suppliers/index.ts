@@ -1,3 +1,15 @@
-export { supplierModule, SUPPLIERS_MODULE_ID } from './supplierModule'
+export { supplierModule } from './supplierModule'
+export {
+  SUPPLIERS_MODULE_ID,
+  createInitialSupplierModuleState,
+  getSupplierModuleState,
+} from './state'
 export { buildSupplierReport } from './supplierReport'
-export type { SupplierModuleState } from './types'
+export { getEffectiveBasePrice } from './pricing'
+export type {
+  ActiveMarketCondition,
+  SupplierDeliveryRecord,
+  SupplierMissedDelivery,
+  SupplierModuleState,
+  SupplierPriceAdjustment,
+} from './types'

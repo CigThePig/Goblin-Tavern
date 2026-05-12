@@ -8,6 +8,7 @@ import { clampPercent } from '../../state/normalize'
 import { spendCoin } from '../stock/ledger'
 import { effectiveQuality, isPerishable } from '../stock/spoilage'
 import type { CustomerModuleState, CustomerTurnout } from '../customers/types'
+import { isPolicyEnabled } from '../ownerActions/stateHelpers'
 import type {
   ServiceQualityModifiers,
   StaffModuleState,
@@ -72,6 +73,7 @@ function computeUnpaidTabs(
   visitors: number,
   coinEarned: number,
   quality: ServiceQualityModifiers,
+  policyAdjustment = 1,
 ): number {
   // Phase 12 §12.6 — Unpaid tabs.
   //
@@ -81,11 +83,17 @@ function computeUnpaidTabs(
   // it (`tabControl < 0`). Capped at this group's actual coin earned
   // so tabs never produce phantom debt the resolver does not know how
   // to settle yet.
+  //
+  // Phase 33 §33.8 — `policyAdjustment` lets an enabled policy scale
+  // the computed tab. `refuse_tabs` passes a fraction <1 here; the
+  // policy never makes tabs negative and never modifies the rest of
+  // the math, so the rest of the resolver is oblivious to whether a
+  // policy is active.
   if (visitors <= 0 || coinEarned <= 0) return 0
   const tabBaseRate = (visitors * group.tabRisk) / 100
   const rowdyBoost = group.rowdiness >= 70 ? 0.25 : 0
   const controlFactor = Math.max(-0.5, Math.min(0.8, quality.tabControl / 4))
-  const raw = tabBaseRate * (1 + rowdyBoost) * (1 - controlFactor)
+  const raw = tabBaseRate * (1 + rowdyBoost) * (1 - controlFactor) * policyAdjustment
   const tab = Math.round(Math.max(0, raw))
   return Math.min(tab, coinEarned)
 }
@@ -264,6 +272,12 @@ export function resolveService(
   const result = buildEmptyResult(ctx.state)
   result.serviceQuality = quality
 
+  // Phase 33 §33.8 — Service-side policy effects. Only the modest hooks
+  // the plan calls out are wired here; broader policy effects belong to
+  // later phases.
+  const refuseTabs = isPolicyEnabled(ctx.state, 'refuse_tabs')
+  const tabPolicyAdjustment = refuseTabs ? 0.4 : 1
+
   for (const turnout of turnouts) {
     const group = ctx.state.customerGroups[turnout.groupId]
     if (!group) continue
@@ -278,6 +292,7 @@ export function resolveService(
       turnout.visitors,
       turnout.coinEarned,
       quality,
+      tabPolicyAdjustment,
     )
 
     const purchase: PurchaseSummary = {

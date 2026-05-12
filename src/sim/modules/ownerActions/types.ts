@@ -7,10 +7,41 @@ import type { SimContext } from '../../core/context'
 // for the action (validation + apply). The module slice
 // (`OwnerActionsModuleState`) records the day's applied/rejected actions
 // so the report and downstream phases can audit player intervention.
+//
+// Phase 33 §33.1 / §33.2 — Owner action target/category expansion.
+// The Phase 13 surface (`area | stock | staff | global`) is widened to
+// cover named world entities (regulars, suppliers, factions, customer
+// groups) and the new persistent owner-action records (projects,
+// policies). Categories partition the registry into immediate fixes,
+// long-running projects, standing policies, and relationship-based
+// social actions so the report can group them and the project tick can
+// find projects without scanning the whole registry. Phase 13 actions
+// continue to work — they keep `category: 'immediate'` and the old
+// `targetType` values.
 
 export type OwnerActionId = string
 
-export type OwnerActionTargetType = 'area' | 'stock' | 'staff' | 'global'
+export type OwnerActionTargetType =
+  | 'area'
+  | 'stock'
+  | 'staff'
+  | 'customer_group'
+  | 'regular'
+  | 'supplier'
+  | 'faction'
+  | 'project'
+  | 'policy'
+  | 'global'
+
+// Phase 33 §33.2 — Category metadata on each action definition. Lets the
+// report group rows ("Immediate Actions" vs. "Active Projects") and lets
+// future code (Phase 39 issue seeds) filter the registry without
+// string-matching ids.
+export type OwnerActionCategory =
+  | 'immediate'
+  | 'project'
+  | 'policy'
+  | 'social'
 
 export type OwnerActionInput = {
   actionId: OwnerActionId
@@ -48,6 +79,57 @@ export type OwnerActionRejected = {
   reason: string
 }
 
+// Phase 33 §33.3 — Persistent project / policy / social-action records.
+//
+// Projects are long-running owner investments that accrue progress each
+// day until they complete and apply a structural effect (an area trait,
+// an upgrade, a market shift). Policies are standing rules that affect
+// downstream systems for as long as they remain enabled. Social actions
+// are one-day relationship moves against named entities; the record
+// retains enough context for weekly community routines (Phase 34) and
+// future issue seeds to react to them.
+export type OwnerProjectStatus = 'active' | 'completed' | 'cancelled' | 'blocked'
+
+export type OwnerProjectState = {
+  id: string
+  projectType: string
+  label: string
+  targetType?: OwnerActionTargetType
+  targetId?: string
+  startedAtDay: number
+  progress: number
+  requiredProgress: number
+  coinInvested: number
+  status: OwnerProjectStatus
+  tags: string[]
+  effectsPreview: string[]
+}
+
+export type OwnerPolicyState = {
+  id: string
+  policyType: string
+  label: string
+  enabled: boolean
+  startedAtDay: number
+  targetType?: OwnerActionTargetType
+  targetId?: string
+  tags: string[]
+  effects: string[]
+}
+
+export type OwnerSocialActionOutcome = 'improved' | 'worsened' | 'neutral'
+
+export type OwnerSocialActionRecord = {
+  id: string
+  actionId: OwnerActionId
+  targetType: OwnerActionTargetType
+  targetId: string
+  day: number
+  outcome: OwnerSocialActionOutcome
+  notes: string[]
+  tags: string[]
+}
+
 export type OwnerActionsModuleState = {
   /** Action points consumed by `applied` this day. */
   actionPointsUsed: number
@@ -55,11 +137,25 @@ export type OwnerActionsModuleState = {
   actionPointBudget: number
   applied: OwnerActionApplied[]
   rejected: OwnerActionRejected[]
+
+  // Phase 33 §33.3 — Persistent owner-action records.
+  //
+  // `projects` and `policies` survive `startDay`'s slice reset so a
+  // project started Monday continues to progress Tuesday. The daily
+  // applied/rejected/actionPointsUsed fields still reset every morning.
+  // `recentSocialActions` is a bounded ring (most recent first) so
+  // weekly routines and reports can surface "who got apologized to this
+  // week" without scanning history.
+  projects: Record<string, OwnerProjectState>
+  policies: Record<string, OwnerPolicyState>
+  recentSocialActions: OwnerSocialActionRecord[]
 }
 
 export type OwnerActionDefinition = {
   id: OwnerActionId
   label: string
+  /** Phase 33 §33.2 — partition of the registry. */
+  category: OwnerActionCategory
   /** Free-form tags for future card metadata and report grouping. */
   tags: string[]
   targetType?: OwnerActionTargetType

@@ -95,6 +95,7 @@ function registerCandleStock(): void {
 const buyCandles: OwnerActionDefinition = {
   id: CANDLE_BUY_ACTION_ID,
   label: 'Buy Candles',
+  category: 'immediate',
   tags: ['stock', 'supply', 'lighting'],
   targetType: 'stock',
   actionPointCost: 1,

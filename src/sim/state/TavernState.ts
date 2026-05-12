@@ -105,6 +105,12 @@ export type StaffState = {
 // with three additive fields: `loyalty`, `preferredStockTags`, and
 // `dislikedTags`. The forward note in §"Customer Group State" pins this
 // as an additive change (mirrors the `StaffRoleId` precedent), not a fork.
+//
+// Phase 30 §30.2 — adds cultural linkage. Each group now carries a
+// `cultureId`, `namingProfileId`, `trafficPattern`, `spendingProfile`,
+// and a `relationshipToOtherGroups` map. The Phase 10 numeric meters
+// are unchanged; the new fields are additive. Field names from earlier
+// phases stay stable.
 export type CustomerGroupState = {
   id: string
   label: string
@@ -122,6 +128,12 @@ export type CustomerGroupState = {
   dislikedTags: string[]
   tags: string[]
   activeGrudges: string[]
+  // Phase 30 §30.2 — added fields.
+  cultureId: string
+  namingProfileId: NamingProfileId
+  trafficPattern: string
+  spendingProfile: string
+  relationshipToOtherGroups: Record<string, number>
 }
 
 // Phase 15 §15.5 — Reputation is multi-axis. The `respectable` axis was

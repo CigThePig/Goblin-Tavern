@@ -28,9 +28,20 @@ import {
   ensureRequiredSuppliersRegistered,
   supplierRegistry,
 } from '../content/suppliers/supplierRegistry'
+import {
+  cultureRegistry,
+  ensureRequiredCulturesRegistered,
+} from '../content/cultures/cultureRegistry'
+import {
+  ensureRequiredFactionsRegistered,
+  factionRegistry,
+} from '../content/factions/factionRegistry'
+import { createInitialRegularModuleState } from '../modules/regulars/state'
 import type {
   AreaState,
+  CultureWorldState,
   CustomerGroupState,
+  FactionWorldState,
   PressureState,
   ReputationState,
   StaffState,
@@ -119,6 +130,11 @@ function createInitialCustomerGroups(): Record<string, CustomerGroupState> {
       preferredStockTags: [...def.defaultState.preferredStockTags],
       dislikedTags: [...def.defaultState.dislikedTags],
       activeGrudges: [...def.defaultState.activeGrudges],
+      // Phase 30 §30.2 — defensively clone the relationship map so two
+      // groups do not share a mutable reference into the registry.
+      relationshipToOtherGroups: {
+        ...def.defaultState.relationshipToOtherGroups,
+      },
     }
   }
   return groups
@@ -224,15 +240,62 @@ function createInitialSuppliers(): Record<string, SupplierWorldState> {
   return suppliers
 }
 
-// Phase 25 §"Default World State" / Phase 29 §29.2 — containers for the
-// top-level `world` branch. Phase 25 deliberately left every record
-// empty; Phase 29 starts seeding the supplier branch from the registry
-// so suppliers are persistent simulation facts from day zero. Other
-// branches (cultures, factions, regulars, …) fill in later phases.
+// Phase 30 §30.3 — Seed `state.world.cultures` from the culture
+// registry. Each registered culture becomes a persistent world entity
+// with the meters and tag lists declared in its definition.
+function createInitialCultures(): Record<string, CultureWorldState> {
+  ensureRequiredCulturesRegistered()
+  const cultures: Record<string, CultureWorldState> = {}
+  for (const def of cultureRegistry.all()) {
+    cultures[def.id] = {
+      id: def.id,
+      label: def.label,
+      familiarity: def.defaultFamiliarity,
+      comfort: def.defaultComfort,
+      tension: def.defaultTension,
+      namingProfileId: def.namingProfileId,
+      preferredStockTags: [...def.preferredStockTags],
+      dislikedTags: [...def.dislikedTags],
+      importantCalendarTags: [...def.importantCalendarTags],
+      tags: [...def.tags],
+    }
+  }
+  return cultures
+}
+
+// Phase 30 §30.5 — Seed `state.world.factions` from the faction
+// registry. Each registered faction becomes a persistent world entity
+// with its starting relationship/influence/trust/fear meters.
+function createInitialFactions(): Record<string, FactionWorldState> {
+  ensureRequiredFactionsRegistered()
+  const factions: Record<string, FactionWorldState> = {}
+  for (const def of factionRegistry.all()) {
+    factions[def.id] = {
+      id: def.id,
+      label: def.label,
+      ...(def.cultureId !== undefined ? { cultureId: def.cultureId } : {}),
+      relationship: def.defaultRelationship,
+      influence: def.defaultInfluence,
+      trust: def.defaultTrust,
+      fear: def.defaultFear,
+      tags: [...def.tags],
+      activeFlags: [],
+    }
+  }
+  return factions
+}
+
+// Phase 25 §"Default World State" / Phase 29 §29.2 / Phase 30 §§30.3,
+// 30.5 — containers for the top-level `world` branch. Phase 25
+// deliberately left every record empty; Phase 29 started seeding the
+// supplier branch from the registry; Phase 30 adds culture and faction
+// seeding so the entire world identity layer exists from day zero. The
+// regulars/notableNpcs/localEvents/socialRumours branches still start
+// empty — those entities only emerge during play.
 export function createInitialWorldState(): WorldState {
   return {
-    cultures: {},
-    factions: {},
+    cultures: createInitialCultures(),
+    factions: createInitialFactions(),
     suppliers: createInitialSuppliers(),
     regulars: {},
     notableNpcs: {},
@@ -301,6 +364,10 @@ export function createInitialTavernState(overrides?: Partial<TavernState>): Tave
       // conditions, no deliveries today, no price adjustments) so the
       // module's schema validates from day zero.
       suppliers: createInitialSupplierModuleState(),
+      // Phase 30 §30.6 — seed an empty regulars slice (no candidates,
+      // no creations, no visits) so the module's schema validates from
+      // day zero before any regular has emerged.
+      regulars: createInitialRegularModuleState(),
     },
   }
 

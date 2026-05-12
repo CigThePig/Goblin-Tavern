@@ -223,6 +223,10 @@ describe('Phase 22 type surfaces match the plan', () => {
   it('cultures reference naming profile ids', async () => {
     // Compile-time-style check: the field exists on a sample literal.
     const { } = await import('../../src/sim/content/cultures/cultureTypes')
+    // Phase 30 §30.1 extends the Phase 22 skeleton additively. The
+    // Phase 22 fields still exist on the type; the new Phase 30 fields
+    // (description, conflictTags, defaultFamiliarity, defaultComfort,
+    // defaultTension) are required and provided here.
     const sample: import('../../src/sim/content/cultures/cultureTypes').CultureDefinition = {
       id: 'sample',
       label: 'Sample',
@@ -231,6 +235,11 @@ describe('Phase 22 type surfaces match the plan', () => {
       preferredStockTags: [],
       dislikedTags: [],
       importantCalendarTags: [],
+      description: 'Sample culture for the type-surface check.',
+      conflictTags: [],
+      defaultFamiliarity: 50,
+      defaultComfort: 50,
+      defaultTension: 50,
     }
     expect(sample.namingProfileId).toBe('goblin_common')
   })

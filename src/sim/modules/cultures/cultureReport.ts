@@ -1,11 +1,117 @@
 import type { SimContext } from '../../core/context'
 import type { ReportSection } from '../../core/reports'
+import type { CultureWorldState } from '../../state/TavernState'
 
-// Phase 27 §27.4 — Culture report skeleton.
+// Phase 27 §27.4 / Phase 30 §30.10 — Culture report.
 //
-// The culture module does not currently build a report section.
-// Phase 30 §30.10 fills this with tension/comfort/calendar summaries.
-// The function exists so domain modules have a consistent surface.
-export function buildCultureReport(_ctx: SimContext): ReportSection | null {
-  return null
+// Mechanical summary of the culture layer for the current day:
+//   - highest tension culture,
+//   - highest comfort culture,
+//   - calendar tags that matter today, grouped by culture,
+//   - any cultures whose dislikes overlap a current area trait.
+//
+// Reports stay compact per the Phase 21 contract: no card prose, no
+// flavour. Just ids, labels, and numbers.
+
+const SOURCE = 'cultures'
+
+function pickExtreme(
+  cultures: CultureWorldState[],
+  by: (c: CultureWorldState) => number,
+  prefer: 'max' | 'min',
+): CultureWorldState | undefined {
+  let best: CultureWorldState | undefined
+  for (const c of cultures) {
+    if (!best) {
+      best = c
+      continue
+    }
+    const a = by(best)
+    const b = by(c)
+    if (prefer === 'max' ? b > a : b < a) best = c
+  }
+  return best
+}
+
+export function buildCultureReport(ctx: SimContext): ReportSection | null {
+  const cultures = Object.values(ctx.state.world.cultures)
+  if (cultures.length === 0) return null
+
+  const lines: string[] = []
+  const highestTension = pickExtreme(cultures, (c) => c.tension, 'max')
+  const highestComfort = pickExtreme(cultures, (c) => c.comfort, 'max')
+
+  if (highestTension) {
+    lines.push(
+      `Highest tension: ${highestTension.label} (${highestTension.tension})`,
+    )
+  }
+  if (highestComfort) {
+    lines.push(
+      `Highest comfort: ${highestComfort.label} (${highestComfort.comfort})`,
+    )
+  }
+
+  const dayType = ctx.getDayType()
+  // Widen the typed `CalendarTag[]` to plain strings so culture
+  // definitions can hold open tag ids without re-typing every entry.
+  const dayTags = ctx.state.calendar.tags as readonly string[]
+  const interestedToday: string[] = []
+  for (const culture of cultures) {
+    const matches = culture.importantCalendarTags.filter(
+      (t) => t === dayType || dayTags.includes(t),
+    )
+    if (matches.length > 0) {
+      interestedToday.push(`${culture.label} (${matches.join(', ')})`)
+    }
+  }
+  if (interestedToday.length > 0) {
+    lines.push('')
+    lines.push('Today’s calendar matters to:')
+    for (const entry of interestedToday) {
+      lines.push(`  ${entry}`)
+    }
+  }
+
+  // Area-trait conflicts: surface any culture that dislikes a trait
+  // currently present in the main room.
+  const mainRoom = ctx.state.areas['main_room']
+  if (mainRoom) {
+    const conflicts: string[] = []
+    for (const culture of cultures) {
+      // The culture definition holds detailed area-trait preferences;
+      // the world-state copy keeps only the disliked stock tags. Tag
+      // overlap with the area's mechanical-tag list is a cheap proxy
+      // that does not require pulling the full definition record.
+      for (const tag of culture.dislikedTags) {
+        if (mainRoom.tags.includes(tag) || mainRoom.atmosphere.includes(tag)) {
+          conflicts.push(`${culture.label} dislikes '${tag}' in main room`)
+        }
+      }
+    }
+    if (conflicts.length > 0) {
+      lines.push('')
+      lines.push('Area-trait clashes:')
+      for (const c of conflicts) lines.push(`  ${c}`)
+    }
+  }
+
+  return {
+    id: 'cultures',
+    source: SOURCE,
+    title: 'CULTURE REPORT',
+    lines,
+    data: {
+      cultureCount: cultures.length,
+      highestTensionId: highestTension?.id,
+      highestComfortId: highestComfort?.id,
+      interestedTodayIds: cultures
+        .filter((c) =>
+          c.importantCalendarTags.some(
+            (t) => t === dayType || (dayTags as readonly string[]).includes(t),
+          ),
+        )
+        .map((c) => c.id),
+    },
+  }
 }

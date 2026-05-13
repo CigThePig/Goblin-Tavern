@@ -1,4 +1,5 @@
 import type { SimContext } from '../../../core/context'
+import type { EntityRef } from '../../../state/TavernState'
 import type { PressureCalculationResult, PressureCauseRef } from '../pressureTypes'
 
 import {
@@ -41,6 +42,26 @@ export function calculateRumourPressure(
       relatedSystems: ['rumours'],
     })
   }
+
+  // Per-rumour causes for the strongest few, so the calculator carries
+  // named actor refs (the rumour itself plus its subject) into the audit.
+  const sortedRumours = Object.values(ctx.state.world.socialRumours)
+    .filter((r) => r.strength >= 30)
+    .sort((a, b) => b.strength - a.strength)
+    .slice(0, 3)
+  for (const rumour of sortedRumours) {
+    const actors: EntityRef[] = [{ kind: 'rumour', id: rumour.id }]
+    if (rumour.subject) actors.push(rumour.subject)
+    pushCause(causes, {
+      id: `rumour_${rumour.id}`,
+      readable: `${rumour.label} circulating (strength ${Math.round(rumour.strength)}).`,
+      amount: Math.round(rumour.strength * RUMOUR_PER_STRENGTH),
+      tags: ['rumour', ...rumour.tags],
+      relatedActors: actors,
+      relatedSystems: ['rumours'],
+    })
+  }
+
   if (falseStrength >= 20) {
     pushCause(causes, {
       id: 'false_rumours',

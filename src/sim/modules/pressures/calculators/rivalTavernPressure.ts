@@ -40,6 +40,7 @@ export function calculateRivalTavernPressure(
       readable: `${arcs.length} rival arc(s) active (intensity ${arcIntensity}).`,
       amount: Math.round(arcIntensity * RIVAL_ARC_PER_INTENSITY),
       tags: ['rival', 'arc'],
+      relatedActors: arcs.map((arc) => ({ kind: 'local_event', id: arc.id })),
       relatedSystems: ['localArcs'],
     })
   }

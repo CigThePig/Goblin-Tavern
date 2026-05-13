@@ -54,8 +54,8 @@ Two failing metrics — `named_entity_repetition` and `core.strategy_diversity` 
 - [ ] 2.4: Lower per-actor branch thresholds in `supplierDistrust`
 
 **Stage 3 — Pressure-calculator per-cause actor wiring**
-- [ ] 3.1: Add per-rumour cause entries to `rumourPressure`
-- [ ] 3.2: Attach actor refs to per-cause entries in three calculators
+- [x] 3.1: Add per-rumour cause entries to `rumourPressure`
+- [x] 3.2: Attach actor refs to per-cause entries in three calculators
 
 **Stage 4 — Feedback loop fix**
 - [ ] 4.1: `festival_unreadiness_loop` requires festival_readiness as evidence

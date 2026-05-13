@@ -141,6 +141,7 @@ export function calculateFactionAnger(
       readable: `${arcs.length} active faction-tension arc(s).`,
       amount: FACTION_ARC_PER_ARC * arcs.length,
       tags: ['faction', 'arc'],
+      relatedActors: arcs.map((arc) => ({ kind: 'local_event', id: arc.id })),
       relatedSystems: ['localArcs', 'factions'],
     })
   }

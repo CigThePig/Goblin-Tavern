@@ -78,6 +78,7 @@ export function calculateCulturalTension(
       readable: `${conflictPairs} hostile customer-group pair(s) co-present.`,
       amount: CONFLICTING_GROUPS_PRESENT * conflictPairs,
       tags: ['customers', 'conflict'],
+      relatedActors: [...relatedActors],
       relatedSystems: ['customers', 'cultures'],
     })
   }

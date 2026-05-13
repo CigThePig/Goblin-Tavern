@@ -79,4 +79,6 @@ export type AttributionModuleState = {
   generatedToday: string[]
   /** Absolute day stamp of the most recent attribution pass. */
   lastUpdatedDay: number
+  /** Last absolute day a `rumour_distorts_cause` draft fired for each rumour id. */
+  recentDistrustByRumour: Record<string, number>
 }

@@ -10,7 +10,14 @@ import type { OwnerSocialActionRecord } from '../ownerActions/types'
 import { OWNER_ACTIONS_MODULE_ID } from '../ownerActions/ownerActionsModule'
 import { SERVICE_MODULE_ID } from '../service/serviceModule'
 
-import type { AttributionDraft } from './attributionTypes'
+import {
+  ATTRIBUTION_MODULE_ID,
+  getAttributionModuleState,
+} from './attributionQueries'
+import type {
+  AttributionDraft,
+  AttributionModuleState,
+} from './attributionTypes'
 
 // Phase 37 §37.4 — Attribution rules.
 //
@@ -528,6 +535,13 @@ const rivalTavernSuspicion: AttributionRule = {
   },
 }
 
+// Phase 37 — Rumour distrust rate-limit window. Without a cooldown, every
+// active rumour fires this rule every day and the resulting distrust
+// memories dominate entity-memory production. Seven days matches the
+// `recent_*` memory horizon used elsewhere and keeps the propagated
+// memories distributed across customer groups.
+const RUMOUR_DISTRUST_COOLDOWN_DAYS = 7
+
 const rumourDistortsCause: AttributionRule = {
   id: 'rumour_distorts_cause',
   tags: ['rumour', 'distortion'],
@@ -535,14 +549,32 @@ const rumourDistortsCause: AttributionRule = {
     const drafts: AttributionDraft[] = []
     const tavern = tavernRef(ctx.state)
     const rumours = spreadingRumours(ctx.state)
+    if (rumours.length === 0) return drafts
 
+    const today = ctx.state.calendar.totalDaysElapsed
+    const slice = getAttributionModuleState(ctx.state)
+    const cooldowns = slice?.recentDistrustByRumour ?? {}
+
+    const eligibleGroups = Object.values(ctx.state.customerGroups).filter(
+      (g) => g.patronage >= 25,
+    )
+    const rng = ctx.getRngStream('attribution_perceiver')
+
+    const firedRumourIds: string[] = []
     for (const rumour of rumours) {
       if (rumour.accuracy === 'true') continue
+      const lastDay = cooldowns[rumour.id]
+      if (lastDay !== undefined && today - lastDay < RUMOUR_DISTRUST_COOLDOWN_DAYS) {
+        continue
+      }
       const target: EntityRef = rumour.subject ?? tavern
-      // The rumour creates a perceiver-side false attribution from a
-      // pseudo "town" perceiver — represented as the system itself.
+      const perceiverGroup =
+        eligibleGroups.length > 0 ? rng.pick(eligibleGroups) : undefined
+      const perceivedBy: EntityRef = perceiverGroup
+        ? { kind: 'customer_group', id: perceiverGroup.id }
+        : { kind: 'system', id: 'town_gossip' }
       drafts.push({
-        perceivedBy: { kind: 'system', id: 'town_gossip' },
+        perceivedBy,
         target,
         attributionType: 'distrust',
         accuracy: rumour.accuracy === 'unknown' ? 'unknown' : rumour.accuracy,
@@ -555,6 +587,25 @@ const rumourDistortsCause: AttributionRule = {
         sourceEventId: rumour.id,
         relatedSystems: ['rumour'],
       })
+      firedRumourIds.push(rumour.id)
+    }
+
+    if (firedRumourIds.length > 0) {
+      ctx.modifyModuleState<AttributionModuleState>(
+        ATTRIBUTION_MODULE_ID,
+        (current) => {
+          const base = current ?? {
+            attributions: [],
+            generatedToday: [],
+            lastUpdatedDay: -1,
+            recentDistrustByRumour: {},
+          }
+          const recent = { ...(base.recentDistrustByRumour ?? {}) }
+          for (const id of firedRumourIds) recent[id] = today
+          return { ...base, recentDistrustByRumour: recent }
+        },
+        { source: `${ATTRIBUTION_MODULE_ID}.rumour_cooldown` },
+      )
     }
     return drafts
   },

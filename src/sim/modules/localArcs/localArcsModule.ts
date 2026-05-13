@@ -279,6 +279,7 @@ const endMonthHook: SimulationHook = (ctx: SimContext): void => {
       ctx.addMemory({
         id: `local_arc_resolved:${arc.definitionId}`,
         source: `${SOURCE}.${arc.definitionId}`,
+        actors: [{ kind: 'local_event', id: arc.id }],
         metadata: { arcId: arc.id, stage: outcome.nextStage },
       })
     } else {
@@ -320,6 +321,7 @@ const endMonthHook: SimulationHook = (ctx: SimContext): void => {
     ctx.addMemory({
       id: `local_arc_started:${def.id}`,
       source: `${SOURCE}.${def.id}`,
+      actors: [{ kind: 'local_event', id: instance.id }],
       metadata: { arcId: instance.id },
     })
   }

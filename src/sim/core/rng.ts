@@ -132,6 +132,7 @@ export type RngStreamId =
   | 'faction_behaviour'
   | 'seasonal_events'
   | 'issue_seed_selection'
+  | 'attribution_perceiver'
 
 export type RngStreamState = Record<RngStreamId, RngState>
 
@@ -153,6 +154,7 @@ const ALL_STREAM_IDS: ReadonlyArray<RngStreamId> = [
   'faction_behaviour',
   'seasonal_events',
   'issue_seed_selection',
+  'attribution_perceiver',
 ]
 
 export function createRngStreams(

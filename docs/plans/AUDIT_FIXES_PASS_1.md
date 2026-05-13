@@ -66,7 +66,7 @@ Two failing metrics — `named_entity_repetition` and `core.strategy_diversity` 
 - [x] 5.3: Stop using singleton `system:*` refs as `primaryActor`
 
 **Stage 6 — Optional balance touch-up**
-- [ ] 6.1: Tighten weekly faction memory creation triggers
+- [x] 6.1: Tighten weekly faction memory creation triggers (evaluated and skipped — `entity_memory_quality` measured at 72 after Stages 1–5, already over the 70 threshold; per the fix's own guidance, the marginal benefit isn't worth the noise)
 
 ---
 
@@ -964,6 +964,16 @@ Lower the thresholds:
 **Complexity:** S. 2 number changes.
 
 **Note:** Before applying, check the entity memory quality audit score after Stages 1-5. If it's already above 70, skip this fix — the marginal benefit isn't worth the noise it adds to faction memory production.
+
+**Outcome (post Stages 1–5).** Measured `entity_memory_quality.score = 72`
+on the 84-day cardless run (`buildExpandedReadinessReport({ days: 84 })`,
+seed `phase40-expanded-readiness-anchor`): 15 entity memories, 10 with
+owners, 15 with real targets, 4 strong, category breakdown
+`{ staff: 3, regular: 0, supplier: 1, faction: 0, area: 1, arc: 3 }`. Score
+already clears the 70 threshold, so this fix was deliberately **not
+applied** per the note above. Faction- and regular-memory shortfalls
+remain visible but are deferred to the next pass alongside the audit
+calibration items already listed under "Out of scope".
 
 ---
 

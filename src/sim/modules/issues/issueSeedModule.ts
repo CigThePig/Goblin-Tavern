@@ -206,6 +206,7 @@ const IssueSeedModuleStateSchema = z.object({
   totalGenerated: z.number().int().min(0),
   totalRejected: z.number().int().min(0),
   lastGeneratedDay: z.number().int(),
+  recentPicks: z.record(z.string(), z.record(z.string(), z.number().int())),
 })
 
 export const issueSeedsModule: SimulationModule = {

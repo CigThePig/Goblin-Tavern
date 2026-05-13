@@ -70,6 +70,45 @@ import {
 
 const PRESSURE_THRESHOLD = 35
 
+// Phase 40 audit pass 1 — Picker rotation. The same slow-moving entity
+// (worst-loyalty staff, dirtiest area, lowest-relationship faction) would
+// otherwise win the per-family argmax every day. We track recent picks
+// and apply a recency penalty so other candidates get a turn.
+const RECENCY_WINDOW_DAYS = 5
+const RECENCY_PENALTY = 25
+
+function recencyPenalty(
+  state: TavernState,
+  family: string,
+  entityKey: string,
+  today: number,
+): number {
+  const slice = state.modules.issueSeeds as
+    | { recentPicks?: Record<string, Record<string, number>> }
+    | undefined
+  const familyPicks = slice?.recentPicks?.[family] ?? {}
+  const lastDay = familyPicks[entityKey]
+  if (lastDay === undefined) return 0
+  if (today - lastDay >= RECENCY_WINDOW_DAYS) return 0
+  return RECENCY_PENALTY
+}
+
+function recordPick(ctx: SimContext, family: string, entityKey: string): void {
+  const today = ctx.state.calendar.totalDaysElapsed
+  ctx.modifyModuleState(
+    'issueSeeds',
+    (current) => {
+      const slice = (current ?? {}) as {
+        recentPicks?: Record<string, Record<string, number>>
+      } & Record<string, unknown>
+      const recent = { ...(slice.recentPicks ?? {}) }
+      recent[family] = { ...(recent[family] ?? {}), [entityKey]: today }
+      return { ...slice, recentPicks: recent } as never
+    },
+    { source: 'expandedSeedGenerators.recordPick' },
+  )
+}
+
 function pressureSnapshotsList(ctx: SimContext): IssueSeed['pressures'] {
   const slice = ctx.state.modules.pressures as
     | { snapshots?: Record<string, IssueSeed['pressures'][number]> }
@@ -132,16 +171,19 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
   if (allStaff.length === 0) return []
 
   // Pick the staff with strongest blame attribution + lowest loyalty.
+  const today = ctx.state.calendar.totalDaysElapsed
   let chosen = allStaff[0]!
   let chosenScore = -Infinity
   for (const s of allStaff) {
-    const ref = staffRef(s.id)
-    const attributions = attributionsByTarget(ctx.state, ref)
+    const candidateRef = staffRef(s.id)
+    const attributions = attributionsByTarget(ctx.state, candidateRef)
     const blameWeight = attributions
       .filter((a) => a.attributionType === 'blame' || a.attributionType === 'resentment')
       .reduce((acc, a) => acc + a.strength * (a.publicness / 100), 0)
     const loyaltyDeficit = 100 - s.loyalty
-    const score = blameWeight + loyaltyDeficit + s.stress + s.fatigue
+    const baseScore = blameWeight + loyaltyDeficit + s.stress + s.fatigue
+    const penalty = recencyPenalty(ctx.state, 'staff_identity', `staff:${s.id}`, today)
+    const score = baseScore - penalty
     if (score > chosenScore) {
       chosenScore = score
       chosen = s
@@ -150,6 +192,7 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
   const ref = staffRef(chosen.id)
   const guard = staffStillEmployedGuard(ctx, ref)
   if (!guard.allowed) return []
+  recordPick(ctx, 'staff_identity', `staff:${chosen.id}`)
 
   const memories = entityMemoryList(ctx.state, ref, ['staff'])
   const blameAttribution = strongestAttributionText(ctx.state, ref, ['blame', 'resentment'])
@@ -408,10 +451,13 @@ function generateRegularCustomer(ctx: SimContext): IssueSeed[] {
   if (regulars.length === 0) return []
 
   // Pick the regular with highest irritation / lowest loyalty.
+  const today = ctx.state.calendar.totalDaysElapsed
   let chosen = regulars[0]!
   let chosenScore = -Infinity
   for (const r of regulars) {
-    const score = r.irritation + (100 - r.loyalty)
+    const baseScore = r.irritation + (100 - r.loyalty)
+    const penalty = recencyPenalty(ctx.state, 'regular_customer', `regular:${r.id}`, today)
+    const score = baseScore - penalty
     if (score > chosenScore) {
       chosenScore = score
       chosen = r
@@ -420,6 +466,7 @@ function generateRegularCustomer(ctx: SimContext): IssueSeed[] {
   const ref = regularRef(chosen.id)
   const guard = regularExistsGuard(ctx, ref)
   if (!guard.allowed) return []
+  recordPick(ctx, 'regular_customer', `regular:${chosen.id}`)
 
   const memories = entityMemoryList(ctx.state, ref)
   if (memories.length === 0 && chosen.irritation < 50 && chosen.loyalty > 40) return []
@@ -686,16 +733,19 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
   if (suppliers.length === 0) return []
 
   // Pick the supplier with highest blame/distrust signal.
+  const today = ctx.state.calendar.totalDaysElapsed
   let chosen = suppliers[0]!
   let chosenScore = -Infinity
   for (const s of suppliers) {
-    const ref = supplierRef(s.id)
-    const blameWeight = attributionsByTarget(ctx.state, ref)
+    const candidateRef = supplierRef(s.id)
+    const blameWeight = attributionsByTarget(ctx.state, candidateRef)
       .filter((a) => a.attributionType === 'blame' || a.attributionType === 'distrust')
       .reduce((acc, a) => acc + a.strength, 0)
-    const memWeight = entityMemoryList(ctx.state, ref).length * 10
+    const memWeight = entityMemoryList(ctx.state, candidateRef).length * 10
     const reliabilityDeficit = 100 - s.reliability
-    const score = blameWeight + memWeight + reliabilityDeficit
+    const baseScore = blameWeight + memWeight + reliabilityDeficit
+    const penalty = recencyPenalty(ctx.state, 'supplier_relationship', `supplier:${s.id}`, today)
+    const score = baseScore - penalty
     if (score > chosenScore) {
       chosenScore = score
       chosen = s
@@ -704,6 +754,7 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
   const ref = supplierRef(chosen.id)
   const guard = supplierExistsGuard(ctx, ref)
   if (!guard.allowed) return []
+  recordPick(ctx, 'supplier_relationship', `supplier:${chosen.id}`)
 
   const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'supplier_distrust', 2)
   causes.push(...pressureCauseRefsAsEntries(ctx, 'market_instability', 2))
@@ -953,10 +1004,13 @@ function generateFactionRequest(ctx: SimContext): IssueSeed[] {
   const factions = Object.values(ctx.state.world.factions)
   if (factions.length === 0) return []
 
+  const today = ctx.state.calendar.totalDaysElapsed
   let chosen = factions[0]!
   let chosenScore = -Infinity
   for (const f of factions) {
-    const score = Math.abs(50 - f.relationship) + f.influence * 0.5
+    const baseScore = Math.abs(50 - f.relationship) + f.influence * 0.5
+    const penalty = recencyPenalty(ctx.state, 'faction_request', `faction:${f.id}`, today)
+    const score = baseScore - penalty
     if (score > chosenScore) {
       chosenScore = score
       chosen = f
@@ -965,6 +1019,7 @@ function generateFactionRequest(ctx: SimContext): IssueSeed[] {
   const ref = factionRef(chosen.id)
   const guard = factionExistsGuard(ctx, ref)
   if (!guard.allowed) return []
+  recordPick(ctx, 'faction_request', `faction:${chosen.id}`)
 
   const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'faction_anger', 3)
   for (const c of recentCauseEntries(ctx, ['faction', chosen.id, 'culture'], 14, 3)) {
@@ -1023,26 +1078,175 @@ function generateFactionRequest(ctx: SimContext): IssueSeed[] {
     },
   ]
 
-  const consequenceProfiles: ConsequenceProfile[] = responseSlots.map((slot) =>
+  const consequenceProfiles: ConsequenceProfile[] = [
     makeProfile({
-      id: `${slot.id}_profile`,
-      responseSlotId: slot.id,
+      id: 'appease_faction_profile',
+      responseSlotId: 'appease_faction',
       immediateEffects: [
-        effect('cause', `faction:${chosen.id}`, slot.id === 'refuse_faction' ? -10 : 8, slot.labelHint, [
+        effect('state_change', `factions.${chosen.id}.relationship`, 15, 'Relationship rises', [
           'faction',
         ]),
+        effect('state_change', 'coin', -20, 'Appeasement cost', ['coin']),
+        effect('pressure', 'pressure:faction_anger', -10, 'Faction anger eases', ['pressure']),
       ],
       delayedEffects: [],
       memories: [
         {
-          id: `faction_${slot.id}_${chosen.id}`,
+          id: `faction_appeased_${chosen.id}`,
           actors: [ref],
-          tags: ['faction', slot.id],
+          tags: ['faction', 'appease', 'gratitude'],
         },
       ],
       futureHooks: [],
     }),
-  )
+    makeProfile({
+      id: 'negotiate_terms_profile',
+      responseSlotId: 'negotiate_terms',
+      immediateEffects: [
+        effect('state_change', `factions.${chosen.id}.relationship`, 10, 'Relationship improves', [
+          'faction',
+        ]),
+        effect('state_change', `factions.${chosen.id}.trust`, 8, 'Trust grows', ['faction']),
+        effect('pressure', 'pressure:faction_anger', -6, 'Anger softens', ['pressure']),
+      ],
+      delayedEffects: [],
+      memories: [
+        {
+          id: `faction_negotiated_${chosen.id}`,
+          actors: [ref],
+          tags: ['faction', 'negotiation'],
+        },
+      ],
+      futureHooks: [],
+    }),
+    makeProfile({
+      id: 'refuse_faction_profile',
+      responseSlotId: 'refuse_faction',
+      immediateEffects: [
+        effect('state_change', `factions.${chosen.id}.relationship`, -20, 'Relationship collapses', [
+          'faction',
+        ]),
+        effect('state_change', `factions.${chosen.id}.trust`, -12, 'Trust drops', ['faction']),
+        effect('pressure', 'pressure:faction_anger', 12, 'Faction anger spikes', ['pressure']),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `faction_grudge_${chosen.id}`,
+          0,
+          'Faction may retaliate',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `faction_refused_${chosen.id}`,
+          actors: [ref],
+          tags: ['faction', 'grudge', 'refusal'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `faction_grudge_${chosen.id}`,
+          actors: [ref],
+          tags: ['faction', 'risk'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'host_faction_night_profile',
+      responseSlotId: 'host_faction_night',
+      immediateEffects: [
+        effect('state_change', `factions.${chosen.id}.relationship`, 18, 'Hosting wins favour', [
+          'faction',
+        ]),
+        effect('state_change', `factions.${chosen.id}.influence`, 5, 'Faction influence rises', [
+          'faction',
+        ]),
+        effect('state_change', 'coin', -15, 'Event costs', ['coin']),
+      ],
+      delayedEffects: [
+        effect('pressure', 'pressure:cultural_tension', 5, 'Other groups feel sidelined', ['pressure']),
+      ],
+      memories: [
+        {
+          id: `faction_hosted_${chosen.id}`,
+          actors: [ref],
+          tags: ['faction', 'host', 'investment'],
+        },
+      ],
+      futureHooks: [],
+    }),
+    makeProfile({
+      id: 'call_watch_profile',
+      responseSlotId: 'call_watch',
+      immediateEffects: [
+        effect('state_change', `factions.${chosen.id}.relationship`, -25, 'Faction sees betrayal', [
+          'faction',
+        ]),
+        effect('state_change', `factions.${chosen.id}.fear`, 15, 'Faction fears retaliation', [
+          'faction',
+        ]),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `faction_revenge_${chosen.id}`,
+          0,
+          'Faction may seek revenge',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `faction_watch_called_${chosen.id}`,
+          actors: [ref],
+          tags: ['faction', 'escalation', 'betrayal'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `faction_revenge_${chosen.id}`,
+          actors: [ref],
+          tags: ['faction', 'risk'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'play_rival_faction_profile',
+      responseSlotId: 'play_rival_faction',
+      immediateEffects: [
+        effect('state_change', `factions.${chosen.id}.relationship`, 5, 'Shift relationship slightly', [
+          'faction',
+        ]),
+        effect('state_change', `factions.${chosen.id}.trust`, -8, 'Trust quietly erodes', ['faction']),
+      ],
+      delayedEffects: [
+        effect('pressure', 'pressure:rumour_pressure', 8, 'Whispers spread', ['pressure']),
+        effect(
+          'future_hook',
+          `faction_deception_exposed_${chosen.id}`,
+          0,
+          'Deception may surface',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `faction_played_${chosen.id}`,
+          actors: [ref],
+          tags: ['faction', 'deception'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `faction_deception_exposed_${chosen.id}`,
+          actors: [ref],
+          tags: ['faction', 'risk', 'deception'],
+        },
+      ],
+    }),
+  ]
 
   const memoryText = strongestMemoryText(ctx.state, ref)
   const relevantMemories: string[] = memoryText ? [memoryText] : []
@@ -1105,15 +1309,19 @@ function generateCultureConflict(ctx: SimContext): IssueSeed[] {
   const cultures = Object.values(ctx.state.world.cultures)
   if (cultures.length === 0) return []
 
+  const today = ctx.state.calendar.totalDaysElapsed
   let chosen = cultures[0]!
   let chosenScore = -Infinity
   for (const c of cultures) {
-    if (c.tension > chosenScore) {
-      chosenScore = c.tension
+    const penalty = recencyPenalty(ctx.state, 'culture_conflict', `culture:${c.id}`, today)
+    const score = c.tension - penalty
+    if (score > chosenScore) {
+      chosenScore = score
       chosen = c
     }
   }
   const ref = cultureRef(chosen.id)
+  recordPick(ctx, 'culture_conflict', `culture:${chosen.id}`)
 
   const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'cultural_tension', 3)
   for (const c of recentCauseEntries(ctx, ['culture', chosen.id, 'cultural'], 14, 3)) {
@@ -1178,30 +1386,137 @@ function generateCultureConflict(ctx: SimContext): IssueSeed[] {
     },
   ]
 
-  const consequenceProfiles: ConsequenceProfile[] = responseSlots.map((slot) =>
+  const consequenceProfiles: ConsequenceProfile[] = [
     makeProfile({
-      id: `${slot.id}_profile`,
-      responseSlotId: slot.id,
+      id: 'mediate_groups_profile',
+      responseSlotId: 'mediate_groups',
       immediateEffects: [
-        effect(
-          'cause',
-          `culture:${chosen.id}`,
-          slot.id === 'ignore_custom' ? -8 : 6,
-          slot.labelHint,
-          ['culture'],
-        ),
+        effect('state_change', `cultures.${chosen.id}.tension`, -15, 'Tension drops', ['culture']),
+        effect('state_change', `cultures.${chosen.id}.comfort`, 10, 'Comfort rises', ['culture']),
+        effect('pressure', 'pressure:cultural_tension', -10, 'Tension eases', ['pressure']),
       ],
       delayedEffects: [],
       memories: [
         {
-          id: `culture_${slot.id}_${chosen.id}`,
+          id: `culture_mediated_${chosen.id}`,
           actors: [ref],
-          tags: ['culture', slot.id],
+          tags: ['culture', 'mediation', 'compromise'],
         },
       ],
       futureHooks: [],
     }),
-  )
+    makeProfile({
+      id: 'honour_custom_profile',
+      responseSlotId: 'honour_custom',
+      immediateEffects: [
+        effect('state_change', `cultures.${chosen.id}.familiarity`, 15, 'Familiarity grows', [
+          'culture',
+        ]),
+        effect('state_change', `cultures.${chosen.id}.comfort`, 12, 'Group feels seen', ['culture']),
+        effect('state_change', 'coin', -10, 'Custom honoured', ['coin']),
+      ],
+      delayedEffects: [
+        effect('pressure', 'pressure:cultural_tension', -8, 'Cultural tension eases', ['pressure']),
+      ],
+      memories: [
+        {
+          id: `culture_honoured_${chosen.id}`,
+          actors: [ref],
+          tags: ['culture', 'honour', 'investment'],
+        },
+      ],
+      futureHooks: [],
+    }),
+    makeProfile({
+      id: 'ignore_custom_profile',
+      responseSlotId: 'ignore_custom',
+      immediateEffects: [],
+      delayedEffects: [
+        effect('state_change', `cultures.${chosen.id}.tension`, 12, 'Tension rises', ['culture']),
+        effect('state_change', `cultures.${chosen.id}.comfort`, -8, 'Comfort erodes', ['culture']),
+        effect('pressure', 'pressure:cultural_tension', 10, 'Tension grows', ['pressure']),
+      ],
+      memories: [
+        {
+          id: `culture_ignored_${chosen.id}`,
+          actors: [ref],
+          tags: ['culture', 'ignored', 'neglected'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `culture_walkout_risk_${chosen.id}`,
+          actors: [ref],
+          tags: ['culture', 'risk'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'change_seating_policy_profile',
+      responseSlotId: 'change_seating_policy',
+      immediateEffects: [
+        effect('state_change', `cultures.${chosen.id}.tension`, -10, 'Seating eases this group', [
+          'culture',
+        ]),
+        effect('state_change', `cultures.${chosen.id}.comfort`, 8, 'Group settles', ['culture']),
+      ],
+      delayedEffects: [
+        effect('pressure', 'pressure:cultural_tension', 5, 'Other groups feel sidelined', [
+          'pressure',
+        ]),
+        effect('state_change', 'reputation.strange', 6, 'House reads as taking sides', ['reputation']),
+      ],
+      memories: [
+        {
+          id: `culture_seating_${chosen.id}`,
+          actors: [ref],
+          tags: ['culture', 'seating', 'compromise'],
+        },
+      ],
+      futureHooks: [],
+    }),
+    makeProfile({
+      id: 'offer_discount_profile',
+      responseSlotId: 'offer_discount',
+      immediateEffects: [
+        effect('state_change', `cultures.${chosen.id}.comfort`, 15, 'Discount buys comfort', [
+          'culture',
+        ]),
+        effect('state_change', 'coin', -15, 'Discount cost', ['coin']),
+        effect('pressure', 'pressure:cultural_tension', -8, 'Tension eases', ['pressure']),
+      ],
+      delayedEffects: [],
+      memories: [
+        {
+          id: `culture_discounted_${chosen.id}`,
+          actors: [ref],
+          tags: ['culture', 'discount', 'gratitude'],
+        },
+      ],
+      futureHooks: [],
+    }),
+    makeProfile({
+      id: 'ask_staff_to_intervene_profile',
+      responseSlotId: 'ask_staff_to_intervene',
+      immediateEffects: [
+        effect('state_change', `cultures.${chosen.id}.tension`, -8, 'Visible tension drops', [
+          'culture',
+        ]),
+        effect('pressure', 'pressure:staff_burnout', 8, 'Staff carry the strain', ['pressure']),
+      ],
+      delayedEffects: [
+        effect('pressure', 'pressure:staff_loyalty_risk', 5, 'Staff resent the burden', ['pressure']),
+      ],
+      memories: [
+        {
+          id: `culture_staff_intervene_${chosen.id}`,
+          actors: [ref],
+          tags: ['culture', 'staff', 'delegate'],
+        },
+      ],
+      futureHooks: [],
+    }),
+  ]
 
   return [
     buildSeed({
@@ -1258,21 +1573,29 @@ function generateAreaAtmosphere(ctx: SimContext): IssueSeed[] {
   const allAreas = Object.values(ctx.state.areas)
   if (allAreas.length === 0) return []
 
+  const today = ctx.state.calendar.totalDaysElapsed
   let chosen = allAreas[0]!
   let chosenScore = -Infinity
+  let chosenRawScore = 0
+  let bestPenalised = -Infinity
   for (const a of allAreas) {
     const dirty = 100 - (a.cleanliness ?? 50)
     const damaged = a.damage ?? 0
-    const score = dirty + damaged
-    if (score > chosenScore) {
-      chosenScore = score
+    const rawScore = dirty + damaged
+    const penalty = recencyPenalty(ctx.state, 'area_atmosphere', `area:${a.id}`, today)
+    const penalised = rawScore - penalty
+    if (penalised > bestPenalised) {
+      bestPenalised = penalised
+      chosenScore = rawScore
+      chosenRawScore = rawScore
       chosen = a
     }
   }
   // Don't fire when the area is fine.
-  if (chosenScore < 60) return []
+  if (chosenRawScore < 60) return []
 
   const ref = areaRef(chosen.id)
+  recordPick(ctx, 'area_atmosphere', `area:${chosen.id}`)
   const causes: CauseEntry[] = []
   for (const c of recentCauseEntries(ctx, ['area', chosen.id, 'cleanliness', 'damage'], 14, 4)) {
     causes.push(c)
@@ -1340,26 +1663,146 @@ function generateAreaAtmosphere(ctx: SimContext): IssueSeed[] {
     },
   ]
 
-  const consequenceProfiles: ConsequenceProfile[] = responseSlots.map((slot) =>
+  const consequenceProfiles: ConsequenceProfile[] = [
     makeProfile({
-      id: `${slot.id}_profile`,
-      responseSlotId: slot.id,
+      id: 'repair_area_profile',
+      responseSlotId: 'repair_area',
       immediateEffects: [
-        effect('cause', `area:${chosen.id}`, slot.id === 'ignore_area_problem' ? -5 : 5, slot.labelHint, [
-          'area',
-        ]),
+        effect('state_change', `areas.${chosen.id}.condition`, 15, 'Condition restored', ['area']),
+        effect('state_change', `areas.${chosen.id}.damage`, -15, 'Damage reduced', ['area']),
+        effect('state_change', 'coin', -15, 'Repair cost', ['coin']),
       ],
       delayedEffects: [],
       memories: [
         {
-          id: `area_${slot.id}_${chosen.id}`,
+          id: `area_repaired_${chosen.id}`,
           actors: [ref],
-          tags: ['area', slot.id],
+          tags: ['area', 'repair'],
         },
       ],
       futureHooks: [],
     }),
-  )
+    makeProfile({
+      id: 'clean_area_profile',
+      responseSlotId: 'clean_area',
+      immediateEffects: [
+        effect('state_change', `areas.${chosen.id}.cleanliness`, 20, 'Area cleaned', ['area']),
+        effect('state_change', `areas.${chosen.id}.smell`, -12, 'Smell reduced', ['area']),
+        effect('state_change', `areas.${chosen.id}.mess`, -10, 'Mess cleared', ['area']),
+      ],
+      delayedEffects: [],
+      memories: [
+        {
+          id: `area_cleaned_${chosen.id}`,
+          actors: [ref],
+          tags: ['area', 'cleaning'],
+        },
+      ],
+      futureHooks: [],
+    }),
+    makeProfile({
+      id: 'start_project_profile',
+      responseSlotId: 'start_project',
+      immediateEffects: [
+        effect('state_change', 'coin', -25, 'Project investment', ['coin']),
+        effect('state_change', `areas.${chosen.id}.condition`, 10, 'Initial upgrade work', ['area']),
+      ],
+      delayedEffects: [
+        effect('state_change', `areas.${chosen.id}.condition`, 20, 'Project completes', ['area']),
+        effect('pressure', 'pressure:maintenance', -10, 'Maintenance pressure eases', ['pressure']),
+      ],
+      memories: [
+        {
+          id: `area_project_started_${chosen.id}`,
+          actors: [ref],
+          tags: ['area', 'project', 'upgrade'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `area_project_completion_${chosen.id}`,
+          actors: [ref],
+          tags: ['area', 'project'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'close_area_temporarily_profile',
+      responseSlotId: 'close_area_temporarily',
+      immediateEffects: [
+        effect('state_change', `areas.${chosen.id}.damage`, -8, 'Damage stops accruing', ['area']),
+        effect('state_change', `areas.${chosen.id}.cleanliness`, 10, 'Empty area gets tidied', ['area']),
+      ],
+      delayedEffects: [
+        effect('pressure', 'pressure:stock_shortage', 6, 'Capacity loss strains service', ['pressure']),
+      ],
+      memories: [
+        {
+          id: `area_closed_${chosen.id}`,
+          actors: [ref],
+          tags: ['area', 'closed', 'compromise'],
+        },
+      ],
+      futureHooks: [],
+    }),
+    makeProfile({
+      id: 'rebrand_area_profile',
+      responseSlotId: 'rebrand_area',
+      immediateEffects: [
+        effect('state_change', 'reputation.respectable', -8, 'Reputation shifts on identity gamble', [
+          'reputation',
+        ]),
+        effect('state_change', `areas.${chosen.id}.condition`, 5, 'Coat of paint masks problem', ['area']),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `area_rebrand_audience_shift_${chosen.id}`,
+          0,
+          'Audience may narrow',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `area_rebranded_${chosen.id}`,
+          actors: [ref],
+          tags: ['area', 'rebrand', 'reputation'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `area_rebrand_audience_shift_${chosen.id}`,
+          actors: [ref],
+          tags: ['area', 'risk'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'ignore_area_problem_profile',
+      responseSlotId: 'ignore_area_problem',
+      immediateEffects: [],
+      delayedEffects: [
+        effect('pressure', 'pressure:maintenance', 10, 'Maintenance pressure rises', ['pressure']),
+        effect('state_change', `areas.${chosen.id}.condition`, -8, 'Slow decay', ['area']),
+        effect('state_change', `areas.${chosen.id}.damage`, 6, 'Damage accrues', ['area']),
+      ],
+      memories: [
+        {
+          id: `area_ignored_${chosen.id}`,
+          actors: [ref],
+          tags: ['area', 'neglected'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `area_collapse_risk_${chosen.id}`,
+          actors: [ref],
+          tags: ['area', 'risk'],
+        },
+      ],
+    }),
+  ]
 
   const memoryText = strongestMemoryText(ctx.state, ref, ['area'])
   const relevantMemories: string[] = memoryText ? [memoryText] : []
@@ -1420,12 +1863,15 @@ function generateSeasonalArc(ctx: SimContext): IssueSeed[] {
   const festival = pressureSnapshotById(ctx, 'festival_readiness')
 
   // Pick the most "interesting" arc — highest intensity + advanced stage.
+  const today = ctx.state.calendar.totalDaysElapsed
   let chosen = arcs[0]!
   let chosenScore = -Infinity
   for (const arc of arcs) {
     const stageScore =
       arc.stage === 'climax' ? 50 : arc.stage === 'active' ? 30 : arc.stage === 'rising' ? 15 : 5
-    const score = (arc.intensity ?? 0) + stageScore
+    const baseScore = (arc.intensity ?? 0) + stageScore
+    const penalty = recencyPenalty(ctx.state, 'seasonal_arc', `local_event:${arc.id}`, today)
+    const score = baseScore - penalty
     if (score > chosenScore) {
       chosenScore = score
       chosen = arc
@@ -1434,6 +1880,7 @@ function generateSeasonalArc(ctx: SimContext): IssueSeed[] {
   const ref = localArcRef(chosen.id)
   const guard = activeArcExistsGuard(ctx, ref)
   if (!guard.allowed) return []
+  recordPick(ctx, 'seasonal_arc', `local_event:${chosen.id}`)
 
   const causes: CauseEntry[] = []
   for (const c of recentCauseEntries(ctx, ['arc', chosen.id, chosen.definitionId, 'festival'], 14, 4)) {
@@ -1494,26 +1941,184 @@ function generateSeasonalArc(ctx: SimContext): IssueSeed[] {
     },
   ]
 
-  const consequenceProfiles: ConsequenceProfile[] = responseSlots.map((slot) =>
+  const consequenceProfiles: ConsequenceProfile[] = [
     makeProfile({
-      id: `${slot.id}_profile`,
-      responseSlotId: slot.id,
+      id: 'prepare_for_arc_profile',
+      responseSlotId: 'prepare_for_arc',
       immediateEffects: [
-        effect('cause', `arc:${chosen.id}`, slot.id === 'ignore_warning' ? -8 : 5, slot.labelHint, [
-          'arc',
+        effect('pressure', 'pressure:festival_readiness', -15, 'Readiness climbs', ['pressure']),
+        effect('state_change', 'coin', -20, 'Preparation cost', ['coin']),
+        effect('pressure', 'pressure:arc_escalation', -8, 'Arc pressure eases', ['pressure']),
+      ],
+      delayedEffects: [
+        effect('state_change', 'reputation.reliable', 8, 'Tavern prepared for the moment', [
+          'reputation',
         ]),
       ],
-      delayedEffects: [],
       memories: [
         {
-          id: `arc_${slot.id}_${chosen.id}`,
+          id: `arc_prepared_${chosen.id}`,
           actors: [ref],
-          tags: ['arc', slot.id],
+          tags: ['arc', 'preparation', 'investment'],
         },
       ],
       futureHooks: [],
     }),
-  )
+    makeProfile({
+      id: 'exploit_arc_profile',
+      responseSlotId: 'exploit_arc',
+      immediateEffects: [
+        effect('state_change', 'coin', 20, 'Premium prices', ['coin']),
+        effect('state_change', 'reputation.cheap', -10, 'No longer feels affordable', [
+          'reputation',
+        ]),
+      ],
+      delayedEffects: [
+        effect('pressure', 'pressure:regular_customer_loss', 10, 'Regulars feel gouged', ['pressure']),
+        effect(
+          'future_hook',
+          `arc_exploit_backlash_${chosen.id}`,
+          0,
+          'Reputation backlash possible',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `arc_exploited_${chosen.id}`,
+          actors: [ref],
+          tags: ['arc', 'exploit', 'risky'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `arc_exploit_backlash_${chosen.id}`,
+          actors: [ref],
+          tags: ['arc', 'risk'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'delay_preparation_profile',
+      responseSlotId: 'delay_preparation',
+      immediateEffects: [],
+      delayedEffects: [
+        effect('pressure', 'pressure:festival_readiness', 12, 'Readiness slips further', [
+          'pressure',
+        ]),
+        effect('pressure', 'pressure:arc_escalation', 10, 'Arc escalates', ['pressure']),
+        effect('pressure', 'pressure:staff_burnout', 6, 'Rush work later strains staff', [
+          'pressure',
+        ]),
+      ],
+      memories: [
+        {
+          id: `arc_delayed_${chosen.id}`,
+          actors: [ref],
+          tags: ['arc', 'delayed'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `arc_unprepared_${chosen.id}`,
+          actors: [ref],
+          tags: ['arc', 'risk'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'ask_supplier_help_profile',
+      responseSlotId: 'ask_supplier_help',
+      immediateEffects: [
+        effect('pressure', 'pressure:festival_readiness', -12, 'Stock secured for arc', ['pressure']),
+        effect('pressure', 'pressure:stock_shortage', -8, 'Stock pressure eases', ['pressure']),
+      ],
+      delayedEffects: [
+        effect('pressure', 'pressure:supplier_distrust', 5, 'Owed favour shifts balance', [
+          'pressure',
+        ]),
+        effect(
+          'future_hook',
+          `arc_supplier_favour_owed_${chosen.id}`,
+          0,
+          'Favour will be called in',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `arc_supplier_helped_${chosen.id}`,
+          actors: [ref],
+          tags: ['arc', 'supplier', 'compromise'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `arc_supplier_favour_owed_${chosen.id}`,
+          actors: [ref],
+          tags: ['arc', 'supplier', 'debt'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'ask_faction_help_profile',
+      responseSlotId: 'ask_faction_help',
+      immediateEffects: [
+        effect('pressure', 'pressure:festival_readiness', -15, 'Faction backing secures arc', [
+          'pressure',
+        ]),
+        effect('pressure', 'pressure:arc_escalation', -6, 'Arc steadies', ['pressure']),
+      ],
+      delayedEffects: [
+        effect('pressure', 'pressure:faction_anger', 8, 'Debt to faction simmers', ['pressure']),
+        effect(
+          'future_hook',
+          `arc_faction_debt_${chosen.id}`,
+          0,
+          'Faction will demand repayment',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `arc_faction_helped_${chosen.id}`,
+          actors: [ref],
+          tags: ['arc', 'faction', 'debt'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `arc_faction_debt_${chosen.id}`,
+          actors: [ref],
+          tags: ['arc', 'faction', 'debt'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'ignore_warning_profile',
+      responseSlotId: 'ignore_warning',
+      immediateEffects: [],
+      delayedEffects: [
+        effect('pressure', 'pressure:festival_readiness', 15, 'Readiness collapses', ['pressure']),
+        effect('pressure', 'pressure:arc_escalation', 12, 'Arc spirals', ['pressure']),
+        effect('state_change', 'reputation.reliable', -8, 'Reputation suffers', ['reputation']),
+      ],
+      memories: [
+        {
+          id: `arc_ignored_${chosen.id}`,
+          actors: [ref],
+          tags: ['arc', 'ignored'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `arc_failure_${chosen.id}`,
+          actors: [ref],
+          tags: ['arc', 'risk', 'failure'],
+        },
+      ],
+    }),
+  ]
 
   const arcContext: string[] = [`stage ${chosen.stage ?? 'unknown'}`]
   if (escalation) arcContext.push(`escalation ${escalation.value}`)
@@ -1819,30 +2424,179 @@ function generateRumourCrisis(ctx: SimContext): IssueSeed[] {
     },
   ]
 
-  const consequenceProfiles: ConsequenceProfile[] = responseSlots.map((slot) =>
+  const consequenceProfiles: ConsequenceProfile[] = [
     makeProfile({
-      id: `${slot.id}_profile`,
-      responseSlotId: slot.id,
+      id: 'deny_rumour_profile',
+      responseSlotId: 'deny_rumour',
       immediateEffects: [
+        effect('pressure', 'pressure:rumour_pressure', -10, 'Public denial blunts rumour', [
+          'pressure',
+        ]),
+        effect('state_change', 'reputation.respectable', -6, 'Credibility takes a hit', [
+          'reputation',
+        ]),
+      ],
+      delayedEffects: [
         effect(
-          'cause',
-          `rumour:${target.kind}:${target.id}`,
-          slot.id === 'ignore_rumour' ? -5 : 5,
-          slot.labelHint,
-          ['rumour'],
+          'future_hook',
+          `rumour_denial_backfire_${target.kind}_${target.id}`,
+          0,
+          'Denial may backfire if true',
+          ['future_hook'],
         ),
+      ],
+      memories: [
+        {
+          id: `rumour_denied_${target.kind}_${target.id}`,
+          actors: [target],
+          tags: ['rumour', 'denial', 'reputation'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `rumour_denial_backfire_${target.kind}_${target.id}`,
+          actors: [target],
+          tags: ['rumour', 'risk'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'confess_partial_truth_profile',
+      responseSlotId: 'confess_partial_truth',
+      immediateEffects: [
+        effect('pressure', 'pressure:rumour_pressure', -15, 'Honesty disarms the rumour', [
+          'pressure',
+        ]),
+        effect('state_change', 'reputation.respectable', 8, 'Audience respects candour', [
+          'reputation',
+        ]),
+        effect('state_change', 'reputation.reliable', 10, 'Reliable reputation grows', ['reputation']),
       ],
       delayedEffects: [],
       memories: [
         {
-          id: `rumour_${slot.id}_${target.kind}_${target.id}`,
+          id: `rumour_confessed_${target.kind}_${target.id}`,
           actors: [target],
-          tags: ['rumour', slot.id],
+          tags: ['rumour', 'confess', 'honesty'],
         },
       ],
       futureHooks: [],
     }),
-  )
+    makeProfile({
+      id: 'blame_someone_else_profile',
+      responseSlotId: 'blame_someone_else',
+      immediateEffects: [
+        effect('pressure', 'pressure:rumour_pressure', -8, 'Deflection muddies the story', [
+          'pressure',
+        ]),
+        effect('state_change', 'reputation.respectable', -4, 'Audience smells dishonesty', [
+          'reputation',
+        ]),
+      ],
+      delayedEffects: [
+        effect('pressure', 'pressure:cultural_tension', 8, 'Blamed party simmers', ['pressure']),
+        effect(
+          'future_hook',
+          `rumour_blame_grudge_${target.kind}_${target.id}`,
+          0,
+          'Blamed party may grudge',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `rumour_deflected_${target.kind}_${target.id}`,
+          actors: [target],
+          tags: ['rumour', 'deception', 'blame'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `rumour_blame_grudge_${target.kind}_${target.id}`,
+          actors: [target],
+          tags: ['rumour', 'risk', 'grudge'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'prove_truth_profile',
+      responseSlotId: 'prove_truth',
+      immediateEffects: [
+        effect('pressure', 'pressure:rumour_pressure', -20, 'Evidence ends the rumour', [
+          'pressure',
+        ]),
+        effect('state_change', 'reputation.respectable', 12, 'Credibility climbs', [
+          'reputation',
+        ]),
+        effect('state_change', 'coin', -10, 'Investigation costs', ['coin']),
+      ],
+      delayedEffects: [],
+      memories: [
+        {
+          id: `rumour_disproved_${target.kind}_${target.id}`,
+          actors: [target],
+          tags: ['rumour', 'truth', 'investment'],
+        },
+      ],
+      futureHooks: [],
+    }),
+    makeProfile({
+      id: 'bribe_gossip_profile',
+      responseSlotId: 'bribe_gossip',
+      immediateEffects: [
+        effect('state_change', 'coin', -20, 'Pay the gossip', ['coin']),
+        effect('pressure', 'pressure:rumour_pressure', -12, 'Source quiets down', ['pressure']),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `rumour_bribe_exposed_${target.kind}_${target.id}`,
+          0,
+          'Bribe may be exposed',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `rumour_bribed_${target.kind}_${target.id}`,
+          actors: [target],
+          tags: ['rumour', 'bribe', 'risk'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `rumour_bribe_exposed_${target.kind}_${target.id}`,
+          actors: [target],
+          tags: ['rumour', 'risk', 'corruption'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'ignore_rumour_profile',
+      responseSlotId: 'ignore_rumour',
+      immediateEffects: [],
+      delayedEffects: [
+        effect('pressure', 'pressure:rumour_pressure', 12, 'Silence lets rumour grow', [
+          'pressure',
+        ]),
+        effect('state_change', 'reputation.dangerous', 8, 'Reputation rots', ['reputation']),
+      ],
+      memories: [
+        {
+          id: `rumour_ignored_${target.kind}_${target.id}`,
+          actors: [target],
+          tags: ['rumour', 'ignored'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `rumour_escalation_${target.kind}_${target.id}`,
+          actors: [target],
+          tags: ['rumour', 'risk'],
+        },
+      ],
+    }),
+  ]
 
   const perceivedBlame: string[] = [dramatic.readable]
 
@@ -1855,7 +2609,11 @@ function generateRumourCrisis(ctx: SimContext): IssueSeed[] {
       domain: ['rumours', 'reputation', 'social'],
       severity: Math.max(35, rumourPressure.severity),
       urgency: Math.max(30, rumourPressure.urgency),
-      primaryActor: target,
+      // Audit fixes pass 1 §5.3 — Only attach a primaryActor when the
+      // rumour points at a real entity. A tavern-wide rumour has no
+      // single character on the hook, so leave primary unset and let the
+      // affected list represent the rumour locus.
+      ...(target.kind !== 'tavern_identity' ? { primaryActor: target } : {}),
       affectedActors: [target],
       causes,
       pressures: pressureSnapshotsFor(ctx, ['rumour_pressure', 'reputation_drift']),
@@ -1932,26 +2690,90 @@ function rumourSeedFromRumour(
     },
   ]
 
-  const consequenceProfiles: ConsequenceProfile[] = responseSlots.map((slot) =>
+  const consequenceProfiles: ConsequenceProfile[] = [
     makeProfile({
-      id: `${slot.id}_profile`,
-      responseSlotId: slot.id,
+      id: 'deny_rumour_profile',
+      responseSlotId: 'deny_rumour',
       immediateEffects: [
-        effect('cause', `rumour:${rumour.id}`, slot.id === 'ignore_rumour' ? -5 : 5, slot.labelHint, [
-          'rumour',
+        effect('pressure', 'pressure:rumour_pressure', -10, 'Public denial blunts rumour', [
+          'pressure',
         ]),
+        effect('state_change', 'reputation.respectable', -6, 'Credibility takes a hit', [
+          'reputation',
+        ]),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `rumour_denial_backfire_${rumour.id}`,
+          0,
+          'Denial may backfire',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `rumour_denied_${rumour.id}`,
+          actors: [ref],
+          tags: ['rumour', 'denial'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `rumour_denial_backfire_${rumour.id}`,
+          actors: [ref],
+          tags: ['rumour', 'risk'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'ignore_rumour_profile',
+      responseSlotId: 'ignore_rumour',
+      immediateEffects: [],
+      delayedEffects: [
+        effect('pressure', 'pressure:rumour_pressure', 12, 'Silence lets rumour grow', [
+          'pressure',
+        ]),
+        effect('state_change', 'reputation.dangerous', 8, 'Reputation rots', ['reputation']),
+      ],
+      memories: [
+        {
+          id: `rumour_ignored_${rumour.id}`,
+          actors: [ref],
+          tags: ['rumour', 'ignored'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `rumour_escalation_${rumour.id}`,
+          actors: [ref],
+          tags: ['rumour', 'risk'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'confess_partial_truth_profile',
+      responseSlotId: 'confess_partial_truth',
+      immediateEffects: [
+        effect('pressure', 'pressure:rumour_pressure', -15, 'Honesty disarms the rumour', [
+          'pressure',
+        ]),
+        effect('state_change', 'reputation.respectable', 8, 'Audience respects candour', [
+          'reputation',
+        ]),
+        effect('state_change', 'reputation.reliable', 10, 'Reliable reputation grows', ['reputation']),
       ],
       delayedEffects: [],
       memories: [
         {
-          id: `rumour_${slot.id}_${rumour.id}`,
+          id: `rumour_confessed_${rumour.id}`,
           actors: [ref],
-          tags: ['rumour', slot.id],
+          tags: ['rumour', 'confess', 'honesty'],
         },
       ],
       futureHooks: [],
     }),
-  )
+  ]
 
   return [
     buildSeed({
@@ -1962,7 +2784,10 @@ function rumourSeedFromRumour(
       domain: ['rumours', 'reputation'],
       severity: Math.max(35, rumour.strength),
       urgency: Math.max(30, rumourPressure.urgency),
-      primaryActor: ref,
+      // Audit fixes pass 1 §5.3 — Only attach a primaryActor when the
+      // rumour points at a real entity. A tavern-wide rumour has no
+      // single character on the hook.
+      ...(ref.kind !== 'tavern_identity' ? { primaryActor: ref } : {}),
       affectedActors: [ref],
       causes,
       pressures: [rumourPressure],
@@ -2071,30 +2896,162 @@ function generateRivalTavern(ctx: SimContext): IssueSeed[] {
     },
   ]
 
-  const consequenceProfiles: ConsequenceProfile[] = responseSlots.map((slot) =>
+  const consequenceProfiles: ConsequenceProfile[] = [
     makeProfile({
-      id: `${slot.id}_profile`,
-      responseSlotId: slot.id,
+      id: 'compete_on_price_profile',
+      responseSlotId: 'compete_on_price',
       immediateEffects: [
-        effect(
-          'cause',
-          `rival:tavern`,
-          slot.id === 'ignore_rival' ? -5 : 5,
-          slot.labelHint,
-          ['rival'],
-        ),
+        effect('state_change', 'customers.local_goblins.patronage', 8, 'Locals return for cheap drink', [
+          'customer',
+        ]),
+        effect('state_change', 'customers.miners.patronage', 10, 'Miners drift back', ['customer']),
+        effect('state_change', 'coin', -12, 'Margin erodes', ['coin']),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect('pressure', 'pressure:rival_tavern_pressure', -8, 'Rival pressure eases', ['pressure']),
+      ],
       memories: [
         {
-          id: `rival_${slot.id}`,
+          id: `rival_priced_${rivalRef.id}`,
           actors: [rivalRef],
-          tags: ['rival', slot.id],
+          tags: ['rival', 'compete', 'price'],
         },
       ],
       futureHooks: [],
     }),
-  )
+    makeProfile({
+      id: 'host_counter_event_profile',
+      responseSlotId: 'host_counter_event',
+      immediateEffects: [
+        effect('state_change', 'customers.merchants.patronage', 12, 'Merchants drawn in', [
+          'customer',
+        ]),
+        effect('state_change', 'customers.adventurers.patronage', 10, 'Adventurers come for the show', [
+          'customer',
+        ]),
+        effect('state_change', 'coin', -20, 'Event cost', ['coin']),
+      ],
+      delayedEffects: [
+        effect('pressure', 'pressure:rival_tavern_pressure', -12, 'Rival upstaged', ['pressure']),
+        effect('state_change', 'reputation.cozy', 8, 'Tavern feels lively', ['reputation']),
+      ],
+      memories: [
+        {
+          id: `rival_counter_event_${rivalRef.id}`,
+          actors: [rivalRef],
+          tags: ['rival', 'event', 'investment'],
+        },
+      ],
+      futureHooks: [],
+    }),
+    makeProfile({
+      id: 'improve_quality_profile',
+      responseSlotId: 'improve_quality',
+      immediateEffects: [
+        effect('state_change', 'reputation.tasty', 12, 'Quality improves reputation', ['reputation']),
+        effect('state_change', 'reputation.respectable', 8, 'Standards rise', ['reputation']),
+        effect('state_change', 'coin', -15, 'Investment cost', ['coin']),
+      ],
+      delayedEffects: [
+        effect('pressure', 'pressure:rival_tavern_pressure', -10, 'Rival pressure recedes', [
+          'pressure',
+        ]),
+      ],
+      memories: [
+        {
+          id: `rival_quality_${rivalRef.id}`,
+          actors: [rivalRef],
+          tags: ['rival', 'quality', 'investment'],
+        },
+      ],
+      futureHooks: [],
+    }),
+    makeProfile({
+      id: 'spread_counter_rumour_profile',
+      responseSlotId: 'spread_counter_rumour',
+      immediateEffects: [
+        effect('pressure', 'pressure:rival_tavern_pressure', -10, 'Rumour weakens rival', ['pressure']),
+        effect('pressure', 'pressure:rumour_pressure', 10, 'Town gossip stirs', ['pressure']),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `rival_rumour_exposed_${rivalRef.id}`,
+          0,
+          'Counter-rumour may be exposed',
+          ['future_hook'],
+        ),
+        effect('state_change', 'reputation.dangerous', 6, 'Reputation darkens', ['reputation']),
+      ],
+      memories: [
+        {
+          id: `rival_counter_rumour_${rivalRef.id}`,
+          actors: [rivalRef],
+          tags: ['rival', 'deception', 'rumour'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `rival_rumour_exposed_${rivalRef.id}`,
+          actors: [rivalRef],
+          tags: ['rival', 'risk'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'negotiate_with_rival_profile',
+      responseSlotId: 'negotiate_with_rival',
+      immediateEffects: [
+        effect('pressure', 'pressure:rival_tavern_pressure', -12, 'Truce eases rival pressure', [
+          'pressure',
+        ]),
+        effect('state_change', 'reputation.respectable', 4, 'Civility noted', ['reputation']),
+      ],
+      delayedEffects: [
+        effect('state_change', 'customers.merchants.patronage', -6, 'Shared market splits', [
+          'customer',
+        ]),
+      ],
+      memories: [
+        {
+          id: `rival_negotiated_${rivalRef.id}`,
+          actors: [rivalRef],
+          tags: ['rival', 'compromise'],
+        },
+      ],
+      futureHooks: [],
+    }),
+    makeProfile({
+      id: 'ignore_rival_profile',
+      responseSlotId: 'ignore_rival',
+      immediateEffects: [],
+      delayedEffects: [
+        effect('pressure', 'pressure:rival_tavern_pressure', 12, 'Rival grows unchecked', [
+          'pressure',
+        ]),
+        effect('state_change', 'customers.merchants.patronage', -8, 'Merchants drift away', [
+          'customer',
+        ]),
+        effect('pressure', 'pressure:regular_customer_loss', 6, 'Regulars hear of the other place', [
+          'pressure',
+        ]),
+      ],
+      memories: [
+        {
+          id: `rival_ignored_${rivalRef.id}`,
+          actors: [rivalRef],
+          tags: ['rival', 'ignored'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `rival_dominance_${rivalRef.id}`,
+          actors: [rivalRef],
+          tags: ['rival', 'risk'],
+        },
+      ],
+    }),
+  ]
 
   const namedEntities = [namedEntityIngredient(ctx.state, 'rival', rivalRef)]
   const arcContext: string[] = []

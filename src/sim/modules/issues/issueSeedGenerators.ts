@@ -20,6 +20,7 @@ import {
   buildTextIngredients,
   customerRef,
   effect,
+  factionRef,
   makeProfile,
   pressureCauseRefsAsEntries,
   pressureSnapshot,
@@ -1334,8 +1335,11 @@ function generateDebtRent(ctx: SimContext): IssueSeed[] {
       domain: ['economy', 'monthly', 'landlord'],
       severity: Math.max(40, debt, landlord),
       urgency: Math.max(45, landlord + 10),
-      primaryActor: systemRef('landlord'),
-      affectedActors: [systemRef('landlord')],
+      // Audit fixes pass 1 §5.3 — No real landlord entity exists; omit
+      // primaryActor (was singleton system:landlord) and let domain +
+      // location stand in.
+      location: areaRef('main_room'),
+      affectedActors: [],
       causes,
       stakes,
       responseSlots,
@@ -1512,8 +1516,12 @@ function generateInspection(ctx: SimContext): IssueSeed[] {
       domain: ['inspection', 'food', 'areas', 'reputation'],
       severity: severityFromPressures(ctx, ['inspection']),
       urgency: urgencyFromPressures(ctx, ['inspection']),
-      primaryActor: systemRef('inspector'),
-      affectedActors: [systemRef('inspector')],
+      primaryActor: ctx.state.world.factions['town_watch']
+        ? factionRef('town_watch')
+        : systemRef('inspector'),
+      affectedActors: ctx.state.world.factions['town_watch']
+        ? [factionRef('town_watch')]
+        : [systemRef('inspector')],
       location: areaRef('main_room'),
       causes,
       stakes: [
@@ -1656,8 +1664,11 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
       domain: ['reputation', 'customers'],
       severity: Math.max(30, Math.abs(axisValue - 50)),
       urgency: Math.max(25, snap.urgency),
-      primaryActor: systemRef('reputation'),
-      affectedActors: [systemRef('reputation')],
+      // Audit fixes pass 1 §5.3 — Reputation is tavern-wide; omit
+      // primaryActor (was singleton system:reputation) and locate the
+      // seed in the public room instead.
+      location: areaRef('main_room'),
+      affectedActors: [],
       causes,
       stakes: [
         stake(

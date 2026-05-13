@@ -178,6 +178,25 @@ export function detectFestivalUnreadinessLoop(
   ctx: SimContext,
 ): FeedbackLoopDetectorResult {
   const evidence: FeedbackEvidence[] = []
+  const festivalValue = ctx.state.pressures['festival_readiness']?.value ?? 0
+
+  // Gate: this loop is specifically about festival unreadiness. If
+  // festival pressure isn't elevated, the loop is inactive even when
+  // adjacent pressures (stock, burnout) are.
+  if (festivalValue < EXPANDED_TRIGGER) {
+    return {
+      active: false,
+      strength: 0,
+      risk: 0,
+      speed: 'fast',
+      evidence,
+      nodes: ['festival', 'stock', 'staff'],
+      relatedSystems: ['localArcs', 'stock', 'staff', 'pressures'],
+      tags: ['festival', 'arc'],
+      readable: 'festival readiness within tolerance; loop inactive.',
+    }
+  }
+
   const high = pushPressureEvidence(ctx, evidence, [
     { id: 'festival_readiness', label: 'Festival Readiness' },
     { id: 'stock_shortage', label: 'Stock Shortage' },

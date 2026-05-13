@@ -10,14 +10,8 @@ import type { OwnerSocialActionRecord } from '../ownerActions/types'
 import { OWNER_ACTIONS_MODULE_ID } from '../ownerActions/ownerActionsModule'
 import { SERVICE_MODULE_ID } from '../service/serviceModule'
 
-import {
-  ATTRIBUTION_MODULE_ID,
-  getAttributionModuleState,
-} from './attributionQueries'
-import type {
-  AttributionDraft,
-  AttributionModuleState,
-} from './attributionTypes'
+import { getAttributionModuleState } from './attributionQueries'
+import type { AttributionDraft } from './attributionTypes'
 
 // Phase 37 §37.4 — Attribution rules.
 //
@@ -560,7 +554,6 @@ const rumourDistortsCause: AttributionRule = {
     )
     const rng = ctx.getRngStream('attribution_perceiver')
 
-    const firedRumourIds: string[] = []
     for (const rumour of rumours) {
       if (rumour.accuracy === 'true') continue
       const lastDay = cooldowns[rumour.id]
@@ -587,26 +580,8 @@ const rumourDistortsCause: AttributionRule = {
         sourceEventId: rumour.id,
         relatedSystems: ['rumour'],
       })
-      firedRumourIds.push(rumour.id)
     }
 
-    if (firedRumourIds.length > 0) {
-      ctx.modifyModuleState<AttributionModuleState>(
-        ATTRIBUTION_MODULE_ID,
-        (current) => {
-          const base = current ?? {
-            attributions: [],
-            generatedToday: [],
-            lastUpdatedDay: -1,
-            recentDistrustByRumour: {},
-          }
-          const recent = { ...(base.recentDistrustByRumour ?? {}) }
-          for (const id of firedRumourIds) recent[id] = today
-          return { ...base, recentDistrustByRumour: recent }
-        },
-        { source: `${ATTRIBUTION_MODULE_ID}.rumour_cooldown` },
-      )
-    }
     return drafts
   },
 }

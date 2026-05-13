@@ -69,9 +69,14 @@ export function createInitialAttributionModuleState(): AttributionModuleState {
 }
 
 function readSlice(state: TavernState): AttributionModuleState {
-  return getAttributionModuleState(state) ?? createInitialAttributionModuleState()
+  const current = getAttributionModuleState(state)
+  const defaults = createInitialAttributionModuleState()
+  return current ? { ...defaults, ...current } : defaults
 }
 
+// Pre-`recentDistrustByRumour` slices (legacy saves, hand-built test
+// fixtures) lack required fields. Layer defaults under the current slice
+// so writes always emit a schema-complete shape.
 function writeSlice(
   ctx: SimContext,
   patch: (current: AttributionModuleState) => AttributionModuleState,
@@ -80,7 +85,10 @@ function writeSlice(
   ctx.modifyModuleState<AttributionModuleState>(
     ATTRIBUTION_MODULE_ID,
     (current) => {
-      const base = current ?? createInitialAttributionModuleState()
+      const defaults = createInitialAttributionModuleState()
+      const base: AttributionModuleState = current
+        ? { ...defaults, ...current }
+        : defaults
       return patch(base)
     },
     { source: SOURCE, reason },
@@ -262,11 +270,25 @@ function applyDrafts(
     }
   }
 
+  // Rumour-derived drafts carry a `rumour` tag plus a `sourceEventId`
+  // identifying the rumour. Bake the cooldown update into draft
+  // application so the side-effect happens alongside the persisted
+  // attributions rather than during rule evaluation.
+  const rumourCooldown: Record<string, number> = {
+    ...(current.recentDistrustByRumour ?? {}),
+  }
+  for (const draft of drafts) {
+    if (draft.sourceEventId === undefined) continue
+    if (!(draft.tags ?? []).includes('rumour')) continue
+    rumourCooldown[draft.sourceEventId] = today
+  }
+
   const next: AttributionModuleState = {
     ...current,
     attributions: [...byKey.values()],
     generatedToday,
     lastUpdatedDay: state.calendar.totalDaysElapsed,
+    recentDistrustByRumour: rumourCooldown,
   }
   return { next, addedOrRefreshed }
 }

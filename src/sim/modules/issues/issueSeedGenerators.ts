@@ -19,20 +19,26 @@ import {
   buildSeed,
   buildTextIngredients,
   customerRef,
+  dedupeRefs,
+  displayNameForRef,
   effect,
   factionRef,
   makeProfile,
+  namedEntityIngredient,
   pressureCauseRefsAsEntries,
   pressureSnapshot,
   recentCauseEntries,
+  regularRef,
   seedId,
   severityFromPressures,
   stake,
   staffRef,
   stockRef,
   systemRef,
+  tavernIdentityRef,
   urgencyFromPressures,
 } from './generatorHelpers'
+import type { EntityRef } from '../../state/TavernState'
 import type { IssueSeedGenerator } from './issueSeedRegistry'
 import { EXPANDED_SEED_GENERATORS } from './expandedSeedGenerators'
 
@@ -830,35 +836,150 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
 // Customer complaint
 // ----------------------------------------------------------------------
 
+// Phase 40 audit pass 2 §3 — Recency rotation for complainer customer group.
+// Higher penalty (35) widens the rotation window across the five groups so
+// `customer_group:merchants` (or `local_goblins`) doesn't dominate.
+const COMPLAINT_RECENCY_WINDOW = 9
+const COMPLAINT_RECENCY_PENALTY = 45
+
+function complaintRecencyPenalty(
+  ctx: SimContext,
+  entityKey: string,
+  today: number,
+): number {
+  const slice = ctx.state.modules.issueSeeds as
+    | { recentPicks?: Record<string, Record<string, number>> }
+    | undefined
+  const familyPicks = slice?.recentPicks?.['customer_complaint'] ?? {}
+  const lastDay = familyPicks[entityKey]
+  if (lastDay === undefined) return 0
+  if (today - lastDay >= COMPLAINT_RECENCY_WINDOW) return 0
+  return COMPLAINT_RECENCY_PENALTY
+}
+
+function recordComplaintPick(ctx: SimContext, entityKey: string): void {
+  const today = ctx.state.calendar.totalDaysElapsed
+  ctx.modifyModuleState(
+    'issueSeeds',
+    (current) => {
+      const slice = (current ?? {}) as {
+        recentPicks?: Record<string, Record<string, number>>
+      } & Record<string, unknown>
+      const recent = { ...(slice.recentPicks ?? {}) }
+      recent['customer_complaint'] = {
+        ...(recent['customer_complaint'] ?? {}),
+        [entityKey]: today,
+      }
+      return { ...slice, recentPicks: recent } as never
+    },
+    { source: 'customerComplaint.recordPick' },
+  )
+}
+
 function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
   const guard = CONTRADICTION_GUARDS.customer_complaint(ctx)
   if (!guard.allowed) return []
+  // Phase 40 audit pass 2 §3 — Rotate the complainer across the five
+  // active customer groups (whichever has lowest satisfaction, with a
+  // recency penalty so the same group doesn't dominate). Falls back to
+  // merchants when present so existing test expectations still work.
+  const today = ctx.state.calendar.totalDaysElapsed
+  const groupIds = [
+    'merchants',
+    'miners',
+    'local_goblins',
+    'adventurers',
+    'ogres',
+  ] as const
+  const candidates = groupIds
+    .map((id) => ctx.state.customerGroups[id])
+    .filter((g): g is NonNullable<typeof g> => Boolean(g))
+  if (candidates.length === 0) return []
+
+  // For merchants-only environments fall through to the existing guard,
+  // so contradiction guard semantics stay intact.
   const presence = merchantPresenceGuard(ctx)
-  if (!presence.allowed) return []
-  const merchants = ctx.state.customerGroups.merchants
-  if (!merchants) return []
-  if (merchants.satisfaction > 40) return []
+  // Phase 40 audit pass 2 §3 — Widen the candidate pool to satisfaction
+  // ≤60 so multiple groups qualify each day. The recency penalty rotates
+  // the actual pick across that pool; otherwise the lowest-satisfaction
+  // group dominates the family.
+  const groupCandidates = candidates.filter((g) => {
+    if (g.id === 'merchants' && !presence.allowed) return false
+    return g.satisfaction <= 60
+  })
+  if (groupCandidates.length === 0) return []
+
+  const ranked = groupCandidates
+    .map((g) => {
+      const baseScore = 100 - g.satisfaction
+      const penalty = complaintRecencyPenalty(ctx, `customer_group:${g.id}`, today)
+      return { g, score: baseScore - penalty }
+    })
+    .sort((a, b) => b.score - a.score)
+  const group = ranked[0]!.g
+  recordComplaintPick(ctx, `customer_group:${group.id}`)
+  const groupRef = customerRef(group.id)
+
+  // Pull a named regular from the group's starter roster (rotates via a
+  // sub-family key so individual regulars don't dominate either).
+  const regulars = Object.values(ctx.state.world.regulars).filter(
+    (r) => r.customerGroupId === group.id,
+  )
+  let irritatedRegular: typeof regulars[number] | undefined
+  if (regulars.length > 0) {
+    const rankedRegulars = regulars
+      .map((r) => {
+        const baseScore = r.irritation + (100 - r.loyalty)
+        const penalty = complaintRecencyPenalty(
+          ctx,
+          `customer_complaint_regular:${r.id}`,
+          today,
+        )
+        return { r, score: baseScore - penalty }
+      })
+      .sort((a, b) => b.score - a.score)
+    if (rankedRegulars[0]!.score > 0) {
+      irritatedRegular = rankedRegulars[0]!.r
+      recordComplaintPick(
+        ctx,
+        `customer_complaint_regular:${irritatedRegular.id}`,
+      )
+    }
+  }
+  const regularEntityRef = irritatedRegular
+    ? regularRef(irritatedRegular.id)
+    : undefined
+
+  // Pick a staff member to side with / against (cook for kitchen
+  // complaints, server otherwise). Falls back to the first staff entry.
+  const allStaff = Object.values(ctx.state.staff)
+  const staffOnHook =
+    allStaff.find((s) => s.role === 'server') ??
+    allStaff.find((s) => s.role === 'cook') ??
+    allStaff[0]
+  const staffEntityRef = staffOnHook ? staffRef(staffOnHook.id) : undefined
 
   const causes: CauseEntry[] = []
   const recent = recentCauseEntries(
     ctx,
-    ['customer', 'merchants', 'area', 'reputation', 'cleanliness'],
+    ['customer', group.id, 'area', 'reputation', 'cleanliness'],
     7,
     4,
   )
   causes.push(...recent)
-  // augment with pressure causes that explain merchant unhappiness
   causes.push(...pressureCauseRefsAsEntries(ctx, 'reputation_drift', 2))
   if (causes.length < 1) return []
+
+  const tavernSelf = tavernIdentityRef('self')
 
   const responseSlots: ResponseSlot[] = [
     {
       id: 'discount',
-      labelHint: 'Offer merchants a discount',
+      labelHint: `Offer ${group.label} a discount`,
       allowedVerbs: ['discount'],
       shape: 'safe_costly',
-      targetOptions: [customerRef('merchants')],
-      expectedEffects: ['raise merchant satisfaction', 'lose coin'],
+      targetOptions: [groupRef],
+      expectedEffects: [`raise ${group.id} satisfaction`, 'lose coin'],
     },
     {
       id: 'fix_root',
@@ -873,8 +994,8 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
       labelHint: 'Mock the complaint',
       allowedVerbs: ['blame'],
       shape: 'relationship_sacrifice',
-      targetOptions: [customerRef('merchants')],
-      expectedEffects: ['save coin', 'lose merchant trust'],
+      targetOptions: regularEntityRef ? [groupRef, regularEntityRef] : [groupRef],
+      expectedEffects: ['save coin', `lose ${group.id} trust`],
     },
     {
       id: 'rebrand',
@@ -884,25 +1005,101 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
       targetOptions: [systemRef('reputation')],
       expectedEffects: ['shift reputation', 'risk audience'],
     },
+    {
+      id: 'public_apology',
+      labelHint: `Make a public apology to ${group.label}`,
+      allowedVerbs: ['appease', 'confess'],
+      shape: 'relationship_sacrifice',
+      targetOptions: [groupRef, ...(regularEntityRef ? [regularEntityRef] : [])],
+      expectedEffects: ['raise satisfaction', 'staff feels overruled'],
+    },
+    {
+      id: 'side_with_staff',
+      labelHint: staffOnHook
+        ? `Back ${staffOnHook.name.display} over the complaint`
+        : 'Back the staff over the complaint',
+      allowedVerbs: ['blame'],
+      shape: 'relationship_sacrifice',
+      targetOptions: staffEntityRef ? [staffEntityRef, groupRef] : [groupRef],
+      expectedEffects: ['raise staff loyalty', 'lose group trust'],
+    },
+    {
+      id: 'side_with_regular',
+      labelHint: irritatedRegular
+        ? `Side with ${irritatedRegular.name.display}`
+        : 'Side with the regular',
+      allowedVerbs: ['appease'],
+      shape: 'safe_costly',
+      targetOptions: regularEntityRef
+        ? [regularEntityRef]
+        : [groupRef],
+      expectedEffects: ['raise regular loyalty', 'staff feels betrayed'],
+    },
+    {
+      id: 'house_rule_change',
+      labelHint: 'Change the house rules',
+      allowedVerbs: ['rebrand'],
+      shape: 'long_term_investment',
+      targetOptions: [systemRef('house_rules'), groupRef],
+      expectedEffects: ['policy shift', 'cultural friction'],
+    },
+    {
+      id: 'comp_table',
+      labelHint: `Comp ${group.label}'s table`,
+      allowedVerbs: ['discount', 'pay'],
+      shape: 'safe_costly',
+      targetOptions: regularEntityRef ? [groupRef, regularEntityRef] : [groupRef],
+      expectedEffects: ['raise satisfaction broadly', 'spend coin'],
+    },
   ]
+
+  const groupPath = `customers.${group.id}`
+  const regularActors = regularEntityRef ? [regularEntityRef] : []
+  const staffActors = staffEntityRef ? [staffEntityRef] : []
 
   const consequenceProfiles: ConsequenceProfile[] = [
     makeProfile({
       id: 'discount_profile',
       responseSlotId: 'discount',
       immediateEffects: [
-        effect('state_change', 'customers.merchants.satisfaction', 10, 'Discount appeases', [
+        effect('state_change', `${groupPath}.satisfaction`, 10, 'Discount appeases', [
           'customer',
         ]),
         effect('state_change', 'coin', -10, 'Discount cost', ['coin']),
+        effect('state_change', `${groupPath}.loyalty`, 5, 'Goodwill builds', ['customer']),
+        ...(regularEntityRef
+          ? [
+              effect(
+                'state_change',
+                `world.regulars.${regularEntityRef.id}.loyalty`,
+                6,
+                'Regular feels heard',
+                ['regular'],
+              ),
+            ]
+          : []),
+        effect('cause', `customer_group:${group.id}`, 6, 'Group thawed by discount', [
+          'customer',
+          'favorite_order',
+          'attribution',
+        ]),
       ],
       delayedEffects: [],
       memories: [
         {
-          id: 'merchant_discount_recently',
-          actors: [customerRef('merchants')],
-          tags: ['customer', 'merchants'],
+          id: `${group.id}_discount_recently`,
+          actors: [groupRef, ...regularActors],
+          tags: ['customer', group.id, 'favorite_order', 'attribution'],
         },
+        ...(regularEntityRef
+          ? [
+              {
+                id: `regular_discount_${regularEntityRef.id}`,
+                actors: [regularEntityRef],
+                tags: ['regular', 'favorite_order', 'attribution'],
+              },
+            ]
+          : []),
       ],
       futureHooks: [],
     }),
@@ -911,44 +1108,114 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
       responseSlotId: 'fix_root',
       immediateEffects: [
         effect('state_change', 'areas.main_room.cleanliness', 18, 'Cleaner main room', ['area']),
+        effect('state_change', 'areas.main_room.damage', -8, 'Patched as part of clean-up', ['area']),
         effect('state_change', 'coin', -10, 'Cleaning cost', ['coin']),
-        effect('pressure', 'pressure:reputation_drift', -5, 'Stabilize reputation', [
-          'pressure',
-        ]),
-      ],
-      delayedEffects: [],
-      memories: [
-        { id: 'main_room_cleaned_recently', tags: ['cleanliness', 'main_room'] },
-      ],
-      futureHooks: [],
-    }),
-    makeProfile({
-      id: 'mock_profile',
-      responseSlotId: 'mock',
-      immediateEffects: [
-        effect('state_change', 'customers.merchants.satisfaction', -15, 'Merchants offended', [
+        effect('pressure', 'pressure:reputation_drift', -5, 'Stabilize reputation', ['pressure']),
+        effect('state_change', `${groupPath}.satisfaction`, 6, 'Visible cleanup wins respect', [
           'customer',
         ]),
-        effect('state_change', 'customers.merchants.loyalty', -10, 'Trust broken', ['customer']),
       ],
       delayedEffects: [
         effect(
           'future_hook',
-          'merchant_boycott_possible',
-          0,
-          'Merchants may boycott',
+          `cleanliness_streak_${group.id}`,
+          8,
+          'Group may expect this standard',
           ['future_hook'],
         ),
       ],
       memories: [
         {
-          id: 'merchants_mocked',
-          actors: [customerRef('merchants')],
-          tags: ['grudge', 'merchants'],
+          id: `${group.id}_root_cleaned_recently`,
+          actors: [groupRef, ...staffActors],
+          tags: ['cleanliness', 'main_room', 'attribution'],
+        },
+        ...(staffEntityRef
+          ? [
+              {
+                id: `staff_led_cleanup_${staffEntityRef.id}`,
+                actors: [staffEntityRef],
+                tags: ['staff', 'protected', 'attribution'],
+              },
+            ]
+          : []),
+      ],
+      futureHooks: [
+        {
+          id: `cleanliness_streak_${group.id}`,
+          actors: [groupRef],
+          tags: ['customer', 'opportunity'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'mock_profile',
+      responseSlotId: 'mock',
+      immediateEffects: [
+        effect('state_change', `${groupPath}.satisfaction`, -15, `${group.label} offended`, [
+          'customer',
+        ]),
+        effect('state_change', `${groupPath}.loyalty`, -10, 'Trust broken', ['customer']),
+        effect('state_change', 'reputation.respectable', -6, 'Owner mocked a complaint', [
+          'reputation',
+        ]),
+        effect('cause', `customer_group:${group.id}`, -12, `${group.label} bear a grudge`, [
+          'customer',
+          'bad_reputation',
+          'attribution',
+        ]),
+        ...(regularEntityRef
+          ? [
+              effect(
+                'cause',
+                `regular:${regularEntityRef.id}`,
+                -15,
+                'Regular humiliated in public',
+                ['regular', 'grudge', 'attribution'],
+              ),
+            ]
+          : []),
+      ],
+      delayedEffects: [
+        effect('pressure', 'pressure:rumour_pressure', 8, 'Group spreads the story', [
+          'pressure',
+        ]),
+        effect('pressure', 'pressure:cultural_tension', 6, 'Cultural snub', ['pressure']),
+        effect(
+          'future_hook',
+          `${group.id}_boycott_possible`,
+          15,
+          `${group.label} may boycott`,
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `${group.id}_mocked`,
+          actors: [groupRef, ...regularActors],
+          tags: ['grudge', group.id, 'bad_reputation', 'attribution'],
+        },
+        ...(regularEntityRef
+          ? [
+              {
+                id: `regular_mocked_${regularEntityRef.id}`,
+                actors: [regularEntityRef],
+                tags: ['regular', 'grudge', 'ignored_complaint'],
+              },
+            ]
+          : []),
+        {
+          id: `tavern_mocked_${group.id}`,
+          actors: [groupRef, tavernSelf],
+          tags: ['tavern_identity', 'memory', 'reputation'],
         },
       ],
       futureHooks: [
-        { id: 'merchant_boycott_possible', tags: ['merchants', 'risk'] },
+        {
+          id: `${group.id}_boycott_possible`,
+          actors: [groupRef],
+          tags: [group.id, 'risk'],
+        },
       ],
     }),
     makeProfile({
@@ -958,37 +1225,421 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
         effect('state_change', 'reputation.respectable', -3, 'Respectability slips', [
           'reputation',
         ]),
-        effect('state_change', 'reputation.goblinAuthentic', 3, 'Authenticity grows', [
+        effect('state_change', 'reputation.goblinAuthentic', 4, 'Authenticity grows', [
           'reputation',
         ]),
+        effect('cause', `customer_group:${group.id}`, 4, 'Group placated by spin', [
+          'customer',
+          'attribution',
+        ]),
+        ...(staffEntityRef
+          ? [
+              effect(
+                'state_change',
+                `staff.${staffEntityRef.id}.loyalty`,
+                -5,
+                'Staff finds spin embarrassing',
+                ['staff'],
+              ),
+            ]
+          : []),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `rebrand_locks_in_${group.id}`,
+          10,
+          'Rebrand becomes the brand',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `rebrand_attempted_${group.id}`,
+          actors: [groupRef],
+          tags: ['reputation', 'rebrand', 'attribution'],
+        },
+        ...(staffEntityRef
+          ? [
+              {
+                id: `staff_witness_rebrand_${staffEntityRef.id}`,
+                actors: [staffEntityRef],
+                tags: ['staff', 'witness'],
+              },
+            ]
+          : []),
+      ],
+      futureHooks: [
+        {
+          id: `rebrand_locks_in_${group.id}`,
+          actors: [groupRef],
+          tags: ['reputation', 'risk'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'public_apology_profile',
+      responseSlotId: 'public_apology',
+      immediateEffects: [
+        effect('state_change', 'reputation.respectable', 8, 'Public humility plays well', [
+          'reputation',
+        ]),
+        effect('state_change', `${groupPath}.satisfaction`, 10, 'Group accepts the apology', [
+          'customer',
+        ]),
+        effect('pressure', 'pressure:regular_customer_loss', -10, 'Regulars stay', ['pressure']),
+        ...(regularEntityRef
+          ? [
+              effect(
+                'cause',
+                `regular:${regularEntityRef.id}`,
+                10,
+                'Named regular accepts apology',
+                ['regular', 'favorite_order', 'attribution'],
+              ),
+            ]
+          : []),
+        ...(staffEntityRef
+          ? [
+              effect(
+                'state_change',
+                `staff.${staffEntityRef.id}.morale`,
+                -8,
+                'Staff felt thrown under',
+                ['staff'],
+              ),
+            ]
+          : []),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `apology_expectation_${group.id}`,
+          8,
+          'Group may expect more apologies',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `${group.id}_apology_${irritatedRegular?.id ?? 'all'}`,
+          actors: [groupRef, ...regularActors],
+          tags: ['customer', 'favorite_order', 'attribution'],
+        },
+        ...(staffEntityRef
+          ? [
+              {
+                id: `staff_overruled_apology_${staffEntityRef.id}`,
+                actors: [staffEntityRef],
+                tags: ['staff', 'scapegoat'],
+              },
+            ]
+          : []),
+        {
+          id: `tavern_apology_${group.id}`,
+          actors: [groupRef, tavernSelf],
+          tags: ['tavern_identity', 'memory', 'honesty'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `apology_expectation_${group.id}`,
+          actors: [groupRef],
+          tags: ['customer'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'side_with_staff_profile',
+      responseSlotId: 'side_with_staff',
+      immediateEffects: [
+        ...(staffEntityRef
+          ? [
+              effect(
+                'state_change',
+                `staff.${staffEntityRef.id}.loyalty`,
+                12,
+                'Staff backed by owner',
+                ['staff'],
+              ),
+              effect(
+                'cause',
+                `staff:${staffEntityRef.id}`,
+                8,
+                'Staff publicly backed',
+                ['staff', 'protected', 'attribution'],
+              ),
+            ]
+          : []),
+        effect('state_change', `${groupPath}.satisfaction`, -10, 'Group rebuffed', ['customer']),
+        effect('state_change', 'reputation.respectable', -4, 'Public side-taking', ['reputation']),
+        effect('cause', `customer_group:${group.id}`, -10, 'Group feels dismissed', [
+          'customer',
+          'bad_reputation',
+          'attribution',
+        ]),
+        effect('pressure', 'pressure:staff_loyalty_risk', -6, 'Loyalty risk eases', ['pressure']),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `staff_backing_remembered_${staffEntityRef?.id ?? 'staff'}`,
+          10,
+          'Staff remember the backing',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        ...(staffEntityRef
+          ? [
+              {
+                id: `staff_publicly_backed_${staffEntityRef.id}`,
+                actors: [staffEntityRef],
+                tags: ['staff', 'protected', 'attribution'],
+              },
+            ]
+          : []),
+        {
+          id: `${group.id}_dismissed`,
+          actors: [groupRef, ...regularActors],
+          tags: ['grudge', group.id, 'ignored_complaint', 'attribution'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `staff_backing_remembered_${staffEntityRef?.id ?? 'staff'}`,
+          actors: staffEntityRef ? [staffEntityRef] : [],
+          tags: ['staff', 'opportunity'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'side_with_regular_profile',
+      responseSlotId: 'side_with_regular',
+      immediateEffects: [
+        ...(regularEntityRef
+          ? [
+              effect(
+                'state_change',
+                `world.regulars.${regularEntityRef.id}.loyalty`,
+                12,
+                'Regular elevated',
+                ['regular'],
+              ),
+              effect(
+                'cause',
+                `regular:${regularEntityRef.id}`,
+                12,
+                'Regular championed',
+                ['regular', 'favorite_order', 'attribution'],
+              ),
+            ]
+          : []),
+        ...(staffEntityRef
+          ? [
+              effect(
+                'state_change',
+                `staff.${staffEntityRef.id}.loyalty`,
+                -10,
+                'Staff publicly overruled',
+                ['staff'],
+              ),
+              effect(
+                'state_change',
+                `staff.${staffEntityRef.id}.morale`,
+                -6,
+                'Staff morale slumps',
+                ['staff'],
+              ),
+            ]
+          : []),
+        effect('pressure', 'pressure:staff_loyalty_risk', 8, 'Loyalty risk spikes', ['pressure']),
+        effect('pressure', 'pressure:regular_customer_loss', -8, 'Regulars stay', ['pressure']),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `staff_betrayal_remembered_${staffEntityRef?.id ?? 'staff'}`,
+          12,
+          'Staff remember being overruled',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        ...(regularEntityRef
+          ? [
+              {
+                id: `regular_championed_${regularEntityRef.id}`,
+                actors: [regularEntityRef],
+                tags: ['regular', 'favorite_order', 'attribution'],
+              },
+            ]
+          : []),
+        ...(staffEntityRef
+          ? [
+              {
+                id: `staff_overruled_${staffEntityRef.id}`,
+                actors: [staffEntityRef],
+                tags: ['staff', 'scapegoat', 'grudge'],
+              },
+            ]
+          : []),
+      ],
+      futureHooks: [
+        {
+          id: `staff_betrayal_remembered_${staffEntityRef?.id ?? 'staff'}`,
+          actors: staffEntityRef ? [staffEntityRef] : [],
+          tags: ['staff', 'risk'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'house_rule_change_profile',
+      responseSlotId: 'house_rule_change',
+      immediateEffects: [
+        effect('state_change', 'reputation.respectable', 4, 'Codifies a standard', [
+          'reputation',
+        ]),
+        effect('pressure', 'pressure:cultural_tension', 6, 'Some groups bristle', ['pressure']),
+        effect('pressure', 'pressure:policy_backlash', 10, 'Rule sticks in throats', ['pressure']),
+        effect('pressure', 'pressure:regular_customer_loss', 5, 'Some regulars drift', [
+          'pressure',
+        ]),
+        effect('cause', `customer_group:${group.id}`, 4, 'Group sees the change', [
+          'customer',
+          'attribution',
+        ]),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `house_rule_friction_${group.id}`,
+          12,
+          'House rule will see friction',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `house_rule_${group.id}`,
+          actors: [groupRef, tavernSelf],
+          tags: ['tavern_identity', 'memory', 'policy', 'attribution'],
+        },
+        ...(regularEntityRef
+          ? [
+              {
+                id: `regular_rule_witness_${regularEntityRef.id}`,
+                actors: [regularEntityRef],
+                tags: ['regular', 'memory'],
+              },
+            ]
+          : []),
+      ],
+      futureHooks: [
+        {
+          id: `house_rule_friction_${group.id}`,
+          actors: [groupRef],
+          tags: ['policy', 'risk'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'comp_table_profile',
+      responseSlotId: 'comp_table',
+      immediateEffects: [
+        effect('state_change', 'coin', -15, 'Comp cost', ['coin']),
+        effect('state_change', `${groupPath}.satisfaction`, 12, 'Whole table beams', [
+          'customer',
+        ]),
+        // Neighbouring tables: pick a second group that isn't the complainer.
+        ...(() => {
+          const others = groupIds.filter((g) => g !== group.id)
+          const neighbour = others.find((g) => ctx.state.customerGroups[g])
+          if (!neighbour) return []
+          return [
+            effect(
+              'state_change',
+              `customers.${neighbour}.satisfaction`,
+              5,
+              'Neighbouring table cheers',
+              ['customer'],
+            ),
+            effect(
+              'cause',
+              `customer_group:${neighbour}`,
+              5,
+              'Hospitality spreads',
+              ['customer', 'favorite_order', 'attribution'],
+            ),
+          ]
+        })(),
+        effect('cause', `customer_group:${group.id}`, 10, 'Group remembers the comp', [
+          'customer',
+          'favorite_order',
+          'attribution',
+        ]),
+        ...(regularEntityRef
+          ? [
+              effect(
+                'state_change',
+                `world.regulars.${regularEntityRef.id}.loyalty`,
+                10,
+                'Regular elevated',
+                ['regular'],
+              ),
+            ]
+          : []),
       ],
       delayedEffects: [],
       memories: [
-        { id: 'rebrand_attempted_recently', tags: ['reputation', 'rebrand'] },
+        {
+          id: `${group.id}_comped_table`,
+          actors: [groupRef, ...regularActors],
+          tags: ['customer', group.id, 'favorite_order', 'attribution'],
+        },
+        ...(regularEntityRef
+          ? [
+              {
+                id: `regular_comped_${regularEntityRef.id}`,
+                actors: [regularEntityRef],
+                tags: ['regular', 'favorite_order', 'attribution'],
+              },
+            ]
+          : []),
       ],
       futureHooks: [],
     }),
   ]
 
+  // Phase 40 audit pass 2 §3 — Drop staffEntityRef from the seed-level
+  // affectedActors so a single staff role doesn't get counted in every
+  // complaint seed. Profile memories still carry the staff ref where
+  // the response actually side-takes (e.g. side_with_staff_profile).
+  const seedAffected: EntityRef[] = dedupeRefs([regularEntityRef], groupRef)
+
+  const namedEntities = [
+    namedEntityIngredient(ctx.state, 'customer_group', groupRef),
+  ]
+
   return [
     buildSeed({
-      id: seedId('customer_complaint', 'merchants', ctx),
+      id: seedId('customer_complaint', group.id, ctx),
       family: 'customer_complaint',
       type: 'complaint',
       timing: 'during_service',
       domain: ['customers', 'reputation', 'service'],
-      severity: Math.max(35, 80 - merchants.satisfaction),
-      urgency: Math.max(30, 60 - merchants.satisfaction + 20),
-      primaryActor: customerRef('merchants'),
-      affectedActors: [customerRef('merchants')],
+      severity: Math.max(35, 80 - group.satisfaction),
+      urgency: Math.max(30, 60 - group.satisfaction + 20),
+      primaryActor: groupRef,
+      affectedActors: seedAffected,
       causes,
       stakes: [
         stake(
-          'merchant_loss',
-          'customer:merchants',
-          'Merchants may stop visiting',
+          `${group.id}_loss`,
+          `customer:${group.id}`,
+          `${group.label} may stop visiting`,
           'loss',
-          ['merchants', 'customer'],
+          [group.id, 'customer'],
         ),
         stake(
           'reliability_loss',
@@ -1002,22 +1653,26 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
       consequenceProfiles,
       memoriesCreated: [
         {
-          id: 'merchant_complaint_seen',
-          actors: [customerRef('merchants')],
+          id: `${group.id}_complaint_seen`,
+          actors: [groupRef],
           tags: ['customer', 'complaint'],
         },
       ],
       futureHooks: [],
       toneHints: ['customer', 'reputation'],
       textIngredients: buildTextIngredients({
-        subject: 'the merchants',
+        subject: `the ${group.label}`,
         problemNoun: 'cold welcome',
         sensoryDetails: ['pursed lips', 'half-finished mugs'],
         actorOpinions: {
-          merchants: 'eye the filthy floor',
+          [group.id]: 'eye the filthy floor',
         },
         recentContext: ['main room dirty all week'],
-        stakesReadable: ['merchants may stop visiting', 'respectability may drop'],
+        stakesReadable: [
+          `${group.label} may stop visiting`,
+          'respectability may drop',
+        ],
+        namedEntities,
       }),
       ctx,
     }),
@@ -1385,6 +2040,33 @@ function generateInspection(ctx: SimContext): IssueSeed[] {
   }
   if (causes.length === 0) return []
 
+  // Phase 40 audit pass 2 §4 — Cross-faction support. The Town Watch is
+  // the inspection authority; the Scrap Collectors handle cleaning
+  // logistics; the Local Shrine can mediate. Naming all three on
+  // memories and inviting them as response targets reduces
+  // `faction:town_watch` dominance and feeds named cause attribution.
+  const townWatch = ctx.state.world.factions['town_watch']
+    ? factionRef('town_watch')
+    : undefined
+  const scrapCollectors = ctx.state.world.factions['scrap_collectors']
+    ? factionRef('scrap_collectors')
+    : undefined
+  const localShrine = ctx.state.world.factions['local_shrine']
+    ? factionRef('local_shrine')
+    : undefined
+  const inspectorActor = townWatch ?? systemRef('inspector')
+
+  const allStaff = Object.values(ctx.state.staff)
+  const cook = allStaff.find((s) => s.role === 'cook')
+  const cleaner =
+    allStaff.find((s) => s.role === 'server') ??
+    allStaff.find((s) => s.role === 'cleaner') ??
+    allStaff[0]
+  const cookRef = cook ? staffRef(cook.id) : undefined
+  const cleanerRef = cleaner ? staffRef(cleaner.id) : undefined
+
+  const tavernSelf = tavernIdentityRef('self')
+
   const responseSlots: ResponseSlot[] = [
     {
       id: 'clean',
@@ -1399,7 +2081,7 @@ function generateInspection(ctx: SimContext): IssueSeed[] {
       labelHint: 'Bribe the inspector',
       allowedVerbs: ['bribe'],
       shape: 'risky_profitable',
-      targetOptions: [systemRef('inspector')],
+      targetOptions: townWatch ? [townWatch] : [systemRef('inspector')],
       expectedEffects: ['stall inspection', 'spend coin', 'risk corruption'],
     },
     {
@@ -1426,6 +2108,34 @@ function generateInspection(ctx: SimContext): IssueSeed[] {
       targetOptions: [],
       expectedEffects: ['no cost', 'risk full inspection'],
     },
+    {
+      id: 'cleaning_roster',
+      labelHint: 'Set up a cleaning roster',
+      allowedVerbs: ['delegate'],
+      shape: 'long_term_investment',
+      targetOptions: cleanerRef ? [cleanerRef] : [systemRef('staff')],
+      expectedEffects: ['ongoing cleanliness', 'staff fatigue'],
+    },
+    {
+      id: 'preinspection_walkthrough',
+      labelHint: townWatch
+        ? `Walk ${displayNameForRef(ctx.state, townWatch)} through proactively`
+        : 'Walk inspectors through proactively',
+      allowedVerbs: ['invite'],
+      shape: 'safe_costly',
+      targetOptions: townWatch ? [townWatch] : [systemRef('inspector')],
+      expectedEffects: ['lower inspection', 'show good faith'],
+    },
+    {
+      id: 'ask_town_watch_for_guidance',
+      labelHint: townWatch
+        ? `Ask ${displayNameForRef(ctx.state, townWatch)} for guidance`
+        : 'Ask the watch for guidance',
+      allowedVerbs: ['negotiate'],
+      shape: 'safe_costly',
+      targetOptions: townWatch ? [townWatch] : [systemRef('inspector')],
+      expectedEffects: ['build watch relationship', 'spend hours'],
+    },
   ]
 
   const consequenceProfiles: ConsequenceProfile[] = [
@@ -1434,12 +2144,45 @@ function generateInspection(ctx: SimContext): IssueSeed[] {
       responseSlotId: 'clean',
       immediateEffects: [
         effect('state_change', 'areas.kitchen.cleanliness', 20, 'Kitchen cleaner', ['area']),
-        effect('pressure', 'pressure:inspection', -12, 'Lower inspection pressure', [
-          'pressure',
-        ]),
+        effect('state_change', 'areas.privy.cleanliness', 15, 'Privy scrubbed', ['area']),
+        effect('state_change', 'areas.main_room.cleanliness', 10, 'Main room polished', ['area']),
+        effect('pressure', 'pressure:inspection', -12, 'Lower inspection pressure', ['pressure']),
+        ...(cookRef
+          ? [
+              effect('state_change', `staff.${cookRef.id}.fatigue`, 8, 'Cleaning shift adds load', [
+                'staff',
+              ]),
+            ]
+          : []),
+        ...(townWatch
+          ? [
+              effect(
+                'cause',
+                `faction:${townWatch.id}`,
+                6,
+                'Town watch notes the cleanup',
+                ['faction', 'hosted_event', 'attribution'],
+              ),
+            ]
+          : []),
       ],
       delayedEffects: [],
-      memories: [{ id: 'inspection_prep_recently', tags: ['inspection', 'cleanliness'] }],
+      memories: [
+        {
+          id: 'inspection_prep_recently',
+          actors: cookRef ? [cookRef] : [],
+          tags: ['inspection', 'cleanliness', 'attribution'],
+        },
+        ...(townWatch
+          ? [
+              {
+                id: 'town_watch_clean_witness',
+                actors: [townWatch],
+                tags: ['faction', 'hosted_event', 'attribution'],
+              },
+            ]
+          : []),
+      ],
       futureHooks: [],
     }),
     makeProfile({
@@ -1448,50 +2191,122 @@ function generateInspection(ctx: SimContext): IssueSeed[] {
       immediateEffects: [
         effect('state_change', 'coin', -30, 'Pay bribe', ['coin']),
         effect('pressure', 'pressure:inspection', -10, 'Stall inspection', ['pressure']),
+        effect('pressure', 'pressure:cultural_tension', 12, 'Whispers of corruption', ['pressure']),
+        effect('pressure', 'pressure:rumour_pressure', 8, 'Bribery rumours start', ['pressure']),
+        ...(townWatch
+          ? [
+              effect(
+                'cause',
+                `faction:${townWatch.id}`,
+                -10,
+                'Honest watchmen disgusted',
+                ['faction', 'grudge', 'attribution'],
+              ),
+            ]
+          : []),
       ],
       delayedEffects: [
         effect(
           'future_hook',
           'corrupt_inspector_relationship',
-          0,
+          15,
           'Inspector may demand more',
           ['future_hook'],
         ),
       ],
-      memories: [{ id: 'bribed_inspector', tags: ['bribe', 'corruption'] }],
-      futureHooks: [{ id: 'corrupt_inspector_relationship', tags: ['inspection', 'risk'] }],
+      memories: [
+        {
+          id: 'bribed_inspector',
+          actors: townWatch ? [townWatch] : [],
+          tags: ['bribe', 'corruption', 'grudge', 'attribution'],
+        },
+        {
+          id: 'tavern_bribe_secret',
+          actors: townWatch ? [townWatch, tavernSelf] : [tavernSelf],
+          tags: ['tavern_identity', 'memory', 'deception'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: 'corrupt_inspector_relationship',
+          actors: townWatch ? [townWatch] : [],
+          tags: ['inspection', 'risk'],
+        },
+      ],
     }),
     makeProfile({
       id: 'hide_profile',
       responseSlotId: 'hide',
       immediateEffects: [
         effect('pressure', 'pressure:inspection', -6, 'Briefly lower risk', ['pressure']),
+        effect('pressure', 'pressure:rumour_pressure', 8, 'Staff gossips about hidden goods', [
+          'pressure',
+        ]),
+        ...(cookRef
+          ? [
+              effect('state_change', `staff.${cookRef.id}.loyalty`, -4, 'Staff worried by hiding', [
+                'staff',
+              ]),
+            ]
+          : []),
       ],
       delayedEffects: [
+        effect('pressure', 'pressure:inspection', 6, 'Hidden goods rot quietly', ['pressure']),
         effect(
           'future_hook',
           'inspection_discovery_possible',
-          0,
+          12,
           'Inspectors may dig deeper',
           ['future_hook'],
         ),
       ],
-      memories: [{ id: 'hid_evidence', tags: ['inspection', 'deception'] }],
-      futureHooks: [{ id: 'inspection_discovery_possible', tags: ['inspection', 'risk'] }],
+      memories: [
+        {
+          id: 'hid_evidence',
+          actors: cookRef ? [cookRef] : [],
+          tags: ['inspection', 'deception'],
+        },
+        {
+          id: 'tavern_hid_evidence',
+          actors: [tavernSelf],
+          tags: ['tavern_identity', 'memory', 'deception'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: 'inspection_discovery_possible',
+          actors: townWatch ? [townWatch] : [],
+          tags: ['inspection', 'risk'],
+        },
+      ],
     }),
     makeProfile({
       id: 'improve_food_safety_profile',
       responseSlotId: 'improve_food_safety',
       immediateEffects: [
         effect('state_change', 'stock.mushrooms.quantity', -15, 'Discard mushrooms', ['stock']),
-        effect('pressure', 'pressure:inspection', -8, 'Lower inspection pressure', [
-          'pressure',
-        ]),
+        effect('state_change', 'stock.stew.quantity', -10, 'Discard stew', ['stock']),
+        effect('pressure', 'pressure:inspection', -8, 'Lower inspection pressure', ['pressure']),
         effect('pressure', 'pressure:food_safety', -10, 'Lower food safety', ['pressure']),
+        ...(cookRef
+          ? [
+              effect('state_change', `staff.${cookRef.id}.morale`, 5, 'Cook proud of standard', [
+                'staff',
+              ]),
+            ]
+          : []),
+        effect('cause', 'pressure:food_safety', -10, 'Food safety closed off', [
+          'food_safety',
+          'attribution',
+        ]),
       ],
       delayedEffects: [],
       memories: [
-        { id: 'food_safety_improved_recently', tags: ['food_safety', 'inspection'] },
+        {
+          id: 'food_safety_improved_recently',
+          actors: cookRef ? [cookRef] : [],
+          tags: ['food_safety', 'inspection', 'attribution'],
+        },
       ],
       futureHooks: [],
     }),
@@ -1501,10 +2316,238 @@ function generateInspection(ctx: SimContext): IssueSeed[] {
       immediateEffects: [],
       delayedEffects: [
         effect('pressure', 'pressure:inspection', 8, 'Inspection looms', ['pressure']),
+        effect('pressure', 'pressure:rumour_pressure', 6, 'Bad word spreads', ['pressure']),
+        effect('state_change', 'reputation.dangerous', 4, 'Reputation sours', ['reputation']),
       ],
-      memories: [{ id: 'inspection_ignored_recently', tags: ['inspection', 'ignored'] }],
+      memories: [
+        {
+          id: 'inspection_ignored_recently',
+          actors: townWatch ? [townWatch] : [],
+          tags: ['inspection', 'ignored'],
+        },
+        {
+          id: 'tavern_ignored_inspection',
+          actors: [tavernSelf],
+          tags: ['tavern_identity', 'memory', 'ignored'],
+        },
+      ],
       futureHooks: [],
     }),
+    makeProfile({
+      id: 'cleaning_roster_profile',
+      responseSlotId: 'cleaning_roster',
+      immediateEffects: [
+        effect('state_change', 'areas.kitchen.cleanliness', 12, 'Roster keeps kitchen clean', [
+          'area',
+        ]),
+        effect('state_change', 'areas.privy.cleanliness', 12, 'Roster covers privy', ['area']),
+        effect('state_change', 'areas.main_room.cleanliness', 10, 'Floor mopped each shift', [
+          'area',
+        ]),
+        effect('pressure', 'pressure:inspection', -12, 'Routine keeps inspection at bay', [
+          'pressure',
+        ]),
+        ...(cleanerRef
+          ? [
+              effect('state_change', `staff.${cleanerRef.id}.fatigue`, 8, 'Cleaning shifts tire', [
+                'staff',
+              ]),
+              effect('cause', `staff:${cleanerRef.id}`, 5, 'Staff trusted with roster', [
+                'staff',
+                'protected',
+                'attribution',
+              ]),
+            ]
+          : []),
+        ...(scrapCollectors
+          ? [
+              effect(
+                'cause',
+                `faction:${scrapCollectors.id}`,
+                8,
+                'Scrap collectors appreciate the routine',
+                ['faction', 'hosted_event', 'attribution'],
+              ),
+            ]
+          : []),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          'cleaning_routine_streak',
+          10,
+          'Routine becomes a habit',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        ...(cleanerRef
+          ? [
+              {
+                id: `staff_cleaning_roster_${cleanerRef.id}`,
+                actors: [cleanerRef],
+                tags: ['staff', 'protected', 'attribution'],
+              },
+            ]
+          : []),
+        ...(scrapCollectors
+          ? [
+              {
+                id: 'scrap_collectors_routine',
+                actors: [scrapCollectors],
+                tags: ['faction', 'hosted_event', 'attribution'],
+              },
+            ]
+          : []),
+      ],
+      futureHooks: [
+        {
+          id: 'cleaning_routine_streak',
+          actors: cleanerRef ? [cleanerRef] : [],
+          tags: ['inspection', 'opportunity'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'preinspection_walkthrough_profile',
+      responseSlotId: 'preinspection_walkthrough',
+      immediateEffects: [
+        effect('state_change', 'coin', -5, 'Drinks and time for the visit', ['coin']),
+        effect('pressure', 'pressure:inspection', -15, 'Walkthrough cools the watch', [
+          'pressure',
+        ]),
+        effect('state_change', 'reputation.respectable', 5, 'Honest tavern signal', [
+          'reputation',
+        ]),
+        ...(townWatch
+          ? [
+              effect(
+                'cause',
+                `faction:${townWatch.id}`,
+                12,
+                'Watch impressed by the openness',
+                ['faction', 'hosted_event', 'honoured_discount', 'attribution'],
+              ),
+            ]
+          : []),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          'town_watch_goodwill',
+          10,
+          'Watch may return with goodwill',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        ...(townWatch
+          ? [
+              {
+                id: 'town_watch_walkthrough',
+                actors: [townWatch],
+                tags: ['faction', 'hosted_event', 'attribution'],
+              },
+            ]
+          : []),
+        {
+          id: 'tavern_walkthrough_done',
+          actors: townWatch ? [townWatch, tavernSelf] : [tavernSelf],
+          tags: ['tavern_identity', 'memory', 'standards'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: 'town_watch_goodwill',
+          actors: townWatch ? [townWatch] : [],
+          tags: ['inspection', 'opportunity'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'ask_town_watch_for_guidance_profile',
+      responseSlotId: 'ask_town_watch_for_guidance',
+      immediateEffects: [
+        effect('pressure', 'pressure:inspection', -10, 'Watch advises soft pre-checks', [
+          'pressure',
+        ]),
+        effect('state_change', 'reputation.respectable', 5, 'Earnest signal helps reputation', [
+          'reputation',
+        ]),
+        ...(townWatch
+          ? [
+              effect(
+                'cause',
+                `faction:${townWatch.id}`,
+                10,
+                'Watch flattered to advise',
+                ['faction', 'honoured_discount', 'attribution'],
+              ),
+            ]
+          : []),
+        ...(localShrine
+          ? [
+              effect(
+                'cause',
+                `faction:${localShrine.id}`,
+                4,
+                'Shrine appreciates the discretion',
+                ['faction', 'attribution'],
+              ),
+            ]
+          : []),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          'town_watch_advisor',
+          8,
+          'Watch may keep an open door',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        ...(townWatch
+          ? [
+              {
+                id: 'town_watch_advisor_memory',
+                actors: [townWatch],
+                tags: ['faction', 'hosted_event', 'attribution'],
+              },
+            ]
+          : []),
+        ...(cleanerRef
+          ? [
+              {
+                id: `staff_escorted_watch_${cleanerRef.id}`,
+                actors: [cleanerRef],
+                tags: ['staff', 'protected'],
+              },
+            ]
+          : []),
+      ],
+      futureHooks: [
+        {
+          id: 'town_watch_advisor',
+          actors: townWatch ? [townWatch] : [],
+          tags: ['inspection', 'opportunity'],
+        },
+      ],
+    }),
+  ]
+
+  // Phase 40 audit pass 2 §4 — Drop staff refs from seed-level
+  // affectedActors. Each inspection seed runs daily under high pressure
+  // so listing cookRef + cleanerRef here causes severe staff repetition
+  // counts. The cleaning_roster / preinspection_walkthrough profiles
+  // still reference staff inside their memories.
+  const seedAffected: EntityRef[] = dedupeRefs(
+    [scrapCollectors, localShrine],
+    inspectorActor,
+  )
+
+  const namedEntities = [
+    namedEntityIngredient(ctx.state, 'inspector', inspectorActor),
   ]
 
   return [
@@ -1516,12 +2559,8 @@ function generateInspection(ctx: SimContext): IssueSeed[] {
       domain: ['inspection', 'food', 'areas', 'reputation'],
       severity: severityFromPressures(ctx, ['inspection']),
       urgency: urgencyFromPressures(ctx, ['inspection']),
-      primaryActor: ctx.state.world.factions['town_watch']
-        ? factionRef('town_watch')
-        : systemRef('inspector'),
-      affectedActors: ctx.state.world.factions['town_watch']
-        ? [factionRef('town_watch')]
-        : [systemRef('inspector')],
+      primaryActor: inspectorActor,
+      affectedActors: seedAffected,
       location: areaRef('main_room'),
       causes,
       stakes: [
@@ -1544,6 +2583,7 @@ function generateInspection(ctx: SimContext): IssueSeed[] {
         },
         recentContext: ['privy left filthy', 'kitchen dirty for days'],
         stakesReadable: ['inspector may visit', 'reputation may rot'],
+        namedEntities,
       }),
       ctx,
     }),

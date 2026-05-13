@@ -27,6 +27,7 @@ import {
   buildTextIngredients,
   cultureRef,
   customerRef,
+  dedupeRefs,
   displayNameForRef,
   effect,
   entityMemoryList,
@@ -172,9 +173,7 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
 
   // Pick the staff with strongest blame attribution + lowest loyalty.
   const today = ctx.state.calendar.totalDaysElapsed
-  let chosen = allStaff[0]!
-  let chosenScore = -Infinity
-  for (const s of allStaff) {
+  const scoreStaff = (s: (typeof allStaff)[number]) => {
     const candidateRef = staffRef(s.id)
     const attributions = attributionsByTarget(ctx.state, candidateRef)
     const blameWeight = attributions
@@ -183,16 +182,32 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
     const loyaltyDeficit = 100 - s.loyalty
     const baseScore = blameWeight + loyaltyDeficit + s.stress + s.fatigue
     const penalty = recencyPenalty(ctx.state, 'staff_identity', `staff:${s.id}`, today)
-    const score = baseScore - penalty
-    if (score > chosenScore) {
-      chosenScore = score
-      chosen = s
-    }
+    return baseScore - penalty
   }
+  const ranked = allStaff
+    .map((s) => ({ s, score: scoreStaff(s) }))
+    .sort((a, b) => b.score - a.score)
+  const chosen = ranked[0]!.s
   const ref = staffRef(chosen.id)
   const guard = staffStillEmployedGuard(ctx, ref)
   if (!guard.allowed) return []
   recordPick(ctx, 'staff_identity', `staff:${chosen.id}`)
+
+  // Phase 40 audit pass 2 §1 — Pull a peer staff member (the next-best
+  // candidate) so memories and futureHooks reference two staff actors.
+  // This dilutes single-staff dominance in named_entity_repetition and
+  // gives the calculator richer relatedActors when scapegoat/comforted
+  // memories land. Pull the most-relevant customer group too: any group
+  // whose loyalty axis matches the staff member's served scenes.
+  const peer = ranked.length > 1 ? ranked[1]!.s : undefined
+  const peerRef = peer ? staffRef(peer.id) : undefined
+  const witnessGroupId =
+    Object.entries(ctx.state.customerGroups)
+      .sort((a, b) => b[1].patronage - a[1].patronage)[0]?.[0] ?? 'local_goblins'
+  const witnessGroupRef = customerRef(witnessGroupId)
+  const witnessFactionRef = ctx.state.world.factions['brewers_guild']
+    ? factionRef('brewers_guild')
+    : undefined
 
   const memories = entityMemoryList(ctx.state, ref, ['staff'])
   const blameAttribution = strongestAttributionText(ctx.state, ref, ['blame', 'resentment'])
@@ -255,8 +270,51 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
       targetOptions: [],
       expectedEffects: ['no cost', 'risk staff quitting'],
     },
+    {
+      id: 'give_authority',
+      labelHint: `Give ${chosen.name.display} more authority`,
+      allowedVerbs: ['promote', 'delegate'],
+      shape: 'long_term_investment',
+      targetOptions: [ref],
+      expectedEffects: ['raise loyalty sharply', 'raise stress', 'service capacity grows'],
+    },
+    {
+      id: 'quieter_role',
+      labelHint: `Move ${chosen.name.display} to a quieter role`,
+      allowedVerbs: ['delegate'],
+      shape: 'compromise',
+      targetOptions: [ref],
+      expectedEffects: ['lower stress', 'service capacity drops'],
+    },
+    {
+      id: 'promise_raise',
+      labelHint: `Promise ${chosen.name.display} a raise`,
+      allowedVerbs: ['pay'],
+      shape: 'delay_problem',
+      targetOptions: [ref],
+      expectedEffects: ['raise loyalty now', 'future wage cost'],
+    },
+    {
+      id: 'staff_meeting',
+      labelHint: 'Hold a staff meeting',
+      allowedVerbs: ['negotiate'],
+      shape: 'compromise',
+      targetOptions: peerRef ? [ref, peerRef] : [ref],
+      expectedEffects: ['lower burnout', 'spread context to peers'],
+    },
+    {
+      id: 'training_helper',
+      labelHint: peerRef
+        ? `Pair ${chosen.name.display} with ${peer!.name.display}`
+        : `Train ${chosen.name.display} on a new station`,
+      allowedVerbs: ['delegate', 'promote'],
+      shape: 'long_term_investment',
+      targetOptions: peerRef ? [ref, peerRef] : [ref],
+      expectedEffects: ['lower burnout', 'raise peer loyalty', 'service quality climbs'],
+    },
   ]
 
+  const peerActors = peerRef ? [ref, peerRef] : [ref]
   const consequenceProfiles: ConsequenceProfile[] = [
     makeProfile({
       id: 'comfort_staff_profile',
@@ -264,16 +322,41 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
       immediateEffects: [
         effect('state_change', `staff.${chosen.id}.loyalty`, 10, 'Loyalty rises', ['staff']),
         effect('state_change', `staff.${chosen.id}.stress`, -8, 'Stress drops', ['staff']),
+        effect('state_change', `staff.${chosen.id}.morale`, 6, 'Morale lifts', ['staff']),
+        effect('cause', `staff:${chosen.id}`, 5, 'Private gratitude', ['staff', 'attribution']),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `staff_emotional_debt_${chosen.id}`,
+          8,
+          'Owner owes the moment back',
+          ['future_hook'],
+        ),
+      ],
       memories: [
         {
           id: `staff_comforted_${chosen.id}`,
           actors: [ref],
-          tags: ['staff', 'loyalty', 'comfort'],
+          tags: ['staff', 'loyalty', 'comforted', 'attribution'],
+        },
+        ...(peerRef
+          ? [
+              {
+                id: `staff_comfort_peer_witness_${peer!.id}`,
+                actors: peerActors,
+                tags: ['staff', 'witness'],
+              },
+            ]
+          : []),
+      ],
+      futureHooks: [
+        {
+          id: `staff_emotional_debt_${chosen.id}`,
+          actors: [ref],
+          tags: ['staff', 'attribution'],
         },
       ],
-      futureHooks: [],
     }),
     makeProfile({
       id: 'publicly_back_staff_profile',
@@ -282,45 +365,112 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
         effect('state_change', `staff.${chosen.id}.loyalty`, 12, 'Public backing earns loyalty', [
           'staff',
         ]),
+        effect('state_change', 'reputation.respectable', 5, 'Owner stood up for staff', [
+          'reputation',
+        ]),
+        effect('state_change', 'reputation.dangerous', -3, 'Crew-defender signal', [
+          'reputation',
+        ]),
+        effect('pressure', 'pressure:staff_loyalty_risk', -8, 'Loyalty risk eases', ['pressure']),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `staff_publicly_backed_${chosen.id}`,
+          10,
+          'Crew remembers being defended',
+          ['future_hook'],
+        ),
+      ],
       memories: [
+        {
+          id: `staff_publicly_backed_${chosen.id}`,
+          actors: [ref],
+          tags: ['staff', 'reputation', 'protected', 'attribution'],
+        },
+        {
+          id: `staff_back_witness_${witnessGroupId}`,
+          actors: [ref, witnessGroupRef],
+          tags: ['staff', 'witness', 'reputation'],
+        },
+      ],
+      futureHooks: [
         {
           id: `staff_publicly_backed_${chosen.id}`,
           actors: [ref],
           tags: ['staff', 'reputation'],
         },
       ],
-      futureHooks: [],
     }),
     makeProfile({
       id: 'pay_bonus_profile',
       responseSlotId: 'pay_bonus',
       immediateEffects: [
         effect('state_change', `staff.${chosen.id}.morale`, 12, 'Morale up', ['staff']),
+        effect('state_change', `staff.${chosen.id}.loyalty`, 6, 'Bonus earns loyalty', ['staff']),
         effect('state_change', 'coin', -10, 'Bonus paid', ['coin']),
+        effect('cause', `staff:${chosen.id}`, 8, 'Bonus felt directly', ['staff', 'bonus']),
+        effect('pressure', 'pressure:staff_loyalty_risk', -10, 'Loyalty risk drops', ['pressure']),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `wage_expectation_${chosen.id}`,
+          8,
+          'Bonus becomes the new floor',
+          ['future_hook'],
+        ),
+      ],
       memories: [
         {
           id: `staff_bonus_paid_${chosen.id}`,
           actors: [ref],
-          tags: ['staff', 'bonus'],
+          tags: ['staff', 'bonus', 'attribution'],
+        },
+        ...(peerRef
+          ? [
+              {
+                id: `staff_bonus_peer_notice_${peer!.id}`,
+                actors: peerActors,
+                tags: ['staff', 'witness', 'wages'],
+              },
+            ]
+          : []),
+      ],
+      futureHooks: [
+        {
+          id: `wage_expectation_${chosen.id}`,
+          actors: [ref],
+          tags: ['staff', 'wages'],
         },
       ],
-      futureHooks: [],
     }),
     makeProfile({
       id: 'blame_staff_profile',
       responseSlotId: 'blame_staff',
       immediateEffects: [
         effect('state_change', `staff.${chosen.id}.loyalty`, -20, 'Loyalty collapses', ['staff']),
+        effect('state_change', `staff.${chosen.id}.morale`, -12, 'Morale crumbles', ['staff']),
+        effect('state_change', 'reputation.respectable', -8, 'Owner scapegoats publicly', [
+          'reputation',
+        ]),
+        effect('cause', `staff:${chosen.id}`, -12, 'Owner publicly blamed staff', [
+          'staff',
+          'blame',
+          'attribution',
+        ]),
+        effect('pressure', 'pressure:rumour_pressure', 6, 'Scapegoat story spreads', [
+          'pressure',
+        ]),
       ],
       delayedEffects: [
+        effect('pressure', 'pressure:staff_loyalty_risk', 12, 'Loyalty risk spikes', [
+          'pressure',
+        ]),
         effect(
           'future_hook',
           `staff_quit_risk_${chosen.id}`,
-          0,
+          15,
           'Staff may quit',
           ['future_hook'],
         ),
@@ -329,7 +479,21 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
         {
           id: `staff_scapegoated_${chosen.id}`,
           actors: [ref],
-          tags: ['staff', 'grudge', 'scapegoat'],
+          tags: ['staff', 'grudge', 'scapegoat', 'attribution'],
+        },
+        ...(peerRef
+          ? [
+              {
+                id: `staff_scapegoat_witness_${peer!.id}`,
+                actors: peerActors,
+                tags: ['staff', 'witness', 'grudge'],
+              },
+            ]
+          : []),
+        {
+          id: `tavern_blamed_staff_${chosen.id}`,
+          actors: [ref, tavernIdentityRef('self')],
+          tags: ['tavern_identity', 'memory'],
         },
       ],
       futureHooks: [
@@ -345,32 +509,276 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
       responseSlotId: 'change_priority',
       immediateEffects: [
         effect('state_change', `staff.${chosen.id}.stress`, -10, 'Stress drops', ['staff']),
+        effect('state_change', `staff.${chosen.id}.fatigue`, -5, 'Some rest', ['staff']),
+        effect('pressure', 'pressure:staff_burnout', -6, 'Burnout eases', ['pressure']),
       ],
       delayedEffects: [],
       memories: [
         {
           id: `staff_priority_changed_${chosen.id}`,
           actors: [ref],
-          tags: ['staff', 'priority'],
+          tags: ['staff', 'priority', 'protected'],
         },
+        ...(peerRef
+          ? [
+              {
+                id: `staff_priority_peer_pickup_${peer!.id}`,
+                actors: peerActors,
+                tags: ['staff', 'workload'],
+              },
+            ]
+          : []),
       ],
       futureHooks: [],
     }),
     makeProfile({
       id: 'ignore_request_profile',
       responseSlotId: 'ignore_request',
-      immediateEffects: [],
+      immediateEffects: [
+        effect('state_change', `staff.${chosen.id}.loyalty`, -3, 'Slight loyalty drop', [
+          'staff',
+        ]),
+        effect('state_change', `staff.${chosen.id}.stress`, 4, 'Unspoken stress lingers', [
+          'staff',
+        ]),
+      ],
       delayedEffects: [
         effect('pressure', 'pressure:staff_loyalty_risk', 6, 'Loyalty risk rises', ['pressure']),
+        effect(
+          'future_hook',
+          `staff_quit_risk_${chosen.id}`,
+          10,
+          'Quiet quitting watch',
+          ['future_hook'],
+        ),
       ],
       memories: [
         {
           id: `staff_ignored_${chosen.id}`,
           actors: [ref],
-          tags: ['staff', 'ignored'],
+          tags: ['staff', 'ignored', 'scapegoat'],
+        },
+        {
+          id: `tavern_owner_walked_past_${chosen.id}`,
+          actors: [ref, tavernIdentityRef('self')],
+          tags: ['tavern_identity', 'memory', 'ignored'],
         },
       ],
+      futureHooks: [
+        {
+          id: `staff_quit_risk_${chosen.id}`,
+          actors: [ref],
+          tags: ['staff', 'risk'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'give_authority_profile',
+      responseSlotId: 'give_authority',
+      immediateEffects: [
+        effect('state_change', `staff.${chosen.id}.loyalty`, 15, 'Authority earns deep loyalty', [
+          'staff',
+        ]),
+        effect('state_change', `staff.${chosen.id}.stress`, 6, 'Authority weighs', ['staff']),
+        effect('state_change', 'coin', -8, 'Training tools and badges', ['coin']),
+        effect('pressure', 'pressure:staff_loyalty_risk', -10, 'Loyalty risk eases', [
+          'pressure',
+        ]),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `authority_test_${chosen.id}`,
+          12,
+          'Authority will be tested',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `staff_given_authority_${chosen.id}`,
+          actors: [ref],
+          tags: ['staff', 'authority', 'protected', 'attribution'],
+        },
+        {
+          id: `staff_authority_witness_${witnessGroupId}`,
+          actors: [ref, witnessGroupRef],
+          tags: ['staff', 'witness', 'reputation'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `authority_test_${chosen.id}`,
+          actors: [ref],
+          tags: ['staff', 'risk', 'authority'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'quieter_role_profile',
+      responseSlotId: 'quieter_role',
+      immediateEffects: [
+        effect('state_change', `staff.${chosen.id}.stress`, -12, 'Quiet station relieves', [
+          'staff',
+        ]),
+        effect('state_change', `staff.${chosen.id}.fatigue`, -8, 'Rest returns', ['staff']),
+        effect('state_change', `staff.${chosen.id}.loyalty`, 5, 'Recognised the need', [
+          'staff',
+        ]),
+        effect('pressure', 'pressure:staff_loyalty_risk', -6, 'Loyalty risk eases', ['pressure']),
+        effect('pressure', 'pressure:staff_burnout', -8, 'Burnout falls', ['pressure']),
+      ],
+      delayedEffects: [],
+      memories: [
+        {
+          id: `staff_quieter_role_${chosen.id}`,
+          actors: [ref],
+          tags: ['staff', 'protected', 'attribution'],
+        },
+        ...(peerRef
+          ? [
+              {
+                id: `staff_quiet_peer_workload_${peer!.id}`,
+                actors: peerActors,
+                tags: ['staff', 'workload'],
+              },
+            ]
+          : []),
+      ],
       futureHooks: [],
+    }),
+    makeProfile({
+      id: 'promise_raise_profile',
+      responseSlotId: 'promise_raise',
+      immediateEffects: [
+        effect('state_change', `staff.${chosen.id}.loyalty`, 14, 'Promise of more', ['staff']),
+        effect('state_change', `staff.${chosen.id}.morale`, 8, 'Hope lifts mood', ['staff']),
+        effect('pressure', 'pressure:staff_loyalty_risk', -10, 'Loyalty risk eases', [
+          'pressure',
+        ]),
+      ],
+      delayedEffects: [
+        effect('state_change', 'coin', -15, 'Raise becomes due', ['coin', 'wages']),
+        effect(
+          'future_hook',
+          `raise_promised_${chosen.id}`,
+          15,
+          'Promise must be kept',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `staff_raise_promised_${chosen.id}`,
+          actors: [ref],
+          tags: ['staff', 'wages', 'bonus', 'attribution'],
+        },
+        {
+          id: `tavern_promised_raise_${chosen.id}`,
+          actors: [ref, tavernIdentityRef('self')],
+          tags: ['tavern_identity', 'memory', 'wages'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `raise_promised_${chosen.id}`,
+          actors: [ref],
+          tags: ['staff', 'wages', 'risk'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'staff_meeting_profile',
+      responseSlotId: 'staff_meeting',
+      immediateEffects: [
+        effect('state_change', `staff.${chosen.id}.morale`, 6, 'Crew heard out', ['staff']),
+        effect('pressure', 'pressure:staff_loyalty_risk', -8, 'Loyalty risk eases', ['pressure']),
+        effect('pressure', 'pressure:staff_burnout', -6, 'Burnout eases', ['pressure']),
+        effect('cause', `staff:${chosen.id}`, 6, 'Public acknowledgement', [
+          'staff',
+          'attribution',
+        ]),
+      ],
+      delayedEffects: [],
+      memories: [
+        {
+          id: `staff_meeting_held_${chosen.id}`,
+          actors: peerActors,
+          tags: ['staff', 'protected', 'attribution'],
+        },
+        ...(peerRef
+          ? [
+              {
+                id: `staff_meeting_peer_${peer!.id}`,
+                actors: [peerRef],
+                tags: ['staff', 'protected'],
+              },
+            ]
+          : []),
+        ...(witnessFactionRef
+          ? [
+              {
+                id: `staff_meeting_faction_signal`,
+                actors: [witnessFactionRef],
+                tags: ['faction', 'memory'],
+              },
+            ]
+          : []),
+      ],
+      futureHooks: [],
+    }),
+    makeProfile({
+      id: 'training_helper_profile',
+      responseSlotId: 'training_helper',
+      immediateEffects: [
+        effect('state_change', `staff.${chosen.id}.loyalty`, 8, 'Mentor role earns loyalty', [
+          'staff',
+        ]),
+        effect('state_change', `staff.${chosen.id}.fatigue`, 4, 'Mentoring is work', ['staff']),
+        ...(peer
+          ? [
+              effect('state_change', `staff.${peer.id}.loyalty`, 8, 'Apprentice gains loyalty', [
+                'staff',
+              ]),
+              effect('state_change', `staff.${peer.id}.morale`, 6, 'Apprentice morale rises', [
+                'staff',
+              ]),
+            ]
+          : []),
+        effect('pressure', 'pressure:staff_burnout', -8, 'Workload spreads', ['pressure']),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `training_helper_${chosen.id}`,
+          10,
+          'Pair becomes a station',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `staff_training_${chosen.id}`,
+          actors: peerActors,
+          tags: ['staff', 'protected', 'attribution'],
+        },
+        ...(peerRef
+          ? [
+              {
+                id: `staff_training_peer_${peer!.id}`,
+                actors: [peerRef],
+                tags: ['staff', 'comforted'],
+              },
+            ]
+          : []),
+      ],
+      futureHooks: [
+        {
+          id: `training_helper_${chosen.id}`,
+          actors: peerActors,
+          tags: ['staff', 'opportunity'],
+        },
+      ],
     }),
   ]
 
@@ -386,6 +794,11 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
   if (loyaltyRisk) pressureContext.push(`loyalty risk ${loyaltyRisk.value}`)
   if (burnout) pressureContext.push(`burnout ${burnout.value}`)
 
+  // Phase 40 audit pass 2 §1 — Keep textIngredients.namedEntities to a
+  // single primary entry. The audit counts mentions across primaryActor,
+  // affectedActors, and textIngredients.namedEntities — listing the
+  // peer / witness in all three triples the count. Affected actors still
+  // carry the secondary refs so social_consequence_quality reads them.
   const ingredients: TextIngredients = buildTextIngredients({
     subject: chosen.name.display,
     problemNoun: blameAttribution ? 'public blame' : 'loyalty test',
@@ -399,6 +812,12 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
     perceivedBlame,
     pressureContext,
   })
+
+  // Phase 40 audit pass 2 §1 — Only keep the witness customer group on
+  // affectedActors; the peer staff reference still travels through
+  // profile memories (where the calculator picks it up) but doesn't
+  // inflate the per-seed staff repetition counter.
+  const seedAffected = dedupeRefs([witnessGroupRef], ref)
 
   return [
     buildSeed({
@@ -416,7 +835,7 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
         urgencyFromPressures(ctx, ['staff_loyalty_risk', 'staff_burnout']),
       ),
       primaryActor: ref,
-      affectedActors: [ref],
+      affectedActors: seedAffected,
       causes,
       pressures: pressureSnapshotsFor(ctx, ['staff_loyalty_risk', 'staff_burnout']),
       stakes: [
@@ -732,11 +1151,12 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
   const suppliers = Object.values(ctx.state.world.suppliers)
   if (suppliers.length === 0) return []
 
-  // Pick the supplier with highest blame/distrust signal.
+  // Pick the supplier with highest blame/distrust signal. Phase 40 audit
+  // pass 2 §1 — also keep the second-best candidate as a secondary
+  // supplier so split-orders / switch-supplier responses can reference
+  // two named suppliers, diluting `brakka_mushroom_cart` dominance.
   const today = ctx.state.calendar.totalDaysElapsed
-  let chosen = suppliers[0]!
-  let chosenScore = -Infinity
-  for (const s of suppliers) {
+  const scoreSupplier = (s: (typeof suppliers)[number]) => {
     const candidateRef = supplierRef(s.id)
     const blameWeight = attributionsByTarget(ctx.state, candidateRef)
       .filter((a) => a.attributionType === 'blame' || a.attributionType === 'distrust')
@@ -745,16 +1165,33 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
     const reliabilityDeficit = 100 - s.reliability
     const baseScore = blameWeight + memWeight + reliabilityDeficit
     const penalty = recencyPenalty(ctx.state, 'supplier_relationship', `supplier:${s.id}`, today)
-    const score = baseScore - penalty
-    if (score > chosenScore) {
-      chosenScore = score
-      chosen = s
-    }
+    return baseScore - penalty
   }
+  const rankedSuppliers = suppliers
+    .map((s) => ({ s, score: scoreSupplier(s) }))
+    .sort((a, b) => b.score - a.score)
+  const chosen = rankedSuppliers[0]!.s
+  const secondary = rankedSuppliers.length > 1 ? rankedSuppliers[1]!.s : undefined
   const ref = supplierRef(chosen.id)
+  const secondaryRef = secondary ? supplierRef(secondary.id) : undefined
   const guard = supplierExistsGuard(ctx, ref)
   if (!guard.allowed) return []
   recordPick(ctx, 'supplier_relationship', `supplier:${chosen.id}`)
+  // Phase 40 audit pass 2 §1 — Faction-tied actor (e.g. brewers_guild) +
+  // local town_watch faction get pulled into delivery/payment memories so
+  // expanded pressure causes ("brewers_guild remembers late payment") gain
+  // a named related actor.
+  const factionRefForSupplier = chosen.factionId
+    ? factionRef(chosen.factionId)
+    : ctx.state.world.factions['brewers_guild']
+      ? factionRef('brewers_guild')
+      : undefined
+  const inspectorFaction = ctx.state.world.factions['town_watch']
+    ? factionRef('town_watch')
+    : undefined
+  const cultureRefForSupplier = chosen.cultureId
+    ? cultureRef(chosen.cultureId)
+    : undefined
 
   const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'supplier_distrust', 2)
   causes.push(...pressureCauseRefsAsEntries(ctx, 'market_instability', 2))
@@ -816,8 +1253,53 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
       targetOptions: [ref],
       expectedEffects: ['no risk', 'less stock'],
     },
+    {
+      id: 'place_standing_order',
+      labelHint: `Place a standing order with ${displayNameForRef(ctx.state, ref)}`,
+      allowedVerbs: ['buy', 'negotiate'],
+      shape: 'safe_costly',
+      targetOptions: [ref],
+      expectedEffects: ['lock weekly volume', 'reduce market exposure'],
+    },
+    {
+      id: 'inspect_delivery',
+      labelHint: 'Inspect today’s delivery',
+      allowedVerbs: ['inspect'],
+      shape: 'compromise',
+      targetOptions: [ref, goodsRef],
+      expectedEffects: ['gate suspicious goods', 'show supplier you care'],
+    },
+    {
+      id: 'split_orders',
+      labelHint: secondaryRef
+        ? `Split orders with ${displayNameForRef(ctx.state, secondaryRef)}`
+        : 'Split orders across two suppliers',
+      allowedVerbs: ['buy', 'negotiate'],
+      shape: 'long_term_investment',
+      targetOptions: secondaryRef ? [ref, secondaryRef] : [ref],
+      expectedEffects: ['dilute supply risk', 'spread relationship cost'],
+    },
+    {
+      id: 'supplier_exclusivity_deal',
+      labelHint: `Sign exclusivity with ${displayNameForRef(ctx.state, ref)}`,
+      allowedVerbs: ['negotiate', 'buy'],
+      shape: 'risky_profitable',
+      targetOptions: [ref],
+      expectedEffects: ['unlock discount', 'single point of failure'],
+    },
+    {
+      id: 'investigate_suspicious_goods',
+      labelHint: 'Investigate suspicious goods',
+      allowedVerbs: ['inspect', 'discard'],
+      shape: 'safe_costly',
+      targetOptions: [ref, goodsRef],
+      expectedEffects: ['close food safety gap', 'spend hours'],
+    },
   ]
 
+  const factionMems = factionRefForSupplier
+    ? [factionRefForSupplier]
+    : []
   const consequenceProfiles: ConsequenceProfile[] = [
     makeProfile({
       id: 'pay_supplier_profile',
@@ -825,44 +1307,120 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
       immediateEffects: [
         effect('state_change', 'coin', -15, 'Pay supplier', ['coin']),
         effect('pressure', 'pressure:supplier_distrust', -10, 'Lower distrust', ['pressure']),
+        effect('pressure', 'pressure:market_instability', -8, 'Steady payments steady prices', [
+          'pressure',
+        ]),
+        effect('cause', `supplier:${chosen.id}`, 10, 'Supplier paid on time', [
+          'supplier',
+          'paid_on_time',
+          'attribution',
+        ]),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `supplier_goodwill_return_${chosen.id}`,
+          8,
+          'Goodwill returns next delivery',
+          ['future_hook'],
+        ),
+      ],
       memories: [
         {
           id: `supplier_paid_${chosen.id}`,
+          actors: [ref, ...factionMems],
+          tags: ['supplier', 'payment', 'paid_on_time', 'fair_deal', 'attribution'],
+        },
+        ...(factionRefForSupplier
+          ? [
+              {
+                id: `supplier_faction_paid_${chosen.id}`,
+                actors: [factionRefForSupplier],
+                tags: ['faction', 'memory', 'hosted_event'],
+              },
+            ]
+          : []),
+      ],
+      futureHooks: [
+        {
+          id: `supplier_goodwill_return_${chosen.id}`,
           actors: [ref],
-          tags: ['supplier', 'payment'],
+          tags: ['supplier', 'opportunity'],
         },
       ],
-      futureHooks: [],
     }),
     makeProfile({
       id: 'negotiate_supplier_profile',
       responseSlotId: 'negotiate_supplier',
       immediateEffects: [
-        effect('cause', `supplier:${chosen.id}`, 4, 'Negotiation succeeds', ['supplier']),
+        effect('cause', `supplier:${chosen.id}`, 12, 'Negotiation succeeds', [
+          'supplier',
+          'fair_deal',
+          'attribution',
+        ]),
+        effect('pressure', 'pressure:stock_shortage', -6, 'New pricing eases stock', [
+          'pressure',
+        ]),
+        effect('pressure', 'pressure:market_instability', -5, 'Locked price calms market', [
+          'pressure',
+        ]),
+        effect('state_change', `world.suppliers.${chosen.id}.relationship`, 3, 'Relationship up', [
+          'supplier',
+        ]),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `supplier_renegotiation_${chosen.id}`,
+          8,
+          'Terms may need revisiting',
+          ['future_hook'],
+        ),
+      ],
       memories: [
         {
           id: `supplier_negotiated_${chosen.id}`,
+          actors: [ref, ...factionMems],
+          tags: ['supplier', 'negotiation', 'fair_deal', 'attribution'],
+        },
+        ...(factionRefForSupplier
+          ? [
+              {
+                id: `supplier_negotiation_faction_${chosen.id}`,
+                actors: [factionRefForSupplier],
+                tags: ['faction', 'memory'],
+              },
+            ]
+          : []),
+      ],
+      futureHooks: [
+        {
+          id: `supplier_renegotiation_${chosen.id}`,
           actors: [ref],
-          tags: ['supplier', 'negotiation'],
+          tags: ['supplier'],
         },
       ],
-      futureHooks: [],
     }),
     makeProfile({
       id: 'blame_supplier_profile',
       responseSlotId: 'blame_supplier',
       immediateEffects: [
-        effect('cause', `supplier:${chosen.id}`, -15, 'Relationship damaged', ['supplier']),
+        effect('cause', `supplier:${chosen.id}`, -15, 'Relationship damaged', [
+          'supplier',
+          'blame',
+          'attribution',
+        ]),
+        effect('pressure', 'pressure:supplier_distrust', 8, 'Distrust rises', ['pressure']),
+        effect('pressure', 'pressure:rumour_pressure', 5, 'Blame leaks publicly', ['pressure']),
+        effect('state_change', `world.suppliers.${chosen.id}.relationship`, -10, 'Bond strained', [
+          'supplier',
+        ]),
       ],
       delayedEffects: [
         effect(
           'future_hook',
           `supplier_retaliation_${chosen.id}`,
-          0,
+          12,
           'Supplier may retaliate',
           ['future_hook'],
         ),
@@ -870,9 +1428,23 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
       memories: [
         {
           id: `supplier_blamed_${chosen.id}`,
-          actors: [ref],
-          tags: ['supplier', 'grudge'],
+          actors: [ref, ...factionMems],
+          tags: ['supplier', 'grudge', 'delivery_dispute', 'attribution'],
         },
+        {
+          id: `tavern_blamed_supplier_${chosen.id}`,
+          actors: [ref, tavernIdentityRef('self')],
+          tags: ['tavern_identity', 'memory', 'blame'],
+        },
+        ...(factionRefForSupplier
+          ? [
+              {
+                id: `supplier_faction_blame_${chosen.id}`,
+                actors: [factionRefForSupplier],
+                tags: ['faction', 'grudge', 'attribution'],
+              },
+            ]
+          : []),
       ],
       futureHooks: [
         {
@@ -886,38 +1458,119 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
       id: 'switch_supplier_profile',
       responseSlotId: 'switch_supplier',
       immediateEffects: [
-        effect('cause', `supplier:${chosen.id}`, -20, 'Relationship ends', ['supplier']),
+        effect('cause', `supplier:${chosen.id}`, -20, 'Relationship ends', [
+          'supplier',
+          'attribution',
+        ]),
+        effect('pressure', 'pressure:supplier_distrust', -8, 'Clean slate with new supplier', [
+          'pressure',
+        ]),
+        effect('pressure', 'pressure:stock_shortage', 10, 'Gap while transitioning', [
+          'pressure',
+        ]),
+        effect('state_change', 'coin', -20, 'Switching cost', ['coin']),
       ],
-      delayedEffects: [],
+      delayedEffects: secondary
+        ? [
+            effect(
+              'future_hook',
+              `new_supplier_uncertainty_${secondary.id}`,
+              10,
+              `${secondary.label} reliability unproven`,
+              ['future_hook'],
+            ),
+          ]
+        : [],
       memories: [
         {
           id: `supplier_switched_${chosen.id}`,
           actors: [ref],
-          tags: ['supplier', 'switched'],
+          tags: ['supplier', 'switched', 'grudge', 'delivery_dispute'],
         },
+        ...(secondary && secondaryRef
+          ? [
+              {
+                id: `supplier_new_${secondary.id}`,
+                actors: [secondaryRef],
+                tags: ['supplier', 'opportunity', 'fair_deal'],
+              },
+            ]
+          : []),
+        ...(factionRefForSupplier
+          ? [
+              {
+                id: `supplier_faction_drop_${chosen.id}`,
+                actors: [factionRefForSupplier],
+                tags: ['faction', 'memory', 'grudge'],
+              },
+            ]
+          : []),
       ],
-      futureHooks: [],
+      futureHooks:
+        secondary && secondaryRef
+          ? [
+              {
+                id: `new_supplier_uncertainty_${secondary.id}`,
+                actors: [secondaryRef],
+                tags: ['supplier', 'risk'],
+              },
+            ]
+          : [],
     }),
     makeProfile({
       id: 'accept_suspicious_profile',
       responseSlotId: 'accept_suspicious_goods',
       immediateEffects: [
         effect('pressure', 'pressure:food_safety', 8, 'Food safety risk rises', ['pressure']),
+        effect('pressure', 'pressure:inspection', 6, 'Inspection risk rises', ['pressure']),
+        effect('cause', `supplier:${chosen.id}`, 4, 'Supplier owes a favour', [
+          'supplier',
+          'attribution',
+        ]),
+        effect('state_change', 'coin', 6, 'Cheap goods, immediate margin', ['coin']),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `food_poisoning_outbreak_${chosen.id}`,
+          12,
+          'Outbreak risk grows',
+          ['future_hook'],
+        ),
+      ],
       memories: [
         {
           id: `supplier_suspicious_goods_${chosen.id}`,
           actors: [ref],
-          tags: ['supplier', 'deception'],
+          tags: ['supplier', 'deception', 'delivery_dispute'],
+        },
+        {
+          id: `tavern_kept_secret_${chosen.id}`,
+          actors: [ref, tavernIdentityRef('self')],
+          tags: ['tavern_identity', 'memory', 'deception'],
         },
       ],
-      futureHooks: [],
+      futureHooks: [
+        {
+          id: `food_poisoning_outbreak_${chosen.id}`,
+          actors: [ref],
+          tags: ['food_safety', 'risk'],
+        },
+      ],
     }),
     makeProfile({
       id: 'refuse_supplier_profile',
       responseSlotId: 'refuse_supplier_offer',
-      immediateEffects: [],
+      immediateEffects: [
+        effect('cause', `supplier:${chosen.id}`, -10, 'Refusal stings', [
+          'supplier',
+          'attribution',
+        ]),
+        effect('pressure', 'pressure:supplier_distrust', 6, 'Distrust rises', ['pressure']),
+        effect('state_change', `world.suppliers.${chosen.id}.relationship`, -5, 'Bond cools', [
+          'supplier',
+        ]),
+      ],
       delayedEffects: [
         effect('pressure', 'pressure:stock_shortage', 4, 'Stock pressure rises', ['pressure']),
       ],
@@ -925,10 +1578,267 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
         {
           id: `supplier_refused_${chosen.id}`,
           actors: [ref],
-          tags: ['supplier', 'refused'],
+          tags: ['supplier', 'refused', 'delivery_dispute', 'attribution'],
+        },
+        {
+          id: `tavern_stood_firm_${chosen.id}`,
+          actors: [ref, tavernIdentityRef('self')],
+          tags: ['tavern_identity', 'memory', 'standards'],
         },
       ],
       futureHooks: [],
+    }),
+    makeProfile({
+      id: 'place_standing_order_profile',
+      responseSlotId: 'place_standing_order',
+      immediateEffects: [
+        effect('state_change', 'coin', -25, 'Weekly volume locked', ['coin']),
+        effect('pressure', 'pressure:market_instability', -10, 'Market exposure trimmed', [
+          'pressure',
+        ]),
+        effect('state_change', `world.suppliers.${chosen.id}.reliability`, 5, 'Reliability climbs', [
+          'supplier',
+        ]),
+        effect('cause', `supplier:${chosen.id}`, 8, 'Standing order signed', [
+          'supplier',
+          'fair_deal',
+          'paid_on_time',
+          'attribution',
+        ]),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `standing_order_due_${chosen.id}`,
+          10,
+          'Weekly volume is now owed',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `supplier_standing_order_${chosen.id}`,
+          actors: [ref, ...factionMems],
+          tags: ['supplier', 'fair_deal', 'paid_on_time', 'attribution'],
+        },
+        ...(factionRefForSupplier
+          ? [
+              {
+                id: `supplier_faction_signed_${chosen.id}`,
+                actors: [factionRefForSupplier],
+                tags: ['faction', 'memory', 'hosted_event'],
+              },
+            ]
+          : []),
+      ],
+      futureHooks: [
+        {
+          id: `standing_order_due_${chosen.id}`,
+          actors: [ref],
+          tags: ['supplier', 'rent_like'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'inspect_delivery_profile',
+      responseSlotId: 'inspect_delivery',
+      immediateEffects: [
+        effect('state_change', 'coin', -3, 'Time lost inspecting', ['coin']),
+        effect('pressure', 'pressure:food_safety', -8, 'Bad goods rejected', ['pressure']),
+        effect('pressure', 'pressure:market_instability', -4, 'Surprises trimmed', ['pressure']),
+        effect('cause', `supplier:${chosen.id}`, 6, 'Supplier respects the diligence', [
+          'supplier',
+          'fair_deal',
+          'attribution',
+        ]),
+      ],
+      delayedEffects: [],
+      memories: [
+        {
+          id: `supplier_delivery_inspected_${chosen.id}`,
+          actors: [ref],
+          tags: ['supplier', 'fair_deal', 'attribution'],
+        },
+        ...(inspectorFaction
+          ? [
+              {
+                id: `inspection_practice_witness_${chosen.id}`,
+                actors: [inspectorFaction],
+                tags: ['faction', 'memory', 'hosted_event'],
+              },
+            ]
+          : []),
+      ],
+      futureHooks: [],
+    }),
+    makeProfile({
+      id: 'split_orders_profile',
+      responseSlotId: 'split_orders',
+      immediateEffects: [
+        effect('pressure', 'pressure:market_instability', -12, 'Two suppliers dilute risk', [
+          'pressure',
+        ]),
+        effect('pressure', 'pressure:supplier_distrust', -6, 'Reduced single-supplier pressure', [
+          'pressure',
+        ]),
+        effect('state_change', 'coin', -10, 'Split orders cost more upfront', ['coin']),
+        ...(secondary
+          ? [
+              effect(
+                'cause',
+                `supplier:${secondary.id}`,
+                8,
+                `Order placed with ${secondary.label}`,
+                ['supplier', 'fair_deal', 'attribution'],
+              ),
+            ]
+          : []),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `dual_supplier_balance_${chosen.id}`,
+          8,
+          'Balancing two suppliers ongoing',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `supplier_split_primary_${chosen.id}`,
+          actors: [ref],
+          tags: ['supplier', 'fair_deal', 'attribution'],
+        },
+        ...(secondary && secondaryRef
+          ? [
+              {
+                id: `supplier_split_secondary_${secondary.id}`,
+                actors: [secondaryRef],
+                tags: ['supplier', 'fair_deal', 'attribution'],
+              },
+            ]
+          : []),
+        ...(factionRefForSupplier
+          ? [
+              {
+                id: `supplier_split_faction_${chosen.id}`,
+                actors: [factionRefForSupplier],
+                tags: ['faction', 'memory'],
+              },
+            ]
+          : []),
+      ],
+      futureHooks: [
+        {
+          id: `dual_supplier_balance_${chosen.id}`,
+          actors: secondaryRef ? [ref, secondaryRef] : [ref],
+          tags: ['supplier'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'supplier_exclusivity_profile',
+      responseSlotId: 'supplier_exclusivity_deal',
+      immediateEffects: [
+        effect('state_change', 'coin', 12, 'Exclusivity discount applied', ['coin']),
+        effect('pressure', 'pressure:supplier_distrust', -10, 'Locked-in trust', ['pressure']),
+        effect('pressure', 'pressure:market_instability', 8, 'Single point of failure', [
+          'pressure',
+        ]),
+        effect('cause', `supplier:${chosen.id}`, 12, 'Exclusivity earns commitment', [
+          'supplier',
+          'fair_deal',
+          'attribution',
+        ]),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `exclusivity_risk_${chosen.id}`,
+          15,
+          'Exclusivity locks tavern in',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `supplier_exclusivity_${chosen.id}`,
+          actors: [ref, tavernIdentityRef('self')],
+          tags: ['supplier', 'paid_on_time', 'fair_deal', 'attribution'],
+        },
+        ...(secondary && secondaryRef
+          ? [
+              {
+                id: `supplier_exclusivity_rival_${secondary.id}`,
+                actors: [secondaryRef],
+                tags: ['supplier', 'grudge'],
+              },
+            ]
+          : []),
+      ],
+      futureHooks: [
+        {
+          id: `exclusivity_risk_${chosen.id}`,
+          actors: [ref],
+          tags: ['supplier', 'risk'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'investigate_suspicious_goods_profile',
+      responseSlotId: 'investigate_suspicious_goods',
+      immediateEffects: [
+        effect('pressure', 'pressure:food_safety', -10, 'Suspicious stock contained', [
+          'pressure',
+        ]),
+        effect('pressure', 'pressure:inspection', -6, 'Records show diligence', ['pressure']),
+        effect('cause', `supplier:${chosen.id}`, -8, 'Supplier feels investigated', [
+          'supplier',
+          'attribution',
+        ]),
+        effect('state_change', 'coin', -8, 'Hours and discarded stock', ['coin']),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `supplier_investigation_concluded_${chosen.id}`,
+          10,
+          'Findings will go on record',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `supplier_investigation_${chosen.id}`,
+          actors: [ref],
+          tags: ['supplier', 'delivery_dispute', 'attribution'],
+        },
+        ...(inspectorFaction
+          ? [
+              {
+                id: `inspection_investigation_${chosen.id}`,
+                actors: [inspectorFaction],
+                tags: ['faction', 'memory', 'hosted_event'],
+              },
+            ]
+          : []),
+        ...(cultureRefForSupplier
+          ? [
+              {
+                id: `supplier_culture_signal_${chosen.cultureId ?? 'unknown'}`,
+                actors: [cultureRefForSupplier],
+                tags: ['culture', 'memory'],
+              },
+            ]
+          : []),
+      ],
+      futureHooks: [
+        {
+          id: `supplier_investigation_concluded_${chosen.id}`,
+          actors: [ref],
+          tags: ['supplier'],
+        },
+      ],
     }),
   ]
 
@@ -941,6 +1851,14 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
   const marketContext: string[] = []
   if (market && market.value > 20) marketContext.push(`market unstable ${market.value}`)
 
+  // Phase 40 audit pass 2 §2 — Keep affectedActors minimal so the
+  // secondary supplier + faction don't double-count daily. They still
+  // ride along inside profile memories where the actual relationship
+  // shift lands.
+  const seedAffected: EntityRef[] = dedupeRefs([], ref)
+
+  const namedEntities = [namedEntityIngredient(ctx.state, 'supplier', ref)]
+
   return [
     buildSeed({
       id: seedId('supplier_relationship', chosen.id, ctx),
@@ -951,7 +1869,7 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
       severity: Math.max(35, distrust?.severity ?? 30),
       urgency: Math.max(30, distrust?.urgency ?? 25),
       primaryActor: ref,
-      affectedActors: [ref],
+      affectedActors: seedAffected,
       causes,
       pressures: pressureSnapshotsFor(ctx, ['supplier_distrust', 'market_instability']),
       stakes: [
@@ -982,7 +1900,7 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
         actorOpinions: { supplier: 'demands an answer' },
         recentContext: [`reliability ${chosen.reliability}`],
         stakesReadable: ['supplier may walk', 'stock may run dry'],
-        namedEntities: [namedEntityIngredient(ctx.state, 'supplier', ref)],
+        namedEntities,
         socialContext: ['market tension'],
         relevantMemories,
         perceivedBlame,
@@ -1856,310 +2774,1721 @@ function generateAreaAtmosphere(ctx: SimContext): IssueSeed[] {
 // 39.11 — seasonal_arc
 // ----------------------------------------------------------------------
 
+// Phase 40 audit pass 2 §6 — Seasonal arc archetypes. Five archetypes, each
+// with its own response slots + consequence profiles. The generator
+// chooses one of these based on an active local arc when present, or by
+// "anticipation" cues (calendar tags + market conditions + pressure
+// thresholds) when no arc is yet active in state.world.localEvents.
+type SeasonalArcTheme =
+  | 'mushroom_blight'
+  | 'miner_payday_boom'
+  | 'inspection_campaign'
+  | 'rival_tavern_expansion'
+  | 'festival_approaching'
+
+const SEASONAL_ARC_LABELS: Record<SeasonalArcTheme, string> = {
+  mushroom_blight: 'Mushroom Blight',
+  miner_payday_boom: 'Miner Payday Boom',
+  inspection_campaign: 'Inspection Campaign',
+  rival_tavern_expansion: 'Rival Tavern Expansion',
+  festival_approaching: 'Festival Approaching',
+}
+
+function buildSeasonalArcContent(
+  ctx: SimContext,
+  theme: SeasonalArcTheme,
+  arcRef: EntityRef,
+  arcKey: string,
+  arcSlotRef: EntityRef,
+): { responseSlots: ResponseSlot[]; consequenceProfiles: ConsequenceProfile[]; extraAffected: EntityRef[] } {
+  // arcSlotRef is used inside response slot targetOptions; arcRef is
+  // used inside profile memories. For active arcs both are the same; for
+  // anticipation seeds we replace the slot ref with systemRef('arc')
+  // (resolves as true) since the validator requires slot targets to
+  // resolve against state.
+  const tavernSelf = tavernIdentityRef('self')
+  const factionByThemes: Record<SeasonalArcTheme, string[]> = {
+    mushroom_blight: ['scrap_collectors', 'brewers_guild'],
+    miner_payday_boom: ['miners_union', 'town_watch'],
+    inspection_campaign: ['town_watch', 'local_shrine'],
+    rival_tavern_expansion: ['market_caravan_circle', 'brewers_guild'],
+    festival_approaching: ['local_shrine', 'miners_union'],
+  }
+  const supplierByThemes: Record<SeasonalArcTheme, string[]> = {
+    mushroom_blight: ['brakka_mushroom_cart', 'scrap_meat_vendor'],
+    miner_payday_boom: ['old_keg_brewers', 'mudroad_grain_runner'],
+    inspection_campaign: ['scrap_meat_vendor', 'brakka_mushroom_cart'],
+    rival_tavern_expansion: ['mudroad_grain_runner', 'old_keg_brewers'],
+    festival_approaching: ['old_keg_brewers', 'mudroad_grain_runner'],
+  }
+  const cultureByThemes: Record<SeasonalArcTheme, string[]> = {
+    mushroom_blight: ['goblin_local'],
+    miner_payday_boom: ['miner_workcrew'],
+    inspection_campaign: ['merchant_roadfolk'],
+    rival_tavern_expansion: ['merchant_roadfolk', 'adventuring_bands'],
+    festival_approaching: ['goblin_local', 'ogre_clans'],
+  }
+
+  const factionRefs = factionByThemes[theme]
+    .filter((id) => ctx.state.world.factions[id])
+    .map((id) => factionRef(id))
+  const supplierRefs = supplierByThemes[theme]
+    .filter((id) => ctx.state.world.suppliers[id])
+    .map((id) => supplierRef(id))
+  const cultureRefs = cultureByThemes[theme]
+    .filter((id) => ctx.state.world.cultures[id])
+    .map((id) => cultureRef(id))
+
+  const primaryFaction = factionRefs[0]
+  const secondaryFaction = factionRefs[1]
+  const primarySupplier = supplierRefs[0]
+  const secondarySupplier = supplierRefs[1]
+  const primaryCulture = cultureRefs[0]
+
+  // Each archetype gets a curated set of slots + profiles. Common backbone
+  // (prepare / exploit / delay / ask_supplier / ask_faction / ignore) is
+  // preserved, but archetype-specific slots replace the generic targets.
+  switch (theme) {
+    case 'mushroom_blight':
+      return {
+        extraAffected: [
+          ...(primarySupplier ? [primarySupplier] : []),
+          ...(primaryFaction ? [primaryFaction] : []),
+          ...(primaryCulture ? [primaryCulture] : []),
+        ],
+        responseSlots: [
+          {
+            id: 'lock_in_cheap_mushrooms',
+            labelHint: 'Lock in cheap mushrooms now',
+            allowedVerbs: ['buy', 'negotiate'],
+            shape: 'risky_profitable',
+            targetOptions: primarySupplier ? [primarySupplier] : [arcRef],
+            expectedEffects: ['stockpile mushrooms', 'commit supplier coin'],
+          },
+          {
+            id: 'swap_to_substitute_stew',
+            labelHint: 'Swap to substitute stew',
+            allowedVerbs: ['buy', 'discard'],
+            shape: 'compromise',
+            targetOptions: secondarySupplier ? [secondarySupplier] : [arcRef],
+            expectedEffects: ['replace mushrooms with stew', 'food safety steady'],
+          },
+          {
+            id: 'embrace_blight_branding',
+            labelHint: 'Embrace blight branding',
+            allowedVerbs: ['rebrand'],
+            shape: 'reputation_play',
+            targetOptions: primaryCulture ? [primaryCulture] : [arcRef],
+            expectedEffects: ['lean into goblin authenticity', 'lock identity'],
+          },
+          {
+            id: 'ration_supply',
+            labelHint: 'Ration the mushroom supply',
+            allowedVerbs: ['delay'],
+            shape: 'safe_costly',
+            targetOptions: [arcSlotRef],
+            expectedEffects: ['stretch stock', 'customer dissatisfaction'],
+          },
+          {
+            id: 'ignore_warning',
+            labelHint: 'Ignore the blight warning',
+            allowedVerbs: ['ignore'],
+            shape: 'ignore',
+            targetOptions: [],
+            expectedEffects: ['no cost', 'shortage spirals'],
+          },
+        ],
+        consequenceProfiles: [
+          makeProfile({
+            id: 'lock_in_cheap_mushrooms_profile',
+            responseSlotId: 'lock_in_cheap_mushrooms',
+            immediateEffects: [
+              effect('state_change', 'stock.mushrooms.quantity', 30, 'Mushroom glut buys time', [
+                'stock',
+              ]),
+              effect('state_change', 'coin', -20, 'Bulk buy upfront', ['coin']),
+              effect('pressure', 'pressure:market_instability', -8, 'Locked supply steadies market', [
+                'pressure',
+              ]),
+              ...(primarySupplier
+                ? [
+                    effect(
+                      'cause',
+                      `supplier:${primarySupplier.id}`,
+                      10,
+                      'Supplier promised volume',
+                      ['supplier', 'fair_deal', 'attribution'],
+                    ),
+                  ]
+                : []),
+            ],
+            delayedEffects: [
+              effect('pressure', 'pressure:food_safety', 4, 'Cheap stock requires care', [
+                'pressure',
+              ]),
+              effect(
+                'future_hook',
+                `cheap_supply_glut_${arcKey}`,
+                10,
+                'Glut may rot before sold',
+                ['future_hook'],
+              ),
+            ],
+            memories: [
+              {
+                id: `arc_blight_lockin_${arcKey}`,
+                actors: primarySupplier ? [arcRef, primarySupplier] : [arcRef],
+                tags: ['arc', 'supplier', 'fair_deal', 'paid_on_time', 'attribution'],
+              },
+              {
+                id: `tavern_blight_lockin_${arcKey}`,
+                actors: [arcRef, tavernSelf],
+                tags: ['tavern_identity', 'memory', 'investment'],
+              },
+            ],
+            futureHooks: [
+              {
+                id: `cheap_supply_glut_${arcKey}`,
+                actors: primarySupplier ? [arcRef, primarySupplier] : [arcRef],
+                tags: ['arc', 'supplier', 'risk'],
+              },
+            ],
+          }),
+          makeProfile({
+            id: 'swap_to_substitute_stew_profile',
+            responseSlotId: 'swap_to_substitute_stew',
+            immediateEffects: [
+              effect('state_change', 'stock.stew.quantity', 20, 'Stew replaces lost mushrooms', [
+                'stock',
+              ]),
+              effect('state_change', 'stock.mushrooms.quantity', -10, 'Trim blight-exposed mushrooms', [
+                'stock',
+              ]),
+              effect('pressure', 'pressure:food_safety', -6, 'Substitute is safer', ['pressure']),
+              ...(secondarySupplier
+                ? [
+                    effect(
+                      'cause',
+                      `supplier:${secondarySupplier.id}`,
+                      8,
+                      'Substitute supplier gains business',
+                      ['supplier', 'fair_deal', 'attribution'],
+                    ),
+                  ]
+                : []),
+              effect('pressure', 'pressure:arc_escalation', -6, 'Crisis substitution noted', [
+                'pressure',
+              ]),
+            ],
+            delayedEffects: [],
+            memories: [
+              {
+                id: `arc_blight_substitute_${arcKey}`,
+                actors: secondarySupplier ? [arcRef, secondarySupplier] : [arcRef],
+                tags: ['arc', 'supplier', 'fair_deal', 'attribution'],
+              },
+              ...(secondarySupplier
+                ? [
+                    {
+                      id: `supplier_substitute_${secondarySupplier.id}`,
+                      actors: [secondarySupplier],
+                      tags: ['supplier', 'opportunity', 'fair_deal'],
+                    },
+                  ]
+                : []),
+            ],
+            futureHooks: [],
+          }),
+          makeProfile({
+            id: 'embrace_blight_branding_profile',
+            responseSlotId: 'embrace_blight_branding',
+            immediateEffects: [
+              effect('state_change', 'reputation.goblinAuthentic', 8, 'Blight becomes branding', [
+                'reputation',
+              ]),
+              effect('state_change', 'reputation.respectable', -5, 'Genteel crowd recoils', [
+                'reputation',
+              ]),
+              ...(primaryCulture
+                ? [
+                    effect(
+                      'cause',
+                      `culture:${primaryCulture.id}`,
+                      6,
+                      'Local culture leans in',
+                      ['culture', 'attribution'],
+                    ),
+                  ]
+                : []),
+              effect('pressure', 'pressure:cultural_tension', 6, 'Outsiders unsure', ['pressure']),
+            ],
+            delayedEffects: [
+              effect(
+                'future_hook',
+                `blight_brand_lock_${arcKey}`,
+                12,
+                'Brand may lock in long-term',
+                ['future_hook'],
+              ),
+            ],
+            memories: [
+              {
+                id: `arc_blight_brand_${arcKey}`,
+                actors: primaryCulture ? [arcRef, primaryCulture] : [arcRef],
+                tags: ['arc', 'culture', 'reputation', 'attribution'],
+              },
+              {
+                id: `tavern_blight_branded_${arcKey}`,
+                actors: [arcRef, tavernSelf],
+                tags: ['tavern_identity', 'memory', 'reputation'],
+              },
+            ],
+            futureHooks: [
+              {
+                id: `blight_brand_lock_${arcKey}`,
+                actors: primaryCulture ? [arcRef, primaryCulture] : [arcRef],
+                tags: ['arc', 'culture', 'risk'],
+              },
+            ],
+          }),
+          makeProfile({
+            id: 'ration_supply_profile',
+            responseSlotId: 'ration_supply',
+            immediateEffects: [
+              effect('pressure', 'pressure:stock_shortage', -10, 'Rationing stretches supply', [
+                'pressure',
+              ]),
+              effect('state_change', 'customers.local_goblins.satisfaction', -6, 'Goblins grumble', [
+                'customer',
+              ]),
+              effect('state_change', 'staff.cook.morale', -4, 'Cook hates rationing', ['staff']),
+            ],
+            delayedEffects: [],
+            memories: [
+              {
+                id: `arc_blight_ration_${arcKey}`,
+                actors: [arcRef],
+                tags: ['arc', 'compromise'],
+              },
+            ],
+            futureHooks: [],
+          }),
+          makeProfile({
+            id: 'ignore_warning_profile',
+            responseSlotId: 'ignore_warning',
+            immediateEffects: [],
+            delayedEffects: [
+              effect('pressure', 'pressure:stock_shortage', 12, 'Shortage worsens', ['pressure']),
+              effect('pressure', 'pressure:food_safety', 6, 'Bad stock served anyway', [
+                'pressure',
+              ]),
+              effect('pressure', 'pressure:arc_escalation', 10, 'Arc spirals', ['pressure']),
+            ],
+            memories: [
+              {
+                id: `arc_blight_ignored_${arcKey}`,
+                actors: [arcRef],
+                tags: ['arc', 'ignored'],
+              },
+            ],
+            futureHooks: [
+              {
+                id: `arc_failure_${arcKey}`,
+                actors: [arcRef],
+                tags: ['arc', 'risk', 'failure'],
+              },
+            ],
+          }),
+        ],
+      }
+
+    case 'miner_payday_boom':
+      return {
+        extraAffected: [
+          ...(primarySupplier ? [primarySupplier] : []),
+          ...(primaryFaction ? [primaryFaction] : []),
+          ...(secondaryFaction ? [secondaryFaction] : []),
+        ],
+        responseSlots: [
+          {
+            id: 'prep_extra_ale',
+            labelHint: 'Pre-order extra ale',
+            allowedVerbs: ['buy', 'negotiate'],
+            shape: 'safe_costly',
+            targetOptions: primarySupplier ? [primarySupplier] : [arcRef],
+            expectedEffects: ['stock up ale', 'spend coin'],
+          },
+          {
+            id: 'raise_prices_for_boom',
+            labelHint: 'Raise prices for the boom',
+            allowedVerbs: ['raise_price'],
+            shape: 'risky_profitable',
+            targetOptions: [arcSlotRef],
+            expectedEffects: ['raise margin', 'miners feel gouged'],
+          },
+          {
+            id: 'hire_security_for_night',
+            labelHint: 'Hire security for the night',
+            allowedVerbs: ['pay'],
+            shape: 'safe_costly',
+            targetOptions: secondaryFaction ? [secondaryFaction] : [arcRef],
+            expectedEffects: ['lower violence', 'spend coin'],
+          },
+          {
+            id: 'let_it_brawl',
+            labelHint: 'Let the night go wild',
+            allowedVerbs: ['ignore', 'rebrand'],
+            shape: 'reputation_play',
+            targetOptions: [arcSlotRef],
+            expectedEffects: ['raise dangerous rep', 'damage rises'],
+          },
+          {
+            id: 'ignore_warning',
+            labelHint: 'Ignore the boom',
+            allowedVerbs: ['ignore'],
+            shape: 'ignore',
+            targetOptions: [],
+            expectedEffects: ['no cost', 'miners may overrun'],
+          },
+        ],
+        consequenceProfiles: [
+          makeProfile({
+            id: 'prep_extra_ale_profile',
+            responseSlotId: 'prep_extra_ale',
+            immediateEffects: [
+              effect('state_change', 'stock.ale.quantity', 40, 'Cellars overflow', ['stock']),
+              effect('state_change', 'coin', -20, 'Bulk ale costs', ['coin']),
+              effect('state_change', 'staff.cook.fatigue', 6, 'Crew braced for big night', [
+                'staff',
+              ]),
+              ...(primarySupplier
+                ? [
+                    effect(
+                      'cause',
+                      `supplier:${primarySupplier.id}`,
+                      10,
+                      'Brewer earns a big order',
+                      ['supplier', 'fair_deal', 'paid_on_time', 'attribution'],
+                    ),
+                  ]
+                : []),
+              ...(primaryFaction
+                ? [
+                    effect(
+                      'cause',
+                      `faction:${primaryFaction.id}`,
+                      8,
+                      'Miners union notices the prep',
+                      ['faction', 'hosted_event', 'attribution'],
+                    ),
+                  ]
+                : []),
+            ],
+            delayedEffects: [
+              effect(
+                'future_hook',
+                `payday_supplier_return_${arcKey}`,
+                10,
+                'Supplier expects standing demand',
+                ['future_hook'],
+              ),
+            ],
+            memories: [
+              {
+                id: `arc_payday_prepped_${arcKey}`,
+                actors: primarySupplier ? [arcRef, primarySupplier] : [arcRef],
+                tags: ['arc', 'supplier', 'fair_deal', 'paid_on_time', 'attribution'],
+              },
+              ...(primaryFaction
+                ? [
+                    {
+                      id: `arc_payday_faction_${primaryFaction.id}`,
+                      actors: [primaryFaction],
+                      tags: ['faction', 'hosted_event', 'attribution'],
+                    },
+                  ]
+                : []),
+            ],
+            futureHooks: [
+              {
+                id: `payday_supplier_return_${arcKey}`,
+                actors: primarySupplier ? [primarySupplier] : [arcRef],
+                tags: ['supplier', 'opportunity'],
+              },
+            ],
+          }),
+          makeProfile({
+            id: 'raise_prices_for_boom_profile',
+            responseSlotId: 'raise_prices_for_boom',
+            immediateEffects: [
+              effect('state_change', 'coin', 30, 'Premium payday prices', ['coin']),
+              effect('state_change', 'reputation.cheap', -10, 'No longer the cheap pour', [
+                'reputation',
+              ]),
+              effect('pressure', 'pressure:regular_customer_loss', 12, 'Miners feel gouged', [
+                'pressure',
+              ]),
+              ...(primaryFaction
+                ? [
+                    effect(
+                      'cause',
+                      `faction:${primaryFaction.id}`,
+                      -10,
+                      'Miners union takes offence',
+                      ['faction', 'grudge', 'attribution'],
+                    ),
+                  ]
+                : []),
+            ],
+            delayedEffects: [
+              effect(
+                'future_hook',
+                `payday_gouging_remembered_${arcKey}`,
+                12,
+                'Next payday may boycott',
+                ['future_hook'],
+              ),
+            ],
+            memories: [
+              {
+                id: `arc_payday_gouged_${arcKey}`,
+                actors: primaryFaction ? [arcRef, primaryFaction] : [arcRef],
+                tags: ['arc', 'faction', 'grudge', 'attribution'],
+              },
+              {
+                id: `tavern_payday_priced_${arcKey}`,
+                actors: [arcRef, tavernSelf],
+                tags: ['tavern_identity', 'memory', 'reputation'],
+              },
+            ],
+            futureHooks: [
+              {
+                id: `payday_gouging_remembered_${arcKey}`,
+                actors: primaryFaction ? [primaryFaction] : [arcRef],
+                tags: ['arc', 'faction', 'risk'],
+              },
+            ],
+          }),
+          makeProfile({
+            id: 'hire_security_for_night_profile',
+            responseSlotId: 'hire_security_for_night',
+            immediateEffects: [
+              effect('pressure', 'pressure:violence', -15, 'Bouncers cool the room', ['pressure']),
+              effect('state_change', 'coin', -15, 'Security wages', ['coin']),
+              ...(secondaryFaction
+                ? [
+                    effect(
+                      'cause',
+                      `faction:${secondaryFaction.id}`,
+                      6,
+                      'Town watch appreciates the hire',
+                      ['faction', 'hosted_event', 'attribution'],
+                    ),
+                  ]
+                : []),
+              effect('pressure', 'pressure:rumour_pressure', -4, 'Calm night quiets rumours', [
+                'pressure',
+              ]),
+            ],
+            delayedEffects: [],
+            memories: [
+              {
+                id: `arc_payday_security_${arcKey}`,
+                actors: secondaryFaction ? [arcRef, secondaryFaction] : [arcRef],
+                tags: ['arc', 'faction', 'hosted_event', 'attribution'],
+              },
+            ],
+            futureHooks: [],
+          }),
+          makeProfile({
+            id: 'let_it_brawl_profile',
+            responseSlotId: 'let_it_brawl',
+            immediateEffects: [
+              effect('state_change', 'reputation.dangerous', 8, 'Rowdy night brands the place', [
+                'reputation',
+              ]),
+              effect('state_change', 'reputation.respectable', -6, 'Merchants leave early', [
+                'reputation',
+              ]),
+              effect('pressure', 'pressure:violence', 8, 'Brawl spills', ['pressure']),
+              effect('state_change', 'areas.main_room.damage', 6, 'Broken stools', ['area']),
+            ],
+            delayedEffects: [
+              effect('pressure', 'pressure:rumour_pressure', 8, 'Word of the brawl spreads', [
+                'pressure',
+              ]),
+              effect(
+                'future_hook',
+                `payday_brawl_legend_${arcKey}`,
+                10,
+                'Legend of the night may grow',
+                ['future_hook'],
+              ),
+            ],
+            memories: [
+              {
+                id: `arc_payday_brawl_${arcKey}`,
+                actors: [arcRef],
+                tags: ['arc', 'violence'],
+              },
+              ...(primaryCulture
+                ? [
+                    {
+                      id: `arc_payday_culture_${primaryCulture.id}`,
+                      actors: [primaryCulture],
+                      tags: ['culture', 'memory'],
+                    },
+                  ]
+                : []),
+            ],
+            futureHooks: [
+              {
+                id: `payday_brawl_legend_${arcKey}`,
+                actors: [arcRef],
+                tags: ['arc', 'reputation'],
+              },
+            ],
+          }),
+          makeProfile({
+            id: 'ignore_warning_profile',
+            responseSlotId: 'ignore_warning',
+            immediateEffects: [],
+            delayedEffects: [
+              effect('pressure', 'pressure:violence', 10, 'Violence rises unchecked', ['pressure']),
+              effect('pressure', 'pressure:regular_customer_loss', 6, 'Regulars drift', ['pressure']),
+              effect('pressure', 'pressure:arc_escalation', 10, 'Boom spirals', ['pressure']),
+            ],
+            memories: [
+              {
+                id: `arc_payday_ignored_${arcKey}`,
+                actors: [arcRef],
+                tags: ['arc', 'ignored'],
+              },
+            ],
+            futureHooks: [
+              {
+                id: `arc_failure_${arcKey}`,
+                actors: [arcRef],
+                tags: ['arc', 'risk', 'failure'],
+              },
+            ],
+          }),
+        ],
+      }
+
+    case 'inspection_campaign':
+      return {
+        extraAffected: [
+          ...(primaryFaction ? [primaryFaction] : []),
+          ...(secondaryFaction ? [secondaryFaction] : []),
+        ],
+        responseSlots: [
+          {
+            id: 'deep_clean_all_areas',
+            labelHint: 'Deep-clean every area',
+            allowedVerbs: ['clean'],
+            shape: 'long_term_investment',
+            targetOptions: [arcSlotRef],
+            expectedEffects: ['raise cleanliness', 'cost coin and crew time'],
+          },
+          {
+            id: 'proactive_inspector_invite',
+            labelHint: 'Invite inspectors over for a walkthrough',
+            allowedVerbs: ['invite'],
+            shape: 'safe_costly',
+            targetOptions: primaryFaction ? [primaryFaction] : [arcRef],
+            expectedEffects: ['lower inspection', 'time and ale cost'],
+          },
+          {
+            id: 'bribe_the_campaign',
+            labelHint: 'Bribe the campaign organiser',
+            allowedVerbs: ['bribe'],
+            shape: 'deception',
+            targetOptions: primaryFaction ? [primaryFaction] : [arcRef],
+            expectedEffects: ['stall inspections', 'risk corruption'],
+          },
+          {
+            id: 'petition_local_shrine',
+            labelHint: 'Petition the local shrine for support',
+            allowedVerbs: ['negotiate'],
+            shape: 'compromise',
+            targetOptions: secondaryFaction ? [secondaryFaction] : [arcRef],
+            expectedEffects: ['mild inspection relief', 'shrine owed favour'],
+          },
+          {
+            id: 'ignore_warning',
+            labelHint: 'Ignore the campaign',
+            allowedVerbs: ['ignore'],
+            shape: 'ignore',
+            targetOptions: [],
+            expectedEffects: ['no cost', 'inspection pressure climbs'],
+          },
+        ],
+        consequenceProfiles: [
+          makeProfile({
+            id: 'deep_clean_all_areas_profile',
+            responseSlotId: 'deep_clean_all_areas',
+            immediateEffects: [
+              effect('state_change', 'areas.kitchen.cleanliness', 20, 'Kitchen scrubbed', ['area']),
+              effect('state_change', 'areas.privy.cleanliness', 20, 'Privy scoured', ['area']),
+              effect('state_change', 'areas.main_room.cleanliness', 15, 'Main room polished', [
+                'area',
+              ]),
+              effect('state_change', 'coin', -25, 'Cleaning supplies', ['coin']),
+              effect('pressure', 'pressure:inspection', -20, 'Inspection risk drops', ['pressure']),
+              ...(primaryFaction
+                ? [
+                    effect(
+                      'cause',
+                      `faction:${primaryFaction.id}`,
+                      12,
+                      'Town watch notices the cleanup',
+                      ['faction', 'hosted_event', 'attribution'],
+                    ),
+                  ]
+                : []),
+            ],
+            delayedEffects: [],
+            memories: [
+              {
+                id: `arc_inspection_deep_clean_${arcKey}`,
+                actors: primaryFaction ? [arcRef, primaryFaction] : [arcRef],
+                tags: ['arc', 'faction', 'hosted_event', 'attribution'],
+              },
+              {
+                id: `tavern_inspection_clean_${arcKey}`,
+                actors: [arcRef, tavernSelf],
+                tags: ['tavern_identity', 'memory', 'standards'],
+              },
+            ],
+            futureHooks: [],
+          }),
+          makeProfile({
+            id: 'proactive_inspector_invite_profile',
+            responseSlotId: 'proactive_inspector_invite',
+            immediateEffects: [
+              effect('pressure', 'pressure:inspection', -15, 'Walkthrough builds trust', [
+                'pressure',
+              ]),
+              effect('state_change', 'reputation.respectable', 8, 'Honest tavern signal', [
+                'reputation',
+              ]),
+              effect('state_change', 'coin', -8, 'Hospitality cost', ['coin']),
+              ...(primaryFaction
+                ? [
+                    effect(
+                      'cause',
+                      `faction:${primaryFaction.id}`,
+                      15,
+                      'Inspectors leave warmer',
+                      ['faction', 'hosted_event', 'honoured_discount', 'attribution'],
+                    ),
+                  ]
+                : []),
+            ],
+            delayedEffects: [
+              effect(
+                'future_hook',
+                `inspector_advisor_${arcKey}`,
+                10,
+                'Inspector may become an ally',
+                ['future_hook'],
+              ),
+            ],
+            memories: [
+              {
+                id: `arc_inspector_walkthrough_${arcKey}`,
+                actors: primaryFaction ? [arcRef, primaryFaction] : [arcRef],
+                tags: ['arc', 'faction', 'hosted_event', 'attribution'],
+              },
+            ],
+            futureHooks: [
+              {
+                id: `inspector_advisor_${arcKey}`,
+                actors: primaryFaction ? [primaryFaction] : [arcRef],
+                tags: ['arc', 'opportunity'],
+              },
+            ],
+          }),
+          makeProfile({
+            id: 'bribe_the_campaign_profile',
+            responseSlotId: 'bribe_the_campaign',
+            immediateEffects: [
+              effect('state_change', 'coin', -40, 'Heavy bribe', ['coin']),
+              effect('pressure', 'pressure:inspection', -12, 'Stall the campaign', ['pressure']),
+              effect('pressure', 'pressure:cultural_tension', 10, 'Word leaks', ['pressure']),
+              effect('pressure', 'pressure:rumour_pressure', 8, 'Bribery whispers', ['pressure']),
+              ...(primaryFaction
+                ? [
+                    effect(
+                      'cause',
+                      `faction:${primaryFaction.id}`,
+                      -10,
+                      'Some inspectors disgusted',
+                      ['faction', 'grudge', 'attribution'],
+                    ),
+                  ]
+                : []),
+            ],
+            delayedEffects: [
+              effect(
+                'future_hook',
+                `inspection_bribe_exposed_${arcKey}`,
+                14,
+                'Bribe may be exposed',
+                ['future_hook'],
+              ),
+            ],
+            memories: [
+              {
+                id: `arc_inspection_bribe_${arcKey}`,
+                actors: primaryFaction ? [arcRef, primaryFaction] : [arcRef],
+                tags: ['arc', 'faction', 'grudge', 'attribution'],
+              },
+              {
+                id: `tavern_bribed_campaign_${arcKey}`,
+                actors: [arcRef, tavernSelf],
+                tags: ['tavern_identity', 'memory', 'deception'],
+              },
+            ],
+            futureHooks: [
+              {
+                id: `inspection_bribe_exposed_${arcKey}`,
+                actors: primaryFaction ? [primaryFaction] : [arcRef],
+                tags: ['arc', 'risk', 'corruption'],
+              },
+            ],
+          }),
+          makeProfile({
+            id: 'petition_local_shrine_profile',
+            responseSlotId: 'petition_local_shrine',
+            immediateEffects: [
+              effect('pressure', 'pressure:inspection', -6, 'Shrine letter eases pressure', [
+                'pressure',
+              ]),
+              ...(secondaryFaction
+                ? [
+                    effect(
+                      'cause',
+                      `faction:${secondaryFaction.id}`,
+                      8,
+                      'Shrine appreciates the deference',
+                      ['faction', 'honoured_discount', 'attribution'],
+                    ),
+                  ]
+                : []),
+              ...(primaryFaction
+                ? [
+                    effect(
+                      'cause',
+                      `faction:${primaryFaction.id}`,
+                      4,
+                      'Watch respects the ritual gesture',
+                      ['faction', 'attribution'],
+                    ),
+                  ]
+                : []),
+            ],
+            delayedEffects: [
+              effect(
+                'future_hook',
+                `shrine_favour_owed_${arcKey}`,
+                8,
+                'Shrine will call the favour',
+                ['future_hook'],
+              ),
+            ],
+            memories: [
+              {
+                id: `arc_inspection_shrine_${arcKey}`,
+                actors: secondaryFaction ? [arcRef, secondaryFaction] : [arcRef],
+                tags: ['arc', 'faction', 'honoured_discount', 'attribution'],
+              },
+            ],
+            futureHooks: [
+              {
+                id: `shrine_favour_owed_${arcKey}`,
+                actors: secondaryFaction ? [secondaryFaction] : [arcRef],
+                tags: ['arc', 'faction', 'debt'],
+              },
+            ],
+          }),
+          makeProfile({
+            id: 'ignore_warning_profile',
+            responseSlotId: 'ignore_warning',
+            immediateEffects: [],
+            delayedEffects: [
+              effect('pressure', 'pressure:inspection', 15, 'Inspection unchecked', ['pressure']),
+              effect('pressure', 'pressure:food_safety', 6, 'No deep clean', ['pressure']),
+              effect('pressure', 'pressure:arc_escalation', 10, 'Arc spirals', ['pressure']),
+            ],
+            memories: [
+              {
+                id: `arc_inspection_ignored_${arcKey}`,
+                actors: [arcRef],
+                tags: ['arc', 'ignored'],
+              },
+            ],
+            futureHooks: [
+              {
+                id: `arc_failure_${arcKey}`,
+                actors: [arcRef],
+                tags: ['arc', 'risk', 'failure'],
+              },
+            ],
+          }),
+        ],
+      }
+
+    case 'rival_tavern_expansion':
+      return {
+        extraAffected: [
+          ...(primarySupplier ? [primarySupplier] : []),
+          ...(primaryFaction ? [primaryFaction] : []),
+        ],
+        responseSlots: [
+          {
+            id: 'compete_on_quality',
+            labelHint: 'Compete on quality',
+            allowedVerbs: ['upgrade'],
+            shape: 'long_term_investment',
+            targetOptions: [arcSlotRef],
+            expectedEffects: ['raise ale quality', 'spend coin'],
+          },
+          {
+            id: 'compete_on_price',
+            labelHint: 'Undercut their prices',
+            allowedVerbs: ['lower_price'],
+            shape: 'risky_profitable',
+            targetOptions: [arcSlotRef],
+            expectedEffects: ['raise cheap rep', 'tight margins'],
+          },
+          {
+            id: 'poach_their_regulars',
+            labelHint: 'Poach their regulars',
+            allowedVerbs: ['invite', 'rebrand'],
+            shape: 'escalation',
+            targetOptions: [arcSlotRef],
+            expectedEffects: ['gain patronage', 'rival retaliates'],
+          },
+          {
+            id: 'partner_with_caravan_circle',
+            labelHint: 'Partner with the caravan circle',
+            allowedVerbs: ['negotiate'],
+            shape: 'compromise',
+            targetOptions: primaryFaction ? [primaryFaction] : [arcRef],
+            expectedEffects: ['stabilise supply', 'owe faction'],
+          },
+          {
+            id: 'ignore_warning',
+            labelHint: 'Ignore the rival',
+            allowedVerbs: ['ignore'],
+            shape: 'ignore',
+            targetOptions: [],
+            expectedEffects: ['no cost', 'rival eats market'],
+          },
+        ],
+        consequenceProfiles: [
+          makeProfile({
+            id: 'compete_on_quality_profile',
+            responseSlotId: 'compete_on_quality',
+            immediateEffects: [
+              effect('state_change', 'stock.ale.quality', 10, 'Better ale on tap', ['stock']),
+              effect('state_change', 'coin', -20, 'Quality costs', ['coin']),
+              effect('state_change', 'reputation.respectable', 6, 'Word of quality spreads', [
+                'reputation',
+              ]),
+              effect('pressure', 'pressure:regular_customer_loss', -10, 'Regulars stay', [
+                'pressure',
+              ]),
+              effect('pressure', 'pressure:rival_tavern_pressure', -8, 'Rival noted', ['pressure']),
+            ],
+            delayedEffects: [
+              effect(
+                'future_hook',
+                `quality_arms_race_${arcKey}`,
+                12,
+                'Rival may match quality',
+                ['future_hook'],
+              ),
+            ],
+            memories: [
+              {
+                id: `arc_rival_quality_${arcKey}`,
+                actors: primarySupplier ? [arcRef, primarySupplier] : [arcRef],
+                tags: ['arc', 'supplier', 'fair_deal', 'attribution'],
+              },
+              {
+                id: `tavern_quality_push_${arcKey}`,
+                actors: [arcRef, tavernSelf],
+                tags: ['tavern_identity', 'memory', 'investment'],
+              },
+            ],
+            futureHooks: [
+              {
+                id: `quality_arms_race_${arcKey}`,
+                actors: [arcRef],
+                tags: ['arc', 'risk'],
+              },
+            ],
+          }),
+          makeProfile({
+            id: 'compete_on_price_profile',
+            responseSlotId: 'compete_on_price',
+            immediateEffects: [
+              effect('state_change', 'stock.ale.salePrice', -1, 'Lower price per pour', [
+                'stock',
+              ]),
+              effect('state_change', 'coin', -15, 'Margins thin out', ['coin']),
+              effect('state_change', 'reputation.cheap', 6, 'Known for cheap pours', [
+                'reputation',
+              ]),
+              effect('pressure', 'pressure:market_instability', 6, 'Price war signal', [
+                'pressure',
+              ]),
+              effect('pressure', 'pressure:regular_customer_loss', -8, 'Regulars stay', [
+                'pressure',
+              ]),
+            ],
+            delayedEffects: [
+              effect(
+                'future_hook',
+                `price_war_${arcKey}`,
+                10,
+                'Rival may slash too',
+                ['future_hook'],
+              ),
+            ],
+            memories: [
+              {
+                id: `arc_rival_price_${arcKey}`,
+                actors: [arcRef],
+                tags: ['arc', 'reputation'],
+              },
+            ],
+            futureHooks: [
+              {
+                id: `price_war_${arcKey}`,
+                actors: [arcRef],
+                tags: ['arc', 'risk'],
+              },
+            ],
+          }),
+          makeProfile({
+            id: 'poach_their_regulars_profile',
+            responseSlotId: 'poach_their_regulars',
+            immediateEffects: [
+              effect('state_change', 'customers.adventurers.patronage', 10, 'Adventurers walk in', [
+                'customer',
+              ]),
+              effect('pressure', 'pressure:rumour_pressure', 8, 'Sharp gossip flies', ['pressure']),
+              effect('pressure', 'pressure:rival_tavern_pressure', -10, 'Rival short on table', [
+                'pressure',
+              ]),
+              effect('state_change', 'reputation.dangerous', 4, 'Aggressive owner signal', [
+                'reputation',
+              ]),
+            ],
+            delayedEffects: [
+              effect(
+                'future_hook',
+                `rival_retaliation_${arcKey}`,
+                14,
+                'Rival will hit back',
+                ['future_hook'],
+              ),
+            ],
+            memories: [
+              {
+                id: `arc_rival_poach_${arcKey}`,
+                actors: [arcRef],
+                tags: ['arc', 'grudge'],
+              },
+              {
+                id: `tavern_poached_${arcKey}`,
+                actors: [arcRef, tavernSelf],
+                tags: ['tavern_identity', 'memory', 'escalation'],
+              },
+            ],
+            futureHooks: [
+              {
+                id: `rival_retaliation_${arcKey}`,
+                actors: [arcRef],
+                tags: ['arc', 'risk'],
+              },
+            ],
+          }),
+          makeProfile({
+            id: 'partner_with_caravan_circle_profile',
+            responseSlotId: 'partner_with_caravan_circle',
+            immediateEffects: [
+              effect('pressure', 'pressure:rival_tavern_pressure', -8, 'Caravan supplies tilt our way', [
+                'pressure',
+              ]),
+              effect('state_change', 'coin', -10, 'Partnership setup', ['coin']),
+              ...(primarySupplier
+                ? [
+                    effect(
+                      'state_change',
+                      `world.suppliers.${primarySupplier.id}.reliability`,
+                      5,
+                      'Supplier reliability climbs',
+                      ['supplier'],
+                    ),
+                  ]
+                : []),
+              ...(primaryFaction
+                ? [
+                    effect(
+                      'cause',
+                      `faction:${primaryFaction.id}`,
+                      12,
+                      'Caravan circle backs the tavern',
+                      ['faction', 'hosted_event', 'honoured_discount', 'attribution'],
+                    ),
+                  ]
+                : []),
+            ],
+            delayedEffects: [
+              effect('pressure', 'pressure:faction_anger', -5, 'Caravan circle relaxes', [
+                'pressure',
+              ]),
+            ],
+            memories: [
+              {
+                id: `arc_rival_caravan_${arcKey}`,
+                actors: primaryFaction ? [arcRef, primaryFaction] : [arcRef],
+                tags: ['arc', 'faction', 'hosted_event', 'attribution'],
+              },
+              ...(primarySupplier
+                ? [
+                    {
+                      id: `arc_rival_supplier_${primarySupplier.id}`,
+                      actors: [primarySupplier],
+                      tags: ['supplier', 'fair_deal', 'attribution'],
+                    },
+                  ]
+                : []),
+            ],
+            futureHooks: [],
+          }),
+          makeProfile({
+            id: 'ignore_warning_profile',
+            responseSlotId: 'ignore_warning',
+            immediateEffects: [],
+            delayedEffects: [
+              effect('pressure', 'pressure:rival_tavern_pressure', 12, 'Rival eats market', [
+                'pressure',
+              ]),
+              effect('pressure', 'pressure:regular_customer_loss', 6, 'Regulars drift', ['pressure']),
+              effect('pressure', 'pressure:arc_escalation', 10, 'Arc spirals', ['pressure']),
+            ],
+            memories: [
+              {
+                id: `arc_rival_ignored_${arcKey}`,
+                actors: [arcRef],
+                tags: ['arc', 'ignored'],
+              },
+            ],
+            futureHooks: [
+              {
+                id: `arc_failure_${arcKey}`,
+                actors: [arcRef],
+                tags: ['arc', 'risk', 'failure'],
+              },
+            ],
+          }),
+        ],
+      }
+
+    case 'festival_approaching':
+    default:
+      return {
+        extraAffected: [
+          ...(primaryFaction ? [primaryFaction] : []),
+          ...(primarySupplier ? [primarySupplier] : []),
+          ...(primaryCulture ? [primaryCulture] : []),
+        ],
+        responseSlots: [
+          {
+            id: 'prepare_for_arc',
+            labelHint: 'Prepare for the festival',
+            allowedVerbs: ['upgrade', 'buy'],
+            shape: 'long_term_investment',
+            targetOptions: [arcSlotRef],
+            expectedEffects: ['raise readiness', 'spend coin'],
+          },
+          {
+            id: 'host_festival_event',
+            labelHint: 'Host a festival event',
+            allowedVerbs: ['invite', 'rebrand'],
+            shape: 'risky_profitable',
+            targetOptions: primaryFaction ? [primaryFaction] : [arcRef],
+            expectedEffects: ['big payday', 'big obligation'],
+          },
+          {
+            id: 'exploit_arc',
+            labelHint: 'Exploit the moment',
+            allowedVerbs: ['raise_price', 'rebrand'],
+            shape: 'risky_profitable',
+            targetOptions: [arcSlotRef],
+            expectedEffects: ['raise margin', 'shrine disapproves'],
+          },
+          {
+            id: 'ask_supplier_help',
+            labelHint: 'Ask a supplier for help',
+            allowedVerbs: ['negotiate'],
+            shape: 'compromise',
+            targetOptions: primarySupplier ? [primarySupplier] : [arcRef],
+            expectedEffects: ['secure stock', 'owe favour'],
+          },
+          {
+            id: 'ask_faction_help',
+            labelHint: 'Ask a faction for help',
+            allowedVerbs: ['negotiate'],
+            shape: 'relationship_sacrifice',
+            targetOptions: primaryFaction ? [primaryFaction] : [arcRef],
+            expectedEffects: ['secure help', 'owe debt'],
+          },
+          {
+            id: 'ignore_warning',
+            labelHint: 'Ignore the festival',
+            allowedVerbs: ['ignore'],
+            shape: 'ignore',
+            targetOptions: [],
+            expectedEffects: ['no cost', 'festival passes us by'],
+          },
+        ],
+        consequenceProfiles: [
+          makeProfile({
+            id: 'prepare_for_arc_profile',
+            responseSlotId: 'prepare_for_arc',
+            immediateEffects: [
+              effect('pressure', 'pressure:festival_readiness', -15, 'Readiness climbs', [
+                'pressure',
+              ]),
+              effect('state_change', 'coin', -20, 'Preparation cost', ['coin']),
+              effect('pressure', 'pressure:arc_escalation', -8, 'Arc pressure eases', ['pressure']),
+              effect('state_change', 'reputation.reliable', 8, 'Tavern prepared for the moment', [
+                'reputation',
+              ]),
+              ...(primaryFaction
+                ? [
+                    effect(
+                      'cause',
+                      `faction:${primaryFaction.id}`,
+                      8,
+                      'Shrine notices the prep',
+                      ['faction', 'hosted_event', 'attribution'],
+                    ),
+                  ]
+                : []),
+            ],
+            delayedEffects: [],
+            memories: [
+              {
+                id: `arc_prepared_${arcKey}`,
+                actors: primaryFaction ? [arcRef, primaryFaction] : [arcRef],
+                tags: ['arc', 'preparation', 'investment', 'attribution'],
+              },
+              {
+                id: `tavern_festival_prep_${arcKey}`,
+                actors: [arcRef, tavernSelf],
+                tags: ['tavern_identity', 'memory', 'investment'],
+              },
+            ],
+            futureHooks: [],
+          }),
+          makeProfile({
+            id: 'host_festival_event_profile',
+            responseSlotId: 'host_festival_event',
+            immediateEffects: [
+              effect('state_change', 'coin', 30, 'Festival night earnings', ['coin']),
+              effect('pressure', 'pressure:festival_readiness', -20, 'Festival becomes ours', [
+                'pressure',
+              ]),
+              effect('state_change', 'reputation.respectable', 8, 'Hospitable reputation grows', [
+                'reputation',
+              ]),
+              ...(primaryFaction
+                ? [
+                    effect(
+                      'cause',
+                      `faction:${primaryFaction.id}`,
+                      12,
+                      'Shrine elevated as patron',
+                      ['faction', 'hosted_event', 'honoured_discount', 'attribution'],
+                    ),
+                  ]
+                : []),
+              effect('state_change', 'staff.cook.fatigue', 8, 'Long night for the crew', ['staff']),
+            ],
+            delayedEffects: [
+              effect(
+                'future_hook',
+                `festival_obligations_${arcKey}`,
+                12,
+                'Festival sets a yearly expectation',
+                ['future_hook'],
+              ),
+            ],
+            memories: [
+              {
+                id: `arc_festival_hosted_${arcKey}`,
+                actors: primaryFaction ? [arcRef, primaryFaction] : [arcRef],
+                tags: ['arc', 'faction', 'hosted_event', 'attribution'],
+              },
+              {
+                id: `tavern_hosted_festival_${arcKey}`,
+                actors: [arcRef, tavernSelf],
+                tags: ['tavern_identity', 'memory', 'reputation'],
+              },
+              ...(primaryCulture
+                ? [
+                    {
+                      id: `arc_festival_culture_${primaryCulture.id}`,
+                      actors: [primaryCulture],
+                      tags: ['culture', 'memory'],
+                    },
+                  ]
+                : []),
+            ],
+            futureHooks: [
+              {
+                id: `festival_obligations_${arcKey}`,
+                actors: primaryFaction ? [primaryFaction] : [arcRef],
+                tags: ['arc', 'faction'],
+              },
+            ],
+          }),
+          makeProfile({
+            id: 'exploit_arc_profile',
+            responseSlotId: 'exploit_arc',
+            immediateEffects: [
+              effect('state_change', 'coin', 20, 'Premium prices', ['coin']),
+              effect('state_change', 'reputation.cheap', -10, 'No longer feels affordable', [
+                'reputation',
+              ]),
+              effect('pressure', 'pressure:rumour_pressure', 6, 'Shrine gossip travels', [
+                'pressure',
+              ]),
+              ...(primaryFaction
+                ? [
+                    effect(
+                      'cause',
+                      `faction:${primaryFaction.id}`,
+                      -8,
+                      'Shrine disapproves',
+                      ['faction', 'grudge', 'attribution'],
+                    ),
+                  ]
+                : []),
+            ],
+            delayedEffects: [
+              effect('pressure', 'pressure:regular_customer_loss', 10, 'Regulars feel gouged', [
+                'pressure',
+              ]),
+              effect(
+                'future_hook',
+                `arc_exploit_backlash_${arcKey}`,
+                12,
+                'Reputation backlash possible',
+                ['future_hook'],
+              ),
+            ],
+            memories: [
+              {
+                id: `arc_exploited_${arcKey}`,
+                actors: primaryFaction ? [arcRef, primaryFaction] : [arcRef],
+                tags: ['arc', 'exploit', 'risky', 'grudge', 'attribution'],
+              },
+              {
+                id: `tavern_exploited_festival_${arcKey}`,
+                actors: [arcRef, tavernSelf],
+                tags: ['tavern_identity', 'memory', 'reputation'],
+              },
+            ],
+            futureHooks: [
+              {
+                id: `arc_exploit_backlash_${arcKey}`,
+                actors: primaryFaction ? [primaryFaction] : [arcRef],
+                tags: ['arc', 'risk'],
+              },
+            ],
+          }),
+          makeProfile({
+            id: 'ask_supplier_help_profile',
+            responseSlotId: 'ask_supplier_help',
+            immediateEffects: [
+              effect('pressure', 'pressure:festival_readiness', -12, 'Stock secured for arc', [
+                'pressure',
+              ]),
+              effect('pressure', 'pressure:stock_shortage', -8, 'Stock pressure eases', [
+                'pressure',
+              ]),
+              ...(primarySupplier
+                ? [
+                    effect(
+                      'cause',
+                      `supplier:${primarySupplier.id}`,
+                      10,
+                      'Supplier earns the festival order',
+                      ['supplier', 'fair_deal', 'paid_on_time', 'attribution'],
+                    ),
+                  ]
+                : []),
+            ],
+            delayedEffects: [
+              effect('pressure', 'pressure:supplier_distrust', 5, 'Owed favour shifts balance', [
+                'pressure',
+              ]),
+              effect(
+                'future_hook',
+                `arc_supplier_favour_owed_${arcKey}`,
+                10,
+                'Favour will be called in',
+                ['future_hook'],
+              ),
+            ],
+            memories: [
+              {
+                id: `arc_supplier_helped_${arcKey}`,
+                actors: primarySupplier ? [arcRef, primarySupplier] : [arcRef],
+                tags: ['arc', 'supplier', 'fair_deal', 'attribution'],
+              },
+            ],
+            futureHooks: [
+              {
+                id: `arc_supplier_favour_owed_${arcKey}`,
+                actors: primarySupplier ? [primarySupplier] : [arcRef],
+                tags: ['arc', 'supplier', 'debt'],
+              },
+            ],
+          }),
+          makeProfile({
+            id: 'ask_faction_help_profile',
+            responseSlotId: 'ask_faction_help',
+            immediateEffects: [
+              effect('pressure', 'pressure:festival_readiness', -15, 'Faction backing secures arc', [
+                'pressure',
+              ]),
+              effect('pressure', 'pressure:arc_escalation', -6, 'Arc steadies', ['pressure']),
+              ...(primaryFaction
+                ? [
+                    effect(
+                      'cause',
+                      `faction:${primaryFaction.id}`,
+                      10,
+                      'Faction lends face',
+                      ['faction', 'hosted_event', 'attribution'],
+                    ),
+                  ]
+                : []),
+            ],
+            delayedEffects: [
+              effect('pressure', 'pressure:faction_anger', 8, 'Debt to faction simmers', [
+                'pressure',
+              ]),
+              effect(
+                'future_hook',
+                `arc_faction_debt_${arcKey}`,
+                12,
+                'Faction will demand repayment',
+                ['future_hook'],
+              ),
+            ],
+            memories: [
+              {
+                id: `arc_faction_helped_${arcKey}`,
+                actors: primaryFaction ? [arcRef, primaryFaction] : [arcRef],
+                tags: ['arc', 'faction', 'hosted_event', 'debt', 'attribution'],
+              },
+            ],
+            futureHooks: [
+              {
+                id: `arc_faction_debt_${arcKey}`,
+                actors: primaryFaction ? [primaryFaction] : [arcRef],
+                tags: ['arc', 'faction', 'debt'],
+              },
+            ],
+          }),
+          makeProfile({
+            id: 'ignore_warning_profile',
+            responseSlotId: 'ignore_warning',
+            immediateEffects: [],
+            delayedEffects: [
+              effect('pressure', 'pressure:festival_readiness', 15, 'Readiness collapses', [
+                'pressure',
+              ]),
+              effect('pressure', 'pressure:arc_escalation', 12, 'Arc spirals', ['pressure']),
+              effect('state_change', 'reputation.reliable', -10, 'Reputation suffers', [
+                'reputation',
+              ]),
+              ...(primaryFaction
+                ? [
+                    effect(
+                      'cause',
+                      `faction:${primaryFaction.id}`,
+                      -8,
+                      'Shrine remembers the snub',
+                      ['faction', 'grudge', 'attribution'],
+                    ),
+                  ]
+                : []),
+            ],
+            memories: [
+              {
+                id: `arc_ignored_${arcKey}`,
+                actors: primaryFaction ? [arcRef, primaryFaction] : [arcRef],
+                tags: ['arc', 'ignored', 'grudge'],
+              },
+            ],
+            futureHooks: [
+              {
+                id: `arc_failure_${arcKey}`,
+                actors: [arcRef],
+                tags: ['arc', 'risk', 'failure'],
+              },
+            ],
+          }),
+        ],
+      }
+  }
+}
+
+function pickAnticipationTheme(ctx: SimContext): SeasonalArcTheme | undefined {
+  const tags = ctx.state.calendar.tags ?? []
+  const dayType = ctx.state.calendar.dayType
+  const inspection = pressureSnapshotById(ctx, 'inspection')
+  const rival = pressureSnapshotById(ctx, 'rival_tavern_pressure')
+  // Market conditions live on the supplier module slice.
+  const supplierSlice = ctx.state.modules['suppliers'] as
+    | {
+        activeMarketConditions?: Array<{ id: string; tags: string[] }>
+      }
+    | undefined
+  const marketConditionIds = (supplierSlice?.activeMarketConditions ?? []).map(
+    (c) => c.id,
+  )
+
+  if (tags.includes('festival_window') || tags.includes('mushroom_festival'))
+    return 'festival_approaching'
+  if (
+    marketConditionIds.includes('cheap_mushrooms') ||
+    tags.includes('winter_shortage_risk')
+  )
+    return 'mushroom_blight'
+  if (tags.includes('miner_payday') || dayType === 'payday') return 'miner_payday_boom'
+  if (tags.includes('inspection_window') || (inspection?.value ?? 0) > 50)
+    return 'inspection_campaign'
+  if (
+    (rival?.value ?? 0) > 25 ||
+    tags.includes('merchant_traffic') ||
+    dayType === 'market_day'
+  )
+    return 'rival_tavern_expansion'
+  if (tags.includes('road_danger_risk') || marketConditionIds.includes('road_bandits'))
+    return 'mushroom_blight'
+  return undefined
+}
+
 function generateSeasonalArc(ctx: SimContext): IssueSeed[] {
   const arcs = listActiveArcs(ctx.state)
-  if (arcs.length === 0) return []
   const escalation = pressureSnapshotById(ctx, 'arc_escalation')
   const festival = pressureSnapshotById(ctx, 'festival_readiness')
-
-  // Pick the most "interesting" arc — highest intensity + advanced stage.
   const today = ctx.state.calendar.totalDaysElapsed
-  let chosen = arcs[0]!
-  let chosenScore = -Infinity
-  for (const arc of arcs) {
-    const stageScore =
-      arc.stage === 'climax' ? 50 : arc.stage === 'active' ? 30 : arc.stage === 'rising' ? 15 : 5
-    const baseScore = (arc.intensity ?? 0) + stageScore
-    const penalty = recencyPenalty(ctx.state, 'seasonal_arc', `local_event:${arc.id}`, today)
-    const score = baseScore - penalty
-    if (score > chosenScore) {
-      chosenScore = score
-      chosen = arc
+
+  // Path A — active arc present. Pick the most "interesting" arc by
+  // intensity + stage with the existing recency rotation.
+  let arcRef: EntityRef
+  let arcKey: string
+  let arcLabel: string
+  let arcStage: string
+  let arcIntensity: number
+  let theme: SeasonalArcTheme
+  let anticipation = false
+  if (arcs.length > 0) {
+    let chosen = arcs[0]!
+    let chosenScore = -Infinity
+    for (const arc of arcs) {
+      const stageScore =
+        arc.stage === 'climax' ? 50 : arc.stage === 'active' ? 30 : arc.stage === 'rising' ? 15 : 5
+      const baseScore = (arc.intensity ?? 0) + stageScore
+      const penalty = recencyPenalty(ctx.state, 'seasonal_arc', `local_event:${arc.id}`, today)
+      const score = baseScore - penalty
+      if (score > chosenScore) {
+        chosenScore = score
+        chosen = arc
+      }
     }
+    arcRef = localArcRef(chosen.id)
+    const guard = activeArcExistsGuard(ctx, arcRef)
+    if (!guard.allowed) return []
+    recordPick(ctx, 'seasonal_arc', `local_event:${chosen.id}`)
+    arcKey = chosen.id
+    arcLabel = chosen.label
+    arcStage = chosen.stage ?? 'unknown'
+    arcIntensity = chosen.intensity ?? 30
+    const def = chosen.definitionId as SeasonalArcTheme | string
+    theme = (
+      ['mushroom_blight', 'miner_payday_boom', 'inspection_campaign', 'rival_tavern_expansion', 'festival_approaching'] as const
+    ).includes(def as SeasonalArcTheme)
+      ? (def as SeasonalArcTheme)
+      : 'festival_approaching'
+  } else {
+    // Path B — anticipation. No active arc yet, but calendar tags and
+    // market conditions signal an archetype is on the way. Emit a
+    // structured seed keyed on the predicted theme so seasonal_arc
+    // produces real content during card-readiness runs.
+    const predicted = pickAnticipationTheme(ctx)
+    if (!predicted) return []
+    // Recency rotation across themes so anticipation seeds rotate.
+    const key = `anticipation:${predicted}`
+    if (recencyPenalty(ctx.state, 'seasonal_arc_anticipation', key, today) > 0) {
+      return []
+    }
+    recordPick(ctx, 'seasonal_arc_anticipation', key)
+    arcRef = localArcRef(predicted)
+    arcKey = predicted
+    arcLabel = `${SEASONAL_ARC_LABELS[predicted]} (anticipated)`
+    arcStage = 'anticipation'
+    arcIntensity = 25
+    theme = predicted
+    anticipation = true
   }
-  const ref = localArcRef(chosen.id)
-  const guard = activeArcExistsGuard(ctx, ref)
-  if (!guard.allowed) return []
-  recordPick(ctx, 'seasonal_arc', `local_event:${chosen.id}`)
 
   const causes: CauseEntry[] = []
-  for (const c of recentCauseEntries(ctx, ['arc', chosen.id, chosen.definitionId, 'festival'], 14, 4)) {
+  for (const c of recentCauseEntries(
+    ctx,
+    ['arc', 'local_arc', arcKey, theme, 'festival'],
+    14,
+    4,
+  )) {
     causes.push(c)
   }
   causes.push(...pressureCauseRefsAsEntries(ctx, 'arc_escalation', 2))
   causes.push(...pressureCauseRefsAsEntries(ctx, 'festival_readiness', 2))
-  if (causes.length === 0) return []
+  if (causes.length === 0) {
+    // Phase 40 audit pass 2 §6 — Arc engines emit `local_arc` causes only
+    // when an arc starts, progresses, or resolves. Between those beats,
+    // both anticipation seeds and live-arc seeds need a synthetic cause
+    // so the seed validator (causes.length > 0) doesn't reject them.
+    causes.push({
+      id: `${anticipation ? 'anticipation' : 'arc'}-${theme}-d${today}`,
+      timestamp: {
+        year: ctx.state.calendar.year,
+        month: ctx.state.calendar.month,
+        week: ctx.state.calendar.week,
+        day: ctx.state.calendar.day,
+        absoluteDay: today,
+      },
+      source: `seasonal_arc.${theme}`,
+      sourceType: 'system',
+      target: `arc:${theme}`,
+      targetType: 'global',
+      amount: 5,
+      direction: 'neutral',
+      weight: 5,
+      readable: anticipation
+        ? `Calendar signals ${SEASONAL_ARC_LABELS[theme]} is coming`
+        : `${SEASONAL_ARC_LABELS[theme]} is unfolding`,
+      tags: ['arc', anticipation ? 'anticipation' : 'active', theme],
+      relatedActors: [arcRef],
+      relatedLocations: [],
+      relatedSystems: ['calendar', 'world'],
+      ageDays: 0,
+    })
+  }
 
-  const responseSlots: ResponseSlot[] = [
-    {
-      id: 'prepare_for_arc',
-      labelHint: 'Prepare for the arc',
-      allowedVerbs: ['upgrade', 'buy'],
-      shape: 'long_term_investment',
-      targetOptions: [ref],
-      expectedEffects: ['raise readiness', 'spend coin'],
-    },
-    {
-      id: 'exploit_arc',
-      labelHint: 'Exploit the moment',
-      allowedVerbs: ['raise_price', 'rebrand'],
-      shape: 'risky_profitable',
-      targetOptions: [ref],
-      expectedEffects: ['raise margin', 'risk reputation'],
-    },
-    {
-      id: 'delay_preparation',
-      labelHint: 'Delay preparation',
-      allowedVerbs: ['delay'],
-      shape: 'delay_problem',
-      targetOptions: [ref],
-      expectedEffects: ['no cost', 'arc escalates'],
-    },
-    {
-      id: 'ask_supplier_help',
-      labelHint: 'Ask a supplier for help',
-      allowedVerbs: ['negotiate'],
-      shape: 'compromise',
-      targetOptions: [systemRef('supplier')],
-      expectedEffects: ['secure stock', 'owe favour'],
-    },
-    {
-      id: 'ask_faction_help',
-      labelHint: 'Ask a faction for help',
-      allowedVerbs: ['negotiate'],
-      shape: 'relationship_sacrifice',
-      targetOptions: [systemRef('faction')],
-      expectedEffects: ['secure help', 'owe debt'],
-    },
-    {
-      id: 'ignore_warning',
-      labelHint: 'Ignore the warning',
-      allowedVerbs: ['ignore'],
-      shape: 'ignore',
-      targetOptions: [],
-      expectedEffects: ['no cost', 'arc may fail'],
-    },
-  ]
+  // Slot-target ref: in active-arc mode arcRef resolves; in
+  // anticipation mode swap to systemRef('arc') so target validation
+  // passes. Profile memories still use arcRef for the local_event label.
+  const arcSlotRef = anticipation ? systemRef('arc') : arcRef
+  const { responseSlots, consequenceProfiles, extraAffected } = buildSeasonalArcContent(
+    ctx,
+    theme,
+    arcRef,
+    arcKey,
+    arcSlotRef,
+  )
 
-  const consequenceProfiles: ConsequenceProfile[] = [
-    makeProfile({
-      id: 'prepare_for_arc_profile',
-      responseSlotId: 'prepare_for_arc',
-      immediateEffects: [
-        effect('pressure', 'pressure:festival_readiness', -15, 'Readiness climbs', ['pressure']),
-        effect('state_change', 'coin', -20, 'Preparation cost', ['coin']),
-        effect('pressure', 'pressure:arc_escalation', -8, 'Arc pressure eases', ['pressure']),
-      ],
-      delayedEffects: [
-        effect('state_change', 'reputation.reliable', 8, 'Tavern prepared for the moment', [
-          'reputation',
-        ]),
-      ],
-      memories: [
-        {
-          id: `arc_prepared_${chosen.id}`,
-          actors: [ref],
-          tags: ['arc', 'preparation', 'investment'],
-        },
-      ],
-      futureHooks: [],
-    }),
-    makeProfile({
-      id: 'exploit_arc_profile',
-      responseSlotId: 'exploit_arc',
-      immediateEffects: [
-        effect('state_change', 'coin', 20, 'Premium prices', ['coin']),
-        effect('state_change', 'reputation.cheap', -10, 'No longer feels affordable', [
-          'reputation',
-        ]),
-      ],
-      delayedEffects: [
-        effect('pressure', 'pressure:regular_customer_loss', 10, 'Regulars feel gouged', ['pressure']),
-        effect(
-          'future_hook',
-          `arc_exploit_backlash_${chosen.id}`,
-          0,
-          'Reputation backlash possible',
-          ['future_hook'],
-        ),
-      ],
-      memories: [
-        {
-          id: `arc_exploited_${chosen.id}`,
-          actors: [ref],
-          tags: ['arc', 'exploit', 'risky'],
-        },
-      ],
-      futureHooks: [
-        {
-          id: `arc_exploit_backlash_${chosen.id}`,
-          actors: [ref],
-          tags: ['arc', 'risk'],
-        },
-      ],
-    }),
-    makeProfile({
-      id: 'delay_preparation_profile',
-      responseSlotId: 'delay_preparation',
-      immediateEffects: [],
-      delayedEffects: [
-        effect('pressure', 'pressure:festival_readiness', 12, 'Readiness slips further', [
-          'pressure',
-        ]),
-        effect('pressure', 'pressure:arc_escalation', 10, 'Arc escalates', ['pressure']),
-        effect('pressure', 'pressure:staff_burnout', 6, 'Rush work later strains staff', [
-          'pressure',
-        ]),
-      ],
-      memories: [
-        {
-          id: `arc_delayed_${chosen.id}`,
-          actors: [ref],
-          tags: ['arc', 'delayed'],
-        },
-      ],
-      futureHooks: [
-        {
-          id: `arc_unprepared_${chosen.id}`,
-          actors: [ref],
-          tags: ['arc', 'risk'],
-        },
-      ],
-    }),
-    makeProfile({
-      id: 'ask_supplier_help_profile',
-      responseSlotId: 'ask_supplier_help',
-      immediateEffects: [
-        effect('pressure', 'pressure:festival_readiness', -12, 'Stock secured for arc', ['pressure']),
-        effect('pressure', 'pressure:stock_shortage', -8, 'Stock pressure eases', ['pressure']),
-      ],
-      delayedEffects: [
-        effect('pressure', 'pressure:supplier_distrust', 5, 'Owed favour shifts balance', [
-          'pressure',
-        ]),
-        effect(
-          'future_hook',
-          `arc_supplier_favour_owed_${chosen.id}`,
-          0,
-          'Favour will be called in',
-          ['future_hook'],
-        ),
-      ],
-      memories: [
-        {
-          id: `arc_supplier_helped_${chosen.id}`,
-          actors: [ref],
-          tags: ['arc', 'supplier', 'compromise'],
-        },
-      ],
-      futureHooks: [
-        {
-          id: `arc_supplier_favour_owed_${chosen.id}`,
-          actors: [ref],
-          tags: ['arc', 'supplier', 'debt'],
-        },
-      ],
-    }),
-    makeProfile({
-      id: 'ask_faction_help_profile',
-      responseSlotId: 'ask_faction_help',
-      immediateEffects: [
-        effect('pressure', 'pressure:festival_readiness', -15, 'Faction backing secures arc', [
-          'pressure',
-        ]),
-        effect('pressure', 'pressure:arc_escalation', -6, 'Arc steadies', ['pressure']),
-      ],
-      delayedEffects: [
-        effect('pressure', 'pressure:faction_anger', 8, 'Debt to faction simmers', ['pressure']),
-        effect(
-          'future_hook',
-          `arc_faction_debt_${chosen.id}`,
-          0,
-          'Faction will demand repayment',
-          ['future_hook'],
-        ),
-      ],
-      memories: [
-        {
-          id: `arc_faction_helped_${chosen.id}`,
-          actors: [ref],
-          tags: ['arc', 'faction', 'debt'],
-        },
-      ],
-      futureHooks: [
-        {
-          id: `arc_faction_debt_${chosen.id}`,
-          actors: [ref],
-          tags: ['arc', 'faction', 'debt'],
-        },
-      ],
-    }),
-    makeProfile({
-      id: 'ignore_warning_profile',
-      responseSlotId: 'ignore_warning',
-      immediateEffects: [],
-      delayedEffects: [
-        effect('pressure', 'pressure:festival_readiness', 15, 'Readiness collapses', ['pressure']),
-        effect('pressure', 'pressure:arc_escalation', 12, 'Arc spirals', ['pressure']),
-        effect('state_change', 'reputation.reliable', -8, 'Reputation suffers', ['reputation']),
-      ],
-      memories: [
-        {
-          id: `arc_ignored_${chosen.id}`,
-          actors: [ref],
-          tags: ['arc', 'ignored'],
-        },
-      ],
-      futureHooks: [
-        {
-          id: `arc_failure_${chosen.id}`,
-          actors: [ref],
-          tags: ['arc', 'risk', 'failure'],
-        },
-      ],
-    }),
-  ]
-
-  const arcContext: string[] = [`stage ${chosen.stage ?? 'unknown'}`]
+  const arcContext: string[] = [`stage ${arcStage}`]
   if (escalation) arcContext.push(`escalation ${escalation.value}`)
   if (festival) arcContext.push(`readiness ${festival.value}`)
+  if (anticipation) arcContext.push('anticipation seed')
 
+  // Phase 40 audit pass 2 §6 — The seed validator requires the
+  // `primaryActor` to resolve as a local_event when the family is
+  // seasonal_arc (see issueSeedValidation.ts §6). For anticipation
+  // seeds the arc is a theme, not an instantiated local_event, so we
+  // omit primaryActor entirely and put a real archetype actor on
+  // affectedActors. For path A (active arc) we keep primaryActor=arcRef.
+  const primaryArcActor =
+    extraAffected.find((r) => r.kind === 'faction') ??
+    extraAffected.find((r) => r.kind === 'supplier') ??
+    extraAffected[0]
+  const seedPrimary = anticipation ? undefined : arcRef
+  const seedAffected: EntityRef[] = anticipation
+    ? dedupeRefs(extraAffected, undefined)
+    : primaryArcActor
+      ? dedupeRefs([primaryArcActor], arcRef)
+      : []
+  const namedEntities = primaryArcActor
+    ? [
+        namedEntityIngredient(
+          ctx.state,
+          anticipation ? 'arc_anticipated' : 'arc',
+          primaryArcActor,
+        ),
+      ]
+    : seedPrimary
+      ? [namedEntityIngredient(ctx.state, 'arc', seedPrimary)]
+      : []
+
+  // Phase 40 audit pass 2 §6 — Anticipation seeds reference a theme
+  // (e.g. `local_event:festival_approaching`) that hasn't been
+  // instantiated yet in `state.world.localEvents`. The validator
+  // requires `primaryActor` to resolve when it's set, so omit it for
+  // anticipation seeds and let `affectedActors` carry the local_event
+  // ref instead.
   return [
     buildSeed({
-      id: seedId('seasonal_arc', chosen.id, ctx),
+      id: seedId('seasonal_arc', arcKey, ctx),
       family: 'seasonal_arc',
-      type: chosen.stage === 'climax' ? 'arc_milestone' : 'festival_preparation',
+      type: arcStage === 'climax' ? 'arc_milestone' : 'festival_preparation',
       timing: 'morning_prep',
       domain: ['arcs', 'calendar'],
-      severity: Math.max(35, escalation?.severity ?? 35, chosen.intensity ?? 30),
+      severity: Math.max(35, escalation?.severity ?? 35, arcIntensity),
       urgency: Math.max(30, escalation?.urgency ?? 30),
-      primaryActor: ref,
-      affectedActors: [ref],
+      ...(seedPrimary ? { primaryActor: seedPrimary } : {}),
+      affectedActors: seedAffected,
       causes,
       pressures: pressureSnapshotsFor(ctx, ['arc_escalation', 'festival_readiness']),
       stakes: [
-        stake('arc_stake', `arc:${chosen.id}`, 'Arc may fail', 'loss', ['arc']),
-        stake('readiness_stake', 'pressure:festival_readiness', 'Readiness may drop', 'risk', ['arc']),
+        stake('arc_stake', `arc:${arcKey}`, 'Arc may fail', 'loss', ['arc']),
+        stake('readiness_stake', 'pressure:festival_readiness', 'Readiness may drop', 'risk', [
+          'arc',
+        ]),
       ],
       responseSlots,
       consequenceProfiles,
       memoriesCreated: [
         {
-          id: `arc_seed_${chosen.id}`,
-          actors: [ref],
-          tags: ['arc', 'warning'],
+          id: `arc_seed_${arcKey}`,
+          actors: [arcRef],
+          tags: ['arc', 'warning', anticipation ? 'anticipation' : 'active'],
         },
       ],
       futureHooks: [],
-      toneHints: ['arc', 'calendar'],
+      toneHints: ['arc', 'calendar', theme],
       textIngredients: buildTextIngredients({
-        subject: chosen.label,
-        problemNoun: 'arc milestone',
+        subject: arcLabel,
+        problemNoun: anticipation ? 'arc anticipated' : 'arc milestone',
         sensoryDetails: ['flags rising', 'crowds gathering'],
         actorOpinions: { regulars: 'whisper about it' },
-        recentContext: [`intensity ${chosen.intensity}`],
+        recentContext: [`intensity ${arcIntensity}`],
         stakesReadable: ['arc may fail', 'readiness may drop'],
-        namedEntities: [namedEntityIngredient(ctx.state, 'arc', ref)],
+        namedEntities,
         arcContext,
         calendarContext: calendarContextLines(ctx.state),
         pressureContext: [`arc escalation ${escalation?.value ?? 0}`],
@@ -2373,6 +4702,39 @@ function generateRumourCrisis(ctx: SimContext): IssueSeed[] {
   }
   if (causes.length === 0) return []
 
+  // Phase 40 audit pass 2 §1 — Pull a second named actor: the rumour source
+  // (perceiver from the attribution) and a witness regular drawn from the
+  // starter roster with recency rotation. These dilute target-only entity
+  // usage and give the `blame_someone_else` / `name_source_publicly` /
+  // `ask_regular_to_vouch` responses real named refs.
+  const today = ctx.state.calendar.totalDaysElapsed
+  const sourceRef =
+    dramatic.perceivedBy &&
+    dramatic.perceivedBy.kind !== 'system' &&
+    `${dramatic.perceivedBy.kind}:${dramatic.perceivedBy.id}` !==
+      `${target.kind}:${target.id}`
+      ? dramatic.perceivedBy
+      : undefined
+
+  const regulars = Object.values(ctx.state.world.regulars)
+  let vouchRegular: EntityRef | undefined
+  if (regulars.length > 0) {
+    const ranked = regulars
+      .map((r) => {
+        const k = `regular:${r.id}`
+        const penalty = recencyPenalty(ctx.state, 'rumour_crisis_vouch', k, today)
+        const isTarget =
+          target.kind === 'regular' && target.id === r.id ? 1000 : 0
+        return { r, score: r.loyalty - penalty - isTarget }
+      })
+      .sort((a, b) => b.score - a.score)
+    if (ranked[0]!.score > 0) {
+      vouchRegular = regularRef(ranked[0]!.r.id)
+      recordPick(ctx, 'rumour_crisis_vouch', `regular:${ranked[0]!.r.id}`)
+    }
+  }
+  const tavernSelf = tavernIdentityRef('self')
+
   const responseSlots: ResponseSlot[] = [
     {
       id: 'deny_rumour',
@@ -2395,7 +4757,7 @@ function generateRumourCrisis(ctx: SimContext): IssueSeed[] {
       labelHint: 'Blame someone else',
       allowedVerbs: ['blame'],
       shape: 'deception',
-      targetOptions: [target],
+      targetOptions: sourceRef ? [target, sourceRef] : [target],
       expectedEffects: ['shift blame', 'create grudge'],
     },
     {
@@ -2411,7 +4773,7 @@ function generateRumourCrisis(ctx: SimContext): IssueSeed[] {
       labelHint: 'Bribe the gossip',
       allowedVerbs: ['bribe'],
       shape: 'risky_profitable',
-      targetOptions: [target],
+      targetOptions: sourceRef ? [sourceRef] : [target],
       expectedEffects: ['silence source', 'spend coin'],
     },
     {
@@ -2422,8 +4784,38 @@ function generateRumourCrisis(ctx: SimContext): IssueSeed[] {
       targetOptions: [],
       expectedEffects: ['no cost', 'rumour grows'],
     },
+    {
+      id: 'counter_rumour',
+      labelHint: 'Plant a counter-rumour',
+      allowedVerbs: ['rebrand'],
+      shape: 'deception',
+      targetOptions: [target, ...(vouchRegular ? [vouchRegular] : [])],
+      expectedEffects: ['drown out original rumour', 'add new lie to ledger'],
+    },
+    {
+      id: 'ask_regular_to_vouch',
+      labelHint: vouchRegular
+        ? `Ask ${displayNameForRef(ctx.state, vouchRegular)} to vouch`
+        : 'Ask a regular to vouch',
+      allowedVerbs: ['invite', 'negotiate'],
+      shape: 'safe_costly',
+      targetOptions: vouchRegular ? [vouchRegular] : [target],
+      expectedEffects: ['lower rumour', 'spend regular goodwill'],
+    },
+    {
+      id: 'name_source_publicly',
+      labelHint: sourceRef
+        ? `Name ${displayNameForRef(ctx.state, sourceRef)} publicly`
+        : 'Name the source publicly',
+      allowedVerbs: ['blame', 'confess'],
+      shape: 'escalation',
+      targetOptions: sourceRef ? [sourceRef] : [target],
+      expectedEffects: ['flip blame onto source', 'risk faction anger'],
+    },
   ]
 
+  const sourceMems = sourceRef ? [sourceRef] : []
+  const vouchMems = vouchRegular ? [vouchRegular] : []
   const consequenceProfiles: ConsequenceProfile[] = [
     makeProfile({
       id: 'deny_rumour_profile',
@@ -2435,12 +4827,17 @@ function generateRumourCrisis(ctx: SimContext): IssueSeed[] {
         effect('state_change', 'reputation.respectable', -6, 'Credibility takes a hit', [
           'reputation',
         ]),
+        effect('state_change', 'reputation.reliable', -8, 'Audience doubts the protest', [
+          'reputation',
+        ]),
+        effect('pressure', 'pressure:cultural_tension', 4, 'Friction lingers', ['pressure']),
       ],
       delayedEffects: [
+        effect('pressure', 'pressure:rumour_pressure', 6, 'Whisper rebounds', ['pressure']),
         effect(
           'future_hook',
           `rumour_denial_backfire_${target.kind}_${target.id}`,
-          0,
+          12,
           'Denial may backfire if true',
           ['future_hook'],
         ),
@@ -2448,8 +4845,13 @@ function generateRumourCrisis(ctx: SimContext): IssueSeed[] {
       memories: [
         {
           id: `rumour_denied_${target.kind}_${target.id}`,
-          actors: [target],
-          tags: ['rumour', 'denial', 'reputation'],
+          actors: [target, ...sourceMems],
+          tags: ['rumour', 'denial', 'reputation', 'false_blame'],
+        },
+        {
+          id: `tavern_denial_${target.id}`,
+          actors: [target, tavernSelf],
+          tags: ['tavern_identity', 'memory', 'rumour'],
         },
       ],
       futureHooks: [
@@ -2470,14 +4872,26 @@ function generateRumourCrisis(ctx: SimContext): IssueSeed[] {
         effect('state_change', 'reputation.respectable', 8, 'Audience respects candour', [
           'reputation',
         ]),
-        effect('state_change', 'reputation.reliable', 10, 'Reliable reputation grows', ['reputation']),
+        effect('state_change', 'reputation.reliable', 10, 'Reliable reputation grows', [
+          'reputation',
+        ]),
+        effect('cause', `${target.kind}:${target.id}`, 8, 'Target gets context', [
+          'rumour',
+          'attribution',
+        ]),
+        effect('state_change', 'reputation.dangerous', -4, 'Open-hand signal', ['reputation']),
       ],
       delayedEffects: [],
       memories: [
         {
           id: `rumour_confessed_${target.kind}_${target.id}`,
           actors: [target],
-          tags: ['rumour', 'confess', 'honesty'],
+          tags: ['rumour', 'confess', 'honesty', 'attribution'],
+        },
+        {
+          id: `tavern_confession_${target.id}`,
+          actors: [target, tavernSelf],
+          tags: ['tavern_identity', 'memory', 'honesty'],
         },
       ],
       futureHooks: [],
@@ -2492,13 +4906,24 @@ function generateRumourCrisis(ctx: SimContext): IssueSeed[] {
         effect('state_change', 'reputation.respectable', -4, 'Audience smells dishonesty', [
           'reputation',
         ]),
+        effect('cause', `${target.kind}:${target.id}`, -10, 'Tavern smeared the target', [
+          'rumour',
+          'blame',
+          'attribution',
+        ]),
+        effect('pressure', 'pressure:cultural_tension', 6, 'Blamed party simmers', ['pressure']),
       ],
       delayedEffects: [
-        effect('pressure', 'pressure:cultural_tension', 8, 'Blamed party simmers', ['pressure']),
+        effect('pressure', 'pressure:cultural_tension', 8, 'Simmer becomes a glare', [
+          'pressure',
+        ]),
+        effect('pressure', 'pressure:faction_anger', 6, 'Faction tied to blame is sore', [
+          'pressure',
+        ]),
         effect(
           'future_hook',
           `rumour_blame_grudge_${target.kind}_${target.id}`,
-          0,
+          14,
           'Blamed party may grudge',
           ['future_hook'],
         ),
@@ -2506,14 +4931,28 @@ function generateRumourCrisis(ctx: SimContext): IssueSeed[] {
       memories: [
         {
           id: `rumour_deflected_${target.kind}_${target.id}`,
-          actors: [target],
-          tags: ['rumour', 'deception', 'blame'],
+          actors: [target, ...sourceMems],
+          tags: ['rumour', 'deception', 'blame', 'grudge', 'attribution'],
+        },
+        ...(sourceRef
+          ? [
+              {
+                id: `rumour_source_blamed_${sourceRef.kind}_${sourceRef.id}`,
+                actors: [sourceRef],
+                tags: ['rumour', 'grudge', 'attribution'],
+              },
+            ]
+          : []),
+        {
+          id: `tavern_deflection_${target.id}`,
+          actors: [target, tavernSelf],
+          tags: ['tavern_identity', 'memory', 'deception'],
         },
       ],
       futureHooks: [
         {
           id: `rumour_blame_grudge_${target.kind}_${target.id}`,
-          actors: [target],
+          actors: sourceRef ? [target, sourceRef] : [target],
           tags: ['rumour', 'risk', 'grudge'],
         },
       ],
@@ -2528,15 +4967,31 @@ function generateRumourCrisis(ctx: SimContext): IssueSeed[] {
         effect('state_change', 'reputation.respectable', 12, 'Credibility climbs', [
           'reputation',
         ]),
+        effect('state_change', 'reputation.reliable', 8, 'Reliable reputation grows', [
+          'reputation',
+        ]),
         effect('state_change', 'coin', -10, 'Investigation costs', ['coin']),
+        effect('cause', `${target.kind}:${target.id}`, 12, 'Target name cleared', [
+          'rumour',
+          'attribution',
+        ]),
       ],
       delayedEffects: [],
       memories: [
         {
           id: `rumour_disproved_${target.kind}_${target.id}`,
           actors: [target],
-          tags: ['rumour', 'truth', 'investment'],
+          tags: ['rumour', 'truth', 'investment', 'attribution'],
         },
+        ...(vouchRegular
+          ? [
+              {
+                id: `rumour_witness_${vouchRegular.id}`,
+                actors: [vouchRegular],
+                tags: ['regular', 'witness', 'favorite_order'],
+              },
+            ]
+          : []),
       ],
       futureHooks: [],
     }),
@@ -2546,12 +5001,20 @@ function generateRumourCrisis(ctx: SimContext): IssueSeed[] {
       immediateEffects: [
         effect('state_change', 'coin', -20, 'Pay the gossip', ['coin']),
         effect('pressure', 'pressure:rumour_pressure', -12, 'Source quiets down', ['pressure']),
+        effect('cause', `${target.kind}:${target.id}`, -6, 'Bribery whispers anyway', [
+          'rumour',
+          'attribution',
+        ]),
+        effect('pressure', 'pressure:cultural_tension', 8, 'Trust in tavern dents', [
+          'pressure',
+        ]),
       ],
       delayedEffects: [
+        effect('pressure', 'pressure:rumour_pressure', 5, 'Someone always talks', ['pressure']),
         effect(
           'future_hook',
           `rumour_bribe_exposed_${target.kind}_${target.id}`,
-          0,
+          15,
           'Bribe may be exposed',
           ['future_hook'],
         ),
@@ -2559,8 +5022,13 @@ function generateRumourCrisis(ctx: SimContext): IssueSeed[] {
       memories: [
         {
           id: `rumour_bribed_${target.kind}_${target.id}`,
-          actors: [target],
-          tags: ['rumour', 'bribe', 'risk'],
+          actors: [target, ...sourceMems],
+          tags: ['rumour', 'bribe', 'risk', 'attribution'],
+        },
+        {
+          id: `tavern_bribed_gossip_${target.id}`,
+          actors: [target, tavernSelf],
+          tags: ['tavern_identity', 'memory', 'deception'],
         },
       ],
       futureHooks: [
@@ -2574,18 +5042,30 @@ function generateRumourCrisis(ctx: SimContext): IssueSeed[] {
     makeProfile({
       id: 'ignore_rumour_profile',
       responseSlotId: 'ignore_rumour',
-      immediateEffects: [],
+      immediateEffects: [
+        effect('state_change', 'reputation.respectable', -4, 'Silence reads as guilt', [
+          'reputation',
+        ]),
+      ],
       delayedEffects: [
         effect('pressure', 'pressure:rumour_pressure', 12, 'Silence lets rumour grow', [
           'pressure',
         ]),
         effect('state_change', 'reputation.dangerous', 8, 'Reputation rots', ['reputation']),
+        effect('pressure', 'pressure:regular_customer_loss', 6, 'Regulars drift away', [
+          'pressure',
+        ]),
       ],
       memories: [
         {
           id: `rumour_ignored_${target.kind}_${target.id}`,
           actors: [target],
-          tags: ['rumour', 'ignored'],
+          tags: ['rumour', 'ignored', 'false_blame'],
+        },
+        {
+          id: `tavern_silent_${target.id}`,
+          actors: [target, tavernSelf],
+          tags: ['tavern_identity', 'memory', 'rumour'],
         },
       ],
       futureHooks: [
@@ -2596,9 +5076,214 @@ function generateRumourCrisis(ctx: SimContext): IssueSeed[] {
         },
       ],
     }),
+    makeProfile({
+      id: 'counter_rumour_profile',
+      responseSlotId: 'counter_rumour',
+      immediateEffects: [
+        effect('pressure', 'pressure:rumour_pressure', -8, 'Counter-rumour confuses gossip', [
+          'pressure',
+        ]),
+        effect('state_change', 'reputation.respectable', -4, 'Sleight of tongue noticed', [
+          'reputation',
+        ]),
+        effect('pressure', 'pressure:cultural_tension', 10, 'Two stories collide', ['pressure']),
+        effect('cause', `${target.kind}:${target.id}`, -4, 'New lie cluster planted', [
+          'rumour',
+          'attribution',
+        ]),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `counter_rumour_runaway_${target.id}`,
+          14,
+          'Counter-rumour may run away',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: `rumour_counter_${target.kind}_${target.id}`,
+          actors: [target, ...sourceMems],
+          tags: ['rumour', 'deception', 'false_blame', 'attribution'],
+        },
+        ...(vouchRegular
+          ? [
+              {
+                id: `rumour_counter_source_${vouchRegular.id}`,
+                actors: [vouchRegular],
+                tags: ['regular', 'deception'],
+              },
+            ]
+          : []),
+        {
+          id: `tavern_counter_rumour_${target.id}`,
+          actors: [target, tavernSelf],
+          tags: ['tavern_identity', 'memory', 'deception'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `counter_rumour_runaway_${target.id}`,
+          actors: [target],
+          tags: ['rumour', 'risk'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'ask_regular_to_vouch_profile',
+      responseSlotId: 'ask_regular_to_vouch',
+      immediateEffects: [
+        effect('pressure', 'pressure:rumour_pressure', -12, 'Regular vouches publicly', [
+          'pressure',
+        ]),
+        effect('state_change', 'reputation.respectable', 5, 'Credible voice helps', [
+          'reputation',
+        ]),
+        ...(vouchRegular
+          ? [
+              effect(
+                'state_change',
+                `world.regulars.${vouchRegular.id}.loyalty`,
+                -3,
+                'Favour drawn down',
+                ['regular'],
+              ),
+              effect(
+                'cause',
+                `regular:${vouchRegular.id}`,
+                -5,
+                'Tavern owes the vouch',
+                ['regular', 'attribution'],
+              ),
+            ]
+          : []),
+      ],
+      delayedEffects: [
+        ...(vouchRegular
+          ? [
+              effect(
+                'future_hook',
+                `regular_favour_owed_${vouchRegular.id}`,
+                10,
+                'Owed favour returns later',
+                ['future_hook'],
+              ),
+            ]
+          : []),
+      ],
+      memories: [
+        ...(vouchRegular
+          ? [
+              {
+                id: `rumour_vouch_${vouchRegular.id}`,
+                actors: [vouchRegular],
+                tags: ['regular', 'favorite_order', 'attribution'],
+              },
+            ]
+          : []),
+        {
+          id: `rumour_vouched_target_${target.kind}_${target.id}`,
+          actors: [target, ...vouchMems],
+          tags: ['rumour', 'attribution'],
+        },
+      ],
+      futureHooks: vouchRegular
+        ? [
+            {
+              id: `regular_favour_owed_${vouchRegular.id}`,
+              actors: [vouchRegular],
+              tags: ['regular', 'opportunity'],
+            },
+          ]
+        : [],
+    }),
+    makeProfile({
+      id: 'name_source_publicly_profile',
+      responseSlotId: 'name_source_publicly',
+      immediateEffects: [
+        ...(sourceRef
+          ? [
+              effect(
+                'cause',
+                `${sourceRef.kind}:${sourceRef.id}`,
+                -15,
+                'Source named in public',
+                ['rumour', 'blame', 'attribution'],
+              ),
+            ]
+          : [
+              effect(
+                'cause',
+                `${target.kind}:${target.id}`,
+                -10,
+                'Target faces blame from owner',
+                ['rumour', 'blame', 'attribution'],
+              ),
+            ]),
+        effect('pressure', 'pressure:rumour_pressure', -6, 'Story flips toward source', [
+          'pressure',
+        ]),
+        effect('pressure', 'pressure:cultural_tension', 12, 'Public naming heats culture', [
+          'pressure',
+        ]),
+        ...(sourceRef && sourceRef.kind === 'faction'
+          ? [
+              effect('pressure', 'pressure:faction_anger', 8, 'Faction fumes', ['pressure']),
+            ]
+          : []),
+        effect('state_change', 'reputation.dangerous', 6, 'Owner shows teeth', ['reputation']),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          sourceRef
+            ? `public_naming_blowback_${sourceRef.id}`
+            : `public_naming_blowback_${target.id}`,
+          16,
+          'Public naming risks blowback',
+          ['future_hook'],
+        ),
+      ],
+      memories: [
+        {
+          id: sourceRef
+            ? `rumour_source_named_${sourceRef.kind}_${sourceRef.id}`
+            : `rumour_target_named_${target.kind}_${target.id}`,
+          actors: sourceRef ? [sourceRef] : [target],
+          tags: ['rumour', 'grudge', 'attribution', 'false_blame'],
+        },
+        {
+          id: `rumour_publicly_named_${target.id}`,
+          actors: [target, ...sourceMems],
+          tags: ['rumour', 'attribution'],
+        },
+        {
+          id: `tavern_publicly_named_${target.id}`,
+          actors: sourceRef ? [sourceRef, tavernSelf] : [target, tavernSelf],
+          tags: ['tavern_identity', 'memory', 'escalation'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: sourceRef
+            ? `public_naming_blowback_${sourceRef.id}`
+            : `public_naming_blowback_${target.id}`,
+          actors: sourceRef ? [sourceRef] : [target],
+          tags: ['rumour', 'risk'],
+        },
+      ],
+    }),
   ]
 
   const perceivedBlame: string[] = [dramatic.readable]
+
+  // Phase 40 audit pass 2 §5 — Keep affectedActors minimal so the rumour
+  // source / vouch regular don't add to per-seed repetition counts. They
+  // still appear inside profile memories.
+  const seedAffected: EntityRef[] = dedupeRefs([], target)
+
+  const namedEntities = [namedEntityIngredient(ctx.state, target.kind, target)]
 
   return [
     buildSeed({
@@ -2614,7 +5299,7 @@ function generateRumourCrisis(ctx: SimContext): IssueSeed[] {
       // single character on the hook, so leave primary unset and let the
       // affected list represent the rumour locus.
       ...(target.kind !== 'tavern_identity' ? { primaryActor: target } : {}),
-      affectedActors: [target],
+      affectedActors: seedAffected,
       causes,
       pressures: pressureSnapshotsFor(ctx, ['rumour_pressure', 'reputation_drift']),
       stakes: [
@@ -2641,7 +5326,7 @@ function generateRumourCrisis(ctx: SimContext): IssueSeed[] {
         actorOpinions: { source: 'will not stop talking' },
         recentContext: [`publicness ${dramatic.publicness}`],
         stakesReadable: ['rumour may spread', 'reputation may rot'],
-        namedEntities: [namedEntityIngredient(ctx.state, target.kind, target)],
+        namedEntities,
         socialContext: [`accuracy: ${dramatic.accuracy}`],
         perceivedBlame,
         pressureContext: [`rumour pressure ${rumourPressure.value}`],
@@ -2690,6 +5375,7 @@ function rumourSeedFromRumour(
     },
   ]
 
+  const tavernSelf = tavernIdentityRef('self')
   const consequenceProfiles: ConsequenceProfile[] = [
     makeProfile({
       id: 'deny_rumour_profile',
@@ -2701,12 +5387,17 @@ function rumourSeedFromRumour(
         effect('state_change', 'reputation.respectable', -6, 'Credibility takes a hit', [
           'reputation',
         ]),
+        effect('state_change', 'reputation.reliable', -6, 'Audience doubts the protest', [
+          'reputation',
+        ]),
+        effect('pressure', 'pressure:cultural_tension', 4, 'Friction lingers', ['pressure']),
       ],
       delayedEffects: [
+        effect('pressure', 'pressure:rumour_pressure', 5, 'Whisper rebounds', ['pressure']),
         effect(
           'future_hook',
           `rumour_denial_backfire_${rumour.id}`,
-          0,
+          12,
           'Denial may backfire',
           ['future_hook'],
         ),
@@ -2715,7 +5406,12 @@ function rumourSeedFromRumour(
         {
           id: `rumour_denied_${rumour.id}`,
           actors: [ref],
-          tags: ['rumour', 'denial'],
+          tags: ['rumour', 'denial', 'false_blame'],
+        },
+        {
+          id: `tavern_denial_${rumour.id}`,
+          actors: [ref, tavernSelf],
+          tags: ['tavern_identity', 'memory', 'rumour'],
         },
       ],
       futureHooks: [
@@ -2729,18 +5425,28 @@ function rumourSeedFromRumour(
     makeProfile({
       id: 'ignore_rumour_profile',
       responseSlotId: 'ignore_rumour',
-      immediateEffects: [],
+      immediateEffects: [
+        effect('state_change', 'reputation.respectable', -4, 'Silence reads as guilt', [
+          'reputation',
+        ]),
+      ],
       delayedEffects: [
         effect('pressure', 'pressure:rumour_pressure', 12, 'Silence lets rumour grow', [
           'pressure',
         ]),
         effect('state_change', 'reputation.dangerous', 8, 'Reputation rots', ['reputation']),
+        effect('pressure', 'pressure:regular_customer_loss', 6, 'Regulars drift', ['pressure']),
       ],
       memories: [
         {
           id: `rumour_ignored_${rumour.id}`,
           actors: [ref],
-          tags: ['rumour', 'ignored'],
+          tags: ['rumour', 'ignored', 'false_blame'],
+        },
+        {
+          id: `tavern_silent_${rumour.id}`,
+          actors: [ref, tavernSelf],
+          tags: ['tavern_identity', 'memory', 'rumour'],
         },
       ],
       futureHooks: [
@@ -2761,14 +5467,26 @@ function rumourSeedFromRumour(
         effect('state_change', 'reputation.respectable', 8, 'Audience respects candour', [
           'reputation',
         ]),
-        effect('state_change', 'reputation.reliable', 10, 'Reliable reputation grows', ['reputation']),
+        effect('state_change', 'reputation.reliable', 10, 'Reliable reputation grows', [
+          'reputation',
+        ]),
+        effect('state_change', 'reputation.dangerous', -4, 'Open-hand signal', ['reputation']),
+        effect('cause', `rumour:${rumour.id}`, 8, 'Tavern owns the story', [
+          'rumour',
+          'attribution',
+        ]),
       ],
       delayedEffects: [],
       memories: [
         {
           id: `rumour_confessed_${rumour.id}`,
           actors: [ref],
-          tags: ['rumour', 'confess', 'honesty'],
+          tags: ['rumour', 'confess', 'honesty', 'attribution'],
+        },
+        {
+          id: `tavern_confession_${rumour.id}`,
+          actors: [ref, tavernSelf],
+          tags: ['tavern_identity', 'memory', 'honesty'],
         },
       ],
       futureHooks: [],

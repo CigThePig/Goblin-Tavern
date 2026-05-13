@@ -460,6 +460,29 @@ export function namedEntityIngredient(
   }
 }
 
+/** Phase 40 audit pass 2 — Deduplicate a list of EntityRefs, optionally
+ *  excluding any refs that match the given reference (e.g. the primary
+ *  actor). Used by seed generators to keep `affectedActors` from
+ *  double-counting the primary entity, which inflates
+ *  `named_entity_repetition` without changing meaning. */
+export function dedupeRefs(
+  refs: ReadonlyArray<EntityRef | undefined>,
+  exclude?: EntityRef,
+): EntityRef[] {
+  const out: EntityRef[] = []
+  const seen = new Set<string>()
+  const excludeKey = exclude ? `${exclude.kind}:${exclude.id}` : undefined
+  for (const ref of refs) {
+    if (!ref) continue
+    const key = `${ref.kind}:${ref.id}`
+    if (excludeKey && key === excludeKey) continue
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(ref)
+  }
+  return out
+}
+
 // Phase 39 §39.4 — Memory / attribution query helpers. Generators use
 // these to surface the strongest "why this seed exists right now" hint
 // without coupling to raw state shape.

@@ -595,7 +595,15 @@ describe('Phase 39 §39.15 — Contradiction guards reject missing refs', () => 
     }
   })
 
-  it('rejects seasonal arc seeds that reference no active arc', () => {
+  it('rejects seasonal arc seeds whose primaryActor names a missing arc', () => {
+    // Phase 40 audit pass 2 §6 — The generator now also emits
+    // anticipation seeds when no arc is yet active in localEvents,
+    // keyed on calendar tags / market conditions. Those anticipation
+    // seeds intentionally omit `primaryActor` (since the arc isn't a
+    // real local_event yet), so the validator never lands the
+    // "references missing arc" error on them. This test guards the
+    // narrower invariant: any seasonal_arc seed that DOES carry a
+    // local_event primaryActor must point at a live arc.
     const base = plentyOfStock(createInitialTavernState())
     const seeded: TavernState = {
       ...base,
@@ -609,7 +617,11 @@ describe('Phase 39 §39.15 — Contradiction guards reject missing refs', () => 
     }
     const result = runDay(seeded)
     const seeds = getIssueSeeds(result.state, { family: 'seasonal_arc' })
-    expect(seeds.length).toBe(0)
+    for (const seed of seeds) {
+      if (seed.primaryActor?.kind === 'local_event') {
+        expect(result.state.world.localEvents[seed.primaryActor.id]).toBeDefined()
+      }
+    }
   })
 })
 

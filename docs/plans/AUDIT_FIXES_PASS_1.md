@@ -61,9 +61,9 @@ Two failing metrics — `named_entity_repetition` and `core.strategy_diversity` 
 - [ ] 4.1: `festival_unreadiness_loop` requires festival_readiness as evidence
 
 **Stage 5 — Generator content (the biggest content lift)**
-- [ ] 5.1: Upgrade thin consequence profiles across 6 expanded families
-- [ ] 5.2: Add picker rotation to expanded seed generators
-- [ ] 5.3: Stop using singleton `system:*` refs as `primaryActor`
+- [x] 5.1: Upgrade thin consequence profiles across 6 expanded families
+- [x] 5.2: Add picker rotation to expanded seed generators
+- [x] 5.3: Stop using singleton `system:*` refs as `primaryActor`
 
 **Stage 6 — Optional balance touch-up**
 - [ ] 6.1: Tighten weekly faction memory creation triggers

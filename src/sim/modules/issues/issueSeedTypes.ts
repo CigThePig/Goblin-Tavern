@@ -353,6 +353,10 @@ export type IssueSeedModuleState = {
   totalRejected: number
   /** Absolute day of the most recent generation pass. */
   lastGeneratedDay: number
+  /** Per-family entity picks: family id → entity refKey → absolute day of
+   *  last pick. Used by expanded seed generators to apply a recency
+   *  penalty so the same actor doesn't dominate a family across days. */
+  recentPicks: Record<string, Record<string, number>>
 }
 
 export function createInitialIssueSeedModuleState(): IssueSeedModuleState {
@@ -363,5 +367,6 @@ export function createInitialIssueSeedModuleState(): IssueSeedModuleState {
     totalGenerated: 0,
     totalRejected: 0,
     lastGeneratedDay: -1,
+    recentPicks: {},
   }
 }

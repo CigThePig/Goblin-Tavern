@@ -24,6 +24,7 @@ import type { HistoryEntryDraft } from '../modules/history/types'
 import type { MemoryDraft } from '../modules/memories/memoryTypes'
 import type { EntityMemoryMetadata } from '../modules/memories/entityMemory'
 import type { CauseDraft } from '../modules/causes/causeTypes'
+import type { ResponseIntent } from '../modules/issues/issueSeedTypes'
 import type { RngStreamId, SimRng, SimRngStreams } from './rng'
 import type { ReportSection, SimLog, SimLogLevel } from './reports'
 import type { StateDiff, TaggedStateDiff, PhaseBoundary } from './diff'
@@ -72,7 +73,19 @@ export type SimInput = {
    * this map fall back to the role's default priority.
    */
   staffPriorities?: Record<string, string>
+  /**
+   * Phase 41 / ISSUE-001 — per-day response intents. Each intent picks
+   * a response slot on an active issue seed; the `responsesModule`
+   * applies the matching consequence profile during the
+   * `applyResponses` phase. Unknown seeds, slots, or verbs are logged
+   * and skipped (no throw). The intent's `seedId` must match a seed in
+   * `state.modules.issueSeeds.seedsToday` for the day the intent is
+   * supplied — same-day resolution only; carry forward by re-issuing.
+   */
+  responseIntents?: ReadonlyArray<ResponseIntent>
 }
+
+export type { ResponseIntent }
 
 /**
  * Phase 7 §7.3.1 / Phase 17 §17.2.1 — Mutation metadata.

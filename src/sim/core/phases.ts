@@ -47,6 +47,7 @@ export type SimulationPhase =
   | 'service'
   | 'afterService'
   | 'closing'
+  | 'applyResponses'
   | 'endDay'
   | 'endWeek'
   | 'endMonth'
@@ -75,6 +76,12 @@ export const SIMULATION_PHASES: readonly SimulationPhase[] = [
   'service',
   'afterService',
   'closing',
+  // Phase 41 / ISSUE-001 — responses fire after the day's work has
+  // settled (closing) but before the end-of-day pipeline tears down
+  // per-day slices, so the responsesModule can mutate state, enqueue
+  // pending entries, and have those mutations flow through endDay /
+  // endWeek / endMonth aggregation and the report pass.
+  'applyResponses',
   'endDay',
   'endWeek',
   'endMonth',

@@ -37,7 +37,7 @@ how to verify the fix.
 
 | ID | Title | Grade | Status | Phase |
 |---|---|---|---|---|
-| ISSUE-001 | Response pipeline + unified pending queue | broken | open | — |
+| ISSUE-001 | Response pipeline + unified pending queue | broken | done | 41 |
 | ISSUE-002 | World mutator cause emission + state diff coverage | thin | open | — |
 | ISSUE-003 | Per-cause `relatedActors` in 4 silent calculators | broken | open | — |
 | ISSUE-004 | NPC factory + initial notable NPC roster | broken | open | — |
@@ -73,8 +73,8 @@ prioritizes leverage: response wiring unblocks the most features.
 ### ISSUE-001 — Response pipeline + unified pending queue
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 41
 - **Evidence:**
   - `src/sim/modules/responses/responseResolver.ts:277` — pure transform
     that takes state + seed + intent and returns a new state. Called from

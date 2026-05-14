@@ -20,6 +20,7 @@ import { createInitialOwnerActionsModuleState } from '../modules/ownerActions/ow
 import { createInitialWeeklyModuleState } from '../modules/weekly/state'
 import { createInitialMonthlyModuleState } from '../modules/monthly/monthlyModule'
 import { createInitialAttributionModuleState } from '../modules/attribution/attributionModule'
+import { createInitialResponsesModuleState } from '../modules/responses/responsesModule'
 import { createInitialCauseModuleState } from '../modules/causes/causeModule'
 import { createInitialPressureModuleState } from '../modules/pressures/pressureModule'
 import { createInitialFeedbackModuleState } from '../modules/feedback/feedbackLoopModule'
@@ -516,6 +517,10 @@ export function createInitialTavernState(overrides?: Partial<TavernState>): Tave
       // yet) so the module's schema validates from day zero before any
       // attribution rule has fired.
       attribution: createInitialAttributionModuleState(),
+      // Phase 41 / ISSUE-001 — seed an empty responses slice (no pending
+      // entries, no resolved intents) so the module's schema validates
+      // from day zero before any response intent has been processed.
+      responses: createInitialResponsesModuleState(),
     },
   }
 

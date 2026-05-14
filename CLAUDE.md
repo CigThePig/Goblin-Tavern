@@ -4,9 +4,13 @@ A text-based goblin tavern management simulation built **simulation-first**: a h
 
 ## Current Status
 
-Phases 1–20 are **implemented**. The headless simulation lives under `src/sim/` (core engine, registries, ~20 domain modules, state with Zod schemas, testing utilities) with phase-by-phase coverage under `tests/sim/` (`phase2.structure.test.ts` … `phase20.cardlessPlaytest.test.ts`). Run `npm test` (Vitest) and `npm run typecheck` (TypeScript) to validate changes.
+Phases 1–40 are **implemented**. The headless simulation lives under `src/sim/` (core engine, registries, ~26 domain modules under `src/sim/modules/`, a content layer under `src/sim/content/` covering naming, cultures, factions, suppliers, npc, staff, tavern, events, and text, state with Zod schemas, and testing utilities). Phase-by-phase coverage runs from `tests/sim/phase2.structure.test.ts` through `tests/sim/phase40.expandedReadiness.test.ts`. Run `npm test` (Vitest) and `npm run typecheck` (TypeScript) to validate changes.
 
-Phases 21–40 (the "expansion arc") are specified under `docs/plans/` but not yet implemented. They add identity, culture, place, and relationship systems on top of the existing simulation.
+Current work is the **post-Phase-40 repair pass** tracked in [`docs/ISSUE_TRACKER.md`](docs/ISSUE_TRACKER.md). That file is the authoritative source for what needs to change, evidence, scope, dependencies, and test approach for each repair bundle. Phases 1–40 left real gaps (silent calculators, dead consumers, thin rosters, no-op response pipeline); the tracker bundles those fixes into 24 issues.
+
+**Phase numbering for the repair pass:** each `ISSUE-NNN` in the tracker becomes a phase offset by 40 — `ISSUE-001` → phase 41, `ISSUE-002` → phase 42, …, `ISSUE-024` → phase 64. Phase plan files for repair work land under `docs/plans/` named by phase number (e.g. `phase-41-response-pipeline.md`).
+
+Per-issue workflow: the user puts Claude Code in plan mode, Claude reads the matching tracker entry, produces a phase plan file in `docs/plans/`, then implements. Update the issue's `Status` and `Phase` fields in the tracker inline as work progresses; closed issues stay in the tracker as history.
 
 Work proceeds against whatever branch is checked out; coordinate branch and merge decisions with the user before pushing or opening pull requests.
 
@@ -41,35 +45,40 @@ const result = simulateDay(previousState, playerInput, runConfig)
 ## Repo Layout
 
 ```
-docs/plans/
-  phase-01-simulation-contract.md                                       # Vision, pillars, core gameplay model
-  phases-02-05.md                                                       # Project structure, calendar, RNG, state
-  phases-06-10.md                                                       # Areas, stock, economy, customers
-  phases-11-15.md                                                       # Staff, service loop, owner actions, weekly, monthly
-  phases-16-20.md                                                       # Memories, causes, pressures, issue seeds, card-ready output
-  phase-21-expansion-contract.md                                        # Expansion arc vision and scope rules
-  phases-22-25-expansion-structure-calendar-rng-state.md                # Content folders, calendar tags, RNG streams, world state
-  phases-26-30-expansion-validation-hooks-areas-suppliers-cultures.md   # Cross-ref validation, new phase hooks, area traits, suppliers, cultures
-  phases-31-35-expansion-staff-scenes-projects-community-arcs.md        # Staff identity, service scenes, owner projects, weekly community, seasonal arcs
-  phases-36-40-expansion-memory-attribution-pressures-seeds-readiness.md# Entity-scoped memory, attribution, pressure webs, expanded seeds, final readiness
+docs/
+  ISSUE_TRACKER.md                                                      # Post-Phase-40 repair pass — current work
+  plans/
+    phase-01-simulation-contract.md                                     # Vision, pillars, core gameplay model
+    phases-02-05.md                                                     # Project structure, calendar, RNG, state
+    phases-06-10.md                                                     # Areas, stock, economy, customers
+    phases-11-15.md                                                     # Staff, service loop, owner actions, weekly, monthly
+    phases-16-20.md                                                     # Memories, causes, pressures, issue seeds, card-ready output
+    phase-21-expansion-contract.md                                      # Expansion arc vision and scope rules
+    phases-22-25-expansion-structure-calendar-rng-state.md              # Content folders, calendar tags, RNG streams, world state
+    phases-26-30-expansion-validation-hooks-areas-suppliers-cultures.md # Cross-ref validation, new phase hooks, area traits, suppliers, cultures
+    phases-31-35-expansion-staff-scenes-projects-community-arcs.md      # Staff identity, service scenes, owner projects, weekly community, seasonal arcs
+    phases-36-40-expansion-memory-attribution-pressures-seeds-readiness.md # Entity-scoped memory, attribution, pressure webs, expanded seeds, final readiness
+    phase-41-*.md … phase-64-*.md                                       # Repair-pass plans, one per ISSUE-NNN in ISSUE_TRACKER.md (added as each phase starts)
 
-src/sim/                # Phases 1–20 implementation (headless, pure)
+src/sim/                # Phases 1–40 implementation (headless, pure)
   core/                 # engine, context, rng, phases, diff, effect, reports, types
   state/                # TavernState, schemas (zod), validation, migrations
   registries/           # Registry<T> + concrete registries (areas, stock, customers, staff, actions, pressures, …)
-  modules/              # Domain modules: areas, calendar, customers, economy, stock, staff, service,
-                        # ownerActions, weekly, monthly, memories, causes, pressures, issueSeeds,
-                        # issues, feedback, history, reports, responses
+  modules/              # Domain modules: areas, attribution, calendar, causes, cultures, customers,
+                        # economy, factions, feedback, history, issues, issueSeeds, localArcs,
+                        # memories, monthly, ownerActions, pressures, regulars, reports, responses,
+                        # service, staff, stock, suppliers, weekly, world
+  content/              # Identity / world-content (Phase 22+): naming, cultures, factions, suppliers,
+                        # npc, staff, tavern, events, text
   testing/              # simRunner, createTestState, runDay/Week/Month, fixtures
   utils/                # ids, math, clamp
-tests/sim/              # phase2.structure.test.ts … phase20.cardlessPlaytest.test.ts
+tests/sim/              # phase2.structure.test.ts … phase40.expandedReadiness.test.ts
 ```
-
-Phase 22 will introduce `src/sim/content/` (naming, cultures, factions, suppliers, npc, tavern, events, text) — planned, not yet present. Follow the structure defined in each phase doc before adding new folders.
 
 ## Working on This Repo
 
 - **Read the relevant phase doc before implementing.** Each phase doc has explicit "Acceptance Criteria" and "Do Not Do" sections. Respect both.
+- **Repair-pass work (phases 41–64) is driven by `docs/ISSUE_TRACKER.md`.** Before planning a repair phase, read the matching `ISSUE-NNN` entry — it carries the full Evidence, Impact, Scope, Depends on, and Test approach. The tracker's `Depends on` field is hard: a dependency issue must reach `done` before dependent work starts. Update an issue's `Status` and `Phase` fields inline as work progresses; closed issues stay in the tracker as history, not noise.
 - **Do not skip ahead.** Don't add cards, UI, narrative text, or issue-seed *content* before the phase that introduces them. The plans are sequential for a reason.
 - **No `Math.random()` in sim code.** Even for one-off helpers — use the seeded RNG from context.
 - **No browser/runtime dependencies in `src/sim/`.** The simulation must run headless in tests and (eventually) in any host environment.

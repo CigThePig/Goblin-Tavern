@@ -1,4 +1,5 @@
 import type { SimContext } from '../../../core/context'
+import type { EntityRef } from '../../../state/TavernState'
 import type { PressureCalculationResult, PressureCauseRef } from '../pressureTypes'
 
 import {
@@ -16,10 +17,15 @@ const HIGH_PRICE_ADJUST_PER_RECORD = 3
 const LOW_RELIABILITY_DIVISOR = 5
 const SEASONAL_ARC_PER_INTENSITY = 0.3
 const STOCK_SHORTAGE_DIVISOR = 6
+const LOW_RELIABILITY_THRESHOLD = 75
 
 type SupplierSlice = {
   activeMarketConditions?: Array<{ id: string; tags: string[]; intensity: number }>
-  priceAdjustmentsToday?: Array<{ basePrice: number; effectivePrice: number }>
+  priceAdjustmentsToday?: Array<{
+    supplierId: string
+    basePrice: number
+    effectivePrice: number
+  }>
   missedDeliveriesToday?: Array<{ supplierId: string }>
 }
 
@@ -27,6 +33,14 @@ export function calculateMarketInstability(
   ctx: SimContext,
 ): PressureCalculationResult {
   const causes: PressureCauseRef[] = []
+  const relatedActors: EntityRef[] = []
+  const seenActorKeys = new Set<string>()
+  const addActor = (ref: EntityRef) => {
+    const key = `${ref.kind}:${ref.id}`
+    if (seenActorKeys.has(key)) return
+    seenActorKeys.add(key)
+    relatedActors.push(ref)
+  }
 
   const supplierSlice = ctx.state.modules['suppliers'] as SupplierSlice | undefined
   const conditions = supplierSlice?.activeMarketConditions ?? []
@@ -42,15 +56,26 @@ export function calculateMarketInstability(
 
   const adjustments = supplierSlice?.priceAdjustmentsToday ?? []
   let elevatedAdjustments = 0
+  const adjustmentActors: EntityRef[] = []
+  const seenAdjustmentKeys = new Set<string>()
   for (const adj of adjustments) {
-    if (adj.effectivePrice > adj.basePrice * 1.2) elevatedAdjustments += 1
+    if (adj.effectivePrice > adj.basePrice * 1.2) {
+      elevatedAdjustments += 1
+      const key = `supplier:${adj.supplierId}`
+      if (!seenAdjustmentKeys.has(key)) {
+        seenAdjustmentKeys.add(key)
+        adjustmentActors.push({ kind: 'supplier', id: adj.supplierId })
+      }
+    }
   }
   if (elevatedAdjustments > 0) {
+    for (const ref of adjustmentActors) addActor(ref)
     pushCause(causes, {
       id: 'price_adjustments_high',
       readable: `${elevatedAdjustments} supplier price adjustment(s) +20%.`,
       amount: HIGH_PRICE_ADJUST_PER_RECORD * elevatedAdjustments,
       tags: ['market', 'price'],
+      relatedActors: adjustmentActors,
       relatedSystems: ['suppliers', 'market'],
     })
   }
@@ -59,14 +84,22 @@ export function calculateMarketInstability(
   const suppliers = Object.values(ctx.state.world.suppliers)
   if (suppliers.length > 0) {
     let inverseReliability = 0
-    for (const supplier of suppliers) inverseReliability += 100 - supplier.reliability
+    const lowReliabilityActors: EntityRef[] = []
+    for (const supplier of suppliers) {
+      inverseReliability += 100 - supplier.reliability
+      if (supplier.reliability < LOW_RELIABILITY_THRESHOLD) {
+        lowReliabilityActors.push({ kind: 'supplier', id: supplier.id })
+      }
+    }
     const avg = inverseReliability / suppliers.length
     if (avg >= 25) {
+      for (const ref of lowReliabilityActors) addActor(ref)
       pushCause(causes, {
         id: 'avg_reliability_low',
         readable: `Supplier reliability low on average (${Math.round(100 - avg)}).`,
         amount: Math.round(avg / LOW_RELIABILITY_DIVISOR),
         tags: ['supplier', 'reliability'],
+        relatedActors: lowReliabilityActors,
         relatedSystems: ['suppliers'],
       })
     }
@@ -80,11 +113,17 @@ export function calculateMarketInstability(
   let seasonalIntensity = 0
   for (const arc of seasonalArcs) seasonalIntensity += arc.intensity
   if (seasonalArcs.length > 0) {
+    const seasonalActors: EntityRef[] = seasonalArcs.map((arc) => ({
+      kind: 'local_event',
+      id: arc.id,
+    }))
+    for (const ref of seasonalActors) addActor(ref)
     pushCause(causes, {
       id: 'seasonal_arc_market',
       readable: `${seasonalArcs.length} seasonal arc(s) disturbing the market.`,
       amount: Math.round(seasonalIntensity * SEASONAL_ARC_PER_INTENSITY),
       tags: ['arc', 'seasonal'],
+      relatedActors: seasonalActors,
       relatedSystems: ['localArcs'],
     })
   }
@@ -110,6 +149,7 @@ export function calculateMarketInstability(
     severity,
     urgency,
     causes,
+    relatedActors,
     relatedSystems: ['suppliers', 'market', 'localArcs', 'stock'],
     tags: ['market'],
     consequences:

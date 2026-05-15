@@ -24,6 +24,9 @@ export function calculateArcEscalation(
 ): PressureCalculationResult {
   const causes: PressureCauseRef[] = []
   const relatedActors: EntityRef[] = []
+  const risingActors: EntityRef[] = []
+  const activeActors: EntityRef[] = []
+  const climaxActors: EntityRef[] = []
 
   let risingIntensity = 0
   let activeIntensity = 0
@@ -31,10 +34,20 @@ export function calculateArcEscalation(
   for (const event of Object.values(ctx.state.world.localEvents)) {
     if (!event.stage) continue
     if (event.stage === 'resolved' || event.stage === 'failed') continue
-    relatedActors.push({ kind: 'local_event', id: event.id })
-    if (event.stage === 'rising') risingIntensity += event.intensity
-    if (event.stage === 'active') activeIntensity += event.intensity
-    if (event.stage === 'climax') climaxIntensity += event.intensity
+    const ref: EntityRef = { kind: 'local_event', id: event.id }
+    relatedActors.push(ref)
+    if (event.stage === 'rising') {
+      risingIntensity += event.intensity
+      risingActors.push(ref)
+    }
+    if (event.stage === 'active') {
+      activeIntensity += event.intensity
+      activeActors.push(ref)
+    }
+    if (event.stage === 'climax') {
+      climaxIntensity += event.intensity
+      climaxActors.push(ref)
+    }
   }
   if (risingIntensity > 0) {
     pushCause(causes, {
@@ -42,6 +55,7 @@ export function calculateArcEscalation(
       readable: `Rising arc intensity ${risingIntensity}.`,
       amount: Math.round(risingIntensity * RISING_ARC_PER_INTENSITY),
       tags: ['arc', 'rising'],
+      relatedActors: risingActors,
       relatedSystems: ['localArcs'],
     })
   }
@@ -51,6 +65,7 @@ export function calculateArcEscalation(
       readable: `Active arc intensity ${activeIntensity}.`,
       amount: Math.round(activeIntensity * ACTIVE_ARC_PER_INTENSITY),
       tags: ['arc', 'active'],
+      relatedActors: activeActors,
       relatedSystems: ['localArcs'],
     })
   }
@@ -60,6 +75,7 @@ export function calculateArcEscalation(
       readable: `Climax arc intensity ${climaxIntensity}.`,
       amount: Math.round(climaxIntensity * CLIMAX_ARC_PER_INTENSITY),
       tags: ['arc', 'climax'],
+      relatedActors: climaxActors,
       relatedSystems: ['localArcs'],
     })
   }

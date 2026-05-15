@@ -46,13 +46,16 @@ export function calculatePolicyBacklash(
 
   // Customer-group dislikes against policy tags.
   let dislikingGroups = 0
+  const dislikingActors: EntityRef[] = []
   for (const group of Object.values(ctx.state.customerGroups)) {
     if (group.patronage < 25) continue
     for (const policy of activePolicies) {
       for (const tag of policy.tags) {
         if (group.dislikedTags.includes(tag)) {
           dislikingGroups += 1
-          relatedActors.push({ kind: 'customer_group', id: group.id })
+          const ref: EntityRef = { kind: 'customer_group', id: group.id }
+          relatedActors.push(ref)
+          dislikingActors.push(ref)
           break
         }
       }
@@ -64,6 +67,7 @@ export function calculatePolicyBacklash(
       readable: `${dislikingGroups} group/policy dislike pair(s).`,
       amount: DISLIKE_PER_GROUP * dislikingGroups,
       tags: ['customers', 'policy'],
+      relatedActors: dislikingActors,
       relatedSystems: ['customers', 'policies'],
     })
   }
@@ -72,14 +76,23 @@ export function calculatePolicyBacklash(
   const regulars = Object.values(ctx.state.world.regulars)
   if (regulars.length > 0) {
     let irritationSum = 0
-    for (const reg of regulars) irritationSum += reg.irritation
+    const irritatedRegularActors: EntityRef[] = []
+    for (const reg of regulars) {
+      irritationSum += reg.irritation
+      if (reg.irritation >= 25) {
+        const ref: EntityRef = { kind: 'regular', id: reg.id }
+        irritatedRegularActors.push(ref)
+      }
+    }
     const avgIrritation = irritationSum / regulars.length
     if (avgIrritation >= 25) {
+      for (const ref of irritatedRegularActors) relatedActors.push(ref)
       pushCause(causes, {
         id: 'regular_irritation',
         readable: `Average regular irritation ${Math.round(avgIrritation)}.`,
         amount: Math.round(avgIrritation / REGULAR_IRRITATION_DIVISOR) * 5,
         tags: ['regulars', 'irritation'],
+        relatedActors: irritatedRegularActors,
         relatedSystems: ['regulars'],
       })
     }
@@ -90,11 +103,17 @@ export function calculatePolicyBacklash(
     publicBlameStrengthForKind(ctx.state, 'tavern_identity') +
     publicBlameStrengthForKind(ctx.state, 'role')
   if (tavernBlame >= 25) {
+    const tavernActor: EntityRef = {
+      kind: 'tavern_identity',
+      id: ctx.state.meta.tavernId,
+    }
+    relatedActors.push(tavernActor)
     pushCause(causes, {
       id: 'tavern_blame',
       readable: `Owner/tavern carries blame attributions (strength ${Math.round(tavernBlame)}).`,
       amount: Math.round(tavernBlame / TAVERN_BLAME_DIVISOR),
       tags: ['attribution', 'tavern'],
+      relatedActors: [tavernActor],
       relatedSystems: ['attribution'],
     })
   }

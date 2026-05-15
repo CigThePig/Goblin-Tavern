@@ -228,6 +228,9 @@ export const ReputationStateSchema = z.object({
   goblinAuthentic: meter(),
   // Phase 15 §15.5 — `respectable` axis joined the canonical set in Phase 15.
   respectable: meter(),
+  // Phase 67 / ISSUE-027 §5.5 — `culinary_renown` tracks fame for
+  // rare-ingredient sourcing and preparation. Initial value 10.
+  culinary_renown: meter(),
 })
 
 // Phase 16 §"Calendar Stamp" — stable timestamp shared by memories and
@@ -261,6 +264,10 @@ export const EntityRefSchema = z.object({
     'local_event',
     'rumour',
     'tavern_identity',
+    // Phase 67 / ISSUE-027 — culinary-renown drift attributes back to
+    // the proximate recipe; reference validation handles `recipe`
+    // refs by checking `state.recipes` membership.
+    'recipe',
   ]),
   id: z.string(),
 })

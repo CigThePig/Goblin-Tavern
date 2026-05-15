@@ -219,6 +219,14 @@ export type CustomerGroupState = {
 // Phase 15 §15.5 — Reputation is multi-axis. The `respectable` axis was
 // added in Phase 15 alongside the monthly module; the other eight axes
 // are unchanged from Phase 5.
+//
+// Phase 67 / ISSUE-027 §4.6, §5.5 — `culinary_renown` joins the canonical
+// axis set. It tracks fame for *sourcing* rare ingredients and *executing*
+// rare preparations. The existing `tasty`/`strange` axes are insufficient
+// for the rare-ingredient economy loop: `tasty` measures execution
+// quality across all dishes and `strange` measures oddity (sometimes a
+// negative). Renown captures the unified positive feedback the loop
+// accumulates against.
 export type ReputationState = {
   cheap: number
   tasty: number
@@ -229,6 +237,7 @@ export type ReputationState = {
   reliable: number
   goblinAuthentic: number
   respectable: number
+  culinary_renown: number
 }
 
 // Phase 16 §"Calendar Stamp" — a stable, serializable timestamp used by
@@ -251,6 +260,9 @@ export type CalendarStamp = {
 // (`culture`, `faction`, `supplier`, `regular`, `notable_npc`,
 // `local_event`, `rumour`, `tavern_identity`) so memories and causes can
 // point at the new `state.world` records introduced in this phase.
+//
+// Phase 67 / ISSUE-027 — `recipe` joins the set so culinary-renown
+// drift causes attribute back to the proximate dish.
 export type EntityRef = {
   kind:
     | 'staff'
@@ -268,6 +280,7 @@ export type EntityRef = {
     | 'local_event'
     | 'rumour'
     | 'tavern_identity'
+    | 'recipe'
   id: string
 }
 

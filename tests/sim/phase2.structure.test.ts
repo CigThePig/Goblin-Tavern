@@ -90,7 +90,11 @@ describe('Placeholder registry instances', () => {
   // load time, so the empty-on-import assertion below now applies only
   // to the registries that have not yet been claimed by a later phase.
   it('exist and start empty for every still-empty expandable concept', () => {
-    const registries = [reputationRegistry, issueSeedRegistry, moduleRegistry]
+    // Phase 67 / ISSUE-027 — reputationRegistry now seeds the
+    // `culinary_renown` axis; the remaining listed registries are
+    // populated by later phases or stay empty until a feature wires
+    // them up.
+    const registries = [issueSeedRegistry, moduleRegistry]
     for (const registry of registries) {
       expect(registry.all()).toEqual([])
     }

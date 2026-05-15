@@ -1,7 +1,23 @@
 import type { SimContext } from '../../core/context'
 import { recipeRegistry } from '../../registries/recipeRegistry'
+import type { EntityRef, StockRarity } from '../../state/TavernState'
 import { sellStockItem } from '../stock/sales'
 import type { ShortageRecord } from '../stock/types'
+import { applyRenownDrift } from './renown'
+
+// Phase 67 / ISSUE-027 §6.6 — Renown drift on recipe serves.
+//
+// Serving an uncommon-tier or higher recipe nudges `culinary_renown`
+// upward. The boost scales with the recipe's `demandTier` (the rarer
+// the dish, the bigger the fame bump per serving). The increments are
+// intentionally small per-serving so the loop accumulates renown
+// across a stretch of consistent service rather than a single sale.
+const RENOWN_DRIFT_PER_SERVING: Record<StockRarity, number> = {
+  common: 0,
+  uncommon: 1,
+  rare: 2,
+  legendary: 3,
+}
 
 // Phase 65 / ISSUE-025 §6.1 — Recipe-based sale helper.
 //
@@ -111,6 +127,11 @@ export function sellRecipe(
 
   if (sold > 0) {
     const today = ctx.state.calendar.totalDaysElapsed + 1
+    const recipeActor: EntityRef = { kind: 'recipe', id: recipeId }
+    const buyerActor: EntityRef | null = options?.buyerGroupId
+      ? { kind: 'customer_group', id: options.buyerGroupId }
+      : null
+    const modifyActors: EntityRef[] = buyerActor ? [buyerActor] : []
     ctx.modifyRecipe(
       recipeId,
       {
@@ -123,11 +144,25 @@ export function sellRecipe(
         reason: 'recipe_served',
         readable: `${def.label} served ${sold}× to customers`,
         tags: ['recipe', 'service', recipeId],
-        relatedActors: options?.buyerGroupId
-          ? [{ kind: 'customer_group', id: options.buyerGroupId }]
-          : [],
+        relatedActors: modifyActors,
       },
     )
+
+    // Phase 67 / ISSUE-027 §6.6 — uncommon-tier or higher recipe
+    // serving nudges culinary renown upward. The drift scales with
+    // the recipe's demandTier; common dishes do not contribute.
+    const perServing = RENOWN_DRIFT_PER_SERVING[def.demandTier]
+    if (perServing > 0) {
+      const delta = perServing * sold
+      const renownActors: EntityRef[] = [recipeActor]
+      if (buyerActor) renownActors.push(buyerActor)
+      applyRenownDrift(ctx, delta, {
+        source: 'service.renown',
+        readable: `Serving ${def.label} (${def.demandTier}) lifted culinary renown by ${delta}.`,
+        tags: ['renown', 'service', def.demandTier, recipeId],
+        relatedActors: renownActors,
+      })
+    }
   }
 
   return result

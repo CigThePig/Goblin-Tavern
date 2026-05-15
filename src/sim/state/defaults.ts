@@ -221,6 +221,11 @@ function createInitialReputation(): ReputationState {
     // seed value is intentionally low: the Crooked Keg starts dirty,
     // cheap, and rough — the player must earn respectability.
     respectable: 25,
+    // Phase 67 / ISSUE-027 §5.5 — culinary renown tracks fame for
+    // sourcing rare ingredients and executing rare preparations. The
+    // tavern starts with almost no culinary reputation; it serves
+    // stew and ale and that's it.
+    culinary_renown: 10,
   }
 }
 

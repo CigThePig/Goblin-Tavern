@@ -173,6 +173,19 @@ export function validateEntityRef(
       // a particular id (the meta id and the identity record are not
       // 1:1 in every save).
       return []
+    case 'recipe':
+      // Phase 67 / ISSUE-027 — `recipe` refs resolve against the
+      // `state.recipes` slice introduced in phase 65.
+      if (!(ref.id in state.recipes)) {
+        return [
+          makeIssue(
+            `${path}.id`,
+            `Unknown recipe id '${ref.id}'`,
+            'unknown_recipe_ref',
+          ),
+        ]
+      }
+      return []
     case 'system':
     case 'other':
       return []

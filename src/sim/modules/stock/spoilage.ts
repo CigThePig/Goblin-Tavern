@@ -1,7 +1,12 @@
 import type { SimContext } from '../../core/context'
-import type { AreaState, StockRarity, StockState } from '../../state/TavernState'
+import type {
+  AreaState,
+  StockRarity,
+  StockState,
+} from '../../state/TavernState'
 
 import { clampPercent } from '../../state/normalize'
+import { applyRenownDrift } from '../service/renown'
 
 // Phase 9 §9.5 — Spoilage.
 //
@@ -57,6 +62,22 @@ function storageMultiplier(area: AreaState | undefined): number {
   return Math.max(0.25, multiplier)
 }
 
+// Phase 67 / ISSUE-027 §6.6 — Spoilage-driven renown drift threshold.
+// A rare-tier+ item that crosses the saturated-spoilage threshold this
+// day is considered "spoiled unsold" and shaves a small amount off
+// `culinary_renown` with a `rare_ingredient_spoiled` memory write.
+const RARE_SPOILAGE_THRESHOLD = 80
+
+function shouldEmitRareSpoilage(
+  rarity: StockRarity,
+  beforeSpoilage: number,
+  afterSpoilage: number,
+): boolean {
+  if (rarity !== 'rare' && rarity !== 'legendary') return false
+  if (beforeSpoilage >= RARE_SPOILAGE_THRESHOLD) return false
+  return afterSpoilage >= RARE_SPOILAGE_THRESHOLD
+}
+
 export function applyDailySpoilage(ctx: SimContext): void {
   for (const item of Object.values(ctx.state.stock)) {
     if (!isPerishable(item)) continue
@@ -74,13 +95,46 @@ export function applyDailySpoilage(ctx: SimContext): void {
     const extra = ctx.rng.chance(0.5) ? 1 : 0
     const delta = (baseDelta + extra) * multiplier * rarityFactor
 
-    const nextSpoilage = clampPercent(item.spoilage + delta)
-    if (nextSpoilage !== item.spoilage) {
+    const beforeSpoilage = item.spoilage
+    const nextSpoilage = clampPercent(beforeSpoilage + delta)
+    if (nextSpoilage !== beforeSpoilage) {
       ctx.modifyStock(
         item.id,
         { spoilage: nextSpoilage },
         { source: 'stock', reason: 'daily_spoilage' },
       )
+
+      if (shouldEmitRareSpoilage(item.rarity, beforeSpoilage, nextSpoilage)) {
+        // Phase 67 / ISSUE-027 §6.6 — record the spoiled-rare event
+        // and apply a negative renown drift. Magnitude differs by
+        // rarity: legendary spoilage stings harder.
+        const drop = item.rarity === 'legendary' ? -3 : -2
+        const relatedActors = [
+          { kind: 'stock' as const, id: item.id },
+        ]
+        const relatedLocations = item.storageAreaId
+          ? [{ kind: 'area' as const, id: item.storageAreaId }]
+          : []
+        ctx.addMemory({
+          id: 'rare_ingredient_spoiled',
+          source: 'stock.spoilage',
+          actors: relatedActors,
+          locations: relatedLocations,
+          tags: ['stock', 'spoilage', item.rarity, item.id],
+          metadata: {
+            ingredientId: item.id,
+            rarity: item.rarity,
+            spoilage: nextSpoilage,
+          },
+        })
+        applyRenownDrift(ctx, drop, {
+          source: 'stock.renown_decay',
+          readable: `${item.label} spoiled unsold — culinary renown took a hit.`,
+          tags: ['renown', 'stock_spoilage', item.rarity, item.id],
+          relatedActors,
+          relatedLocations,
+        })
+      }
     }
   }
 }

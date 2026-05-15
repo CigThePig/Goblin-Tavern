@@ -63,10 +63,15 @@ function getSlice(ctx: SimContext): IssueSeedModuleState {
 
 const startDayHook: SimulationHook = (ctx: SimContext): void => {
   ensureRequiredSeedGeneratorsRegistered(issueSeedGeneratorRegistry)
+  // Phase 41 / ISSUE-001 — only clear `rejectedToday` here. `seedsToday`
+  // is left in place so the responses pipeline (which runs during the
+  // day BEFORE `generateReports` regenerates seeds) can still resolve
+  // response intents against seeds generated yesterday. The day's
+  // `generateReports` hook overwrites `seedsToday` with the fresh set
+  // a few phases later, so the carry-over window is exactly one day.
   writeSlice(
     ctx,
     {
-      seedsToday: [],
       rejectedToday: [],
     },
     'day_initialize',

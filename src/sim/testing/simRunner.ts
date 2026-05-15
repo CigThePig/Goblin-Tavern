@@ -1,6 +1,11 @@
 import { simulateDay } from '../core/engine'
 import type { SimResult } from '../core/result'
-import type { SimContext, SimInput, SimInputOwnerAction } from '../core/context'
+import type {
+  SimContext,
+  SimInput,
+  SimInputOwnerAction,
+} from '../core/context'
+import type { ResponseIntent } from '../modules/issues/issueSeedTypes'
 import type { SimulationModule } from '../core/module'
 import type { TavernState } from '../state/TavernState'
 import { createInitialTavernState } from '../state/defaults'
@@ -13,6 +18,7 @@ import { feedbackModule } from '../modules/feedback/index'
 import { historyModule } from '../modules/history/index'
 import { issueSeedsModule } from '../modules/issues/index'
 import { memoriesModule } from '../modules/memories/index'
+import { responsesModule } from '../modules/responses/index'
 import { localArcsModule } from '../modules/localArcs/index'
 import { monthlyModule } from '../modules/monthly/index'
 import { ownerActionsModule } from '../modules/ownerActions/index'
@@ -84,6 +90,15 @@ export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   pressuresModule,
   feedbackModule,
   issueSeedsModule,
+  // Phase 41 / ISSUE-001 — responses module wires the resolver into the
+  // engine. Its `applyResponses` phase slot fires between `closing` and
+  // `endDay`, so by the time `applyResponses` runs the day's seeds are
+  // present (issueSeedsModule populates them during `generateReports`
+  // for the previous day's snapshot — for current-day intents, the
+  // chooser must supply intents referencing seeds known at the moment
+  // they were chosen). The module also drains the pending queue on
+  // `startDay`, which is why it must be registered at all.
+  responsesModule,
 ]
 
 /** A chooser produces the SimInput for a single simulated day. */
@@ -93,6 +108,11 @@ export type DayInputChooser = (
 ) => {
   ownerActions?: ReadonlyArray<SimInputOwnerAction>
   staffPriorities?: Record<string, string>
+  // Phase 41 / ISSUE-001 — response intents for the day. The chooser
+  // typically reads `state.modules.responses.seedCache` (or yesterday's
+  // `state.modules.issueSeeds.seedsToday`) to pick which seeds to act
+  // on. Unknown seedIds are logged and skipped by the engine.
+  responseIntents?: ReadonlyArray<ResponseIntent>
 }
 
 export type CardlessRunConfig = {
@@ -142,6 +162,9 @@ function defaultInput(
   }
   if (chosen.staffPriorities) {
     out.staffPriorities = { ...chosen.staffPriorities }
+  }
+  if (chosen.responseIntents && chosen.responseIntents.length > 0) {
+    out.responseIntents = [...chosen.responseIntents]
   }
   return out
 }

@@ -122,10 +122,11 @@ describe('Placeholder registry instances', () => {
   })
 
   it('stockRegistry is populated by the Phase 9 stock system', () => {
-    const ids = stockRegistry.all().map((s) => s.id).sort()
-    expect(ids).toEqual(
-      ['ale', 'firewood', 'ingredients', 'mugs', 'mushrooms', 'stew'].sort(),
-    )
+    // Phase 66 / ISSUE-026 — registry spans common+uncommon+rare+legendary;
+    // check the six common starters by id rather than full-set match.
+    for (const id of ['ale', 'firewood', 'ingredients', 'mugs', 'mushrooms', 'stew']) {
+      expect(stockRegistry.has(id)).toBe(true)
+    }
   })
 
   it('customerRegistry is populated by the Phase 10 customer system', () => {

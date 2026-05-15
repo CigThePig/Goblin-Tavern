@@ -31,8 +31,8 @@ const SEED = 'phase-65-stock-recipe-test'
 describe('Phase 65 — stock-and-recipe model extension', () => {
   it('rarity field round-trips through state validation', () => {
     const state = createInitialTavernState()
-    // Every initial stock item is graded `common`.
-    for (const id of Object.keys(state.stock)) {
+    // The six original starters are all graded `common`.
+    for (const id of ['ale', 'stew', 'ingredients', 'mushrooms', 'firewood', 'mugs']) {
       expect(state.stock[id]!.rarity).toBe('common')
     }
     // Full validation passes including rarity-aware schema.
@@ -73,12 +73,15 @@ describe('Phase 65 — stock-and-recipe model extension', () => {
     expect(recipeIds).toContain('dish_firewood')
     expect(recipeIds).toContain('dish_mugs')
 
+    // Every registered recipe must be a 1:1 starter (one ingredient,
+    // quantity 1) wrapping a real stock item. Recipe demand tier
+    // matches its input ingredient's rarity.
     for (const recipe of recipeRegistry.all()) {
-      // Starter recipes are all 1:1 with a single common-tier input.
       expect(recipe.inputs).toHaveLength(1)
       expect(recipe.inputs[0]!.quantity).toBe(1)
       expect(stockRegistry.has(recipe.inputs[0]!.ingredientId)).toBe(true)
-      expect(recipe.demandTier).toBe('common')
+      const input = stockRegistry.get(recipe.inputs[0]!.ingredientId)
+      expect(recipe.demandTier).toBe(input.defaultState.rarity)
     }
   })
 

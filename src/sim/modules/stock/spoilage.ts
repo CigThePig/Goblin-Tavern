@@ -1,5 +1,5 @@
 import type { SimContext } from '../../core/context'
-import type { AreaState, StockState } from '../../state/TavernState'
+import type { AreaState, StockRarity, StockState } from '../../state/TavernState'
 
 import { clampPercent } from '../../state/normalize'
 
@@ -12,6 +12,12 @@ import { clampPercent } from '../../state/normalize'
 // "intentionally imperfect" note).
 //
 // `effectiveQuality(stock) = quality - spoilage * 0.5`, per Phase 9 §9.5.
+//
+// Phase 66 / ISSUE-026 §4.1 — Rarity tiers carry a base spoilage
+// multiplier so rare and legendary ingredients decay roughly twice as
+// fast as common ones. The cold-cellar storage area introduced in
+// phase 73 (ISSUE-033) will halve this rate via a per-area
+// spoilageModifier.
 
 export const PERISHABLE_TAG = 'perishable'
 
@@ -21,6 +27,19 @@ export function isPerishable(item: StockState): boolean {
 
 export function effectiveQuality(item: StockState): number {
   return Math.max(0, item.quality - item.spoilage * 0.5)
+}
+
+export function rarityMultiplier(rarity: StockRarity): number {
+  switch (rarity) {
+    case 'common':
+      return 1
+    case 'uncommon':
+      return 1.5
+    case 'rare':
+      return 2
+    case 'legendary':
+      return 2.5
+  }
 }
 
 function storageMultiplier(area: AreaState | undefined): number {
@@ -41,14 +60,19 @@ function storageMultiplier(area: AreaState | undefined): number {
 export function applyDailySpoilage(ctx: SimContext): void {
   for (const item of Object.values(ctx.state.stock)) {
     if (!isPerishable(item)) continue
+    // Phase 66 / ISSUE-026 — skip zero-quantity stock so the daily
+    // spoilage pass doesn't emit causes for ingredient types that
+    // exist in the registry but the tavern doesn't currently hold.
+    if (item.quantity <= 0) continue
     const storage = item.storageAreaId ? ctx.state.areas[item.storageAreaId] : undefined
     const multiplier = storageMultiplier(storage)
+    const rarityFactor = rarityMultiplier(item.rarity)
 
     // Base daily spoilage gain for any perishable. Slight randomness keeps
     // runs interesting without making the test seed-fragile (chance below).
     const baseDelta = 1
     const extra = ctx.rng.chance(0.5) ? 1 : 0
-    const delta = (baseDelta + extra) * multiplier
+    const delta = (baseDelta + extra) * multiplier * rarityFactor
 
     const nextSpoilage = clampPercent(item.spoilage + delta)
     if (nextSpoilage !== item.spoilage) {

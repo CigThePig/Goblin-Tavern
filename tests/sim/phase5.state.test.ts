@@ -89,9 +89,11 @@ describe('Phase 5 — Base Tavern State', () => {
 
   it('initial state has all six required stock items', () => {
     const state = createInitialTavernState()
-    expect(Object.keys(state.stock).sort()).toEqual(
-      ['ale', 'firewood', 'ingredients', 'mugs', 'mushrooms', 'stew'].sort(),
-    )
+    // Phase 66 / ISSUE-026 — the registry has grown beyond the six
+    // common starters; check by id rather than full-set equality.
+    for (const id of ['ale', 'firewood', 'ingredients', 'mugs', 'mushrooms', 'stew']) {
+      expect(state.stock[id]).toBeDefined()
+    }
   })
 
   it('initial state has all three required staff members', () => {

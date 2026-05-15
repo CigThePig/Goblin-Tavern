@@ -64,7 +64,7 @@ how to verify the fix.
 | ISSUE-023 | RNG stream prune or wire | thin | open | — |
 | ISSUE-024 | Thin family profile depth + core picker rotation | thin | open | — |
 | ISSUE-025 | Stock-and-recipe model extension | thin | done | 65 |
-| ISSUE-026 | Ingredient + starter recipe catalog grow | thin | open | — |
+| ISSUE-026 | Ingredient + starter recipe catalog grow | thin | done | 66 |
 | ISSUE-027 | Culinary renown reputation axis | thin | open | — |
 | ISSUE-028 | Specialty supplier expansion | thin | open | — |
 | ISSUE-029 | Hireable adventurer roster | thin | open | — |
@@ -582,8 +582,8 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 ### ISSUE-026 — Ingredient + starter recipe catalog grow
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 66
 - **Evidence:**
   - `src/sim/registries/stockRegistry.ts` — 6 items, all `common`
     after ISSUE-025 lands.

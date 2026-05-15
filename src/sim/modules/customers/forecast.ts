@@ -99,8 +99,14 @@ function cleanlinessPenalty(
 function pricePenalty(group: CustomerGroupState, state: TavernState): number {
   // Use the priciest service item as a proxy for "how expensive is this
   // tavern". Higher salePrice + higher priceSensitivity → bigger penalty.
+  //
+  // Phase 66 / ISSUE-026 — only items the tavern actually holds count.
+  // The grown ingredient catalog includes rare/legendary stock types
+  // with high `salePrice` defaults but quantity 0 on day zero; the
+  // customer-facing price perception should reflect what's on the menu.
   let maxPrice = 0
   for (const item of Object.values(state.stock)) {
+    if (item.quantity <= 0) continue
     if (item.salePrice > maxPrice) maxPrice = item.salePrice
   }
   const sensitivity = group.priceSensitivity / 100
@@ -213,9 +219,16 @@ export function forecastTraffic(ctx: SimContext): CustomerForecast[] {
 
 // Convenience helper used by reports and tests to find the priciest
 // service item without re-walking stock state.
+//
+// Phase 66 / ISSUE-026 — only items the tavern actually holds count.
+// The grown ingredient catalog includes rare/legendary stock types
+// with high `salePrice` defaults but quantity 0 on day zero; the
+// customer-facing "max price" should reflect what's actually on the
+// menu, not the theoretical ceiling of every registered type.
 export function highestStockPrice(state: TavernState): number {
   let max = 0
   for (const item of Object.values(state.stock) as StockState[]) {
+    if (item.quantity <= 0) continue
     if (item.salePrice > max) max = item.salePrice
   }
   return max

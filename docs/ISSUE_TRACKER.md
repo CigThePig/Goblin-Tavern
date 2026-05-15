@@ -71,7 +71,7 @@ how to verify the fix.
 | ISSUE-030 | Expedition subsystem | thin | done | 70 |
 | ISSUE-031 | Cook tier grow + preparation gating | thin | done | 71 |
 | ISSUE-032 | Demand-side niche customer groups | thin | done | 72 |
-| ISSUE-033 | Storage areas + system integration polish | thin | open | — |
+| ISSUE-033 | Storage areas + system integration polish | thin | done | 73 |
 
 ---
 
@@ -824,8 +824,8 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 ### ISSUE-033 — Storage areas + system integration polish
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 73
 - **Evidence:**
   - `src/sim/registries/areaRegistry.ts:32,49,66,83,100` — 5 areas,
     all generic.

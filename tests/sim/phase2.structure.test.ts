@@ -121,8 +121,11 @@ describe('Placeholder registry instances', () => {
   })
 
   it('areaRegistry is populated by the Phase 8 area system', () => {
-    const ids = areaRegistry.all().map((a) => a.id).sort()
-    expect(ids).toEqual(['cellar', 'kitchen', 'main_room', 'privy', 'roof'].sort())
+    // Phase 73 / ISSUE-033 — area registry has grown; check
+    // containment of the original five.
+    for (const id of ['cellar', 'kitchen', 'main_room', 'privy', 'roof']) {
+      expect(areaRegistry.has(id)).toBe(true)
+    }
   })
 
   it('stockRegistry is populated by the Phase 9 stock system', () => {

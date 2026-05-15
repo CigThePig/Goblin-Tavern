@@ -12,11 +12,28 @@ import type { AreaState } from '../state/TavernState'
 
 export type AreaDefaultState = Omit<AreaState, 'id' | 'label' | 'tags'>
 
+// Phase 73 / ISSUE-033 §5.7 — gameplay-bearing area metadata. These
+// fields live on the registry definition rather than on `AreaState`
+// because they don't change at runtime; consumers read them by
+// looking the area up via `areaRegistry.get(storageAreaId)`.
+export type AreaIngredientYield = {
+  ingredientId: string
+  perWeek: number
+  boostedByCalendarTags: string[]
+}
+
+export type AreaSpoilageModifier = {
+  appliesToRarities: ('uncommon' | 'rare' | 'legendary')[]
+  multiplier: number
+}
+
 export type AreaDefinition = {
   id: string
   label: string
   tags: string[]
   defaultState: AreaDefaultState
+  ingredientYield?: AreaIngredientYield
+  spoilageModifier?: AreaSpoilageModifier
 }
 
 export const areaRegistry = new Registry<AreaDefinition>()
@@ -110,6 +127,88 @@ const REQUIRED_AREAS: AreaDefinition[] = [
       activeProblems: [],
       traits: ['weather_exposed'],
       atmosphere: ['leaky'],
+      upgrades: {},
+    },
+  },
+  // Phase 73 / ISSUE-033 §4.8, §5.7 — gameplay-bearing storage areas.
+  // herb_garden produces a slow trickle of uncommon herbs; cold_cellar
+  // halves spoilage on rare/legendary items stored there. The two
+  // atmosphere areas (private_booth, stage_corner) round out the
+  // un-pin work — they expand the customer-facing roster.
+  {
+    id: 'herb_garden',
+    label: 'Herb Garden',
+    tags: ['outdoor', 'garden', 'kitchen_adjacent'],
+    defaultState: {
+      condition: 55,
+      cleanliness: 60,
+      mess: 10,
+      damage: 10,
+      smell: 30,
+      risk: 5,
+      activeProblems: [],
+      traits: [],
+      atmosphere: ['fresh'],
+      upgrades: {},
+    },
+    ingredientYield: {
+      ingredientId: 'wild_thyme',
+      perWeek: 2,
+      boostedByCalendarTags: ['growing_season'],
+    },
+  },
+  {
+    id: 'cold_cellar',
+    label: 'Cold Cellar',
+    tags: ['underground', 'storage', 'cooled'],
+    defaultState: {
+      condition: 50,
+      cleanliness: 60,
+      mess: 5,
+      damage: 5,
+      smell: 15,
+      risk: 5,
+      activeProblems: [],
+      traits: [],
+      atmosphere: ['chilly'],
+      upgrades: {},
+    },
+    spoilageModifier: {
+      appliesToRarities: ['rare', 'legendary'],
+      multiplier: 0.5,
+    },
+  },
+  {
+    id: 'private_booth',
+    label: 'Private Booth',
+    tags: ['public', 'customer_facing', 'intimate'],
+    defaultState: {
+      condition: 65,
+      cleanliness: 65,
+      mess: 10,
+      damage: 5,
+      smell: 20,
+      risk: 10,
+      activeProblems: [],
+      traits: [],
+      atmosphere: ['cozy', 'quiet'],
+      upgrades: {},
+    },
+  },
+  {
+    id: 'stage_corner',
+    label: 'Stage Corner',
+    tags: ['public', 'customer_facing', 'performance'],
+    defaultState: {
+      condition: 60,
+      cleanliness: 55,
+      mess: 15,
+      damage: 10,
+      smell: 25,
+      risk: 15,
+      activeProblems: [],
+      traits: [],
+      atmosphere: ['lively'],
       upgrades: {},
     },
   },

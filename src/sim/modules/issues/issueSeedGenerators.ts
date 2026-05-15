@@ -50,6 +50,35 @@ import { EXPANDED_SEED_GENERATORS } from './expandedSeedGenerators'
 // trigger condition is met they build a structured seed. Generators do
 // NOT decide whether the seed should be presented — ranking does that.
 
+// Phase 73 / ISSUE-033 §6.8 — `main_room` un-pin helper.
+//
+// Seeds whose "location" used to hard-pin to `main_room` now ask the
+// picker for a customer-facing area. The selection rotates via a
+// deterministic day-index + family-name hash so the same area
+// doesn't dominate the 28-day named-entity-repetition report. Falls
+// back to `main_room` if no other customer-facing area exists.
+function familyHash(family: string): number {
+  let h = 0
+  for (let i = 0; i < family.length; i += 1) {
+    h = (h * 31 + family.charCodeAt(i)) >>> 0
+  }
+  return h
+}
+
+function pickCustomerFacingArea(
+  ctx: SimContext,
+  family: string,
+): EntityRef {
+  const candidates = Object.values(ctx.state.areas)
+    .filter((a) => a.tags.includes('customer_facing'))
+    .map((a) => a.id)
+    .sort()
+  if (candidates.length === 0) return areaRef('main_room')
+  const today = ctx.state.calendar.totalDaysElapsed
+  const idx = (familyHash(family) + today) % candidates.length
+  return areaRef(candidates[idx]!)
+}
+
 // ----------------------------------------------------------------------
 // Food safety
 // ----------------------------------------------------------------------
@@ -1809,7 +1838,8 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
       domain: ['customers', 'service', 'maintenance'],
       severity: severityFromPressures(ctx, ['violence']),
       urgency: urgencyFromPressures(ctx, ['violence']),
-      location: areaRef('main_room'),
+      // Phase 73 / ISSUE-033 §6.8 — picker-driven location.
+      location: pickCustomerFacingArea(ctx, 'violence'),
       primaryActor: target,
       affectedActors: [target],
       causes,
@@ -1994,7 +2024,8 @@ function generateDebtRent(ctx: SimContext): IssueSeed[] {
       // Audit fixes pass 1 §5.3 — No real landlord entity exists; omit
       // primaryActor (was singleton system:landlord) and let domain +
       // location stand in.
-      location: areaRef('main_room'),
+      // Phase 73 / ISSUE-033 §6.8 — picker-driven location.
+      location: pickCustomerFacingArea(ctx, 'debt_rent'),
       affectedActors: [],
       causes,
       stakes,

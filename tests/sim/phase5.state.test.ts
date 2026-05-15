@@ -82,9 +82,12 @@ describe('Phase 5 — Base Tavern State', () => {
 
   it('initial state has all five required areas', () => {
     const state = createInitialTavernState()
-    expect(Object.keys(state.areas).sort()).toEqual(
-      ['cellar', 'kitchen', 'main_room', 'privy', 'roof'].sort(),
-    )
+    // Phase 73 / ISSUE-033 — area roster grows with herb_garden,
+    // cold_cellar, private_booth, stage_corner. Check containment of
+    // the original five rather than full-set equality.
+    for (const id of ['cellar', 'kitchen', 'main_room', 'privy', 'roof']) {
+      expect(state.areas[id]).toBeDefined()
+    }
   })
 
   it('initial state has all six required stock items', () => {
@@ -271,6 +274,9 @@ describe('Phase 5 — Base Tavern State', () => {
     const state = createInitialTavernState({ coin: 250, calendar: customCalendar })
     expect(state.coin).toBe(250)
     expect(state.calendar.totalDaysElapsed).toBe(7)
-    expect(Object.keys(state.areas).length).toBe(5)
+    // Phase 73 / ISSUE-033 — area roster includes the original five
+    // plus new gameplay-bearing areas (herb_garden, cold_cellar,
+    // private_booth, stage_corner).
+    expect(Object.keys(state.areas).length).toBeGreaterThanOrEqual(5)
   })
 })

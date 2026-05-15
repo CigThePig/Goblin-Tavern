@@ -6,6 +6,7 @@ import type {
 } from '../../state/TavernState'
 
 import { clampPercent } from '../../state/normalize'
+import { areaRegistry } from '../../registries/areaRegistry'
 import { applyRenownDrift } from '../service/renown'
 
 // Phase 9 §9.5 — Spoilage.
@@ -62,6 +63,23 @@ function storageMultiplier(area: AreaState | undefined): number {
   return Math.max(0.25, multiplier)
 }
 
+// Phase 73 / ISSUE-033 §5.7 — Area `spoilageModifier` reduces (or
+// expands) the daily spoilage delta for stored items of the listed
+// rarities. The cold_cellar uses this to halve spoilage on
+// rare/legendary ingredients.
+function areaSpoilageModifier(
+  storageAreaId: string | undefined,
+  rarity: StockRarity,
+): number {
+  if (!storageAreaId) return 1
+  if (!areaRegistry.has(storageAreaId)) return 1
+  const def = areaRegistry.get(storageAreaId)
+  if (!def.spoilageModifier) return 1
+  if (rarity === 'common') return 1
+  if (!def.spoilageModifier.appliesToRarities.includes(rarity)) return 1
+  return def.spoilageModifier.multiplier
+}
+
 // Phase 67 / ISSUE-027 §6.6 — Spoilage-driven renown drift threshold.
 // A rare-tier+ item that crosses the saturated-spoilage threshold this
 // day is considered "spoiled unsold" and shaves a small amount off
@@ -93,7 +111,13 @@ export function applyDailySpoilage(ctx: SimContext): void {
     // runs interesting without making the test seed-fragile (chance below).
     const baseDelta = 1
     const extra = ctx.rng.chance(0.5) ? 1 : 0
-    const delta = (baseDelta + extra) * multiplier * rarityFactor
+    // Phase 73 / ISSUE-033 §5.7 — area-level spoilage modifier (e.g.
+    // cold_cellar halves rare/legendary spoilage).
+    const areaModifier = areaSpoilageModifier(
+      item.storageAreaId,
+      item.rarity,
+    )
+    const delta = (baseDelta + extra) * multiplier * rarityFactor * areaModifier
 
     const beforeSpoilage = item.spoilage
     const nextSpoilage = clampPercent(beforeSpoilage + delta)

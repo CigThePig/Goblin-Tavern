@@ -1,10 +1,17 @@
 import type {
   AreaState,
+  CultureWorldState,
   CustomerGroupState,
+  FactionWorldState,
+  LocalEventWorldState,
   PressureState,
+  RegularWorldState,
   ReputationState,
+  SocialRumourState,
   StaffState,
   StockState,
+  SupplierWorldState,
+  TavernIdentityState,
   TavernState,
 } from '../state/TavernState'
 
@@ -297,6 +304,219 @@ function diffMemoriesCount(
   )
 }
 
+// ISSUE-002 (phase 42) — world-slice diff walks. Each helper iterates the
+// union of ids and pushes one change per numeric field that moved. Skip
+// timestamp-style fields (`firstSeenDay`, `lastDeliveryDay`, etc.) so the
+// diff isn't flooded by per-day +1 stamps that have no matching cause.
+// `notableNpcs` has only timestamp fields and is deliberately not walked.
+
+function diffRecordNumerics<T>(
+  before: Record<string, T>,
+  after: Record<string, T>,
+  fields: (keyof T)[],
+  changes: StateChange[],
+  pathFor: (id: string, field: string) => string,
+  tagFor: (id: string, field: string) => string[],
+): void {
+  const ids = new Set([...Object.keys(before), ...Object.keys(after)])
+  for (const id of ids) {
+    const a = before[id]
+    const b = after[id]
+    if (!a || !b) continue
+    for (const field of fields) {
+      const av = a[field]
+      const bv = b[field]
+      if (typeof av !== 'number' || typeof bv !== 'number') continue
+      pushNumericChange(
+        changes,
+        pathFor(id, String(field)),
+        av,
+        bv,
+        { tags: tagFor(id, String(field)) },
+      )
+    }
+  }
+}
+
+function diffCultures(
+  before: Record<string, CultureWorldState>,
+  after: Record<string, CultureWorldState>,
+  changes: StateChange[],
+): void {
+  diffRecordNumerics(
+    before,
+    after,
+    ['familiarity', 'comfort', 'tension'],
+    changes,
+    (id, field) => `cultures.${id}.${field}`,
+    (id, field) => ['culture', id, field],
+  )
+}
+
+function diffFactions(
+  before: Record<string, FactionWorldState>,
+  after: Record<string, FactionWorldState>,
+  changes: StateChange[],
+): void {
+  diffRecordNumerics(
+    before,
+    after,
+    ['relationship', 'influence', 'trust', 'fear'],
+    changes,
+    (id, field) => `factions.${id}.${field}`,
+    (id, field) => ['faction', id, field],
+  )
+}
+
+function diffSuppliers(
+  before: Record<string, SupplierWorldState>,
+  after: Record<string, SupplierWorldState>,
+  changes: StateChange[],
+): void {
+  // Skip `lastDeliveryDay` — timestamp stamp.
+  diffRecordNumerics(
+    before,
+    after,
+    ['reliability', 'relationship', 'debtTolerance', 'priceBias'],
+    changes,
+    (id, field) => `suppliers.${id}.${field}`,
+    (id, field) => ['supplier', id, field],
+  )
+}
+
+function diffRegulars(
+  before: Record<string, RegularWorldState>,
+  after: Record<string, RegularWorldState>,
+  changes: StateChange[],
+): void {
+  // Skip `firstSeenDay` / `lastSeenDay` — timestamp stamps that would
+  // flood the diff each visit.
+  diffRecordNumerics(
+    before,
+    after,
+    ['loyalty', 'irritation', 'visits'],
+    changes,
+    (id, field) => `regulars.${id}.${field}`,
+    (id, field) => ['regular', id, field],
+  )
+}
+
+function diffLocalEvents(
+  before: Record<string, LocalEventWorldState>,
+  after: Record<string, LocalEventWorldState>,
+  changes: StateChange[],
+): void {
+  // Skip `startedDay`, `endsDay`, `lastUpdatedDay` — timestamps.
+  diffRecordNumerics(
+    before,
+    after,
+    ['intensity', 'ageDays'],
+    changes,
+    (id, field) => `localEvents.${id}.${field}`,
+    (id, field) => ['local_event', id, field],
+  )
+}
+
+function diffSocialRumours(
+  before: Record<string, SocialRumourState>,
+  after: Record<string, SocialRumourState>,
+  changes: StateChange[],
+): void {
+  diffRecordNumerics(
+    before,
+    after,
+    ['strength'],
+    changes,
+    (id, field) => `socialRumours.${id}.${field}`,
+    (id, field) => ['rumour', id, field],
+  )
+  // String-state flip on `accuracy` ('true' ↔ 'partial' ↔ 'false') is
+  // meaningful enough to surface even though it has no numeric delta.
+  const ids = new Set([...Object.keys(before), ...Object.keys(after)])
+  for (const id of ids) {
+    const a = before[id]
+    const b = after[id]
+    if (!a || !b) continue
+    pushScalarChange(
+      changes,
+      `socialRumours.${id}.accuracy`,
+      a.accuracy,
+      b.accuracy,
+      { tags: ['rumour', id, 'accuracy'] },
+    )
+  }
+}
+
+function diffTavernIdentity(
+  before: TavernIdentityState,
+  after: TavernIdentityState,
+  changes: StateChange[],
+): void {
+  // Singleton; only `foundingDay` is numeric. Rarely changes but we
+  // still walk it for completeness so any post-hoc edit gets a diff
+  // entry that matches the per-field cause emitted by
+  // `modifyTavernIdentity`.
+  pushNumericChange(
+    changes,
+    'tavernIdentity.foundingDay',
+    before.foundingDay,
+    after.foundingDay,
+    { tags: ['tavern_identity', 'foundingDay'] },
+  )
+}
+
+// `state.modules` is `Record<string, unknown>`. Walk shallowly per
+// top-level key inside each slice and emit one change per key whose
+// JSON-serialized value differs. Module-internal mutations have no
+// canonical cause-target convention, so the matching entries in
+// `targetForChange` intentionally return `undefined` — surfacing module
+// writes as "unexplained" until module owners attribute them.
+function diffModules(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+  changes: StateChange[],
+): void {
+  const sliceIds = new Set([...Object.keys(before), ...Object.keys(after)])
+  for (const moduleId of sliceIds) {
+    const a = before[moduleId]
+    const b = after[moduleId]
+    const aIsObject = isPlainObject(a)
+    const bIsObject = isPlainObject(b)
+    if (aIsObject && bIsObject) {
+      const keys = new Set([
+        ...Object.keys(a as Record<string, unknown>),
+        ...Object.keys(b as Record<string, unknown>),
+      ])
+      for (const key of keys) {
+        const av = (a as Record<string, unknown>)[key]
+        const bv = (b as Record<string, unknown>)[key]
+        if (jsonEqual(av, bv)) continue
+        pushScalarChange(changes, `modules.${moduleId}.${key}`, av, bv, {
+          tags: ['module', moduleId, key],
+        })
+      }
+      continue
+    }
+    if (jsonEqual(a, b)) continue
+    pushScalarChange(changes, `modules.${moduleId}`, a, b, {
+      tags: ['module', moduleId],
+    })
+  }
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function jsonEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  try {
+    return JSON.stringify(a) === JSON.stringify(b)
+  } catch {
+    return false
+  }
+}
+
 export function createStateDiff(
   before: TavernState,
   after: TavernState,
@@ -311,6 +531,17 @@ export function createStateDiff(
   diffReputation(before.reputation, after.reputation, changes)
   diffPressures(before.pressures, after.pressures, changes)
   diffMemoriesCount(before, after, changes)
+  // ISSUE-002 (phase 42) — world slices and module state.
+  diffCultures(before.world.cultures, after.world.cultures, changes)
+  diffFactions(before.world.factions, after.world.factions, changes)
+  diffSuppliers(before.world.suppliers, after.world.suppliers, changes)
+  diffRegulars(before.world.regulars, after.world.regulars, changes)
+  diffLocalEvents(before.world.localEvents, after.world.localEvents, changes)
+  diffSocialRumours(before.world.socialRumours, after.world.socialRumours, changes)
+  diffTavernIdentity(before.world.tavernIdentity, after.world.tavernIdentity, changes)
+  // `notableNpcs` has no meter fields worth walking — only timestamps;
+  // deliberately skipped (see phase-42 plan).
+  diffModules(before.modules, after.modules, changes)
 
   const significantChanges = filterSignificantChanges(
     { changes, significantChanges: [] },
@@ -321,11 +552,18 @@ export function createStateDiff(
 }
 
 function isMeterPath(path: string): boolean {
-  // Area/customer/staff per-field meter paths.
+  // Area/customer/staff per-field meter paths, plus the Phase 27 world
+  // slices whose meter fields share the 0–100 scale.
   return (
     path.startsWith('areas.') ||
     path.startsWith('customers.') ||
-    path.startsWith('staff.')
+    path.startsWith('staff.') ||
+    path.startsWith('cultures.') ||
+    path.startsWith('factions.') ||
+    path.startsWith('suppliers.') ||
+    path.startsWith('regulars.') ||
+    path.startsWith('localEvents.') ||
+    path.startsWith('socialRumours.')
   )
 }
 

@@ -432,8 +432,10 @@ describe('Phase 27 — World mutation helpers', () => {
       },
     }
     const result = simulateDay(before, defaultInput(), [mod])
+    // Phase 42 / ISSUE-002 — world mutators emit one cause per changed
+    // numeric field, with the diff-path target convention.
     const cause = result.state.causes.find(
-      (c) => c.target === 'brakka_mushroom_cart',
+      (c) => c.target === 'supplier:brakka_mushroom_cart.relationship',
     )
     expect(cause).toBeDefined()
     expect(cause?.targetType).toBe('supplier')

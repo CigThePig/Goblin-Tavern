@@ -567,6 +567,11 @@ function createContext(
   // (`areas.<id>.<field>`, `staff.<id>.<field>`, etc.) so the
   // cause-coverage audit's `cause.target === change.path` lookup
   // matches at least one entry per significant change.
+  //
+  // Returns the number of causes emitted so callers (e.g. Phase 27 world
+  // mutators) can fall back to an aggregate cause when no numeric field
+  // moved — preserving attribution for non-numeric-only updates without
+  // changing the per-field behaviour for ordinary numeric mutations.
   const emitDiffPathCausesForRecord = (
     meta: CauseDraft | undefined,
     before: Record<string, unknown>,
@@ -575,8 +580,9 @@ function createContext(
     targetForField: (field: string) => string,
     targetType: CauseTargetType,
     extraTags: string[],
-  ): void => {
-    if (!meta) return
+  ): number => {
+    if (!meta) return 0
+    let emitted = 0
     for (const field of Object.keys(changes)) {
       const beforeVal = before[field]
       const afterVal = after[field]
@@ -588,7 +594,9 @@ function createContext(
         amount: afterVal - beforeVal,
         tags: [...extraTags, field],
       })
+      emitted += 1
     }
+    return emitted
   }
 
   // ---------- Phase 16 §16.8 — history helpers ----------
@@ -847,134 +855,223 @@ function createContext(
     // hold for world changes (the same way `modifyArea` already
     // records causes elsewhere in later phases).
     modifyCulture(id, changes, meta): void {
-      const culture = requireRecord<CultureWorldState>(
+      const before = requireRecord<CultureWorldState>(
         runtime.current.world.cultures,
         id,
         'Culture',
       )
+      const next = { ...before, ...changes }
       runtime.current = {
         ...runtime.current,
         world: {
           ...runtime.current.world,
           cultures: {
             ...runtime.current.world.cultures,
-            [id]: { ...culture, ...changes },
+            [id]: next,
           },
         },
       }
-      addCauseInternal(meta, { target: id, targetType: 'culture' })
+      // ISSUE-002 (phase 42) — emit one cause per changed numeric field so
+      // the cause-coverage audit can match `cause.target === change.path`
+      // for world-entity mutations. If no numeric field moved, fall back
+      // to an aggregate cause so non-numeric-only updates (e.g. tag/flag
+      // changes) still get attributed.
+      const emitted = emitDiffPathCausesForRecord(
+        meta,
+        before as unknown as Record<string, unknown>,
+        next as unknown as Record<string, unknown>,
+        changes as unknown as Record<string, unknown>,
+        (field) => `culture:${id}.${field}`,
+        'culture',
+        ['culture', id],
+      )
+      if (emitted === 0 && meta) {
+        addCauseInternal(meta, { target: id, targetType: 'culture' })
+      }
     },
     modifyFaction(id, changes, meta): void {
-      const faction = requireRecord<FactionWorldState>(
+      const before = requireRecord<FactionWorldState>(
         runtime.current.world.factions,
         id,
         'Faction',
       )
+      const next = { ...before, ...changes }
       runtime.current = {
         ...runtime.current,
         world: {
           ...runtime.current.world,
           factions: {
             ...runtime.current.world.factions,
-            [id]: { ...faction, ...changes },
+            [id]: next,
           },
         },
       }
-      addCauseInternal(meta, { target: id, targetType: 'faction' })
+      const emitted = emitDiffPathCausesForRecord(
+        meta,
+        before as unknown as Record<string, unknown>,
+        next as unknown as Record<string, unknown>,
+        changes as unknown as Record<string, unknown>,
+        (field) => `faction:${id}.${field}`,
+        'faction',
+        ['faction', id],
+      )
+      if (emitted === 0 && meta) {
+        addCauseInternal(meta, { target: id, targetType: 'faction' })
+      }
     },
     modifySupplier(id, changes, meta): void {
-      const supplier = requireRecord<SupplierWorldState>(
+      const before = requireRecord<SupplierWorldState>(
         runtime.current.world.suppliers,
         id,
         'Supplier',
       )
+      const next = { ...before, ...changes }
       runtime.current = {
         ...runtime.current,
         world: {
           ...runtime.current.world,
           suppliers: {
             ...runtime.current.world.suppliers,
-            [id]: { ...supplier, ...changes },
+            [id]: next,
           },
         },
       }
-      addCauseInternal(meta, { target: id, targetType: 'supplier' })
+      const emitted = emitDiffPathCausesForRecord(
+        meta,
+        before as unknown as Record<string, unknown>,
+        next as unknown as Record<string, unknown>,
+        changes as unknown as Record<string, unknown>,
+        (field) => `supplier:${id}.${field}`,
+        'supplier',
+        ['supplier', id],
+      )
+      if (emitted === 0 && meta) {
+        addCauseInternal(meta, { target: id, targetType: 'supplier' })
+      }
     },
     modifyRegular(id, changes, meta): void {
-      const regular = requireRecord<RegularWorldState>(
+      const before = requireRecord<RegularWorldState>(
         runtime.current.world.regulars,
         id,
         'Regular',
       )
+      const next = { ...before, ...changes }
       runtime.current = {
         ...runtime.current,
         world: {
           ...runtime.current.world,
           regulars: {
             ...runtime.current.world.regulars,
-            [id]: { ...regular, ...changes },
+            [id]: next,
           },
         },
       }
-      addCauseInternal(meta, { target: id, targetType: 'regular' })
+      const emitted = emitDiffPathCausesForRecord(
+        meta,
+        before as unknown as Record<string, unknown>,
+        next as unknown as Record<string, unknown>,
+        changes as unknown as Record<string, unknown>,
+        (field) => `regular:${id}.${field}`,
+        'regular',
+        ['regular', id],
+      )
+      if (emitted === 0 && meta) {
+        addCauseInternal(meta, { target: id, targetType: 'regular' })
+      }
     },
     modifyNotableNpc(id, changes, meta): void {
-      const npc = requireRecord<NotableNpcWorldState>(
+      const before = requireRecord<NotableNpcWorldState>(
         runtime.current.world.notableNpcs,
         id,
         'NotableNpc',
       )
+      const next = { ...before, ...changes }
       runtime.current = {
         ...runtime.current,
         world: {
           ...runtime.current.world,
           notableNpcs: {
             ...runtime.current.world.notableNpcs,
-            [id]: { ...npc, ...changes },
+            [id]: next,
           },
         },
       }
-      addCauseInternal(meta, { target: id, targetType: 'notable_npc' })
+      const emitted = emitDiffPathCausesForRecord(
+        meta,
+        before as unknown as Record<string, unknown>,
+        next as unknown as Record<string, unknown>,
+        changes as unknown as Record<string, unknown>,
+        (field) => `notable_npc:${id}.${field}`,
+        'notable_npc',
+        ['notable_npc', id],
+      )
+      if (emitted === 0 && meta) {
+        addCauseInternal(meta, { target: id, targetType: 'notable_npc' })
+      }
     },
     modifyLocalEvent(id, changes, meta): void {
-      const event = requireRecord<LocalEventWorldState>(
+      const before = requireRecord<LocalEventWorldState>(
         runtime.current.world.localEvents,
         id,
         'LocalEvent',
       )
+      const next = { ...before, ...changes }
       runtime.current = {
         ...runtime.current,
         world: {
           ...runtime.current.world,
           localEvents: {
             ...runtime.current.world.localEvents,
-            [id]: { ...event, ...changes },
+            [id]: next,
           },
         },
       }
-      addCauseInternal(meta, { target: id, targetType: 'local_event' })
+      const emitted = emitDiffPathCausesForRecord(
+        meta,
+        before as unknown as Record<string, unknown>,
+        next as unknown as Record<string, unknown>,
+        changes as unknown as Record<string, unknown>,
+        (field) => `local_event:${id}.${field}`,
+        'local_event',
+        ['local_event', id],
+      )
+      if (emitted === 0 && meta) {
+        addCauseInternal(meta, { target: id, targetType: 'local_event' })
+      }
     },
     modifySocialRumour(id, changes, meta): void {
-      const rumour = requireRecord<SocialRumourState>(
+      const before = requireRecord<SocialRumourState>(
         runtime.current.world.socialRumours,
         id,
         'SocialRumour',
       )
+      const next = { ...before, ...changes }
       runtime.current = {
         ...runtime.current,
         world: {
           ...runtime.current.world,
           socialRumours: {
             ...runtime.current.world.socialRumours,
-            [id]: { ...rumour, ...changes },
+            [id]: next,
           },
         },
       }
-      addCauseInternal(meta, { target: id, targetType: 'rumour' })
+      const emitted = emitDiffPathCausesForRecord(
+        meta,
+        before as unknown as Record<string, unknown>,
+        next as unknown as Record<string, unknown>,
+        changes as unknown as Record<string, unknown>,
+        (field) => `rumour:${id}.${field}`,
+        'rumour',
+        ['rumour', id],
+      )
+      if (emitted === 0 && meta) {
+        addCauseInternal(meta, { target: id, targetType: 'rumour' })
+      }
     },
     modifyTavernIdentity(changes, meta): void {
-      const current = runtime.current.world.tavernIdentity
-      const next: TavernIdentityState = { ...current, ...changes }
+      const before = runtime.current.world.tavernIdentity
+      const next: TavernIdentityState = { ...before, ...changes }
       runtime.current = {
         ...runtime.current,
         world: {
@@ -982,10 +1079,21 @@ function createContext(
           tavernIdentity: next,
         },
       }
-      addCauseInternal(meta, {
-        target: runtime.current.meta.tavernId,
-        targetType: 'tavern_identity',
-      })
+      const emitted = emitDiffPathCausesForRecord(
+        meta,
+        before as unknown as Record<string, unknown>,
+        next as unknown as Record<string, unknown>,
+        changes as unknown as Record<string, unknown>,
+        (field) => `tavernIdentity.${field}`,
+        'tavern_identity',
+        ['tavern_identity'],
+      )
+      if (emitted === 0 && meta) {
+        addCauseInternal(meta, {
+          target: runtime.current.meta.tavernId,
+          targetType: 'tavern_identity',
+        })
+      }
     },
 
     // Phase 27 §27.3 — World query helpers. Thin readers; return

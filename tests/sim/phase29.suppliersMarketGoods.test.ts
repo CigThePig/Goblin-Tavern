@@ -231,10 +231,13 @@ describe('Phase 29 — Supplier module state and pipeline', () => {
     const result = simulateDay(before, defaultInput(), [supplierModule])
     const after = result.state.world.suppliers['scrap_meat_vendor']!
     expect(after.relationship).toBeLessThan(40)
-    // A cause should attribute the drift.
+    // A cause should attribute the drift. Phase 42 / ISSUE-002 — world
+    // mutators emit per-field causes using the canonical colon form, so
+    // the target is `supplier:<id>.<field>` rather than the bare id.
     const drift = result.state.causes.find(
       (c) =>
-        c.target === 'scrap_meat_vendor' && c.targetType === 'supplier',
+        c.target === 'supplier:scrap_meat_vendor.relationship' &&
+        c.targetType === 'supplier',
     )
     expect(drift).toBeDefined()
     expect(drift?.tags).toContain('relationship')

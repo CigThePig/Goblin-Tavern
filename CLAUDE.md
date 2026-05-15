@@ -6,9 +6,11 @@ A text-based goblin tavern management simulation built **simulation-first**: a h
 
 Phases 1–40 are **implemented**. The headless simulation lives under `src/sim/` (core engine, registries, ~26 domain modules under `src/sim/modules/`, a content layer under `src/sim/content/` covering naming, cultures, factions, suppliers, npc, staff, tavern, events, and text, state with Zod schemas, and testing utilities). Phase-by-phase coverage runs from `tests/sim/phase2.structure.test.ts` through `tests/sim/phase40.expandedReadiness.test.ts`. Run `npm test` (Vitest) and `npm run typecheck` (TypeScript) to validate changes.
 
-Current work is the **post-Phase-40 repair pass** tracked in [`docs/ISSUE_TRACKER.md`](docs/ISSUE_TRACKER.md). That file is the authoritative source for what needs to change, evidence, scope, dependencies, and test approach for each repair bundle. Phases 1–40 left real gaps (silent calculators, dead consumers, thin rosters, no-op response pipeline); the tracker bundles those fixes into 24 issues.
+Current work is the **post-Phase-40 repair pass** tracked in [`docs/ISSUE_TRACKER.md`](docs/ISSUE_TRACKER.md). That file is the authoritative source for what needs to change, evidence, scope, dependencies, and test approach for each repair bundle. Phases 1–40 left real gaps (silent calculators, dead consumers, thin rosters, no-op response pipeline); the tracker bundles those fixes into 33 issues across two tiers — the tier 0–2 repair issues (ISSUE-001…ISSUE-024) plus the tier 1.5 **Rare Ingredients Economy** arc (ISSUE-025…ISSUE-033) that replaces the original ISSUE-005…ISSUE-009 flat roster grows with a unified gameplay system.
 
-**Phase numbering for the repair pass:** each `ISSUE-NNN` in the tracker becomes a phase offset by 40 — `ISSUE-001` → phase 41, `ISSUE-002` → phase 42, …, `ISSUE-024` → phase 64. Phase plan files for repair work land under `docs/plans/` named by phase number (e.g. `phase-41-response-pipeline.md`).
+**Phase numbering for the repair pass:** each `ISSUE-NNN` in the tracker becomes a phase offset by 40 — `ISSUE-001` → phase 41, `ISSUE-002` → phase 42, …, `ISSUE-024` → phase 64, `ISSUE-025` → phase 65, …, `ISSUE-033` → phase 73. Phase plan files for repair work land under `docs/plans/` named by phase number (e.g. `phase-41-response-pipeline.md`).
+
+The Tier 1.5 arc has its own locked design contract at [`docs/plans/rare-ingredients-economy.md`](docs/plans/rare-ingredients-economy.md) (analogous to `phase-21-expansion-contract.md` for the expansion arc). Per-issue phase plans for phases 65–73 implement against the rules in that document rather than restating them.
 
 Per-issue workflow: the user puts Claude Code in plan mode, Claude reads the matching tracker entry, produces a phase plan file in `docs/plans/`, then implements. Update the issue's `Status` and `Phase` fields in the tracker inline as work progresses; closed issues stay in the tracker as history.
 
@@ -58,7 +60,8 @@ docs/
     phases-26-30-expansion-validation-hooks-areas-suppliers-cultures.md # Cross-ref validation, new phase hooks, area traits, suppliers, cultures
     phases-31-35-expansion-staff-scenes-projects-community-arcs.md      # Staff identity, service scenes, owner projects, weekly community, seasonal arcs
     phases-36-40-expansion-memory-attribution-pressures-seeds-readiness.md # Entity-scoped memory, attribution, pressure webs, expanded seeds, final readiness
-    phase-41-*.md … phase-64-*.md                                       # Repair-pass plans, one per ISSUE-NNN in ISSUE_TRACKER.md (added as each phase starts)
+    rare-ingredients-economy.md                                         # Tier 1.5 locked design contract (ISSUE-025…ISSUE-033, phases 65–73)
+    phase-41-*.md … phase-73-*.md                                       # Repair-pass plans, one per ISSUE-NNN in ISSUE_TRACKER.md (added as each phase starts)
 
 src/sim/                # Phases 1–40 implementation (headless, pure)
   core/                 # engine, context, rng, phases, diff, effect, reports, types
@@ -78,7 +81,7 @@ tests/sim/              # phase2.structure.test.ts … phase40.expandedReadiness
 ## Working on This Repo
 
 - **Read the relevant phase doc before implementing.** Each phase doc has explicit "Acceptance Criteria" and "Do Not Do" sections. Respect both.
-- **Repair-pass work (phases 41–64) is driven by `docs/ISSUE_TRACKER.md`.** Before planning a repair phase, read the matching `ISSUE-NNN` entry — it carries the full Evidence, Impact, Scope, Depends on, and Test approach. The tracker's `Depends on` field is hard: a dependency issue must reach `done` before dependent work starts. Update an issue's `Status` and `Phase` fields inline as work progresses; closed issues stay in the tracker as history, not noise.
+- **Repair-pass work (phases 41–73) is driven by `docs/ISSUE_TRACKER.md`.** Before planning a repair phase, read the matching `ISSUE-NNN` entry — it carries the full Evidence, Impact, Scope, Depends on, and Test approach. The tracker's `Depends on` field is hard: a dependency issue must reach `done` before dependent work starts. Update an issue's `Status` and `Phase` fields inline as work progresses; closed issues stay in the tracker as history, not noise. Phases 65–73 additionally implement against the locked rules in `docs/plans/rare-ingredients-economy.md` — per-issue phase plans for that arc reference the design doc rather than restating it.
 - **Do not skip ahead.** Don't add cards, UI, narrative text, or issue-seed *content* before the phase that introduces them. The plans are sequential for a reason.
 - **No `Math.random()` in sim code.** Even for one-off helpers — use the seeded RNG from context.
 - **No browser/runtime dependencies in `src/sim/`.** The simulation must run headless in tests and (eventually) in any host environment.

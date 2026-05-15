@@ -2,7 +2,7 @@
 
 ## Status
 
-- **Status:** locked (draft for review)
+- **Status:** accepted (locked)
 - **Scope:** ISSUE-025 through ISSUE-033 (`docs/ISSUE_TRACKER.md`, new Tier 1.5 section)
 - **Phases:** 65 through 73 (per the `ISSUE-NNN → phase 40+NNN` rule)
 - **Supersedes:** ISSUE-005, ISSUE-006, ISSUE-007, ISSUE-008, ISSUE-009

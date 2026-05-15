@@ -134,10 +134,11 @@ describe('Placeholder registry instances', () => {
   })
 
   it('customerRegistry is populated by the Phase 10 customer system', () => {
-    const ids = customerRegistry.all().map((c) => c.id).sort()
-    expect(ids).toEqual(
-      ['adventurers', 'local_goblins', 'merchants', 'miners', 'ogres'].sort(),
-    )
+    // Phase 72 / ISSUE-032 — niche groups join the registry; check
+    // containment of the original five rather than full-set match.
+    for (const id of ['adventurers', 'local_goblins', 'merchants', 'miners', 'ogres']) {
+      expect(customerRegistry.has(id)).toBe(true)
+    }
   })
 
   it('staffRegistry is populated by the Phase 11 staff system', () => {

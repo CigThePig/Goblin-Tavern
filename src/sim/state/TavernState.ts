@@ -214,6 +214,11 @@ export type CustomerGroupState = {
   trafficPattern: string
   spendingProfile: string
   relationshipToOtherGroups: Record<string, number>
+  // Phase 72 / ISSUE-032 §4.7, §5.6 — niche customer threshold.
+  // Groups with this field active their patronage when
+  // `culinary_renown` crosses the threshold. Optional; existing
+  // groups remain always-available (treated as threshold 0).
+  minRenownThreshold?: number
 }
 
 // Phase 15 §15.5 — Reputation is multi-axis. The `respectable` axis was

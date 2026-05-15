@@ -105,9 +105,11 @@ describe('Phase 5 — Base Tavern State', () => {
 
   it('initial state has all five customer groups', () => {
     const state = createInitialTavernState()
-    expect(Object.keys(state.customerGroups).sort()).toEqual(
-      ['adventurers', 'local_goblins', 'merchants', 'miners', 'ogres'].sort(),
-    )
+    // Phase 72 / ISSUE-032 — niche groups join the registry; check
+    // containment of the original five rather than full-set match.
+    for (const id of ['adventurers', 'local_goblins', 'merchants', 'miners', 'ogres']) {
+      expect(state.customerGroups[id]).toBeDefined()
+    }
   })
 
   it('reputation axes exist and are numeric', () => {

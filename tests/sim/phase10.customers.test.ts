@@ -71,9 +71,12 @@ function turnoutFor(state: TavernState, groupId: string) {
 describe('Phase 10 — Customer Group system', () => {
   it('1. default customer groups exist after createInitialTavernState', () => {
     const state = createInitialTavernState()
-    expect(Object.keys(state.customerGroups).sort()).toEqual(
-      ['adventurers', 'local_goblins', 'merchants', 'miners', 'ogres'].sort(),
-    )
+    // Phase 72 / ISSUE-032 — niche groups join the registry but
+    // start with patronage 0; check containment of the original
+    // five rather than full-set equality.
+    for (const id of ['adventurers', 'local_goblins', 'merchants', 'miners', 'ogres']) {
+      expect(state.customerGroups[id]).toBeDefined()
+    }
     for (const id of [
       'local_goblins',
       'miners',
@@ -289,10 +292,11 @@ describe('Phase 10 — Customer Group system', () => {
 
 describe('Phase 10 — Registry, module shape, and integration', () => {
   it('customerRegistry exposes the five required groups with default state', () => {
-    const ids = customerRegistry.all().map((c) => c.id).sort()
-    expect(ids).toEqual(
-      ['adventurers', 'local_goblins', 'merchants', 'miners', 'ogres'].sort(),
-    )
+    // Phase 72 / ISSUE-032 — the registry has grown with niche
+    // groups; check containment of the original five.
+    for (const id of ['adventurers', 'local_goblins', 'merchants', 'miners', 'ogres']) {
+      expect(customerRegistry.has(id)).toBe(true)
+    }
     for (const def of customerRegistry.all()) {
       expect(def.defaultState.patronage).toBeGreaterThanOrEqual(0)
       expect(def.defaultState.patronage).toBeLessThanOrEqual(100)

@@ -137,6 +137,10 @@ export type RngStreamId =
   // adventurer roster: who arrives, who leaves. Names continue to use
   // `npc_identity`.
   | 'adventurer_roster'
+  // Phase 72 / ISSUE-032 §7 — daily roll for niche-group visits when
+  // their renown threshold is met. Variance on activation-day
+  // patronage ramp; not exercised heavily in phase 72.
+  | 'niche_customer_arrival'
 
 export type RngStreamState = Record<RngStreamId, RngState>
 
@@ -172,6 +176,8 @@ const ALL_STREAM_IDS: ReadonlyArray<RngStreamId> = [
   'attribution_perceiver',
   // Phase 69 / ISSUE-029.
   'adventurer_roster',
+  // Phase 72 / ISSUE-032.
+  'niche_customer_arrival',
 ]
 
 export function createRngStreams(

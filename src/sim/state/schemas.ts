@@ -267,6 +267,8 @@ export const CustomerGroupStateSchema = z.object({
   trafficPattern: z.string(),
   spendingProfile: z.string(),
   relationshipToOtherGroups: z.record(z.string(), z.number()),
+  // Phase 72 / ISSUE-032 §5.6 — optional renown-activation threshold.
+  minRenownThreshold: z.number().min(0).max(100).optional(),
 })
 
 export const ReputationStateSchema = z.object({

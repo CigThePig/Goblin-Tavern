@@ -157,6 +157,30 @@ export function forecastTrafficForGroup(
   state: TavernState,
   ctx: SimContext,
 ): CustomerForecast {
+  // Phase 72 / ISSUE-032 §4.7 — inactive niche groups produce zero
+  // visitors regardless of other modifiers. A group is "inactive"
+  // when it carries a renown threshold AND `patronage` is 0 (the
+  // customer module flips patronage upward when the threshold is
+  // crossed). This keeps stockMod / cultureInfluence bonuses from
+  // pulling phantom visitors before the player has earned the
+  // group's attention.
+  if (
+    typeof group.minRenownThreshold === 'number' &&
+    group.minRenownThreshold > 0 &&
+    group.patronage <= 0
+  ) {
+    return {
+      groupId: group.id,
+      expected: 0,
+      dayTypeModifier: 0,
+      satisfactionModifier: 0,
+      cleanlinessPenalty: 0,
+      pricePenalty: 0,
+      stockModifier: 0,
+      notes: ['Niche group — culinary renown threshold not yet met.'],
+    }
+  }
+
   const dayType = ctx.getDayType()
   const dayMod = dayTypeModifier(group.id, dayType)
   const satMod = satisfactionModifier(group)

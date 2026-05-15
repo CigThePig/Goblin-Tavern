@@ -70,7 +70,7 @@ how to verify the fix.
 | ISSUE-029 | Hireable adventurer roster | thin | done | 69 |
 | ISSUE-030 | Expedition subsystem | thin | done | 70 |
 | ISSUE-031 | Cook tier grow + preparation gating | thin | done | 71 |
-| ISSUE-032 | Demand-side niche customer groups | thin | open | — |
+| ISSUE-032 | Demand-side niche customer groups | thin | done | 72 |
 | ISSUE-033 | Storage areas + system integration polish | thin | open | — |
 
 ---
@@ -788,8 +788,8 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 ### ISSUE-032 — Demand-side niche customer groups
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 72
 - **Evidence:**
   - `src/sim/registries/customerRegistry.ts` — 5 groups, all active
     from day zero. No threshold-gated arrival.

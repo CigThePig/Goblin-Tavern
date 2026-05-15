@@ -164,6 +164,12 @@ function createInitialStaff(): Record<string, StaffState> {
     a.id.localeCompare(b.id),
   )
   for (const def of orderedDefs) {
+    // Phase 71 / ISSUE-031 §4.3 — cook-tier roles (kitchen_hand,
+    // seasoned_cook, master_chef) are registered as hireable role
+    // definitions but not seeded on day zero. The flag defaults to
+    // true so existing roles continue to spawn their canonical staff
+    // member.
+    if (def.seedOnDayZero === false) continue
     const { identity, generatedName } = createStaffIdentity({
       staffId: def.defaultStaffId,
       roleId: def.id,

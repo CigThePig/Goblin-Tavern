@@ -1,9 +1,65 @@
 import type { SimContext } from '../../core/context'
 import { recipeRegistry } from '../../registries/recipeRegistry'
-import type { EntityRef, StockRarity } from '../../state/TavernState'
+import type {
+  EntityRef,
+  StaffRoleId,
+  StockRarity,
+} from '../../state/TavernState'
 import { sellStockItem } from '../stock/sales'
 import type { ShortageRecord } from '../stock/types'
 import { applyRenownDrift } from './renown'
+
+// Phase 71 / ISSUE-031 §4.3 — Cook-tier roles. The set is intentionally
+// open at the registry level; this constant lists the role ids that
+// the prep-gate considers when picking the active cook for a recipe
+// serve.
+const COOK_ROLE_IDS: ReadonlyArray<StaffRoleId> = [
+  'cook',
+  'kitchen_hand',
+  'seasoned_cook',
+  'master_chef',
+]
+
+const PREP_MARGIN = 15
+const UNSTAFFED_COOK_SKILL = 30
+
+export type PrepOutcome = 'excellent' | 'ordinary' | 'botched'
+
+export type PrepResult = {
+  outcome: PrepOutcome
+  cookId: string | null
+  cookSkill: number
+  gap: number
+}
+
+function pickActiveCook(
+  ctx: SimContext,
+): { cookId: string; skill: number } | null {
+  let best: { cookId: string; skill: number } | null = null
+  for (const staff of Object.values(ctx.state.staff)) {
+    if (staff.unavailable === true) continue
+    if (!COOK_ROLE_IDS.includes(staff.role)) continue
+    if (!best || staff.skill > best.skill) {
+      best = { cookId: staff.id, skill: staff.skill }
+    }
+  }
+  return best
+}
+
+export function evaluatePrepGate(
+  ctx: SimContext,
+  prepDifficulty: number,
+): PrepResult {
+  const active = pickActiveCook(ctx)
+  const cookId = active?.cookId ?? null
+  const cookSkill = active?.skill ?? UNSTAFFED_COOK_SKILL
+  const diff = cookSkill - prepDifficulty
+  const gap = Math.abs(diff)
+  let outcome: PrepOutcome = 'ordinary'
+  if (diff > PREP_MARGIN) outcome = 'excellent'
+  else if (diff < -PREP_MARGIN) outcome = 'botched'
+  return { outcome, cookId, cookSkill, gap }
+}
 
 // Phase 67 / ISSUE-027 §6.6 — Renown drift on recipe serves.
 //
@@ -162,6 +218,73 @@ export function sellRecipe(
         tags: ['renown', 'service', def.demandTier, recipeId],
         relatedActors: renownActors,
       })
+    }
+
+    // Phase 71 / ISSUE-031 §4.3, §6.5 — preparation-difficulty gate.
+    // Compare the active cook's skill against the recipe's
+    // prepDifficulty. Excellent/botched outcomes write a memory and,
+    // for rare+ recipes, nudge culinary renown.
+    const prep = evaluatePrepGate(ctx, def.prepDifficulty)
+    const cookActor: EntityRef | null = prep.cookId
+      ? { kind: 'staff', id: prep.cookId }
+      : null
+    if (prep.outcome === 'excellent') {
+      ctx.addMemory({
+        id: 'excellent_preparation',
+        source: 'service.recipes',
+        actors: cookActor ? [cookActor, recipeActor] : [recipeActor],
+        tags: ['recipe', 'prep', 'excellent', recipeId],
+        metadata: {
+          recipeId,
+          cookId: prep.cookId,
+          cookSkill: prep.cookSkill,
+          prepDifficulty: def.prepDifficulty,
+          gap: prep.gap,
+          demandTier: def.demandTier,
+        },
+      })
+      // Rare/legendary excellent prep adds an extra renown boost on
+      // top of the per-serving bump above.
+      if (def.demandTier === 'rare' || def.demandTier === 'legendary') {
+        const bonus = def.demandTier === 'legendary' ? 4 : 2
+        const renownActors: EntityRef[] = [recipeActor]
+        if (cookActor) renownActors.push(cookActor)
+        if (buyerActor) renownActors.push(buyerActor)
+        applyRenownDrift(ctx, bonus, {
+          source: 'service.renown',
+          readable: `Excellent preparation of ${def.label} lifted renown by ${bonus}.`,
+          tags: ['renown', 'excellent_prep', def.demandTier, recipeId],
+          relatedActors: renownActors,
+        })
+      }
+    } else if (prep.outcome === 'botched') {
+      ctx.addMemory({
+        id: 'botched_preparation',
+        source: 'service.recipes',
+        actors: cookActor ? [cookActor, recipeActor] : [recipeActor],
+        tags: ['recipe', 'prep', 'botched', recipeId],
+        metadata: {
+          recipeId,
+          cookId: prep.cookId,
+          cookSkill: prep.cookSkill,
+          prepDifficulty: def.prepDifficulty,
+          gap: prep.gap,
+          severity: Math.min(20, Math.round(prep.gap * 0.5)),
+          demandTier: def.demandTier,
+        },
+      })
+      if (def.demandTier === 'rare' || def.demandTier === 'legendary') {
+        const penalty = def.demandTier === 'legendary' ? -5 : -3
+        const renownActors: EntityRef[] = [recipeActor]
+        if (cookActor) renownActors.push(cookActor)
+        if (buyerActor) renownActors.push(buyerActor)
+        applyRenownDrift(ctx, penalty, {
+          source: 'service.renown',
+          readable: `Botched preparation of ${def.label} cost renown ${penalty}.`,
+          tags: ['renown', 'botched_prep', def.demandTier, recipeId],
+          relatedActors: renownActors,
+        })
+      }
     }
   }
 

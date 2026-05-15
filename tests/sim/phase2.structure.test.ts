@@ -141,8 +141,12 @@ describe('Placeholder registry instances', () => {
   })
 
   it('staffRegistry is populated by the Phase 11 staff system', () => {
-    const ids = staffRegistry.all().map((s) => s.id).sort()
-    expect(ids).toEqual(['cleaner_bouncer', 'cook', 'server'].sort())
+    // Phase 71 / ISSUE-031 — cook-tier roles (kitchen_hand,
+    // seasoned_cook, master_chef) join the registry; check
+    // containment of the original three rather than full-set match.
+    for (const id of ['cleaner_bouncer', 'cook', 'server']) {
+      expect(staffRegistry.has(id)).toBe(true)
+    }
   })
 
   it('actionRegistry is populated by the Phase 13 owner-action system', () => {

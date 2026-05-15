@@ -28,6 +28,14 @@ export type StaffRoleDefinition = {
   defaultStaffId: string
   defaultStaffName: string
   defaultState: StaffRoleDefaultState
+  /**
+   * Phase 71 / ISSUE-031 — flag set on cook-tier roles (kitchen_hand,
+   * seasoned_cook, master_chef) added in this phase. Default `true`
+   * for backwards compatibility; when explicitly `false`,
+   * `createInitialStaff` skips this role and the player must hire
+   * the role explicitly.
+   */
+  seedOnDayZero?: boolean
 }
 
 export const staffRegistry = new Registry<StaffRoleDefinition>()
@@ -108,6 +116,85 @@ const REQUIRED_STAFF_ROLES: StaffRoleDefinition[] = [
       paidThisWeek: true,
       activeFlags: [],
     },
+  },
+  // Phase 71 / ISSUE-031 §4.3, §6.5 — cook-tier roles. These don't
+  // seed on day zero; the player hires them via the existing
+  // hire_staff path (or tests inject them directly). The skill
+  // gradient is what makes rare/legendary recipe attempts viable.
+  {
+    id: 'kitchen_hand',
+    label: 'Kitchen Hand',
+    defaultTags: ['kitchen', 'service', 'apprentice'],
+    allowedPriorities: [
+      'quality',
+      'speed',
+      'stretch_ingredients',
+      'clean_as_you_go',
+    ],
+    defaultPriority: 'speed',
+    defaultStaffId: 'kitchen_hand',
+    defaultStaffName: 'Bink',
+    defaultState: {
+      skill: 30,
+      morale: 50,
+      stress: 30,
+      fatigue: 25,
+      loyalty: 35,
+      wage: 7,
+      paidThisWeek: true,
+      activeFlags: [],
+    },
+    seedOnDayZero: false,
+  },
+  {
+    id: 'seasoned_cook',
+    label: 'Seasoned Cook',
+    defaultTags: ['kitchen', 'service', 'experienced'],
+    allowedPriorities: [
+      'quality',
+      'speed',
+      'stretch_ingredients',
+      'clean_as_you_go',
+    ],
+    defaultPriority: 'quality',
+    defaultStaffId: 'seasoned_cook',
+    defaultStaffName: 'Vassa',
+    defaultState: {
+      skill: 62,
+      morale: 50,
+      stress: 30,
+      fatigue: 20,
+      loyalty: 50,
+      wage: 14,
+      paidThisWeek: true,
+      activeFlags: [],
+    },
+    seedOnDayZero: false,
+  },
+  {
+    id: 'master_chef',
+    label: 'Master Chef',
+    defaultTags: ['kitchen', 'service', 'master'],
+    allowedPriorities: [
+      'quality',
+      'speed',
+      'stretch_ingredients',
+      'clean_as_you_go',
+    ],
+    defaultPriority: 'quality',
+    defaultStaffId: 'master_chef',
+    defaultStaffName: 'Iorath',
+    defaultState: {
+      skill: 85,
+      morale: 55,
+      stress: 35,
+      fatigue: 25,
+      loyalty: 45,
+      wage: 22,
+      paidThisWeek: true,
+      activeFlags: [],
+    },
+    seedOnDayZero: false,
   },
 ]
 

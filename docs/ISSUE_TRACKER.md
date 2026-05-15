@@ -69,7 +69,7 @@ how to verify the fix.
 | ISSUE-028 | Specialty supplier expansion | thin | done | 68 |
 | ISSUE-029 | Hireable adventurer roster | thin | done | 69 |
 | ISSUE-030 | Expedition subsystem | thin | done | 70 |
-| ISSUE-031 | Cook tier grow + preparation gating | thin | open | — |
+| ISSUE-031 | Cook tier grow + preparation gating | thin | done | 71 |
 | ISSUE-032 | Demand-side niche customer groups | thin | open | — |
 | ISSUE-033 | Storage areas + system integration polish | thin | open | — |
 
@@ -751,8 +751,8 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 ### ISSUE-031 — Cook tier grow + preparation gating
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 71
 - **Evidence:**
   - `src/sim/registries/staffRegistry.ts` — 3 roles, all with similar
     skill profiles (45–55). No skill differentiation against recipe

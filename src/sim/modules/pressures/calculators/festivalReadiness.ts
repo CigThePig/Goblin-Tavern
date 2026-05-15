@@ -64,6 +64,7 @@ export function calculateFestivalReadiness(
       readable: `${arcs.length} festival arc(s) active (intensity ${arcIntensity}).`,
       amount: Math.round(arcIntensity * FESTIVAL_ARC_PER_INTENSITY),
       tags: ['festival', 'arc'],
+      relatedActors: arcs.map((arc) => ({ kind: 'local_event', id: arc.id })),
       relatedSystems: ['localArcs'],
     })
   }
@@ -82,35 +83,47 @@ export function calculateFestivalReadiness(
   const ale = ctx.state.stock['ale']
   const stew = ctx.state.stock['stew']
   if (ale && ale.quantity <= 40) {
+    const aleRef: EntityRef = { kind: 'stock', id: 'ale' }
+    relatedActors.push(aleRef)
     pushCause(causes, {
       id: 'low_ale_for_festival',
       readable: `Ale stock low (${Math.round(ale.quantity)}) ahead of festival.`,
       amount: LOW_STOCK_PENALTY,
       tags: ['stock', 'festival'],
+      relatedActors: [aleRef],
       relatedSystems: ['stock'],
     })
   }
   if (stew && stew.quantity <= 15) {
+    const stewRef: EntityRef = { kind: 'stock', id: 'stew' }
+    relatedActors.push(stewRef)
     pushCause(causes, {
       id: 'low_stew_for_festival',
       readable: `Stew stock low (${Math.round(stew.quantity)}) ahead of festival.`,
       amount: LOW_STOCK_PENALTY,
       tags: ['stock', 'festival'],
+      relatedActors: [stewRef],
       relatedSystems: ['stock'],
     })
   }
 
   // Staff fatigue.
   let fatiguedStaff = 0
+  const fatiguedStaffActors: EntityRef[] = []
   for (const member of Object.values(ctx.state.staff)) {
-    if (member.fatigue >= 60) fatiguedStaff += 1
+    if (member.fatigue >= 60) {
+      fatiguedStaff += 1
+      fatiguedStaffActors.push({ kind: 'staff', id: member.id })
+    }
   }
   if (fatiguedStaff > 0) {
+    for (const ref of fatiguedStaffActors) relatedActors.push(ref)
     pushCause(causes, {
       id: 'fatigued_staff',
       readable: `${fatiguedStaff} fatigued staff before festival.`,
       amount: STAFF_FATIGUE_PER_STAFF * fatiguedStaff,
       tags: ['staff', 'fatigue'],
+      relatedActors: fatiguedStaffActors,
       relatedSystems: ['staff'],
     })
   }
@@ -167,15 +180,21 @@ export function calculateFestivalReadiness(
 
   // Strong supplier relationships.
   let strongSuppliers = 0
+  const strongSupplierActors: EntityRef[] = []
   for (const supplier of Object.values(ctx.state.world.suppliers)) {
-    if (supplier.relationship >= 75 && supplier.reliability >= 65) strongSuppliers += 1
+    if (supplier.relationship >= 75 && supplier.reliability >= 65) {
+      strongSuppliers += 1
+      strongSupplierActors.push({ kind: 'supplier', id: supplier.id })
+    }
   }
   if (strongSuppliers > 0) {
+    for (const ref of strongSupplierActors) relatedActors.push(ref)
     pushCause(causes, {
       id: 'strong_suppliers',
       readable: `${strongSuppliers} supplier(s) reliable and friendly.`,
       amount: STRONG_SUPPLIER_RELIEF * strongSuppliers,
       tags: ['supplier', 'relief'],
+      relatedActors: strongSupplierActors,
       relatedSystems: ['suppliers'],
     })
   }

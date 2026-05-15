@@ -86,6 +86,7 @@ export function applyArcEffect(args: {
           weight: Math.abs(effect.amount),
           readable: `${definition.label} pressures ${effect.id} (${effect.amount >= 0 ? '+' : ''}${effect.amount}).`,
           tags: ['local_arc', definition.id, 'pressure'],
+          relatedActors: [{ kind: 'local_event' as const, id: arc.id }],
           relatedSystems: ['local_arcs', 'monthly'],
         }
         ctx.modifyPressure(effect.id, effect.amount, cause)
@@ -111,6 +112,7 @@ export function applyArcEffect(args: {
             weight: Math.abs(effect.amount),
             readable: `${definition.label} shifts ${effect.id} reputation ${effect.amount >= 0 ? '+' : ''}${effect.amount}.`,
             tags: ['local_arc', definition.id, 'reputation'],
+            relatedActors: [{ kind: 'local_event' as const, id: arc.id }],
           }
           ctx.modifyReputation(
             {
@@ -140,6 +142,7 @@ export function applyArcEffect(args: {
               amount: 0,
               readable: `${definition.label} flagged group ${effect.id}.`,
               tags: ['local_arc', definition.id, 'customer_group'],
+              relatedActors: [{ kind: 'local_event', id: arc.id }],
             },
           )
         }
@@ -162,6 +165,7 @@ export function applyArcEffect(args: {
               amount: 0,
               readable: `${definition.label} flagged supplier ${effect.id}.`,
               tags: ['local_arc', definition.id, 'supplier'],
+              relatedActors: [{ kind: 'local_event', id: arc.id }],
             },
           )
         }

@@ -39,7 +39,7 @@ how to verify the fix.
 |---|---|---|---|---|
 | ISSUE-001 | Response pipeline + unified pending queue | broken | done | 41 |
 | ISSUE-002 | World mutator cause emission + state diff coverage | thin | done | 42 |
-| ISSUE-003 | Per-cause `relatedActors` in 4 silent calculators | broken | open | — |
+| ISSUE-003 | Per-cause `relatedActors` in 4 silent calculators | broken | done | 43 |
 | ISSUE-004 | NPC factory + initial notable NPC roster | broken | open | — |
 | ISSUE-005 | Grow staff roster + role-specific identity | thin | open | — |
 | ISSUE-006 | Grow areas roster + un-pin `main_room` | thin | open | — |
@@ -161,8 +161,8 @@ prioritizes leverage: response wiring unblocks the most features.
 ### ISSUE-003 — Per-cause `relatedActors` in 4 silent calculators
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 43
 - **Evidence:**
   - `src/sim/modules/pressures/calculators/arcEscalation.ts` — 7
     `pushCause` sites, all with empty `relatedActors`. The arc ref is

@@ -611,6 +611,10 @@ export function createInitialTavernState(overrides?: Partial<TavernState>): Tave
     // items as 1:1 dishes; service flow treats them as the orderable
     // surface.
     recipes: createInitialRecipes(),
+    // Phase 70 / ISSUE-030 §5.3 — empty expedition slice. The player
+    // commissions expeditions via the `commissionExpedition` owner
+    // action; resolution writes records to the completed log.
+    expeditions: { active: [], completed: [] },
     // Phase 25 §"Default World State" — world branch seeded so schemas
     // validate from day zero. Cultures, factions, suppliers, and (since
     // audit fixes pass 1 §1.3) starter regulars all come from the

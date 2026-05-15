@@ -68,7 +68,7 @@ how to verify the fix.
 | ISSUE-027 | Culinary renown reputation axis | thin | done | 67 |
 | ISSUE-028 | Specialty supplier expansion | thin | done | 68 |
 | ISSUE-029 | Hireable adventurer roster | thin | done | 69 |
-| ISSUE-030 | Expedition subsystem | thin | open | — |
+| ISSUE-030 | Expedition subsystem | thin | done | 70 |
 | ISSUE-031 | Cook tier grow + preparation gating | thin | open | — |
 | ISSUE-032 | Demand-side niche customer groups | thin | open | — |
 | ISSUE-033 | Storage areas + system integration polish | thin | open | — |
@@ -714,8 +714,8 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 ### ISSUE-030 — Expedition subsystem
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 70
 - **Evidence:**
   - No expedition action surface exists. The only player-driven stock
     acquisition is implicit through suppliers.

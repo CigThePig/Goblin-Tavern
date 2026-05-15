@@ -6,6 +6,7 @@ import type {
   EntityRef,
   FactionWorldState,
   HistoryEntry,
+  ExpeditionsState,
   HireableAdventurer,
   LocalEventWorldState,
   MemoryState,
@@ -123,6 +124,12 @@ export type SimContext = {
   // default service stream for backwards compatibility.
   readonly rngStreams: SimRngStreams
   getRngStream(streamId: RngStreamId): SimRng
+  // Phase 70 / ISSUE-030 §6.3 — dynamic named stream. Used by the
+  // expeditions module for per-instance streams like
+  // `expedition_<expeditionId>` and `ingredient_quality_<expeditionId>`
+  // that cannot enumerate at compile time. Same `name` + same baseSeed
+  // produces the same starting RNG state across reloads.
+  getRngStreamByName(name: string): SimRng
 
   readonly reports: ReadonlyArray<ReportSection>
   readonly logs: ReadonlyArray<SimLog>
@@ -150,6 +157,14 @@ export type SimContext = {
   // serving counters and the player's `onMenu` flag; mutations route
   // through the same cause-emitting helper as other record slices.
   modifyRecipe(id: string, changes: Partial<RecipeState>, meta: MutationMeta): void
+  // Phase 70 / ISSUE-030 §5.3 — top-level expeditions slice mutator.
+  // Used by the expeditions module for commission / resolution
+  // transitions. The cause draft attaches a high-level lifecycle
+  // event; per-field diff causes are not emitted for this slice.
+  modifyExpeditions(
+    updater: (current: ExpeditionsState) => ExpeditionsState,
+    meta: MutationMeta,
+  ): void
 
   /**
    * Phase 9 §9.3 — Coin mutations route through `modifyCoin` so the

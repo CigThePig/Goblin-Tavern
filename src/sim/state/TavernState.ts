@@ -503,6 +503,64 @@ export type NotableNpcWorldState = {
   activeFlags: string[]
 }
 
+// Phase 70 / ISSUE-030 §5.3 — Expedition subsystem types.
+//
+// The player commissions a hireable adventurer (phase 69) to fetch
+// rare or legendary ingredients (phase 66). Expeditions run end-only:
+// `daysElapsed` increments each day, and resolution fires once on the
+// day `daysElapsed >= daysTotal`. Outcome is rolled via the per-
+// expedition named RNG stream so save/reload round-trips produce the
+// same result.
+export type ExpeditionMode = 'open' | 'targeted'
+
+export type ExpeditionTargetTier = 'uncommon' | 'rare' | 'legendary'
+
+export type ExpeditionOutcome =
+  | 'success'
+  | 'partial'
+  | 'failure'
+  | 'runner_lost'
+
+export type Expedition = {
+  id: string
+  runnerId: string
+  mode: ExpeditionMode
+  /** Set for `open` mode: which rarity tier the expedition aims at. */
+  targetTier: ExpeditionTargetTier | null
+  /** Set for `targeted` mode: which specific ingredient to fetch. */
+  targetIngredientId: string | null
+  daysTotal: number
+  daysElapsed: number
+  costPaid: number
+  startedDay: number
+  status: 'in_progress'
+}
+
+export type ExpeditionReturnedIngredient = {
+  ingredientId: string
+  quantity: number
+  quality: number
+}
+
+export type ExpeditionRecord = {
+  id: string
+  runnerId: string
+  mode: ExpeditionMode
+  targetTier: ExpeditionTargetTier | null
+  targetIngredientId: string | null
+  daysTotal: number
+  costPaid: number
+  startedDay: number
+  resolvedDay: number
+  outcome: ExpeditionOutcome
+  returnedIngredients: ExpeditionReturnedIngredient[]
+}
+
+export type ExpeditionsState = {
+  active: Expedition[]
+  completed: ExpeditionRecord[]
+}
+
 // Phase 69 / ISSUE-029 §5.4 — Hireable adventurer roster.
 //
 // Persistent NPCs the player commissions for expeditions (phase 70).
@@ -623,6 +681,9 @@ export type TavernState = {
 
   // Phase 65 / ISSUE-025 §5.2 — recipe slice. Keyed by recipe id.
   recipes: Record<string, RecipeState>
+
+  // Phase 70 / ISSUE-030 §5.3 — expedition subsystem state.
+  expeditions: ExpeditionsState
 
   world: WorldState
 

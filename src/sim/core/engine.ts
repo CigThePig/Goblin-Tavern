@@ -11,6 +11,7 @@ import type {
   HistoryEntry,
   LocalEventWorldState,
   MemoryState,
+  ExpeditionsState,
   HireableAdventurer,
   NotableNpcWorldState,
   PressureState,
@@ -645,6 +646,10 @@ function createContext(
     getRngStream(streamId) {
       return rngStreams.get(streamId)
     },
+    // Phase 70 / ISSUE-030 §6.3 — dynamic named stream.
+    getRngStreamByName(name) {
+      return rngStreams.getByName(name)
+    },
     get reports() {
       return runtime.reports
     },
@@ -789,6 +794,20 @@ function createContext(
         'recipe',
         ['recipe', id],
       )
+    },
+    modifyExpeditions(updater, meta): void {
+      const before = runtime.current.expeditions
+      const next = updater(before)
+      runtime.current = {
+        ...runtime.current,
+        expeditions: next,
+      }
+      if (meta) {
+        addCauseInternal(meta, {
+          target: 'expeditions',
+          targetType: 'global',
+        })
+      }
     },
     modifyCoin(delta, meta): void {
       if (!Number.isFinite(delta)) {

@@ -143,6 +143,17 @@ export type RngStreamState = Record<RngStreamId, RngState>
 export type SimRngStreams = {
   baseSeed: string
   get: (streamId: RngStreamId) => SimRng
+  /**
+   * Phase 70 / ISSUE-030 §6.3 — dynamic named stream. Used for
+   * per-instance ids (e.g. `expedition_<expeditionId>`,
+   * `ingredient_quality_<expeditionId>`) that can't enumerate at
+   * compile time. The seed is derived as `${baseSeed}:${name}`, so
+   * the same baseSeed + name always returns an RNG with the same
+   * initial state — saves can resume mid-run and produce the same
+   * resolution. The dynamic stream is not tracked in `snapshot()`;
+   * callers must read it once at resolution.
+   */
+  getByName: (name: string) => SimRng
   snapshot: () => RngStreamState
 }
 
@@ -180,6 +191,14 @@ export function createRngStreams(
     return rng
   }
 
+  // Phase 70 / ISSUE-030 §6.3 — dynamic stream factory. The returned
+  // RNG is freshly seeded from `${seed}:${name}`; the same name
+  // always produces an RNG with the same starting state across
+  // reloads. Callers consume it once per resolution.
+  const getByName = (name: string): SimRng => {
+    return createRng(`${seed}:${name}`, 0)
+  }
+
   const snapshot = (): RngStreamState => {
     const out = {} as RngStreamState
     for (const id of ALL_STREAM_IDS) {
@@ -197,5 +216,5 @@ export function createRngStreams(
     return out
   }
 
-  return { baseSeed: seed, get, snapshot }
+  return { baseSeed: seed, get, getByName, snapshot }
 }

@@ -35,6 +35,8 @@ import { supplierModule } from '../modules/suppliers/index'
 import { regularModule } from '../modules/regulars/index'
 // Phase 69 / ISSUE-029 §6.4 — hireable adventurer roster module.
 import { adventurersModule } from '../modules/adventurers/index'
+// Phase 70 / ISSUE-030 §6.3 — expedition subsystem module.
+import { expeditionsModule } from '../modules/expeditions/index'
 
 // Phase 20 §20.1 — Cardless playtest runner.
 //
@@ -77,6 +79,11 @@ export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   // other world-state modules. Its only hook is `endWeek`, so its
   // position before service/owner-actions is just for clarity.
   adventurersModule,
+  // Phase 70 / ISSUE-030 §6.3 — expeditions module ticks each day
+  // before the input/service path so newly-resolved expeditions can
+  // influence today's customer/service flow (e.g. fresh ingredients
+  // landing in stock at startDay).
+  expeditionsModule,
   ownerActionsModule,
   serviceModule,
   weeklyModule,

@@ -108,6 +108,58 @@ export const RecipeStateSchema = z.object({
   lastServedDay: z.number().int().min(0).nullable(),
 })
 
+// Phase 70 / ISSUE-030 §5.3 — Expedition subsystem schemas.
+export const ExpeditionModeSchema = z.enum(['open', 'targeted'])
+export const ExpeditionTargetTierSchema = z.enum([
+  'uncommon',
+  'rare',
+  'legendary',
+])
+export const ExpeditionOutcomeSchema = z.enum([
+  'success',
+  'partial',
+  'failure',
+  'runner_lost',
+])
+
+export const ExpeditionSchema = z.object({
+  id: z.string(),
+  runnerId: z.string(),
+  mode: ExpeditionModeSchema,
+  targetTier: ExpeditionTargetTierSchema.nullable(),
+  targetIngredientId: z.string().nullable(),
+  daysTotal: z.number().int().min(1),
+  daysElapsed: z.number().int().min(0),
+  costPaid: z.number().min(0),
+  startedDay: z.number().int().min(0),
+  status: z.literal('in_progress'),
+})
+
+export const ExpeditionReturnedIngredientSchema = z.object({
+  ingredientId: z.string(),
+  quantity: z.number().int().min(0),
+  quality: z.number().min(0).max(100),
+})
+
+export const ExpeditionRecordSchema = z.object({
+  id: z.string(),
+  runnerId: z.string(),
+  mode: ExpeditionModeSchema,
+  targetTier: ExpeditionTargetTierSchema.nullable(),
+  targetIngredientId: z.string().nullable(),
+  daysTotal: z.number().int().min(1),
+  costPaid: z.number().min(0),
+  startedDay: z.number().int().min(0),
+  resolvedDay: z.number().int().min(0),
+  outcome: ExpeditionOutcomeSchema,
+  returnedIngredients: z.array(ExpeditionReturnedIngredientSchema),
+})
+
+export const ExpeditionsStateSchema = z.object({
+  active: z.array(ExpeditionSchema),
+  completed: z.array(ExpeditionRecordSchema),
+})
+
 // Phase 22 / Phase 24 — `GeneratedName` is the structured output of the
 // deterministic name generator. The schema is declared early because
 // Phase 31 staff identity and Phase 30 world entities both reference
@@ -607,6 +659,8 @@ export function buildTavernStateSchema(modules: ReadonlyArray<SimulationModule>)
     reputation: ReputationStateSchema,
     // Phase 65 / ISSUE-025 §5.2 — recipe slice.
     recipes: z.record(z.string(), RecipeStateSchema),
+    // Phase 70 / ISSUE-030 §5.3 — expedition subsystem state.
+    expeditions: ExpeditionsStateSchema,
     // Phase 25 §"Schema Additions" — top-level `world` branch.
     world: WorldStateSchema,
     memories: z.array(MemoryStateSchema),

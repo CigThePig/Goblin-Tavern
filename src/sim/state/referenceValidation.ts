@@ -472,6 +472,41 @@ export function validateWorldReferences(state: TavernState): ValidationIssue[] {
     }
   }
 
+  // Phase 70 / ISSUE-030 §5.3 — active expeditions must reference a
+  // real runner in `state.world.hireableAdventurers`. (A runner who
+  // gets removed mid-expedition by an unrelated event is handled by
+  // the expeditions module's `startDay` hook, which converts the
+  // expedition to a `failure` record at resolution time.)
+  for (let i = 0; i < state.expeditions.active.length; i += 1) {
+    const expedition = state.expeditions.active[i]!
+    if (!(expedition.runnerId in world.hireableAdventurers)) {
+      issues.push(
+        makeIssue(
+          `expeditions.active[${i}].runnerId`,
+          `Active expedition '${expedition.id}' references unknown adventurer '${expedition.runnerId}'`,
+          'unknown_adventurer_ref',
+        ),
+      )
+    }
+    if (
+      expedition.mode === 'targeted' &&
+      expedition.targetIngredientId !== null
+    ) {
+      if (
+        !(expedition.targetIngredientId in state.stock) &&
+        !stockRegistry.has(expedition.targetIngredientId)
+      ) {
+        issues.push(
+          makeIssue(
+            `expeditions.active[${i}].targetIngredientId`,
+            `Active expedition '${expedition.id}' targets unknown ingredient '${expedition.targetIngredientId}'`,
+            'unknown_stock_ref',
+          ),
+        )
+      }
+    }
+  }
+
   // Phase 69 / ISSUE-029 §5.4 — hireable adventurers: cultureId must
   // exist; the naming profile must exist. Adventurers are persistent
   // NPCs with stable identity; broken refs are programmer errors.

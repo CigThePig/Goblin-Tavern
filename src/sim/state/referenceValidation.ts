@@ -472,6 +472,30 @@ export function validateWorldReferences(state: TavernState): ValidationIssue[] {
     }
   }
 
+  // Phase 69 / ISSUE-029 §5.4 — hireable adventurers: cultureId must
+  // exist; the naming profile must exist. Adventurers are persistent
+  // NPCs with stable identity; broken refs are programmer errors.
+  for (const [id, adventurer] of Object.entries(world.hireableAdventurers)) {
+    if (!(adventurer.cultureId in world.cultures)) {
+      issues.push(
+        makeIssue(
+          `world.hireableAdventurers.${id}.cultureId`,
+          `Hireable adventurer '${id}' references unknown culture '${adventurer.cultureId}'`,
+          'unknown_culture_ref',
+        ),
+      )
+    }
+    if (!namingProfileRegistry.has(adventurer.name.profileId)) {
+      issues.push(
+        makeIssue(
+          `world.hireableAdventurers.${id}.name.profileId`,
+          `Hireable adventurer '${id}' generated name references unknown naming profile '${adventurer.name.profileId}'`,
+          'unknown_naming_profile_ref',
+        ),
+      )
+    }
+  }
+
   // Local events: related faction and culture ids must exist.
   for (const [id, event] of Object.entries(world.localEvents)) {
     for (let i = 0; i < event.relatedFactionIds.length; i++) {

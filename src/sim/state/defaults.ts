@@ -39,6 +39,10 @@ import { createStaffIdentity } from '../content/staff/staffIdentityFactory'
 import { ensureRequiredStaffIdentityProfilesRegistered } from '../content/staff/staffIdentityProfiles'
 import { createNotableNpc } from '../content/npc/npcFactory'
 import {
+  createHireableAdventurer,
+  ADVENTURER_CULTURE_ID,
+} from '../content/npc/adventurerFactory'
+import {
   ensureRequiredNotableNpcProfilesRegistered,
   notableNpcProfileRegistry,
 } from '../content/npc/notableNpcProfiles'
@@ -62,6 +66,7 @@ import type {
   CultureWorldState,
   CustomerGroupState,
   FactionWorldState,
+  HireableAdventurer,
   NotableNpcWorldState,
   PressureState,
   RecipeState,
@@ -465,6 +470,66 @@ function createInitialRegulars(
 // notable NPC roster, every time. The stable seed (`initial-notable-
 // npcs`) mirrors the `initial-staff-identity` / `initial-regulars`
 // convention used elsewhere in this file.
+// Phase 69 / ISSUE-029 §5.4 — Seed `state.world.hireableAdventurers`
+// with a starter roster of 3 adventurers. Names generate once through
+// the `npc_identity` stream against a stable seed
+// (`initial-hireable-adventurers`) so the default roster is
+// deterministic and never shifts when other systems advance the daily
+// RNG.
+function createInitialHireableAdventurers(): Record<string, HireableAdventurer> {
+  const streams = createRngStreams('initial-hireable-adventurers')
+  const rng = streams.get('npc_identity')
+  const existingNames = new Set<string>()
+  const result: Record<string, HireableAdventurer> = {}
+  // Three starter slots — names generate against the shared
+  // `adventuring_bands` profile. The trio carries different opening
+  // stat profiles so the player has variety from day zero.
+  const seedRoster: Array<
+    Omit<Parameters<typeof createHireableAdventurer>[0], 'rng' | 'existingNames'>
+  > = [
+    {
+      adventurerId: 'hireable_adv_alpha',
+      joinedDay: 0,
+      experience: 60,
+      reliability: 60,
+      relationship: 50,
+      specialty: 'rare',
+      wageBase: 6,
+      tags: ['veteran'],
+    },
+    {
+      adventurerId: 'hireable_adv_beta',
+      joinedDay: 0,
+      experience: 35,
+      reliability: 55,
+      relationship: 45,
+      specialty: 'uncommon',
+      wageBase: 4,
+      tags: ['scout'],
+    },
+    {
+      adventurerId: 'hireable_adv_gamma',
+      joinedDay: 0,
+      experience: 25,
+      reliability: 40,
+      relationship: 35,
+      specialty: null,
+      wageBase: 3,
+      tags: ['rookie'],
+    },
+  ]
+  for (const spec of seedRoster) {
+    const { adventurer, generatedName } = createHireableAdventurer({
+      ...spec,
+      rng,
+      existingNames,
+    })
+    existingNames.add(generatedName.display)
+    result[adventurer.id] = adventurer
+  }
+  return result
+}
+
 function createInitialNotableNpcs(): Record<string, NotableNpcWorldState> {
   ensureRequiredNotableNpcProfilesRegistered()
   const streams = createRngStreams('initial-notable-npcs')
@@ -520,6 +585,8 @@ export function createInitialWorldState(
       atmosphereTags: [],
     },
     socialRumours: {},
+    // Phase 69 / ISSUE-029 §5.4 — hireable adventurer roster.
+    hireableAdventurers: createInitialHireableAdventurers(),
   }
 }
 

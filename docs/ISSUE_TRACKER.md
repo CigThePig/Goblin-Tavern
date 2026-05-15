@@ -67,7 +67,7 @@ how to verify the fix.
 | ISSUE-026 | Ingredient + starter recipe catalog grow | thin | done | 66 |
 | ISSUE-027 | Culinary renown reputation axis | thin | done | 67 |
 | ISSUE-028 | Specialty supplier expansion | thin | done | 68 |
-| ISSUE-029 | Hireable adventurer roster | thin | open | — |
+| ISSUE-029 | Hireable adventurer roster | thin | done | 69 |
 | ISSUE-030 | Expedition subsystem | thin | open | — |
 | ISSUE-031 | Cook tier grow + preparation gating | thin | open | — |
 | ISSUE-032 | Demand-side niche customer groups | thin | open | — |
@@ -681,8 +681,8 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 ### ISSUE-029 — Hireable adventurer roster
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 69
 - **Evidence:**
   - `state.world.hireableAdventurers` does not exist.
   - `npc_identity` RNG stream has only one consumer (ISSUE-004's

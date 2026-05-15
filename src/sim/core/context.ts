@@ -6,6 +6,7 @@ import type {
   EntityRef,
   FactionWorldState,
   HistoryEntry,
+  HireableAdventurer,
   LocalEventWorldState,
   MemoryState,
   NotableNpcWorldState,
@@ -202,6 +203,20 @@ export type SimContext = {
     changes: Partial<NotableNpcWorldState>,
     meta: MutationMeta,
   ): void
+  // Phase 69 / ISSUE-029 §5.4 — hireable adventurer record helpers.
+  // Roster grows and shrinks weekly via the adventurers module; the
+  // dedicated add/remove helpers route through `addCauseInternal` so
+  // every drift event leaves attribution behind.
+  modifyHireableAdventurer(
+    id: string,
+    changes: Partial<HireableAdventurer>,
+    meta: MutationMeta,
+  ): void
+  addHireableAdventurer(
+    adventurer: HireableAdventurer,
+    meta: MutationMeta,
+  ): void
+  removeHireableAdventurer(id: string, meta: MutationMeta): void
   modifyLocalEvent(
     id: string,
     changes: Partial<LocalEventWorldState>,

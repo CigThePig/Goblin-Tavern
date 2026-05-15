@@ -11,6 +11,7 @@ import type {
   HistoryEntry,
   LocalEventWorldState,
   MemoryState,
+  HireableAdventurer,
   NotableNpcWorldState,
   PressureState,
   RecipeState,
@@ -1037,6 +1038,78 @@ function createContext(
       )
       if (emitted === 0 && meta) {
         addCauseInternal(meta, { target: id, targetType: 'notable_npc' })
+      }
+    },
+    // Phase 69 / ISSUE-029 §5.4 — hireable adventurer record helpers.
+    modifyHireableAdventurer(id, changes, meta): void {
+      const before = requireRecord<HireableAdventurer>(
+        runtime.current.world.hireableAdventurers,
+        id,
+        'HireableAdventurer',
+      )
+      const next = { ...before, ...changes }
+      runtime.current = {
+        ...runtime.current,
+        world: {
+          ...runtime.current.world,
+          hireableAdventurers: {
+            ...runtime.current.world.hireableAdventurers,
+            [id]: next,
+          },
+        },
+      }
+      const emitted = emitDiffPathCausesForRecord(
+        meta,
+        before as unknown as Record<string, unknown>,
+        next as unknown as Record<string, unknown>,
+        changes as unknown as Record<string, unknown>,
+        (field) => `world.hireableAdventurers.${id}.${field}`,
+        'global',
+        ['adventurer', id],
+      )
+      if (emitted === 0 && meta) {
+        addCauseInternal(meta, { target: id, targetType: 'global' })
+      }
+    },
+    addHireableAdventurer(adventurer, meta): void {
+      if (runtime.current.world.hireableAdventurers[adventurer.id]) {
+        throw new Error(
+          `addHireableAdventurer: duplicate adventurer id '${adventurer.id}'`,
+        )
+      }
+      runtime.current = {
+        ...runtime.current,
+        world: {
+          ...runtime.current.world,
+          hireableAdventurers: {
+            ...runtime.current.world.hireableAdventurers,
+            [adventurer.id]: adventurer,
+          },
+        },
+      }
+      if (meta) {
+        addCauseInternal(meta, {
+          target: `world.hireableAdventurers.${adventurer.id}`,
+          targetType: 'global',
+        })
+      }
+    },
+    removeHireableAdventurer(id, meta): void {
+      if (!runtime.current.world.hireableAdventurers[id]) return
+      const nextRoster = { ...runtime.current.world.hireableAdventurers }
+      delete nextRoster[id]
+      runtime.current = {
+        ...runtime.current,
+        world: {
+          ...runtime.current.world,
+          hireableAdventurers: nextRoster,
+        },
+      }
+      if (meta) {
+        addCauseInternal(meta, {
+          target: `world.hireableAdventurers.${id}`,
+          targetType: 'global',
+        })
       }
     },
     modifyLocalEvent(id, changes, meta): void {

@@ -503,6 +503,32 @@ export type NotableNpcWorldState = {
   activeFlags: string[]
 }
 
+// Phase 69 / ISSUE-029 §5.4 — Hireable adventurer roster.
+//
+// Persistent NPCs the player commissions for expeditions (phase 70).
+// Names are generated once at NPC creation through the `npc_identity`
+// RNG stream and stored; never regenerated when a report is re-viewed.
+//
+// The existing `adventurers` customer group represents demand-side
+// adventuring bands; hireable adventurers are a separate slice of the
+// same culture (`adventuring_bands`) — bands' members who happen to be
+// between jobs and willing to take work.
+export type HireableAdventurer = {
+  id: string
+  name: GeneratedName
+  cultureId: string
+  experience: number // 0-100 — rises with successful expeditions
+  reliability: number // 0-100 — rises with successes, falls with failures
+  relationship: number // 0-100 — rises with repeated hires + payment
+  specialty: string | null // optional tag biasing target tier/category
+  wageBase: number // coin per expedition day
+  daysSinceLastJob: number
+  currentExpeditionId: string | null
+  joinedDay: number
+  tags: string[]
+  activeFlags: string[]
+}
+
 // Phase 35 §35.2 — arc lifecycle stages. Stored as a plain string on
 // the record so legacy local-event entries without arc semantics still
 // validate; `world.localEvents` widens to cover both shapes.
@@ -579,6 +605,8 @@ export type WorldState = {
   localEvents: Record<string, LocalEventWorldState>
   tavernIdentity: TavernIdentityState
   socialRumours: Record<string, SocialRumourState>
+  // Phase 69 / ISSUE-029 §5.4 — Hireable adventurer roster.
+  hireableAdventurers: Record<string, HireableAdventurer>
   rngStreams?: Partial<RngStreamState>
 }
 

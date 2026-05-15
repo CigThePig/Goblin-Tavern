@@ -33,6 +33,8 @@ import { cultureModule } from '../modules/cultures/index'
 import { factionModule } from '../modules/factions/index'
 import { supplierModule } from '../modules/suppliers/index'
 import { regularModule } from '../modules/regulars/index'
+// Phase 69 / ISSUE-029 §6.4 — hireable adventurer roster module.
+import { adventurersModule } from '../modules/adventurers/index'
 
 // Phase 20 §20.1 — Cardless playtest runner.
 //
@@ -71,6 +73,10 @@ export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   factionModule,
   supplierModule,
   regularModule,
+  // Phase 69 / ISSUE-029 §6.4 — adventurers module runs alongside the
+  // other world-state modules. Its only hook is `endWeek`, so its
+  // position before service/owner-actions is just for clarity.
+  adventurersModule,
   ownerActionsModule,
   serviceModule,
   weeklyModule,

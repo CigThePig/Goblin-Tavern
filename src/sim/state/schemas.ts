@@ -480,6 +480,23 @@ export const NotableNpcWorldStateSchema = z.object({
   activeFlags: z.array(z.string()),
 })
 
+// Phase 69 / ISSUE-029 §5.4 — Hireable adventurer roster schema.
+export const HireableAdventurerSchema = z.object({
+  id: z.string(),
+  name: GeneratedNameSchema,
+  cultureId: z.string(),
+  experience: meter(),
+  reliability: meter(),
+  relationship: meter(),
+  specialty: z.string().nullable(),
+  wageBase: z.number().min(0),
+  daysSinceLastJob: nonNegativeInt(),
+  currentExpeditionId: z.string().nullable(),
+  joinedDay: nonNegativeInt(),
+  tags: z.array(z.string()),
+  activeFlags: z.array(z.string()),
+})
+
 // Phase 35 §35.2 — arc lifecycle stages.
 export const LocalArcStageSchema = z.enum([
   'seeded',
@@ -551,6 +568,8 @@ export const WorldStateSchema = z.object({
   localEvents: z.record(z.string(), LocalEventWorldStateSchema),
   tavernIdentity: TavernIdentityStateSchema,
   socialRumours: z.record(z.string(), SocialRumourStateSchema),
+  // Phase 69 / ISSUE-029 §5.4 — hireable adventurer roster.
+  hireableAdventurers: z.record(z.string(), HireableAdventurerSchema),
   rngStreams: z.record(z.string(), RngStateSchema).optional(),
 })
 

@@ -40,7 +40,7 @@ how to verify the fix.
 | ISSUE-001 | Response pipeline + unified pending queue | broken | done | 41 |
 | ISSUE-002 | World mutator cause emission + state diff coverage | thin | done | 42 |
 | ISSUE-003 | Per-cause `relatedActors` in 4 silent calculators | broken | done | 43 |
-| ISSUE-004 | NPC factory + initial notable NPC roster | broken | open | — |
+| ISSUE-004 | NPC factory + initial notable NPC roster | broken | done | 44 |
 | ISSUE-005 | Grow staff roster + role-specific identity | thin | open | — |
 | ISSUE-006 | Grow areas roster + un-pin `main_room` | thin | open | — |
 | ISSUE-007 | Grow stock items roster | thin | open | — |
@@ -201,8 +201,8 @@ prioritizes leverage: response wiring unblocks the most features.
 ### ISSUE-004 — NPC factory + initial notable NPC roster
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 44
 - **Evidence:**
   - `src/sim/content/npc/npcFactory.ts` — entire file is a placeholder
     comment plus `export {}`. No factory function exists.

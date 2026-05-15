@@ -66,7 +66,7 @@ how to verify the fix.
 | ISSUE-025 | Stock-and-recipe model extension | thin | done | 65 |
 | ISSUE-026 | Ingredient + starter recipe catalog grow | thin | done | 66 |
 | ISSUE-027 | Culinary renown reputation axis | thin | done | 67 |
-| ISSUE-028 | Specialty supplier expansion | thin | open | — |
+| ISSUE-028 | Specialty supplier expansion | thin | done | 68 |
 | ISSUE-029 | Hireable adventurer roster | thin | open | — |
 | ISSUE-030 | Expedition subsystem | thin | open | — |
 | ISSUE-031 | Cook tier grow + preparation gating | thin | open | — |
@@ -647,8 +647,8 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 ### ISSUE-028 — Specialty supplier expansion
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 68
 - **Evidence:**
   - `src/sim/content/suppliers/supplierRegistry.ts` — 4 suppliers, one
     per category. All goods provided are `common` tier.

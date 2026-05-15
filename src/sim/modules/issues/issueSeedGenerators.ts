@@ -23,6 +23,7 @@ import {
   displayNameForRef,
   effect,
   factionRef,
+  findNotableNpcByFaction,
   makeProfile,
   namedEntityIngredient,
   pressureCauseRefsAsEntries,
@@ -2054,7 +2055,17 @@ function generateInspection(ctx: SimContext): IssueSeed[] {
   const localShrine = ctx.state.world.factions['local_shrine']
     ? factionRef('local_shrine')
     : undefined
-  const inspectorActor = townWatch ?? systemRef('inspector')
+  // Phase 44 §ISSUE-004 — Prefer a notable NPC actor (the watch
+  // inspector) when one exists for the town_watch faction. This lifts
+  // four faction-bound futureHooks (`corrupt_inspector_relationship`,
+  // `inspection_discovery_possible`, `town_watch_goodwill`,
+  // `town_watch_advisor`) onto a notable_npc ref in one shot and feeds
+  // a non-zero `notable_npc:` axis into the named-entity-repetition
+  // audit. Falls back to the faction ref, then to a system ref, so
+  // inspections still fire on states where the world.notableNpcs slot
+  // is empty (e.g. legacy save migrations).
+  const watchInspectorNpc = findNotableNpcByFaction(ctx.state, 'town_watch')
+  const inspectorActor = watchInspectorNpc ?? townWatch ?? systemRef('inspector')
 
   const allStaff = Object.values(ctx.state.staff)
   const cook = allStaff.find((s) => s.role === 'cook')
@@ -2229,7 +2240,13 @@ function generateInspection(ctx: SimContext): IssueSeed[] {
       futureHooks: [
         {
           id: 'corrupt_inspector_relationship',
-          actors: townWatch ? [townWatch] : [],
+          // Phase 44 §ISSUE-004 — Route through `inspectorActor` so the
+          // futureHook binds to the watch inspector NPC when one is
+          // seeded, lighting up the `notable_npc` ref kind for
+          // downstream attribution + named-entity audits. Falls back to
+          // the faction ref / system ref through `inspectorActor`'s own
+          // resolution chain.
+          actors: [inspectorActor],
           tags: ['inspection', 'risk'],
         },
       ],
@@ -2275,7 +2292,10 @@ function generateInspection(ctx: SimContext): IssueSeed[] {
       futureHooks: [
         {
           id: 'inspection_discovery_possible',
-          actors: townWatch ? [townWatch] : [],
+          // Phase 44 §ISSUE-004 — Lift to `inspectorActor` so the
+          // notable NPC ref reaches this hook (see corrupt_inspector
+          // hook above for the full note).
+          actors: [inspectorActor],
           tags: ['inspection', 'risk'],
         },
       ],
@@ -2459,7 +2479,8 @@ function generateInspection(ctx: SimContext): IssueSeed[] {
       futureHooks: [
         {
           id: 'town_watch_goodwill',
-          actors: townWatch ? [townWatch] : [],
+          // Phase 44 §ISSUE-004 — Lift to `inspectorActor`.
+          actors: [inspectorActor],
           tags: ['inspection', 'opportunity'],
         },
       ],
@@ -2529,7 +2550,12 @@ function generateInspection(ctx: SimContext): IssueSeed[] {
       futureHooks: [
         {
           id: 'town_watch_advisor',
-          actors: townWatch ? [townWatch] : [],
+          // Phase 44 §ISSUE-004 — The orphan hook in ISSUE-004's
+          // evidence. Lifting through `inspectorActor` binds it to the
+          // watch inspector NPC when seeded, which is the explicit
+          // resolution called for in the issue scope ("at least one
+          // seed family hook that binds to a notable NPC").
+          actors: [inspectorActor],
           tags: ['inspection', 'opportunity'],
         },
       ],

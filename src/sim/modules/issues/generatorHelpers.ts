@@ -370,8 +370,28 @@ export function factionRef(id: string): EntityRef {
 export function regularRef(id: string): EntityRef {
   return { kind: 'regular', id }
 }
+export function notableNpcRef(id: string): EntityRef {
+  return { kind: 'notable_npc', id }
+}
 export function cultureRef(id: string): EntityRef {
   return { kind: 'culture', id }
+}
+
+// Phase 44 §ISSUE-004 — Lookup helper for notable NPCs by faction.
+// Iterates `state.world.notableNpcs` in stable id order and returns the
+// first ref whose `factionId` matches. Lets seed generators prefer a
+// notable NPC actor over a faction-level ref when one exists, lighting
+// up the `notable_npc` ref kind for the 7+ consumer paths that already
+// branch on it.
+export function findNotableNpcByFaction(
+  state: TavernState,
+  factionId: string,
+): EntityRef | undefined {
+  const ordered = Object.values(state.world.notableNpcs).sort((a, b) =>
+    a.id.localeCompare(b.id),
+  )
+  const match = ordered.find((npc) => npc.factionId === factionId)
+  return match ? notableNpcRef(match.id) : undefined
 }
 export function localArcRef(id: string): EntityRef {
   return { kind: 'local_event', id }

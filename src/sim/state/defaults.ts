@@ -33,6 +33,11 @@ import {
 } from '../content/suppliers/supplierRegistry'
 import { createStaffIdentity } from '../content/staff/staffIdentityFactory'
 import { ensureRequiredStaffIdentityProfilesRegistered } from '../content/staff/staffIdentityProfiles'
+import { createNotableNpc } from '../content/npc/npcFactory'
+import {
+  ensureRequiredNotableNpcProfilesRegistered,
+  notableNpcProfileRegistry,
+} from '../content/npc/notableNpcProfiles'
 import { createRngStreams } from '../core/rng'
 import {
   cultureRegistry,
@@ -53,6 +58,7 @@ import type {
   CultureWorldState,
   CustomerGroupState,
   FactionWorldState,
+  NotableNpcWorldState,
   PressureState,
   RegularWorldState,
   ReputationState,
@@ -417,17 +423,56 @@ function createInitialRegulars(
   return regulars
 }
 
-// Phase 25 §"Default World State" / Phase 29 §29.2 / Phase 30 §§30.3,
-// 30.5 — containers for the top-level `world` branch. Phase 25
-// deliberately left every record empty; Phase 29 started seeding the
-// supplier branch from the registry; Phase 30 adds culture and faction
-// seeding so the entire world identity layer exists from day zero.
+// Phase 44 §ISSUE-004 — Seed `state.world.notableNpcs` from the
+// notable-NPC profile registry. The Phase 22 skeleton reserved the
+// slot empty; ISSUE-004 fills it with the registered starter profiles
+// so the `notable_npc` ref kind has reachable targets for the 7+
+// consumer code paths that already branch on it (pressure, feedback,
+// weekly, service, issues, causes), and so the inspection family's
+// `town_watch_advisor` futureHook can bind to a real notable NPC.
 //
-// Audit fixes pass 1 §1.3 — `regulars` is now also seeded from day zero
-// so the identity, memory, and seed pipelines exercise this branch
-// during cardless evaluation runs. `notableNpcs`, `localEvents`, and
-// `socialRumours` still start empty — those entities only emerge during
-// play.
+// Names are generated once, deterministically, through the
+// `npc_identity` RNG stream — same default state → same default
+// notable NPC roster, every time. The stable seed (`initial-notable-
+// npcs`) mirrors the `initial-staff-identity` / `initial-regulars`
+// convention used elsewhere in this file.
+function createInitialNotableNpcs(): Record<string, NotableNpcWorldState> {
+  ensureRequiredNotableNpcProfilesRegistered()
+  const streams = createRngStreams('initial-notable-npcs')
+  const rng = streams.get('npc_identity')
+  const existingNames = new Set<string>()
+  const result: Record<string, NotableNpcWorldState> = {}
+  // Iterate in stable registry order so reordering the
+  // REQUIRED_NOTABLE_NPC_PROFILES array does not shift the RNG sequence
+  // and thereby the generated names.
+  const orderedProfiles = [...notableNpcProfileRegistry.all()].sort((a, b) =>
+    a.id.localeCompare(b.id),
+  )
+  for (const profile of orderedProfiles) {
+    const { npc, generatedName } = createNotableNpc({
+      npcId: profile.defaultNpcId,
+      profileId: profile.id,
+      rng,
+      firstSeenDay: 0,
+      existingNames,
+    })
+    existingNames.add(generatedName.display)
+    result[npc.id] = npc
+  }
+  return result
+}
+
+// Phase 25 §"Default World State" / Phase 29 §29.2 / Phase 30 §§30.3,
+// 30.5 / Phase 44 §ISSUE-004 — containers for the top-level `world`
+// branch. Phase 25 deliberately left every record empty; Phase 29
+// started seeding the supplier branch from the registry; Phase 30 adds
+// culture and faction seeding; ISSUE-004 adds notable NPC seeding so
+// the entire world identity layer exists from day zero.
+//
+// Audit fixes pass 1 §1.3 — `regulars` is also seeded from day zero so
+// the identity, memory, and seed pipelines exercise this branch during
+// cardless evaluation runs. `localEvents` and `socialRumours` still
+// start empty — those entities only emerge during play.
 export function createInitialWorldState(
   customerGroups?: Record<string, CustomerGroupState>,
 ): WorldState {
@@ -437,7 +482,7 @@ export function createInitialWorldState(
     factions: createInitialFactions(),
     suppliers: createInitialSuppliers(),
     regulars: createInitialRegulars(groups),
-    notableNpcs: {},
+    notableNpcs: createInitialNotableNpcs(),
     localEvents: {},
     tavernIdentity: {
       foundingDay: 0,

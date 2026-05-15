@@ -54,6 +54,46 @@ function targetForChange(change: StateChange): string | undefined {
     const id = change.path.split('.')[1]
     return id ? `pressure:${id}` : undefined
   }
+  // ISSUE-002 (phase 42) — world slices. Per-field cause targets emitted
+  // by the engine's world mutators use the flat path style
+  // (`cultures.foo.familiarity`) and match diff paths directly; explicit
+  // `addCause` call sites that use the id-only canonical target
+  // (`culture:foo`) match through `targetMatches`' prefix relationship.
+  if (change.path.startsWith('cultures.')) {
+    const id = change.path.split('.')[1]
+    return id ? `culture:${id}` : undefined
+  }
+  if (change.path.startsWith('factions.')) {
+    const id = change.path.split('.')[1]
+    return id ? `faction:${id}` : undefined
+  }
+  if (change.path.startsWith('suppliers.')) {
+    const id = change.path.split('.')[1]
+    return id ? `supplier:${id}` : undefined
+  }
+  if (change.path.startsWith('regulars.')) {
+    const id = change.path.split('.')[1]
+    return id ? `regular:${id}` : undefined
+  }
+  if (change.path.startsWith('notableNpcs.')) {
+    const id = change.path.split('.')[1]
+    return id ? `notable_npc:${id}` : undefined
+  }
+  if (change.path.startsWith('localEvents.')) {
+    const id = change.path.split('.')[1]
+    return id ? `local_event:${id}` : undefined
+  }
+  if (change.path.startsWith('socialRumours.')) {
+    const id = change.path.split('.')[1]
+    return id ? `rumour:${id}` : undefined
+  }
+  if (change.path === 'tavernIdentity' || change.path.startsWith('tavernIdentity.')) {
+    return 'tavernIdentity'
+  }
+  // `modules.*` is intentionally left unmapped. Module-internal state
+  // mutations have no canonical cause-target convention, so surfacing
+  // them as "unexplained" is the right audit signal until each module
+  // chooses to attribute its own writes.
   return undefined
 }
 

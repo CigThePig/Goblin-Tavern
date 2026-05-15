@@ -38,7 +38,7 @@ how to verify the fix.
 | ID | Title | Grade | Status | Phase |
 |---|---|---|---|---|
 | ISSUE-001 | Response pipeline + unified pending queue | broken | done | 41 |
-| ISSUE-002 | World mutator cause emission + state diff coverage | thin | open | — |
+| ISSUE-002 | World mutator cause emission + state diff coverage | thin | done | 42 |
 | ISSUE-003 | Per-cause `relatedActors` in 4 silent calculators | broken | open | — |
 | ISSUE-004 | NPC factory + initial notable NPC roster | broken | open | — |
 | ISSUE-005 | Grow staff roster + role-specific identity | thin | open | — |
@@ -120,8 +120,8 @@ prioritizes leverage: response wiring unblocks the most features.
 ### ISSUE-002 — World mutator cause emission + state diff coverage
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 42
 - **Evidence:**
   - `src/sim/core/engine.ts` core mutators (`modifyArea`, `modifyStock`,
     `modifyStaff`, `modifyCustomerGroup`) emit one cause per changed

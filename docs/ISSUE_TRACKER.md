@@ -32,6 +32,8 @@ how to verify the fix.
 - `done` — phase merged, tests passing, behavior verified against the
   evidence in the issue entry
 - `deferred` — known issue, consciously skipped this repair pass
+- `superseded` — replaced by a later issue or arc. The entry stays in
+  place as history; the `Superseded by:` field names the replacement.
 
 ## Issue index
 
@@ -41,11 +43,11 @@ how to verify the fix.
 | ISSUE-002 | World mutator cause emission + state diff coverage | thin | done | 42 |
 | ISSUE-003 | Per-cause `relatedActors` in 4 silent calculators | broken | done | 43 |
 | ISSUE-004 | NPC factory + initial notable NPC roster | broken | done | 44 |
-| ISSUE-005 | Grow staff roster + role-specific identity | thin | open | — |
-| ISSUE-006 | Grow areas roster + un-pin `main_room` | thin | open | — |
-| ISSUE-007 | Grow stock items roster | thin | open | — |
-| ISSUE-008 | Grow customer groups roster | thin | open | — |
-| ISSUE-009 | Grow suppliers roster + specialty category | thin | open | — |
+| ISSUE-005 | Grow staff roster + role-specific identity | thin | superseded | — |
+| ISSUE-006 | Grow areas roster + un-pin `main_room` | thin | superseded | — |
+| ISSUE-007 | Grow stock items roster | thin | superseded | — |
+| ISSUE-008 | Grow customer groups roster | thin | superseded | — |
+| ISSUE-009 | Grow suppliers roster + specialty category | thin | superseded | — |
 | ISSUE-010 | Grow cultures + cross-cutting cultures + tag alignment | thin | open | — |
 | ISSUE-011 | Lift regular cap + add starter regulars | thin | open | — |
 | ISSUE-012 | Add niche factions + factionUpdate triggers for missing 2 | thin | open | — |
@@ -61,6 +63,15 @@ how to verify the fix.
 | ISSUE-022 | History log pruning policy | thin | open | — |
 | ISSUE-023 | RNG stream prune or wire | thin | open | — |
 | ISSUE-024 | Thin family profile depth + core picker rotation | thin | open | — |
+| ISSUE-025 | Stock-and-recipe model extension | thin | open | — |
+| ISSUE-026 | Ingredient + starter recipe catalog grow | thin | open | — |
+| ISSUE-027 | Culinary renown reputation axis | thin | open | — |
+| ISSUE-028 | Specialty supplier expansion | thin | open | — |
+| ISSUE-029 | Hireable adventurer roster | thin | open | — |
+| ISSUE-030 | Expedition subsystem | thin | open | — |
+| ISSUE-031 | Cook tier grow + preparation gating | thin | open | — |
+| ISSUE-032 | Demand-side niche customer groups | thin | open | — |
+| ISSUE-033 | Storage areas + system integration polish | thin | open | — |
 
 ---
 
@@ -250,8 +261,14 @@ cited, it's the count observed on the most recent 28-day audit run.
 ### ISSUE-005 — Grow staff roster + role-specific identity
 
 - **Grade:** thin
-- **Status:** open
+- **Status:** superseded
 - **Phase:** unassigned
+- **Superseded by:** ISSUE-031 (cook tier grow + preparation gating)
+- **Supersede note:** The Rare Ingredients Economy arc subsumes this
+  work. See `docs/plans/rare-ingredients-economy.md`. The original
+  scope below is preserved for history; the actual staff grow happens
+  in ISSUE-031 where cook skill becomes load-bearing against recipe
+  prepDifficulty.
 - **Evidence:**
   - `src/sim/registries/staffRegistry.ts:41,65,89` — 3 roles only
     (`cook`, `server`, `cleaner_bouncer`).
@@ -277,8 +294,14 @@ cited, it's the count observed on the most recent 28-day audit run.
 ### ISSUE-006 — Grow areas roster + un-pin `main_room`
 
 - **Grade:** thin
-- **Status:** open
+- **Status:** superseded
 - **Phase:** unassigned
+- **Superseded by:** ISSUE-033 (storage areas + system integration polish)
+- **Supersede note:** The Rare Ingredients Economy arc subsumes this
+  work. See `docs/plans/rare-ingredients-economy.md`. The original
+  scope below is preserved for history; ISSUE-033 carries the same
+  un-pinning work plus two areas with gameplay weight (herb garden,
+  cold cellar).
 - **Evidence:**
   - `src/sim/registries/areaRegistry.ts:32,49,66,83,100` — 5 areas
     (`main_room`, `kitchen`, `cellar`, `privy`, `roof`).
@@ -309,8 +332,15 @@ cited, it's the count observed on the most recent 28-day audit run.
 ### ISSUE-007 — Grow stock items roster
 
 - **Grade:** thin
-- **Status:** open
+- **Status:** superseded
 - **Phase:** unassigned
+- **Superseded by:** ISSUE-025 (stock-and-recipe model extension),
+  ISSUE-026 (ingredient + starter recipe catalog grow)
+- **Supersede note:** The Rare Ingredients Economy arc subsumes this
+  work. See `docs/plans/rare-ingredients-economy.md`. The original
+  scope below treated stock as a flat list to extend; the new arc
+  introduces rarity tiers and a recipe layer first, then grows the
+  catalog within that structure.
 - **Evidence:** `src/sim/registries/stockRegistry.ts:27,40,53,66,86,99`
   — 6 items (`ale`, `stew`, `ingredients`, `mushrooms`, `firewood`,
   `mugs`).
@@ -332,8 +362,15 @@ cited, it's the count observed on the most recent 28-day audit run.
 ### ISSUE-008 — Grow customer groups roster
 
 - **Grade:** thin
-- **Status:** open
+- **Status:** superseded
 - **Phase:** unassigned
+- **Superseded by:** ISSUE-032 (demand-side niche customer groups)
+- **Supersede note:** The Rare Ingredients Economy arc subsumes this
+  work. See `docs/plans/rare-ingredients-economy.md`. The original
+  scope's "fringe group" gap is filled by niche groups gated on the
+  new `culinary_renown` reputation axis — their existence is a
+  consequence of the gameplay loop rather than a standalone roster
+  addition.
 - **Evidence:**
   - `src/sim/registries/customerRegistry.ts:46,86,126,166,206` — 5
     groups (`local_goblins`, `miners`, `merchants`, `ogres`,
@@ -360,8 +397,14 @@ cited, it's the count observed on the most recent 28-day audit run.
 ### ISSUE-009 — Grow suppliers roster + specialty category
 
 - **Grade:** thin
-- **Status:** open
+- **Status:** superseded
 - **Phase:** unassigned
+- **Superseded by:** ISSUE-028 (specialty supplier expansion)
+- **Supersede note:** The Rare Ingredients Economy arc subsumes this
+  work. See `docs/plans/rare-ingredients-economy.md`. ISSUE-028 carries
+  the same expansion plus the specialty category, now scoped to carry
+  uncommon-tier ingredients as the low-effort baseline acquisition
+  path before expeditions.
 - **Evidence:**
   - `src/sim/content/suppliers/supplierRegistry.ts:20,33,46,59` — 4
     suppliers, one per category (mushrooms, ale, grain, meat).
@@ -475,6 +518,359 @@ cited, it's the count observed on the most recent 28-day audit run.
   each new trigger pair; verify `local_shrine` and `scrap_collectors`
   drift on those days. Verify the new factions appear in
   `state.world.factions` and as `faction_request` family targets.
+
+---
+
+## Tier 1.5 — Rare Ingredients Economy
+
+This tier replaces the original ISSUE-005…ISSUE-009 roster grows with a
+unified gameplay system: the player commissions adventurers to fetch
+rare ingredients, cooks prepare them at varying skill, and the tavern's
+culinary reputation pulls in new niche customer groups.
+
+The arc's full design lives in
+[`docs/plans/rare-ingredients-economy.md`](plans/rare-ingredients-economy.md).
+That document is the locked specification. Each issue below references
+the design doc for the authoritative rules; the entry itself records the
+issue-scoped evidence, scope summary, dependencies, and verification
+approach.
+
+The dependency chain forces a clear order: model first (025), data
+second (026), reputation and acquisition paths next (027, 028, 029,
+030), preparation and demand (031, 032), integration last (033).
+
+### ISSUE-025 — Stock-and-recipe model extension
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** unassigned
+- **Evidence:**
+  - `src/sim/registries/stockRegistry.ts` — 6 stock items, no rarity
+    classification.
+  - `src/sim/state/TavernState.ts` — no recipe state, no recipe
+    registry. The service flow consumes stock items directly as if
+    they were the served dishes.
+  - `serviceModule.resolveService` — sale price computed from
+    `stockState.salePrice` directly, with no preparation step
+    between ingredient and dish.
+- **Impact:** No mechanism to differentiate rare ingredients from
+  common ones. Customer demand and memory writes point at stock ids,
+  not dishes — adding multi-input recipes later would require
+  retroactively rewriting every memory key and demand profile. The
+  recipe abstraction is the only stable place to put `prepDifficulty`,
+  cultural tags, and demand-tier metadata.
+- **Scope:** See `docs/plans/rare-ingredients-economy.md` §5.1, §5.2,
+  §6.1. Add `rarity` field to `StockState`. Add `recipeRegistry` with
+  `RecipeDefinition` carrying `inputs`, `prepDifficulty`, `demandTier`,
+  `culturalTags`. Add `state.recipes` slice with Zod schema. Extend
+  `serviceModule.resolveService` so customer orders resolve to a
+  recipe id, the recipe's `inputs` decrement from stock, and served
+  quality computes from ingredient quality plus a cook prep multiplier
+  (the cook-skill gate wires in ISSUE-031). Classify the existing six
+  stock items as `common`. Register 1:1 starter recipes for each so
+  the existing service flow continues to function unchanged.
+- **Depends on:** none (foundation issue for the arc)
+- **Test approach:** Existing `phase09.stock.test.ts` and
+  `phase12.service.test.ts` continue to pass with their stock items
+  graded `common` and routed through 1:1 recipes. New tests:
+  cross-reference validation rejects a recipe whose `inputs`
+  reference an unknown ingredient id; state with `recipes`
+  round-trips through schemas without loss; a 7-day playtest using
+  only the existing six items shows no behaviour change versus the
+  pre-extension baseline.
+
+### ISSUE-026 — Ingredient + starter recipe catalog grow
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** unassigned
+- **Evidence:**
+  - `src/sim/registries/stockRegistry.ts` — 6 items, all `common`
+    after ISSUE-025 lands.
+  - Without uncommon/rare/legendary ingredients, the rest of the arc
+    has nothing to operate on: suppliers can't carry specialty goods,
+    expeditions have nothing to fetch, cooks have nothing to botch,
+    niche customers have nothing to demand.
+- **Impact:** This is the data layer the entire arc reads from. Six
+  ingredients across one tier is not enough for the picker, the
+  expedition outcome roller, the customer demand model, or the
+  cook-skill gate to do anything meaningful.
+- **Scope:** See `docs/plans/rare-ingredients-economy.md` §4.1, §6.2.
+  Add 12–18 ingredient definitions distributed across the four rarity
+  tiers (approximately 0 common, 4–6 uncommon, 5–8 rare, 2–4
+  legendary). Each carries the full stock fields plus rarity, tag list
+  including any cultural tags, and an appropriate spoilage profile per
+  the rarity-tier table in §4.1. Register a 1:1 starter recipe per new
+  ingredient (`dish_<ingredient_id>`) with `prepDifficulty` set per
+  tier (common 20, uncommon 40, rare 65, legendary 85) and
+  `demandTier` matching rarity.
+- **Depends on:** ISSUE-025
+- **Test approach:** Cross-reference validation passes across all
+  registries. Each new ingredient has a corresponding 1:1 recipe.
+  Spoilage-rate tests confirm rare and legendary items decay roughly
+  twice as fast as common. The grow is observable in the
+  named-entity-repetition report as new entities available for picker
+  rotation.
+
+### ISSUE-027 — Culinary renown reputation axis
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** unassigned
+- **Evidence:**
+  - `src/sim/state/defaults.ts:186-201` — `createInitialReputation()`
+    returns 9 axes; none capture fame for sourcing rare ingredients.
+  - `tasty` measures execution; `strange` measures oddity. Neither
+    suits a loop where having a rare ingredient *and* serving it well
+    both feed the same fame signal.
+- **Impact:** Without a renown axis, niche customer arrival has
+  nothing to gate on, the loop's positive feedback has nowhere to
+  accumulate, and expedition/preparation outcomes have no reputation
+  surface to register against.
+- **Scope:** See `docs/plans/rare-ingredients-economy.md` §4.6, §5.5,
+  §6.6. Register `culinary_renown` in `reputationRegistry`. Add the
+  field to `ReputationState` with initial value 10. Wire producers:
+  positive drift on uncommon-tier+ recipe served well, on excellent
+  prep of rare+, on expedition success; negative drift on
+  rare-tier+ ingredient spoilage, on botched rare-tier+ prep, on
+  `runner_lost` involving a named adventurer (relationship > 60).
+  Every drift writes a cause entry with `relatedActors`. Slow natural
+  decay when only common-tier dishes are served for an extended
+  period.
+- **Depends on:** ISSUE-025, ISSUE-026
+- **Test approach:** Reputation round-trips through schemas. Serving a
+  rare-tier+ recipe with cook skill ≥ prepDifficulty registers a
+  positive drift with cause entry. Botching a rare-tier+ recipe
+  registers negative drift. A 30-day playtest serving only common
+  dishes shows `culinary_renown` drifting slowly downward toward 0.
+
+### ISSUE-028 — Specialty supplier expansion
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** unassigned
+- **Evidence:**
+  - `src/sim/content/suppliers/supplierRegistry.ts` — 4 suppliers, one
+    per category. All goods provided are `common` tier.
+  - `supplierDistrust` calculator's "switch to alternate"
+    recommendation has no real target — one supplier per category
+    means switching loses the category entirely.
+  - 28-day hit count: `supplier:brakka_mushroom_cart = 35`.
+- **Impact:** Without specialty suppliers, the only path to
+  uncommon-tier ingredients is expeditions, which are high-effort. The
+  system needs a low-effort, predictable baseline route to uncommon so
+  the player can step into the rare-ingredient economy before
+  committing to expeditions.
+- **Scope:** See `docs/plans/rare-ingredients-economy.md` §6.2. Add a
+  second supplier per existing category with deliberately different
+  trade-offs (cheap-unreliable vs expensive-stable), at least one of
+  which carries one uncommon-tier ingredient in its `goodsProvided`.
+  Add one new category — "specialty goods" — with one starter supplier
+  providing 2–3 uncommon-tier ingredients. The "switch supplier"
+  consequence option in the `supplier_relationship` family now has
+  meaningful targets.
+- **Depends on:** ISSUE-002, ISSUE-026
+- **Test approach:** Cross-reference validation passes (every
+  `goodsProvided` id exists in stockRegistry). `supplier_distrust`
+  pressure's "switch to alternate" resolves to a real supplier in the
+  same category. The grown roster appears in the named-entity-
+  repetition report with hit counts dropping from the prior
+  `brakka_mushroom_cart = 35` concentration into the
+  roster-proportional range.
+
+### ISSUE-029 — Hireable adventurer roster
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** unassigned
+- **Evidence:**
+  - `state.world.hireableAdventurers` does not exist.
+  - `npc_identity` RNG stream has only one consumer (ISSUE-004's
+    notable NPC roster); ISSUE-023 flagged it as under-wired.
+  - The existing `adventurers` customer group represents demand-side
+    adventurers; no supply-side counterpart exists.
+- **Impact:** Without a persistent hireable roster, expeditions have
+  nothing to commission against. The roster must exist before
+  ISSUE-030 can wire the action surface.
+- **Scope:** See `docs/plans/rare-ingredients-economy.md` §4.5, §5.4,
+  §6.4. Add `state.world.hireableAdventurers: HireableAdventurer[]`.
+  Seed: 3 hireable adventurers generated via the `npc_identity` RNG
+  stream using the existing `adventuring_bands` naming profile. Soft
+  cap 4 (rising with `culinary_renown`), hard cap 6. Weekly drift
+  evaluated by `adventurer_roster` RNG stream: roster slots may turn
+  over per the rules in §5.4. Each adventurer carries experience,
+  reliability, relationship, specialty tag, wageBase,
+  daysSinceLastJob, currentExpeditionId. Add new `onExpeditionResolved`
+  hook that adjusts the runner's stats post-resolution (consumed in
+  ISSUE-030).
+- **Depends on:** ISSUE-004, ISSUE-026
+- **Test approach:** Adventurers generate deterministically from
+  seed. Names are generated once at creation and persist across
+  reloads. The soft cap responds to `culinary_renown` changes over a
+  90-day playtest. Long-inactive adventurers
+  (`daysSinceLastJob > 60`, `relationship < 40`) leave the roster on
+  a weekly drift evaluation. State round-trips through Zod schemas.
+
+### ISSUE-030 — Expedition subsystem
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** unassigned
+- **Evidence:**
+  - No expedition action surface exists. The only player-driven stock
+    acquisition is implicit through suppliers.
+  - No mechanism for rare-tier ingredient acquisition exists at all.
+- **Impact:** This is the system's core agency — the player decision
+  that activates the whole loop. Without expeditions, the catalog of
+  rare ingredients is unreachable, the adventurer roster is
+  decorative, and `culinary_renown` has nothing meaningful driving its
+  peaks.
+- **Scope:** See `docs/plans/rare-ingredients-economy.md` §4.4, §5.3,
+  §6.3. Introduce `expeditionsModule`. Add `state.expeditions` with
+  `active` and `completed` slices. Add the `commissionExpedition`
+  owner action validating runner availability and player coin. Add
+  `onDayStart` hook incrementing `daysElapsed` for each active
+  expedition; resolve those whose `daysElapsed >= daysTotal` using the
+  expedition's named RNG stream (`expedition_<expeditionId>`). Outcome
+  biased by runner experience and reliability, target tier, and mode.
+  Four outcome types: success, partial, failure, runner_lost.
+  Successful outcomes write ingredients to stock with quality computed
+  via `ingredient_quality_<expeditionId>` stream. Memory writes:
+  `expedition_success`, `expedition_failure`, `runner_lost`. Cause
+  entries against `culinary_renown` per the rules in §6.6. Cap the
+  `completed` log at 50 most recent entries.
+- **Depends on:** ISSUE-029
+- **Test approach:** Same seed + same `commissionExpedition` input +
+  same days = same outcome. Saving mid-expedition (`daysElapsed = 3`
+  of 7) and reloading resolves identically on day 7. An extra
+  niche-customer arrival roll on day 5 does not shift the outcome on
+  day 7 (named stream isolation). `runner_lost` outcome removes the
+  runner from `hireableAdventurers`. State round-trips through Zod
+  schemas across an active expedition.
+
+### ISSUE-031 — Cook tier grow + preparation gating
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** unassigned
+- **Evidence:**
+  - `src/sim/registries/staffRegistry.ts` — 3 roles, all with similar
+    skill profiles (45–55). No skill differentiation against recipe
+    prepDifficulty.
+  - 28-day named-entity-repetition: `staff:server = 56` hits (2.0/day,
+    ~10× the overuse threshold).
+  - With recipes graded prepDifficulty 20 / 40 / 65 / 85 (ISSUE-026),
+    a default cook (skill 55) botches every rare and legendary recipe.
+- **Impact:** The preparation half of the loop is empty without cooks
+  who can clear uncommon and rare tiers. Better cooks must be a
+  meaningful purchase, not just additional names on the roster.
+- **Scope:** See `docs/plans/rare-ingredients-economy.md` §4.3, §6.5.
+  Add 3–4 new staff role definitions to `staffRegistry`:
+  `kitchen_hand` (low skill), `seasoned_cook` (mid skill, clean
+  uncommon, attempts rare), `master_chef` (high skill, clean through
+  rare, attempts legendary), `forager_cook` (modest skill, reduces
+  in-kitchen spoilage). Each carries a full identity profile in 3+
+  naming cultures and a distinct stat profile. Add the soft-gate prep
+  check in `serviceModule.resolveService`: skill vs
+  `recipe.prepDifficulty` with a margin window. Memory writes:
+  `excellent_preparation` on skill above the upper margin,
+  `botched_preparation` on skill below the lower margin, including the
+  gap as severity.
+- **Depends on:** ISSUE-025, ISSUE-026
+- **Test approach:** A kitchen_hand attempting a rare recipe produces
+  a `botched_preparation` memory and a quality penalty. A master_chef
+  on the same recipe produces an `excellent_preparation` memory and a
+  quality bonus. `staff:server` and other roles drop from the prior
+  56-hit concentration in the named-entity-repetition report. The
+  `staff_identity` family rotates across the grown roster via the
+  existing recencyPenalty primitive.
+
+### ISSUE-032 — Demand-side niche customer groups
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** unassigned
+- **Evidence:**
+  - `src/sim/registries/customerRegistry.ts` — 5 groups, all active
+    from day zero. No threshold-gated arrival.
+  - No customer group exists whose patronage scales with
+    `culinary_renown`.
+  - 28-day hit counts on existing groups (`local_goblins = 34`,
+    `merchants = 32`, `miners = 30`) saturate the per-entity cap, but
+    the gap is not just density — it's the absence of any group whose
+    behaviour responds to fame.
+- **Impact:** Without niche groups, the demand-side of the loop is
+  static — increasing `culinary_renown` produces no new customer
+  behaviour. The fame is invisible to the player.
+- **Scope:** See `docs/plans/rare-ingredients-economy.md` §4.7, §5.6,
+  §6.7. Add 4–5 new customer groups: gourmand (threshold 30), foreign
+  envoy (threshold 55), food critic (threshold 50), eccentric noble
+  (threshold 70), and one more at the implementer's discretion. Add
+  the `minRenownThreshold` field to `CustomerGroupDefinition`. Each
+  new group's `preferredStockTags` align with specific recipe tiers or
+  cultural tags. Groups appear in `state.customerGroups` from day zero
+  but are inactive (`patronage: 0`) until threshold is crossed. Add a
+  decay rule: if a group's preferred recipes haven't been served for N
+  days, patronage drops back toward 0. Memory write:
+  `niche_visitor_arrived` on threshold crossing.
+- **Depends on:** ISSUE-026, ISSUE-027
+- **Test approach:** With `culinary_renown < 30`, no niche groups are
+  active. Raising renown across thresholds activates the corresponding
+  groups in order. A 30-day playtest serving only common recipes after
+  a niche group activates causes that group to decay back to inactive.
+  Each niche group's arrival appears as a memory entry with
+  `relatedActors` populated.
+
+### ISSUE-033 — Storage areas + system integration polish
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** unassigned
+- **Evidence:**
+  - `src/sim/registries/areaRegistry.ts:32,49,66,83,100` — 5 areas,
+    all generic.
+  - 28-day hit count: `area:main_room = 52`.
+  - 8 hardcoded `areaRef('main_room')` writes in
+    `src/sim/modules/issues/issueSeedGenerators.ts:989,1734,1811,1996,2076,2564,2710`
+    plus 1 in expandedSeedGenerators.
+  - Once the rest of the arc lands, several new memory keys
+    (`expedition_success`, `botched_preparation`, etc.) may have no
+    downstream consumer beyond their initial producer.
+- **Impact:** Areas need un-pinning regardless of the rare ingredients
+  arc (per the original ISSUE-006 scope), and the arc needs two areas
+  with gameplay weight (herb garden, cold cellar) to round out the
+  storage half of the loop. This issue also handles the integration
+  audit at the end of the arc.
+- **Scope:** See `docs/plans/rare-ingredients-economy.md` §4.8, §5.7,
+  §6.8.
+  - Add 4–6 area definitions to `areaRegistry`: herb garden (carries
+    `ingredientYield` for one or two uncommon herbs per week, boosted
+    by `growing_season` calendar tag), cold cellar (carries
+    `spoilageModifier` halving rare/legendary spoilage), plus 2–3
+    flavour-tier areas (private booth, stage corner, etc.).
+  - Add the `ingredientYield` and `spoilageModifier` fields to
+    `AreaDefinition`.
+  - Remove the 8 hardcoded `areaRef('main_room')` writes. Replace each
+    with picker-driven selection or state-driven rotation per the
+    target seed family's intent.
+  - Integration audit: confirm every new memory key from this arc
+    (`expedition_success`, `expedition_failure`, `runner_lost`,
+    `excellent_preparation`, `botched_preparation`,
+    `rare_ingredient_spoiled`, `served_rare_dish`,
+    `niche_visitor_arrived`) is consumed by at least one downstream
+    calculator or seed generator.
+  - Confirm `relatedActors` is non-empty for every new cause type.
+  - Verify pressure interactions per §9 of the design doc are wired.
+- **Depends on:** ISSUE-025, ISSUE-026, ISSUE-027, ISSUE-028,
+  ISSUE-029, ISSUE-030, ISSUE-031, ISSUE-032
+- **Test approach:** `area:main_room` hit count drops from 52 to
+  roster-proportional (~10 per 28 days). Herb garden produces the
+  expected weekly trickle. Cold cellar halves spoilage rate on
+  rare/legendary items in a controlled test. Every new memory key
+  produced by the arc has at least one consumer that reads it. Every
+  new cause type has non-empty `relatedActors`. System-level
+  acceptance criteria from `rare-ingredients-economy.md` §11 pass
+  end-to-end.
 
 ---
 
@@ -622,10 +1018,10 @@ infrastructure plus the relevant tier 1 roster grow.
     days; "call town watch" → faction memory plus customer-group
     distrust in 7 days; "have staff handle" → staff stress plus a
     staff skill memory.
-  - Add rotation across the customer groups grown in ISSUE-008.
+  - Add rotation across the customer groups grown in ISSUE-032.
     Trigger condition becomes "any group with elevated tension," not
     just ogres/adventurers.
-- **Depends on:** ISSUE-001, ISSUE-008
+- **Depends on:** ISSUE-001, ISSUE-032
 - **Test approach:** Set up multiple customer groups with elevated
   tension levels; verify the family rotates across them rather than
   always picking the same one. Each response slot produces distinct
@@ -654,7 +1050,7 @@ infrastructure plus the relevant tier 1 roster grow.
     cross-staff stress redistribution.
   - Add rotation: pick from staff members above the stress threshold
     via `recencyPenalty`, not always the single highest.
-- **Depends on:** ISSUE-001, ISSUE-005
+- **Depends on:** ISSUE-001, ISSUE-031
 - **Test approach:** Set up state with multiple staff above stress
   threshold; verify rotation across them in a 14-day window. Each
   response produces distinct stress, loyalty, and budget effects

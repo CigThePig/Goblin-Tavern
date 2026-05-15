@@ -9,6 +9,7 @@ import type {
   LocalEventWorldState,
   MemoryState,
   NotableNpcWorldState,
+  RecipeState,
   RegularWorldState,
   ReputationState,
   SocialRumourState,
@@ -144,6 +145,10 @@ export type SimContext = {
   modifyStock(id: string, changes: Partial<StockState>, meta: MutationMeta): void
   modifyStaff(id: string, changes: Partial<StaffState>, meta: MutationMeta): void
   modifyCustomerGroup(id: string, changes: Partial<CustomerGroupState>, meta: MutationMeta): void
+  // Phase 65 / ISSUE-025 §6.1 — recipe-slice mutations. Recipes track
+  // serving counters and the player's `onMenu` flag; mutations route
+  // through the same cause-emitting helper as other record slices.
+  modifyRecipe(id: string, changes: Partial<RecipeState>, meta: MutationMeta): void
 
   /**
    * Phase 9 §9.3 — Coin mutations route through `modifyCoin` so the

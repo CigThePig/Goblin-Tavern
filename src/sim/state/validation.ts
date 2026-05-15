@@ -1,7 +1,10 @@
 import type { z } from 'zod'
 import type { SimulationModule } from '../core/module'
 import { moduleRegistry } from '../registries/moduleRegistry'
-import { validateWorldReferences } from './referenceValidation'
+import {
+  validateRecipeReferences,
+  validateWorldReferences,
+} from './referenceValidation'
 import { buildTavernStateSchema } from './schemas'
 import type { TavernState } from './TavernState'
 import type { ValidationIssue } from './types'
@@ -87,7 +90,10 @@ export function validateState(
   // validation confirms reachability. A schema-clean state with broken
   // world pointers is still invalid and must fail.
   const parsed = result.data as unknown as TavernState
-  const referenceErrors = validateWorldReferences(parsed)
+  const referenceErrors = [
+    ...validateWorldReferences(parsed),
+    ...validateRecipeReferences(parsed),
+  ]
   if (referenceErrors.length > 0) {
     throw new Error(formatErrorMessage(referenceErrors))
   }
@@ -113,7 +119,10 @@ export function safeValidateState(
   // parse succeeds. They use the parsed/normalized data so paths line
   // up with the structure the caller actually has.
   const parsed = result.data as unknown as TavernState
-  const referenceErrors = validateWorldReferences(parsed)
+  const referenceErrors = [
+    ...validateWorldReferences(parsed),
+    ...validateRecipeReferences(parsed),
+  ]
   if (referenceErrors.length > 0) {
     return {
       success: false,

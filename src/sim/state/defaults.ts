@@ -8,6 +8,10 @@ import {
   stockRegistry,
 } from '../registries/stockRegistry'
 import {
+  ensureRequiredRecipesRegistered,
+  recipeRegistry,
+} from '../registries/recipeRegistry'
+import {
   customerRegistry,
   ensureRequiredCustomerGroupsRegistered,
 } from '../registries/customerRegistry'
@@ -60,6 +64,7 @@ import type {
   FactionWorldState,
   NotableNpcWorldState,
   PressureState,
+  RecipeState,
   RegularWorldState,
   ReputationState,
   StaffState,
@@ -106,6 +111,25 @@ function createInitialStock(): Record<string, StockState> {
     }
   }
   return stock
+}
+
+// Phase 65 / ISSUE-025 §5.2 — Recipe defaults are sourced from
+// `recipeRegistry`. Each registered recipe seeds one `RecipeState`
+// entry keyed by recipe id. The six starter recipes ship with
+// `onMenu: true` so the default service flow keeps serving the same
+// stock items via 1:1 recipe wrappers.
+function createInitialRecipes(): Record<string, RecipeState> {
+  ensureRequiredRecipesRegistered()
+  const recipes: Record<string, RecipeState> = {}
+  for (const def of recipeRegistry.all()) {
+    recipes[def.id] = {
+      id: def.id,
+      label: def.label,
+      tags: [...def.tags],
+      ...def.defaultState,
+    }
+  }
+  return recipes
 }
 
 // Phase 11 §11.1 / Phase 31 §31.8 — Staff defaults are sourced from
@@ -510,6 +534,11 @@ export function createInitialTavernState(overrides?: Partial<TavernState>): Tave
     staff: createInitialStaff(),
     customerGroups,
     reputation: createInitialReputation(),
+    // Phase 65 / ISSUE-025 §5.2 — seed `state.recipes` from the recipe
+    // registry. The six starter recipes wrap the six existing stock
+    // items as 1:1 dishes; service flow treats them as the orderable
+    // surface.
+    recipes: createInitialRecipes(),
     // Phase 25 §"Default World State" — world branch seeded so schemas
     // validate from day zero. Cultures, factions, suppliers, and (since
     // audit fixes pass 1 §1.3) starter regulars all come from the

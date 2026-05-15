@@ -75,6 +75,14 @@ export const AreaStateSchema = z.object({
   upgrades: z.record(z.string(), AreaUpgradeStateSchema),
 })
 
+// Phase 65 / ISSUE-025 §5.1 — `rarity` joins the stock state shape.
+export const StockRaritySchema = z.enum([
+  'common',
+  'uncommon',
+  'rare',
+  'legendary',
+])
+
 export const StockItemStateSchema = z.object({
   id: z.string(),
   label: z.string(),
@@ -85,6 +93,19 @@ export const StockItemStateSchema = z.object({
   salePrice: z.number().min(0),
   tags: z.array(z.string()),
   storageAreaId: z.string().optional(),
+  rarity: StockRaritySchema,
+})
+
+// Phase 65 / ISSUE-025 §5.2 — Recipe state slice schema. Runtime
+// tracking only; static config lives on `RecipeDefinition`.
+export const RecipeStateSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  tags: z.array(z.string()),
+  onMenu: z.boolean(),
+  timesServed: z.number().int().min(0),
+  daysSinceLastServed: z.number().int().min(0),
+  lastServedDay: z.number().int().min(0).nullable(),
 })
 
 // Phase 22 / Phase 24 — `GeneratedName` is the structured output of the
@@ -341,6 +362,9 @@ export const CauseEntrySchema = z.object({
     'local_event',
     'rumour',
     'tavern_identity',
+    // Phase 65 / ISSUE-025 — recipe state mutations carry the
+    // `recipe` target type so the cause schema accepts them.
+    'recipe',
   ]),
   amount: z.number(),
   direction: z.enum(['increase', 'decrease', 'neutral']),
@@ -555,6 +579,8 @@ export function buildTavernStateSchema(modules: ReadonlyArray<SimulationModule>)
     staff: z.record(z.string(), StaffStateSchema),
     customerGroups: z.record(z.string(), CustomerGroupStateSchema),
     reputation: ReputationStateSchema,
+    // Phase 65 / ISSUE-025 §5.2 — recipe slice.
+    recipes: z.record(z.string(), RecipeStateSchema),
     // Phase 25 §"Schema Additions" — top-level `world` branch.
     world: WorldStateSchema,
     memories: z.array(MemoryStateSchema),

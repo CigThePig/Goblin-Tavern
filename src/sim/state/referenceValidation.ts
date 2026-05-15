@@ -7,6 +7,7 @@
 // using the same path/message/code style as the Phase 6 validators.
 
 import { namingProfileRegistry } from '../content/naming/namingProfiles'
+import { recipeRegistry } from '../registries/recipeRegistry'
 import { staffRegistry } from '../registries/staffRegistry'
 import { stockRegistry } from '../registries/stockRegistry'
 import type { EntityRef, TavernState } from './TavernState'
@@ -197,6 +198,49 @@ export function validateEntityRef(
 // minimum set required by the phase spec; later phases can extend the
 // world without touching this helper as long as new pointers are
 // reported through the same `ValidationIssue` channel.
+// Phase 65 / ISSUE-025 §6.1 — Every recipe must reference real
+// ingredient ids. A recipe whose `inputs` point at an unknown
+// ingredient id is unservable; validation surfaces it instead of
+// letting the service flow throw at runtime.
+export function validateRecipeReferences(state: TavernState): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  for (const [id] of Object.entries(state.recipes)) {
+    const def = recipeRegistry.has(id) ? recipeRegistry.get(id) : null
+    if (!def) {
+      issues.push(
+        makeIssue(
+          `recipes.${id}`,
+          `Recipe '${id}' has no registry definition`,
+          'unknown_recipe_definition',
+        ),
+      )
+      continue
+    }
+    for (let i = 0; i < def.inputs.length; i++) {
+      const input = def.inputs[i]!
+      if (!(input.ingredientId in state.stock) && !stockRegistry.has(input.ingredientId)) {
+        issues.push(
+          makeIssue(
+            `recipes.${id}.inputs[${i}].ingredientId`,
+            `Recipe '${id}' references unknown ingredient '${input.ingredientId}'`,
+            'unknown_stock_ref',
+          ),
+        )
+      }
+      if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
+        issues.push(
+          makeIssue(
+            `recipes.${id}.inputs[${i}].quantity`,
+            `Recipe '${id}' input quantity must be a positive number`,
+            'invalid_recipe_input_quantity',
+          ),
+        )
+      }
+    }
+  }
+  return issues
+}
+
 export function validateWorldReferences(state: TavernState): ValidationIssue[] {
   const issues: ValidationIssue[] = []
   const world = state.world

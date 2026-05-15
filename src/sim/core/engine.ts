@@ -13,6 +13,7 @@ import type {
   MemoryState,
   NotableNpcWorldState,
   PressureState,
+  RecipeState,
   RegularWorldState,
   ReputationState,
   SocialRumourState,
@@ -757,6 +758,35 @@ function createContext(
         (field) => `customers.${id}.${field}`,
         'customer',
         ['customer', id],
+      )
+    },
+    modifyRecipe(id, changes, meta): void {
+      const recipe = requireRecord<RecipeState>(
+        runtime.current.recipes,
+        id,
+        'Recipe',
+      )
+      const next = { ...recipe, ...changes }
+      runtime.current = {
+        ...runtime.current,
+        recipes: {
+          ...runtime.current.recipes,
+          [id]: next,
+        },
+      }
+      // Phase 65 / ISSUE-025 — recipe state mutations are bookkeeping
+      // (timesServed, daysSinceLastServed, lastServedDay, onMenu).
+      // They still flow through the cause pipeline for parity with
+      // other record-slice mutations; non-numeric / unchanged fields
+      // are skipped by the helper.
+      emitDiffPathCausesForRecord(
+        meta,
+        recipe as unknown as Record<string, unknown>,
+        next as unknown as Record<string, unknown>,
+        changes as unknown as Record<string, unknown>,
+        (field) => `recipes.${id}.${field}`,
+        'recipe',
+        ['recipe', id],
       )
     },
     modifyCoin(delta, meta): void {

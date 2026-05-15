@@ -300,6 +300,7 @@ describe('Phase 9 — Registry, helpers, and module shape', () => {
       basePrice: 1,
       salePrice: 2,
       tags: ['food', 'perishable'],
+      rarity: 'common' as const,
     }
     // 60 - 40 * 0.5 = 40.
     expect(effectiveQuality(sample)).toBe(40)

@@ -10,6 +10,10 @@ import type { StockState } from '../state/TavernState'
 // Phase 5 §"Stock State" — Phase 9 consolidates them into the registry
 // rather than re-tuning them. `basePrice`, `salePrice`, and
 // `storageAreaId` are the new Phase 9 fields and are tuned here.
+//
+// Phase 65 / ISSUE-025 §5.1 — `defaultState` carries a `rarity` tier.
+// The six existing items are all `common`; phase 66 introduces
+// uncommon/rare/legendary ingredients in the same registry.
 
 export type StockDefaultState = Omit<StockState, 'id' | 'label' | 'tags'>
 
@@ -34,6 +38,7 @@ const REQUIRED_STOCK: StockDefinition[] = [
       basePrice: 2,
       salePrice: 3,
       storageAreaId: 'cellar',
+      rarity: 'common',
     },
   },
   {
@@ -47,6 +52,7 @@ const REQUIRED_STOCK: StockDefinition[] = [
       basePrice: 2,
       salePrice: 3,
       storageAreaId: 'kitchen',
+      rarity: 'common',
     },
   },
   {
@@ -60,6 +66,7 @@ const REQUIRED_STOCK: StockDefinition[] = [
       basePrice: 1,
       salePrice: 1,
       storageAreaId: 'kitchen',
+      rarity: 'common',
     },
   },
   {
@@ -80,6 +87,7 @@ const REQUIRED_STOCK: StockDefinition[] = [
       basePrice: 1,
       salePrice: 2,
       storageAreaId: 'cellar',
+      rarity: 'common',
     },
   },
   {
@@ -93,6 +101,7 @@ const REQUIRED_STOCK: StockDefinition[] = [
       basePrice: 1,
       salePrice: 1,
       storageAreaId: 'cellar',
+      rarity: 'common',
     },
   },
   {
@@ -106,6 +115,7 @@ const REQUIRED_STOCK: StockDefinition[] = [
       basePrice: 1,
       salePrice: 1,
       storageAreaId: 'main_room',
+      rarity: 'common',
     },
   },
 ]

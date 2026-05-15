@@ -58,6 +58,12 @@ export type AreaState = {
 // precedent set for `CustomerGroupState` (forward note in Phase 10 §"Customer
 // Group State"). The Phase 5 placeholder field `unitValue` is replaced by
 // the explicit two-price model the economy needs.
+//
+// Phase 65 / ISSUE-025 §5.1 — Stock items gain a `rarity` tier. Rarity is
+// a property of the ingredient type (the stock id), not per-batch.
+// Provenance lives in memories, not on stock state.
+export type StockRarity = 'common' | 'uncommon' | 'rare' | 'legendary'
+
 export type StockState = {
   id: string
   label: string
@@ -68,6 +74,23 @@ export type StockState = {
   salePrice: number
   tags: string[]
   storageAreaId?: string
+  rarity: StockRarity
+}
+
+// Phase 65 / ISSUE-025 §5.2 — Recipe state slice. Recipes are derived
+// dishes that consume one or more ingredient stock items; customer
+// orders resolve to recipe ids rather than stock ids. State holds only
+// runtime tracking (onMenu flag, served counters); the static config
+// (inputs, prepDifficulty, demandTier, culturalTags) lives on
+// `RecipeDefinition` in `recipeRegistry` and is read by lookup.
+export type RecipeState = {
+  id: string
+  label: string
+  tags: string[]
+  onMenu: boolean
+  timesServed: number
+  daysSinceLastServed: number
+  lastServedDay: number | null
 }
 
 // Phase 11 §11.1 / "Role typing clarification" — `StaffRoleId` is a
@@ -354,6 +377,8 @@ export type CauseTargetType =
   | 'local_event'
   | 'rumour'
   | 'tavern_identity'
+  // Phase 65 / ISSUE-025 — recipe state changes attribute to `recipe`.
+  | 'recipe'
 
 export type CauseDirection = 'increase' | 'decrease' | 'neutral'
 
@@ -554,6 +579,9 @@ export type TavernState = {
   staff: Record<string, StaffState>
   customerGroups: Record<string, CustomerGroupState>
   reputation: ReputationState
+
+  // Phase 65 / ISSUE-025 §5.2 — recipe slice. Keyed by recipe id.
+  recipes: Record<string, RecipeState>
 
   world: WorldState
 

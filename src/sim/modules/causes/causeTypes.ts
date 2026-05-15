@@ -53,6 +53,9 @@ export type CauseTargetType =
   | 'local_event'
   | 'rumour'
   | 'tavern_identity'
+  // Phase 65 / ISSUE-025 — recipe state changes (timesServed, onMenu,
+  // daysSinceLastServed) attribute to the `recipe` target type.
+  | 'recipe'
 
 export type CauseDirection = 'increase' | 'decrease' | 'neutral'
 

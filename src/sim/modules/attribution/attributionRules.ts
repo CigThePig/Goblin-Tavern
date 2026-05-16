@@ -412,8 +412,13 @@ const policyBacklashAttribution: AttributionRule = {
     const drafts: AttributionDraft[] = []
     const tavern = tavernRef(ctx.state)
 
-    const causes = recentCauses(ctx.state, RECENT_WINDOW_DAYS).filter(
-      (c) => c.tags.includes('policy') && c.direction === 'decrease',
+    // Phase 53 / ISSUE-013 — `policy_backlash` emits increase-direction
+    // causes (it raises a pressure metric, not lowers a relationship
+    // one), so the previous `direction === 'decrease'` filter dropped
+    // every policy-tagged cause. The per-cause customer_group/faction
+    // relatedActor gate below is enough to keep this rule scoped.
+    const causes = recentCauses(ctx.state, RECENT_WINDOW_DAYS).filter((c) =>
+      c.tags.includes('policy'),
     )
 
     for (const cause of causes) {

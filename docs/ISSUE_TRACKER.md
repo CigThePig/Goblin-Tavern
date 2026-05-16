@@ -51,7 +51,7 @@ how to verify the fix.
 | ISSUE-010 | Grow cultures + cross-cutting cultures + tag alignment | thin | done | 50 |
 | ISSUE-011 | Lift regular cap + add starter regulars | thin | done | 51 |
 | ISSUE-012 | Add niche factions + factionUpdate triggers for missing 2 | thin | done | 52 |
-| ISSUE-013 | `policy_backlash` family end-to-end | broken | open | — |
+| ISSUE-013 | `policy_backlash` family end-to-end | broken | done | 53 |
 | ISSUE-014 | `regular_customer` family end-to-end | broken | open | — |
 | ISSUE-015 | `reputation_shift` family rewrite | broken | open | — |
 | ISSUE-016 | `violence` family rewrite + rotation | broken | open | — |
@@ -882,8 +882,8 @@ infrastructure plus the relevant tier 1 roster grow.
 ### ISSUE-013 — `policy_backlash` family end-to-end
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 53
 - **Evidence:**
   - `src/sim/modules/issues/expandedSeedGenerators.ts:4586-4605` — 6
     response slots collapsed through `responseSlots.map((slot) =>

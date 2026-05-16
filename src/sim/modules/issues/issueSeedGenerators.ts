@@ -2189,6 +2189,9 @@ function generateDebtRent(ctx: SimContext): IssueSeed[] {
   const rent = monthly?.rent
   const missedPayments = rent?.missedPayments ?? 0
   const paidThisMonth = rent?.paidThisMonth ?? true
+  // Phase 61 / ISSUE-021 — when the `rent_due_soon` calendar tag is
+  // active, bump severity/urgency and surface a calendar cause line.
+  const rentDueSoon = (ctx.state.calendar.tags ?? []).includes('rent_due_soon')
 
   const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'debt', 2)
   causes.push(...pressureCauseRefsAsEntries(ctx, 'landlord', 2))
@@ -2317,8 +2320,8 @@ function generateDebtRent(ctx: SimContext): IssueSeed[] {
       type: 'debt_pressure',
       timing: 'end_month',
       domain: ['economy', 'monthly', 'landlord'],
-      severity: Math.max(40, debt, landlord),
-      urgency: Math.max(45, landlord + 10),
+      severity: Math.max(40, debt, landlord) + (rentDueSoon ? 10 : 0),
+      urgency: Math.max(45, landlord + 10) + (rentDueSoon ? 10 : 0),
       // Audit fixes pass 1 §5.3 — No real landlord entity exists; omit
       // primaryActor (was singleton system:landlord) and let domain +
       // location stand in.
@@ -2344,9 +2347,12 @@ function generateDebtRent(ctx: SimContext): IssueSeed[] {
         problemNoun: 'shrinking coin pile',
         sensoryDetails: ['scratched ledger', 'thin coin stack'],
         actorOpinions: { landlord: 'arms folded, frowning' },
-        recentContext: missedPayments > 0
-          ? ['rent missed previously']
-          : ['coin tight for weeks'],
+        recentContext: (() => {
+          const ctxLines: string[] =
+            missedPayments > 0 ? ['rent missed previously'] : ['coin tight for weeks']
+          if (rentDueSoon) ctxLines.push('rent window approaches')
+          return ctxLines
+        })(),
         stakesReadable: ['rent may be missed', 'landlord may evict'],
       }),
       ctx,

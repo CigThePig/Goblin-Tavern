@@ -59,7 +59,7 @@ how to verify the fix.
 | ISSUE-018 | `inspection` family un-pinning | thin | done | 58 |
 | ISSUE-019 | `monthly_review` design decision + implementation | design | done | 59 |
 | ISSUE-020 | `activeIssueSeedTags` consumer wiring | thin | done | 60 |
-| ISSUE-021 | Calendar tag consumers (priority: `rent_due_soon`) | thin | open | — |
+| ISSUE-021 | Calendar tag consumers (priority: `rent_due_soon`) | thin | done | 61 |
 | ISSUE-022 | History log pruning policy | thin | open | — |
 | ISSUE-023 | RNG stream prune or wire | thin | open | — |
 | ISSUE-024 | Thin family profile depth + core picker rotation | thin | open | — |
@@ -1160,8 +1160,8 @@ between bigger phases.
 ### ISSUE-021 — Calendar tag consumers (priority: `rent_due_soon`)
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 61
 - **Evidence:**
   - `src/sim/modules/calendar/types.ts:22-37` — 14 `CalendarTag`
     values defined.

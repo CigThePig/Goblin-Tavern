@@ -308,6 +308,13 @@ export type SimContext = {
   addHistory(draft: HistoryEntryDraft): HistoryEntry
   getRecentHistory(days: number): HistoryEntry[]
   getHistoryByTag(tag: string): HistoryEntry[]
+  /**
+   * Phase 62 / ISSUE-022 — Drop history entries whose
+   * `timestamp.absoluteDay` is strictly less than `absoluteDay`.
+   * Returns the count removed. History is debug-only, so no cause
+   * emission or change-tracker entry is generated.
+   */
+  pruneHistoryBefore(absoluteDay: number): number
 
   // Phase 17 §17.2 — Cause context API.
   //

@@ -60,7 +60,7 @@ how to verify the fix.
 | ISSUE-019 | `monthly_review` design decision + implementation | design | done | 59 |
 | ISSUE-020 | `activeIssueSeedTags` consumer wiring | thin | done | 60 |
 | ISSUE-021 | Calendar tag consumers (priority: `rent_due_soon`) | thin | done | 61 |
-| ISSUE-022 | History log pruning policy | thin | open | — |
+| ISSUE-022 | History log pruning policy | thin | done | 62 |
 | ISSUE-023 | RNG stream prune or wire | thin | open | — |
 | ISSUE-024 | Thin family profile depth + core picker rotation | thin | open | — |
 | ISSUE-025 | Stock-and-recipe model extension | thin | done | 65 |
@@ -1192,8 +1192,8 @@ between bigger phases.
 ### ISSUE-022 — History log pruning policy
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 62
 - **Evidence:**
   - `src/sim/modules/history/historyModule.ts` — validator only, no
     `endDay`, `endWeek`, or `endMonth` hook prunes entries.

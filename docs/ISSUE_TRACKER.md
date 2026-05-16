@@ -74,7 +74,7 @@ how to verify the fix.
 | ISSUE-033 | Storage areas + system integration polish | thin | done | 73 |
 | ISSUE-034 | Test worker crash silently hides ~58 untested tests | broken | done | 74 |
 | ISSUE-035 | `createStateDiff` skips `recipes`, `expeditions`, `hireableAdventurers` | thin | done | 75 |
-| ISSUE-036 | Tagged diff boundaries computed but never consumed | thin | open | — |
+| ISSUE-036 | Tagged diff boundaries computed but never consumed | thin | done | 76 |
 | ISSUE-037 | `HireableAdventurer.wageBase` / `specialty` / `activeFlags` are dead fields | broken | open | — |
 | ISSUE-038 | Cook tier/skill does not modulate service quality | thin | open | — |
 | ISSUE-039 | `culinary_renown` fame loop only reaches two consumers | thin | open | — |
@@ -1399,8 +1399,8 @@ since that work is `done`.
 ### ISSUE-036 — Tagged diff boundaries computed but never consumed
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 76
 - **Evidence:**
   - `src/sim/core/engine.ts:1463-1488` snapshots and finalizes four
     tagged diffs per day: `owner_actions`, `service`, `end_week`,

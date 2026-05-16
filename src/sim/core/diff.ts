@@ -718,15 +718,12 @@ export function filterSignificantChanges(
   return out
 }
 
-// Phase 17 §17.8 — Tag a state diff with a phase boundary label so
-// reports can render "Owner Action Diff" vs "Service Diff" headings
-// without re-deriving the boundary from the path list.
-export type PhaseBoundary =
-  | 'owner_actions'
-  | 'service'
-  | 'end_week'
-  | 'end_month'
-  | 'day'
+// Phase 17 §17.8 — Tag a state diff with a phase boundary label. Phase
+// 76 (ISSUE-036) collapsed the union to a single `'day'` member after
+// removing the `owner_actions` / `service` / `end_week` / `end_month`
+// boundaries — they were never read by production code and the
+// `service` boundary was finalized too early to be meaningful.
+export type PhaseBoundary = 'day'
 
 export type TaggedStateDiff = StateDiff & {
   boundary: PhaseBoundary

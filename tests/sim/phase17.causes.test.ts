@@ -410,31 +410,34 @@ describe('Phase 17 §17.7 — Explanation queries', () => {
   })
 })
 
-describe('Phase 17 §17.8 — Phase-boundary state diffs', () => {
-  it('SimResult carries diffs tagged by phase boundary', () => {
+describe('Phase 17 §17.8 / ISSUE-036 — Day-boundary state diffs', () => {
+  // Phase 76 (ISSUE-036): the tagged `owner_actions` / `service` /
+  // `end_week` / `end_month` boundaries were removed — no production
+  // consumer read them, and the `service` boundary was finalized five
+  // phase slots before `generateReports`. The `'day'` boundary
+  // surfaces the full mechanical movement of a simulated day.
+  it('SimResult carries a single day-boundary diff per simulated day', () => {
     const result = runDay(plentyOfStock(createInitialTavernState()), {
       ownerActions: [{ actionId: 'water_down_ale' }],
     })
     const boundaries = result.diffs.map((d) => d.boundary)
-    expect(boundaries).toContain('owner_actions')
-    expect(boundaries).toContain('service')
-    expect(boundaries).toContain('day')
+    expect(boundaries).toEqual(['day'])
   })
 
-  it('owner_actions diff captures the ale watered-down effect', () => {
+  it('day diff captures the ale watered-down effect', () => {
     const result = runDay(plentyOfStock(createInitialTavernState()), {
       ownerActions: [{ actionId: 'water_down_ale' }],
     })
-    const ownerDiff = result.diffs.find((d) => d.boundary === 'owner_actions')
-    expect(ownerDiff).toBeDefined()
-    const aleQuality = ownerDiff!.changes.find(
+    const dayDiff = result.diffs.find((d) => d.boundary === 'day')
+    expect(dayDiff).toBeDefined()
+    const aleQuality = dayDiff!.changes.find(
       (c) => c.path === 'stock.ale.quality',
     )
     expect(aleQuality).toBeDefined()
     expect(aleQuality!.delta).toBeLessThan(0)
   })
 
-  it('end_week diff appears on week-closing days', () => {
+  it('day diff still fires on week-closing days', () => {
     const base = withCoin(plentyOfStock(createInitialTavernState()), 600)
     let state = base
     let result = runDay(state)
@@ -443,8 +446,8 @@ describe('Phase 17 §17.8 — Phase-boundary state diffs', () => {
       result = runDay(state)
       state = result.state
     }
-    const weekDiff = result.diffs.find((d) => d.boundary === 'end_week')
-    expect(weekDiff).toBeDefined()
+    const dayDiff = result.diffs.find((d) => d.boundary === 'day')
+    expect(dayDiff).toBeDefined()
   })
 })
 

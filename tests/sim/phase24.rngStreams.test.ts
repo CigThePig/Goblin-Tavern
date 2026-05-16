@@ -41,56 +41,54 @@ describe('Phase 24 — RNG streams', () => {
   it('1. same seed and same stream id produce the same float sequence', () => {
     const a = createRngStreams(SEED)
     const b = createRngStreams(SEED)
-    expect(collectFloats(a.get('names'), 10)).toEqual(
-      collectFloats(b.get('names'), 10),
+    expect(collectFloats(a.get('staff_identity'), 10)).toEqual(
+      collectFloats(b.get('staff_identity'), 10),
     )
   })
 
   it('2. same seed but different streams produce different sequences', () => {
     const streams = createRngStreams(SEED)
-    const namesSeq = collectFloats(streams.get('names'), 10)
+    const namesSeq = collectFloats(streams.get('staff_identity'), 10)
     const serviceSeq = collectFloats(streams.get('service'), 10)
     expect(namesSeq).not.toEqual(serviceSeq)
   })
 
   it('3. calls in the service stream do not affect the names stream', () => {
     const streamsA = createRngStreams(SEED)
-    const namesA = collectFloats(streamsA.get('names'), 5)
+    const namesA = collectFloats(streamsA.get('staff_identity'), 5)
 
     const streamsB = createRngStreams(SEED)
     // Burn a bunch of rolls on the service stream first.
     collectFloats(streamsB.get('service'), 50)
-    const namesB = collectFloats(streamsB.get('names'), 5)
+    const namesB = collectFloats(streamsB.get('staff_identity'), 5)
 
     expect(namesA).toEqual(namesB)
   })
 
   it('4. snapshot() returns serializable stream state with call counts', () => {
     const streams = createRngStreams(SEED)
-    streams.get('names').float()
-    streams.get('names').float()
+    streams.get('staff_identity').float()
+    streams.get('staff_identity').float()
     streams.get('service').float()
 
     const snap = streams.snapshot()
-    expect(snap.names.calls).toBe(2)
+    expect(snap.staff_identity.calls).toBe(2)
     expect(snap.service.calls).toBe(1)
 
     const roundTrip = JSON.parse(JSON.stringify(snap)) as typeof snap
-    expect(roundTrip.names.calls).toBe(2)
+    expect(roundTrip.staff_identity.calls).toBe(2)
     expect(roundTrip.service.calls).toBe(1)
     // Every declared stream id should be present in the snapshot.
+    // Phase 63 / ISSUE-023 — list pruned to streams with real callers.
     const streamIds: RngStreamId[] = [
       'service',
-      'economy',
       'incidents',
-      'names',
       'npc_identity',
       'staff_identity',
-      'supplier_identity',
       'regular_identity',
-      'faction_behaviour',
       'seasonal_events',
-      'issue_seed_selection',
+      'attribution_perceiver',
+      'adventurer_roster',
     ]
     for (const id of streamIds) {
       expect(snap[id]).toBeDefined()
@@ -101,19 +99,22 @@ describe('Phase 24 — RNG streams', () => {
 
   it('5. recreating streams from a snapshot resumes call counts correctly', () => {
     const a = createRngStreams(SEED)
-    const names = a.get('names')
+    const names = a.get('staff_identity')
     names.float()
     names.float()
     const expectedThird = names.float()
 
     const snap = a.snapshot()
     // After 3 floats, the snapshot should record calls=3 for `names`.
-    expect(snap.names.calls).toBe(3)
+    expect(snap.staff_identity.calls).toBe(3)
 
     // Resume from a snapshot taken after 2 calls.
-    const partialSnap = { ...snap, names: { ...snap.names, calls: 2 } }
+    const partialSnap = {
+      ...snap,
+      staff_identity: { ...snap.staff_identity, calls: 2 },
+    }
     const b = createRngStreams(SEED, partialSnap)
-    const replayedThird = b.get('names').float()
+    const replayedThird = b.get('staff_identity').float()
     expect(replayedThird).toBe(expectedThird)
   })
 
@@ -145,7 +146,7 @@ describe('Phase 24 — RNG streams', () => {
       hooks: {
         startDay: [
           (ctx) => {
-            const names = ctx.getRngStream('names')
+            const names = ctx.getRngStream('staff_identity')
             const service = ctx.rng
             nameRoll = names.int(1, 100)
             serviceRoll = service.int(1, 100)
@@ -159,7 +160,7 @@ describe('Phase 24 — RNG streams', () => {
     expect(serviceRoll).toBeGreaterThanOrEqual(1)
     expect(serviceRoll).toBeLessThanOrEqual(100)
     // Same seed + stream id should reproduce the name roll.
-    const independent = createRngStreams(SEED).get('names').int(1, 100)
+    const independent = createRngStreams(SEED).get('staff_identity').int(1, 100)
     expect(independent).toBe(nameRoll)
   })
 
@@ -168,8 +169,8 @@ describe('Phase 24 — RNG streams', () => {
     expect(namingProfileRegistry.has('goblin_common')).toBe(true)
     const profile = namingProfileRegistry.get('goblin_common')
 
-    const a = createRngStreams(SEED).get('names')
-    const b = createRngStreams(SEED).get('names')
+    const a = createRngStreams(SEED).get('staff_identity')
+    const b = createRngStreams(SEED).get('staff_identity')
     const nameA = generateName(profile, a, 'test')
     const nameB = generateName(profile, b, 'test')
     expect(nameA.display).toBe(nameB.display)
@@ -182,18 +183,18 @@ describe('Phase 24 — RNG streams', () => {
     ensureStarterNamingProfilesRegistered()
     const profile = namingProfileRegistry.get('goblin_common')
 
-    const names = createRngStreams(SEED).get('names')
     const staff = createRngStreams(SEED).get('staff_identity')
-    const altSeed = createRngStreams(`${SEED}-alt`).get('names')
+    const regular = createRngStreams(SEED).get('regular_identity')
+    const altSeed = createRngStreams(`${SEED}-alt`).get('staff_identity')
 
     // Generate several names from each stream and require the sequences differ.
     const seq = (rng: SimRng): string[] =>
       Array.from({ length: 5 }, () => generateName(profile, rng, 'test').display)
-    const fromNames = seq(names)
     const fromStaff = seq(staff)
+    const fromRegular = seq(regular)
     const fromAltSeed = seq(altSeed)
-    expect(fromNames).not.toEqual(fromStaff)
-    expect(fromNames).not.toEqual(fromAltSeed)
+    expect(fromStaff).not.toEqual(fromRegular)
+    expect(fromStaff).not.toEqual(fromAltSeed)
   })
 
   it('10. existing Phase 4 createRng API still works (backwards compatible)', () => {

@@ -61,7 +61,7 @@ how to verify the fix.
 | ISSUE-020 | `activeIssueSeedTags` consumer wiring | thin | done | 60 |
 | ISSUE-021 | Calendar tag consumers (priority: `rent_due_soon`) | thin | done | 61 |
 | ISSUE-022 | History log pruning policy | thin | done | 62 |
-| ISSUE-023 | RNG stream prune or wire | thin | open | — |
+| ISSUE-023 | RNG stream prune or wire | thin | done | 63 |
 | ISSUE-024 | Thin family profile depth + core picker rotation | thin | open | — |
 | ISSUE-025 | Stock-and-recipe model extension | thin | done | 65 |
 | ISSUE-026 | Ingredient + starter recipe catalog grow | thin | done | 66 |
@@ -1218,8 +1218,8 @@ between bigger phases.
 ### ISSUE-023 — RNG stream prune or wire
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 63
 - **Evidence:**
   - `src/sim/core/rng.ts:123-135` — 12 streams declared. 5 have
     callers in `src/sim/`: `incidents`, `regular_identity`,

@@ -120,27 +120,27 @@ export function createRng(seed: string, calls: number = 0): SimRng {
 // (`${seed}:${streamId}`), keeps its own call counter, and can be
 // snapshotted to a plain JSON-safe record.
 
+// Phase 63 / ISSUE-023 — Pruned the original Phase 24 RNG-stream list
+// down to streams that have at least one caller in `src/sim/`. The
+// removed declarations (`economy`, `names`, `supplier_identity`,
+// `faction_behaviour`, `issue_seed_selection`, `niche_customer_arrival`)
+// were named for systems that never pulled from them; the dead
+// declarations misled readers into thinking those systems had
+// dedicated variance injection. When a future phase introduces real
+// random behaviour in one of those systems, redeclare the stream
+// then.
 export type RngStreamId =
   | 'service'
-  | 'economy'
   | 'incidents'
-  | 'names'
   | 'npc_identity'
   | 'staff_identity'
-  | 'supplier_identity'
   | 'regular_identity'
-  | 'faction_behaviour'
   | 'seasonal_events'
-  | 'issue_seed_selection'
   | 'attribution_perceiver'
   // Phase 69 / ISSUE-029 §5.4 — weekly drift roll for the hireable
   // adventurer roster: who arrives, who leaves. Names continue to use
   // `npc_identity`.
   | 'adventurer_roster'
-  // Phase 72 / ISSUE-032 §7 — daily roll for niche-group visits when
-  // their renown threshold is met. Variance on activation-day
-  // patronage ramp; not exercised heavily in phase 72.
-  | 'niche_customer_arrival'
 
 export type RngStreamState = Record<RngStreamId, RngState>
 
@@ -163,21 +163,14 @@ export type SimRngStreams = {
 
 const ALL_STREAM_IDS: ReadonlyArray<RngStreamId> = [
   'service',
-  'economy',
   'incidents',
-  'names',
   'npc_identity',
   'staff_identity',
-  'supplier_identity',
   'regular_identity',
-  'faction_behaviour',
   'seasonal_events',
-  'issue_seed_selection',
   'attribution_perceiver',
   // Phase 69 / ISSUE-029.
   'adventurer_roster',
-  // Phase 72 / ISSUE-032.
-  'niche_customer_arrival',
 ]
 
 export function createRngStreams(

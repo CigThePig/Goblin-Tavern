@@ -1,6 +1,7 @@
 export {
   regularModule,
   REGULARS_MODULE_ID,
+  MAX_REGULARS_PER_GROUP,
   createInitialRegularModuleState,
   getRegularModuleState,
 } from './regularModule'

@@ -29,6 +29,7 @@ const REQUIRED_FACTIONS: FactionDefinition[] = [
   {
     id: 'brewers_guild',
     label: 'Brewers Guild',
+    cultureId: 'guild_artisans',
     description:
       'Town brewers who price the ale supply and remember every late payment.',
     defaultRelationship: 50,
@@ -95,6 +96,53 @@ const REQUIRED_FACTIONS: FactionDefinition[] = [
     likedPolicies: ['regular_waste_payment'],
     dislikedPolicies: ['missed_pickups'],
     tags: ['pest_relevant', 'cleanliness_relevant'],
+  },
+  // Phase 52 / ISSUE-012 — Niche factions. Three additions broaden the
+  // faction breadth so seed families like `faction_request` rotate over
+  // more than the institutional starters, and so downstream rotation
+  // work (ISSUE-018, inspection un-pinning) has plausible alternates.
+  {
+    id: 'smugglers_ring',
+    label: 'Smugglers Ring',
+    description:
+      'Discreet operators who move goods around the watch and need a quiet back room.',
+    defaultRelationship: 45,
+    defaultInfluence: 30,
+    defaultTrust: 35,
+    defaultFear: 30,
+    interests: ['contraband', 'late_night_trade'],
+    likedPolicies: ['discreet_back_room'],
+    dislikedPolicies: ['watch_friendly'],
+    tags: ['underground', 'risk_tolerant'],
+  },
+  {
+    id: 'silvermark_house',
+    label: 'House Silvermark',
+    cultureId: 'traveling_outsiders',
+    description:
+      'A noble house with city interests who weigh every tavern by its appearance.',
+    defaultRelationship: 50,
+    defaultInfluence: 55,
+    defaultTrust: 45,
+    defaultFear: 35,
+    interests: ['reputation', 'high_table'],
+    likedPolicies: ['quality_service'],
+    dislikedPolicies: ['rowdy_nights', 'filth'],
+    tags: ['wealthy', 'reputation_authority'],
+  },
+  {
+    id: 'rival_taverns',
+    label: 'Rival Taverns',
+    description:
+      'Other tavern owners in town who watch wage rates, staff poaching, and customer drift.',
+    defaultRelationship: 45,
+    defaultInfluence: 40,
+    defaultTrust: 35,
+    defaultFear: 25,
+    interests: ['market_share', 'staff_poaching'],
+    likedPolicies: ['neutral_relations'],
+    dislikedPolicies: ['poaching_clients'],
+    tags: ['competition', 'rival_owner'],
   },
 ]
 

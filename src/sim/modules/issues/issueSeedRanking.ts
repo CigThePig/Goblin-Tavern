@@ -34,6 +34,11 @@ export type RankingInput = {
   templateId: string
   cooldowns: Record<string, CooldownEntry>
   absoluteDay: number
+  // Phase 60 / ISSUE-020 — active arc-emitted issue-seed tags. When a
+  // seed's domain or any of its causes carry a tag the active arcs are
+  // amplifying, the seed gets a small worthiness bonus so the arc's
+  // signal flows through to ranking.
+  activeIssueSeedTags?: ReadonlyArray<string>
 }
 
 /** Compute novelty 0–100. 100 = unseen template in the recent window. */
@@ -62,6 +67,11 @@ const ACTOR_WEEKLY_OVERUSE_PENALTY = 10
 const NAMED_ENTITY_WEEKLY_OVERUSE_PENALTY = 8
 const NAMED_ENTITY_OVERUSE_THRESHOLD = 3
 
+// Phase 60 / ISSUE-020 — bonus when this seed carries a tag (in its
+// domain or any of its causes' tags) that an active local arc is
+// amplifying. Awarded once per seed regardless of how many tags match.
+const ACTIVE_ARC_TAG_BONUS = 6
+
 const EXPANDED_PRESSURE_IDS = new Set([
   'supplier_distrust',
   'regular_customer_loss',
@@ -78,7 +88,7 @@ const EXPANDED_PRESSURE_IDS = new Set([
 
 /** Compute card-worthiness 0–100. */
 export function computeCardWorthiness(input: RankingInput): number {
-  const { seed, templateId, cooldowns, absoluteDay } = input
+  const { seed, templateId, cooldowns, absoluteDay, activeIssueSeedTags } = input
   const severity = Math.max(0, Math.min(100, seed.severity))
   const urgency = Math.max(0, Math.min(100, seed.urgency))
   const novelty = computeNovelty(templateId, cooldowns, absoluteDay)
@@ -145,6 +155,27 @@ export function computeCardWorthiness(input: RankingInput): number {
   }
   if (seed.pressures.some((p) => EXPANDED_PRESSURE_IDS.has(p.id) && p.trend === 'rising')) {
     score += RISING_EXPANDED_PRESSURE_BONUS
+  }
+
+  // Phase 60 / ISSUE-020 — active arc tag amplification.
+  if (activeIssueSeedTags && activeIssueSeedTags.length > 0) {
+    const activeSet = new Set(activeIssueSeedTags)
+    let matched = false
+    for (const d of seed.domain) {
+      if (activeSet.has(d)) {
+        matched = true
+        break
+      }
+    }
+    if (!matched) {
+      for (const c of seed.causes) {
+        if (c.tags.some((t) => activeSet.has(t))) {
+          matched = true
+          break
+        }
+      }
+    }
+    if (matched) score += ACTIVE_ARC_TAG_BONUS
   }
 
   // Actor/named-entity overuse penalties. Inspect the cooldown table for

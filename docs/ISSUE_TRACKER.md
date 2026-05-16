@@ -58,7 +58,7 @@ how to verify the fix.
 | ISSUE-017 | `staff_burnout` family rewrite + rotation | broken | done | 57 |
 | ISSUE-018 | `inspection` family un-pinning | thin | done | 58 |
 | ISSUE-019 | `monthly_review` design decision + implementation | design | done | 59 |
-| ISSUE-020 | `activeIssueSeedTags` consumer wiring | thin | open | — |
+| ISSUE-020 | `activeIssueSeedTags` consumer wiring | thin | done | 60 |
 | ISSUE-021 | Calendar tag consumers (priority: `rent_due_soon`) | thin | open | — |
 | ISSUE-022 | History log pruning policy | thin | open | — |
 | ISSUE-023 | RNG stream prune or wire | thin | open | — |
@@ -1132,8 +1132,8 @@ between bigger phases.
 ### ISSUE-020 — `activeIssueSeedTags` consumer wiring
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 60
 - **Evidence:**
   - `src/sim/modules/localArcs/localArcsModule.ts:143` — writes
     `slice.activeIssueSeedTags` (a sorted Set) on every tick from

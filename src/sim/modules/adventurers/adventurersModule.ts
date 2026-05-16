@@ -30,6 +30,11 @@ const SOFT_CAP_MAX = 6
 const HARD_CAP = 6
 const INACTIVITY_THRESHOLD_DAYS = 60
 const LEAVE_RELATIONSHIP_CEILING = 40
+// Phase 77 / ISSUE-037 — an `injured` runner recovers after enough
+// idle time has elapsed since their last job. Two weeks tracks the
+// weekly cadence of the drift hook (one tick clears the flag once
+// `daysSinceLastJob >= 14`).
+const INJURED_RECOVERY_THRESHOLD_DAYS = 14
 
 function softCapForRenown(renown: number): number {
   let cap = SOFT_CAP_BASE
@@ -56,20 +61,37 @@ const endWeekHook: SimulationHook = (ctx: SimContext): void => {
   const rng = ctx.getRngStream('adventurer_roster')
 
   // 1. Increment idle counters for everyone not currently on a job.
+  //    An `injured` runner who has been idle past the recovery
+  //    threshold also clears the flag on the same tick (ISSUE-037).
   for (const adventurer of Object.values(ctx.state.world.hireableAdventurers)) {
     if (adventurer.currentExpeditionId !== null) continue
-    ctx.modifyHireableAdventurer(
-      adventurer.id,
-      { daysSinceLastJob: adventurer.daysSinceLastJob + 7 },
-      {
-        source: `${ADVENTURERS_MODULE_ID}.weekly_idle_tick`,
-        sourceType: 'system',
-        readable: `${adventurer.name.display} idle ${adventurer.daysSinceLastJob + 7} days.`,
-        tags: ['adventurer', 'idle_tick', adventurer.id],
-        relatedActors: [{ kind: 'other', id: adventurer.id }],
-        relatedSystems: ['adventurers'],
-      },
-    )
+    const nextIdle = adventurer.daysSinceLastJob + 7
+    const clearsInjury =
+      adventurer.activeFlags.includes('injured') &&
+      nextIdle >= INJURED_RECOVERY_THRESHOLD_DAYS
+    const changes: {
+      daysSinceLastJob: number
+      activeFlags?: string[]
+    } = { daysSinceLastJob: nextIdle }
+    if (clearsInjury) {
+      changes.activeFlags = adventurer.activeFlags.filter(
+        (f) => f !== 'injured',
+      )
+    }
+    ctx.modifyHireableAdventurer(adventurer.id, changes, {
+      source: clearsInjury
+        ? `${ADVENTURERS_MODULE_ID}.recovery`
+        : `${ADVENTURERS_MODULE_ID}.weekly_idle_tick`,
+      sourceType: 'system',
+      readable: clearsInjury
+        ? `${adventurer.name.display} recovered from injury (idle ${nextIdle} days).`
+        : `${adventurer.name.display} idle ${nextIdle} days.`,
+      tags: clearsInjury
+        ? ['adventurer', 'recovery', adventurer.id]
+        : ['adventurer', 'idle_tick', adventurer.id],
+      relatedActors: [{ kind: 'other', id: adventurer.id }],
+      relatedSystems: ['adventurers'],
+    })
   }
 
   // 2. Possibly drift out a long-inactive adventurer.

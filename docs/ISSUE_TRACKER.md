@@ -75,7 +75,7 @@ how to verify the fix.
 | ISSUE-034 | Test worker crash silently hides ~58 untested tests | broken | done | 74 |
 | ISSUE-035 | `createStateDiff` skips `recipes`, `expeditions`, `hireableAdventurers` | thin | done | 75 |
 | ISSUE-036 | Tagged diff boundaries computed but never consumed | thin | done | 76 |
-| ISSUE-037 | `HireableAdventurer.wageBase` / `specialty` / `activeFlags` are dead fields | broken | open | — |
+| ISSUE-037 | `HireableAdventurer.wageBase` / `specialty` / `activeFlags` are dead fields | broken | done | 77 |
 | ISSUE-038 | Cook tier/skill does not modulate service quality | thin | open | — |
 | ISSUE-039 | `culinary_renown` fame loop only reaches two consumers | thin | open | — |
 | ISSUE-040 | Reference validation gaps for staff identity + adventurer reverse edges | broken | open | — |
@@ -1443,8 +1443,8 @@ since that work is `done`.
 ### ISSUE-037 — `HireableAdventurer.wageBase` / `specialty` / `activeFlags` are dead fields
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 77
 - **Evidence:**
   - `src/sim/state/TavernState.ts:596` declares
     `wageBase: number // coin per expedition day`. The field is

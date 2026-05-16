@@ -75,8 +75,8 @@ function sampleAdventurer(
     name: {
       display: 'Zarka the Bold',
       profileId: 'adventuring_bands',
-      parts: { given: 'Zarka', epithet: 'the Bold' },
-      patternId: 'given_epithet',
+      parts: { given: 'Zarka', title: 'the Bold' },
+      patternId: 'given_title',
       generatedBy: 'phase75-test',
     },
     cultureId: 'adventuring_bands',

@@ -100,6 +100,14 @@ function rollOutcome(
   success += (runner.experience / 100) * 0.15
   success += (runner.reliability / 100) * 0.15
   if (expedition.mode === 'targeted') success -= TARGETED_PENALTY
+  // Phase 77 / ISSUE-037 — `specialty` biases the outcome roll when
+  // the runner's specialty matches the actual rarity tier being
+  // fetched. Magnitude (+0.10) is small enough to preserve the
+  // rookie/master spread but big enough to make specialty a real
+  // hiring signal.
+  if (runner.specialty !== null && runner.specialty === tier) {
+    success += 0.1
+  }
   success = Math.max(0.05, Math.min(0.95, success))
 
   // runner_lost outcome is rare and biased by low reliability and
@@ -209,10 +217,18 @@ function applyRunnerUpdate(
   let experience = runner.experience
   let reliability = runner.reliability
   let relationship = runner.relationship
+  // Phase 77 / ISSUE-037 — `activeFlags` records short-term recovery
+  // state. A failed expedition leaves the runner `injured`, which
+  // `commissionExpedition.getValidTargets` filters out of the
+  // hireable pool. The adventurers weekly drift hook clears the flag
+  // after enough idle time.
+  let nextFlags = [...runner.activeFlags]
   if (outcome === 'success') {
     experience = clamp(experience + 5)
     reliability = clamp(reliability + 5)
     relationship = clamp(relationship + 5)
+    // A successful outing burns off any prior injury marker.
+    nextFlags = nextFlags.filter((f) => f !== 'injured')
   } else if (outcome === 'partial') {
     experience = clamp(experience + 3)
     reliability = clamp(reliability + 1)
@@ -220,6 +236,7 @@ function applyRunnerUpdate(
   } else {
     // failure
     reliability = clamp(reliability - 5)
+    if (!nextFlags.includes('injured')) nextFlags.push('injured')
   }
   ctx.modifyHireableAdventurer(
     runner.id,
@@ -229,6 +246,7 @@ function applyRunnerUpdate(
       relationship,
       daysSinceLastJob: 0,
       currentExpeditionId: null,
+      activeFlags: nextFlags,
     },
     {
       source: 'expedition.runner_update',

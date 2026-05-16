@@ -82,7 +82,7 @@ how to verify the fix.
 | ISSUE-041 | Staff identity profile pool covers 3 of 8 cultures | thin | done | 81 |
 | ISSUE-042 | Niche factions carry no notable NPCs | thin | done | 82 |
 | ISSUE-043 | Social rumours never pruned (unbounded growth) | thin | done | 83 |
-| ISSUE-044 | Supplier reliability + relationship do not affect pricing | thin | open | — |
+| ISSUE-044 | Supplier reliability + relationship do not affect pricing | thin | done | 84 |
 | ISSUE-045 | `content/text/descriptors.ts` pool still empty Phase 22 stub | thin | open | — |
 | ISSUE-046 | Staff-management owner actions (hire / fire / kick) missing | broken | open | — |
 
@@ -1770,8 +1770,8 @@ since that work is `done`.
 ### ISSUE-044 — Supplier reliability + relationship do not affect pricing
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 84
 - **Evidence:**
   - `src/sim/modules/suppliers/pricing.ts:45-61`
     `getEffectiveBasePrice` reads `stock.basePrice`,

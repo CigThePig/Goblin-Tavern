@@ -1,6 +1,7 @@
 import type { SimContext } from '../../core/context'
 import type { ReportSection } from '../../core/reports'
 import { marketConditionRegistry } from '../../content/suppliers/marketConditionRegistry'
+import { getRelationshipPriceMultiplier } from './pricing'
 import { getSupplierModuleState } from './state'
 
 // Phase 29 §29.7 — Supplier report.
@@ -36,8 +37,18 @@ export function buildSupplierReport(ctx: SimContext): ReportSection | null {
         supplier.goodsProvided.length > 0
           ? supplier.goodsProvided.join(', ')
           : '(no goods)'
+      // Phase 84 / ISSUE-044 — surface the relationship discount so
+      // the player sees the meter pay off. multiplier 0.97 = 3% off.
+      const multiplier = getRelationshipPriceMultiplier(supplier)
+      const discountPct = Math.round((1 - multiplier) * 100)
+      const discountTag =
+        discountPct === 0
+          ? ''
+          : discountPct > 0
+            ? `, ${discountPct}% discount`
+            : `, ${Math.abs(discountPct)}% surcharge`
       lines.push(
-        `  ${supplier.label}: reliability ${supplier.reliability}, relationship ${supplier.relationship} (${goodsLabel})`,
+        `  ${supplier.label}: reliability ${supplier.reliability}, relationship ${supplier.relationship}${discountTag} (${goodsLabel})`,
       )
     }
   }

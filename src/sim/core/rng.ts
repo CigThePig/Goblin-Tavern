@@ -141,6 +141,10 @@ export type RngStreamId =
   // adventurer roster: who arrives, who leaves. Names continue to use
   // `npc_identity`.
   | 'adventurer_roster'
+  // Phase 84 / ISSUE-044 — per-supplier per-day missed-delivery roll.
+  // Keeping this stream separate from `service` means a missed
+  // delivery does not shift the daily service order, and vice versa.
+  | 'supplier_delivery'
 
 export type RngStreamState = Record<RngStreamId, RngState>
 
@@ -171,6 +175,8 @@ const ALL_STREAM_IDS: ReadonlyArray<RngStreamId> = [
   'attribution_perceiver',
   // Phase 69 / ISSUE-029.
   'adventurer_roster',
+  // Phase 84 / ISSUE-044.
+  'supplier_delivery',
 ]
 
 export function createRngStreams(

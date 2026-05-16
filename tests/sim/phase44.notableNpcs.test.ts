@@ -127,10 +127,15 @@ function isNotableNpcRef(ref: EntityRef): boolean {
 }
 
 describe('Phase 44 §ISSUE-004 — Initial notable NPC roster', () => {
-  it('1. Default state seeds 8 notable NPCs with non-empty display names', () => {
+  it('1. Default state seeds at least 8 notable NPCs with non-empty display names', () => {
+    // Phase 82 / ISSUE-042 lifted the roster floor by adding the
+    // three niche-faction profiles (smuggler_contact /
+    // silvermark_factor / rival_tavern_keeper). The exact count is
+    // no longer load-bearing — the invariant is "≥ the canonical
+    // 8 starter NPCs are present and well-formed."
     const state = createInitialTavernState()
     const npcs = state.world.notableNpcs
-    expect(Object.keys(npcs).length).toBe(8)
+    expect(Object.keys(npcs).length).toBeGreaterThanOrEqual(8)
     for (const npc of Object.values(npcs)) {
       expect(npc.id).toMatch(/^notable_npc_/)
       expect(npc.name.display.length).toBeGreaterThan(0)

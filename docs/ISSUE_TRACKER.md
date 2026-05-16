@@ -80,7 +80,7 @@ how to verify the fix.
 | ISSUE-039 | `culinary_renown` fame loop only reaches two consumers | thin | done | 79 |
 | ISSUE-040 | Reference validation gaps for staff identity + adventurer reverse edges | broken | done | 80 |
 | ISSUE-041 | Staff identity profile pool covers 3 of 8 cultures | thin | done | 81 |
-| ISSUE-042 | Niche factions carry no notable NPCs | thin | open | — |
+| ISSUE-042 | Niche factions carry no notable NPCs | thin | done | 82 |
 | ISSUE-043 | Social rumours never pruned (unbounded growth) | thin | open | — |
 | ISSUE-044 | Supplier reliability + relationship do not affect pricing | thin | open | — |
 | ISSUE-045 | `content/text/descriptors.ts` pool still empty Phase 22 stub | thin | open | — |
@@ -1684,8 +1684,8 @@ since that work is `done`.
 ### ISSUE-042 — Niche factions carry no notable NPCs
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 82
 - **Evidence:**
   - `src/sim/content/factions/factionRegistry.ts` registers 9
     factions including the three niche additions from ISSUE-012

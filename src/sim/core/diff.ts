@@ -2,9 +2,12 @@ import type {
   AreaState,
   CultureWorldState,
   CustomerGroupState,
+  ExpeditionsState,
   FactionWorldState,
+  HireableAdventurer,
   LocalEventWorldState,
   PressureState,
+  RecipeState,
   RegularWorldState,
   ReputationState,
   SocialRumourState,
@@ -447,6 +450,116 @@ function diffSocialRumours(
   }
 }
 
+// ISSUE-035 (phase 75) — recipes / expeditions / hireableAdventurers
+// were silently absent from the diff. Each walk skips counters and
+// timestamps that increment every day (would flood the diff) and
+// keeps meter / lifecycle / state-flip fields that match the existing
+// cause-coverage audit shape.
+
+function diffRecipes(
+  before: Record<string, RecipeState>,
+  after: Record<string, RecipeState>,
+  changes: StateChange[],
+): void {
+  const ids = new Set([...Object.keys(before), ...Object.keys(after)])
+  for (const id of ids) {
+    const a = before[id]
+    const b = after[id]
+    if (!a || !b) continue
+    pushScalarChange(
+      changes,
+      `recipes.${id}.onMenu`,
+      a.onMenu,
+      b.onMenu,
+      { tags: ['recipe', id, 'onMenu'] },
+    )
+    // `timesServed`, `daysSinceLastServed`, `lastServedDay` increment
+    // every day; treating them as diff entries would flood the cause
+    // audit. Same omission shape as `regulars.lastSeenDay`.
+  }
+}
+
+function diffExpeditions(
+  before: ExpeditionsState,
+  after: ExpeditionsState,
+  changes: StateChange[],
+): void {
+  // Keyset diff on active expeditions: commissions (added) and
+  // resolutions (removed) are the meaningful state flips. `daysElapsed`
+  // is a per-day +1 counter; `status` is always `'in_progress'` while
+  // in `active` — both are skipped.
+  const beforeIds = new Set(before.active.map((e) => e.id))
+  const afterIds = new Set(after.active.map((e) => e.id))
+  for (const id of afterIds) {
+    if (!beforeIds.has(id)) {
+      pushScalarChange(
+        changes,
+        `expeditions.active.${id}`,
+        null,
+        'in_progress',
+        { tags: ['expedition', id, 'commissioned'] },
+      )
+    }
+  }
+  for (const id of beforeIds) {
+    if (!afterIds.has(id)) {
+      pushScalarChange(
+        changes,
+        `expeditions.active.${id}`,
+        'in_progress',
+        null,
+        { tags: ['expedition', id, 'resolved'] },
+      )
+    }
+  }
+  // Count-delta on completed records — long-run history is bounded in
+  // diff output (the records themselves are never walked, since they
+  // are append-only after resolution).
+  pushNumericChange(
+    changes,
+    'expeditions.completed.count',
+    before.completed.length,
+    after.completed.length,
+    { tags: ['expedition', 'completed', 'count'] },
+  )
+}
+
+function diffHireableAdventurers(
+  before: Record<string, HireableAdventurer>,
+  after: Record<string, HireableAdventurer>,
+  changes: StateChange[],
+): void {
+  const ids = new Set([...Object.keys(before), ...Object.keys(after)])
+  for (const id of ids) {
+    const a = before[id]
+    const b = after[id]
+    if (!a || !b) continue
+    const fields: (keyof HireableAdventurer)[] = [
+      'experience',
+      'reliability',
+      'relationship',
+    ]
+    for (const field of fields) {
+      pushNumericChange(
+        changes,
+        `hireableAdventurers.${id}.${String(field)}`,
+        a[field] as number,
+        b[field] as number,
+        { tags: ['adventurer', id, String(field)] },
+      )
+    }
+    pushScalarChange(
+      changes,
+      `hireableAdventurers.${id}.currentExpeditionId`,
+      a.currentExpeditionId,
+      b.currentExpeditionId,
+      { tags: ['adventurer', id, 'expedition'] },
+    )
+    // `daysSinceLastJob` is a per-day +1 counter — skipped for the same
+    // reason regulars' `lastSeenDay` is skipped.
+  }
+}
+
 function diffTavernIdentity(
   before: TavernIdentityState,
   after: TavernIdentityState,
@@ -541,6 +654,16 @@ export function createStateDiff(
   diffTavernIdentity(before.world.tavernIdentity, after.world.tavernIdentity, changes)
   // `notableNpcs` has no meter fields worth walking — only timestamps;
   // deliberately skipped (see phase-42 plan).
+  // ISSUE-035 (phase 75) — top-level recipe / expedition slices and
+  // the `world.hireableAdventurers` roster were silently absent from
+  // the cause-coverage audit before phase 75.
+  diffRecipes(before.recipes, after.recipes, changes)
+  diffExpeditions(before.expeditions, after.expeditions, changes)
+  diffHireableAdventurers(
+    before.world.hireableAdventurers,
+    after.world.hireableAdventurers,
+    changes,
+  )
   diffModules(before.modules, after.modules, changes)
 
   const significantChanges = filterSignificantChanges(
@@ -563,7 +686,8 @@ function isMeterPath(path: string): boolean {
     path.startsWith('suppliers.') ||
     path.startsWith('regulars.') ||
     path.startsWith('localEvents.') ||
-    path.startsWith('socialRumours.')
+    path.startsWith('socialRumours.') ||
+    path.startsWith('hireableAdventurers.')
   )
 }
 

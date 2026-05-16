@@ -95,6 +95,27 @@ describe('Phase 70 — expedition subsystem', () => {
     expect(exp.costPaid).toBe(20)
   })
 
+  it('commission rejects a targeted expedition for a common-tier ingredient', () => {
+    // `ale`, `firewood`, `mugs`, etc. are common-rarity items
+    // supplied by the regular supplier path. A targeted expedition
+    // pointed at one of them should be dropped at validation, leaving
+    // active expeditions empty.
+    const state = withCoin(createInitialTavernState(), 200)
+    const result = runOneDay(state, {
+      seed: `${SEED}-common-target`,
+      ownerActions: [
+        commission(
+          'hireable_adv_alpha',
+          'targeted',
+          { targetIngredientId: 'ale' },
+          20,
+          3,
+        ),
+      ],
+    })
+    expect(result.state.expeditions.active.length).toBe(0)
+  })
+
   it('commission rejects when runner is already on an expedition', () => {
     let state = withCoin(createInitialTavernState(), 200)
     const runnerId = 'hireable_adv_alpha'
@@ -202,12 +223,12 @@ describe('Phase 70 — expedition subsystem', () => {
     )
   })
 
-  it('expedition outcome does not depend on unrelated RNG streams (named-stream isolation)', () => {
-    // The expedition is resolved via `expedition_<id>`. Other modules
-    // consume `service`, `incidents`, `npc_identity`, etc. We force
-    // a different daily seed for some intermediate days (which shifts
-    // the service / incidents streams) and verify the expedition
-    // outcome is unchanged.
+  it('expedition outcome is independent of every daily seed after commission (stable seed isolation)', () => {
+    // The expedition captures the commission day's base seed into
+    // `expedition.seed`. Resolution rebuilds the `expedition_<id>` and
+    // `ingredient_quality_<id>` streams from that stored seed, so
+    // shifting any subsequent day's input seed — including the
+    // resolution day itself — must not change the outcome.
     const baseState = withCoin(createInitialTavernState(), 200)
     const runnerId = 'hireable_adv_alpha'
     const commissionAction = commission(
@@ -217,7 +238,7 @@ describe('Phase 70 — expedition subsystem', () => {
       25,
       4,
     )
-    // Both lines start from the same commission + same seed
+    // Both lines start from the same commission + same seed.
     let stateA = runOneDay(baseState, {
       seed: 'isolated-commission',
       ownerActions: [commissionAction],
@@ -226,26 +247,17 @@ describe('Phase 70 — expedition subsystem', () => {
       seed: 'isolated-commission',
       ownerActions: [commissionAction],
     }).state
-    // Use DIFFERENT seeds in the middle days. The expedition's named
-    // stream resolves via `getRngStreamByName('expedition_<id>')`,
-    // which derives its seed from the *daily* input seed — so to
-    // isolate properly, the **resolution day's** seed must match.
-    // Tick 3 intermediate days with different seeds, then the
-    // resolution tick with the same seed.
+    // Use DIFFERENT seeds every subsequent day, INCLUDING the
+    // resolution tick. Before the fix this would diverge because the
+    // expedition RNG stream was derived from the resolution day's
+    // base seed. After the fix the stored `expedition.seed` keeps
+    // the outcome stable.
     for (let i = 0; i < 3; i += 1) {
       stateA = runOneDay(stateA, { seed: `iso-A-${i}` }).state
       stateB = runOneDay(stateB, { seed: `iso-B-${i}` }).state
     }
-    // Resolution day — use the same seed so the expedition's named
-    // stream resolves identically. Earlier days touching `service` /
-    // `incidents` / etc. should not have shifted the expedition's
-    // dedicated stream.
-    stateA = runOneDay(stateA, { seed: 'iso-resolve' }).state
-    stateB = runOneDay(stateB, { seed: 'iso-resolve' }).state
-    // Both must have resolved. Outcomes should match because the
-    // expedition RNG is derived from the *commission day's* base
-    // seed (`isolated-commission`), not the per-day seeds that
-    // followed.
+    stateA = runOneDay(stateA, { seed: 'iso-A-resolve' }).state
+    stateB = runOneDay(stateB, { seed: 'iso-B-resolve' }).state
     expect(stateA.expeditions.completed.length).toBe(1)
     expect(stateB.expeditions.completed.length).toBe(1)
     const recA = stateA.expeditions.completed[0]!

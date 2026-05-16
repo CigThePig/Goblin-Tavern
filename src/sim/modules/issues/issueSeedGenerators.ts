@@ -3556,6 +3556,17 @@ function generateMonthlyReview(ctx: SimContext): IssueSeed[] {
           monthKey: string
           endingCoin: number
           economy: { net: number }
+          // Phase 59 fix — `rent` carries the resolved RentResolution
+          // from `resolveRent`; `pay_landlord_on_time` must consult it
+          // to avoid double-charging coin that was already spent at
+          // month-end.
+          rent: {
+            amountDue: number
+            paid: boolean
+            paidAmount: number
+            arrears: number
+            missedPayments: number
+          }
         }
         rent?: { monthlyAmount?: number }
       }
@@ -3582,7 +3593,11 @@ function generateMonthlyReview(ctx: SimContext): IssueSeed[] {
   // context. The `settle_with_rival` slot gracefully degrades to
   // 3 slots when the `rival_taverns` faction (added in phase 52) isn't
   // seeded, preserving the contract's ≥ 2-slot floor.
-  const rentAmount = monthly?.rent?.monthlyAmount ?? 50
+  // `monthlyModule.endMonth` has already run `resolveRent` before this
+  // seed fires; if `result.rent.paid` is true the coin has already been
+  // spent, so `pay_landlord_on_time` must charge 0. Otherwise it
+  // settles the full outstanding `amountDue` (monthly + arrears).
+  const rentDueNow = result.rent.paid ? 0 : result.rent.amountDue
   const rivalRef = ctx.state.world.factions['rival_taverns']
     ? factionRef('rival_taverns')
     : undefined
@@ -3633,7 +3648,15 @@ function generateMonthlyReview(ctx: SimContext): IssueSeed[] {
       id: 'pay_landlord_on_time_profile',
       responseSlotId: 'pay_landlord_on_time',
       immediateEffects: [
-        effect('state_change', 'coin', -rentAmount, 'Rent paid in full', ['coin', 'rent']),
+        effect(
+          'state_change',
+          'coin',
+          -rentDueNow,
+          result.rent.paid
+            ? 'Rent already paid this month'
+            : 'Rent settled with the landlord',
+          ['coin', 'rent'],
+        ),
         effect('pressure', 'pressure:landlord', -25, 'Landlord eased', ['pressure', 'landlord']),
       ],
       delayedEffects: [

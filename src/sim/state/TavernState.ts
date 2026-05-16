@@ -539,6 +539,15 @@ export type Expedition = {
   costPaid: number
   startedDay: number
   status: 'in_progress'
+  /**
+   * Stable seed captured from `ctx.rngStreams.baseSeed` at commission
+   * time. Resolution derives `expedition_<id>` and
+   * `ingredient_quality_<id>` streams from this stored value rather
+   * than from the resolution day's input seed, so saves resumed (or
+   * replayed) with a different seed on the resolution day still
+   * produce the same outcome.
+   */
+  seed: string
 }
 
 export type ExpeditionReturnedIngredient = {

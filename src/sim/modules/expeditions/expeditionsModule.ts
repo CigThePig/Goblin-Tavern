@@ -13,9 +13,18 @@ import type {
   HireableAdventurer,
   StockRarity,
 } from '../../state/TavernState'
-import type { SimRng } from '../../core/rng'
+import { createRng, type SimRng } from '../../core/rng'
 import { applyRenownDrift } from '../service/renown'
 import { resolveExpedition, updateActiveExpedition } from './state'
+
+// Build the expedition's named RNG streams from the seed stored on the
+// expedition at commission time, not from the resolution day's input
+// seed. Mirrors `createRngStreams.getByName`'s `${baseSeed}:${name}`
+// derivation but reads from `expedition.seed` so saves resumed (or
+// replayed) on a different day still produce the same outcome.
+function expeditionStream(expedition: Expedition, name: string): SimRng {
+  return createRng(`${expedition.seed}:${name}`, 0)
+}
 
 // Phase 70 / ISSUE-030 §4.4, §5.3, §6.3 — Expeditions module.
 //
@@ -115,7 +124,9 @@ function buildReturnedIngredients(
   outcome: ExpeditionOutcome,
 ): ExpeditionReturnedIngredient[] {
   if (outcome !== 'success' && outcome !== 'partial') return []
-  const qualityRng = ctx.getRngStreamByName(
+  void ctx
+  const qualityRng = expeditionStream(
+    expedition,
     `ingredient_quality_${expedition.id}`,
   )
   const tier: ExpeditionTargetTier = rarityForExpedition(expedition)
@@ -331,7 +342,7 @@ const startDayHook: SimulationHook = (ctx: SimContext): void => {
       resolveExpedition(ctx, expedition.id, record)
       continue
     }
-    const rng = ctx.getRngStreamByName(`expedition_${expedition.id}`)
+    const rng = expeditionStream(expedition, `expedition_${expedition.id}`)
     const outcome = rollOutcome(rng, runner, {
       ...expedition,
       daysElapsed: nextDaysElapsed,

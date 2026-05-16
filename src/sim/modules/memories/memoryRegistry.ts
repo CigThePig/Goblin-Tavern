@@ -772,6 +772,41 @@ export const REQUIRED_MEMORY_DEFINITIONS: MemoryDefinition[] = [
     relatedSystems: ['staff'],
     stacking: 'replace',
   },
+  // Phase 50 / ISSUE-010 — Producers for the three dead-read tags that
+  // `culturalTension` aggregates in its `taboo_memory` cause. Each
+  // definition includes its mechanical tag (`seating_conflict`,
+  // `food_taboo`, `cultural_misunderstanding`) so the
+  // `totalMemoryStrengthByTags` call inside the calculator sees them.
+  {
+    id: 'seating_conflict_recently',
+    type: 'timed',
+    label: 'Seating Conflict',
+    defaultDurationDays: 7,
+    defaultStrength: 30,
+    tags: ['culture', 'seating_conflict'],
+    relatedSystems: ['cultures', 'customers'],
+    stacking: 'increase_strength',
+  },
+  {
+    id: 'food_taboo_recently',
+    type: 'timed',
+    label: 'Food Taboo Encountered',
+    defaultDurationDays: 7,
+    defaultStrength: 25,
+    tags: ['culture', 'food_taboo'],
+    relatedSystems: ['cultures', 'stock'],
+    stacking: 'increase_strength',
+  },
+  {
+    id: 'cultural_misunderstanding_recently',
+    type: 'timed',
+    label: 'Cultural Misunderstanding',
+    defaultDurationDays: 10,
+    defaultStrength: 25,
+    tags: ['culture', 'cultural_misunderstanding'],
+    relatedSystems: ['cultures'],
+    stacking: 'increase_strength',
+  },
 ]
 
 let initialized = false

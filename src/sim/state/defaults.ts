@@ -405,15 +405,21 @@ function createInitialFactions(): Record<string, FactionWorldState> {
 type StarterRegularSpec = {
   groupId: string
   loyalty: number
+  // Phase 50 / ISSUE-010 — Optional override that lets a starter regular
+  // adopt a cross-cutting culture (religious / outsider / professional)
+  // instead of inheriting the group's primary culture. This is how cross-
+  // cutting cultures get members across multiple customer-group bases at
+  // day 0.
+  cultureId?: string
 }
 
 const STARTER_REGULAR_SPECS: StarterRegularSpec[] = [
   { groupId: 'local_goblins', loyalty: 72 },
-  { groupId: 'local_goblins', loyalty: 65 },
-  { groupId: 'miners', loyalty: 68 },
-  { groupId: 'merchants', loyalty: 62 },
+  { groupId: 'local_goblins', loyalty: 65, cultureId: 'shrine_devotees' },
+  { groupId: 'miners', loyalty: 68, cultureId: 'shrine_devotees' },
+  { groupId: 'merchants', loyalty: 62, cultureId: 'traveling_outsiders' },
   { groupId: 'ogres', loyalty: 60 },
-  { groupId: 'adventurers', loyalty: 64 },
+  { groupId: 'adventurers', loyalty: 64, cultureId: 'traveling_outsiders' },
 ]
 
 function createInitialRegulars(
@@ -441,7 +447,7 @@ function createInitialRegulars(
     perGroupIndex[spec.groupId] = (perGroupIndex[spec.groupId] ?? 0) + 1
     const index = perGroupIndex[spec.groupId]!
     const id = `starter_regular_${spec.groupId}_${index}`
-    const cultureId = group.cultureId
+    const cultureId = spec.cultureId ?? group.cultureId
     const tags = ['regular', 'starter']
     if (cultureId) tags.push(`culture:${cultureId}`)
 

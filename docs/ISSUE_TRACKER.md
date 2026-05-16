@@ -48,7 +48,7 @@ how to verify the fix.
 | ISSUE-007 | Grow stock items roster | thin | superseded | — |
 | ISSUE-008 | Grow customer groups roster | thin | superseded | — |
 | ISSUE-009 | Grow suppliers roster + specialty category | thin | superseded | — |
-| ISSUE-010 | Grow cultures + cross-cutting cultures + tag alignment | thin | open | — |
+| ISSUE-010 | Grow cultures + cross-cutting cultures + tag alignment | thin | done | 50 |
 | ISSUE-011 | Lift regular cap + add starter regulars | thin | open | — |
 | ISSUE-012 | Add niche factions + factionUpdate triggers for missing 2 | thin | open | — |
 | ISSUE-013 | `policy_backlash` family end-to-end | broken | open | — |
@@ -431,8 +431,8 @@ cited, it's the count observed on the most recent 28-day audit run.
 ### ISSUE-010 — Grow cultures + cross-cutting cultures + tag alignment
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 50
 - **Evidence:**
   - `src/sim/content/cultures/cultureRegistry.ts:22,41,60,79,98` — 5
     cultures (`goblin_local`, `miner_workcrew`, `merchant_roadfolk`,

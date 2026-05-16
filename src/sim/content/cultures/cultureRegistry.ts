@@ -113,6 +113,68 @@ const REQUIRED_CULTURES: CultureDefinition[] = [
     defaultTension: 40,
     tags: ['adventurer', 'mixed'],
   },
+  // Phase 50 / ISSUE-010 — Cross-cutting cultures. Each new culture is
+  // an overlay that can sit on top of any customer group (or no group
+  // at all); membership lives on individual regulars, factions, and
+  // notable NPCs via their optional `cultureId`. The starter assignments
+  // are seeded in `defaults.ts` so cross-cutting members exist on day 0.
+  {
+    id: 'shrine_devotees',
+    label: 'Shrine Devotees',
+    namingProfileId: 'goblin_common',
+    description:
+      'Worshippers of the neighbourhood shrine; show up across the goblin and miner workforce on holy days.',
+    preferredStockTags: ['ritual', 'goblin_favourite', 'food'],
+    dislikedTags: ['expensive', 'risky'],
+    importantCalendarTags: ['shrine_day', 'mushroom_festival'],
+    areaTraitPreferences: {
+      likes: ['cozy', 'well_lit'],
+      dislikes: ['dangerous_corner'],
+    },
+    conflictTags: ['outsider_distrust'],
+    defaultFamiliarity: 50,
+    defaultComfort: 55,
+    defaultTension: 30,
+    tags: ['religious', 'overlay'],
+  },
+  {
+    id: 'traveling_outsiders',
+    label: 'Traveling Outsiders',
+    namingProfileId: 'goblin_common',
+    description:
+      'Out-of-town merchants and adventuring crews passing through; cleaner standards, looser loyalty.',
+    preferredStockTags: ['quality_sensitive', 'food', 'drink'],
+    dislikedTags: ['filth', 'goblin_favourite'],
+    importantCalendarTags: ['market_day', 'supplier_day'],
+    areaTraitPreferences: {
+      likes: ['private', 'well_lit'],
+      dislikes: ['sticky_floor', 'pest_prone'],
+    },
+    conflictTags: ['local_distrust'],
+    defaultFamiliarity: 25,
+    defaultComfort: 40,
+    defaultTension: 45,
+    tags: ['outsider', 'overlay'],
+  },
+  {
+    id: 'guild_artisans',
+    label: 'Guild Artisans',
+    namingProfileId: 'goblin_common',
+    description:
+      'Craft-guild members whose loyalty is to the guild first, the tavern second; brewer and supplier-aligned.',
+    preferredStockTags: ['quality_sensitive', 'drink'],
+    dislikedTags: ['watered', 'cheap'],
+    importantCalendarTags: ['supplier_day'],
+    areaTraitPreferences: {
+      likes: ['cozy', 'private'],
+      dislikes: ['sticky_floor'],
+    },
+    conflictTags: ['rowdy_friction'],
+    defaultFamiliarity: 40,
+    defaultComfort: 50,
+    defaultTension: 35,
+    tags: ['guild', 'professional', 'overlay'],
+  },
 ]
 
 let initialized = false

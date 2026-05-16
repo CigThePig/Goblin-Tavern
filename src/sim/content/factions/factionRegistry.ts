@@ -29,6 +29,7 @@ const REQUIRED_FACTIONS: FactionDefinition[] = [
   {
     id: 'brewers_guild',
     label: 'Brewers Guild',
+    cultureId: 'guild_artisans',
     description:
       'Town brewers who price the ale supply and remember every late payment.',
     defaultRelationship: 50,

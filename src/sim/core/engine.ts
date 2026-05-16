@@ -1311,6 +1311,16 @@ function createContext(
     getHistoryByTag(tag): HistoryEntry[] {
       return runtime.current.history.filter((e) => e.tags.includes(tag))
     },
+    pruneHistoryBefore(absoluteDay): number {
+      const before = runtime.current.history.length
+      if (before === 0) return 0
+      const next = runtime.current.history.filter(
+        (e) => e.timestamp.absoluteDay >= absoluteDay,
+      )
+      if (next.length === before) return 0
+      runtime.current = { ...runtime.current, history: next }
+      return before - next.length
+    },
 
     // Phase 17 §17.2 — Cause context API.
     addCause(draft): CauseEntry {

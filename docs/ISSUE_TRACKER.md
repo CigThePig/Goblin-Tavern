@@ -58,11 +58,11 @@ how to verify the fix.
 | ISSUE-017 | `staff_burnout` family rewrite + rotation | broken | done | 57 |
 | ISSUE-018 | `inspection` family un-pinning | thin | done | 58 |
 | ISSUE-019 | `monthly_review` design decision + implementation | design | done | 59 |
-| ISSUE-020 | `activeIssueSeedTags` consumer wiring | thin | open | — |
-| ISSUE-021 | Calendar tag consumers (priority: `rent_due_soon`) | thin | open | — |
-| ISSUE-022 | History log pruning policy | thin | open | — |
-| ISSUE-023 | RNG stream prune or wire | thin | open | — |
-| ISSUE-024 | Thin family profile depth + core picker rotation | thin | open | — |
+| ISSUE-020 | `activeIssueSeedTags` consumer wiring | thin | done | 60 |
+| ISSUE-021 | Calendar tag consumers (priority: `rent_due_soon`) | thin | done | 61 |
+| ISSUE-022 | History log pruning policy | thin | done | 62 |
+| ISSUE-023 | RNG stream prune or wire | thin | done | 63 |
+| ISSUE-024 | Thin family profile depth + core picker rotation | thin | done | 64 |
 | ISSUE-025 | Stock-and-recipe model extension | thin | done | 65 |
 | ISSUE-026 | Ingredient + starter recipe catalog grow | thin | done | 66 |
 | ISSUE-027 | Culinary renown reputation axis | thin | done | 67 |
@@ -1132,8 +1132,8 @@ between bigger phases.
 ### ISSUE-020 — `activeIssueSeedTags` consumer wiring
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 60
 - **Evidence:**
   - `src/sim/modules/localArcs/localArcsModule.ts:143` — writes
     `slice.activeIssueSeedTags` (a sorted Set) on every tick from
@@ -1160,8 +1160,8 @@ between bigger phases.
 ### ISSUE-021 — Calendar tag consumers (priority: `rent_due_soon`)
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 61
 - **Evidence:**
   - `src/sim/modules/calendar/types.ts:22-37` — 14 `CalendarTag`
     values defined.
@@ -1192,8 +1192,8 @@ between bigger phases.
 ### ISSUE-022 — History log pruning policy
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 62
 - **Evidence:**
   - `src/sim/modules/history/historyModule.ts` — validator only, no
     `endDay`, `endWeek`, or `endMonth` hook prunes entries.
@@ -1218,8 +1218,8 @@ between bigger phases.
 ### ISSUE-023 — RNG stream prune or wire
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 63
 - **Evidence:**
   - `src/sim/core/rng.ts:123-135` — 12 streams declared. 5 have
     callers in `src/sim/`: `incidents`, `regular_identity`,
@@ -1249,8 +1249,8 @@ between bigger phases.
 ### ISSUE-024 — Thin family profile depth + core picker rotation
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 64
 - **Evidence:**
   - Six families ship below the per-profile depth targets for
     delayed effects and `futureHooks` but aren't fully broken:

@@ -91,6 +91,14 @@ const generateSeedsHook: SimulationHook = (ctx: SimContext): void => {
   let slice = getSlice(ctx)
   const absoluteDay = ctx.state.calendar.totalDaysElapsed
 
+  // Phase 60 / ISSUE-020 — read the arc-emitted issue-seed tags once
+  // for the whole batch so ranking can amplify seeds whose domain or
+  // cause tags intersect the active arc signal.
+  const activeIssueSeedTags =
+    (ctx.state.modules.localArcs as
+      | { activeIssueSeedTags?: string[] }
+      | undefined)?.activeIssueSeedTags ?? []
+
   for (const generator of issueSeedGeneratorRegistry.all()) {
     let produced: IssueSeed[] = []
     try {
@@ -118,6 +126,7 @@ const generateSeedsHook: SimulationHook = (ctx: SimContext): void => {
       templateId: generatorId,
       cooldowns: slice.cooldowns,
       absoluteDay,
+      activeIssueSeedTags,
     })
     // Phase 39 §39.16 — expanded families use the state-aware validator
     // so missing world refs / missing pressure snapshots / missing

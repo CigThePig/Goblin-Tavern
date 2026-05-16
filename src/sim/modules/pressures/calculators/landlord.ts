@@ -23,6 +23,11 @@ const MISSED_RENT_PER_MISS = 8
 const RENT_MISSED_MEMORY = 12
 const REPUTATION_PUSH = 6
 const OPINION_RELIEF = -8
+// Phase 61 / ISSUE-021 — bump applied while the `rent_due_soon`
+// calendar tag is active (days 22–28). Surfaces seasonality of the
+// rent cycle into landlord pressure so the `debt_rent` seed family
+// fires more reliably as the window approaches.
+const RENT_DUE_SOON_PRESSURE = 10
 
 type MonthlySlice = {
   landlord?: {
@@ -72,6 +77,16 @@ export function calculateLandlord(ctx: SimContext): PressureCalculationResult {
       amount: 10,
       tags: ['rent', 'arrears'],
       relatedSystems: ['monthly', 'rent'],
+    })
+  }
+
+  if ((ctx.state.calendar.tags ?? []).includes('rent_due_soon')) {
+    pushCause(causes, {
+      id: 'rent_due_soon',
+      readable: 'Rent collection window approaches.',
+      amount: RENT_DUE_SOON_PRESSURE,
+      tags: ['calendar', 'rent'],
+      relatedSystems: ['calendar', 'rent'],
     })
   }
 

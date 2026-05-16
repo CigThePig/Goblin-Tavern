@@ -1713,6 +1713,51 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
 // Violence
 // ----------------------------------------------------------------------
 
+// Phase 56 / ISSUE-016 — Violence rotation. Without rotation the picker
+// always selected whichever of `ogres` or `adventurers` had higher
+// patronage, so the same group dominated. ISSUE-032 grew the customer
+// roster; the picker now considers every group whose tags include
+// `rowdy`, `dangerous`, or `incident_prone`, scored by
+// `(patronage + rowdiness)` minus a recency penalty.
+const VIOLENCE_RECENCY_WINDOW = 7
+const VIOLENCE_RECENCY_PENALTY = 35
+
+function violenceRecencyPenalty(
+  ctx: SimContext,
+  entityKey: string,
+  today: number,
+): number {
+  const slice = ctx.state.modules.issueSeeds as
+    | { recentPicks?: Record<string, Record<string, number>> }
+    | undefined
+  const familyPicks = slice?.recentPicks?.['violence'] ?? {}
+  const lastDay = familyPicks[entityKey]
+  if (lastDay === undefined) return 0
+  if (today - lastDay >= VIOLENCE_RECENCY_WINDOW) return 0
+  return VIOLENCE_RECENCY_PENALTY
+}
+
+function recordViolencePick(ctx: SimContext, entityKey: string): void {
+  const today = ctx.state.calendar.totalDaysElapsed
+  ctx.modifyModuleState(
+    'issueSeeds',
+    (current) => {
+      const slice = (current ?? {}) as {
+        recentPicks?: Record<string, Record<string, number>>
+      } & Record<string, unknown>
+      const recent = { ...(slice.recentPicks ?? {}) }
+      recent['violence'] = {
+        ...(recent['violence'] ?? {}),
+        [entityKey]: today,
+      }
+      return { ...slice, recentPicks: recent } as never
+    },
+    { source: 'violence.recordPick' },
+  )
+}
+
+const VIOLENCE_TENSION_TAGS = ['rowdy', 'dangerous', 'incident_prone']
+
 function generateViolence(ctx: SimContext): IssueSeed[] {
   const guard = CONTRADICTION_GUARDS.violence(ctx)
   if (!guard.allowed) return []
@@ -1725,11 +1770,40 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
   }
   if (causes.length === 0) return []
 
-  const ogres = ctx.state.customerGroups.ogres
-  const adventurers = ctx.state.customerGroups.adventurers
-  const target = (ogres?.patronage ?? 0) > (adventurers?.patronage ?? 0)
-    ? customerRef('ogres')
-    : customerRef('adventurers')
+  // Picker rotation: consider every customer group whose tags include
+  // any of `rowdy`, `dangerous`, or `incident_prone`. Score by
+  // `(patronage + rowdiness)` minus a recency penalty. Falls back to
+  // the previous binary ogres-vs-adventurers behaviour if no group
+  // carries the relevant tags.
+  const today = ctx.state.calendar.totalDaysElapsed
+  const groups = Object.values(ctx.state.customerGroups)
+  const candidates = groups.filter(
+    (g) =>
+      g.patronage > 0 &&
+      g.tags.some((t) => VIOLENCE_TENSION_TAGS.includes(t)),
+  )
+  let target = customerRef('ogres')
+  if (candidates.length > 0) {
+    const ranked = candidates
+      .map((g) => {
+        const baseScore = g.patronage + g.rowdiness
+        const penalty = violenceRecencyPenalty(
+          ctx,
+          `customer_group:${g.id}`,
+          today,
+        )
+        return { g, score: baseScore - penalty }
+      })
+      .sort((a, b) => b.score - a.score)
+    target = customerRef(ranked[0]!.g.id)
+  } else {
+    const ogres = ctx.state.customerGroups.ogres
+    const adventurers = ctx.state.customerGroups.adventurers
+    target = (ogres?.patronage ?? 0) > (adventurers?.patronage ?? 0)
+      ? customerRef('ogres')
+      : customerRef('adventurers')
+  }
+  recordViolencePick(ctx, `customer_group:${target.id}`)
 
   const responseSlots: ResponseSlot[] = [
     {
@@ -1766,6 +1840,8 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
     },
   ]
 
+  // Phase 56 / ISSUE-016 — Every profile carries delayedEffects and
+  // futureHooks. Previously all four were flat immediate-only.
   const consequenceProfiles: ConsequenceProfile[] = [
     makeProfile({
       id: 'hire_security_profile',
@@ -1774,11 +1850,28 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
         effect('state_change', 'coin', -20, 'Hire security cost', ['coin']),
         effect('pressure', 'pressure:violence', -15, 'Lower violence pressure', ['pressure']),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:staff_burnout',
+          4,
+          'Security crew tires the staff coordination',
+          ['pressure', 'staff', 'delay:5'],
+        ),
+        effect(
+          'future_hook',
+          'security_routine_possible',
+          14,
+          'Security may become a routine fixture',
+          ['future_hook', 'security'],
+        ),
+      ],
       memories: [
         { id: 'security_hired_recently', tags: ['security', 'violence'] },
       ],
-      futureHooks: [],
+      futureHooks: [
+        { id: 'security_routine_possible', tags: ['security', 'violence', 'opportunity'] },
+      ],
     }),
     makeProfile({
       id: 'ban_group_profile',
@@ -1788,8 +1881,21 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
           'customer',
         ]),
         effect('pressure', 'pressure:violence', -12, 'Lower violence pressure', ['pressure']),
+        effect('cause', `customer_group:${target.id}`, -20, `${target.id} group banned`, [
+          'customer',
+          'ban',
+          target.id,
+        ]),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `banned_group_returns_${target.id}`,
+          14,
+          `${target.id} may try to return`,
+          ['future_hook', 'customer', target.id],
+        ),
+      ],
       memories: [
         {
           id: `${target.id}_banned`,
@@ -1797,7 +1903,13 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
           tags: ['ban', 'customer', target.id],
         },
       ],
-      futureHooks: [],
+      futureHooks: [
+        {
+          id: `banned_group_returns_${target.id}`,
+          actors: [target],
+          tags: ['customer', target.id, 'risk'],
+        },
+      ],
     }),
     makeProfile({
       id: 'embrace_rowdy_profile',
@@ -1808,11 +1920,28 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
           'reputation',
         ]),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'state_change',
+          'customers.merchants.patronage',
+          -8,
+          'Merchants drift away from the rowdy rep',
+          ['customer', 'merchants', 'delay:5'],
+        ),
+        effect(
+          'future_hook',
+          'dangerous_rep_locked',
+          10,
+          'Dangerous reputation may lock in',
+          ['future_hook', 'reputation', 'dangerous'],
+        ),
+      ],
       memories: [
         { id: 'rowdy_identity_embraced', tags: ['reputation', 'identity'] },
       ],
-      futureHooks: [],
+      futureHooks: [
+        { id: 'dangerous_rep_locked', tags: ['reputation', 'dangerous', 'identity'] },
+      ],
     }),
     makeProfile({
       id: 'repair_damage_profile',
@@ -1821,11 +1950,28 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
         effect('state_change', 'areas.main_room.damage', -20, 'Repair damage', ['area']),
         effect('state_change', 'coin', -12, 'Repair cost', ['coin']),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:staff_burnout',
+          3,
+          'Repair shifts tire the crew',
+          ['pressure', 'staff', 'delay:3'],
+        ),
+        effect(
+          'future_hook',
+          'main_room_resilient',
+          10,
+          'Main room may shrug off later damage',
+          ['future_hook', 'area', 'main_room'],
+        ),
+      ],
       memories: [
         { id: 'main_room_repaired_recently', tags: ['maintenance', 'main_room'] },
       ],
-      futureHooks: [],
+      futureHooks: [
+        { id: 'main_room_resilient', tags: ['area', 'main_room', 'opportunity'] },
+      ],
     }),
   ]
 

@@ -72,19 +72,19 @@ how to verify the fix.
 | ISSUE-031 | Cook tier grow + preparation gating | thin | done | 71 |
 | ISSUE-032 | Demand-side niche customer groups | thin | done | 72 |
 | ISSUE-033 | Storage areas + system integration polish | thin | done | 73 |
-| ISSUE-034 | Test worker crash silently hides ~58 untested tests | broken | open | — |
-| ISSUE-035 | `createStateDiff` skips `recipes`, `expeditions`, `hireableAdventurers` | thin | open | — |
-| ISSUE-036 | Tagged diff boundaries computed but never consumed | thin | open | — |
-| ISSUE-037 | `HireableAdventurer.wageBase` / `specialty` / `activeFlags` are dead fields | broken | open | — |
-| ISSUE-038 | Cook tier/skill does not modulate service quality | thin | open | — |
-| ISSUE-039 | `culinary_renown` fame loop only reaches two consumers | thin | open | — |
-| ISSUE-040 | Reference validation gaps for staff identity + adventurer reverse edges | broken | open | — |
-| ISSUE-041 | Staff identity profile pool covers 3 of 8 cultures | thin | open | — |
-| ISSUE-042 | Niche factions carry no notable NPCs | thin | open | — |
-| ISSUE-043 | Social rumours never pruned (unbounded growth) | thin | open | — |
-| ISSUE-044 | Supplier reliability + relationship do not affect pricing | thin | open | — |
-| ISSUE-045 | `content/text/descriptors.ts` pool still empty Phase 22 stub | thin | open | — |
-| ISSUE-046 | Staff-management owner actions (hire / fire / kick) missing | broken | open | — |
+| ISSUE-034 | Test worker crash silently hides ~58 untested tests | broken | done | 74 |
+| ISSUE-035 | `createStateDiff` skips `recipes`, `expeditions`, `hireableAdventurers` | thin | done | 75 |
+| ISSUE-036 | Tagged diff boundaries computed but never consumed | thin | done | 76 |
+| ISSUE-037 | `HireableAdventurer.wageBase` / `specialty` / `activeFlags` are dead fields | broken | done | 77 |
+| ISSUE-038 | Cook tier/skill does not modulate service quality | thin | done | 78 |
+| ISSUE-039 | `culinary_renown` fame loop only reaches two consumers | thin | done | 79 |
+| ISSUE-040 | Reference validation gaps for staff identity + adventurer reverse edges | broken | done | 80 |
+| ISSUE-041 | Staff identity profile pool covers 3 of 8 cultures | thin | done | 81 |
+| ISSUE-042 | Niche factions carry no notable NPCs | thin | done | 82 |
+| ISSUE-043 | Social rumours never pruned (unbounded growth) | thin | done | 83 |
+| ISSUE-044 | Supplier reliability + relationship do not affect pricing | thin | done | 84 |
+| ISSUE-045 | `content/text/descriptors.ts` pool still empty Phase 22 stub | thin | done | 85 |
+| ISSUE-046 | Staff-management owner actions (hire / fire / kick) missing | broken | done | 86 |
 
 ---
 
@@ -1312,8 +1312,8 @@ since that work is `done`.
 ### ISSUE-034 — Test worker crash silently hides ~58 untested tests
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 74
 - **Evidence:**
   - `npm test` reports `Test Files 64 passed (65)`,
     `Tests 987 passed (1045)`, and `Errors 1 error`. One test file's
@@ -1354,8 +1354,8 @@ since that work is `done`.
 ### ISSUE-035 — `createStateDiff` skips `recipes`, `expeditions`, `hireableAdventurers`
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 75
 - **Evidence:**
   - `src/sim/core/diff.ts:520-552` `createStateDiff` walks coin,
     areas, stock, staff, customers, reputation, pressures,
@@ -1399,8 +1399,8 @@ since that work is `done`.
 ### ISSUE-036 — Tagged diff boundaries computed but never consumed
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 76
 - **Evidence:**
   - `src/sim/core/engine.ts:1463-1488` snapshots and finalizes four
     tagged diffs per day: `owner_actions`, `service`, `end_week`,
@@ -1443,8 +1443,8 @@ since that work is `done`.
 ### ISSUE-037 — `HireableAdventurer.wageBase` / `specialty` / `activeFlags` are dead fields
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 77
 - **Evidence:**
   - `src/sim/state/TavernState.ts:596` declares
     `wageBase: number // coin per expedition day`. The field is
@@ -1497,8 +1497,8 @@ since that work is `done`.
 ### ISSUE-038 — Cook tier/skill does not modulate service quality
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 78
 - **Evidence:**
   - `src/sim/modules/staff/priorityEffects.ts:32-160` builds the
     daily `staffQualityModifiers` (notably `foodQualityModifier` and
@@ -1545,8 +1545,8 @@ since that work is `done`.
 ### ISSUE-039 — `culinary_renown` fame loop only reaches two consumers
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 79
 - **Evidence:**
   - Producers of `state.reputation.culinary_renown`:
     `src/sim/modules/service/recipes.ts:66-76` (serve uncommon+
@@ -1592,8 +1592,8 @@ since that work is `done`.
 ### ISSUE-040 — Reference validation gaps for staff identity + adventurer reverse edges
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 80
 - **Evidence:**
   - `src/sim/state/TavernState.ts:151` declares the optional
     `StaffIdentityState.cultureId: string`. `src/sim/state/
@@ -1635,8 +1635,8 @@ since that work is `done`.
 ### ISSUE-041 — Staff identity profile pool covers 3 of 8 cultures
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 81
 - **Evidence:**
   - `src/sim/content/staff/staffIdentityProfiles.ts` registers 6
     profiles total: `cook_goblin_common`,
@@ -1684,8 +1684,8 @@ since that work is `done`.
 ### ISSUE-042 — Niche factions carry no notable NPCs
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 82
 - **Evidence:**
   - `src/sim/content/factions/factionRegistry.ts` registers 9
     factions including the three niche additions from ISSUE-012
@@ -1729,8 +1729,8 @@ since that work is `done`.
 ### ISSUE-043 — Social rumours never pruned (unbounded growth)
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 83
 - **Evidence:**
   - `src/sim/modules/weekly/community.ts:580` writes new rumours
     to `ctx.state.world.socialRumours[rumour.id]`. The `:533-562`
@@ -1770,8 +1770,8 @@ since that work is `done`.
 ### ISSUE-044 — Supplier reliability + relationship do not affect pricing
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 84
 - **Evidence:**
   - `src/sim/modules/suppliers/pricing.ts:45-61`
     `getEffectiveBasePrice` reads `stock.basePrice`,
@@ -1811,8 +1811,8 @@ since that work is `done`.
 ### ISSUE-045 — `content/text/descriptors.ts` pool still empty Phase 22 stub
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 85
 - **Evidence:**
   - `src/sim/content/text/descriptors.ts` consists of a comment
     block stating "Phase 22 leaves the file as an empty
@@ -1854,8 +1854,8 @@ since that work is `done`.
 ### ISSUE-046 — Staff-management owner actions (hire / fire / kick) missing
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 86
 - **Evidence:**
   - `src/sim/modules/ownerActions/actionDefinitions.ts:851-863`
     `REQUIRED_OWNER_ACTIONS` registers 11 actions: `clean_area`,

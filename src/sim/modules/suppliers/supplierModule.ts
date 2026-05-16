@@ -4,13 +4,18 @@ import type { SimulationModule, SimulationHook } from '../../core/module'
 import type { SimContext } from '../../core/context'
 import type { ValidationIssue } from '../../state/types'
 import { marketConditionRegistry } from '../../content/suppliers/marketConditionRegistry'
+import { getMissedDeliveryProbability } from './pricing'
 import {
   SUPPLIERS_MODULE_ID,
   createInitialSupplierModuleState,
   getSupplierModuleState,
 } from './state'
 import { buildSupplierReport } from './supplierReport'
-import type { ActiveMarketCondition, SupplierModuleState } from './types'
+import type {
+  ActiveMarketCondition,
+  SupplierMissedDelivery,
+  SupplierModuleState,
+} from './types'
 
 // Phase 29 §29.5 — Supplier module.
 //
@@ -92,6 +97,58 @@ const supplierUpdateHook: SimulationHook = (ctx: SimContext): void => {
         amount: -1,
         tags: ['supplier', 'relationship'],
       },
+    )
+  }
+
+  // Phase 84 / ISSUE-044 — per-supplier missed-delivery roll.
+  // Suppliers with reliability < 60 occasionally miss a delivery on
+  // one of their `goodsProvided` ingredients. The roll uses the
+  // `supplier_delivery` named RNG stream so the result is
+  // deterministic per (seed, day, supplier, stock) tuple. The
+  // observation is purely diagnostic for now — it records the missed
+  // attempt on `state.modules.suppliers.missedDeliveriesToday` and
+  // emits a cause. Future phases that schedule automatic deliveries
+  // can plug in here to skip the actual stock write.
+  const rng = ctx.getRngStream('supplier_delivery')
+  const newlyMissed: SupplierMissedDelivery[] = []
+  for (const supplier of Object.values(ctx.state.world.suppliers)) {
+    const probability = getMissedDeliveryProbability(supplier)
+    if (probability === 0) continue
+    if (supplier.goodsProvided.length === 0) continue
+    if (!rng.chance(probability)) continue
+    const stockId = rng.pick([...supplier.goodsProvided])
+    newlyMissed.push({
+      supplierId: supplier.id,
+      stockId,
+      reason: 'low_reliability',
+      tags: ['supplier', 'missed', 'low_reliability'],
+    })
+    ctx.addCause({
+      source: `${SOURCE}.missed_delivery`,
+      sourceType: 'supplier',
+      target: supplier.id,
+      targetType: 'supplier',
+      amount: 0,
+      direction: 'neutral',
+      readable: `${supplier.label} missed today's delivery of ${stockId} (reliability ${supplier.reliability}).`,
+      tags: ['supplier', 'missed_delivery', supplier.id, stockId],
+      relatedSystems: [SOURCE, 'stock'],
+    })
+  }
+  if (newlyMissed.length > 0) {
+    ctx.modifyModuleState<SupplierModuleState>(
+      SUPPLIERS_MODULE_ID,
+      (current) => {
+        const base = current ?? createInitialSupplierModuleState()
+        return {
+          ...base,
+          missedDeliveriesToday: [
+            ...base.missedDeliveriesToday,
+            ...newlyMissed,
+          ],
+        }
+      },
+      { source: `${SOURCE}.missed_delivery_record` },
     )
   }
 

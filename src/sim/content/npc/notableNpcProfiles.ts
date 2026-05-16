@@ -79,6 +79,9 @@ const REQUIRED_NOTABLE_NPC_PROFILES: NotableNpcProfile[] = [
     activeFlags: [],
   },
   {
+    // The moneylender works the brewers' guild's debt book — both
+    // sides of the guild's coin flow lead back through this NPC.
+    // The pairing is deliberate, not a copy-paste slip.
     id: 'moneylender',
     defaultNpcId: 'notable_npc_moneylender',
     label: 'Moneylender',
@@ -101,6 +104,9 @@ const REQUIRED_NOTABLE_NPC_PROFILES: NotableNpcProfile[] = [
     activeFlags: [],
   },
   {
+    // The fence moves stolen goods through the scrap collectors'
+    // network — the faction pairing is the underground supply chain,
+    // not a copy-paste slip.
     id: 'fence',
     defaultNpcId: 'notable_npc_fence',
     label: 'Fence',
@@ -142,6 +148,42 @@ const REQUIRED_NOTABLE_NPC_PROFILES: NotableNpcProfile[] = [
     cultureId: 'miner_workcrew',
     customerGroupId: 'miners',
     tags: ['foreman', 'payday_pressure', 'worker'],
+    activeFlags: [],
+  },
+  // Phase 82 / ISSUE-042 — notable NPC anchors for the three niche
+  // factions added in ISSUE-012. Without these, pressure chains and
+  // card-flavour lookups that target smugglers / silvermark / rival
+  // taverns can only resolve faction-level refs.
+  {
+    id: 'smuggler_contact',
+    defaultNpcId: 'notable_npc_smuggler_contact',
+    label: 'Smuggler Contact',
+    kind: 'smuggler',
+    namingProfileId: 'goblin_common',
+    factionId: 'smugglers_ring',
+    cultureId: 'goblin_local',
+    tags: ['smuggler', 'underground', 'contact'],
+    activeFlags: [],
+  },
+  {
+    id: 'silvermark_factor',
+    defaultNpcId: 'notable_npc_silvermark_factor',
+    label: 'Silvermark Factor',
+    kind: 'creditor',
+    namingProfileId: 'merchant_roadfolk',
+    factionId: 'silvermark_house',
+    cultureId: 'merchant_roadfolk',
+    tags: ['factor', 'creditor', 'silvermark', 'authority'],
+    activeFlags: [],
+  },
+  {
+    id: 'rival_tavern_keeper',
+    defaultNpcId: 'notable_npc_rival_tavern_keeper',
+    label: 'Rival Tavern Keeper',
+    kind: 'rival',
+    namingProfileId: 'human_town',
+    factionId: 'rival_taverns',
+    tags: ['rival', 'tavern', 'competition'],
     activeFlags: [],
   },
 ]

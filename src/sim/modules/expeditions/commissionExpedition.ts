@@ -21,9 +21,13 @@ import type {
 // `state.expeditions.active`. The expedition resolves end-only when
 // `daysElapsed >= daysTotal` in the expeditions module.
 //
+// Phase 77 / ISSUE-037 — Cost is `runner.wageBase * daysTotal`,
+// not the legacy `input.amount` value (which is now ignored). A
+// runner with `activeFlags.includes('injured')` is filtered out of
+// `getValidTargets` and rejected at `canApply`.
+//
 // Action inputs:
 //   targetId — runnerId (the hireable adventurer)
-//   amount — costPaid
 //   options — { mode, daysTotal, targetTier?, targetIngredientId? }
 
 export const COMMISSION_EXPEDITION_ACTION_ID = 'commission_expedition'
@@ -54,8 +58,14 @@ function readDaysTotal(input: OwnerActionInput): number | null {
   return opt
 }
 
-function readCost(input: OwnerActionInput): number {
-  const value = input.amount ?? 0
+// Phase 77 / ISSUE-037 — cost is derived from the runner's wageBase
+// and the chosen daysTotal, not the player's `input.amount` value
+// (which was free-form and let a master adventurer ship for 0 coin).
+function computeCost(
+  runner: { wageBase: number },
+  daysTotal: number,
+): number {
+  const value = runner.wageBase * daysTotal
   return Number.isFinite(value) && value >= 0 ? value : 0
 }
 
@@ -78,11 +88,15 @@ export const commissionExpedition: OwnerActionDefinition = {
   actionPointCost: 1,
   getValidTargets: (ctx: SimContext) => {
     return Object.values(ctx.state.world.hireableAdventurers)
-      .filter((a) => a.currentExpeditionId === null)
+      .filter(
+        (a) =>
+          a.currentExpeditionId === null &&
+          !a.activeFlags.includes('injured'),
+      )
       .map((a) => ({
         id: a.id,
         label: a.name.display,
-        hint: `exp ${a.experience}, rel ${a.reliability}, friend ${a.relationship}`,
+        hint: `exp ${a.experience}, rel ${a.reliability}, friend ${a.relationship}, wage ${a.wageBase}/day`,
       }))
   },
   canApply: (ctx, input) => {
@@ -106,6 +120,13 @@ export const commissionExpedition: OwnerActionDefinition = {
         ok: false,
         code: 'runner_busy',
         reason: `${runner.name.display} is already on expedition ${runner.currentExpeditionId}.`,
+      }
+    }
+    if (runner.activeFlags.includes('injured')) {
+      return {
+        ok: false,
+        code: 'runner_injured',
+        reason: `${runner.name.display} is recovering from a prior expedition and cannot be commissioned.`,
       }
     }
     const mode = readMode(input)
@@ -163,12 +184,12 @@ export const commissionExpedition: OwnerActionDefinition = {
         }
       }
     }
-    const cost = readCost(input)
+    const cost = computeCost(runner, daysTotal)
     if (ctx.state.coin < cost) {
       return {
         ok: false,
         code: 'insufficient_coin',
-        reason: `Need ${cost} coin to commission this expedition; have ${ctx.state.coin}.`,
+        reason: `Need ${cost} coin (wage ${runner.wageBase}/day × ${daysTotal}d) to commission this expedition; have ${ctx.state.coin}.`,
       }
     }
     return { ok: true }
@@ -177,7 +198,7 @@ export const commissionExpedition: OwnerActionDefinition = {
     const runner = ctx.state.world.hireableAdventurers[input.targetId!]!
     const mode = readMode(input)!
     const daysTotal = readDaysTotal(input)!
-    const cost = readCost(input)
+    const cost = computeCost(runner, daysTotal)
     const targetTier = mode === 'open' ? readTargetTier(input) : null
     const targetIngredientId =
       mode === 'targeted' ? readTargetIngredient(input) : null

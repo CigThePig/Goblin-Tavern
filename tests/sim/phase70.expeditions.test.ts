@@ -66,6 +66,9 @@ describe('Phase 70 — expedition subsystem', () => {
   })
 
   it('commission_expedition adds an active expedition and reserves the runner', () => {
+    // Phase 77 / ISSUE-037 — cost is `runner.wageBase * daysTotal`,
+    // not the legacy free-form `input.amount` value. Alpha has
+    // wageBase 6; 5-day expedition → cost 30.
     let state = withCoin(createInitialTavernState(), 200)
     const runnerId = 'hireable_adv_alpha'
     state = runOneDay(state, {
@@ -86,13 +89,10 @@ describe('Phase 70 — expedition subsystem', () => {
     expect(exp.mode).toBe('open')
     expect(exp.targetTier).toBe('rare')
     expect(exp.daysTotal).toBe(5)
-    expect(exp.costPaid).toBe(20)
+    expect(exp.costPaid).toBe(30)
     // The runner is reserved.
     const runner = state.world.hireableAdventurers[runnerId]!
     expect(runner.currentExpeditionId).toBe(exp.id)
-    // Cost was recorded on the expedition (coin may be higher than the
-    // pre-commission balance because the day's service also earned).
-    expect(exp.costPaid).toBe(20)
   })
 
   it('commission rejects a targeted expedition for a common-tier ingredient', () => {

@@ -23,6 +23,7 @@ import type { StaffIdentityState } from '../../state/TavernState'
 import {
   ensureRequiredStaffIdentityProfilesRegistered,
   getStaffIdentityProfileForRole,
+  getStaffIdentityProfilesForRole,
   staffIdentityProfileRegistry,
 } from './staffIdentityProfiles'
 import type { StaffIdentityProfile } from './staffIdentityTypes'
@@ -33,6 +34,11 @@ export type CreateStaffIdentityArgs = {
   rng: SimRng
   existingNames?: ReadonlySet<string>
   profileId?: string
+  // Phase 81 / ISSUE-041 — optional culture preference. When set,
+  // matching profiles get a heavier weight in the deterministic pick;
+  // non-matching profiles still remain selectable so we never throw
+  // when the preferred culture has no profile for the requested role.
+  preferredCultureId?: string
 }
 
 export type CreateStaffIdentityResult = {
@@ -87,11 +93,64 @@ function resolveProfile(args: CreateStaffIdentityArgs): StaffIdentityProfile {
     }
     return staffIdentityProfileRegistry.get(args.profileId)
   }
-  const byRole = getStaffIdentityProfileForRole(args.roleId)
-  if (!byRole) {
-    throw new Error(
-      `createStaffIdentity: no identity profile is registered for role '${args.roleId}'`,
-    )
+  const matches = getStaffIdentityProfilesForRole(args.roleId)
+  if (matches.length === 0) {
+    // Fall back to the legacy first-match helper purely for the
+    // identical error message — callers depend on it.
+    if (!getStaffIdentityProfileForRole(args.roleId)) {
+      throw new Error(
+        `createStaffIdentity: no identity profile is registered for role '${args.roleId}'`,
+      )
+    }
   }
-  return byRole
+  if (matches.length === 1) return matches[0]!
+
+  // Phase 81 / ISSUE-041 — weighted pick across all role-matching
+  // profiles. Cultural plausibility: shrine_devotees-flavoured
+  // profiles (when any are added) get a low weight for cleaner_bouncer.
+  // For now we lean on `preferredCultureId` and a small bias against
+  // non-violent cultures filling violent roles.
+  const weights = matches.map((profile) => profileWeight(profile, args))
+  const sum = weights.reduce((a, b) => a + b, 0)
+  if (sum <= 0) {
+    // Degenerate weighting (shouldn't happen with positive base weights)
+    // — fall through to uniform pick.
+    return args.rng.pick([...matches])
+  }
+  let roll = args.rng.float() * sum
+  for (let i = 0; i < matches.length; i += 1) {
+    roll -= weights[i]!
+    if (roll <= 0) return matches[i]!
+  }
+  return matches[matches.length - 1]!
+}
+
+function profileWeight(
+  profile: StaffIdentityProfile,
+  args: CreateStaffIdentityArgs,
+): number {
+  let weight = 1
+  if (
+    args.preferredCultureId !== undefined &&
+    profile.cultureId === args.preferredCultureId
+  ) {
+    weight += 3
+  }
+  // `shrine_devotees` reads as a poor fit for a bouncer slot. No
+  // shrine_devotees profile is registered today, but the heuristic
+  // is here so future additions automatically follow the cultural-
+  // plausibility intent of ISSUE-041.
+  if (
+    profile.cultureId === 'shrine_devotees' &&
+    profile.roleId === 'cleaner_bouncer'
+  ) {
+    weight *= 0.1
+  }
+  if (
+    profile.cultureId === 'ogre_clans' &&
+    profile.roleId === 'cleaner_bouncer'
+  ) {
+    weight *= 2
+  }
+  return weight
 }

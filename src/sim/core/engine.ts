@@ -742,6 +742,41 @@ function createContext(
         ['staff', id],
       )
     },
+    addStaff(staff, meta): void {
+      // Phase 86 / ISSUE-046 — duplicate id is a programmer error;
+      // a bad action input would have been caught by canApply.
+      if (runtime.current.staff[staff.id]) {
+        throw new Error(`addStaff: duplicate staff id '${staff.id}'`)
+      }
+      runtime.current = {
+        ...runtime.current,
+        staff: {
+          ...runtime.current.staff,
+          [staff.id]: staff,
+        },
+      }
+      if (meta) {
+        addCauseInternal(meta, {
+          target: `staff.${staff.id}`,
+          targetType: 'staff',
+        })
+      }
+    },
+    removeStaff(id, meta): void {
+      if (!runtime.current.staff[id]) return
+      const nextStaff = { ...runtime.current.staff }
+      delete nextStaff[id]
+      runtime.current = {
+        ...runtime.current,
+        staff: nextStaff,
+      }
+      if (meta) {
+        addCauseInternal(meta, {
+          target: `staff.${id}`,
+          targetType: 'staff',
+        })
+      }
+    },
     modifyCustomerGroup(id, changes, meta): void {
       const group = requireRecord<CustomerGroupState>(
         runtime.current.customerGroups,
@@ -1442,14 +1477,13 @@ export function simulateDay(
 
   const ctx = createContext(runtime, input, sortedModules)
 
-  // Phase 17 §17.8 — Snapshot the full-day baseline up front. The
-  // owner-action / service / week / month boundaries are snapshotted as
-  // the engine crosses them below.
+  // Phase 17 §17.8 — Snapshot the full-day baseline up front. Phase 76
+  // (ISSUE-036) dropped the `owner_actions` / `service` / `end_week` /
+  // `end_month` tagged boundaries: the only consumers were two phase-17
+  // test asserts (now reading `'day'`), no production code read them,
+  // and the `service` boundary was finalized five phase slots before
+  // `generateReports`, leaving any future consumer reading stale state.
   runtime.changeTracker.snapshot('day', runtime.current)
-  const isEndWeekDay = isEndOfWeek(runtime.current.calendar)
-  const isEndMonthDay = isEndOfMonth(runtime.current.calendar)
-  if (isEndWeekDay) runtime.changeTracker.snapshot('end_week', runtime.current)
-  if (isEndMonthDay) runtime.changeTracker.snapshot('end_month', runtime.current)
 
   for (const phase of SIMULATION_PHASES) {
     if (phase === 'endWeek' && !isEndOfWeek(runtime.current.calendar)) {
@@ -1459,34 +1493,11 @@ export function simulateDay(
       continue
     }
 
-    if (phase === 'beforeOwnerActions') {
-      runtime.changeTracker.snapshot('owner_actions', runtime.current)
-    }
-    if (phase === 'beforeService') {
-      // Close the owner-action diff *before* service mutates state.
-      runtime.changeTracker.finalize('owner_actions', runtime.current)
-      runtime.changeTracker.snapshot('service', runtime.current)
-    }
-
     if (phase === 'generateReports') {
       collectReports(sortedModules, ctx, runtime)
     }
 
     runHooks(phase, sortedModules, ctx, runtime)
-
-    if (phase === 'closing') {
-      // Service finished. Close the service-phase diff so reports can
-      // read it from `ctx.getDiff('service')` during `generateReports`.
-      runtime.changeTracker.finalize('service', runtime.current)
-    }
-
-    if (phase === 'endWeek') {
-      runtime.changeTracker.finalize('end_week', runtime.current)
-    }
-
-    if (phase === 'endMonth') {
-      runtime.changeTracker.finalize('end_month', runtime.current)
-    }
 
     if (phase === 'validate') {
       collectModuleValidations(sortedModules, ctx, runtime)

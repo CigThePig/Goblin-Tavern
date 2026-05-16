@@ -57,5 +57,38 @@ export function getEffectiveBasePrice(
     const multiplier = def?.priceMultiplier ?? 1
     price *= multiplier
   }
+  // Phase 84 / ISSUE-044 — supplier relationship modulates the
+  // effective price. The legacy `getEffectiveBasePrice` ignored
+  // `supplier.relationship` entirely, leaving it decorative on the
+  // supplier report. A relationship of 50 is neutral; higher relations
+  // earn a small discount, lower relations a surcharge, bounded ±5%.
+  if (supplier) {
+    price *= getRelationshipPriceMultiplier(supplier)
+  }
   return price
+}
+
+// Exported for the supplier report so the player can see how
+// relationship shifts the headline number. Pure helper — no
+// side-effects, no rng.
+export function getRelationshipPriceMultiplier(
+  supplier: SupplierWorldState,
+): number {
+  const raw = (supplier.relationship - 50) * 0.001
+  const bounded = Math.max(-0.05, Math.min(0.05, raw))
+  // Subtract: relationship 80 (raw 0.03) → multiplier 0.97 (3% off).
+  return 1 - bounded
+}
+
+// Phase 84 / ISSUE-044 — supplier reliability translates to a daily
+// missed-delivery probability. A 90-reliability supplier never misses
+// (probability 0); a 40-reliability supplier misses 10% of attempts;
+// a 20-reliability supplier misses 20%. The simulation uses a named
+// RNG stream so a missed delivery is deterministic per (seed, day,
+// supplier, stock) tuple.
+export function getMissedDeliveryProbability(
+  supplier: SupplierWorldState,
+): number {
+  const raw = (60 - supplier.reliability) * 0.005
+  return Math.max(0, Math.min(0.5, raw))
 }

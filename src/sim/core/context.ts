@@ -152,6 +152,12 @@ export type SimContext = {
   modifyArea(id: string, changes: Partial<AreaState>, meta: MutationMeta): void
   modifyStock(id: string, changes: Partial<StockState>, meta: MutationMeta): void
   modifyStaff(id: string, changes: Partial<StaffState>, meta: MutationMeta): void
+  // Phase 86 / ISSUE-046 — hire / fire staff mutators. Mirrors the
+  // adventurer add/remove pair: `addStaff` rejects duplicate ids;
+  // `removeStaff` is a no-op when the id is unknown. Both emit a
+  // cause for diff-coverage parity.
+  addStaff(staff: StaffState, meta: MutationMeta): void
+  removeStaff(id: string, meta: MutationMeta): void
   modifyCustomerGroup(id: string, changes: Partial<CustomerGroupState>, meta: MutationMeta): void
   // Phase 65 / ISSUE-025 §6.1 — recipe-slice mutations. Recipes track
   // serving counters and the player's `onMenu` flag; mutations route

@@ -47,6 +47,31 @@ const PER_PRIORITY: Record<StaffPriorityId, Partial<ServiceQualityModifiers>> = 
   intimidate_debtors: { tabControl: 0.8 },
 }
 
+// Phase 78 / ISSUE-038 — cook-family roles modulate `foodQualityModifier`
+// and server-family roles modulate `serviceSpeed` based on `skill`.
+// Before this phase a master_chef on `quality` produced the same daily
+// food quality as a kitchen_hand on `quality`; only the prep gate in
+// `service/recipes.ts` differentiated them. The role-skill bias here
+// is monotonic in skill, bounded at ±0.25, and routed through the same
+// `scaleByEffectiveness` pipeline as the priority contribution so
+// morale / stress / fatigue still suppress it.
+const COOK_ROLE_IDS: ReadonlySet<string> = new Set([
+  'cook',
+  'kitchen_hand',
+  'seasoned_cook',
+  'master_chef',
+])
+const SERVER_ROLE_IDS: ReadonlySet<string> = new Set(['server'])
+
+function skillBias(skill: number): number {
+  // (skill - 50) / 200 → -0.25 (skill 0) to +0.25 (skill 100). At the
+  // canonical cook skill of 55 this is ~+0.025; at master_chef 85,
+  // +0.175. Small enough that priority remains the dominant signal,
+  // big enough that a master/kitchen_hand pair produces a noticeable
+  // satisfaction-delta gap on the same priority.
+  return (skill - 50) / 200
+}
+
 // Phase 31 §31.9 — small, additive work-style nudges on top of the
 // per-priority modifiers above. Intentionally tiny: priority is still
 // the dominant signal, identity merely flavours it. Values are not
@@ -136,6 +161,24 @@ export function derivePriorityModifiers(
       contribution.repairSupport ?? 0,
       eff,
     )
+
+    // Phase 78 / ISSUE-038 — cook-tier skill bias on foodQualityModifier
+    // and server skill bias on serviceSpeed. Routed through
+    // scaleByEffectiveness so a stressed master_chef still beats an
+    // unstressed kitchen_hand on the same priority, but only by the
+    // appropriate margin.
+    if (COOK_ROLE_IDS.has(staff.role)) {
+      result.foodQualityModifier += scaleByEffectiveness(
+        skillBias(staff.skill),
+        eff,
+      )
+    }
+    if (SERVER_ROLE_IDS.has(staff.role)) {
+      result.serviceSpeed += scaleByEffectiveness(
+        skillBias(staff.skill),
+        eff,
+      )
+    }
 
     // Phase 31 §31.9 — small flat nudge from the staff member's work
     // style. Identity must not dominate the numeric staff system, so

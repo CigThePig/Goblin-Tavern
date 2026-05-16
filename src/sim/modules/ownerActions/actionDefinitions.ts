@@ -847,6 +847,9 @@ const buyMugs: OwnerActionDefinition = {
 // its own module file but registers through the shared owner-action
 // registry. Adding it here keeps the bootstrap path uniform.
 import { commissionExpedition } from '../expeditions/commissionExpedition'
+// Phase 86 / ISSUE-046 — hire / fire staff and ban_customer_group
+// owner actions. Same registration pattern.
+import { STAFF_MANAGEMENT_ACTIONS } from './staffManagementActions'
 
 export const REQUIRED_OWNER_ACTIONS: OwnerActionDefinition[] = [
   cleanArea,
@@ -860,6 +863,7 @@ export const REQUIRED_OWNER_ACTIONS: OwnerActionDefinition[] = [
   fumigateCellar,
   buyMugs,
   commissionExpedition,
+  ...STAFF_MANAGEMENT_ACTIONS,
 ]
 
 // Re-export the individual definitions in case callers want to register

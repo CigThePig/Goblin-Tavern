@@ -103,7 +103,9 @@ describe('Phase 16 — Module shape', () => {
 
   it('historyModule registers id, version, and validator', () => {
     expect(historyModule.id).toBe('history')
-    expect(historyModule.version).toBe('0.1.0')
+    // Phase 62 / ISSUE-022 bumped to 0.2.0 when the endMonth pruning
+    // hook was added.
+    expect(historyModule.version).toBe('0.2.0')
     expect(historyModule.validate).toBeTypeOf('function')
   })
 

@@ -251,11 +251,16 @@ describe('Core sim modules', () => {
     ]
 
     expect(modules.map((m) => m.id)).toEqual(expectedIds)
-    for (const mod of modules) {
+    const bumpedTo020 = new Set([
       // Phase 33 §33.3 / §33.5 bumped ownerActions to 0.2.0 when the
       // module gained persistent project / policy / social slices.
-      // Other modules still ship 0.1.0.
-      const expected = mod.id === 'ownerActions' ? '0.2.0' : '0.1.0'
+      'ownerActions',
+      // Phase 62 / ISSUE-022 bumped history to 0.2.0 when the
+      // endMonth pruning hook was added.
+      'history',
+    ])
+    for (const mod of modules) {
+      const expected = bumpedTo020.has(mod.id) ? '0.2.0' : '0.1.0'
       expect(mod.version).toBe(expected)
     }
   })

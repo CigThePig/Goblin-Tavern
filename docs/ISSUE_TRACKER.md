@@ -57,7 +57,7 @@ how to verify the fix.
 | ISSUE-016 | `violence` family rewrite + rotation | broken | done | 56 |
 | ISSUE-017 | `staff_burnout` family rewrite + rotation | broken | done | 57 |
 | ISSUE-018 | `inspection` family un-pinning | thin | done | 58 |
-| ISSUE-019 | `monthly_review` design decision + implementation | design | open | — |
+| ISSUE-019 | `monthly_review` design decision + implementation | design | done | 59 |
 | ISSUE-020 | `activeIssueSeedTags` consumer wiring | thin | open | — |
 | ISSUE-021 | Calendar tag consumers (priority: `rent_due_soon`) | thin | open | — |
 | ISSUE-022 | History log pruning policy | thin | open | — |
@@ -1087,8 +1087,8 @@ infrastructure plus the relevant tier 1 roster grow.
 ### ISSUE-019 — `monthly_review` design decision + implementation
 
 - **Grade:** design
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 59
 - **Evidence:**
   - `src/sim/modules/monthly/monthlyModule.ts:556` — gate
     `endDay === calendar.day` means the family only fires on

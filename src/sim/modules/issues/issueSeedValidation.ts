@@ -399,9 +399,13 @@ export function validateSeed(
     }
   }
 
+  // Phase 59 / ISSUE-019 — `monthly_review` is now a real card family
+  // with responseSlots / consequenceProfiles / memories / stakes, so
+  // the four `seed.type === 'monthly_review'` bypasses that previously
+  // exempted it from these checks are removed.
+
   // 6. at least two response slots.
-  const hasTwoResponses =
-    seed.responseSlots.length >= 2 || seed.type === 'monthly_review'
+  const hasTwoResponses = seed.responseSlots.length >= 2
   contractChecks.at_least_two_responses = hasTwoResponses
   if (!hasTwoResponses)
     errors.push('Seed has fewer than two response slots')
@@ -411,8 +415,7 @@ export function validateSeed(
   const hasConsequences =
     seed.consequenceProfiles.length >= seed.responseSlots.length &&
     seed.consequenceProfiles.length > 0
-  contractChecks.short_term_consequences =
-    hasConsequences || seed.type === 'monthly_review'
+  contractChecks.short_term_consequences = hasConsequences
   if (!contractChecks.short_term_consequences)
     errors.push('Seed is missing consequence profiles for response slots')
 
@@ -424,8 +427,7 @@ export function validateSeed(
     ...seed.consequenceProfiles.flatMap((p) => p.memories),
     ...seed.consequenceProfiles.flatMap((p) => p.futureHooks),
   ]
-  const hasMemoryOrHook =
-    allMemories.length > 0 || seed.type === 'monthly_review'
+  const hasMemoryOrHook = allMemories.length > 0
   contractChecks.memory_or_future_hook = hasMemoryOrHook
   if (!hasMemoryOrHook)
     errors.push('Seed has no memory or future hook to leave behind')
@@ -436,9 +438,7 @@ export function validateSeed(
 
   // 10. reason to care — severity, urgency, and at least one stake.
   const hasReason =
-    seed.severity > 0 &&
-    seed.urgency > 0 &&
-    (seed.stakes.length > 0 || seed.type === 'monthly_review')
+    seed.severity > 0 && seed.urgency > 0 && seed.stakes.length > 0
   contractChecks.reason_to_care = hasReason
   if (!hasReason)
     errors.push('Seed has no severity/urgency/stake giving the player a reason to care')

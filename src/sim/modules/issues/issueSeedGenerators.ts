@@ -3364,12 +3364,12 @@ function generateMonthlyReview(ctx: SimContext): IssueSeed[] {
           endingCoin: number
           economy: { net: number }
         }
+        rent?: { monthlyAmount?: number }
       }
     | undefined
   const result = monthly?.lastMonthlyResult
   if (!result) return []
 
-  // monthly_review has no choice responses — it is a structured report seed.
   const causes: CauseEntry[] = recentCauseEntries(
     ctx,
     ['monthly', 'rent', 'reputation', 'inspection'],
@@ -3384,6 +3384,224 @@ function generateMonthlyReview(ctx: SimContext): IssueSeed[] {
     return []
   }
 
+  // Phase 59 / ISSUE-019 — Promote monthly_review to a card family.
+  // Four strategic month-end decisions, each shaped by month-end
+  // context. The `settle_with_rival` slot gracefully degrades to
+  // 3 slots when the `rival_taverns` faction (added in phase 52) isn't
+  // seeded, preserving the contract's ≥ 2-slot floor.
+  const rentAmount = monthly?.rent?.monthlyAmount ?? 50
+  const rivalRef = ctx.state.world.factions['rival_taverns']
+    ? factionRef('rival_taverns')
+    : undefined
+
+  const monthRef: EntityRef = { kind: 'other', id: `month:${result.monthKey}` }
+
+  const responseSlots: ResponseSlot[] = [
+    {
+      id: 'pay_landlord_on_time',
+      labelHint: 'Pay the landlord on time',
+      allowedVerbs: ['pay'],
+      shape: 'safe_costly',
+      targetOptions: [systemRef('landlord')],
+      expectedEffects: ['lower landlord pressure', 'spend coin'],
+    },
+    {
+      id: 'invest_in_cellar',
+      labelHint: 'Invest in the cellar',
+      allowedVerbs: ['upgrade'],
+      shape: 'long_term_investment',
+      targetOptions: [areaRef('cellar')],
+      expectedEffects: ['improve cellar', 'risk rent slip'],
+    },
+    {
+      id: 'hold_reserves',
+      labelHint: 'Hold reserves through next month',
+      allowedVerbs: ['delay'],
+      shape: 'compromise',
+      targetOptions: [systemRef('reserves')],
+      expectedEffects: ['lower debt', 'staff feel the squeeze'],
+    },
+    ...(rivalRef
+      ? [
+          {
+            id: 'settle_with_rival',
+            labelHint: 'Settle with the rival tavern',
+            allowedVerbs: ['negotiate'],
+            shape: 'compromise',
+            targetOptions: [rivalRef],
+            expectedEffects: ['lower rival pressure', 'fuel gossip'],
+          } as ResponseSlot,
+        ]
+      : []),
+  ]
+
+  const consequenceProfiles: ConsequenceProfile[] = [
+    makeProfile({
+      id: 'pay_landlord_on_time_profile',
+      responseSlotId: 'pay_landlord_on_time',
+      immediateEffects: [
+        effect('state_change', 'coin', -rentAmount, 'Rent paid in full', ['coin', 'rent']),
+        effect('pressure', 'pressure:landlord', -25, 'Landlord eased', ['pressure', 'landlord']),
+      ],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:debt',
+          6,
+          'Reserves thinner after rent',
+          ['pressure', 'debt', 'delay:5'],
+        ),
+        effect(
+          'future_hook',
+          'landlord_goodwill_window',
+          30,
+          'Landlord may offer a window of goodwill',
+          ['future_hook', 'landlord'],
+        ),
+      ],
+      memories: [
+        {
+          id: `rent_paid_${result.monthKey}`,
+          actors: [systemRef('landlord')],
+          tags: ['rent', 'paid', 'monthly'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: 'landlord_goodwill_window',
+          actors: [systemRef('landlord')],
+          tags: ['landlord', 'opportunity'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'invest_in_cellar_profile',
+      responseSlotId: 'invest_in_cellar',
+      immediateEffects: [
+        effect('state_change', 'coin', -20, 'Cellar investment', ['coin']),
+        effect('state_change', 'areas.cellar.condition', 12, 'Cellar improves', ['area', 'cellar']),
+      ],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:landlord',
+          12,
+          'Rent slip — landlord notices',
+          ['pressure', 'landlord', 'delay:3'],
+        ),
+        effect(
+          'future_hook',
+          `cellar_capacity_unlocked_${result.monthKey}`,
+          14,
+          'Cellar capacity may unlock next month',
+          ['future_hook', 'cellar'],
+        ),
+      ],
+      memories: [
+        {
+          id: `cellar_invested_${result.monthKey}`,
+          actors: [areaRef('cellar')],
+          tags: ['cellar', 'investment', 'monthly'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `cellar_capacity_unlocked_${result.monthKey}`,
+          actors: [areaRef('cellar')],
+          tags: ['cellar', 'opportunity'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'hold_reserves_profile',
+      responseSlotId: 'hold_reserves',
+      immediateEffects: [
+        effect('pressure', 'pressure:debt', -4, 'Reserves held', ['pressure', 'debt']),
+      ],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:staff_loyalty_risk',
+          6,
+          'Staff sense the penny-pinching',
+          ['pressure', 'staff', 'delay:7'],
+        ),
+        effect(
+          'future_hook',
+          `reserves_intact_${result.monthKey}`,
+          28,
+          'Reserves intact through next month',
+          ['future_hook', 'reserves'],
+        ),
+      ],
+      memories: [
+        {
+          id: `reserves_held_${result.monthKey}`,
+          tags: ['reserves', 'monthly'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `reserves_intact_${result.monthKey}`,
+          tags: ['reserves', 'opportunity'],
+        },
+      ],
+    }),
+    ...(rivalRef
+      ? [
+          makeProfile({
+            id: 'settle_with_rival_profile',
+            responseSlotId: 'settle_with_rival',
+            immediateEffects: [
+              effect('state_change', 'coin', -15, 'Settlement payment', ['coin']),
+              effect('cause', `faction:${rivalRef.id}`, 12, 'Rival eases up', [
+                'faction',
+                'rival',
+                'settle',
+              ]),
+              effect(
+                'pressure',
+                'pressure:rival_tavern_pressure',
+                -12,
+                'Rival pressure cools',
+                ['pressure', 'rival'],
+              ),
+            ],
+            delayedEffects: [
+              effect(
+                'pressure',
+                'pressure:rumour_pressure',
+                6,
+                'Visible accommodation feeds gossip',
+                ['pressure', 'rumour', 'delay:5'],
+              ),
+              effect(
+                'future_hook',
+                `rival_settlement_pact_${result.monthKey}`,
+                21,
+                'Rival pact may reopen later',
+                ['future_hook', 'rival'],
+              ),
+            ],
+            memories: [
+              {
+                id: `rival_settled_${result.monthKey}`,
+                actors: [rivalRef],
+                tags: ['rival', 'settle', 'monthly'],
+              },
+            ],
+            futureHooks: [
+              {
+                id: `rival_settlement_pact_${result.monthKey}`,
+                actors: [rivalRef],
+                tags: ['rival', 'opportunity'],
+              },
+            ],
+          }),
+        ]
+      : []),
+  ]
+
   return [
     buildSeed({
       id: seedId('monthly_review', result.monthKey, ctx),
@@ -3393,12 +3611,22 @@ function generateMonthlyReview(ctx: SimContext): IssueSeed[] {
       domain: ['monthly', 'economy', 'reputation'],
       severity: 40,
       urgency: 30,
+      primaryActor: monthRef,
       affectedActors: [],
       causes,
-      stakes: [],
-      responseSlots: [],
-      consequenceProfiles: [],
-      memoriesCreated: [],
+      stakes: [
+        stake('rent_stake', 'pressure:landlord', 'Rent may slip', 'risk', ['rent', 'landlord']),
+        stake('coin_stake', 'coin', 'Coin reserves at stake', 'loss', ['coin']),
+      ],
+      responseSlots,
+      consequenceProfiles,
+      memoriesCreated: [
+        {
+          id: `monthly_review_${result.monthKey}`,
+          actors: [monthRef],
+          tags: ['monthly', 'review'],
+        },
+      ],
       futureHooks: [],
       toneHints: ['summary', 'monthly'],
       textIngredients: buildTextIngredients({
@@ -3407,7 +3635,7 @@ function generateMonthlyReview(ctx: SimContext): IssueSeed[] {
         sensoryDetails: ['ledger closed', 'lamps trimmed'],
         actorOpinions: {},
         recentContext: [`net coin change ${result.economy.net}`],
-        stakesReadable: [],
+        stakesReadable: ['rent may slip', 'coin reserves at stake'],
       }),
       ctx,
     }),

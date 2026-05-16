@@ -52,7 +52,7 @@ how to verify the fix.
 | ISSUE-011 | Lift regular cap + add starter regulars | thin | done | 51 |
 | ISSUE-012 | Add niche factions + factionUpdate triggers for missing 2 | thin | done | 52 |
 | ISSUE-013 | `policy_backlash` family end-to-end | broken | done | 53 |
-| ISSUE-014 | `regular_customer` family end-to-end | broken | open | — |
+| ISSUE-014 | `regular_customer` family end-to-end | broken | done | 54 |
 | ISSUE-015 | `reputation_shift` family rewrite | broken | open | — |
 | ISSUE-016 | `violence` family rewrite + rotation | broken | open | — |
 | ISSUE-017 | `staff_burnout` family rewrite + rotation | broken | open | — |
@@ -931,8 +931,8 @@ infrastructure plus the relevant tier 1 roster grow.
 ### ISSUE-014 — `regular_customer` family end-to-end
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 54
 - **Evidence:**
   - `src/sim/modules/issues/issueSeedGenerators.ts:868,891` — double-gate
     on `regular_customer_loss < 25` and a second condition requiring

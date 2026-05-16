@@ -888,8 +888,17 @@ function generateRegularCustomer(ctx: SimContext): IssueSeed[] {
   if (!guard.allowed) return []
   recordPick(ctx, 'regular_customer', `regular:${chosen.id}`)
 
+  // Phase 54 / ISSUE-014 — Relax the second gate. The previous form
+  // required `memories.length === 0` to AND with irritation < 50 AND
+  // loyalty > 40 — meaning a sufficiently-irritated regular still
+  // couldn't surface the seed if they had no memories yet (which is the
+  // case for freshly-decayed regulars or those who haven't accumulated
+  // service-failure tags). Drop the memory precondition; allow either
+  // a memory trail OR a regular trending visibly negative
+  // (irritation > 30 OR loyalty < 60) to fire the seed.
   const memories = entityMemoryList(ctx.state, ref)
-  if (memories.length === 0 && chosen.irritation < 50 && chosen.loyalty > 40) return []
+  const trendingNegative = chosen.irritation > 30 || chosen.loyalty < 60
+  if (memories.length === 0 && !trendingNegative) return []
 
   const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'regular_customer_loss', 2)
   for (const c of recentCauseEntries(ctx, ['regular', chosen.id, chosen.customerGroupId], 14, 3)) {

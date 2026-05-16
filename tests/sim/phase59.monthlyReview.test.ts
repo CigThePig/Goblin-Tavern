@@ -145,9 +145,46 @@ describe('Phase 59 §ISSUE-019 — Per-slot mutations', () => {
     return { control, treatment }
   }
 
-  it('pay_landlord_on_time spends coin and lowers landlord pressure vs control', () => {
+  it('pay_landlord_on_time lowers landlord pressure without re-charging rent that was already paid', () => {
+    // In the default-state run, `resolveRent` already deducted coin on
+    // day 28 (plenty of coin available). The response must NOT charge
+    // again — the immediate coin effect collapses to zero — while
+    // still easing landlord pressure.
     const { control, treatment } = compareSlot('pay_landlord_on_time', 'pay', 'safe_costly')
-    expect(treatment.coin).toBeLessThan(control.coin)
+    expect(treatment.coin).toBe(control.coin)
+    expect(treatment.pressures.landlord!.value).toBeLessThan(
+      control.pressures.landlord!.value,
+    )
+  })
+
+  it('pay_landlord_on_time settles outstanding rent when month-end could not pay', () => {
+    // Drain coin below the monthly rent before day 28 so `resolveRent`
+    // marks the month as unpaid. The response should then subtract the
+    // full `amountDue` (monthly + arrears) and lower landlord pressure.
+    let state = plentyOfStock(createInitialTavernState())
+    for (let i = 0; i < 27; i += 1) {
+      state = runDay(state).state
+    }
+    state = { ...state, coin: 5 }
+    state = runDay(state).state
+    const seed = getIssueSeeds(state, { family: 'monthly_review' })[0]
+    expect(seed).toBeDefined()
+    const monthly = state.modules.monthly as { lastMonthlyResult?: { rent: { paid: boolean; amountDue: number } } }
+    const rentResult = monthly.lastMonthlyResult!.rent
+    expect(rentResult.paid).toBe(false)
+    expect(rentResult.amountDue).toBeGreaterThan(0)
+    const intent: ResponseIntent = {
+      id: 'r-pay-late',
+      seedId: seed!.id,
+      verb: 'pay',
+      shape: 'safe_costly',
+      tags: [],
+      intensity: 50,
+      metadata: { responseSlotId: 'pay_landlord_on_time' },
+    }
+    const control = runDay(state).state
+    const treatment = runDay(state, { responseIntents: [intent] }).state
+    expect(control.coin - treatment.coin).toBe(rentResult.amountDue)
     expect(treatment.pressures.landlord!.value).toBeLessThan(
       control.pressures.landlord!.value,
     )

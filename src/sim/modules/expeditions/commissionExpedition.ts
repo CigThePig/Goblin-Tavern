@@ -149,6 +149,19 @@ export const commissionExpedition: OwnerActionDefinition = {
           reason: `Ingredient '${ingredientId}' is not registered in stockRegistry.`,
         }
       }
+      // Phase 70 fix — targeted expeditions exist to fetch
+      // rare/legendary ingredients (see
+      // docs/plans/rare-ingredients-economy.md §4.4). Common-tier
+      // items are supplier-sourced and must not be requestable via
+      // an expedition commission.
+      const rarity = stockRegistry.get(ingredientId).defaultState.rarity
+      if (rarity === 'common') {
+        return {
+          ok: false,
+          code: 'invalid_target_rarity',
+          reason: `Targeted expeditions only fetch uncommon/rare/legendary ingredients; '${ingredientId}' is common.`,
+        }
+      }
     }
     const cost = readCost(input)
     if (ctx.state.coin < cost) {
@@ -190,6 +203,10 @@ export const commissionExpedition: OwnerActionDefinition = {
       costPaid: cost,
       startedDay: today,
       status: 'in_progress',
+      // Capture the run's base seed so resolution can rebuild the
+      // expedition's named streams independent of the resolution
+      // day's input seed.
+      seed: ctx.rngStreams.baseSeed,
     }
     addExpedition(ctx, expedition)
 

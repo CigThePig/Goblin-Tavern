@@ -133,6 +133,7 @@ export const ExpeditionSchema = z.object({
   costPaid: z.number().min(0),
   startedDay: z.number().int().min(0),
   status: z.literal('in_progress'),
+  seed: z.string(),
 })
 
 export const ExpeditionReturnedIngredientSchema = z.object({

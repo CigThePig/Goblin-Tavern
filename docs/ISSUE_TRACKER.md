@@ -81,7 +81,7 @@ how to verify the fix.
 | ISSUE-040 | Reference validation gaps for staff identity + adventurer reverse edges | broken | done | 80 |
 | ISSUE-041 | Staff identity profile pool covers 3 of 8 cultures | thin | done | 81 |
 | ISSUE-042 | Niche factions carry no notable NPCs | thin | done | 82 |
-| ISSUE-043 | Social rumours never pruned (unbounded growth) | thin | open | — |
+| ISSUE-043 | Social rumours never pruned (unbounded growth) | thin | done | 83 |
 | ISSUE-044 | Supplier reliability + relationship do not affect pricing | thin | open | — |
 | ISSUE-045 | `content/text/descriptors.ts` pool still empty Phase 22 stub | thin | open | — |
 | ISSUE-046 | Staff-management owner actions (hire / fire / kick) missing | broken | open | — |
@@ -1729,8 +1729,8 @@ since that work is `done`.
 ### ISSUE-043 — Social rumours never pruned (unbounded growth)
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 83
 - **Evidence:**
   - `src/sim/modules/weekly/community.ts:580` writes new rumours
     to `ctx.state.world.socialRumours[rumour.id]`. The `:533-562`

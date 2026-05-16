@@ -89,7 +89,6 @@ function seedMemory(
   memory: Partial<MemoryState> & { id: string },
 ): TavernState {
   const full: MemoryState = {
-    id: memory.id,
     type: 'timed',
     strength: 30,
     ageDays: 0,

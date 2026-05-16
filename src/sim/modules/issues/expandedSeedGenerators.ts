@@ -1,4 +1,5 @@
 import type { SimContext } from '../../core/context'
+import type { EffectPreview } from '../../core/effect'
 import type {
   CauseEntry,
   EntityRef,
@@ -887,8 +888,17 @@ function generateRegularCustomer(ctx: SimContext): IssueSeed[] {
   if (!guard.allowed) return []
   recordPick(ctx, 'regular_customer', `regular:${chosen.id}`)
 
+  // Phase 54 / ISSUE-014 — Relax the second gate. The previous form
+  // required `memories.length === 0` to AND with irritation < 50 AND
+  // loyalty > 40 — meaning a sufficiently-irritated regular still
+  // couldn't surface the seed if they had no memories yet (which is the
+  // case for freshly-decayed regulars or those who haven't accumulated
+  // service-failure tags). Drop the memory precondition; allow either
+  // a memory trail OR a regular trending visibly negative
+  // (irritation > 30 OR loyalty < 60) to fire the seed.
   const memories = entityMemoryList(ctx.state, ref)
-  if (memories.length === 0 && chosen.irritation < 50 && chosen.loyalty > 40) return []
+  const trendingNegative = chosen.irritation > 30 || chosen.loyalty < 60
+  if (memories.length === 0 && !trendingNegative) return []
 
   const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'regular_customer_loss', 2)
   for (const c of recentCauseEntries(ctx, ['regular', chosen.id, chosen.customerGroupId], 14, 3)) {
@@ -4583,26 +4593,261 @@ function generatePolicyBacklash(ctx: SimContext): IssueSeed[] {
     },
   ]
 
-  const consequenceProfiles: ConsequenceProfile[] = responseSlots.map((slot) =>
+  // Phase 53 / ISSUE-013 — Hand-written profiles per slot. The previous
+  // implementation collapsed all 6 slots through `responseSlots.map(makeProfile({…}))`
+  // with a single cause-only effect, which the resolver treated as a
+  // no-op. Each profile below carries at least one `delayedEffect`; three
+  // carry a `futureHook`.
+  const firstTarget = targetRefs[0]
+  const exceptionEffect: EffectPreview | undefined = firstTarget
+    ? firstTarget.kind === 'customer_group'
+      ? effect(
+          'state_change',
+          `customers.${firstTarget.id}.loyalty`,
+          6,
+          `Exception eases ${firstTarget.id}`,
+          ['policy', 'exception', 'customer'],
+        )
+      : effect(
+          'cause',
+          `${firstTarget.kind}:${firstTarget.id}`,
+          6,
+          `Exception eases ${firstTarget.kind}:${firstTarget.id}`,
+          ['policy', 'exception', firstTarget.kind],
+        )
+    : undefined
+  const punishEffect: EffectPreview | undefined = firstTarget
+    ? effect(
+        'cause',
+        `${firstTarget.kind}:${firstTarget.id}`,
+        -12,
+        `Punishment burns ${firstTarget.kind}:${firstTarget.id}`,
+        ['policy', 'punish', 'grudge', firstTarget.kind],
+      )
+    : undefined
+
+  const consequenceProfiles: ConsequenceProfile[] = [
     makeProfile({
-      id: `${slot.id}_profile`,
-      responseSlotId: slot.id,
+      id: 'keep_policy_profile',
+      responseSlotId: 'keep_policy',
       immediateEffects: [
-        effect('cause', `policy:${policy.id}`, slot.id === 'repeal_policy' ? -15 : 5, slot.labelHint, [
+        effect('pressure', 'pressure:policy_backlash', 6, 'Holding the line stokes backlash', [
+          'pressure',
           'policy',
         ]),
+        effect('pressure', 'pressure:faction_anger', 4, 'Factions take note', [
+          'pressure',
+          'faction',
+        ]),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:policy_backlash',
+          6,
+          'Resentment compounds across the week',
+          ['pressure', 'policy', 'delay:7'],
+        ),
+        effect(
+          'future_hook',
+          `policy_held_unrest_${policy.id}`,
+          14,
+          'Unrest may surface if held longer',
+          ['future_hook', 'policy'],
+        ),
+      ],
       memories: [
         {
-          id: `policy_${slot.id}_${policy.id}`,
+          id: `policy_kept_${policy.id}`,
           actors: [policyRefId],
-          tags: ['policy', slot.id],
+          tags: ['policy', 'held', 'attribution'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `policy_held_unrest_${policy.id}`,
+          actors: [policyRefId],
+          tags: ['policy', 'risk'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'modify_policy_profile',
+      responseSlotId: 'modify_policy',
+      immediateEffects: [
+        effect('pressure', 'pressure:policy_backlash', -10, 'Compromise lowers backlash', [
+          'pressure',
+          'policy',
+        ]),
+        effect('state_change', 'coin', -5, 'Admin cost for the rewrite', ['coin']),
+      ],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:faction_anger',
+          -4,
+          'Factions warm to the modification',
+          ['pressure', 'faction', 'delay:5'],
+        ),
+      ],
+      memories: [
+        {
+          id: `policy_modified_${policy.id}`,
+          actors: [policyRefId],
+          tags: ['policy', 'modify'],
         },
       ],
       futureHooks: [],
     }),
-  )
+    makeProfile({
+      id: 'repeal_policy_profile',
+      responseSlotId: 'repeal_policy',
+      immediateEffects: [
+        effect('pressure', 'pressure:policy_backlash', -25, 'Repeal ends the backlash', [
+          'pressure',
+          'policy',
+          'repeal',
+        ]),
+        effect('state_change', 'reputation.respectable', -3, 'Flip-flop dents respectability', [
+          'reputation',
+        ]),
+        effect(
+          'cause',
+          `policy:${policy.id}`,
+          -20,
+          `Policy ${policy.label} repealed`,
+          ['policy', 'repeal'],
+        ),
+      ],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:rumour_pressure',
+          6,
+          'Reversal feeds the rumour mill',
+          ['pressure', 'rumour', 'delay:4'],
+        ),
+        effect(
+          'future_hook',
+          `policy_reversal_remembered_${policy.id}`,
+          10,
+          'Reversal may be brought up again',
+          ['future_hook', 'policy', 'reversal'],
+        ),
+      ],
+      memories: [
+        {
+          id: `policy_repealed_${policy.id}`,
+          actors: [policyRefId],
+          tags: ['policy', 'repeal', 'reversal'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `policy_reversal_remembered_${policy.id}`,
+          actors: [policyRefId],
+          tags: ['policy', 'reversal'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'make_exception_profile',
+      responseSlotId: 'make_exception',
+      immediateEffects: [
+        effect('pressure', 'pressure:policy_backlash', -8, 'Exception soothes local anger', [
+          'pressure',
+          'policy',
+          'exception',
+        ]),
+        ...(exceptionEffect ? [exceptionEffect] : []),
+      ],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:cultural_tension',
+          4,
+          'Inconsistent rules breed tension',
+          ['pressure', 'culture', 'delay:5'],
+        ),
+      ],
+      memories: [
+        {
+          id: `policy_exception_${policy.id}`,
+          actors: firstTarget ? [policyRefId, firstTarget] : [policyRefId],
+          tags: ['policy', 'exception'],
+        },
+      ],
+      futureHooks: [],
+    }),
+    makeProfile({
+      id: 'explain_policy_profile',
+      responseSlotId: 'explain_policy',
+      immediateEffects: [
+        effect('pressure', 'pressure:policy_backlash', -6, 'Explanation lowers confusion', [
+          'pressure',
+          'policy',
+        ]),
+        effect('state_change', 'reputation.respectable', 2, 'Owner explains themselves', [
+          'reputation',
+        ]),
+      ],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:rumour_pressure',
+          -3,
+          'Plain talk defuses gossip',
+          ['pressure', 'rumour', 'delay:3'],
+        ),
+      ],
+      memories: [
+        {
+          id: `policy_explained_${policy.id}`,
+          actors: [policyRefId],
+          tags: ['policy', 'explanation'],
+        },
+      ],
+      futureHooks: [],
+    }),
+    makeProfile({
+      id: 'punish_violation_profile',
+      responseSlotId: 'punish_violation',
+      immediateEffects: [
+        effect('pressure', 'pressure:violence', 5, 'Punishment edges the room', [
+          'pressure',
+          'violence',
+        ]),
+        effect('pressure', 'pressure:faction_anger', 8, 'Punishment hardens factions', [
+          'pressure',
+          'faction',
+        ]),
+        ...(punishEffect ? [punishEffect] : []),
+      ],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `policy_punishment_grudge_${policy.id}`,
+          14,
+          'Grudge may surface later',
+          ['future_hook', 'policy', 'grudge'],
+        ),
+      ],
+      memories: [
+        {
+          id: `policy_punished_${policy.id}`,
+          actors: firstTarget ? [policyRefId, firstTarget] : [policyRefId],
+          tags: ['policy', 'punish', 'grudge'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `policy_punishment_grudge_${policy.id}`,
+          actors: firstTarget ? [firstTarget] : [policyRefId],
+          tags: ['policy', 'grudge'],
+        },
+      ],
+    }),
+  ]
 
   const perceivedBlame: string[] = []
   for (const ref of targetRefs) {

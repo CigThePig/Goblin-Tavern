@@ -680,6 +680,49 @@ function generateMaintenance(ctx: SimContext): IssueSeed[] {
 // Staff burnout
 // ----------------------------------------------------------------------
 
+// Phase 57 / ISSUE-017 — Staff burnout rotation. Without rotation the
+// picker always selected the single highest stress+fatigue staff
+// member, so the same person dominated for the duration of their
+// burnout. Now consider every staff member above the stress+fatigue
+// threshold, scored with a recency penalty.
+const BURNOUT_RECENCY_WINDOW = 5
+const BURNOUT_RECENCY_PENALTY = 30
+const BURNOUT_STRESS_THRESHOLD = 60
+
+function burnoutRecencyPenalty(
+  ctx: SimContext,
+  entityKey: string,
+  today: number,
+): number {
+  const slice = ctx.state.modules.issueSeeds as
+    | { recentPicks?: Record<string, Record<string, number>> }
+    | undefined
+  const familyPicks = slice?.recentPicks?.['staff_burnout'] ?? {}
+  const lastDay = familyPicks[entityKey]
+  if (lastDay === undefined) return 0
+  if (today - lastDay >= BURNOUT_RECENCY_WINDOW) return 0
+  return BURNOUT_RECENCY_PENALTY
+}
+
+function recordBurnoutPick(ctx: SimContext, entityKey: string): void {
+  const today = ctx.state.calendar.totalDaysElapsed
+  ctx.modifyModuleState(
+    'issueSeeds',
+    (current) => {
+      const slice = (current ?? {}) as {
+        recentPicks?: Record<string, Record<string, number>>
+      } & Record<string, unknown>
+      const recent = { ...(slice.recentPicks ?? {}) }
+      recent['staff_burnout'] = {
+        ...(recent['staff_burnout'] ?? {}),
+        [entityKey]: today,
+      }
+      return { ...slice, recentPicks: recent } as never
+    },
+    { source: 'staffBurnout.recordPick' },
+  )
+}
+
 function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
   const guard = CONTRADICTION_GUARDS.staff_burnout(ctx)
   if (!guard.allowed) return []
@@ -687,9 +730,42 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
   if (!snap || snap.value < 40) return []
   const allStaff = Object.values(ctx.state.staff)
   if (allStaff.length === 0) return []
-  const worst = allStaff
-    .slice()
-    .sort((a, b) => b.stress + b.fatigue - (a.stress + a.fatigue))[0]!
+
+  // Picker rotation: consider staff members whose stress+fatigue
+  // crosses the threshold. Score by `(stress+fatigue)` minus a
+  // 5-day recency penalty of 30. Falls back to single highest if
+  // nobody crosses the threshold so the family still fires on
+  // small staff sets / early-game states.
+  const today = ctx.state.calendar.totalDaysElapsed
+  const candidates = allStaff.filter(
+    (s) => s.stress + s.fatigue > BURNOUT_STRESS_THRESHOLD,
+  )
+  let worst: typeof allStaff[number]
+  if (candidates.length > 0) {
+    const ranked = candidates
+      .map((s) => {
+        const baseScore = s.stress + s.fatigue
+        const penalty = burnoutRecencyPenalty(
+          ctx,
+          `staff:${s.id}`,
+          today,
+        )
+        return { s, score: baseScore - penalty }
+      })
+      .sort((a, b) => b.score - a.score)
+    worst = ranked[0]!.s
+  } else {
+    worst = allStaff
+      .slice()
+      .sort((a, b) => b.stress + b.fatigue - (a.stress + a.fatigue))[0]!
+  }
+  recordBurnoutPick(ctx, `staff:${worst.id}`)
+
+  // Phase 57 / ISSUE-017 — Pick a second staff member to absorb
+  // cross-staff redistribution from `reduce_workload` / `reassign`.
+  // Falls back to the picked staff if there's only one.
+  const otherStaff =
+    allStaff.find((s) => s.id !== worst.id) ?? worst
 
   const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'staff_burnout', 3)
   for (const c of recentCauseEntries(ctx, ['staff', 'wages', 'service'], 5, 2)) {
@@ -732,6 +808,11 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
     },
   ]
 
+  // Phase 57 / ISSUE-017 — Every profile carries delayedEffects and
+  // a futureHook. The `pay_bonus`, `reduce_workload`, and `reassign`
+  // profiles previously had only immediates. `push_through` already
+  // had delayedEffects; its futureHook id is now per-staff so the
+  // pending entry binds to a specific actor.
   const consequenceProfiles: ConsequenceProfile[] = [
     makeProfile({
       id: 'pay_bonus_profile',
@@ -743,7 +824,22 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
         effect('state_change', `staff.${worst.id}.stress`, -10, 'Lower stress', ['staff']),
         effect('state_change', 'coin', -15, 'Pay bonus cost', ['coin']),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:debt',
+          3,
+          'Bonus tightens the ledger over the week',
+          ['pressure', 'debt', 'delay:5'],
+        ),
+        effect(
+          'future_hook',
+          `staff_bonus_expected_${worst.id}`,
+          30,
+          `${worst.name} may expect another bonus`,
+          ['future_hook', 'staff'],
+        ),
+      ],
       memories: [
         {
           id: 'staff_bonus_paid_recently',
@@ -751,7 +847,13 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
           tags: ['staff', 'bonus'],
         },
       ],
-      futureHooks: [],
+      futureHooks: [
+        {
+          id: `staff_bonus_expected_${worst.id}`,
+          actors: [staffRef(worst.id)],
+          tags: ['staff', 'bonus'],
+        },
+      ],
     }),
     makeProfile({
       id: 'reduce_workload_profile',
@@ -760,7 +862,22 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
         effect('state_change', `staff.${worst.id}.fatigue`, -15, 'Lower fatigue', ['staff']),
         effect('state_change', `staff.${worst.id}.stress`, -10, 'Lower stress', ['staff']),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'state_change',
+          `staff.${otherStaff.id}.fatigue`,
+          6,
+          `${otherStaff.name.display} picks up the slack`,
+          ['staff', 'coverage_gap', 'delay:3'],
+        ),
+        effect(
+          'future_hook',
+          `coverage_gap_${worst.id}`,
+          7,
+          `Coverage gap may resurface when ${worst.name} returns`,
+          ['future_hook', 'staff', 'coverage'],
+        ),
+      ],
       memories: [
         {
           id: 'workload_reduced_recently',
@@ -768,7 +885,13 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
           tags: ['staff', 'workload'],
         },
       ],
-      futureHooks: [],
+      futureHooks: [
+        {
+          id: `coverage_gap_${worst.id}`,
+          actors: [staffRef(worst.id), staffRef(otherStaff.id)],
+          tags: ['staff', 'coverage'],
+        },
+      ],
     }),
     makeProfile({
       id: 'push_through_profile',
@@ -778,8 +901,8 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
         effect('pressure', 'pressure:staff_burnout', 8, 'Burnout worsens', ['pressure']),
         effect(
           'future_hook',
-          'staff_quit_risk_possible',
-          0,
+          `staff_quit_risk_${worst.id}`,
+          14,
           `${worst.name} may quit`,
           ['future_hook'],
         ),
@@ -793,7 +916,7 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
       ],
       futureHooks: [
         {
-          id: 'staff_quit_risk_possible',
+          id: `staff_quit_risk_${worst.id}`,
           actors: [staffRef(worst.id)],
           tags: ['staff', 'risk'],
         },
@@ -804,15 +927,44 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
       responseSlotId: 'reassign',
       immediateEffects: [
         effect('state_change', `staff.${worst.id}.stress`, -8, 'Slight relief', ['staff']),
+        effect(
+          'state_change',
+          `staff.${otherStaff.id}.fatigue`,
+          6,
+          `${otherStaff.name.display} absorbs reassigned duties`,
+          ['staff', 'reassign'],
+        ),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:staff_burnout',
+          3,
+          'Cross-staff load creeps the burnout meter',
+          ['pressure', 'staff', 'delay:5'],
+        ),
+        effect(
+          'future_hook',
+          `cross_staff_grumble_${otherStaff.id}`,
+          10,
+          `${otherStaff.name.display} may grumble about the reassign`,
+          ['future_hook', 'staff'],
+        ),
+      ],
       memories: [
         {
           id: 'reassigned_priorities_recently',
+          actors: [staffRef(worst.id), staffRef(otherStaff.id)],
           tags: ['staff', 'priority'],
         },
       ],
-      futureHooks: [],
+      futureHooks: [
+        {
+          id: `cross_staff_grumble_${otherStaff.id}`,
+          actors: [staffRef(otherStaff.id)],
+          tags: ['staff', 'reassign'],
+        },
+      ],
     }),
   ]
 
@@ -1713,6 +1865,51 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
 // Violence
 // ----------------------------------------------------------------------
 
+// Phase 56 / ISSUE-016 — Violence rotation. Without rotation the picker
+// always selected whichever of `ogres` or `adventurers` had higher
+// patronage, so the same group dominated. ISSUE-032 grew the customer
+// roster; the picker now considers every group whose tags include
+// `rowdy`, `dangerous`, or `incident_prone`, scored by
+// `(patronage + rowdiness)` minus a recency penalty.
+const VIOLENCE_RECENCY_WINDOW = 7
+const VIOLENCE_RECENCY_PENALTY = 35
+
+function violenceRecencyPenalty(
+  ctx: SimContext,
+  entityKey: string,
+  today: number,
+): number {
+  const slice = ctx.state.modules.issueSeeds as
+    | { recentPicks?: Record<string, Record<string, number>> }
+    | undefined
+  const familyPicks = slice?.recentPicks?.['violence'] ?? {}
+  const lastDay = familyPicks[entityKey]
+  if (lastDay === undefined) return 0
+  if (today - lastDay >= VIOLENCE_RECENCY_WINDOW) return 0
+  return VIOLENCE_RECENCY_PENALTY
+}
+
+function recordViolencePick(ctx: SimContext, entityKey: string): void {
+  const today = ctx.state.calendar.totalDaysElapsed
+  ctx.modifyModuleState(
+    'issueSeeds',
+    (current) => {
+      const slice = (current ?? {}) as {
+        recentPicks?: Record<string, Record<string, number>>
+      } & Record<string, unknown>
+      const recent = { ...(slice.recentPicks ?? {}) }
+      recent['violence'] = {
+        ...(recent['violence'] ?? {}),
+        [entityKey]: today,
+      }
+      return { ...slice, recentPicks: recent } as never
+    },
+    { source: 'violence.recordPick' },
+  )
+}
+
+const VIOLENCE_TENSION_TAGS = ['rowdy', 'dangerous', 'incident_prone']
+
 function generateViolence(ctx: SimContext): IssueSeed[] {
   const guard = CONTRADICTION_GUARDS.violence(ctx)
   if (!guard.allowed) return []
@@ -1725,11 +1922,40 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
   }
   if (causes.length === 0) return []
 
-  const ogres = ctx.state.customerGroups.ogres
-  const adventurers = ctx.state.customerGroups.adventurers
-  const target = (ogres?.patronage ?? 0) > (adventurers?.patronage ?? 0)
-    ? customerRef('ogres')
-    : customerRef('adventurers')
+  // Picker rotation: consider every customer group whose tags include
+  // any of `rowdy`, `dangerous`, or `incident_prone`. Score by
+  // `(patronage + rowdiness)` minus a recency penalty. Falls back to
+  // the previous binary ogres-vs-adventurers behaviour if no group
+  // carries the relevant tags.
+  const today = ctx.state.calendar.totalDaysElapsed
+  const groups = Object.values(ctx.state.customerGroups)
+  const candidates = groups.filter(
+    (g) =>
+      g.patronage > 0 &&
+      g.tags.some((t) => VIOLENCE_TENSION_TAGS.includes(t)),
+  )
+  let target = customerRef('ogres')
+  if (candidates.length > 0) {
+    const ranked = candidates
+      .map((g) => {
+        const baseScore = g.patronage + g.rowdiness
+        const penalty = violenceRecencyPenalty(
+          ctx,
+          `customer_group:${g.id}`,
+          today,
+        )
+        return { g, score: baseScore - penalty }
+      })
+      .sort((a, b) => b.score - a.score)
+    target = customerRef(ranked[0]!.g.id)
+  } else {
+    const ogres = ctx.state.customerGroups.ogres
+    const adventurers = ctx.state.customerGroups.adventurers
+    target = (ogres?.patronage ?? 0) > (adventurers?.patronage ?? 0)
+      ? customerRef('ogres')
+      : customerRef('adventurers')
+  }
+  recordViolencePick(ctx, `customer_group:${target.id}`)
 
   const responseSlots: ResponseSlot[] = [
     {
@@ -1766,6 +1992,8 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
     },
   ]
 
+  // Phase 56 / ISSUE-016 — Every profile carries delayedEffects and
+  // futureHooks. Previously all four were flat immediate-only.
   const consequenceProfiles: ConsequenceProfile[] = [
     makeProfile({
       id: 'hire_security_profile',
@@ -1774,11 +2002,28 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
         effect('state_change', 'coin', -20, 'Hire security cost', ['coin']),
         effect('pressure', 'pressure:violence', -15, 'Lower violence pressure', ['pressure']),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:staff_burnout',
+          4,
+          'Security crew tires the staff coordination',
+          ['pressure', 'staff', 'delay:5'],
+        ),
+        effect(
+          'future_hook',
+          'security_routine_possible',
+          14,
+          'Security may become a routine fixture',
+          ['future_hook', 'security'],
+        ),
+      ],
       memories: [
         { id: 'security_hired_recently', tags: ['security', 'violence'] },
       ],
-      futureHooks: [],
+      futureHooks: [
+        { id: 'security_routine_possible', tags: ['security', 'violence', 'opportunity'] },
+      ],
     }),
     makeProfile({
       id: 'ban_group_profile',
@@ -1788,8 +2033,21 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
           'customer',
         ]),
         effect('pressure', 'pressure:violence', -12, 'Lower violence pressure', ['pressure']),
+        effect('cause', `customer_group:${target.id}`, -20, `${target.id} group banned`, [
+          'customer',
+          'ban',
+          target.id,
+        ]),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `banned_group_returns_${target.id}`,
+          14,
+          `${target.id} may try to return`,
+          ['future_hook', 'customer', target.id],
+        ),
+      ],
       memories: [
         {
           id: `${target.id}_banned`,
@@ -1797,7 +2055,13 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
           tags: ['ban', 'customer', target.id],
         },
       ],
-      futureHooks: [],
+      futureHooks: [
+        {
+          id: `banned_group_returns_${target.id}`,
+          actors: [target],
+          tags: ['customer', target.id, 'risk'],
+        },
+      ],
     }),
     makeProfile({
       id: 'embrace_rowdy_profile',
@@ -1808,11 +2072,28 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
           'reputation',
         ]),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'state_change',
+          'customers.merchants.patronage',
+          -8,
+          'Merchants drift away from the rowdy rep',
+          ['customer', 'merchants', 'delay:5'],
+        ),
+        effect(
+          'future_hook',
+          'dangerous_rep_locked',
+          10,
+          'Dangerous reputation may lock in',
+          ['future_hook', 'reputation', 'dangerous'],
+        ),
+      ],
       memories: [
         { id: 'rowdy_identity_embraced', tags: ['reputation', 'identity'] },
       ],
-      futureHooks: [],
+      futureHooks: [
+        { id: 'dangerous_rep_locked', tags: ['reputation', 'dangerous', 'identity'] },
+      ],
     }),
     makeProfile({
       id: 'repair_damage_profile',
@@ -1821,11 +2102,28 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
         effect('state_change', 'areas.main_room.damage', -20, 'Repair damage', ['area']),
         effect('state_change', 'coin', -12, 'Repair cost', ['coin']),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:staff_burnout',
+          3,
+          'Repair shifts tire the crew',
+          ['pressure', 'staff', 'delay:3'],
+        ),
+        effect(
+          'future_hook',
+          'main_room_resilient',
+          10,
+          'Main room may shrug off later damage',
+          ['future_hook', 'area', 'main_room'],
+        ),
+      ],
       memories: [
         { id: 'main_room_repaired_recently', tags: ['maintenance', 'main_room'] },
       ],
-      futureHooks: [],
+      futureHooks: [
+        { id: 'main_room_resilient', tags: ['area', 'main_room', 'opportunity'] },
+      ],
     }),
   ]
 
@@ -2060,6 +2358,70 @@ function generateDebtRent(ctx: SimContext): IssueSeed[] {
 // Inspection
 // ----------------------------------------------------------------------
 
+// Phase 58 / ISSUE-018 — Inspection family rotation. Pre-phase the
+// family hardcoded `town_watch` as primary actor and pinned
+// `scrap_collectors` plus `local_shrine` as cross-faction support
+// refs on every seed, saturating those three factions on the
+// 28-day named-entity audit. Picker-driven rotation now selects the
+// primary from any faction whose tags include
+// `inspection_authority`, `reputation_authority`, `authority`,
+// `regulation`, or `enforcement`, with a +20 base-score boost when
+// the faction is the inspection authority. Support refs come from
+// the remaining faction set keyed on `cleanliness_relevant`,
+// `ritual`, `reputation_authority`, or `reputation_influence` tags.
+const INSPECTION_RECENCY_WINDOW = 7
+const INSPECTION_RECENCY_PENALTY = 35
+const INSPECTION_AUTHORITY_BONUS = 20
+
+const INSPECTION_PRIMARY_TAGS = [
+  'inspection_authority',
+  'reputation_authority',
+  'authority',
+  'regulation',
+  'enforcement',
+]
+const INSPECTION_AUTHORITY_TAG = 'inspection_authority'
+const INSPECTION_SUPPORT_TAGS = [
+  'cleanliness_relevant',
+  'ritual',
+  'reputation_authority',
+  'reputation_influence',
+]
+
+function inspectionRecencyPenalty(
+  ctx: SimContext,
+  entityKey: string,
+  today: number,
+): number {
+  const slice = ctx.state.modules.issueSeeds as
+    | { recentPicks?: Record<string, Record<string, number>> }
+    | undefined
+  const familyPicks = slice?.recentPicks?.['inspection'] ?? {}
+  const lastDay = familyPicks[entityKey]
+  if (lastDay === undefined) return 0
+  if (today - lastDay >= INSPECTION_RECENCY_WINDOW) return 0
+  return INSPECTION_RECENCY_PENALTY
+}
+
+function recordInspectionPick(ctx: SimContext, entityKey: string): void {
+  const today = ctx.state.calendar.totalDaysElapsed
+  ctx.modifyModuleState(
+    'issueSeeds',
+    (current) => {
+      const slice = (current ?? {}) as {
+        recentPicks?: Record<string, Record<string, number>>
+      } & Record<string, unknown>
+      const recent = { ...(slice.recentPicks ?? {}) }
+      recent['inspection'] = {
+        ...(recent['inspection'] ?? {}),
+        [entityKey]: today,
+      }
+      return { ...slice, recentPicks: recent } as never
+    },
+    { source: 'inspection.recordPick' },
+  )
+}
+
 function generateInspection(ctx: SimContext): IssueSeed[] {
   const guard = CONTRADICTION_GUARDS.inspection(ctx)
   if (!guard.allowed) return []
@@ -2072,30 +2434,71 @@ function generateInspection(ctx: SimContext): IssueSeed[] {
   }
   if (causes.length === 0) return []
 
-  // Phase 40 audit pass 2 §4 — Cross-faction support. The Town Watch is
-  // the inspection authority; the Scrap Collectors handle cleaning
-  // logistics; the Local Shrine can mediate. Naming all three on
-  // memories and inviting them as response targets reduces
-  // `faction:town_watch` dominance and feeds named cause attribution.
-  const townWatch = ctx.state.world.factions['town_watch']
-    ? factionRef('town_watch')
+  // Phase 58 / ISSUE-018 — Picker-driven primary faction selection.
+  // Enumerate factions whose tags include any of
+  // INSPECTION_PRIMARY_TAGS; score by recency penalty with a +20
+  // bonus for `inspection_authority`-tagged factions. Fall back to
+  // `town_watch` if it exists, then to a system ref.
+  const today = ctx.state.calendar.totalDaysElapsed
+  const allFactions = Object.values(ctx.state.world.factions)
+  const primaryCandidates = allFactions.filter((f) =>
+    f.tags.some((t) => INSPECTION_PRIMARY_TAGS.includes(t)),
+  )
+  let townWatch: EntityRef | undefined
+  if (primaryCandidates.length > 0) {
+    const ranked = primaryCandidates
+      .map((f) => {
+        const authorityBonus = f.tags.includes(INSPECTION_AUTHORITY_TAG)
+          ? INSPECTION_AUTHORITY_BONUS
+          : 0
+        const penalty = inspectionRecencyPenalty(
+          ctx,
+          `faction:${f.id}`,
+          today,
+        )
+        return { f, score: authorityBonus - penalty }
+      })
+      .sort((a, b) => b.score - a.score)
+    townWatch = factionRef(ranked[0]!.f.id)
+  } else if (ctx.state.world.factions['town_watch']) {
+    townWatch = factionRef('town_watch')
+  }
+  if (townWatch) recordInspectionPick(ctx, `faction:${townWatch.id}`)
+
+  // Pick two support faction refs from the remaining set, keyed on
+  // the support tags. Distinct ids from the primary.
+  const supportCandidates = allFactions.filter(
+    (f) =>
+      f.id !== townWatch?.id &&
+      f.tags.some((t) => INSPECTION_SUPPORT_TAGS.includes(t)),
+  )
+  const supportRanked = supportCandidates
+    .map((f) => {
+      const penalty = inspectionRecencyPenalty(
+        ctx,
+        `faction:${f.id}`,
+        today,
+      )
+      return { f, score: -penalty }
+    })
+    .sort((a, b) => b.score - a.score)
+  const scrapCollectors: EntityRef | undefined = supportRanked[0]
+    ? factionRef(supportRanked[0]!.f.id)
     : undefined
-  const scrapCollectors = ctx.state.world.factions['scrap_collectors']
-    ? factionRef('scrap_collectors')
+  const localShrine: EntityRef | undefined = supportRanked[1]
+    ? factionRef(supportRanked[1]!.f.id)
     : undefined
-  const localShrine = ctx.state.world.factions['local_shrine']
-    ? factionRef('local_shrine')
+  if (scrapCollectors)
+    recordInspectionPick(ctx, `faction:${scrapCollectors.id}`)
+  if (localShrine) recordInspectionPick(ctx, `faction:${localShrine.id}`)
+
+  // Phase 44 §ISSUE-004 — Prefer a notable NPC actor when one exists
+  // for the picked primary faction. Falls back to the faction ref,
+  // then to a system ref so inspections still fire when no faction
+  // is seeded.
+  const watchInspectorNpc = townWatch
+    ? findNotableNpcByFaction(ctx.state, townWatch.id)
     : undefined
-  // Phase 44 §ISSUE-004 — Prefer a notable NPC actor (the watch
-  // inspector) when one exists for the town_watch faction. This lifts
-  // four faction-bound futureHooks (`corrupt_inspector_relationship`,
-  // `inspection_discovery_possible`, `town_watch_goodwill`,
-  // `town_watch_advisor`) onto a notable_npc ref in one shot and feeds
-  // a non-zero `notable_npc:` axis into the named-entity-repetition
-  // audit. Falls back to the faction ref, then to a system ref, so
-  // inspections still fire on states where the world.notableNpcs slot
-  // is empty (e.g. legacy save migrations).
-  const watchInspectorNpc = findNotableNpcByFaction(ctx.state, 'town_watch')
   const inspectorActor = watchInspectorNpc ?? townWatch ?? systemRef('inspector')
 
   const allStaff = Object.values(ctx.state.staff)
@@ -2651,19 +3054,74 @@ function generateInspection(ctx: SimContext): IssueSeed[] {
 // Reputation shift
 // ----------------------------------------------------------------------
 
+// Phase 55 / ISSUE-015 — Reputation-axis rotation. Without a recency
+// penalty the family would always pick whichever axis had the largest
+// |value - 50| deviation, so the same axis dominates day after day. A
+// per-axis penalty rotates picks across the top-2 / top-3 strongest
+// axes.
+const REPUTATION_RECENCY_WINDOW = 5
+const REPUTATION_RECENCY_PENALTY = 18
+
+function reputationRecencyPenalty(
+  ctx: SimContext,
+  entityKey: string,
+  today: number,
+): number {
+  const slice = ctx.state.modules.issueSeeds as
+    | { recentPicks?: Record<string, Record<string, number>> }
+    | undefined
+  const familyPicks = slice?.recentPicks?.['reputation_shift'] ?? {}
+  const lastDay = familyPicks[entityKey]
+  if (lastDay === undefined) return 0
+  if (today - lastDay >= REPUTATION_RECENCY_WINDOW) return 0
+  return REPUTATION_RECENCY_PENALTY
+}
+
+function recordReputationPick(ctx: SimContext, entityKey: string): void {
+  const today = ctx.state.calendar.totalDaysElapsed
+  ctx.modifyModuleState(
+    'issueSeeds',
+    (current) => {
+      const slice = (current ?? {}) as {
+        recentPicks?: Record<string, Record<string, number>>
+      } & Record<string, unknown>
+      const recent = { ...(slice.recentPicks ?? {}) }
+      recent['reputation_shift'] = {
+        ...(recent['reputation_shift'] ?? {}),
+        [entityKey]: today,
+      }
+      return { ...slice, recentPicks: recent } as never
+    },
+    { source: 'reputationShift.recordPick' },
+  )
+}
+
 function generateReputationShift(ctx: SimContext): IssueSeed[] {
   const guard = CONTRADICTION_GUARDS.reputation_shift(ctx)
   if (!guard.allowed) return []
   const snap = pressureSnapshot(ctx, 'reputation_drift')
   if (!snap || snap.value < 35) return []
 
-  // identify the axis with the highest absolute value
+  // Score each reputation axis by |value - 50| minus a recency penalty.
+  // Pick the highest after penalty, preserving the "strongest axis
+  // dominates" intuition while rotating across the top axes day to day.
+  const today = ctx.state.calendar.totalDaysElapsed
   const axes = Object.entries(ctx.state.reputation)
-  const strongest = axes
-    .slice()
-    .sort((a, b) => Math.abs(b[1] - 50) - Math.abs(a[1] - 50))[0]
-  if (!strongest) return []
-  const [axisId, axisValue] = strongest
+  const ranked = axes
+    .map(([id, value]) => {
+      const baseScore = Math.abs(value - 50)
+      const penalty = reputationRecencyPenalty(ctx, `reputation:${id}`, today)
+      return { id, value, score: baseScore - penalty, baseScore }
+    })
+    .sort((a, b) => b.score - a.score)
+  const top = ranked[0]
+  // Require either a real deviation OR the recency penalty isn't
+  // hiding a still-significant deviation — the underlying base score
+  // must clear 15 for the family to fire.
+  if (!top || top.baseScore < 15) return []
+  const axisId = top.id
+  const axisValue = top.value
+  recordReputationPick(ctx, `reputation:${axisId}`)
 
   const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'reputation_drift', 3)
   for (const c of recentCauseEntries(ctx, ['reputation', axisId, 'customer'], 14, 2)) {
@@ -2706,6 +3164,10 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
     },
   ]
 
+  // Phase 55 / ISSUE-015 — Each profile now carries at least one
+  // `delayedEffect` and one `futureHook`. Previously all four were flat
+  // immediate-only with `delayedEffects: []` and only the seed itself
+  // carried a single `identity_lock_in_possible` hook.
   const consequenceProfiles: ConsequenceProfile[] = [
     makeProfile({
       id: 'embrace_profile',
@@ -2713,9 +3175,29 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
       immediateEffects: [
         effect('state_change', `reputation.${axisId}`, 5, 'Lean into reputation', ['reputation']),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'state_change',
+          `reputation.${axisId}`,
+          3,
+          'Embraced identity continues to drift',
+          ['reputation', 'delay:7'],
+        ),
+        effect(
+          'future_hook',
+          `identity_lock_in_${axisId}`,
+          14,
+          `${axisId} identity may lock in`,
+          ['future_hook', 'reputation', axisId],
+        ),
+      ],
       memories: [{ id: `embraced_${axisId}_identity`, tags: ['reputation', axisId] }],
-      futureHooks: [],
+      futureHooks: [
+        {
+          id: `identity_lock_in_${axisId}`,
+          tags: ['reputation', axisId, 'identity'],
+        },
+      ],
     }),
     makeProfile({
       id: 'correct_profile',
@@ -2724,9 +3206,29 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
         effect('state_change', `reputation.${axisId}`, -5, 'Shift reputation', ['reputation']),
         effect('state_change', 'coin', -10, 'Effort cost', ['coin']),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'state_change',
+          `reputation.${axisId}`,
+          -3,
+          'Correction shows through across the week',
+          ['reputation', 'delay:5'],
+        ),
+        effect(
+          'future_hook',
+          `identity_correction_${axisId}`,
+          10,
+          `${axisId} correction may settle`,
+          ['future_hook', 'reputation', axisId],
+        ),
+      ],
       memories: [{ id: `corrected_${axisId}_identity`, tags: ['reputation', axisId] }],
-      futureHooks: [],
+      futureHooks: [
+        {
+          id: `identity_correction_${axisId}`,
+          tags: ['reputation', axisId, 'correction'],
+        },
+      ],
     }),
     makeProfile({
       id: 'advertise_profile',
@@ -2736,19 +3238,62 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
           'customer',
         ]),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:reputation_drift',
+          4,
+          'Targeted advertising deepens the drift',
+          ['pressure', 'reputation', 'delay:5'],
+        ),
+        effect(
+          'future_hook',
+          `audience_lock_${axisId}`,
+          10,
+          `${axisId} audience may lock in`,
+          ['future_hook', 'reputation', axisId, 'audience'],
+        ),
+      ],
       memories: [{ id: 'advertised_to_group_recently', tags: ['customer', 'reputation'] }],
-      futureHooks: [],
+      futureHooks: [
+        {
+          id: `audience_lock_${axisId}`,
+          tags: ['reputation', axisId, 'audience'],
+        },
+      ],
     }),
     makeProfile({
       id: 'diversify_profile',
       responseSlotId: 'diversify',
       immediateEffects: [
         effect('state_change', `reputation.${axisId}`, -3, 'Soften identity', ['reputation']),
+        effect('state_change', 'customers.merchants.patronage', 4, 'Broader appeal lands', [
+          'customer',
+        ]),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:rumour_pressure',
+          3,
+          'Mixed messages breed gossip',
+          ['pressure', 'rumour', 'delay:5'],
+        ),
+        effect(
+          'future_hook',
+          `audience_dilution_${axisId}`,
+          12,
+          `${axisId} audience may dilute`,
+          ['future_hook', 'reputation', axisId, 'dilution'],
+        ),
+      ],
       memories: [{ id: 'diversification_attempted', tags: ['reputation', 'identity'] }],
-      futureHooks: [],
+      futureHooks: [
+        {
+          id: `audience_dilution_${axisId}`,
+          tags: ['reputation', axisId, 'dilution'],
+        },
+      ],
     }),
   ]
 
@@ -2819,12 +3364,12 @@ function generateMonthlyReview(ctx: SimContext): IssueSeed[] {
           endingCoin: number
           economy: { net: number }
         }
+        rent?: { monthlyAmount?: number }
       }
     | undefined
   const result = monthly?.lastMonthlyResult
   if (!result) return []
 
-  // monthly_review has no choice responses — it is a structured report seed.
   const causes: CauseEntry[] = recentCauseEntries(
     ctx,
     ['monthly', 'rent', 'reputation', 'inspection'],
@@ -2839,6 +3384,224 @@ function generateMonthlyReview(ctx: SimContext): IssueSeed[] {
     return []
   }
 
+  // Phase 59 / ISSUE-019 — Promote monthly_review to a card family.
+  // Four strategic month-end decisions, each shaped by month-end
+  // context. The `settle_with_rival` slot gracefully degrades to
+  // 3 slots when the `rival_taverns` faction (added in phase 52) isn't
+  // seeded, preserving the contract's ≥ 2-slot floor.
+  const rentAmount = monthly?.rent?.monthlyAmount ?? 50
+  const rivalRef = ctx.state.world.factions['rival_taverns']
+    ? factionRef('rival_taverns')
+    : undefined
+
+  const monthRef: EntityRef = { kind: 'other', id: `month:${result.monthKey}` }
+
+  const responseSlots: ResponseSlot[] = [
+    {
+      id: 'pay_landlord_on_time',
+      labelHint: 'Pay the landlord on time',
+      allowedVerbs: ['pay'],
+      shape: 'safe_costly',
+      targetOptions: [systemRef('landlord')],
+      expectedEffects: ['lower landlord pressure', 'spend coin'],
+    },
+    {
+      id: 'invest_in_cellar',
+      labelHint: 'Invest in the cellar',
+      allowedVerbs: ['upgrade'],
+      shape: 'long_term_investment',
+      targetOptions: [areaRef('cellar')],
+      expectedEffects: ['improve cellar', 'risk rent slip'],
+    },
+    {
+      id: 'hold_reserves',
+      labelHint: 'Hold reserves through next month',
+      allowedVerbs: ['delay'],
+      shape: 'compromise',
+      targetOptions: [systemRef('reserves')],
+      expectedEffects: ['lower debt', 'staff feel the squeeze'],
+    },
+    ...(rivalRef
+      ? [
+          {
+            id: 'settle_with_rival',
+            labelHint: 'Settle with the rival tavern',
+            allowedVerbs: ['negotiate'],
+            shape: 'compromise',
+            targetOptions: [rivalRef],
+            expectedEffects: ['lower rival pressure', 'fuel gossip'],
+          } as ResponseSlot,
+        ]
+      : []),
+  ]
+
+  const consequenceProfiles: ConsequenceProfile[] = [
+    makeProfile({
+      id: 'pay_landlord_on_time_profile',
+      responseSlotId: 'pay_landlord_on_time',
+      immediateEffects: [
+        effect('state_change', 'coin', -rentAmount, 'Rent paid in full', ['coin', 'rent']),
+        effect('pressure', 'pressure:landlord', -25, 'Landlord eased', ['pressure', 'landlord']),
+      ],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:debt',
+          6,
+          'Reserves thinner after rent',
+          ['pressure', 'debt', 'delay:5'],
+        ),
+        effect(
+          'future_hook',
+          'landlord_goodwill_window',
+          30,
+          'Landlord may offer a window of goodwill',
+          ['future_hook', 'landlord'],
+        ),
+      ],
+      memories: [
+        {
+          id: `rent_paid_${result.monthKey}`,
+          actors: [systemRef('landlord')],
+          tags: ['rent', 'paid', 'monthly'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: 'landlord_goodwill_window',
+          actors: [systemRef('landlord')],
+          tags: ['landlord', 'opportunity'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'invest_in_cellar_profile',
+      responseSlotId: 'invest_in_cellar',
+      immediateEffects: [
+        effect('state_change', 'coin', -20, 'Cellar investment', ['coin']),
+        effect('state_change', 'areas.cellar.condition', 12, 'Cellar improves', ['area', 'cellar']),
+      ],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:landlord',
+          12,
+          'Rent slip — landlord notices',
+          ['pressure', 'landlord', 'delay:3'],
+        ),
+        effect(
+          'future_hook',
+          `cellar_capacity_unlocked_${result.monthKey}`,
+          14,
+          'Cellar capacity may unlock next month',
+          ['future_hook', 'cellar'],
+        ),
+      ],
+      memories: [
+        {
+          id: `cellar_invested_${result.monthKey}`,
+          actors: [areaRef('cellar')],
+          tags: ['cellar', 'investment', 'monthly'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `cellar_capacity_unlocked_${result.monthKey}`,
+          actors: [areaRef('cellar')],
+          tags: ['cellar', 'opportunity'],
+        },
+      ],
+    }),
+    makeProfile({
+      id: 'hold_reserves_profile',
+      responseSlotId: 'hold_reserves',
+      immediateEffects: [
+        effect('pressure', 'pressure:debt', -4, 'Reserves held', ['pressure', 'debt']),
+      ],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:staff_loyalty_risk',
+          6,
+          'Staff sense the penny-pinching',
+          ['pressure', 'staff', 'delay:7'],
+        ),
+        effect(
+          'future_hook',
+          `reserves_intact_${result.monthKey}`,
+          28,
+          'Reserves intact through next month',
+          ['future_hook', 'reserves'],
+        ),
+      ],
+      memories: [
+        {
+          id: `reserves_held_${result.monthKey}`,
+          tags: ['reserves', 'monthly'],
+        },
+      ],
+      futureHooks: [
+        {
+          id: `reserves_intact_${result.monthKey}`,
+          tags: ['reserves', 'opportunity'],
+        },
+      ],
+    }),
+    ...(rivalRef
+      ? [
+          makeProfile({
+            id: 'settle_with_rival_profile',
+            responseSlotId: 'settle_with_rival',
+            immediateEffects: [
+              effect('state_change', 'coin', -15, 'Settlement payment', ['coin']),
+              effect('cause', `faction:${rivalRef.id}`, 12, 'Rival eases up', [
+                'faction',
+                'rival',
+                'settle',
+              ]),
+              effect(
+                'pressure',
+                'pressure:rival_tavern_pressure',
+                -12,
+                'Rival pressure cools',
+                ['pressure', 'rival'],
+              ),
+            ],
+            delayedEffects: [
+              effect(
+                'pressure',
+                'pressure:rumour_pressure',
+                6,
+                'Visible accommodation feeds gossip',
+                ['pressure', 'rumour', 'delay:5'],
+              ),
+              effect(
+                'future_hook',
+                `rival_settlement_pact_${result.monthKey}`,
+                21,
+                'Rival pact may reopen later',
+                ['future_hook', 'rival'],
+              ),
+            ],
+            memories: [
+              {
+                id: `rival_settled_${result.monthKey}`,
+                actors: [rivalRef],
+                tags: ['rival', 'settle', 'monthly'],
+              },
+            ],
+            futureHooks: [
+              {
+                id: `rival_settlement_pact_${result.monthKey}`,
+                actors: [rivalRef],
+                tags: ['rival', 'opportunity'],
+              },
+            ],
+          }),
+        ]
+      : []),
+  ]
+
   return [
     buildSeed({
       id: seedId('monthly_review', result.monthKey, ctx),
@@ -2848,12 +3611,22 @@ function generateMonthlyReview(ctx: SimContext): IssueSeed[] {
       domain: ['monthly', 'economy', 'reputation'],
       severity: 40,
       urgency: 30,
+      primaryActor: monthRef,
       affectedActors: [],
       causes,
-      stakes: [],
-      responseSlots: [],
-      consequenceProfiles: [],
-      memoriesCreated: [],
+      stakes: [
+        stake('rent_stake', 'pressure:landlord', 'Rent may slip', 'risk', ['rent', 'landlord']),
+        stake('coin_stake', 'coin', 'Coin reserves at stake', 'loss', ['coin']),
+      ],
+      responseSlots,
+      consequenceProfiles,
+      memoriesCreated: [
+        {
+          id: `monthly_review_${result.monthKey}`,
+          actors: [monthRef],
+          tags: ['monthly', 'review'],
+        },
+      ],
       futureHooks: [],
       toneHints: ['summary', 'monthly'],
       textIngredients: buildTextIngredients({
@@ -2862,7 +3635,7 @@ function generateMonthlyReview(ctx: SimContext): IssueSeed[] {
         sensoryDetails: ['ledger closed', 'lamps trimmed'],
         actorOpinions: {},
         recentContext: [`net coin change ${result.economy.net}`],
-        stakesReadable: [],
+        stakesReadable: ['rent may slip', 'coin reserves at stake'],
       }),
       ctx,
     }),

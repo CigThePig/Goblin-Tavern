@@ -51,13 +51,13 @@ how to verify the fix.
 | ISSUE-010 | Grow cultures + cross-cutting cultures + tag alignment | thin | done | 50 |
 | ISSUE-011 | Lift regular cap + add starter regulars | thin | done | 51 |
 | ISSUE-012 | Add niche factions + factionUpdate triggers for missing 2 | thin | done | 52 |
-| ISSUE-013 | `policy_backlash` family end-to-end | broken | open | — |
-| ISSUE-014 | `regular_customer` family end-to-end | broken | open | — |
-| ISSUE-015 | `reputation_shift` family rewrite | broken | open | — |
-| ISSUE-016 | `violence` family rewrite + rotation | broken | open | — |
-| ISSUE-017 | `staff_burnout` family rewrite + rotation | broken | open | — |
-| ISSUE-018 | `inspection` family un-pinning | thin | open | — |
-| ISSUE-019 | `monthly_review` design decision + implementation | design | open | — |
+| ISSUE-013 | `policy_backlash` family end-to-end | broken | done | 53 |
+| ISSUE-014 | `regular_customer` family end-to-end | broken | done | 54 |
+| ISSUE-015 | `reputation_shift` family rewrite | broken | done | 55 |
+| ISSUE-016 | `violence` family rewrite + rotation | broken | done | 56 |
+| ISSUE-017 | `staff_burnout` family rewrite + rotation | broken | done | 57 |
+| ISSUE-018 | `inspection` family un-pinning | thin | done | 58 |
+| ISSUE-019 | `monthly_review` design decision + implementation | design | done | 59 |
 | ISSUE-020 | `activeIssueSeedTags` consumer wiring | thin | open | — |
 | ISSUE-021 | Calendar tag consumers (priority: `rent_due_soon`) | thin | open | — |
 | ISSUE-022 | History log pruning policy | thin | open | — |
@@ -882,8 +882,8 @@ infrastructure plus the relevant tier 1 roster grow.
 ### ISSUE-013 — `policy_backlash` family end-to-end
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 53
 - **Evidence:**
   - `src/sim/modules/issues/expandedSeedGenerators.ts:4586-4605` — 6
     response slots collapsed through `responseSlots.map((slot) =>
@@ -931,8 +931,8 @@ infrastructure plus the relevant tier 1 roster grow.
 ### ISSUE-014 — `regular_customer` family end-to-end
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 54
 - **Evidence:**
   - `src/sim/modules/issues/issueSeedGenerators.ts:868,891` — double-gate
     on `regular_customer_loss < 25` and a second condition requiring
@@ -970,8 +970,8 @@ infrastructure plus the relevant tier 1 roster grow.
 ### ISSUE-015 — `reputation_shift` family rewrite
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 55
 - **Evidence:**
   - `src/sim/modules/issues/issueSeedGenerators.ts` `reputation_shift`
     family — 4 profiles, 0 `delayedEffects`, 1 `futureHook` total
@@ -1000,8 +1000,8 @@ infrastructure plus the relevant tier 1 roster grow.
 ### ISSUE-016 — `violence` family rewrite + rotation
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 56
 - **Evidence:**
   - `src/sim/modules/issues/issueSeedGenerators.ts` `violence` family —
     4 profiles, 0 `delayedEffects`, 1 `futureHook` total.
@@ -1031,8 +1031,8 @@ infrastructure plus the relevant tier 1 roster grow.
 ### ISSUE-017 — `staff_burnout` family rewrite + rotation
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 57
 - **Evidence:**
   - `src/sim/modules/issues/issueSeedGenerators.ts` `staff_burnout`
     family — 4 profiles, 1 `delayedEffect`, 1 `futureHook` total.
@@ -1059,8 +1059,8 @@ infrastructure plus the relevant tier 1 roster grow.
 ### ISSUE-018 — `inspection` family un-pinning
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 58
 - **Evidence:**
   - `src/sim/modules/issues/issueSeedGenerators.ts:2043-2056` — the
     `inspection` family hardcodes `town_watch` as primary actor and
@@ -1087,8 +1087,8 @@ infrastructure plus the relevant tier 1 roster grow.
 ### ISSUE-019 — `monthly_review` design decision + implementation
 
 - **Grade:** design
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 59
 - **Evidence:**
   - `src/sim/modules/monthly/monthlyModule.ts:556` — gate
     `endDay === calendar.day` means the family only fires on

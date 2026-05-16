@@ -72,7 +72,7 @@ how to verify the fix.
 | ISSUE-031 | Cook tier grow + preparation gating | thin | done | 71 |
 | ISSUE-032 | Demand-side niche customer groups | thin | done | 72 |
 | ISSUE-033 | Storage areas + system integration polish | thin | done | 73 |
-| ISSUE-034 | Test worker crash silently hides ~58 untested tests | broken | open | — |
+| ISSUE-034 | Test worker crash silently hides ~58 untested tests | broken | done | 74 |
 | ISSUE-035 | `createStateDiff` skips `recipes`, `expeditions`, `hireableAdventurers` | thin | open | — |
 | ISSUE-036 | Tagged diff boundaries computed but never consumed | thin | open | — |
 | ISSUE-037 | `HireableAdventurer.wageBase` / `specialty` / `activeFlags` are dead fields | broken | open | — |
@@ -1312,8 +1312,8 @@ since that work is `done`.
 ### ISSUE-034 — Test worker crash silently hides ~58 untested tests
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 74
 - **Evidence:**
   - `npm test` reports `Test Files 64 passed (65)`,
     `Tests 987 passed (1045)`, and `Errors 1 error`. One test file's

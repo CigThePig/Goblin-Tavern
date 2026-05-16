@@ -96,6 +96,41 @@ function cleanlinessPenalty(
   return Math.round(gap * Math.pow(sensitivity, 2) * 0.6)
 }
 
+// Phase 79 / ISSUE-039 — groups whose preferredStockTags signal an
+// appetite for rare/legendary fare are more forgiving on price when
+// the tavern's culinary renown is high. Returns a multiplier in
+// [0.85, 1.0] — renown 0 → 1.0 (no softening); renown 100 → ~0.85
+// (15% softer price penalty). Other groups always get 1.0.
+function priceToleranceMultiplier(
+  group: CustomerGroupState,
+  state: TavernState,
+): number {
+  if (!groupCaresAboutRarity(group)) return 1
+  const renown = state.reputation.culinary_renown
+  return Math.max(0.85, 1 - renown * 0.0015)
+}
+
+// Tags that signal a group with appetite for high-quality / rare fare.
+// Matches the vocabulary used across customerRegistry — the niche
+// groups in `customerRegistry.ts:300-370` use `prized`, `mythic`,
+// `exotic`; the `merchants` group at line 150 carries
+// `quality_sensitive`. All four (plus literal `rare`/`legendary` for
+// future-proofing) get the renown softening + attraction lift.
+const RARITY_PREFERENCE_TAGS = new Set<string>([
+  'rare',
+  'legendary',
+  'prized',
+  'mythic',
+  'exotic',
+  'quality_sensitive',
+])
+
+function groupCaresAboutRarity(group: CustomerGroupState): boolean {
+  return group.preferredStockTags.some((tag) =>
+    RARITY_PREFERENCE_TAGS.has(tag),
+  )
+}
+
 function pricePenalty(group: CustomerGroupState, state: TavernState): number {
   // Use the priciest service item as a proxy for "how expensive is this
   // tavern". Higher salePrice + higher priceSensitivity → bigger penalty.
@@ -110,9 +145,25 @@ function pricePenalty(group: CustomerGroupState, state: TavernState): number {
     if (item.salePrice > maxPrice) maxPrice = item.salePrice
   }
   const sensitivity = group.priceSensitivity / 100
+  const renownSoftener = priceToleranceMultiplier(group, state)
   // Each coin of sale price contributes a small amount, scaled by how
-  // price-sensitive the group is.
-  return Math.round(maxPrice * sensitivity * 0.4)
+  // price-sensitive the group is, and softened by culinary renown for
+  // rarity-loving groups.
+  return Math.round(maxPrice * sensitivity * 0.4 * renownSoftener)
+}
+
+// Phase 79 / ISSUE-039 — for groups whose preferredStockTags include
+// 'rare' or 'legendary', high culinary renown lifts the forecast by a
+// few visitors per day. Renown 100 → +5. Renown 0 → 0. Capped to
+// avoid a runaway loop on top of the producer side's existing
+// idle-decay safety valve in service/recipesDaily.ts.
+function renownAttractionModifier(
+  group: CustomerGroupState,
+  state: TavernState,
+): number {
+  if (!groupCaresAboutRarity(group)) return 0
+  const renown = state.reputation.culinary_renown
+  return Math.round(renown * 0.05)
 }
 
 function stockModifier(group: CustomerGroupState, state: TavernState): number {
@@ -190,6 +241,9 @@ export function forecastTrafficForGroup(
   // Phase 30 §30.8 — culture influence. The helper is pure and lives in
   // the cultures module so forecasting does not own culture logic.
   const cultureInfluence = getCultureForecastModifier(state, group)
+  // Phase 79 / ISSUE-039 — culinary_renown lifts attraction for groups
+  // that explicitly prefer rare/legendary fare.
+  const renownPull = renownAttractionModifier(group, state)
 
   // Small deterministic jitter so identical inputs still feel like
   // distinct days when reports are read in sequence. Pulled from
@@ -202,7 +256,8 @@ export function forecastTrafficForGroup(
       dayMod +
       satMod +
       stockMod +
-      cultureInfluence.modifier -
+      cultureInfluence.modifier +
+      renownPull -
       filthPenalty -
       priceHit +
       jitter,
@@ -219,6 +274,9 @@ export function forecastTrafficForGroup(
   }
   if (stockMod > 0) notes.push('Preferred stock was available.')
   if (stockMod < 0) notes.push('Preferred stock was missing or disliked stock was prominent.')
+  if (renownPull > 0) {
+    notes.push(`Culinary renown drew rarity-minded patrons (+${renownPull}).`)
+  }
   for (const note of cultureInfluence.notes) notes.push(note)
 
   return {

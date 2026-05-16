@@ -77,7 +77,7 @@ how to verify the fix.
 | ISSUE-036 | Tagged diff boundaries computed but never consumed | thin | done | 76 |
 | ISSUE-037 | `HireableAdventurer.wageBase` / `specialty` / `activeFlags` are dead fields | broken | done | 77 |
 | ISSUE-038 | Cook tier/skill does not modulate service quality | thin | done | 78 |
-| ISSUE-039 | `culinary_renown` fame loop only reaches two consumers | thin | open | — |
+| ISSUE-039 | `culinary_renown` fame loop only reaches two consumers | thin | done | 79 |
 | ISSUE-040 | Reference validation gaps for staff identity + adventurer reverse edges | broken | open | — |
 | ISSUE-041 | Staff identity profile pool covers 3 of 8 cultures | thin | open | — |
 | ISSUE-042 | Niche factions carry no notable NPCs | thin | open | — |
@@ -1545,8 +1545,8 @@ since that work is `done`.
 ### ISSUE-039 — `culinary_renown` fame loop only reaches two consumers
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 79
 - **Evidence:**
   - Producers of `state.reputation.culinary_renown`:
     `src/sim/modules/service/recipes.ts:66-76` (serve uncommon+

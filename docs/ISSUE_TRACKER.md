@@ -72,6 +72,18 @@ how to verify the fix.
 | ISSUE-031 | Cook tier grow + preparation gating | thin | done | 71 |
 | ISSUE-032 | Demand-side niche customer groups | thin | done | 72 |
 | ISSUE-033 | Storage areas + system integration polish | thin | done | 73 |
+| ISSUE-034 | Test worker crash silently hides ~58 untested tests | broken | open | — |
+| ISSUE-035 | `createStateDiff` skips `recipes`, `expeditions`, `hireableAdventurers` | thin | open | — |
+| ISSUE-036 | Tagged diff boundaries computed but never consumed | thin | open | — |
+| ISSUE-037 | `HireableAdventurer.wageBase` / `specialty` / `activeFlags` are dead fields | broken | open | — |
+| ISSUE-038 | Cook tier/skill does not modulate service quality | thin | open | — |
+| ISSUE-039 | `culinary_renown` fame loop only reaches two consumers | thin | open | — |
+| ISSUE-040 | Reference validation gaps for staff identity + adventurer reverse edges | broken | open | — |
+| ISSUE-041 | Staff identity profile pool covers 3 of 8 cultures | thin | open | — |
+| ISSUE-042 | Niche factions carry no notable NPCs | thin | open | — |
+| ISSUE-043 | Social rumours never pruned (unbounded growth) | thin | open | — |
+| ISSUE-044 | Supplier reliability + relationship do not affect pricing | thin | open | — |
+| ISSUE-045 | `content/text/descriptors.ts` pool still empty Phase 22 stub | thin | open | — |
 
 ---
 
@@ -1282,6 +1294,561 @@ between bigger phases.
   families meet the per-profile depth targets. Verify the three core
   families rotate across their respective entities in a 14-day
   window.
+
+---
+
+## Tier 3 — Post-Repair Audit Findings
+
+The Tier 3 issues are all surfaced by a post-Phase-73 codebase audit
+(2026-05-16). They share a shape: the test suite passes 987 of 1045
+collected tests, and the typecheck is clean, but the things tests
+don't catch — silent data flow, dead state fields, dangling diff
+boundaries, content-roster mismatch with culture content already
+registered — are still here. The issues are independent and can be
+worked in any order; none are dependencies for the Tier 1.5 arc
+since that work is `done`.
+
+### ISSUE-034 — Test worker crash silently hides ~58 untested tests
+
+- **Grade:** broken
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `npm test` reports `Test Files 64 passed (65)`,
+    `Tests 987 passed (1045)`, and `Errors 1 error`. One test file's
+    worker exits unexpectedly during the run; vitest collects the
+    file's tests into the 1045 count but only 987 actually
+    execute.
+  - The summary block ends with `Vitest caught 1 unhandled error
+    during the test run. This might cause false positive tests.
+    Resolve unhandled errors to make sure your tests are not
+    affected. … Error: Worker exited unexpectedly … tinypool …
+    ChildProcess._handle.onexit`.
+  - Exit code is `0` despite 58 tests being silently absent and the
+    unhandled error.
+  - The merge commit `c7647b7` ("fix: tier 2 review findings + phase
+    20 pool isolation") landed a partial fix in this area; the
+    crash is not fully resolved.
+- **Impact:** CI signal is unreliable. A test file can fall out of
+  the run with no failure marker; "tests pass" no longer implies
+  "tests ran." Any of the 58 hidden tests could be silently regressing
+  while local runs report green.
+- **Scope:**
+  - Identify which test file's worker is crashing (memory pressure,
+    pool isolation, or an unhandled rejection in a long-running
+    test).
+  - Either fix the underlying crash, or configure vitest so a worker
+    crash fails the suite (non-zero exit, explicit failed file count
+    in the summary, no silent drop).
+  - Reduce per-test memory cost where the crash is OOM-driven
+    (`phase40.expandedReadiness.test.ts` runs for ~353s alone;
+    pool isolation may not be enough on memory-constrained CI).
+- **Depends on:** none
+- **Test approach:** After the fix, `npm test` must report
+  `Tests N passed (N)` with no `(M)` collected/run gap, and any
+  worker exit must mark the run as failed. Verify by intentionally
+  triggering a worker crash in a throwaway test and confirming
+  the suite fails.
+
+### ISSUE-035 — `createStateDiff` skips `recipes`, `expeditions`, `hireableAdventurers`
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `src/sim/core/diff.ts:520-552` `createStateDiff` walks coin,
+    areas, stock, staff, customers, reputation, pressures,
+    memoriesCount, cultures, factions, suppliers, regulars,
+    localEvents, socialRumours, tavernIdentity, modules.
+  - `TavernState` (`src/sim/state/TavernState.ts:685-710`) carries
+    three further slices the walker never visits: `recipes`,
+    `expeditions`, and `world.hireableAdventurers`. The walker
+    explicitly skips `notableNpcs` at line 542 with a comment;
+    the other three slices are silently absent.
+  - Each of these slices is actively mutated: `ctx.modifyRecipe`
+    (recipes), expeditionsModule resolution (expeditions.active /
+    completed), and `ctx.modifyHireableAdventurer` (adventurer
+    stats, currentExpeditionId).
+  - The day-level diff is consumed by `causeReport.ts:173` in the
+    "unexplained significant changes" section. Changes to these
+    three slices never appear there even when no cause was emitted.
+- **Impact:** ISSUE-002 (Phase 42) extended diff coverage so a
+  cause-coverage audit could catch uncaused world mutations.
+  Recipes, expeditions, and adventurer rosters bypass that audit.
+  A regression that mutates `state.recipes['x'].onMenu` or an
+  adventurer's `experience` without a cause emission will not show
+  up in "unexplained changes."
+- **Scope:**
+  - Add `diffRecipes`, `diffExpeditions`, `diffHireableAdventurers`
+    in `src/sim/core/diff.ts` following the existing per-id /
+    per-field pattern used by `diffSuppliers` and `diffRegulars`.
+  - Decide which fields are "meter-like" (e.g. adventurer
+    experience/reliability/relationship) and route them through
+    `isMeterPath` so significance thresholds apply.
+  - Wire them into `createStateDiff` after the existing world-slice
+    walks.
+- **Depends on:** none
+- **Test approach:** Mutate a recipe `onMenu`, an
+  adventurer.relationship, and add an expedition record in a test;
+  verify (a) the changes appear in `getDiff('day').changes[]`,
+  (b) numeric meter changes are filtered by significance the same
+  way supplier/regular meter changes are, (c) the cause-coverage
+  report flags any of these mutations that lack a matching cause.
+
+### ISSUE-036 — Tagged diff boundaries computed but never consumed
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `src/sim/core/engine.ts:1463-1488` snapshots and finalizes four
+    tagged diffs per day: `owner_actions`, `service`, `end_week`,
+    `end_month`. Each gets a snapshot/finalize pair around the
+    matching phase block.
+  - The comment at `engine.ts:1478-1480` claims "Service finished.
+    Close the service-phase diff so reports can read it from
+    `ctx.getDiff('service')` during `generateReports`." No production
+    code reads `getDiff('service')`. The only consumers of
+    non-`'day'` boundaries are `tests/sim/phase17.causes.test.ts:428`
+    and `:446` (`getByBoundary('owner_actions')`,
+    `getByBoundary('end_week')`).
+  - The diff finalize for `'service'` runs after the `closing` phase
+    but five phase slots earlier than the `generateReports` phase
+    (`applyResponses`, `endDay`, `endWeek`, `endMonth` sit between
+    them). Any report that did try to read the service diff would
+    miss every mutation those four phases produce.
+- **Impact:** Four tagged diff boundaries exist purely to keep the
+  phase-17 tests passing. They cost a full state snapshot+walk each
+  per day and produce no signal anywhere else. The misleading
+  comment at engine.ts:1478 invites future code to read a diff
+  that was sealed before the relevant mutations happened.
+- **Scope:**
+  - Either remove the unused tagged boundaries (snapshot only the
+    `'day'` boundary the cause report reads, plus whatever the
+    `phase17.causes.test.ts` assertions actually need), and update
+    the test to read `'day'` if appropriate.
+  - Or, if the boundaries are kept for future use, fix the engine
+    comment to describe what the boundary actually captures
+    (pre-`applyResponses` state for `'service'`) and add at least
+    one production consumer so they're not dead weight.
+  - Document the chosen direction in this issue's resolution.
+- **Depends on:** none
+- **Test approach:** If boundaries are pruned, the existing
+  phase-17 tests must still pass against `'day'` (or whatever
+  replacement is chosen). If boundaries are kept, add a report
+  consumer that reads at least one non-`'day'` boundary and assert
+  on its output.
+
+### ISSUE-037 — `HireableAdventurer.wageBase` / `specialty` / `activeFlags` are dead fields
+
+- **Grade:** broken
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `src/sim/state/TavernState.ts:596` declares
+    `wageBase: number // coin per expedition day`. The field is
+    written at `src/sim/modules/adventurers/adventurersModule.ts:136`
+    (`wageBase: 3 + rng.int(0, 3)`) and at
+    `src/sim/state/defaults.ts` during starter seeding. Grep across
+    `src/` finds zero readers.
+  - `src/sim/modules/expeditions/commissionExpedition.ts:57-60`
+    `readCost(input)` pulls expedition cost from
+    `input.amount ?? 0`. The runner's `wageBase` is never consulted.
+    A master adventurer can be commissioned for 0 coin; a fresh
+    rookie can be commissioned for 1000. Cost is whatever the
+    player passes.
+  - `src/sim/state/TavernState.ts:595` declares `specialty: string |
+    null` with comment "optional tag biasing target tier/category."
+    Set on starter adventurers in `defaults.ts:506-558` (e.g. alpha
+    has `specialty: 'rare'`). The outcome roll in
+    `src/sim/modules/expeditions/expeditionsModule.ts:90-119`
+    consults experience, reliability, mode, and tier — never
+    specialty. The starter adventurers' specialties are inert.
+  - `src/sim/state/TavernState.ts:601` declares
+    `activeFlags: string[]`. Written at creation, never read in
+    `src/sim/modules/expeditions/` or `src/sim/modules/adventurers/`.
+- **Impact:** Hiring decisions and expedition cost decisions are
+  not real economic choices. The schema and docstrings promise
+  meaningful structure (per-day wages, specialty biasing); the
+  runtime ignores all three fields. ISSUE-029 / ISSUE-030 closed
+  with these gaps undetected because the test suite verifies the
+  fields exist but not that they affect outcomes.
+- **Scope:**
+  - Decide whether expedition cost should be `wageBase * daysTotal`
+    (or similar) instead of `input.amount`. Either route the cost
+    through `wageBase` and reject commissions that underpay, or
+    delete the field outright with a state-migration helper.
+  - Decide whether `specialty` modulates tier success rate (e.g.
+    `+0.1` to success when `specialty === targetTier`). Either wire
+    it through the outcome roll or delete it.
+  - Same call for `activeFlags`: wire it (injured/exhausted/idle
+    markers used by the roster drift hook) or delete it.
+- **Depends on:** none
+- **Test approach:** A test commissions an expedition for a 4-day
+  run with an adventurer whose `wageBase` is 5; verify the cost
+  charged is `wageBase * daysTotal` (or the wired formula), not
+  `input.amount`. A test commissions a tier-rare expedition with
+  a `specialty: 'rare'` runner and a non-specialist; verify the
+  specialist's success rate exceeds the non-specialist's over N
+  trials with the same seeded RNG. If a field is being deleted,
+  the test verifies it is removed from defaults and schemas.
+
+### ISSUE-038 — Cook tier/skill does not modulate service quality
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `src/sim/modules/staff/priorityEffects.ts:32-160` builds the
+    daily `staffQualityModifiers` (notably `foodQualityModifier` and
+    `serviceSpeed`) from `currentPriority`, `workStyle`, and
+    `stressResponse`. The staff member's `role` and `skill` fields
+    are not read in this file.
+  - The four cook roles registered in
+    `src/sim/content/staff/staffIdentityProfiles.ts`
+    (`cook_goblin_common`, `kitchen_hand_goblin_common`,
+    `seasoned_cook_human_town`, `master_chef_dwarf_caravan`) and the
+    differentiated skill ranges seeded in `defaults.ts` exist to
+    represent a hierarchy. The hierarchy only affects the prep gate
+    in `src/sim/modules/service/recipes.ts:49-62` (per-recipe
+    botched / ordinary / excellent outcome).
+  - `recipes.ts:55` reads `active.skill` for prep gating;
+    `priorityEffects.ts` never does. A master_chef on `quality`
+    priority and a kitchen_hand on `quality` priority therefore
+    produce the same `foodQualityModifier`.
+- **Impact:** The cook tier system is half-wired. ISSUE-031 (Phase
+  71) added the roles and the prep gate, but the daily service
+  loop is role-agnostic. The player has no reason to keep a
+  master_chef around when the same priorities on a kitchen_hand
+  produce the same daily satisfaction signal — only rare/legendary
+  recipes (where the prep gate bites) differentiate the two.
+- **Scope:**
+  - Extend `derivePriorityModifiers()` (or a sibling) to layer a
+    small role/skill modifier onto `foodQualityModifier` and
+    `serviceSpeed`. The Phase 71 plan and the rare-ingredients
+    design doc have the magnitudes; pick within those bounds.
+  - Ensure the modifier is monotonic in skill so a higher-tier
+    cook never produces a worse quality signal on the same
+    priority, all else equal.
+  - Consider routing the modifier through the existing
+    `scaleByEffectiveness` pipeline so morale/stress/fatigue still
+    suppress it.
+- **Depends on:** none
+- **Test approach:** With identical priority, workStyle, and
+  stressResponse, a master_chef (skill 85) on the same day input
+  must produce a higher `foodQualityModifier` than a kitchen_hand
+  (skill 30). Customer satisfaction delta in `resolveService`
+  should reflect the difference (positive for the master, neutral
+  or negative for the kitchen_hand).
+
+### ISSUE-039 — `culinary_renown` fame loop only reaches two consumers
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - Producers of `state.reputation.culinary_renown`:
+    `src/sim/modules/service/recipes.ts:66-76` (serve uncommon+
+    nudges +1..+3), `recipes.ts:248-259` (excellent rare/legendary
+    prep +2/+4), `recipes.ts:276-287` (botched rare/legendary
+    -3/-5), `src/sim/modules/stock/spoilage.ts:99-164` (rare/legendary
+    spoilage -2/-3), `src/sim/modules/service/recipesDaily.ts:71-95`
+    (idle-30-day decay -1).
+  - Consumers of `culinary_renown`:
+    `src/sim/modules/customers/customerModule.ts:118` (niche
+    customer activation/deactivation against
+    `minRenownThreshold`),
+    `src/sim/modules/adventurers/adventurersModule.ts:111`
+    (soft-cap lift on the hireable adventurer roster). That is the
+    full consumer set.
+  - `reputationRegistry.ts:12-15` registers `culinary_renown` as a
+    canonical axis alongside `tasty`, `respectable`, etc., but it is
+    not consulted by customer satisfaction, pricing, attraction
+    bonuses, pressure modifiers, or owner-action gating.
+- **Impact:** The rare-ingredients arc's headline reputation axis
+  has a narrow consumption surface. A player who builds renown to
+  70+ unlocks two effects (niche group visits, larger adventurer
+  pool) and gets nothing on the day-to-day satisfaction or pricing
+  loop. The fame mechanic doesn't reinforce itself.
+- **Scope:**
+  - Add at least one routine-day consumer:
+    e.g. a small `culinary_renown` → patronage attraction nudge for
+    customer groups with `preferredStockTags.includes('rare')`, or a
+    pressure reduction on `inspector_attention` / `rival_tavern`
+    when renown is high, or a price-tolerance bump on the
+    `priceSensitivity` calc.
+  - Document the cap on the loop so this doesn't become a runaway
+    mechanic. Producers already include the idle-decay safety
+    valve; consumers should not amplify that loop.
+- **Depends on:** none
+- **Test approach:** Run a 30-day scenario where renown rises from
+  10 to 60. Verify at least one observable downstream effect beyond
+  the niche activation and adventurer cap (e.g. a customer group's
+  patronage rises by a small amount per renown decile; an inspector
+  pressure decays faster at high renown). Verify the inverse at
+  low renown.
+
+### ISSUE-040 — Reference validation gaps for staff identity + adventurer reverse edges
+
+- **Grade:** broken
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `src/sim/state/TavernState.ts:151` declares the optional
+    `StaffIdentityState.cultureId: string`. `src/sim/state/
+    referenceValidation.ts` validates customer-group cultureId
+    (line 265), faction cultureId (line 311), supplier cultureId
+    (line 349), local-event cultureId (line 548), adventurer
+    cultureId (line 514), but does not iterate `state.staff` to
+    check `staff.identity?.cultureId`. A staff member can carry a
+    dangling culture pointer indefinitely.
+  - `referenceValidation.ts:480-490` validates the forward edge
+    from active expeditions to adventurers (an active expedition
+    must point at an existing runner). It does not validate the
+    reverse edge: a hireable adventurer with `currentExpeditionId`
+    set must point at an active expedition. A double-resolution
+    bug, an unhandled exception during `applyResolution`, or a
+    save-game with mismatched data could leave an adventurer
+    stuck claiming to be on a non-existent expedition.
+- **Impact:** Two dangling-reference shapes that produce silent
+  null lookups at runtime rather than validation failures. Both
+  are easy to introduce during refactors and would not be caught by
+  the existing test suite (the tests construct internally consistent
+  states).
+- **Scope:**
+  - Add a staff loop to `validateWorldReferences` (or a sibling
+    in the staff-validation block) that checks each
+    `staff.identity?.cultureId`, when present, exists in
+    `state.world.cultures`.
+  - Add an adventurer-reverse-edge loop that asserts
+    `adventurer.currentExpeditionId === null ||
+    state.expeditions.active.some(e => e.id === adventurer.currentExpeditionId)`.
+- **Depends on:** none
+- **Test approach:** Construct a state where a staff member's
+  `identity.cultureId` is set to a non-existent culture; verify
+  `validateState` returns an error referencing the staff id and
+  the dangling cultureId. Construct a state where an adventurer's
+  `currentExpeditionId` is `'exp_999'` but `state.expeditions.active`
+  is empty; verify the reverse-edge validator returns an error.
+
+### ISSUE-041 — Staff identity profile pool covers 3 of 8 cultures
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `src/sim/content/staff/staffIdentityProfiles.ts` registers 6
+    profiles total: `cook_goblin_common`,
+    `kitchen_hand_goblin_common`, `server_town_human`,
+    `seasoned_cook_human_town`,
+    `cleaner_bouncer_dwarf_caravan`, `master_chef_dwarf_caravan`.
+    Naming profiles cited: `goblin_common`, `human_town`,
+    `dwarf_caravan`.
+  - `src/sim/content/cultures/cultureRegistry.ts` plus the
+    expansion-arc registration calls produce 8 cultures, including
+    `miner_workcrew`, `merchant_roadfolk`, `ogre_clans`,
+    `adventuring_bands`, `shrine_devotees`. Naming pools exist for
+    each (`src/sim/content/naming/` carries `miner_workcrew`,
+    `merchant_roadfolk`, `ogre_clans`, `adventuring_bands` profiles
+    from Phase 31 fixes).
+  - Customer groups already use the wider set:
+    `src/sim/registries/customerRegistry.ts:90` uses
+    `miner_workcrew`, `:130` uses `merchant_roadfolk`, `:170` uses
+    `ogre_clans`, `:210` uses `adventuring_bands`. Staff identity
+    creation goes through `createStaffIdentity`, which can only
+    pick from the 6 registered profiles — so staff are confined to
+    goblin/human/dwarf names regardless of which culture's
+    workforce they came from.
+- **Impact:** ISSUE-010 (Phase 50) closed with cultures + naming
+  profiles aligned across customer groups and suppliers, but staff
+  hires still feel like goblin-tavern-only. A miner-aligned cook,
+  a merchant-aligned server, or an ogre-aligned bouncer cannot be
+  expressed in identity, even though the cultures and naming pools
+  exist. This caps perceptual roster diversity for a system
+  (staff) the player interacts with most.
+- **Scope:**
+  - Add per-culture variants for each cook tier, plus at least
+    one alternate server and bouncer profile sourced from the
+    wider naming pool set (miner_workcrew, merchant_roadfolk,
+    ogre_clans, adventuring_bands, shrine_devotees as relevant).
+  - Update the staff identity factory's role-to-profile mapping
+    so it weighs cultural plausibility (e.g. shrine_devotees
+    rarely shows up as a bouncer).
+- **Depends on:** none
+- **Test approach:** Generate N staff members across 50 hires
+  (deterministically seeded); verify the resulting culture
+  distribution covers at least 5 of the 8 registered cultures
+  with at least one profile per role.
+
+### ISSUE-042 — Niche factions carry no notable NPCs
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `src/sim/content/factions/factionRegistry.ts` registers 9
+    factions including the three niche additions from ISSUE-012
+    (Phase 52): `smugglers_ring:105`, `silvermark_house:119`,
+    `rival_taverns:134`.
+  - `src/sim/content/npc/notableNpcProfiles.ts` registers 8 NPC
+    profiles linked to factions: `watch_inspector` /
+    `watch_captain` → `town_watch`, `moneylender` →
+    `brewers_guild` (line 87 — note this association reads odd
+    and may be a separate bug),
+    `town_gossip` → `scrap_collectors`, `fence` → `local_shrine`
+    (also questionable),
+    `merchant_prince` → `market_caravan_circle`, `miner_foreman` →
+    `miners_union`, `shrine_priest` → `local_shrine`.
+  - Greps for the three niche faction ids inside
+    `src/sim/content/npc/` return zero hits. The niche factions
+    exist mechanically (pressures, reputation loops, issue seed
+    fallbacks) but have no human face in the social graph.
+- **Impact:** Pressure chains that involve smugglers, rivals, or
+  silvermark cannot route attribution through an NPC actor; they
+  fall back to faction-level refs. Card families that pull an
+  actor name for color (per Phase 21's identity rule) have no
+  candidate for these three factions. The faction-NPC association
+  for the existing 6 also includes two oddly-coupled pairs
+  (moneylender ↔ brewers_guild, fence ↔ local_shrine) that may
+  deserve a second pass while this bundle is open.
+- **Scope:**
+  - Add at least one notable NPC profile per niche faction
+    (smuggler contact, rival tavern proprietor, silvermark
+    factor / agent).
+  - Verify the existing factionId associations: a moneylender
+    aligned with the brewers' guild and a fence aligned with the
+    shrine read as either deliberate or a copy-paste slip; tighten
+    or rationalize in a comment.
+- **Depends on:** none
+- **Test approach:** Verify every registered faction has at least
+  one NPC profile with a matching `factionId`. A pressure / cause
+  test that targets one of the niche factions resolves an NPC
+  actor ref instead of falling back to a faction-level ref.
+
+### ISSUE-043 — Social rumours never pruned (unbounded growth)
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `src/sim/modules/weekly/community.ts:580` writes new rumours
+    to `ctx.state.world.socialRumours[rumour.id]`. The `:533-562`
+    `persistRumour` helper refreshes `strength` and `lastSpreadDay`
+    when an existing rumour matches, never deletes.
+  - Grep across `src/sim/` for `delete ... socialRumours`,
+    `pruneRumour`, `expireRumour`, `socialRumours[... = undefined`
+    returns no hits. History pruning (Phase 62 / ISSUE-022) added
+    a 90-day / 500-entry policy for `state.history` but did not
+    extend to social rumours.
+  - `src/sim/modules/pressures/calculators/rumourPressure.ts:30`
+    and `:48` iterate the full rumour map every day. A long run
+    that emits rumours at any non-zero rate carries that whole
+    set forever.
+- **Impact:** Long-run RAM and time grow linearly with simulation
+  age. Rumour pressure aggregation walks more rumours every day.
+  Save sizes balloon over a multi-year save. This was flagged
+  briefly during the Phase 20 long-run audit (commit `359f268`
+  notes) but never closed.
+- **Scope:**
+  - Add a pruning hook (likely `endMonth`, mirroring the history
+    pruning policy) that drops rumours whose `lastSpreadDay` is
+    older than a configurable window (suggest 90 days) AND whose
+    `strength` has decayed below a threshold (suggest 10).
+  - Optionally cap total active rumours at N (e.g. 60) and drop
+    the lowest-strength survivors first.
+  - Verify the contradiction-guard, attribution, and pressure
+    consumers that iterate the rumour map handle the pruning
+    correctly (no dangling involvedRefs from issue seeds).
+- **Depends on:** none
+- **Test approach:** Run a 365-day simulation that emits rumours
+  weekly; assert that `Object.keys(state.world.socialRumours)
+  .length` stabilizes below the cap (or grows sub-linearly with
+  the pruning window) instead of climbing monotonically. Verify
+  no issue-seed contradiction guard fails after pruning.
+
+### ISSUE-044 — Supplier reliability + relationship do not affect pricing
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `src/sim/modules/suppliers/pricing.ts:45-61`
+    `getEffectiveBasePrice` reads `stock.basePrice`,
+    `supplier.priceBias`, and active market-condition multipliers.
+    It does not read `supplier.reliability` or
+    `supplier.relationship`.
+  - `src/sim/modules/suppliers/supplierModule.ts:79-96` applies a
+    one-way relationship drift when reliability < 30; relationship
+    has no other operational consumer.
+  - The supplier report (`supplierReport.ts:32-69`) surfaces both
+    meters to the player, implying they matter. They do not feed
+    any pricing, delivery, or stock-availability decision in the
+    current pipeline. ISSUE-009 (Phase 29) closed with this gap
+    in place; ISSUE-028 (Phase 68) added specialty suppliers
+    without changing the pricing model.
+- **Impact:** Two of a supplier's three top-line meters are
+  decorative. The player's choice to invest in supplier
+  relationship (via repeated orders, on-time payment, etc.) has
+  no economic payoff. Switching suppliers is purely a
+  `priceBias` + `goodsProvided` decision.
+- **Scope:**
+  - Extend `getEffectiveBasePrice` (or wrap it in a sibling
+    helper used by restock and weekly invoice paths) so
+    `relationship` provides a small discount and `reliability`
+    affects the probability of delivery-on-time at the supplier
+    level. Magnitudes per the Phase 29 plan or this issue's
+    resolution if the plan is silent.
+  - Update the supplier report to surface the effective discount
+    so the player can see the meter pay off.
+- **Depends on:** none
+- **Test approach:** Two suppliers with identical `priceBias` and
+  different `relationship` (30 vs 80) charge different effective
+  base prices on the same stock. Two suppliers with different
+  `reliability` (40 vs 90) have observably different missed-delivery
+  rates over N weeks.
+
+### ISSUE-045 — `content/text/descriptors.ts` pool still empty Phase 22 stub
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `src/sim/content/text/descriptors.ts` consists of a comment
+    block stating "Phase 22 leaves the file as an empty
+    placeholder. … Phase 39 consumes these pools when building
+    text-ingredient generators" followed by `export {}`.
+  - Phase 39 / ISSUE-039 (expanded issue-seed generators) shipped
+    without ever filling this file. Greps for imports from
+    `content/text/descriptors` return no consumers in
+    `src/sim/modules/issues/`. The text-ingredient pool the
+    expanded generators were meant to draw from doesn't exist.
+  - `src/sim/content/text/textIngredientTypes.ts` defines the
+    type shape; the index re-exports the type; the descriptors
+    module is the data side that never landed.
+- **Impact:** Issue-seed prose-adjacent labels are hardcoded
+  inline in each generator instead of drawn from a shared
+  descriptor pool. Per the Phase 21 contract — "no card prose,
+  produce text ingredients only" — the right shape is the pool;
+  the wrong shape is per-generator string literals. The current
+  code is the wrong shape.
+- **Scope:**
+  - Populate `descriptors.ts` with the mechanical-label /
+    tag-fragment pools the existing seed families would draw from
+    (severity adjectives, area-state adjectives, faction-relation
+    nouns). Stay on mechanical labels; no card prose.
+  - Refactor at least one expanded seed family (e.g.
+    `violence`, `inspection`) to read from the pool rather than
+    inline literals, proving the consumption seam.
+  - Document the shape so the eventual card layer can read from
+    the same pools.
+- **Depends on:** none
+- **Test approach:** Importing `descriptors.ts` in a test returns
+  non-empty pool data. At least one seed family's generator
+  consumes from the pool (verifiable by mocking the pool and
+  observing the generator's output change). The contract test
+  that Phase 22 reserved (the placeholder check in
+  `phase22.expansionStructure.test.ts`) is updated to assert the
+  pool is now populated.
 
 ---
 

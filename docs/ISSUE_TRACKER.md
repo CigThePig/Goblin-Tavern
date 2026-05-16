@@ -55,7 +55,7 @@ how to verify the fix.
 | ISSUE-014 | `regular_customer` family end-to-end | broken | done | 54 |
 | ISSUE-015 | `reputation_shift` family rewrite | broken | done | 55 |
 | ISSUE-016 | `violence` family rewrite + rotation | broken | done | 56 |
-| ISSUE-017 | `staff_burnout` family rewrite + rotation | broken | open | — |
+| ISSUE-017 | `staff_burnout` family rewrite + rotation | broken | done | 57 |
 | ISSUE-018 | `inspection` family un-pinning | thin | open | — |
 | ISSUE-019 | `monthly_review` design decision + implementation | design | open | — |
 | ISSUE-020 | `activeIssueSeedTags` consumer wiring | thin | open | — |
@@ -1031,8 +1031,8 @@ infrastructure plus the relevant tier 1 roster grow.
 ### ISSUE-017 — `staff_burnout` family rewrite + rotation
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 57
 - **Evidence:**
   - `src/sim/modules/issues/issueSeedGenerators.ts` `staff_burnout`
     family — 4 profiles, 1 `delayedEffect`, 1 `futureHook` total.

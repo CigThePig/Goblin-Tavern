@@ -742,6 +742,41 @@ function createContext(
         ['staff', id],
       )
     },
+    addStaff(staff, meta): void {
+      // Phase 86 / ISSUE-046 — duplicate id is a programmer error;
+      // a bad action input would have been caught by canApply.
+      if (runtime.current.staff[staff.id]) {
+        throw new Error(`addStaff: duplicate staff id '${staff.id}'`)
+      }
+      runtime.current = {
+        ...runtime.current,
+        staff: {
+          ...runtime.current.staff,
+          [staff.id]: staff,
+        },
+      }
+      if (meta) {
+        addCauseInternal(meta, {
+          target: `staff.${staff.id}`,
+          targetType: 'staff',
+        })
+      }
+    },
+    removeStaff(id, meta): void {
+      if (!runtime.current.staff[id]) return
+      const nextStaff = { ...runtime.current.staff }
+      delete nextStaff[id]
+      runtime.current = {
+        ...runtime.current,
+        staff: nextStaff,
+      }
+      if (meta) {
+        addCauseInternal(meta, {
+          target: `staff.${id}`,
+          targetType: 'staff',
+        })
+      }
+    },
     modifyCustomerGroup(id, changes, meta): void {
       const group = requireRecord<CustomerGroupState>(
         runtime.current.customerGroups,

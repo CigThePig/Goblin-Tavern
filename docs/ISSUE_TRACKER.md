@@ -84,7 +84,7 @@ how to verify the fix.
 | ISSUE-043 | Social rumours never pruned (unbounded growth) | thin | done | 83 |
 | ISSUE-044 | Supplier reliability + relationship do not affect pricing | thin | done | 84 |
 | ISSUE-045 | `content/text/descriptors.ts` pool still empty Phase 22 stub | thin | done | 85 |
-| ISSUE-046 | Staff-management owner actions (hire / fire / kick) missing | broken | open | — |
+| ISSUE-046 | Staff-management owner actions (hire / fire / kick) missing | broken | done | 86 |
 
 ---
 
@@ -1854,8 +1854,8 @@ since that work is `done`.
 ### ISSUE-046 — Staff-management owner actions (hire / fire / kick) missing
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 86
 - **Evidence:**
   - `src/sim/modules/ownerActions/actionDefinitions.ts:851-863`
     `REQUIRED_OWNER_ACTIONS` registers 11 actions: `clean_area`,

@@ -79,7 +79,7 @@ how to verify the fix.
 | ISSUE-038 | Cook tier/skill does not modulate service quality | thin | done | 78 |
 | ISSUE-039 | `culinary_renown` fame loop only reaches two consumers | thin | done | 79 |
 | ISSUE-040 | Reference validation gaps for staff identity + adventurer reverse edges | broken | done | 80 |
-| ISSUE-041 | Staff identity profile pool covers 3 of 8 cultures | thin | open | — |
+| ISSUE-041 | Staff identity profile pool covers 3 of 8 cultures | thin | done | 81 |
 | ISSUE-042 | Niche factions carry no notable NPCs | thin | open | — |
 | ISSUE-043 | Social rumours never pruned (unbounded growth) | thin | open | — |
 | ISSUE-044 | Supplier reliability + relationship do not affect pricing | thin | open | — |
@@ -1635,8 +1635,8 @@ since that work is `done`.
 ### ISSUE-041 — Staff identity profile pool covers 3 of 8 cultures
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 81
 - **Evidence:**
   - `src/sim/content/staff/staffIdentityProfiles.ts` registers 6
     profiles total: `cook_goblin_common`,

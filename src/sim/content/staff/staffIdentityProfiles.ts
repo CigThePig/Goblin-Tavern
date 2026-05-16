@@ -119,6 +119,157 @@ const REQUIRED_STAFF_IDENTITY_PROFILES: StaffIdentityProfile[] = [
       'commands a fee that pays for itself only when patrons notice',
     ],
   },
+  // Phase 81 / ISSUE-041 — per-culture variants. Customer groups
+  // already use the wider naming-pool set (miner_workcrew,
+  // merchant_roadfolk, ogre_clans, adventuring_bands); staff identity
+  // was capped at goblin/human/dwarf. These additions let
+  // createStaffIdentity pick a culturally-plausible profile per role
+  // and lift the cross-culture distribution toward ≥6 of 8 registered
+  // cultures.
+  {
+    id: 'cook_miner',
+    roleId: 'cook',
+    groupId: 'kitchen_miner',
+    cultureId: 'miner_workcrew',
+    namingProfileId: 'miner_workcrew',
+    personalityTags: ['stout', 'practical', 'no_nonsense'],
+    workStyles: ['steady', 'methodical', 'rough'],
+    stressResponses: ['overworks', 'snaps'],
+    loyalties: ['the_crew', 'the_old_ways'],
+    dislikes: ['fancy_garnishes', 'idle_chatter'],
+    backgroundHooks: [
+      'fed a pit crew for years before climbing up to the tavern kitchen',
+      'still cooks like a miner — heavy on root vegetables and broth',
+    ],
+  },
+  {
+    id: 'kitchen_hand_merchant',
+    roleId: 'kitchen_hand',
+    groupId: 'kitchen_merchant',
+    cultureId: 'merchant_roadfolk',
+    namingProfileId: 'merchant_roadfolk',
+    personalityTags: ['chatty', 'opportunistic', 'quick_learner'],
+    workStyles: ['fast', 'social'],
+    stressResponses: ['rushes', 'asks_for_help'],
+    loyalties: ['the_road', 'tips'],
+    dislikes: ['boring_tasks', 'unpaid_tabs'],
+    backgroundHooks: [
+      'travelled the caravan circuit before settling here',
+      'will trade recipe gossip for any spice they have never tried',
+    ],
+  },
+  {
+    id: 'seasoned_cook_ogre',
+    roleId: 'seasoned_cook',
+    groupId: 'kitchen_ogre',
+    cultureId: 'ogre_clans',
+    namingProfileId: 'ogre_clans',
+    personalityTags: ['booming', 'protective_of_recipe', 'patient'],
+    workStyles: ['steady', 'rough', 'methodical'],
+    stressResponses: ['overworks', 'snaps'],
+    loyalties: ['the_clan', 'the_craft'],
+    dislikes: ['servile_questions', 'wasted_stock'],
+    backgroundHooks: [
+      'won a clan cookfire contest three years running',
+      'trusts no one to season the stew at the end of a long day',
+    ],
+  },
+  {
+    id: 'master_chef_adventuring',
+    roleId: 'master_chef',
+    groupId: 'kitchen_elite',
+    cultureId: 'adventuring_bands',
+    namingProfileId: 'adventuring_bands',
+    personalityTags: ['celebrated', 'private', 'exacting'],
+    workStyles: ['methodical', 'careful', 'improviser'],
+    stressResponses: ['withdraws', 'snaps'],
+    loyalties: ['the_craft', 'old_party_members'],
+    dislikes: ['mediocre_ingredients', 'untested_recipes'],
+    backgroundHooks: [
+      'once cooked for a guild of adventurers in a tower kitchen',
+      'still keeps a battered knife from the road and refuses to upgrade it',
+    ],
+  },
+  {
+    id: 'server_miner',
+    roleId: 'server',
+    groupId: 'front_of_house',
+    cultureId: 'miner_workcrew',
+    namingProfileId: 'miner_workcrew',
+    personalityTags: ['steady', 'observant', 'gruff'],
+    workStyles: ['steady', 'careful'],
+    stressResponses: ['withdraws', 'overworks'],
+    loyalties: ['the_owner', 'the_regulars'],
+    dislikes: ['rude_regulars', 'fast_money'],
+    backgroundHooks: [
+      'sells beer to old crewmates who tip in coin and stories',
+      'learned to read a room from years on the deeper shafts',
+    ],
+  },
+  {
+    id: 'server_merchant',
+    roleId: 'server',
+    groupId: 'front_of_house',
+    cultureId: 'merchant_roadfolk',
+    namingProfileId: 'merchant_roadfolk',
+    personalityTags: ['charming', 'fast_talking', 'discreet'],
+    workStyles: ['social', 'fast'],
+    stressResponses: ['asks_for_help', 'rushes'],
+    loyalties: ['regulars', 'tips'],
+    dislikes: ['unpaid_tabs', 'slow_pours'],
+    backgroundHooks: [
+      'served wine on caravan stops from here to the coast',
+      'collects rumours like other people collect coins',
+    ],
+  },
+  {
+    id: 'server_adventuring',
+    roleId: 'server',
+    groupId: 'front_of_house',
+    cultureId: 'adventuring_bands',
+    namingProfileId: 'adventuring_bands',
+    personalityTags: ['unflappable', 'sharp_tongued', 'loyal_in_a_fight'],
+    workStyles: ['social', 'improviser'],
+    stressResponses: ['snaps', 'rushes'],
+    loyalties: ['regulars', 'the_owner'],
+    dislikes: ['rude_regulars', 'tab_skippers'],
+    backgroundHooks: [
+      'used to scout for an adventuring company and still walks like it',
+      'has a working knowledge of three knife-fighting styles',
+    ],
+  },
+  {
+    id: 'cleaner_bouncer_ogre',
+    roleId: 'cleaner_bouncer',
+    groupId: 'house_security',
+    cultureId: 'ogre_clans',
+    namingProfileId: 'ogre_clans',
+    personalityTags: ['imposing', 'patient', 'loyal'],
+    workStyles: ['steady', 'rough'],
+    stressResponses: ['withdraws', 'snaps'],
+    loyalties: ['the_clan', 'the_owner'],
+    dislikes: ['brawls', 'sticky_floor'],
+    backgroundHooks: [
+      'kept order at clan moots for a decade before drifting here',
+      'has never raised a hand in anger but every patron seems to know it',
+    ],
+  },
+  {
+    id: 'cleaner_bouncer_miner',
+    roleId: 'cleaner_bouncer',
+    groupId: 'house_security',
+    cultureId: 'miner_workcrew',
+    namingProfileId: 'miner_workcrew',
+    personalityTags: ['stout', 'reliable', 'wry'],
+    workStyles: ['steady', 'methodical'],
+    stressResponses: ['overworks', 'withdraws'],
+    loyalties: ['the_crew', 'house_rules'],
+    dislikes: ['brawls', 'unswept_floors'],
+    backgroundHooks: [
+      'broke up shift fights in the lower tunnels for years',
+      'still sweeps the cellar like it might collapse if neglected',
+    ],
+  },
 ]
 
 let initialized = false
@@ -144,4 +295,17 @@ export function getStaffIdentityProfileForRole(
   return staffIdentityProfileRegistry
     .all()
     .find((profile) => profile.roleId === roleId)
+}
+
+// Phase 81 / ISSUE-041 — return every registered profile for a role
+// so callers can weighted-pick (the original first-match-only path
+// collapsed staff identity onto three cultures regardless of how
+// many profiles existed).
+export function getStaffIdentityProfilesForRole(
+  roleId: string,
+): StaffIdentityProfile[] {
+  ensureRequiredStaffIdentityProfilesRegistered()
+  return staffIdentityProfileRegistry
+    .all()
+    .filter((profile) => profile.roleId === roleId)
 }

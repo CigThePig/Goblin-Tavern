@@ -41,6 +41,7 @@ import {
 } from './generatorHelpers'
 import type { EntityRef } from '../../state/TavernState'
 import type { IssueSeedGenerator } from './issueSeedRegistry'
+import { recencyPenalty, recordPick } from './seedRotation'
 import { EXPANDED_SEED_GENERATORS } from './expandedSeedGenerators'
 
 // Phase 19 §19.7 — Initial seed families.
@@ -96,6 +97,69 @@ function generateFoodSafety(ctx: SimContext): IssueSeed[] {
   const mushrooms = ctx.state.stock.mushrooms
   const stew = ctx.state.stock.stew
   const cook = Object.values(ctx.state.staff).find((s) => s.role === 'cook')
+
+  // Phase 64 / ISSUE-024 — picker rotation across kitchen risk
+  // vectors. Without this the family fires the same "kitchen risk"
+  // suffix every day even when stew or mushroom spoilage is the
+  // dominant signal. Score each candidate, apply the shared recency
+  // penalty, pick the winner and record.
+  const today = ctx.state.calendar.totalDaysElapsed
+  type FoodVector = {
+    key: 'kitchen' | 'mushrooms' | 'stew' | 'cook'
+    score: number
+    subject: string
+    problemNoun: string
+    sensoryDetail: string
+  }
+  const vectors: FoodVector[] = []
+  if (kitchen) {
+    vectors.push({
+      key: 'kitchen',
+      score: 100 - kitchen.cleanliness,
+      subject: 'the kitchen',
+      problemNoun: 'a greasy reek',
+      sensoryDetail: 'greasy floor',
+    })
+  }
+  if (mushrooms) {
+    vectors.push({
+      key: 'mushrooms',
+      score: mushrooms.spoilage,
+      subject: 'the mushrooms',
+      problemNoun: 'blue foam',
+      sensoryDetail: 'blue mushroom foam',
+    })
+  }
+  if (stew) {
+    vectors.push({
+      key: 'stew',
+      score: stew.spoilage,
+      subject: 'the stew',
+      problemNoun: 'sour bubbling',
+      sensoryDetail: 'vinegar stew stink',
+    })
+  }
+  if (cook) {
+    vectors.push({
+      key: 'cook',
+      score: Math.max(0, 100 - cook.loyalty),
+      subject: 'the cook',
+      problemNoun: 'careless hands',
+      sensoryDetail: 'unwashed apron',
+    })
+  }
+  if (vectors.length === 0) return []
+
+  let chosenVector = vectors[0]!
+  let chosenScore = -Infinity
+  for (const v of vectors) {
+    const penalised = v.score - recencyPenalty(ctx.state, 'food_safety', v.key, today)
+    if (penalised > chosenScore) {
+      chosenScore = penalised
+      chosenVector = v
+    }
+  }
+  recordPick(ctx, 'food_safety', chosenVector.key)
 
   const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'food_safety', 3)
   for (const c of recentCauseEntries(ctx, ['kitchen', 'spoilage', 'food'], 5, 2)) {
@@ -153,7 +217,17 @@ function generateFoodSafety(ctx: SimContext): IssueSeed[] {
         effect('state_change', 'stock.mushrooms.quantity', -20, 'Discard mushrooms', ['stock']),
         effect('pressure', 'pressure:food_safety', -12, 'Lower food safety risk', ['pressure']),
       ],
-      delayedEffects: [],
+      // Phase 64 / ISSUE-024 — losing a chunk of stock leaves a small
+      // reputation drag (customers see the shortage).
+      delayedEffects: [
+        effect(
+          'state_change',
+          'reputation.respectable',
+          -3,
+          'Customers notice the shortage',
+          ['reputation'],
+        ),
+      ],
       memories: [
         { id: 'discarded_unsafe_stock_recently', tags: ['stock', 'food_safety'] },
       ],
@@ -170,7 +244,14 @@ function generateFoodSafety(ctx: SimContext): IssueSeed[] {
       memories: [
         { id: 'kitchen_cleaned_recently', tags: ['kitchen', 'cleanliness'] },
       ],
-      futureHooks: [],
+      // Phase 64 / ISSUE-024 — a clean kitchen invites the inspector to
+      // notice next time they pass.
+      futureHooks: [
+        {
+          id: 'kitchen_inspection_followup',
+          tags: ['food_safety', 'inspection'],
+        },
+      ],
     }),
     makeProfile({
       id: 'serve_anyway_profile',
@@ -229,10 +310,19 @@ function generateFoodSafety(ctx: SimContext): IssueSeed[] {
     }),
   ]
 
-  const sensoryDetails: string[] = []
-  if (mushrooms && mushrooms.spoilage >= 50) sensoryDetails.push('blue mushroom foam')
-  if (stew && stew.spoilage >= 50) sensoryDetails.push('vinegar stew stink')
-  if (kitchen && kitchen.cleanliness < 30) sensoryDetails.push('greasy floor')
+  // Build the sensory pool — the chosen vector's detail leads,
+  // remaining strong signals tail behind so the seed still reads as a
+  // kitchen problem.
+  const sensoryDetails: string[] = [chosenVector.sensoryDetail]
+  if (mushrooms && mushrooms.spoilage >= 50 && chosenVector.key !== 'mushrooms') {
+    sensoryDetails.push('blue mushroom foam')
+  }
+  if (stew && stew.spoilage >= 50 && chosenVector.key !== 'stew') {
+    sensoryDetails.push('vinegar stew stink')
+  }
+  if (kitchen && kitchen.cleanliness < 30 && chosenVector.key !== 'kitchen') {
+    sensoryDetails.push('greasy floor')
+  }
 
   const actorOpinions: Record<string, string> = {}
   if (cook) actorOpinions['cook'] = 'insists it is fine'
@@ -240,7 +330,7 @@ function generateFoodSafety(ctx: SimContext): IssueSeed[] {
 
   return [
     buildSeed({
-      id: seedId('food_safety', 'kitchen_risk', ctx),
+      id: seedId('food_safety', chosenVector.key, ctx),
       family: 'food_safety',
       type: 'crisis',
       timing: 'morning_prep',
@@ -282,8 +372,8 @@ function generateFoodSafety(ctx: SimContext): IssueSeed[] {
       ],
       toneHints: ['risk', 'kitchen', 'urgent'],
       textIngredients: buildTextIngredients({
-        subject: 'the stew',
-        problemNoun: 'sour bubbling',
+        subject: chosenVector.subject,
+        problemNoun: chosenVector.problemNoun,
         sensoryDetails,
         actorOpinions,
         recentContext: ['kitchen filthy for days'],
@@ -305,48 +395,84 @@ const HIGH_DEMAND_DAY_TYPES = new Set([
   'local_night',
 ])
 
+const STOCK_LOW_THRESHOLD = 30
+
 function generateStockShortage(ctx: SimContext): IssueSeed[] {
   const familyGuard = CONTRADICTION_GUARDS.stock_shortage(ctx)
   if (!familyGuard.allowed) return []
-  const guard = aleStockHighGuard(ctx)
-  if (!guard.allowed) return []
   const snap = pressureSnapshot(ctx, 'stock_shortage')
   if (!snap || snap.value < 35) return []
 
-  const ale = ctx.state.stock.ale
-  if (!ale || ale.quantity > 30) return []
+  // Phase 64 / ISSUE-024 — rotate across stock items rather than
+  // hardcoding ale. Candidate set = items whose quantity sits at or
+  // below the low-stock threshold. Apply the recency penalty so the
+  // same shortage doesn't dominate consecutive days.
+  const today = ctx.state.calendar.totalDaysElapsed
+  const allStock = Object.values(ctx.state.stock)
+  const candidates = allStock.filter(
+    (item) => item.quantity <= STOCK_LOW_THRESHOLD,
+  )
+  if (candidates.length === 0) return []
+
+  let chosen = candidates[0]!
+  let chosenScore = -Infinity
+  for (const item of candidates) {
+    const baseScore = STOCK_LOW_THRESHOLD - item.quantity
+    const penalty = recencyPenalty(
+      ctx.state,
+      'stock_shortage',
+      `stock:${item.id}`,
+      today,
+    )
+    const score = baseScore - penalty
+    if (score > chosenScore) {
+      chosenScore = score
+      chosen = item
+    }
+  }
+  // Keep the ale-specific guard: when the chosen stock IS ale but
+  // ale stock is somehow high (e.g. a recent restock the same day),
+  // skip the seed so the deception "we've barely got ale" does not
+  // contradict the visible state.
+  if (chosen.id === 'ale') {
+    const guard = aleStockHighGuard(ctx)
+    if (!guard.allowed) return []
+  }
+  recordPick(ctx, 'stock_shortage', `stock:${chosen.id}`)
+
   const dayType = ctx.state.calendar.dayType
   const highDemand = HIGH_DEMAND_DAY_TYPES.has(dayType)
 
   const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'stock_shortage', 3)
-  for (const c of recentCauseEntries(ctx, ['stock', 'ale', 'sales'], 5, 2)) {
+  for (const c of recentCauseEntries(ctx, ['stock', chosen.id, 'sales'], 5, 2)) {
     if (!causes.find((existing) => existing.id === c.id)) causes.push(c)
   }
   if (causes.length === 0) return []
 
+  const stockLabel = chosen.label.toLowerCase()
   const responseSlots: ResponseSlot[] = [
     {
       id: 'restock',
-      labelHint: 'Restock ale',
+      labelHint: `Restock ${stockLabel}`,
       allowedVerbs: ['buy'],
       shape: 'safe_costly',
-      targetOptions: [stockRef('ale')],
-      expectedEffects: ['raise ale quantity', 'spend coin'],
+      targetOptions: [stockRef(chosen.id)],
+      expectedEffects: [`raise ${stockLabel} quantity`, 'spend coin'],
     },
     {
       id: 'raise_prices',
       labelHint: 'Raise prices',
       allowedVerbs: ['raise_price'],
       shape: 'risky_profitable',
-      targetOptions: [stockRef('ale')],
+      targetOptions: [stockRef(chosen.id)],
       expectedEffects: ['raise margin', 'risk customer satisfaction'],
     },
     {
       id: 'water_down',
-      labelHint: 'Stretch the ale',
+      labelHint: `Stretch the ${stockLabel}`,
       allowedVerbs: ['serve'],
       shape: 'deception',
-      targetOptions: [stockRef('ale')],
+      targetOptions: [stockRef(chosen.id)],
       expectedEffects: ['raise quantity', 'lower quality', 'risk reputation'],
     },
     {
@@ -354,7 +480,7 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
       labelHint: 'Limit sales',
       allowedVerbs: ['delay'],
       shape: 'compromise',
-      targetOptions: [stockRef('ale')],
+      targetOptions: [stockRef(chosen.id)],
       expectedEffects: ['conserve stock', 'lose income'],
     },
     {
@@ -372,13 +498,13 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
       id: 'restock_profile',
       responseSlotId: 'restock',
       immediateEffects: [
-        effect('state_change', 'stock.ale.quantity', 60, 'Add ale to stock', ['stock']),
+        effect('state_change', `stock.${chosen.id}.quantity`, 60, `Add ${stockLabel} to stock`, ['stock']),
         effect('state_change', 'coin', -30, 'Spend coin restocking', ['coin']),
         effect('pressure', 'pressure:stock_shortage', -15, 'Lower shortage pressure', ['pressure']),
       ],
       delayedEffects: [],
       memories: [
-        { id: 'restocked_ale_recently', tags: ['stock', 'ale'] },
+        { id: `restocked_${chosen.id}_recently`, tags: ['stock', chosen.id] },
       ],
       futureHooks: [],
     }),
@@ -386,37 +512,49 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
       id: 'raise_prices_profile',
       responseSlotId: 'raise_prices',
       immediateEffects: [
-        effect('state_change', 'stock.ale.salePrice', 1, 'Raise ale price', ['stock', 'price']),
+        effect('state_change', `stock.${chosen.id}.salePrice`, 1, `Raise ${stockLabel} price`, ['stock', 'price']),
         effect('state_change', 'customers.miners.satisfaction', -8, 'Miners grumble', ['customer']),
       ],
-      delayedEffects: [],
+      // Phase 64 / ISSUE-024 — price hikes seed downstream loss and a
+      // potential complaint rumour.
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:regular_customer_loss',
+          4,
+          'Regulars consider walking',
+          ['pressure'],
+        ),
+      ],
       memories: [
         { id: 'raised_prices_recently', tags: ['price', 'reputation'] },
       ],
-      futureHooks: [],
+      futureHooks: [
+        { id: 'price_complaint_possible', tags: ['price', 'rumor'] },
+      ],
     }),
     makeProfile({
       id: 'water_down_profile',
       responseSlotId: 'water_down',
       immediateEffects: [
-        effect('state_change', 'stock.ale.quantity', 20, 'Stretch ale', ['stock']),
-        effect('state_change', 'stock.ale.quality', -15, 'Lower ale quality', ['stock', 'quality']),
+        effect('state_change', `stock.${chosen.id}.quantity`, 20, `Stretch ${stockLabel}`, ['stock']),
+        effect('state_change', `stock.${chosen.id}.quality`, -15, `Lower ${stockLabel} quality`, ['stock', 'quality']),
         effect('pressure', 'pressure:reputation_drift', 5, 'Reputation drifts', ['pressure']),
       ],
       delayedEffects: [
         effect(
           'future_hook',
-          'ale_watering_rumor_possible',
+          `${chosen.id}_watering_rumor_possible`,
           0,
-          'Watered ale rumor may emerge',
+          `Watered ${stockLabel} rumor may emerge`,
           ['future_hook'],
         ),
       ],
       memories: [
-        { id: 'watered_ale_recently', tags: ['ale', 'deception'] },
+        { id: `watered_${chosen.id}_recently`, tags: [chosen.id, 'deception'] },
       ],
       futureHooks: [
-        { id: 'ale_watering_rumor_possible', tags: ['ale', 'rumor'] },
+        { id: `${chosen.id}_watering_rumor_possible`, tags: [chosen.id, 'rumor'] },
       ],
     }),
     makeProfile({
@@ -427,7 +565,17 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
           'customer',
         ]),
       ],
-      delayedEffects: [],
+      // Phase 64 / ISSUE-024 — venting demand softens the shortage
+      // tomorrow but leaves a faint regular-loss risk.
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:stock_shortage',
+          -4,
+          'Demand vents naturally',
+          ['pressure'],
+        ),
+      ],
       memories: [
         { id: 'limited_sales_recently', tags: ['stock', 'service'] },
       ],
@@ -448,7 +596,13 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
   ]
 
   const stakes = [
-    stake('ale_stake', 'stock:ale', 'Ale may run dry', 'loss', ['ale', 'stock']),
+    stake(
+      `${chosen.id}_stake`,
+      `stock:${chosen.id}`,
+      `${chosen.label} may run out`,
+      'loss',
+      [chosen.id, 'stock'],
+    ),
     stake(
       'miner_stake',
       'customer:miners',
@@ -471,7 +625,7 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
 
   return [
     buildSeed({
-      id: seedId('stock_shortage', `ale_${dayType}`, ctx),
+      id: seedId('stock_shortage', `${chosen.id}_${dayType}`, ctx),
       family: 'stock_shortage',
       type: 'warning',
       timing: 'morning_prep',
@@ -488,12 +642,12 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
       futureHooks: [],
       toneHints: highDemand ? ['urgent', 'high_demand'] : ['warning'],
       textIngredients: buildTextIngredients({
-        subject: 'ale stock',
+        subject: `${stockLabel} stock`,
         problemNoun: 'low stock',
         sensoryDetails: ['empty kegs', 'thirsty regulars'],
         actorOpinions: { miners: 'glance at the taps' },
-        recentContext: ['ale sales heavy this week'],
-        stakesReadable: ['ale may run dry', 'miners may leave'],
+        recentContext: [`${stockLabel} sales heavy this week`],
+        stakesReadable: [`${stockLabel} may run dry`, 'miners may leave'],
       }),
       ctx,
     }),
@@ -510,13 +664,34 @@ function generateMaintenance(ctx: SimContext): IssueSeed[] {
   const snap = pressureSnapshot(ctx, 'maintenance')
   if (!snap || snap.value < 40) return []
   const roofGuard = roofRepairedTodayGuard(ctx)
-  // pick the worst area
-  const worst = Object.values(ctx.state.areas)
-    .slice()
-    .sort((a, b) => b.damage - a.damage + (60 - a.condition) - (60 - b.condition))[0]
-  if (!worst) return []
 
-  if (worst.id === 'roof' && !roofGuard.allowed) return []
+  // Phase 64 / ISSUE-024 — picker rotation across top-3 damaged areas.
+  // Without rotation the single worst area would dominate every day.
+  // Score = damage + (60 - condition); apply the recency penalty so
+  // the same area cannot win 5 days running.
+  const today = ctx.state.calendar.totalDaysElapsed
+  const scored = Object.values(ctx.state.areas)
+    .map((a) => ({
+      area: a,
+      rawScore: a.damage + (60 - a.condition),
+    }))
+    .sort((a, b) => b.rawScore - a.rawScore)
+  const topCandidates = scored.slice(0, 3)
+  if (topCandidates.length === 0) return []
+
+  let chosen = topCandidates[0]!.area
+  let chosenScore = -Infinity
+  for (const { area, rawScore } of topCandidates) {
+    const penalised =
+      rawScore - recencyPenalty(ctx.state, 'maintenance', `area:${area.id}`, today)
+    if (penalised > chosenScore) {
+      chosenScore = penalised
+      chosen = area
+    }
+  }
+  if (chosen.id === 'roof' && !roofGuard.allowed) return []
+  recordPick(ctx, 'maintenance', `area:${chosen.id}`)
+  const worst = chosen
 
   const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'maintenance', 3)
   for (const c of recentCauseEntries(ctx, ['area', worst.id, 'damage'], 5, 2)) {
@@ -571,11 +746,23 @@ function generateMaintenance(ctx: SimContext): IssueSeed[] {
           'pressure',
         ]),
       ],
-      delayedEffects: [],
+      // Phase 64 / ISSUE-024 — settled repairs continue to relieve
+      // maintenance pressure as the fix beds in.
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:maintenance',
+          -4,
+          'Repair beds in',
+          ['pressure'],
+        ),
+      ],
       memories: [
         { id: `${worst.id}_repaired_recently`, tags: ['maintenance', worst.id] },
       ],
-      futureHooks: [],
+      futureHooks: [
+        { id: 'repair_inspection_followup', tags: ['maintenance', 'inspection'] },
+      ],
     }),
     makeProfile({
       id: 'patch_profile',

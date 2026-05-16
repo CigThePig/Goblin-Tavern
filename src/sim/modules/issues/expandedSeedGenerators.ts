@@ -54,6 +54,7 @@ import {
   urgencyFromPressures,
 } from './generatorHelpers'
 import type { IssueSeedGenerator } from './issueSeedRegistry'
+import { recencyPenalty, recordPick } from './seedRotation'
 import { listActiveArcs } from '../localArcs/arcEngine'
 import {
   attributionsByTarget,
@@ -74,42 +75,9 @@ const PRESSURE_THRESHOLD = 35
 
 // Phase 40 audit pass 1 — Picker rotation. The same slow-moving entity
 // (worst-loyalty staff, dirtiest area, lowest-relationship faction) would
-// otherwise win the per-family argmax every day. We track recent picks
-// and apply a recency penalty so other candidates get a turn.
-const RECENCY_WINDOW_DAYS = 5
-const RECENCY_PENALTY = 25
-
-function recencyPenalty(
-  state: TavernState,
-  family: string,
-  entityKey: string,
-  today: number,
-): number {
-  const slice = state.modules.issueSeeds as
-    | { recentPicks?: Record<string, Record<string, number>> }
-    | undefined
-  const familyPicks = slice?.recentPicks?.[family] ?? {}
-  const lastDay = familyPicks[entityKey]
-  if (lastDay === undefined) return 0
-  if (today - lastDay >= RECENCY_WINDOW_DAYS) return 0
-  return RECENCY_PENALTY
-}
-
-function recordPick(ctx: SimContext, family: string, entityKey: string): void {
-  const today = ctx.state.calendar.totalDaysElapsed
-  ctx.modifyModuleState(
-    'issueSeeds',
-    (current) => {
-      const slice = (current ?? {}) as {
-        recentPicks?: Record<string, Record<string, number>>
-      } & Record<string, unknown>
-      const recent = { ...(slice.recentPicks ?? {}) }
-      recent[family] = { ...(recent[family] ?? {}), [entityKey]: today }
-      return { ...slice, recentPicks: recent } as never
-    },
-    { source: 'expandedSeedGenerators.recordPick' },
-  )
-}
+// otherwise win the per-family argmax every day. Phase 64 / ISSUE-024
+// extracted the helpers to `./seedRotation` so the core generators
+// (food_safety, stock_shortage, maintenance) can rotate too.
 
 function pressureSnapshotsList(ctx: SimContext): IssueSeed['pressures'] {
   const slice = ctx.state.modules.pressures as
@@ -2401,7 +2369,15 @@ function generateCultureConflict(ctx: SimContext): IssueSeed[] {
           tags: ['culture', 'seating', 'compromise'],
         },
       ],
-      futureHooks: [],
+      // Phase 64 / ISSUE-024 — taking sides on seating risks pushback
+      // from the other groups later.
+      futureHooks: [
+        {
+          id: `culture_seating_backlash_${chosen.id}`,
+          actors: [ref],
+          tags: ['culture', 'risk'],
+        },
+      ],
     }),
     makeProfile({
       id: 'offer_discount_profile',

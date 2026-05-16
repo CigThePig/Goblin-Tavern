@@ -4,6 +4,11 @@ import type { SimulationModule, SimulationHook } from '../../core/module'
 import type { SimContext } from '../../core/context'
 
 import { buildFactionReport } from './factionReport'
+import {
+  activeArcsByTypeOrTag,
+  hasCalendarTag,
+  ownerProjects,
+} from '../pressures/calculators/expandedHelpers'
 
 // Phase 27 §27.4 / Phase 30 §30.9 — Faction module.
 //
@@ -18,6 +23,12 @@ import { buildFactionReport } from './factionReport'
 //
 // Phase 38 will expand the pressure web; Phase 30 only wires the
 // minimal hooks so the system is observable and testable.
+//
+// Phase 52 / ISSUE-012 — Two factions (`local_shrine`,
+// `scrap_collectors`) had no module-driven drift. Phase 52 adds
+// trigger pairs that read existing signals (festival calendar tags +
+// festival arcs/projects, maintenance/pests pressure, recent cleanup
+// memories) so all six original factions get day-over-day movement.
 
 const SOURCE = 'factions'
 
@@ -28,6 +39,13 @@ const FactionModuleStateSchema = z.object({}).passthrough().optional()
 const VIOLENCE_THRESHOLD = 60
 const DEBT_THRESHOLD = 60
 const MINERS_SAT_THRESHOLD = 60
+// Phase 52 / ISSUE-012 — Maintenance / cleanliness thresholds for the
+// scrap_collectors drift pair. The higher gate triggers neglect (drop);
+// the lower gate, combined with a recent cleanup memory, triggers
+// recognition (rise). Pairing prevents the trigger from oscillating
+// on borderline days.
+const MAINTENANCE_THRESHOLD = 60
+const MAINTENANCE_RELIEF_THRESHOLD = 40
 
 function shiftFaction(
   ctx: SimContext,
@@ -82,6 +100,72 @@ const factionUpdateHook: SimulationHook = (ctx: SimContext): void => {
         'miners',
       ])
     }
+  }
+
+  // Phase 52 / ISSUE-012 — `local_shrine` reacts to festival days.
+  // When the calendar carries a festival window, the shrine watches
+  // for engagement: an active festival arc OR an owner project
+  // tagged `festival`/`festival_prep` reads as participation; the
+  // empty case reads as disregard. Mutually exclusive — at most one
+  // shift per day.
+  const festivalActive =
+    hasCalendarTag(ctx.state, 'festival_window') ||
+    hasCalendarTag(ctx.state, 'mushroom_festival')
+  if (festivalActive) {
+    const festivalArcs = activeArcsByTypeOrTag(ctx.state, {
+      types: ['festival'],
+      tags: ['festival'],
+    })
+    let engaged = festivalArcs.length > 0
+    if (!engaged) {
+      for (const project of Object.values(ownerProjects(ctx.state))) {
+        if (
+          project.status === 'active' &&
+          (project.tags.includes('festival') ||
+            project.tags.includes('festival_prep'))
+        ) {
+          engaged = true
+          break
+        }
+      }
+    }
+    if (engaged) {
+      shiftFaction(ctx, 'local_shrine', 1, 'festival_engagement', [
+        'festival',
+        'ritual',
+      ])
+    } else {
+      shiftFaction(ctx, 'local_shrine', -1, 'festival_disregard', [
+        'festival',
+        'ritual',
+      ])
+    }
+  }
+
+  // Phase 52 / ISSUE-012 — `scrap_collectors` reacts to maintenance
+  // and pest signals. High pressure on either axis reads as the
+  // tavern letting waste pile up; recent cleanup work with low
+  // pressure reads as the haulers' value being recognised.
+  const maintenancePressure =
+    ctx.state.pressures['maintenance']?.value ?? 0
+  const pestsPressure = ctx.state.pressures['pests']?.value ?? 0
+  if (
+    maintenancePressure >= MAINTENANCE_THRESHOLD ||
+    pestsPressure >= MAINTENANCE_THRESHOLD
+  ) {
+    shiftFaction(ctx, 'scrap_collectors', -1, 'waste_buildup', [
+      'maintenance',
+      'pests',
+    ])
+  } else if (
+    maintenancePressure < MAINTENANCE_RELIEF_THRESHOLD &&
+    (ctx.hasMemory('area_cleaned_recently') ||
+      ctx.hasMemory('cellar_fumigated_recently'))
+  ) {
+    shiftFaction(ctx, 'scrap_collectors', 1, 'recent_cleanup_credit', [
+      'maintenance',
+      'cleanliness',
+    ])
   }
 }
 

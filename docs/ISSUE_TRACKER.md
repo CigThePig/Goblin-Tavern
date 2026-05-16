@@ -50,7 +50,7 @@ how to verify the fix.
 | ISSUE-009 | Grow suppliers roster + specialty category | thin | superseded | — |
 | ISSUE-010 | Grow cultures + cross-cutting cultures + tag alignment | thin | done | 50 |
 | ISSUE-011 | Lift regular cap + add starter regulars | thin | done | 51 |
-| ISSUE-012 | Add niche factions + factionUpdate triggers for missing 2 | thin | open | — |
+| ISSUE-012 | Add niche factions + factionUpdate triggers for missing 2 | thin | done | 52 |
 | ISSUE-013 | `policy_backlash` family end-to-end | broken | open | — |
 | ISSUE-014 | `regular_customer` family end-to-end | broken | open | — |
 | ISSUE-015 | `reputation_shift` family rewrite | broken | open | — |
@@ -491,8 +491,8 @@ cited, it's the count observed on the most recent 28-day audit run.
 ### ISSUE-012 — Add niche factions + factionUpdate triggers for missing 2
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 52
 - **Evidence:**
   - `src/sim/content/factions/factionRegistry.ts:15,30,44,58,72,86` —
     6 factions. Count is healthy; the gap is breadth.

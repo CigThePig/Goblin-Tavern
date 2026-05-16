@@ -43,6 +43,14 @@ import type { EntityRef } from '../../state/TavernState'
 import type { IssueSeedGenerator } from './issueSeedRegistry'
 import { recencyPenalty, recordPick } from './seedRotation'
 import { EXPANDED_SEED_GENERATORS } from './expandedSeedGenerators'
+// Phase 85 / ISSUE-045 — shared mechanical-descriptor pool. Used by
+// the violence generator's text ingredients (and any future family
+// that wants a stable severity-flavoured noun without inventing card
+// prose).
+import {
+  pickAreaStateAdjective,
+  pickSeverityAdjective,
+} from '../../content/text/descriptors'
 
 // Phase 19 §19.7 — Initial seed families.
 //
@@ -2314,14 +2322,23 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
     }),
   ]
 
+  const seedIdValue = seedId('violence', target.id, ctx)
+  const severityValue = severityFromPressures(ctx, ['violence'])
+  // Phase 85 / ISSUE-045 — pull descriptor fragments from the shared
+  // pool rather than inline literals. Per-seed keys produce stable
+  // fragments on re-view (same seed id → same adjective).
+  const severityAdj = pickSeverityAdjective(severityValue, seedIdValue)
+  const riskyAdj = pickAreaStateAdjective('risky', seedIdValue)
+  const damagedAdj = pickAreaStateAdjective('damaged', `${seedIdValue}-area`)
+
   return [
     buildSeed({
-      id: seedId('violence', target.id, ctx),
+      id: seedIdValue,
       family: 'violence',
       type: 'customer_incident',
       timing: 'during_service',
       domain: ['customers', 'service', 'maintenance'],
-      severity: severityFromPressures(ctx, ['violence']),
+      severity: severityValue,
       urgency: urgencyFromPressures(ctx, ['violence']),
       // Phase 73 / ISSUE-033 §6.8 — picker-driven location.
       location: pickCustomerFacingArea(ctx, 'violence'),
@@ -2336,11 +2353,11 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
       consequenceProfiles,
       memoriesCreated: [{ id: 'violence_warning_seen', tags: ['violence', 'warning'] }],
       futureHooks: [{ id: 'brawl_possible', tags: ['violence', 'risk'] }],
-      toneHints: ['violence', 'rowdy'],
+      toneHints: ['violence', 'rowdy', severityAdj],
       textIngredients: buildTextIngredients({
         subject: 'main room',
-        problemNoun: 'rowdy energy',
-        sensoryDetails: ['shouting voices', 'broken stools'],
+        problemNoun: `${severityAdj} ${riskyAdj} energy`,
+        sensoryDetails: ['shouting voices', `${damagedAdj} stools`],
         actorOpinions: { [target.id]: 'spoiling for trouble' },
         recentContext: ['brawl this week', 'damage rising'],
         stakesReadable: ['main room may break', 'merchants may flee'],

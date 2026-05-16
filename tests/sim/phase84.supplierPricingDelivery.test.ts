@@ -47,8 +47,15 @@ function makeSupplier(
 
 function sampleStock(): StockState {
   // Pull a real stock entry from the registry to keep prices and
-  // tags consistent with the production world.
-  return { ...stockRegistry.get('ale').defaultState, id: 'ale' }
+  // tags consistent with the production world. The registry splits
+  // id/label/tags from defaultState; reassemble the full StockState.
+  const def = stockRegistry.get('ale')
+  return {
+    ...def.defaultState,
+    id: def.id,
+    label: def.label,
+    tags: [...def.tags],
+  }
 }
 
 function withSuppliers(

@@ -2358,6 +2358,70 @@ function generateDebtRent(ctx: SimContext): IssueSeed[] {
 // Inspection
 // ----------------------------------------------------------------------
 
+// Phase 58 / ISSUE-018 — Inspection family rotation. Pre-phase the
+// family hardcoded `town_watch` as primary actor and pinned
+// `scrap_collectors` plus `local_shrine` as cross-faction support
+// refs on every seed, saturating those three factions on the
+// 28-day named-entity audit. Picker-driven rotation now selects the
+// primary from any faction whose tags include
+// `inspection_authority`, `reputation_authority`, `authority`,
+// `regulation`, or `enforcement`, with a +20 base-score boost when
+// the faction is the inspection authority. Support refs come from
+// the remaining faction set keyed on `cleanliness_relevant`,
+// `ritual`, `reputation_authority`, or `reputation_influence` tags.
+const INSPECTION_RECENCY_WINDOW = 7
+const INSPECTION_RECENCY_PENALTY = 35
+const INSPECTION_AUTHORITY_BONUS = 20
+
+const INSPECTION_PRIMARY_TAGS = [
+  'inspection_authority',
+  'reputation_authority',
+  'authority',
+  'regulation',
+  'enforcement',
+]
+const INSPECTION_AUTHORITY_TAG = 'inspection_authority'
+const INSPECTION_SUPPORT_TAGS = [
+  'cleanliness_relevant',
+  'ritual',
+  'reputation_authority',
+  'reputation_influence',
+]
+
+function inspectionRecencyPenalty(
+  ctx: SimContext,
+  entityKey: string,
+  today: number,
+): number {
+  const slice = ctx.state.modules.issueSeeds as
+    | { recentPicks?: Record<string, Record<string, number>> }
+    | undefined
+  const familyPicks = slice?.recentPicks?.['inspection'] ?? {}
+  const lastDay = familyPicks[entityKey]
+  if (lastDay === undefined) return 0
+  if (today - lastDay >= INSPECTION_RECENCY_WINDOW) return 0
+  return INSPECTION_RECENCY_PENALTY
+}
+
+function recordInspectionPick(ctx: SimContext, entityKey: string): void {
+  const today = ctx.state.calendar.totalDaysElapsed
+  ctx.modifyModuleState(
+    'issueSeeds',
+    (current) => {
+      const slice = (current ?? {}) as {
+        recentPicks?: Record<string, Record<string, number>>
+      } & Record<string, unknown>
+      const recent = { ...(slice.recentPicks ?? {}) }
+      recent['inspection'] = {
+        ...(recent['inspection'] ?? {}),
+        [entityKey]: today,
+      }
+      return { ...slice, recentPicks: recent } as never
+    },
+    { source: 'inspection.recordPick' },
+  )
+}
+
 function generateInspection(ctx: SimContext): IssueSeed[] {
   const guard = CONTRADICTION_GUARDS.inspection(ctx)
   if (!guard.allowed) return []
@@ -2370,30 +2434,71 @@ function generateInspection(ctx: SimContext): IssueSeed[] {
   }
   if (causes.length === 0) return []
 
-  // Phase 40 audit pass 2 §4 — Cross-faction support. The Town Watch is
-  // the inspection authority; the Scrap Collectors handle cleaning
-  // logistics; the Local Shrine can mediate. Naming all three on
-  // memories and inviting them as response targets reduces
-  // `faction:town_watch` dominance and feeds named cause attribution.
-  const townWatch = ctx.state.world.factions['town_watch']
-    ? factionRef('town_watch')
+  // Phase 58 / ISSUE-018 — Picker-driven primary faction selection.
+  // Enumerate factions whose tags include any of
+  // INSPECTION_PRIMARY_TAGS; score by recency penalty with a +20
+  // bonus for `inspection_authority`-tagged factions. Fall back to
+  // `town_watch` if it exists, then to a system ref.
+  const today = ctx.state.calendar.totalDaysElapsed
+  const allFactions = Object.values(ctx.state.world.factions)
+  const primaryCandidates = allFactions.filter((f) =>
+    f.tags.some((t) => INSPECTION_PRIMARY_TAGS.includes(t)),
+  )
+  let townWatch: EntityRef | undefined
+  if (primaryCandidates.length > 0) {
+    const ranked = primaryCandidates
+      .map((f) => {
+        const authorityBonus = f.tags.includes(INSPECTION_AUTHORITY_TAG)
+          ? INSPECTION_AUTHORITY_BONUS
+          : 0
+        const penalty = inspectionRecencyPenalty(
+          ctx,
+          `faction:${f.id}`,
+          today,
+        )
+        return { f, score: authorityBonus - penalty }
+      })
+      .sort((a, b) => b.score - a.score)
+    townWatch = factionRef(ranked[0]!.f.id)
+  } else if (ctx.state.world.factions['town_watch']) {
+    townWatch = factionRef('town_watch')
+  }
+  if (townWatch) recordInspectionPick(ctx, `faction:${townWatch.id}`)
+
+  // Pick two support faction refs from the remaining set, keyed on
+  // the support tags. Distinct ids from the primary.
+  const supportCandidates = allFactions.filter(
+    (f) =>
+      f.id !== townWatch?.id &&
+      f.tags.some((t) => INSPECTION_SUPPORT_TAGS.includes(t)),
+  )
+  const supportRanked = supportCandidates
+    .map((f) => {
+      const penalty = inspectionRecencyPenalty(
+        ctx,
+        `faction:${f.id}`,
+        today,
+      )
+      return { f, score: -penalty }
+    })
+    .sort((a, b) => b.score - a.score)
+  const scrapCollectors: EntityRef | undefined = supportRanked[0]
+    ? factionRef(supportRanked[0]!.f.id)
     : undefined
-  const scrapCollectors = ctx.state.world.factions['scrap_collectors']
-    ? factionRef('scrap_collectors')
+  const localShrine: EntityRef | undefined = supportRanked[1]
+    ? factionRef(supportRanked[1]!.f.id)
     : undefined
-  const localShrine = ctx.state.world.factions['local_shrine']
-    ? factionRef('local_shrine')
+  if (scrapCollectors)
+    recordInspectionPick(ctx, `faction:${scrapCollectors.id}`)
+  if (localShrine) recordInspectionPick(ctx, `faction:${localShrine.id}`)
+
+  // Phase 44 §ISSUE-004 — Prefer a notable NPC actor when one exists
+  // for the picked primary faction. Falls back to the faction ref,
+  // then to a system ref so inspections still fire when no faction
+  // is seeded.
+  const watchInspectorNpc = townWatch
+    ? findNotableNpcByFaction(ctx.state, townWatch.id)
     : undefined
-  // Phase 44 §ISSUE-004 — Prefer a notable NPC actor (the watch
-  // inspector) when one exists for the town_watch faction. This lifts
-  // four faction-bound futureHooks (`corrupt_inspector_relationship`,
-  // `inspection_discovery_possible`, `town_watch_goodwill`,
-  // `town_watch_advisor`) onto a notable_npc ref in one shot and feeds
-  // a non-zero `notable_npc:` axis into the named-entity-repetition
-  // audit. Falls back to the faction ref, then to a system ref, so
-  // inspections still fire on states where the world.notableNpcs slot
-  // is empty (e.g. legacy save migrations).
-  const watchInspectorNpc = findNotableNpcByFaction(ctx.state, 'town_watch')
   const inspectorActor = watchInspectorNpc ?? townWatch ?? systemRef('inspector')
 
   const allStaff = Object.values(ctx.state.staff)

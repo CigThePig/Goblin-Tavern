@@ -56,7 +56,7 @@ how to verify the fix.
 | ISSUE-015 | `reputation_shift` family rewrite | broken | done | 55 |
 | ISSUE-016 | `violence` family rewrite + rotation | broken | done | 56 |
 | ISSUE-017 | `staff_burnout` family rewrite + rotation | broken | done | 57 |
-| ISSUE-018 | `inspection` family un-pinning | thin | open | — |
+| ISSUE-018 | `inspection` family un-pinning | thin | done | 58 |
 | ISSUE-019 | `monthly_review` design decision + implementation | design | open | — |
 | ISSUE-020 | `activeIssueSeedTags` consumer wiring | thin | open | — |
 | ISSUE-021 | Calendar tag consumers (priority: `rent_due_soon`) | thin | open | — |
@@ -1059,8 +1059,8 @@ infrastructure plus the relevant tier 1 roster grow.
 ### ISSUE-018 — `inspection` family un-pinning
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 58
 - **Evidence:**
   - `src/sim/modules/issues/issueSeedGenerators.ts:2043-2056` — the
     `inspection` family hardcodes `town_watch` as primary actor and

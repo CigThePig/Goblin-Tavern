@@ -20,4 +20,9 @@ export type RegularModuleState = {
   candidatesToday: RegularEmergenceCandidate[]
   createdToday: string[]
   visitedToday: string[]
+  // Phase 51 / ISSUE-011 — Regulars dropped today because they have
+  // been inactive past the decay threshold and carry high irritation.
+  // Reports and validators read this slice; the actual removal lives
+  // in `regularModule.closing`.
+  decayedToday: string[]
 }

@@ -16,6 +16,7 @@ export function createInitialRegularModuleState(): RegularModuleState {
     candidatesToday: [],
     createdToday: [],
     visitedToday: [],
+    decayedToday: [],
   }
 }
 

@@ -411,15 +411,29 @@ type StarterRegularSpec = {
   // cutting cultures get members across multiple customer-group bases at
   // day 0.
   cultureId?: string
+  // Phase 51 / ISSUE-011 — Optional faction binding so the
+  // `regular ← faction` channel (notable-NPC factory pattern from
+  // Phase 44) has day-0 reachable starter targets without waiting on
+  // emergence.
+  factionId?: string
 }
 
 const STARTER_REGULAR_SPECS: StarterRegularSpec[] = [
   { groupId: 'local_goblins', loyalty: 72 },
   { groupId: 'local_goblins', loyalty: 65, cultureId: 'shrine_devotees' },
+  { groupId: 'local_goblins', loyalty: 58 },
   { groupId: 'miners', loyalty: 68, cultureId: 'shrine_devotees' },
+  { groupId: 'miners', loyalty: 70, factionId: 'miners_union' },
   { groupId: 'merchants', loyalty: 62, cultureId: 'traveling_outsiders' },
+  {
+    groupId: 'merchants',
+    loyalty: 70,
+    factionId: 'market_caravan_circle',
+  },
   { groupId: 'ogres', loyalty: 60 },
+  { groupId: 'ogres', loyalty: 70 },
   { groupId: 'adventurers', loyalty: 64, cultureId: 'traveling_outsiders' },
+  { groupId: 'adventurers', loyalty: 58 },
 ]
 
 function createInitialRegulars(
@@ -456,6 +470,7 @@ function createInitialRegulars(
       name,
       customerGroupId: group.id,
       ...(cultureId ? { cultureId } : {}),
+      ...(spec.factionId !== undefined ? { factionId: spec.factionId } : {}),
       loyalty: spec.loyalty,
       irritation: 0,
       visits: 0,

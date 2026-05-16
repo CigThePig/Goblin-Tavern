@@ -48,8 +48,21 @@ const STREAM_ID = 'regular_identity' as const
 
 const MIN_LOYALTY_FOR_EMERGENCE = 70
 const MIN_SATISFACTION_FOR_EMERGENCE = 55
-const MAX_REGULARS_PER_GROUP = 3
+// Phase 51 / ISSUE-011 — cap lifted from 3 to 7 so the emergent roster
+// can grow into the ~20-30-regular range the named-entity audit expects
+// before soft decay kicks in. Decay (below) is the real gate; the cap
+// just prevents single-group runaway. Exported so phase tests can pin
+// the value without depending on emergence-roll behaviour.
+export const MAX_REGULARS_PER_GROUP = 7
 const HIGH_IRRITATION_THRESHOLD = 70
+
+// Phase 51 / ISSUE-011 — soft-decay thresholds. A regular only leaves
+// state when BOTH gates clear: they have not visited in INACTIVE_DECAY_DAYS
+// AND they carry irritation at or above INACTIVE_DECAY_IRRITATION. Quiet
+// groups whose patronage stays below 40 do not accrue irritation, so
+// regulars in low-traffic groups never decay.
+const INACTIVE_DECAY_DAYS = 45
+const INACTIVE_DECAY_IRRITATION = 75
 
 function emergenceChance(group: CustomerGroupState): number {
   // Base 5% chance, scaled up with loyalty and satisfaction above the
@@ -269,6 +282,53 @@ const regularUpdateHook: SimulationHook = (ctx: SimContext): void => {
   )
 }
 
+// Phase 51 / ISSUE-011 — Soft decay for inactive, irritated regulars.
+// Runs on `closing` after service has stamped today's `lastSeenDay`
+// updates. Each removal emits a `regulars.decay` cause and records the
+// id in the module slice's `decayedToday` array so reports and the
+// validator can confirm the drop.
+const closingHook: SimulationHook = (ctx: SimContext): void => {
+  const today = ctx.state.calendar.totalDaysElapsed
+  const decayedToday: string[] = []
+  for (const regular of Object.values(ctx.state.world.regulars)) {
+    const daysInactive = today - regular.lastSeenDay
+    if (
+      daysInactive < INACTIVE_DECAY_DAYS ||
+      regular.irritation < INACTIVE_DECAY_IRRITATION
+    ) {
+      continue
+    }
+    const removedId = regular.id
+    const removedDisplay = regular.name.display
+    const removedGroupId = regular.customerGroupId
+    delete ctx.state.world.regulars[removedId]
+    decayedToday.push(removedId)
+    ctx.addCause({
+      source: `${SOURCE}.decay`,
+      sourceType: 'regular',
+      target: removedId,
+      targetType: 'regular',
+      amount: -1,
+      direction: 'decrease',
+      readable: `${removedDisplay} stopped being a regular (${daysInactive} days absent, irritation ${regular.irritation}).`,
+      tags: ['regular', 'decay', removedGroupId],
+      relatedActors: [{ kind: 'customer_group', id: removedGroupId }],
+    })
+  }
+  if (decayedToday.length === 0) return
+  ctx.modifyModuleState<RegularModuleState>(
+    REGULARS_MODULE_ID,
+    (current) => {
+      const base = current ?? createInitialRegularModuleState()
+      return {
+        ...base,
+        decayedToday: [...base.decayedToday, ...decayedToday],
+      }
+    },
+    { source: `${SOURCE}.decay` },
+  )
+}
+
 function validateRegularState(ctx: SimContext): ValidationIssue[] {
   const issues: ValidationIssue[] = []
   const slice = getRegularModuleState(ctx.state)
@@ -302,6 +362,23 @@ function validateRegularState(ctx: SimContext): ValidationIssue[] {
       })
     }
   }
+  // Phase 51 / ISSUE-011 — decayedToday must reference ids that have
+  // actually left state. The decay hook deletes the entry immediately
+  // before recording the id, so the inverse check is the right invariant.
+  // Read defensively so a hand-injected slice without the new field
+  // (legacy tests, custom test rigs) still flows through the other
+  // validation paths and gets caught by the schema check separately.
+  const decayedToday = slice.decayedToday ?? []
+  for (let i = 0; i < decayedToday.length; i++) {
+    const id = decayedToday[i]!
+    if (id in ctx.state.world.regulars) {
+      issues.push({
+        path: `modules.regulars.decayedToday[${i}]`,
+        message: `Regular '${id}' marked as decayed but still present in world.regulars`,
+        code: 'unknown_regular_ref',
+      })
+    }
+  }
   return issues
 }
 
@@ -316,16 +393,18 @@ const RegularModuleStateSchema = z.object({
   candidatesToday: z.array(RegularEmergenceCandidateSchema),
   createdToday: z.array(z.string()),
   visitedToday: z.array(z.string()),
+  decayedToday: z.array(z.string()),
 })
 
 export { REGULARS_MODULE_ID, createInitialRegularModuleState, getRegularModuleState }
 
 export const regularModule: SimulationModule = {
   id: REGULARS_MODULE_ID,
-  version: '0.2.0',
+  version: '0.3.0',
   hooks: {
     startDay: [startDayHook],
     regularCustomerUpdate: [regularUpdateHook],
+    closing: [closingHook],
   },
   buildReport: buildRegularReport,
   validate: validateRegularState,

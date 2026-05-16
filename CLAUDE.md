@@ -61,7 +61,8 @@ docs/
     phases-31-35-expansion-staff-scenes-projects-community-arcs.md      # Staff identity, service scenes, owner projects, weekly community, seasonal arcs
     phases-36-40-expansion-memory-attribution-pressures-seeds-readiness.md # Entity-scoped memory, attribution, pressure webs, expanded seeds, final readiness
     rare-ingredients-economy.md                                         # Tier 1.5 locked design contract (ISSUE-025…ISSUE-033, phases 65–73)
-    phase-41-*.md … phase-73-*.md                                       # Repair-pass plans, one per ISSUE-NNN in ISSUE_TRACKER.md (added as each phase starts)
+    cards-contract.md                                                   # Card-layer contract: what cards read/write, definition shape, 8 templates
+    phase-41-*.md … phase-86-*.md                                       # Repair-pass plans, one per ISSUE-NNN in ISSUE_TRACKER.md (added as each phase starts)
 
 src/sim/                # Phases 1–40 implementation (headless, pure)
   core/                 # engine, context, rng, phases, diff, effect, reports, types

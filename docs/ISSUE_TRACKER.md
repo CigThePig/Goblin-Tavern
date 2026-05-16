@@ -84,6 +84,7 @@ how to verify the fix.
 | ISSUE-043 | Social rumours never pruned (unbounded growth) | thin | open | — |
 | ISSUE-044 | Supplier reliability + relationship do not affect pricing | thin | open | — |
 | ISSUE-045 | `content/text/descriptors.ts` pool still empty Phase 22 stub | thin | open | — |
+| ISSUE-046 | Staff-management owner actions (hire / fire / kick) missing | broken | open | — |
 
 ---
 
@@ -1849,6 +1850,74 @@ since that work is `done`.
   that Phase 22 reserved (the placeholder check in
   `phase22.expansionStructure.test.ts`) is updated to assert the
   pool is now populated.
+
+### ISSUE-046 — Staff-management owner actions (hire / fire / kick) missing
+
+- **Grade:** broken
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `src/sim/modules/ownerActions/actionDefinitions.ts:851-863`
+    `REQUIRED_OWNER_ACTIONS` registers 11 actions: `clean_area`,
+    `repair_area`, `restock_item`, `adjust_prices`,
+    `pay_staff_bonus`, `water_down_ale`, `improve_stew`,
+    `patch_roof`, `fumigate_cellar`, `buy_mugs`,
+    `commission_expedition`.
+  - Greps across `src/sim/modules/ownerActions/` for `hire`,
+    `fire`, `kick`, `kick_patron`, `ban_customer_group` return
+    zero hits. There is no path for the player to add or remove
+    staff or to refuse service to a customer group.
+  - The Phase 13 plan (`docs/plans/phases-11-15.md` Required
+    Owner Actions block) previously listed these as "Optional
+    later" with a note to skip them. That tag has now been
+    removed; this issue tracks the real gap.
+  - Staff hires happen implicitly during initial state
+    construction (`createInitialStaff` in `defaults.ts`); the
+    sim has no in-run mechanism for the roster to change after
+    day 1 except through the `staff_burnout` / `regular_customer`
+    issue-seed response paths, which can mutate staff stats but
+    not add or remove members.
+- **Impact:** Several systems that exist (staff burnout,
+  staff loyalty meter, wage settlement, cook tier progression
+  per ISSUE-031) assume the player can act on staff problems.
+  The only available response when a staff member quits, hits
+  burnout limits, or stops being a good fit is — nothing. The
+  cook-tier roster never grows beyond the starter set. Customer
+  groups whose behavior the player wants to refuse (e.g. ogre
+  brawls at low danger tolerance) have no eject lever either.
+  This caps the depth of every staff- or customer-side feedback
+  loop the post-Phase-40 repair pass has been building.
+- **Scope:**
+  - Add `hire_staff` owner action: present a small candidate
+    pool (sized to renown / location pressure), charge a
+    placement cost, append to `state.staff` with a proper
+    identity via `createStaffIdentity`. Reuses the identity
+    factory; the bottleneck is whether ISSUE-041 has landed
+    (wider profile pool).
+  - Add `fire_staff` owner action: validate target id in
+    `state.staff`, remove the entry, emit causes against staff
+    morale (other staff witnessing it), loyalty (immediate hit
+    on remaining cookmates / serverkin), and a memory marker
+    for any regular who had a relationship with the fired
+    staff member.
+  - Add `ban_customer_group` (or `kick_patron`) owner action:
+    suppress the targeted group's `patronage` and `traffic`
+    contributions for a configurable window, with reputation
+    costs against the group's culture and any aligned faction.
+  - Wire all three into the response-pipeline contract from
+    ISSUE-001 (cause + memory + delayed effect support).
+- **Depends on:** ISSUE-041 (hire path benefits from the wider
+  staff-identity profile pool; without it the new hires are
+  goblin/human/dwarf only)
+- **Test approach:** `hire_staff` with a valid pick adds an
+  entry to `state.staff` with a generated identity and charges
+  the placement cost; insufficient coin rejects the action.
+  `fire_staff` with a valid target removes the entry, drops
+  remaining staff morale, and emits a cause referencing the
+  fired staff member. `ban_customer_group` for one week
+  suppresses that group's traffic to zero and lifts the
+  reputation cost; after the window the group reappears with
+  the configured loyalty hit.
 
 ---
 

@@ -931,7 +931,8 @@ fumigate_cellar
 buy_mugs
 ```
 
-Optional later:
+Additional owner actions tracked for later phases (see
+`docs/ISSUE_TRACKER.md` ISSUE-046 for the staff-management gap):
 
 ```txt
 hire_staff
@@ -944,8 +945,6 @@ ban_customer_group
 upgrade_area
 borrow_money
 ```
-
-Do not add optional actions unless required for the base simulation.
 
 ## Action Point Limit
 

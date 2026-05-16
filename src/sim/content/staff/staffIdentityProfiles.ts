@@ -69,6 +69,56 @@ const REQUIRED_STAFF_IDENTITY_PROFILES: StaffIdentityProfile[] = [
       'remembers every face that ever skipped a tab',
     ],
   },
+  // Phase 71 / ISSUE-031 §4.3 — identity profiles for the new cook
+  // tier roles. These don't seed on day zero; profiles are wired so
+  // that when the player hires one, the createStaffIdentity path can
+  // resolve a profile for the role.
+  {
+    id: 'kitchen_hand_goblin_common',
+    roleId: 'kitchen_hand',
+    groupId: 'kitchen_goblin',
+    cultureId: 'goblin_local',
+    namingProfileId: 'goblin_common',
+    personalityTags: ['eager', 'clumsy', 'curious'],
+    workStyles: ['fast', 'rough'],
+    stressResponses: ['rushes', 'asks_for_help'],
+    loyalties: ['the_owner'],
+    dislikes: ['boring_tasks'],
+    backgroundHooks: [
+      'first kitchen job — still learning the difference between salt and sugar',
+      'family worked the market stalls but never the back of house',
+    ],
+  },
+  {
+    id: 'seasoned_cook_human_town',
+    roleId: 'seasoned_cook',
+    groupId: 'kitchen_skilled',
+    namingProfileId: 'human_town',
+    personalityTags: ['confident', 'patient', 'practical'],
+    workStyles: ['methodical', 'careful'],
+    stressResponses: ['overworks', 'withdraws'],
+    loyalties: ['the_craft', 'the_team'],
+    dislikes: ['hurried_prep', 'cut_corners'],
+    backgroundHooks: [
+      'ran a town-square kitchen before drifting here',
+      'keeps a small notebook of recipes nobody else has read',
+    ],
+  },
+  {
+    id: 'master_chef_dwarf_caravan',
+    roleId: 'master_chef',
+    groupId: 'kitchen_elite',
+    namingProfileId: 'dwarf_caravan',
+    personalityTags: ['exacting', 'private', 'celebrated'],
+    workStyles: ['methodical', 'careful', 'steady'],
+    stressResponses: ['snaps', 'withdraws'],
+    loyalties: ['the_craft'],
+    dislikes: ['servile_questions', 'mediocre_ingredients'],
+    backgroundHooks: [
+      'cooked for an emir for nine years before the war',
+      'commands a fee that pays for itself only when patrons notice',
+    ],
+  },
 ]
 
 let initialized = false

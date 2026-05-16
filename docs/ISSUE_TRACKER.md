@@ -63,15 +63,15 @@ how to verify the fix.
 | ISSUE-022 | History log pruning policy | thin | open | — |
 | ISSUE-023 | RNG stream prune or wire | thin | open | — |
 | ISSUE-024 | Thin family profile depth + core picker rotation | thin | open | — |
-| ISSUE-025 | Stock-and-recipe model extension | thin | open | — |
-| ISSUE-026 | Ingredient + starter recipe catalog grow | thin | open | — |
-| ISSUE-027 | Culinary renown reputation axis | thin | open | — |
-| ISSUE-028 | Specialty supplier expansion | thin | open | — |
-| ISSUE-029 | Hireable adventurer roster | thin | open | — |
-| ISSUE-030 | Expedition subsystem | thin | open | — |
-| ISSUE-031 | Cook tier grow + preparation gating | thin | open | — |
-| ISSUE-032 | Demand-side niche customer groups | thin | open | — |
-| ISSUE-033 | Storage areas + system integration polish | thin | open | — |
+| ISSUE-025 | Stock-and-recipe model extension | thin | done | 65 |
+| ISSUE-026 | Ingredient + starter recipe catalog grow | thin | done | 66 |
+| ISSUE-027 | Culinary renown reputation axis | thin | done | 67 |
+| ISSUE-028 | Specialty supplier expansion | thin | done | 68 |
+| ISSUE-029 | Hireable adventurer roster | thin | done | 69 |
+| ISSUE-030 | Expedition subsystem | thin | done | 70 |
+| ISSUE-031 | Cook tier grow + preparation gating | thin | done | 71 |
+| ISSUE-032 | Demand-side niche customer groups | thin | done | 72 |
+| ISSUE-033 | Storage areas + system integration polish | thin | done | 73 |
 
 ---
 
@@ -542,8 +542,8 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 ### ISSUE-025 — Stock-and-recipe model extension
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 65
 - **Evidence:**
   - `src/sim/registries/stockRegistry.ts` — 6 stock items, no rarity
     classification.
@@ -582,8 +582,8 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 ### ISSUE-026 — Ingredient + starter recipe catalog grow
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 66
 - **Evidence:**
   - `src/sim/registries/stockRegistry.ts` — 6 items, all `common`
     after ISSUE-025 lands.
@@ -615,8 +615,8 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 ### ISSUE-027 — Culinary renown reputation axis
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 67
 - **Evidence:**
   - `src/sim/state/defaults.ts:186-201` — `createInitialReputation()`
     returns 9 axes; none capture fame for sourcing rare ingredients.
@@ -647,8 +647,8 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 ### ISSUE-028 — Specialty supplier expansion
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 68
 - **Evidence:**
   - `src/sim/content/suppliers/supplierRegistry.ts` — 4 suppliers, one
     per category. All goods provided are `common` tier.
@@ -681,8 +681,8 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 ### ISSUE-029 — Hireable adventurer roster
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 69
 - **Evidence:**
   - `state.world.hireableAdventurers` does not exist.
   - `npc_identity` RNG stream has only one consumer (ISSUE-004's
@@ -714,8 +714,8 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 ### ISSUE-030 — Expedition subsystem
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 70
 - **Evidence:**
   - No expedition action surface exists. The only player-driven stock
     acquisition is implicit through suppliers.
@@ -751,8 +751,8 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 ### ISSUE-031 — Cook tier grow + preparation gating
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 71
 - **Evidence:**
   - `src/sim/registries/staffRegistry.ts` — 3 roles, all with similar
     skill profiles (45–55). No skill differentiation against recipe
@@ -788,8 +788,8 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 ### ISSUE-032 — Demand-side niche customer groups
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 72
 - **Evidence:**
   - `src/sim/registries/customerRegistry.ts` — 5 groups, all active
     from day zero. No threshold-gated arrival.
@@ -824,8 +824,8 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 ### ISSUE-033 — Storage areas + system integration polish
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 73
 - **Evidence:**
   - `src/sim/registries/areaRegistry.ts:32,49,66,83,100` — 5 areas,
     all generic.

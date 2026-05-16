@@ -107,7 +107,79 @@ const startDayHook: SimulationHook = (ctx: SimContext): void => {
   )
 }
 
+// Phase 72 / ISSUE-032 §4.7, §5.6 — Niche customer threshold
+// evaluation. Runs before `forecastTraffic` so the activation flip
+// is reflected in the same day's forecast.
+const NICHE_ACTIVATION_FLOOR = 18
+const NICHE_DEACTIVATION_HYSTERESIS = 5
+const NICHE_DAILY_DECAY = 2
+
+function evaluateNicheThresholds(ctx: SimContext): void {
+  const renown = ctx.state.reputation.culinary_renown
+  for (const group of Object.values(ctx.state.customerGroups)) {
+    const threshold = group.minRenownThreshold
+    if (typeof threshold !== 'number' || threshold <= 0) continue
+
+    // Activation: threshold crossed and patronage at 0 → ramp.
+    if (renown >= threshold && group.patronage <= 0) {
+      ctx.modifyCustomerGroup(
+        group.id,
+        { patronage: NICHE_ACTIVATION_FLOOR },
+        {
+          source: 'customers.niche_activation',
+          sourceType: 'customer',
+          direction: 'increase',
+          readable: `${group.label} started visiting (renown ${renown} >= ${threshold}).`,
+          tags: ['niche', 'activation', group.id],
+          relatedActors: [{ kind: 'customer_group', id: group.id }],
+          relatedSystems: ['customers'],
+        },
+      )
+      ctx.addMemory({
+        id: 'niche_visitor_arrived',
+        source: 'customers.niche',
+        actors: [{ kind: 'customer_group', id: group.id }],
+        tags: ['niche', 'arrival', group.id],
+        metadata: {
+          groupId: group.id,
+          groupLabel: group.label,
+          renownAtArrival: renown,
+          threshold,
+        },
+      })
+      continue
+    }
+    // Deactivation hysteresis: renown well below threshold AND
+    // patronage positive → decay by NICHE_DAILY_DECAY toward 0.
+    if (
+      renown < threshold - NICHE_DEACTIVATION_HYSTERESIS &&
+      group.patronage > 0
+    ) {
+      const next = Math.max(0, group.patronage - NICHE_DAILY_DECAY)
+      if (next !== group.patronage) {
+        ctx.modifyCustomerGroup(
+          group.id,
+          { patronage: next },
+          {
+            source: 'customers.niche_decay',
+            sourceType: 'customer',
+            direction: 'decrease',
+            amount: next - group.patronage,
+            readable: `${group.label} losing interest as renown falls below threshold.`,
+            tags: ['niche', 'decay', group.id],
+            relatedActors: [{ kind: 'customer_group', id: group.id }],
+            relatedSystems: ['customers'],
+          },
+        )
+      }
+    }
+  }
+}
+
 const forecastHook: SimulationHook = (ctx: SimContext): void => {
+  // Threshold evaluation runs first so the same-day forecast sees
+  // newly-activated niche groups.
+  evaluateNicheThresholds(ctx)
   const forecasts = forecastTraffic(ctx)
   setForecasts(ctx, forecasts)
 }
@@ -159,6 +231,12 @@ function turnoutVisitorsFromForecast(
   // models "did the regulars show up tonight?". Service speed nudges
   // visitor counts upward when staff can absorb more flow.
   const base = Math.max(0, Math.round(forecast.expected))
+  // Phase 72 / ISSUE-032 §4.7 — when the forecast resolved to zero
+  // visitors (e.g. an inactive niche group), the turnout stays at
+  // zero. Without this short-circuit, the daily jitter and speed
+  // boost could pull phantom visitors for groups that explicitly
+  // shouldn't show up.
+  if (base <= 0) return 0
   const variation = ctx.rng.int(-1, 1)
   const speedBoost = quality
     ? Math.round(quality.serviceSpeed * (loyalty / 80))

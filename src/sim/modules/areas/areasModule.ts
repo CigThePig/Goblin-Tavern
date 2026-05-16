@@ -62,6 +62,43 @@ const endDayHook: SimulationHook = (ctx: SimContext): void => {
   applyPassiveDecay(ctx)
 }
 
+// Phase 73 / ISSUE-033 §5.7 — areas with `ingredientYield` produce a
+// per-week trickle of ingredients into stock. The herb garden is the
+// only seeded area carrying this field; calendar tags listed in
+// `boostedByCalendarTags` (e.g. `growing_season`) double the yield.
+const endWeekHook: SimulationHook = (ctx: SimContext): void => {
+  for (const def of areaRegistry.all()) {
+    if (!def.ingredientYield) continue
+    // The area must exist in state (i.e. it was seeded). New player-
+    // built areas would be added to state and then become eligible.
+    if (!ctx.state.areas[def.id]) continue
+    const yieldDef = def.ingredientYield
+    if (!(yieldDef.ingredientId in ctx.state.stock)) continue
+    let quantity = yieldDef.perWeek
+    const tags: ReadonlyArray<string> = ctx.state.calendar.tags
+    if (yieldDef.boostedByCalendarTags.some((t) => tags.includes(t))) {
+      quantity *= 2
+    }
+    if (quantity <= 0) continue
+    const existing = ctx.state.stock[yieldDef.ingredientId]!
+    ctx.modifyStock(
+      yieldDef.ingredientId,
+      { quantity: existing.quantity + quantity },
+      {
+        source: 'areas.ingredient_yield',
+        sourceType: 'area',
+        direction: 'increase',
+        amount: quantity,
+        readable: `${def.label} produced ${quantity} ${yieldDef.ingredientId} this week.`,
+        tags: ['area', 'ingredient_yield', def.id, yieldDef.ingredientId],
+        relatedActors: [{ kind: 'stock', id: yieldDef.ingredientId }],
+        relatedLocations: [{ kind: 'area', id: def.id }],
+        relatedSystems: ['areas', 'stock'],
+      },
+    )
+  }
+}
+
 function applyPassiveDecay(ctx: SimContext): void {
   // Numbers are intentionally small. Phase 8 is about believable movement,
   // not balance — see `phases-06-10.md` §8.3 ("intentionally imperfect").
@@ -231,6 +268,9 @@ export const areasModule: SimulationModule = {
   hooks: {
     startDay: [startDayHook],
     endDay: [endDayHook],
+    // Phase 73 / ISSUE-033 §5.7 — ingredient yield from gameplay-
+    // bearing areas (herb_garden).
+    endWeek: [endWeekHook],
   },
   buildReport: buildAreaReport,
   validate: validateAreas,

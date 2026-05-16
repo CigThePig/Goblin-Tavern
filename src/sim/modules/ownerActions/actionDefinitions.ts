@@ -843,6 +843,11 @@ const buyMugs: OwnerActionDefinition = {
 
 // ---------- Required action set ----------
 
+// Phase 70 / ISSUE-030 §6.3 — the commission-expedition action lives in
+// its own module file but registers through the shared owner-action
+// registry. Adding it here keeps the bootstrap path uniform.
+import { commissionExpedition } from '../expeditions/commissionExpedition'
+
 export const REQUIRED_OWNER_ACTIONS: OwnerActionDefinition[] = [
   cleanArea,
   repairArea,
@@ -854,6 +859,7 @@ export const REQUIRED_OWNER_ACTIONS: OwnerActionDefinition[] = [
   patchRoof,
   fumigateCellar,
   buyMugs,
+  commissionExpedition,
 ]
 
 // Re-export the individual definitions in case callers want to register

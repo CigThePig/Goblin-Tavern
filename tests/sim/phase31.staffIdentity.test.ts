@@ -250,8 +250,12 @@ describe('Phase 31 — Identity profile registry', () => {
   it('registers one profile per required role', () => {
     ensureRequiredStaffIdentityProfilesRegistered()
     const profiles = staffIdentityProfileRegistry.all()
-    const roleIds = profiles.map((p) => p.roleId).sort()
-    expect(roleIds).toEqual(['cleaner_bouncer', 'cook', 'server'])
+    const roleIds = profiles.map((p) => p.roleId)
+    // Phase 71 / ISSUE-031 — cook-tier roles add identity profiles;
+    // check that the original three are still covered.
+    for (const id of ['cleaner_bouncer', 'cook', 'server']) {
+      expect(roleIds).toContain(id)
+    }
     for (const profile of profiles) {
       expect(profile.workStyles.length).toBeGreaterThan(0)
       expect(profile.stressResponses.length).toBeGreaterThan(0)

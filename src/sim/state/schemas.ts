@@ -75,6 +75,14 @@ export const AreaStateSchema = z.object({
   upgrades: z.record(z.string(), AreaUpgradeStateSchema),
 })
 
+// Phase 65 / ISSUE-025 §5.1 — `rarity` joins the stock state shape.
+export const StockRaritySchema = z.enum([
+  'common',
+  'uncommon',
+  'rare',
+  'legendary',
+])
+
 export const StockItemStateSchema = z.object({
   id: z.string(),
   label: z.string(),
@@ -85,6 +93,71 @@ export const StockItemStateSchema = z.object({
   salePrice: z.number().min(0),
   tags: z.array(z.string()),
   storageAreaId: z.string().optional(),
+  rarity: StockRaritySchema,
+})
+
+// Phase 65 / ISSUE-025 §5.2 — Recipe state slice schema. Runtime
+// tracking only; static config lives on `RecipeDefinition`.
+export const RecipeStateSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  tags: z.array(z.string()),
+  onMenu: z.boolean(),
+  timesServed: z.number().int().min(0),
+  daysSinceLastServed: z.number().int().min(0),
+  lastServedDay: z.number().int().min(0).nullable(),
+})
+
+// Phase 70 / ISSUE-030 §5.3 — Expedition subsystem schemas.
+export const ExpeditionModeSchema = z.enum(['open', 'targeted'])
+export const ExpeditionTargetTierSchema = z.enum([
+  'uncommon',
+  'rare',
+  'legendary',
+])
+export const ExpeditionOutcomeSchema = z.enum([
+  'success',
+  'partial',
+  'failure',
+  'runner_lost',
+])
+
+export const ExpeditionSchema = z.object({
+  id: z.string(),
+  runnerId: z.string(),
+  mode: ExpeditionModeSchema,
+  targetTier: ExpeditionTargetTierSchema.nullable(),
+  targetIngredientId: z.string().nullable(),
+  daysTotal: z.number().int().min(1),
+  daysElapsed: z.number().int().min(0),
+  costPaid: z.number().min(0),
+  startedDay: z.number().int().min(0),
+  status: z.literal('in_progress'),
+})
+
+export const ExpeditionReturnedIngredientSchema = z.object({
+  ingredientId: z.string(),
+  quantity: z.number().int().min(0),
+  quality: z.number().min(0).max(100),
+})
+
+export const ExpeditionRecordSchema = z.object({
+  id: z.string(),
+  runnerId: z.string(),
+  mode: ExpeditionModeSchema,
+  targetTier: ExpeditionTargetTierSchema.nullable(),
+  targetIngredientId: z.string().nullable(),
+  daysTotal: z.number().int().min(1),
+  costPaid: z.number().min(0),
+  startedDay: z.number().int().min(0),
+  resolvedDay: z.number().int().min(0),
+  outcome: ExpeditionOutcomeSchema,
+  returnedIngredients: z.array(ExpeditionReturnedIngredientSchema),
+})
+
+export const ExpeditionsStateSchema = z.object({
+  active: z.array(ExpeditionSchema),
+  completed: z.array(ExpeditionRecordSchema),
 })
 
 // Phase 22 / Phase 24 — `GeneratedName` is the structured output of the
@@ -194,6 +267,8 @@ export const CustomerGroupStateSchema = z.object({
   trafficPattern: z.string(),
   spendingProfile: z.string(),
   relationshipToOtherGroups: z.record(z.string(), z.number()),
+  // Phase 72 / ISSUE-032 §5.6 — optional renown-activation threshold.
+  minRenownThreshold: z.number().min(0).max(100).optional(),
 })
 
 export const ReputationStateSchema = z.object({
@@ -207,6 +282,9 @@ export const ReputationStateSchema = z.object({
   goblinAuthentic: meter(),
   // Phase 15 §15.5 — `respectable` axis joined the canonical set in Phase 15.
   respectable: meter(),
+  // Phase 67 / ISSUE-027 §5.5 — `culinary_renown` tracks fame for
+  // rare-ingredient sourcing and preparation. Initial value 10.
+  culinary_renown: meter(),
 })
 
 // Phase 16 §"Calendar Stamp" — stable timestamp shared by memories and
@@ -240,6 +318,10 @@ export const EntityRefSchema = z.object({
     'local_event',
     'rumour',
     'tavern_identity',
+    // Phase 67 / ISSUE-027 — culinary-renown drift attributes back to
+    // the proximate recipe; reference validation handles `recipe`
+    // refs by checking `state.recipes` membership.
+    'recipe',
   ]),
   id: z.string(),
 })
@@ -341,6 +423,9 @@ export const CauseEntrySchema = z.object({
     'local_event',
     'rumour',
     'tavern_identity',
+    // Phase 65 / ISSUE-025 — recipe state mutations carry the
+    // `recipe` target type so the cause schema accepts them.
+    'recipe',
   ]),
   amount: z.number(),
   direction: z.enum(['increase', 'decrease', 'neutral']),
@@ -449,6 +534,23 @@ export const NotableNpcWorldStateSchema = z.object({
   activeFlags: z.array(z.string()),
 })
 
+// Phase 69 / ISSUE-029 §5.4 — Hireable adventurer roster schema.
+export const HireableAdventurerSchema = z.object({
+  id: z.string(),
+  name: GeneratedNameSchema,
+  cultureId: z.string(),
+  experience: meter(),
+  reliability: meter(),
+  relationship: meter(),
+  specialty: z.string().nullable(),
+  wageBase: z.number().min(0),
+  daysSinceLastJob: nonNegativeInt(),
+  currentExpeditionId: z.string().nullable(),
+  joinedDay: nonNegativeInt(),
+  tags: z.array(z.string()),
+  activeFlags: z.array(z.string()),
+})
+
 // Phase 35 §35.2 — arc lifecycle stages.
 export const LocalArcStageSchema = z.enum([
   'seeded',
@@ -520,6 +622,8 @@ export const WorldStateSchema = z.object({
   localEvents: z.record(z.string(), LocalEventWorldStateSchema),
   tavernIdentity: TavernIdentityStateSchema,
   socialRumours: z.record(z.string(), SocialRumourStateSchema),
+  // Phase 69 / ISSUE-029 §5.4 — hireable adventurer roster.
+  hireableAdventurers: z.record(z.string(), HireableAdventurerSchema),
   rngStreams: z.record(z.string(), RngStateSchema).optional(),
 })
 
@@ -555,6 +659,10 @@ export function buildTavernStateSchema(modules: ReadonlyArray<SimulationModule>)
     staff: z.record(z.string(), StaffStateSchema),
     customerGroups: z.record(z.string(), CustomerGroupStateSchema),
     reputation: ReputationStateSchema,
+    // Phase 65 / ISSUE-025 §5.2 — recipe slice.
+    recipes: z.record(z.string(), RecipeStateSchema),
+    // Phase 70 / ISSUE-030 §5.3 — expedition subsystem state.
+    expeditions: ExpeditionsStateSchema,
     // Phase 25 §"Schema Additions" — top-level `world` branch.
     world: WorldStateSchema,
     memories: z.array(MemoryStateSchema),

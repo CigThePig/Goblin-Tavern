@@ -8,6 +8,10 @@ import {
   stockRegistry,
 } from '../registries/stockRegistry'
 import {
+  ensureRequiredRecipesRegistered,
+  recipeRegistry,
+} from '../registries/recipeRegistry'
+import {
   customerRegistry,
   ensureRequiredCustomerGroupsRegistered,
 } from '../registries/customerRegistry'
@@ -35,6 +39,10 @@ import { createStaffIdentity } from '../content/staff/staffIdentityFactory'
 import { ensureRequiredStaffIdentityProfilesRegistered } from '../content/staff/staffIdentityProfiles'
 import { createNotableNpc } from '../content/npc/npcFactory'
 import {
+  createHireableAdventurer,
+  ADVENTURER_CULTURE_ID,
+} from '../content/npc/adventurerFactory'
+import {
   ensureRequiredNotableNpcProfilesRegistered,
   notableNpcProfileRegistry,
 } from '../content/npc/notableNpcProfiles'
@@ -58,8 +66,10 @@ import type {
   CultureWorldState,
   CustomerGroupState,
   FactionWorldState,
+  HireableAdventurer,
   NotableNpcWorldState,
   PressureState,
+  RecipeState,
   RegularWorldState,
   ReputationState,
   StaffState,
@@ -108,6 +118,25 @@ function createInitialStock(): Record<string, StockState> {
   return stock
 }
 
+// Phase 65 / ISSUE-025 §5.2 — Recipe defaults are sourced from
+// `recipeRegistry`. Each registered recipe seeds one `RecipeState`
+// entry keyed by recipe id. The six starter recipes ship with
+// `onMenu: true` so the default service flow keeps serving the same
+// stock items via 1:1 recipe wrappers.
+function createInitialRecipes(): Record<string, RecipeState> {
+  ensureRequiredRecipesRegistered()
+  const recipes: Record<string, RecipeState> = {}
+  for (const def of recipeRegistry.all()) {
+    recipes[def.id] = {
+      id: def.id,
+      label: def.label,
+      tags: [...def.tags],
+      ...def.defaultState,
+    }
+  }
+  return recipes
+}
+
 // Phase 11 §11.1 / Phase 31 §31.8 — Staff defaults are sourced from
 // `staffRegistry` rather than inlined. Phase 31 adds deterministic
 // identity to every seeded staff member.
@@ -135,6 +164,12 @@ function createInitialStaff(): Record<string, StaffState> {
     a.id.localeCompare(b.id),
   )
   for (const def of orderedDefs) {
+    // Phase 71 / ISSUE-031 §4.3 — cook-tier roles (kitchen_hand,
+    // seasoned_cook, master_chef) are registered as hireable role
+    // definitions but not seeded on day zero. The flag defaults to
+    // true so existing roles continue to spawn their canonical staff
+    // member.
+    if (def.seedOnDayZero === false) continue
     const { identity, generatedName } = createStaffIdentity({
       staffId: def.defaultStaffId,
       roleId: def.id,
@@ -197,6 +232,11 @@ function createInitialReputation(): ReputationState {
     // seed value is intentionally low: the Crooked Keg starts dirty,
     // cheap, and rough — the player must earn respectability.
     respectable: 25,
+    // Phase 67 / ISSUE-027 §5.5 — culinary renown tracks fame for
+    // sourcing rare ingredients and executing rare preparations. The
+    // tavern starts with almost no culinary reputation; it serves
+    // stew and ale and that's it.
+    culinary_renown: 10,
   }
 }
 
@@ -436,6 +476,66 @@ function createInitialRegulars(
 // notable NPC roster, every time. The stable seed (`initial-notable-
 // npcs`) mirrors the `initial-staff-identity` / `initial-regulars`
 // convention used elsewhere in this file.
+// Phase 69 / ISSUE-029 §5.4 — Seed `state.world.hireableAdventurers`
+// with a starter roster of 3 adventurers. Names generate once through
+// the `npc_identity` stream against a stable seed
+// (`initial-hireable-adventurers`) so the default roster is
+// deterministic and never shifts when other systems advance the daily
+// RNG.
+function createInitialHireableAdventurers(): Record<string, HireableAdventurer> {
+  const streams = createRngStreams('initial-hireable-adventurers')
+  const rng = streams.get('npc_identity')
+  const existingNames = new Set<string>()
+  const result: Record<string, HireableAdventurer> = {}
+  // Three starter slots — names generate against the shared
+  // `adventuring_bands` profile. The trio carries different opening
+  // stat profiles so the player has variety from day zero.
+  const seedRoster: Array<
+    Omit<Parameters<typeof createHireableAdventurer>[0], 'rng' | 'existingNames'>
+  > = [
+    {
+      adventurerId: 'hireable_adv_alpha',
+      joinedDay: 0,
+      experience: 60,
+      reliability: 60,
+      relationship: 50,
+      specialty: 'rare',
+      wageBase: 6,
+      tags: ['veteran'],
+    },
+    {
+      adventurerId: 'hireable_adv_beta',
+      joinedDay: 0,
+      experience: 35,
+      reliability: 55,
+      relationship: 45,
+      specialty: 'uncommon',
+      wageBase: 4,
+      tags: ['scout'],
+    },
+    {
+      adventurerId: 'hireable_adv_gamma',
+      joinedDay: 0,
+      experience: 25,
+      reliability: 40,
+      relationship: 35,
+      specialty: null,
+      wageBase: 3,
+      tags: ['rookie'],
+    },
+  ]
+  for (const spec of seedRoster) {
+    const { adventurer, generatedName } = createHireableAdventurer({
+      ...spec,
+      rng,
+      existingNames,
+    })
+    existingNames.add(generatedName.display)
+    result[adventurer.id] = adventurer
+  }
+  return result
+}
+
 function createInitialNotableNpcs(): Record<string, NotableNpcWorldState> {
   ensureRequiredNotableNpcProfilesRegistered()
   const streams = createRngStreams('initial-notable-npcs')
@@ -491,6 +591,8 @@ export function createInitialWorldState(
       atmosphereTags: [],
     },
     socialRumours: {},
+    // Phase 69 / ISSUE-029 §5.4 — hireable adventurer roster.
+    hireableAdventurers: createInitialHireableAdventurers(),
   }
 }
 
@@ -510,6 +612,15 @@ export function createInitialTavernState(overrides?: Partial<TavernState>): Tave
     staff: createInitialStaff(),
     customerGroups,
     reputation: createInitialReputation(),
+    // Phase 65 / ISSUE-025 §5.2 — seed `state.recipes` from the recipe
+    // registry. The six starter recipes wrap the six existing stock
+    // items as 1:1 dishes; service flow treats them as the orderable
+    // surface.
+    recipes: createInitialRecipes(),
+    // Phase 70 / ISSUE-030 §5.3 — empty expedition slice. The player
+    // commissions expeditions via the `commissionExpedition` owner
+    // action; resolution writes records to the completed log.
+    expeditions: { active: [], completed: [] },
     // Phase 25 §"Default World State" — world branch seeded so schemas
     // validate from day zero. Cultures, factions, suppliers, and (since
     // audit fixes pass 1 §1.3) starter regulars all come from the

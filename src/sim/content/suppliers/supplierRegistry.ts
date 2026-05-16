@@ -68,6 +68,91 @@ const REQUIRED_SUPPLIERS: SupplierDefinition[] = [
     deliveryPattern: 'weekly_local',
     tags: ['cheap', 'suspicious_quality'],
   },
+  // Phase 68 / ISSUE-028 §6.2 — Alternate suppliers per existing
+  // category. Each alternate carries a deliberately different
+  // trade-off profile so the "switch supplier" response surface has
+  // real targets. At least two of the alternates carry an
+  // uncommon-tier ingredient, giving the player a deterministic
+  // non-expedition route to uncommon goods.
+  {
+    id: 'marsh_root_peddler',
+    label: 'Marsh-Root Peddler',
+    supplierType: 'food_cart',
+    namingProfileId: 'goblin_common',
+    // Alternate to brakka_mushroom_cart. Carries wild_thyme
+    // (uncommon herb) alongside the baseline mushrooms.
+    goodsProvided: ['mushrooms', 'wild_thyme'],
+    defaultReliability: 55,
+    defaultRelationship: 40,
+    defaultDebtTolerance: 25,
+    defaultPriceBias: 1,
+    deliveryPattern: 'weekly_local',
+    tags: ['herbal', 'local', 'expensive_but_stable'],
+  },
+  {
+    id: 'gildlock_brewhouse',
+    label: 'Gildlock Brewhouse',
+    supplierType: 'brewer',
+    namingProfileId: 'goblin_common',
+    // Alternate to old_keg_brewers. Higher reliability, higher
+    // price bias.
+    goodsProvided: ['ale'],
+    defaultReliability: 80,
+    defaultRelationship: 35,
+    defaultDebtTolerance: 30,
+    defaultPriceBias: 2,
+    deliveryPattern: 'weekly_supplier_day',
+    tags: ['alcohol', 'premium', 'stable'],
+  },
+  {
+    id: 'silken_road_caravan',
+    label: 'Silken Road Caravan',
+    supplierType: 'caravan',
+    namingProfileId: 'merchant_roadfolk',
+    // Alternate to mudroad_grain_runner. Premium goods, more
+    // reliable, brings uncommon smoked boar haunch alongside
+    // baseline ingredients.
+    goodsProvided: ['ingredients', 'smoked_boar_haunch'],
+    defaultReliability: 70,
+    defaultRelationship: 45,
+    defaultDebtTolerance: 20,
+    defaultPriceBias: 3,
+    deliveryPattern: 'biweekly_caravan',
+    tags: ['exotic', 'expensive', 'road_resilient'],
+  },
+  {
+    id: 'north_pier_smokehouse',
+    label: 'North Pier Smokehouse',
+    supplierType: 'butcher_or_salvage_food',
+    namingProfileId: 'merchant_roadfolk',
+    // Alternate to scrap_meat_vendor. Higher quality, higher
+    // reliability, higher price.
+    goodsProvided: ['stew', 'river_eel'],
+    defaultReliability: 65,
+    defaultRelationship: 45,
+    defaultDebtTolerance: 25,
+    defaultPriceBias: 2,
+    deliveryPattern: 'weekly_supplier_day',
+    tags: ['quality', 'reliable', 'expensive'],
+  },
+  // Phase 68 / ISSUE-028 §6.2 — Specialty supplier carries 2–3
+  // uncommon-tier ingredients across a new supplier category. This
+  // is the player's low-effort baseline route to uncommon goods;
+  // expeditions (phase 70) remain the only path to rare and
+  // legendary tiers.
+  {
+    id: 'crystalspine_traders',
+    label: 'Crystalspine Traders',
+    supplierType: 'specialty_goods',
+    namingProfileId: 'merchant_roadfolk',
+    goodsProvided: ['bog_truffle', 'frost_cap_mushroom', 'wild_thyme'],
+    defaultReliability: 60,
+    defaultRelationship: 30,
+    defaultDebtTolerance: 15,
+    defaultPriceBias: 4,
+    deliveryPattern: 'biweekly_caravan',
+    tags: ['specialty', 'expensive', 'rare_routes'],
+  },
 ]
 
 let initialized = false

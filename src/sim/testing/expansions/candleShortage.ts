@@ -84,6 +84,7 @@ function registerCandleStock(): void {
       basePrice: CANDLE_BASE_PRICE,
       salePrice: CANDLE_SALE_PRICE,
       storageAreaId: 'cellar',
+      rarity: 'common',
     },
   })
 }

@@ -90,7 +90,11 @@ describe('Placeholder registry instances', () => {
   // load time, so the empty-on-import assertion below now applies only
   // to the registries that have not yet been claimed by a later phase.
   it('exist and start empty for every still-empty expandable concept', () => {
-    const registries = [reputationRegistry, issueSeedRegistry, moduleRegistry]
+    // Phase 67 / ISSUE-027 — reputationRegistry now seeds the
+    // `culinary_renown` axis; the remaining listed registries are
+    // populated by later phases or stay empty until a feature wires
+    // them up.
+    const registries = [issueSeedRegistry, moduleRegistry]
     for (const registry of registries) {
       expect(registry.all()).toEqual([])
     }
@@ -117,27 +121,36 @@ describe('Placeholder registry instances', () => {
   })
 
   it('areaRegistry is populated by the Phase 8 area system', () => {
-    const ids = areaRegistry.all().map((a) => a.id).sort()
-    expect(ids).toEqual(['cellar', 'kitchen', 'main_room', 'privy', 'roof'].sort())
+    // Phase 73 / ISSUE-033 — area registry has grown; check
+    // containment of the original five.
+    for (const id of ['cellar', 'kitchen', 'main_room', 'privy', 'roof']) {
+      expect(areaRegistry.has(id)).toBe(true)
+    }
   })
 
   it('stockRegistry is populated by the Phase 9 stock system', () => {
-    const ids = stockRegistry.all().map((s) => s.id).sort()
-    expect(ids).toEqual(
-      ['ale', 'firewood', 'ingredients', 'mugs', 'mushrooms', 'stew'].sort(),
-    )
+    // Phase 66 / ISSUE-026 — registry spans common+uncommon+rare+legendary;
+    // check the six common starters by id rather than full-set match.
+    for (const id of ['ale', 'firewood', 'ingredients', 'mugs', 'mushrooms', 'stew']) {
+      expect(stockRegistry.has(id)).toBe(true)
+    }
   })
 
   it('customerRegistry is populated by the Phase 10 customer system', () => {
-    const ids = customerRegistry.all().map((c) => c.id).sort()
-    expect(ids).toEqual(
-      ['adventurers', 'local_goblins', 'merchants', 'miners', 'ogres'].sort(),
-    )
+    // Phase 72 / ISSUE-032 — niche groups join the registry; check
+    // containment of the original five rather than full-set match.
+    for (const id of ['adventurers', 'local_goblins', 'merchants', 'miners', 'ogres']) {
+      expect(customerRegistry.has(id)).toBe(true)
+    }
   })
 
   it('staffRegistry is populated by the Phase 11 staff system', () => {
-    const ids = staffRegistry.all().map((s) => s.id).sort()
-    expect(ids).toEqual(['cleaner_bouncer', 'cook', 'server'].sort())
+    // Phase 71 / ISSUE-031 — cook-tier roles (kitchen_hand,
+    // seasoned_cook, master_chef) join the registry; check
+    // containment of the original three rather than full-set match.
+    for (const id of ['cleaner_bouncer', 'cook', 'server']) {
+      expect(staffRegistry.has(id)).toBe(true)
+    }
   })
 
   it('actionRegistry is populated by the Phase 13 owner-action system', () => {

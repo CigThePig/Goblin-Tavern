@@ -41,9 +41,11 @@ function runDays(state: TavernState, days: number): TavernState {
 describe('Phase 8 — Area system', () => {
   it('1. default tavern includes main_room, kitchen, cellar, privy, and roof', () => {
     const state = createInitialTavernState()
-    expect(Object.keys(state.areas).sort()).toEqual(
-      ['cellar', 'kitchen', 'main_room', 'privy', 'roof'].sort(),
-    )
+    // Phase 73 / ISSUE-033 — area roster grows; check containment of
+    // the original five rather than full-set equality.
+    for (const id of ['cellar', 'kitchen', 'main_room', 'privy', 'roof']) {
+      expect(state.areas[id]).toBeDefined()
+    }
   })
 
   it('2. all required areas pass validateState immediately after createInitialTavernState', () => {
@@ -164,8 +166,11 @@ describe('Phase 8 — Area system', () => {
 
 describe('Phase 8 — Area registry & derived helpers', () => {
   it('areaRegistry exposes the five required areas with default state', () => {
-    const ids = areaRegistry.all().map((a) => a.id).sort()
-    expect(ids).toEqual(['cellar', 'kitchen', 'main_room', 'privy', 'roof'].sort())
+    // Phase 73 / ISSUE-033 — area registry has grown; check
+    // containment of the original five.
+    for (const id of ['cellar', 'kitchen', 'main_room', 'privy', 'roof']) {
+      expect(areaRegistry.has(id)).toBe(true)
+    }
     for (const def of areaRegistry.all()) {
       expect(def.defaultState.condition).toBeGreaterThanOrEqual(0)
       expect(def.defaultState.condition).toBeLessThanOrEqual(100)

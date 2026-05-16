@@ -133,12 +133,31 @@ export type RngStreamId =
   | 'seasonal_events'
   | 'issue_seed_selection'
   | 'attribution_perceiver'
+  // Phase 69 / ISSUE-029 §5.4 — weekly drift roll for the hireable
+  // adventurer roster: who arrives, who leaves. Names continue to use
+  // `npc_identity`.
+  | 'adventurer_roster'
+  // Phase 72 / ISSUE-032 §7 — daily roll for niche-group visits when
+  // their renown threshold is met. Variance on activation-day
+  // patronage ramp; not exercised heavily in phase 72.
+  | 'niche_customer_arrival'
 
 export type RngStreamState = Record<RngStreamId, RngState>
 
 export type SimRngStreams = {
   baseSeed: string
   get: (streamId: RngStreamId) => SimRng
+  /**
+   * Phase 70 / ISSUE-030 §6.3 — dynamic named stream. Used for
+   * per-instance ids (e.g. `expedition_<expeditionId>`,
+   * `ingredient_quality_<expeditionId>`) that can't enumerate at
+   * compile time. The seed is derived as `${baseSeed}:${name}`, so
+   * the same baseSeed + name always returns an RNG with the same
+   * initial state — saves can resume mid-run and produce the same
+   * resolution. The dynamic stream is not tracked in `snapshot()`;
+   * callers must read it once at resolution.
+   */
+  getByName: (name: string) => SimRng
   snapshot: () => RngStreamState
 }
 
@@ -155,6 +174,10 @@ const ALL_STREAM_IDS: ReadonlyArray<RngStreamId> = [
   'seasonal_events',
   'issue_seed_selection',
   'attribution_perceiver',
+  // Phase 69 / ISSUE-029.
+  'adventurer_roster',
+  // Phase 72 / ISSUE-032.
+  'niche_customer_arrival',
 ]
 
 export function createRngStreams(
@@ -174,6 +197,14 @@ export function createRngStreams(
     return rng
   }
 
+  // Phase 70 / ISSUE-030 §6.3 — dynamic stream factory. The returned
+  // RNG is freshly seeded from `${seed}:${name}`; the same name
+  // always produces an RNG with the same starting state across
+  // reloads. Callers consume it once per resolution.
+  const getByName = (name: string): SimRng => {
+    return createRng(`${seed}:${name}`, 0)
+  }
+
   const snapshot = (): RngStreamState => {
     const out = {} as RngStreamState
     for (const id of ALL_STREAM_IDS) {
@@ -191,5 +222,5 @@ export function createRngStreams(
     return out
   }
 
-  return { baseSeed: seed, get, snapshot }
+  return { baseSeed: seed, get, getByName, snapshot }
 }

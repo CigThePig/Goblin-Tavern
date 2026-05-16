@@ -12,6 +12,7 @@ import {
   resolveService,
 } from './resolveService'
 import type { ResolveServiceInputs } from './resolveService'
+import { applyRecipesEndOfDay } from './recipesDaily'
 import { buildServiceScenes } from './serviceScenes'
 import type {
   AreaChangeSummary,
@@ -811,6 +812,9 @@ export const serviceModule: SimulationModule = {
     beforeService: [beforeServiceHook],
     service: [serviceHook],
     afterService: [afterServiceHook],
+    // Phase 67 / ISSUE-027 §6.6 — recipes daily housekeeping +
+    // common-only renown decay.
+    endDay: [(ctx: SimContext): void => applyRecipesEndOfDay(ctx)],
   },
   buildReport: buildDailyServiceReport,
   validate: validateService,

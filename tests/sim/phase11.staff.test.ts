@@ -375,8 +375,12 @@ describe('Phase 11 — Module shape', () => {
   })
 
   it('staffRegistry has the three required role definitions with full default state', () => {
-    const ids = staffRegistry.all().map((r) => r.id).sort()
-    expect(ids).toEqual(['cleaner_bouncer', 'cook', 'server'].sort())
+    // Phase 71 / ISSUE-031 — cook-tier roles join the registry but
+    // are flagged `seedOnDayZero: false`; the three Phase 11 roles
+    // remain present and seed on day zero.
+    for (const id of ['cleaner_bouncer', 'cook', 'server']) {
+      expect(staffRegistry.has(id)).toBe(true)
+    }
     for (const def of staffRegistry.all()) {
       expect(def.allowedPriorities.length).toBeGreaterThan(0)
       expect(def.defaultPriority).toBeTruthy()

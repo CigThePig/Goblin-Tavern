@@ -55,9 +55,8 @@ function runWithStock(state: TavernState, extra: SimulationModule[] = []) {
 describe('Phase 9 — Stock & Economy', () => {
   it('1. default stock items exist after createInitialTavernState', () => {
     const state = createInitialTavernState()
-    expect(Object.keys(state.stock).sort()).toEqual(
-      ['ale', 'firewood', 'ingredients', 'mugs', 'mushrooms', 'stew'].sort(),
-    )
+    // Phase 66 / ISSUE-026 — the registry now spans common through
+    // legendary, so we check by id rather than by exact set match.
     for (const id of ['ale', 'stew', 'ingredients', 'mushrooms', 'firewood', 'mugs']) {
       expect(state.stock[id]).toBeDefined()
     }
@@ -268,8 +267,11 @@ describe('Phase 9 — Stock & Economy', () => {
 
 describe('Phase 9 — Registry, helpers, and module shape', () => {
   it('stockRegistry exposes the six required items with default state', () => {
-    const ids = stockRegistry.all().map((s) => s.id).sort()
-    expect(ids).toEqual(['ale', 'firewood', 'ingredients', 'mugs', 'mushrooms', 'stew'].sort())
+    // Phase 66 / ISSUE-026 — the registry has grown beyond the six
+    // common starters; check by id rather than full-set equality.
+    for (const id of ['ale', 'firewood', 'ingredients', 'mugs', 'mushrooms', 'stew']) {
+      expect(stockRegistry.has(id)).toBe(true)
+    }
     for (const def of stockRegistry.all()) {
       expect(def.defaultState.basePrice).toBeGreaterThanOrEqual(0)
       expect(def.defaultState.salePrice).toBeGreaterThanOrEqual(0)
@@ -300,6 +302,7 @@ describe('Phase 9 — Registry, helpers, and module shape', () => {
       basePrice: 1,
       salePrice: 2,
       tags: ['food', 'perishable'],
+      rarity: 'common' as const,
     }
     // 60 - 40 * 0.5 = 40.
     expect(effectiveQuality(sample)).toBe(40)

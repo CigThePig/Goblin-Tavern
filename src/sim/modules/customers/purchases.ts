@@ -1,18 +1,25 @@
 import type { SimContext } from '../../core/context'
-import type { CustomerGroupState, StockState } from '../../state/TavernState'
+import type { CustomerGroupState, RecipeState } from '../../state/TavernState'
 
-import { sellStockItem } from '../stock/sales'
+import { recipeRegistry } from '../../registries/recipeRegistry'
+import { sellRecipe } from '../service/recipes'
 import type { ShortageRecord } from '../stock/types'
 import type { ServiceQualityModifiers } from '../staff/types'
 
 // Phase 10 §10.4 / Phase 12 §12.3 — Customer purchase behaviour.
 //
-// Each visitor buys a small basket of preferred items via the Phase 9
-// `sellStockItem` helper, which is the only sanctioned path to mutate
-// stock and coin (Phase 9 §9.4 forward note: "Do not introduce a parallel
-// sale path that writes to stock or coin without going through these
-// helpers"). Shortages bubble up through the returned `SellResult` and
-// are surfaced in the group's per-day turnout.
+// Each visitor buys a small basket of preferred dishes. Phase 65 /
+// ISSUE-025 §6.1 routes the basket through recipes: each basket entry
+// is a recipe id, `sellRecipe` consumes the recipe's `inputs` from
+// stock via the Phase 9 ledger helpers, and the recipe state's
+// per-day counters update so downstream calculators can see what was
+// served. Shortages bubble up through the recipe sale and surface in
+// the group's per-day turnout.
+//
+// For the six 1:1 starter recipes shipped in Phase 65, observable
+// state mutations are identical to the prior direct `sellStockItem`
+// flow — each `dish_<stockId>` consumes 1 unit of `<stockId>` per
+// serving at the underlying stock's salePrice.
 //
 // Phase 12 §12.3 adds two optional knobs:
 //   - `serviceQuality`: when present, `serviceSpeed` slightly boosts
@@ -33,30 +40,30 @@ export type ResolvePurchaseOptions = {
   stretchFactor?: number
 }
 
-// Per-visitor purchase intent. Local goblins want cheap ale and stew,
-// merchants prefer quality items, ogres drink ale heavily, etc. Items
-// listed here are tried in order; only those matching `preferredStockTags`
-// or carrying no preference filter are attempted.
+// Per-visitor purchase intent expressed as recipe ids. The six starter
+// recipes (`dish_ale`, `dish_stew`, `dish_mushrooms`) are 1:1 wrappers
+// around the same stock items the pre-recipe basket used, so behaviour
+// is preserved.
 const DEFAULT_BASKET: Record<string, string[]> = {
-  local_goblins: ['ale', 'stew', 'mushrooms'],
-  miners: ['ale', 'ale', 'stew'],
-  merchants: ['stew', 'ale'],
-  ogres: ['ale', 'ale', 'stew'],
-  adventurers: ['ale', 'stew'],
+  local_goblins: ['dish_ale', 'dish_stew', 'dish_mushrooms'],
+  miners: ['dish_ale', 'dish_ale', 'dish_stew'],
+  merchants: ['dish_stew', 'dish_ale'],
+  ogres: ['dish_ale', 'dish_ale', 'dish_stew'],
+  adventurers: ['dish_ale', 'dish_stew'],
 }
 
 function basketFor(groupId: string): string[] {
-  return DEFAULT_BASKET[groupId] ?? ['ale', 'stew']
+  return DEFAULT_BASKET[groupId] ?? ['dish_ale', 'dish_stew']
 }
 
-function itemMatchesPreferences(
-  item: StockState | undefined,
+function recipeMatchesPreferences(
+  recipe: RecipeState | undefined,
   group: CustomerGroupState,
 ): boolean {
-  if (!item) return false
-  if (group.dislikedTags.some((tag) => item.tags.includes(tag))) return false
+  if (!recipe) return false
+  if (group.dislikedTags.some((tag) => recipe.tags.includes(tag))) return false
   if (group.preferredStockTags.length === 0) return true
-  return group.preferredStockTags.some((tag) => item.tags.includes(tag))
+  return group.preferredStockTags.some((tag) => recipe.tags.includes(tag))
 }
 
 export function resolveGroupPurchases(
@@ -84,29 +91,33 @@ export function resolveGroupPurchases(
     ? Math.max(0, Math.min(0.5, quality.serviceSpeed / 4))
     : 0
 
-  for (const stockId of basket) {
-    const item = ctx.state.stock[stockId]
-    if (!itemMatchesPreferences(item, group)) continue
+  for (const recipeId of basket) {
+    const recipe = ctx.state.recipes[recipeId]
+    if (!recipeMatchesPreferences(recipe, group)) continue
+    if (!recipe?.onMenu) continue
+    if (!recipeRegistry.has(recipeId)) continue
 
-    // Each visitor buys 1 of this item if available. Bigger spenders
-    // (high wealth + low price sensitivity) buy slightly more.
+    // Each visitor buys 1 serving if all inputs are available. Bigger
+    // spenders (high wealth + low price sensitivity) buy slightly more.
     const spendBoost = group.wealth >= 70 && group.priceSensitivity <= 40 ? 1 : 0
     const perVisitorBase = 1 + spendBoost + speedBoost
     const perVisitor = perVisitorBase * stretchFactor
-    const quantity = Math.max(0, Math.round(visitors * perVisitor))
-    if (quantity <= 0) continue
+    const servings = Math.max(0, Math.round(visitors * perVisitor))
+    if (servings <= 0) continue
 
-    const sale = sellStockItem(ctx, stockId, quantity, {
+    const sale = sellRecipe(ctx, recipeId, servings, {
       buyerGroupId: group.id,
-      source: `customers.${group.id}.${stockId}`,
+      source: `customers.${group.id}.${recipeId}`,
     })
     result.coinEarned += sale.earned
-    if (sale.sold > 0) {
-      result.itemsBought.push({ stockId, quantity: sale.sold })
+    for (const consumed of sale.itemsConsumed) {
+      result.itemsBought.push(consumed)
     }
-    if (sale.shortage && !seenShortageStockIds.has(sale.shortage.stockId)) {
-      result.shortages.push(sale.shortage)
-      seenShortageStockIds.add(sale.shortage.stockId)
+    for (const shortage of sale.shortages) {
+      if (!seenShortageStockIds.has(shortage.stockId)) {
+        result.shortages.push(shortage)
+        seenShortageStockIds.add(shortage.stockId)
+      }
     }
   }
 

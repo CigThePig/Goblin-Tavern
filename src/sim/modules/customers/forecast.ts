@@ -99,8 +99,14 @@ function cleanlinessPenalty(
 function pricePenalty(group: CustomerGroupState, state: TavernState): number {
   // Use the priciest service item as a proxy for "how expensive is this
   // tavern". Higher salePrice + higher priceSensitivity → bigger penalty.
+  //
+  // Phase 66 / ISSUE-026 — only items the tavern actually holds count.
+  // The grown ingredient catalog includes rare/legendary stock types
+  // with high `salePrice` defaults but quantity 0 on day zero; the
+  // customer-facing price perception should reflect what's on the menu.
   let maxPrice = 0
   for (const item of Object.values(state.stock)) {
+    if (item.quantity <= 0) continue
     if (item.salePrice > maxPrice) maxPrice = item.salePrice
   }
   const sensitivity = group.priceSensitivity / 100
@@ -151,6 +157,30 @@ export function forecastTrafficForGroup(
   state: TavernState,
   ctx: SimContext,
 ): CustomerForecast {
+  // Phase 72 / ISSUE-032 §4.7 — inactive niche groups produce zero
+  // visitors regardless of other modifiers. A group is "inactive"
+  // when it carries a renown threshold AND `patronage` is 0 (the
+  // customer module flips patronage upward when the threshold is
+  // crossed). This keeps stockMod / cultureInfluence bonuses from
+  // pulling phantom visitors before the player has earned the
+  // group's attention.
+  if (
+    typeof group.minRenownThreshold === 'number' &&
+    group.minRenownThreshold > 0 &&
+    group.patronage <= 0
+  ) {
+    return {
+      groupId: group.id,
+      expected: 0,
+      dayTypeModifier: 0,
+      satisfactionModifier: 0,
+      cleanlinessPenalty: 0,
+      pricePenalty: 0,
+      stockModifier: 0,
+      notes: ['Niche group — culinary renown threshold not yet met.'],
+    }
+  }
+
   const dayType = ctx.getDayType()
   const dayMod = dayTypeModifier(group.id, dayType)
   const satMod = satisfactionModifier(group)
@@ -213,9 +243,16 @@ export function forecastTraffic(ctx: SimContext): CustomerForecast[] {
 
 // Convenience helper used by reports and tests to find the priciest
 // service item without re-walking stock state.
+//
+// Phase 66 / ISSUE-026 — only items the tavern actually holds count.
+// The grown ingredient catalog includes rare/legendary stock types
+// with high `salePrice` defaults but quantity 0 on day zero; the
+// customer-facing "max price" should reflect what's actually on the
+// menu, not the theoretical ceiling of every registered type.
 export function highestStockPrice(state: TavernState): number {
   let max = 0
   for (const item of Object.values(state.stock) as StockState[]) {
+    if (item.quantity <= 0) continue
     if (item.salePrice > max) max = item.salePrice
   }
   return max

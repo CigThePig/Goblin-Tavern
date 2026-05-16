@@ -7,6 +7,7 @@
 // using the same path/message/code style as the Phase 6 validators.
 
 import { namingProfileRegistry } from '../content/naming/namingProfiles'
+import { recipeRegistry } from '../registries/recipeRegistry'
 import { staffRegistry } from '../registries/staffRegistry'
 import { stockRegistry } from '../registries/stockRegistry'
 import type { EntityRef, TavernState } from './TavernState'
@@ -172,6 +173,19 @@ export function validateEntityRef(
       // a particular id (the meta id and the identity record are not
       // 1:1 in every save).
       return []
+    case 'recipe':
+      // Phase 67 / ISSUE-027 — `recipe` refs resolve against the
+      // `state.recipes` slice introduced in phase 65.
+      if (!(ref.id in state.recipes)) {
+        return [
+          makeIssue(
+            `${path}.id`,
+            `Unknown recipe id '${ref.id}'`,
+            'unknown_recipe_ref',
+          ),
+        ]
+      }
+      return []
     case 'system':
     case 'other':
       return []
@@ -197,6 +211,49 @@ export function validateEntityRef(
 // minimum set required by the phase spec; later phases can extend the
 // world without touching this helper as long as new pointers are
 // reported through the same `ValidationIssue` channel.
+// Phase 65 / ISSUE-025 §6.1 — Every recipe must reference real
+// ingredient ids. A recipe whose `inputs` point at an unknown
+// ingredient id is unservable; validation surfaces it instead of
+// letting the service flow throw at runtime.
+export function validateRecipeReferences(state: TavernState): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  for (const [id] of Object.entries(state.recipes)) {
+    const def = recipeRegistry.has(id) ? recipeRegistry.get(id) : null
+    if (!def) {
+      issues.push(
+        makeIssue(
+          `recipes.${id}`,
+          `Recipe '${id}' has no registry definition`,
+          'unknown_recipe_definition',
+        ),
+      )
+      continue
+    }
+    for (let i = 0; i < def.inputs.length; i++) {
+      const input = def.inputs[i]!
+      if (!(input.ingredientId in state.stock) && !stockRegistry.has(input.ingredientId)) {
+        issues.push(
+          makeIssue(
+            `recipes.${id}.inputs[${i}].ingredientId`,
+            `Recipe '${id}' references unknown ingredient '${input.ingredientId}'`,
+            'unknown_stock_ref',
+          ),
+        )
+      }
+      if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
+        issues.push(
+          makeIssue(
+            `recipes.${id}.inputs[${i}].quantity`,
+            `Recipe '${id}' input quantity must be a positive number`,
+            'invalid_recipe_input_quantity',
+          ),
+        )
+      }
+    }
+  }
+  return issues
+}
+
 export function validateWorldReferences(state: TavernState): ValidationIssue[] {
   const issues: ValidationIssue[] = []
   const world = state.world
@@ -409,6 +466,65 @@ export function validateWorldReferences(state: TavernState): ValidationIssue[] {
         makeIssue(
           `world.notableNpcs.${id}.name.profileId`,
           `Notable NPC '${id}' generated name references unknown naming profile '${npc.name.profileId}'`,
+          'unknown_naming_profile_ref',
+        ),
+      )
+    }
+  }
+
+  // Phase 70 / ISSUE-030 §5.3 — active expeditions must reference a
+  // real runner in `state.world.hireableAdventurers`. (A runner who
+  // gets removed mid-expedition by an unrelated event is handled by
+  // the expeditions module's `startDay` hook, which converts the
+  // expedition to a `failure` record at resolution time.)
+  for (let i = 0; i < state.expeditions.active.length; i += 1) {
+    const expedition = state.expeditions.active[i]!
+    if (!(expedition.runnerId in world.hireableAdventurers)) {
+      issues.push(
+        makeIssue(
+          `expeditions.active[${i}].runnerId`,
+          `Active expedition '${expedition.id}' references unknown adventurer '${expedition.runnerId}'`,
+          'unknown_adventurer_ref',
+        ),
+      )
+    }
+    if (
+      expedition.mode === 'targeted' &&
+      expedition.targetIngredientId !== null
+    ) {
+      if (
+        !(expedition.targetIngredientId in state.stock) &&
+        !stockRegistry.has(expedition.targetIngredientId)
+      ) {
+        issues.push(
+          makeIssue(
+            `expeditions.active[${i}].targetIngredientId`,
+            `Active expedition '${expedition.id}' targets unknown ingredient '${expedition.targetIngredientId}'`,
+            'unknown_stock_ref',
+          ),
+        )
+      }
+    }
+  }
+
+  // Phase 69 / ISSUE-029 §5.4 — hireable adventurers: cultureId must
+  // exist; the naming profile must exist. Adventurers are persistent
+  // NPCs with stable identity; broken refs are programmer errors.
+  for (const [id, adventurer] of Object.entries(world.hireableAdventurers)) {
+    if (!(adventurer.cultureId in world.cultures)) {
+      issues.push(
+        makeIssue(
+          `world.hireableAdventurers.${id}.cultureId`,
+          `Hireable adventurer '${id}' references unknown culture '${adventurer.cultureId}'`,
+          'unknown_culture_ref',
+        ),
+      )
+    }
+    if (!namingProfileRegistry.has(adventurer.name.profileId)) {
+      issues.push(
+        makeIssue(
+          `world.hireableAdventurers.${id}.name.profileId`,
+          `Hireable adventurer '${id}' generated name references unknown naming profile '${adventurer.name.profileId}'`,
           'unknown_naming_profile_ref',
         ),
       )

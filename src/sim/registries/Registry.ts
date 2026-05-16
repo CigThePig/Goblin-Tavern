@@ -32,6 +32,15 @@ export class Registry<T extends RegistryItem> {
     return [...this.items.values()]
   }
 
+  /**
+   * Remove a single item by id. Returns `true` if an item was removed.
+   * Useful for tests that register transient entries and need to clean
+   * up without wiping the entire registry.
+   */
+  unregister(id: string): boolean {
+    return this.items.delete(id)
+  }
+
   clear(): void {
     this.items.clear()
   }

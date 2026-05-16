@@ -11,8 +11,11 @@ import type {
   HistoryEntry,
   LocalEventWorldState,
   MemoryState,
+  ExpeditionsState,
+  HireableAdventurer,
   NotableNpcWorldState,
   PressureState,
+  RecipeState,
   RegularWorldState,
   ReputationState,
   SocialRumourState,
@@ -643,6 +646,10 @@ function createContext(
     getRngStream(streamId) {
       return rngStreams.get(streamId)
     },
+    // Phase 70 / ISSUE-030 §6.3 — dynamic named stream.
+    getRngStreamByName(name) {
+      return rngStreams.getByName(name)
+    },
     get reports() {
       return runtime.reports
     },
@@ -758,6 +765,49 @@ function createContext(
         'customer',
         ['customer', id],
       )
+    },
+    modifyRecipe(id, changes, meta): void {
+      const recipe = requireRecord<RecipeState>(
+        runtime.current.recipes,
+        id,
+        'Recipe',
+      )
+      const next = { ...recipe, ...changes }
+      runtime.current = {
+        ...runtime.current,
+        recipes: {
+          ...runtime.current.recipes,
+          [id]: next,
+        },
+      }
+      // Phase 65 / ISSUE-025 — recipe state mutations are bookkeeping
+      // (timesServed, daysSinceLastServed, lastServedDay, onMenu).
+      // They still flow through the cause pipeline for parity with
+      // other record-slice mutations; non-numeric / unchanged fields
+      // are skipped by the helper.
+      emitDiffPathCausesForRecord(
+        meta,
+        recipe as unknown as Record<string, unknown>,
+        next as unknown as Record<string, unknown>,
+        changes as unknown as Record<string, unknown>,
+        (field) => `recipes.${id}.${field}`,
+        'recipe',
+        ['recipe', id],
+      )
+    },
+    modifyExpeditions(updater, meta): void {
+      const before = runtime.current.expeditions
+      const next = updater(before)
+      runtime.current = {
+        ...runtime.current,
+        expeditions: next,
+      }
+      if (meta) {
+        addCauseInternal(meta, {
+          target: 'expeditions',
+          targetType: 'global',
+        })
+      }
     },
     modifyCoin(delta, meta): void {
       if (!Number.isFinite(delta)) {
@@ -1007,6 +1057,78 @@ function createContext(
       )
       if (emitted === 0 && meta) {
         addCauseInternal(meta, { target: id, targetType: 'notable_npc' })
+      }
+    },
+    // Phase 69 / ISSUE-029 §5.4 — hireable adventurer record helpers.
+    modifyHireableAdventurer(id, changes, meta): void {
+      const before = requireRecord<HireableAdventurer>(
+        runtime.current.world.hireableAdventurers,
+        id,
+        'HireableAdventurer',
+      )
+      const next = { ...before, ...changes }
+      runtime.current = {
+        ...runtime.current,
+        world: {
+          ...runtime.current.world,
+          hireableAdventurers: {
+            ...runtime.current.world.hireableAdventurers,
+            [id]: next,
+          },
+        },
+      }
+      const emitted = emitDiffPathCausesForRecord(
+        meta,
+        before as unknown as Record<string, unknown>,
+        next as unknown as Record<string, unknown>,
+        changes as unknown as Record<string, unknown>,
+        (field) => `world.hireableAdventurers.${id}.${field}`,
+        'global',
+        ['adventurer', id],
+      )
+      if (emitted === 0 && meta) {
+        addCauseInternal(meta, { target: id, targetType: 'global' })
+      }
+    },
+    addHireableAdventurer(adventurer, meta): void {
+      if (runtime.current.world.hireableAdventurers[adventurer.id]) {
+        throw new Error(
+          `addHireableAdventurer: duplicate adventurer id '${adventurer.id}'`,
+        )
+      }
+      runtime.current = {
+        ...runtime.current,
+        world: {
+          ...runtime.current.world,
+          hireableAdventurers: {
+            ...runtime.current.world.hireableAdventurers,
+            [adventurer.id]: adventurer,
+          },
+        },
+      }
+      if (meta) {
+        addCauseInternal(meta, {
+          target: `world.hireableAdventurers.${adventurer.id}`,
+          targetType: 'global',
+        })
+      }
+    },
+    removeHireableAdventurer(id, meta): void {
+      if (!runtime.current.world.hireableAdventurers[id]) return
+      const nextRoster = { ...runtime.current.world.hireableAdventurers }
+      delete nextRoster[id]
+      runtime.current = {
+        ...runtime.current,
+        world: {
+          ...runtime.current.world,
+          hireableAdventurers: nextRoster,
+        },
+      }
+      if (meta) {
+        addCauseInternal(meta, {
+          target: `world.hireableAdventurers.${id}`,
+          targetType: 'global',
+        })
       }
     },
     modifyLocalEvent(id, changes, meta): void {

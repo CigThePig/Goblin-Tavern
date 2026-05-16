@@ -76,9 +76,11 @@ describe('Phase 28 — Area traits, upgrades, atmosphere', () => {
     expect(state.areas.cellar!.label).toBe('Cellar')
     expect(state.areas.privy!.label).toBe('Privy')
     expect(state.areas.roof!.label).toBe('Roof')
-    expect(Object.keys(state.areas).sort()).toEqual(
-      ['cellar', 'kitchen', 'main_room', 'privy', 'roof'].sort(),
-    )
+    // Phase 73 / ISSUE-033 — area roster grew; check containment of
+    // the original five.
+    for (const id of ['cellar', 'kitchen', 'main_room', 'privy', 'roof']) {
+      expect(state.areas[id]).toBeDefined()
+    }
   })
 
   it('3. AreaStateSchema rejects invalid upgrade statuses', () => {

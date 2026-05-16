@@ -58,6 +58,12 @@ export type AreaState = {
 // precedent set for `CustomerGroupState` (forward note in Phase 10 §"Customer
 // Group State"). The Phase 5 placeholder field `unitValue` is replaced by
 // the explicit two-price model the economy needs.
+//
+// Phase 65 / ISSUE-025 §5.1 — Stock items gain a `rarity` tier. Rarity is
+// a property of the ingredient type (the stock id), not per-batch.
+// Provenance lives in memories, not on stock state.
+export type StockRarity = 'common' | 'uncommon' | 'rare' | 'legendary'
+
 export type StockState = {
   id: string
   label: string
@@ -68,6 +74,23 @@ export type StockState = {
   salePrice: number
   tags: string[]
   storageAreaId?: string
+  rarity: StockRarity
+}
+
+// Phase 65 / ISSUE-025 §5.2 — Recipe state slice. Recipes are derived
+// dishes that consume one or more ingredient stock items; customer
+// orders resolve to recipe ids rather than stock ids. State holds only
+// runtime tracking (onMenu flag, served counters); the static config
+// (inputs, prepDifficulty, demandTier, culturalTags) lives on
+// `RecipeDefinition` in `recipeRegistry` and is read by lookup.
+export type RecipeState = {
+  id: string
+  label: string
+  tags: string[]
+  onMenu: boolean
+  timesServed: number
+  daysSinceLastServed: number
+  lastServedDay: number | null
 }
 
 // Phase 11 §11.1 / "Role typing clarification" — `StaffRoleId` is a
@@ -191,11 +214,24 @@ export type CustomerGroupState = {
   trafficPattern: string
   spendingProfile: string
   relationshipToOtherGroups: Record<string, number>
+  // Phase 72 / ISSUE-032 §4.7, §5.6 — niche customer threshold.
+  // Groups with this field active their patronage when
+  // `culinary_renown` crosses the threshold. Optional; existing
+  // groups remain always-available (treated as threshold 0).
+  minRenownThreshold?: number
 }
 
 // Phase 15 §15.5 — Reputation is multi-axis. The `respectable` axis was
 // added in Phase 15 alongside the monthly module; the other eight axes
 // are unchanged from Phase 5.
+//
+// Phase 67 / ISSUE-027 §4.6, §5.5 — `culinary_renown` joins the canonical
+// axis set. It tracks fame for *sourcing* rare ingredients and *executing*
+// rare preparations. The existing `tasty`/`strange` axes are insufficient
+// for the rare-ingredient economy loop: `tasty` measures execution
+// quality across all dishes and `strange` measures oddity (sometimes a
+// negative). Renown captures the unified positive feedback the loop
+// accumulates against.
 export type ReputationState = {
   cheap: number
   tasty: number
@@ -206,6 +242,7 @@ export type ReputationState = {
   reliable: number
   goblinAuthentic: number
   respectable: number
+  culinary_renown: number
 }
 
 // Phase 16 §"Calendar Stamp" — a stable, serializable timestamp used by
@@ -228,6 +265,9 @@ export type CalendarStamp = {
 // (`culture`, `faction`, `supplier`, `regular`, `notable_npc`,
 // `local_event`, `rumour`, `tavern_identity`) so memories and causes can
 // point at the new `state.world` records introduced in this phase.
+//
+// Phase 67 / ISSUE-027 — `recipe` joins the set so culinary-renown
+// drift causes attribute back to the proximate dish.
 export type EntityRef = {
   kind:
     | 'staff'
@@ -245,6 +285,7 @@ export type EntityRef = {
     | 'local_event'
     | 'rumour'
     | 'tavern_identity'
+    | 'recipe'
   id: string
 }
 
@@ -354,6 +395,8 @@ export type CauseTargetType =
   | 'local_event'
   | 'rumour'
   | 'tavern_identity'
+  // Phase 65 / ISSUE-025 — recipe state changes attribute to `recipe`.
+  | 'recipe'
 
 export type CauseDirection = 'increase' | 'decrease' | 'neutral'
 
@@ -465,6 +508,90 @@ export type NotableNpcWorldState = {
   activeFlags: string[]
 }
 
+// Phase 70 / ISSUE-030 §5.3 — Expedition subsystem types.
+//
+// The player commissions a hireable adventurer (phase 69) to fetch
+// rare or legendary ingredients (phase 66). Expeditions run end-only:
+// `daysElapsed` increments each day, and resolution fires once on the
+// day `daysElapsed >= daysTotal`. Outcome is rolled via the per-
+// expedition named RNG stream so save/reload round-trips produce the
+// same result.
+export type ExpeditionMode = 'open' | 'targeted'
+
+export type ExpeditionTargetTier = 'uncommon' | 'rare' | 'legendary'
+
+export type ExpeditionOutcome =
+  | 'success'
+  | 'partial'
+  | 'failure'
+  | 'runner_lost'
+
+export type Expedition = {
+  id: string
+  runnerId: string
+  mode: ExpeditionMode
+  /** Set for `open` mode: which rarity tier the expedition aims at. */
+  targetTier: ExpeditionTargetTier | null
+  /** Set for `targeted` mode: which specific ingredient to fetch. */
+  targetIngredientId: string | null
+  daysTotal: number
+  daysElapsed: number
+  costPaid: number
+  startedDay: number
+  status: 'in_progress'
+}
+
+export type ExpeditionReturnedIngredient = {
+  ingredientId: string
+  quantity: number
+  quality: number
+}
+
+export type ExpeditionRecord = {
+  id: string
+  runnerId: string
+  mode: ExpeditionMode
+  targetTier: ExpeditionTargetTier | null
+  targetIngredientId: string | null
+  daysTotal: number
+  costPaid: number
+  startedDay: number
+  resolvedDay: number
+  outcome: ExpeditionOutcome
+  returnedIngredients: ExpeditionReturnedIngredient[]
+}
+
+export type ExpeditionsState = {
+  active: Expedition[]
+  completed: ExpeditionRecord[]
+}
+
+// Phase 69 / ISSUE-029 §5.4 — Hireable adventurer roster.
+//
+// Persistent NPCs the player commissions for expeditions (phase 70).
+// Names are generated once at NPC creation through the `npc_identity`
+// RNG stream and stored; never regenerated when a report is re-viewed.
+//
+// The existing `adventurers` customer group represents demand-side
+// adventuring bands; hireable adventurers are a separate slice of the
+// same culture (`adventuring_bands`) — bands' members who happen to be
+// between jobs and willing to take work.
+export type HireableAdventurer = {
+  id: string
+  name: GeneratedName
+  cultureId: string
+  experience: number // 0-100 — rises with successful expeditions
+  reliability: number // 0-100 — rises with successes, falls with failures
+  relationship: number // 0-100 — rises with repeated hires + payment
+  specialty: string | null // optional tag biasing target tier/category
+  wageBase: number // coin per expedition day
+  daysSinceLastJob: number
+  currentExpeditionId: string | null
+  joinedDay: number
+  tags: string[]
+  activeFlags: string[]
+}
+
 // Phase 35 §35.2 — arc lifecycle stages. Stored as a plain string on
 // the record so legacy local-event entries without arc semantics still
 // validate; `world.localEvents` widens to cover both shapes.
@@ -541,6 +668,8 @@ export type WorldState = {
   localEvents: Record<string, LocalEventWorldState>
   tavernIdentity: TavernIdentityState
   socialRumours: Record<string, SocialRumourState>
+  // Phase 69 / ISSUE-029 §5.4 — Hireable adventurer roster.
+  hireableAdventurers: Record<string, HireableAdventurer>
   rngStreams?: Partial<RngStreamState>
 }
 
@@ -554,6 +683,12 @@ export type TavernState = {
   staff: Record<string, StaffState>
   customerGroups: Record<string, CustomerGroupState>
   reputation: ReputationState
+
+  // Phase 65 / ISSUE-025 §5.2 — recipe slice. Keyed by recipe id.
+  recipes: Record<string, RecipeState>
+
+  // Phase 70 / ISSUE-030 §5.3 — expedition subsystem state.
+  expeditions: ExpeditionsState
 
   world: WorldState
 

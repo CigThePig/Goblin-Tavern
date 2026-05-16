@@ -78,7 +78,7 @@ how to verify the fix.
 | ISSUE-037 | `HireableAdventurer.wageBase` / `specialty` / `activeFlags` are dead fields | broken | done | 77 |
 | ISSUE-038 | Cook tier/skill does not modulate service quality | thin | done | 78 |
 | ISSUE-039 | `culinary_renown` fame loop only reaches two consumers | thin | done | 79 |
-| ISSUE-040 | Reference validation gaps for staff identity + adventurer reverse edges | broken | open | — |
+| ISSUE-040 | Reference validation gaps for staff identity + adventurer reverse edges | broken | done | 80 |
 | ISSUE-041 | Staff identity profile pool covers 3 of 8 cultures | thin | open | — |
 | ISSUE-042 | Niche factions carry no notable NPCs | thin | open | — |
 | ISSUE-043 | Social rumours never pruned (unbounded growth) | thin | open | — |
@@ -1592,8 +1592,8 @@ since that work is `done`.
 ### ISSUE-040 — Reference validation gaps for staff identity + adventurer reverse edges
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 80
 - **Evidence:**
   - `src/sim/state/TavernState.ts:151` declares the optional
     `StaffIdentityState.cultureId: string`. `src/sim/state/

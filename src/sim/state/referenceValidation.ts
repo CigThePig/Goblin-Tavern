@@ -472,6 +472,23 @@ export function validateWorldReferences(state: TavernState): ValidationIssue[] {
     }
   }
 
+  // Phase 80 / ISSUE-040 — staff identity culture pointer. The
+  // optional `staff.identity.cultureId` was not validated; a staff
+  // member could carry a dangling culture pointer indefinitely (e.g.
+  // a culture removed from the registry between saves).
+  for (const [id, staff] of Object.entries(state.staff)) {
+    const cultureId = staff.identity?.cultureId
+    if (cultureId !== undefined && !(cultureId in world.cultures)) {
+      issues.push(
+        makeIssue(
+          `staff.${id}.identity.cultureId`,
+          `Staff '${id}' identity references unknown culture '${cultureId}'`,
+          'unknown_culture_ref',
+        ),
+      )
+    }
+  }
+
   // Phase 70 / ISSUE-030 §5.3 — active expeditions must reference a
   // real runner in `state.world.hireableAdventurers`. (A runner who
   // gets removed mid-expedition by an unrelated event is handled by
@@ -510,6 +527,14 @@ export function validateWorldReferences(state: TavernState): ValidationIssue[] {
   // Phase 69 / ISSUE-029 §5.4 — hireable adventurers: cultureId must
   // exist; the naming profile must exist. Adventurers are persistent
   // NPCs with stable identity; broken refs are programmer errors.
+  // Phase 80 / ISSUE-040 — reverse edge: an adventurer with
+  // `currentExpeditionId` set must point at an active expedition.
+  // A double-resolve, unhandled exception during applyResolution, or
+  // a save-game with mismatched data would leave the runner stuck
+  // claiming to be on a nonexistent expedition.
+  const activeExpeditionIds = new Set(
+    state.expeditions.active.map((e) => e.id),
+  )
   for (const [id, adventurer] of Object.entries(world.hireableAdventurers)) {
     if (!(adventurer.cultureId in world.cultures)) {
       issues.push(
@@ -526,6 +551,18 @@ export function validateWorldReferences(state: TavernState): ValidationIssue[] {
           `world.hireableAdventurers.${id}.name.profileId`,
           `Hireable adventurer '${id}' generated name references unknown naming profile '${adventurer.name.profileId}'`,
           'unknown_naming_profile_ref',
+        ),
+      )
+    }
+    if (
+      adventurer.currentExpeditionId !== null &&
+      !activeExpeditionIds.has(adventurer.currentExpeditionId)
+    ) {
+      issues.push(
+        makeIssue(
+          `world.hireableAdventurers.${id}.currentExpeditionId`,
+          `Hireable adventurer '${id}' claims to be on expedition '${adventurer.currentExpeditionId}' which is not in expeditions.active`,
+          'dangling_expedition_ref',
         ),
       )
     }

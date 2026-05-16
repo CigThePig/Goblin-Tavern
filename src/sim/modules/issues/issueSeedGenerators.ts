@@ -2651,19 +2651,74 @@ function generateInspection(ctx: SimContext): IssueSeed[] {
 // Reputation shift
 // ----------------------------------------------------------------------
 
+// Phase 55 / ISSUE-015 — Reputation-axis rotation. Without a recency
+// penalty the family would always pick whichever axis had the largest
+// |value - 50| deviation, so the same axis dominates day after day. A
+// per-axis penalty rotates picks across the top-2 / top-3 strongest
+// axes.
+const REPUTATION_RECENCY_WINDOW = 5
+const REPUTATION_RECENCY_PENALTY = 18
+
+function reputationRecencyPenalty(
+  ctx: SimContext,
+  entityKey: string,
+  today: number,
+): number {
+  const slice = ctx.state.modules.issueSeeds as
+    | { recentPicks?: Record<string, Record<string, number>> }
+    | undefined
+  const familyPicks = slice?.recentPicks?.['reputation_shift'] ?? {}
+  const lastDay = familyPicks[entityKey]
+  if (lastDay === undefined) return 0
+  if (today - lastDay >= REPUTATION_RECENCY_WINDOW) return 0
+  return REPUTATION_RECENCY_PENALTY
+}
+
+function recordReputationPick(ctx: SimContext, entityKey: string): void {
+  const today = ctx.state.calendar.totalDaysElapsed
+  ctx.modifyModuleState(
+    'issueSeeds',
+    (current) => {
+      const slice = (current ?? {}) as {
+        recentPicks?: Record<string, Record<string, number>>
+      } & Record<string, unknown>
+      const recent = { ...(slice.recentPicks ?? {}) }
+      recent['reputation_shift'] = {
+        ...(recent['reputation_shift'] ?? {}),
+        [entityKey]: today,
+      }
+      return { ...slice, recentPicks: recent } as never
+    },
+    { source: 'reputationShift.recordPick' },
+  )
+}
+
 function generateReputationShift(ctx: SimContext): IssueSeed[] {
   const guard = CONTRADICTION_GUARDS.reputation_shift(ctx)
   if (!guard.allowed) return []
   const snap = pressureSnapshot(ctx, 'reputation_drift')
   if (!snap || snap.value < 35) return []
 
-  // identify the axis with the highest absolute value
+  // Score each reputation axis by |value - 50| minus a recency penalty.
+  // Pick the highest after penalty, preserving the "strongest axis
+  // dominates" intuition while rotating across the top axes day to day.
+  const today = ctx.state.calendar.totalDaysElapsed
   const axes = Object.entries(ctx.state.reputation)
-  const strongest = axes
-    .slice()
-    .sort((a, b) => Math.abs(b[1] - 50) - Math.abs(a[1] - 50))[0]
-  if (!strongest) return []
-  const [axisId, axisValue] = strongest
+  const ranked = axes
+    .map(([id, value]) => {
+      const baseScore = Math.abs(value - 50)
+      const penalty = reputationRecencyPenalty(ctx, `reputation:${id}`, today)
+      return { id, value, score: baseScore - penalty, baseScore }
+    })
+    .sort((a, b) => b.score - a.score)
+  const top = ranked[0]
+  // Require either a real deviation OR the recency penalty isn't
+  // hiding a still-significant deviation — the underlying base score
+  // must clear 15 for the family to fire.
+  if (!top || top.baseScore < 15) return []
+  const axisId = top.id
+  const axisValue = top.value
+  recordReputationPick(ctx, `reputation:${axisId}`)
 
   const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'reputation_drift', 3)
   for (const c of recentCauseEntries(ctx, ['reputation', axisId, 'customer'], 14, 2)) {
@@ -2706,6 +2761,10 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
     },
   ]
 
+  // Phase 55 / ISSUE-015 — Each profile now carries at least one
+  // `delayedEffect` and one `futureHook`. Previously all four were flat
+  // immediate-only with `delayedEffects: []` and only the seed itself
+  // carried a single `identity_lock_in_possible` hook.
   const consequenceProfiles: ConsequenceProfile[] = [
     makeProfile({
       id: 'embrace_profile',
@@ -2713,9 +2772,29 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
       immediateEffects: [
         effect('state_change', `reputation.${axisId}`, 5, 'Lean into reputation', ['reputation']),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'state_change',
+          `reputation.${axisId}`,
+          3,
+          'Embraced identity continues to drift',
+          ['reputation', 'delay:7'],
+        ),
+        effect(
+          'future_hook',
+          `identity_lock_in_${axisId}`,
+          14,
+          `${axisId} identity may lock in`,
+          ['future_hook', 'reputation', axisId],
+        ),
+      ],
       memories: [{ id: `embraced_${axisId}_identity`, tags: ['reputation', axisId] }],
-      futureHooks: [],
+      futureHooks: [
+        {
+          id: `identity_lock_in_${axisId}`,
+          tags: ['reputation', axisId, 'identity'],
+        },
+      ],
     }),
     makeProfile({
       id: 'correct_profile',
@@ -2724,9 +2803,29 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
         effect('state_change', `reputation.${axisId}`, -5, 'Shift reputation', ['reputation']),
         effect('state_change', 'coin', -10, 'Effort cost', ['coin']),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'state_change',
+          `reputation.${axisId}`,
+          -3,
+          'Correction shows through across the week',
+          ['reputation', 'delay:5'],
+        ),
+        effect(
+          'future_hook',
+          `identity_correction_${axisId}`,
+          10,
+          `${axisId} correction may settle`,
+          ['future_hook', 'reputation', axisId],
+        ),
+      ],
       memories: [{ id: `corrected_${axisId}_identity`, tags: ['reputation', axisId] }],
-      futureHooks: [],
+      futureHooks: [
+        {
+          id: `identity_correction_${axisId}`,
+          tags: ['reputation', axisId, 'correction'],
+        },
+      ],
     }),
     makeProfile({
       id: 'advertise_profile',
@@ -2736,19 +2835,62 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
           'customer',
         ]),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:reputation_drift',
+          4,
+          'Targeted advertising deepens the drift',
+          ['pressure', 'reputation', 'delay:5'],
+        ),
+        effect(
+          'future_hook',
+          `audience_lock_${axisId}`,
+          10,
+          `${axisId} audience may lock in`,
+          ['future_hook', 'reputation', axisId, 'audience'],
+        ),
+      ],
       memories: [{ id: 'advertised_to_group_recently', tags: ['customer', 'reputation'] }],
-      futureHooks: [],
+      futureHooks: [
+        {
+          id: `audience_lock_${axisId}`,
+          tags: ['reputation', axisId, 'audience'],
+        },
+      ],
     }),
     makeProfile({
       id: 'diversify_profile',
       responseSlotId: 'diversify',
       immediateEffects: [
         effect('state_change', `reputation.${axisId}`, -3, 'Soften identity', ['reputation']),
+        effect('state_change', 'customers.merchants.patronage', 4, 'Broader appeal lands', [
+          'customer',
+        ]),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'pressure',
+          'pressure:rumour_pressure',
+          3,
+          'Mixed messages breed gossip',
+          ['pressure', 'rumour', 'delay:5'],
+        ),
+        effect(
+          'future_hook',
+          `audience_dilution_${axisId}`,
+          12,
+          `${axisId} audience may dilute`,
+          ['future_hook', 'reputation', axisId, 'dilution'],
+        ),
+      ],
       memories: [{ id: 'diversification_attempted', tags: ['reputation', 'identity'] }],
-      futureHooks: [],
+      futureHooks: [
+        {
+          id: `audience_dilution_${axisId}`,
+          tags: ['reputation', axisId, 'dilution'],
+        },
+      ],
     }),
   ]
 

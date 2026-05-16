@@ -53,7 +53,7 @@ how to verify the fix.
 | ISSUE-012 | Add niche factions + factionUpdate triggers for missing 2 | thin | done | 52 |
 | ISSUE-013 | `policy_backlash` family end-to-end | broken | done | 53 |
 | ISSUE-014 | `regular_customer` family end-to-end | broken | done | 54 |
-| ISSUE-015 | `reputation_shift` family rewrite | broken | open | — |
+| ISSUE-015 | `reputation_shift` family rewrite | broken | done | 55 |
 | ISSUE-016 | `violence` family rewrite + rotation | broken | open | — |
 | ISSUE-017 | `staff_burnout` family rewrite + rotation | broken | open | — |
 | ISSUE-018 | `inspection` family un-pinning | thin | open | — |
@@ -970,8 +970,8 @@ infrastructure plus the relevant tier 1 roster grow.
 ### ISSUE-015 — `reputation_shift` family rewrite
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** unassigned
+- **Status:** done
+- **Phase:** 55
 - **Evidence:**
   - `src/sim/modules/issues/issueSeedGenerators.ts` `reputation_shift`
     family — 4 profiles, 0 `delayedEffects`, 1 `futureHook` total

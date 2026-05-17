@@ -1,29 +1,67 @@
+<!--
+  DayScreen — the 5-beat day loop.
+
+  Beats:
+    1. morning   — at-a-glance + pressures + morning_prep cards
+    2. plan      — owner action picker + staff priority sheet
+    3. service   — during_service deck (or skip-light)
+    4. closing   — closing + end_week + end_month deck
+    5. report    — minimal diff dialog (Phase 89 owns the full report)
+
+  Player decisions accumulate in `pendingByseedId` (response intents per
+  seed) and `picks` (owner actions) plus `staffPriorities` (sticky
+  across days). All three flush into a single `gameStore.runDay(...)`
+  call when the player taps End Day. The engine sees one
+  `simulateDay` per game-day.
+-->
 <script lang="ts">
   import PressureRibbon from '../components/PressureRibbon.svelte'
   import Icon from '../components/Icon.svelte'
   import CardRenderer from '../cards/CardRenderer.svelte'
-  import { renderMockCard } from '../cards/mockCardRegistry'
+  import CardDeck from '../components/CardDeck.svelte'
+  import BeatTransition from '../components/BeatTransition.svelte'
+  import ActionPicker from '../components/ActionPicker.svelte'
+  import StaffPrioritySheet from '../components/StaffPrioritySheet.svelte'
+  import { renderCard } from '../cards/realCardRegistry'
   import { gameStore } from '../sim/gameStore.svelte'
   import { significantDiffLines } from '../sim/significantDiffs'
+  import { buildIntent, buildIgnoreIntent } from '../sim/intentBuilder'
+  import {
+    picksToInputs,
+    type PickedAction,
+  } from '../sim/actionBuilder'
   import type { CardChoice } from '../cards/types'
+  import type { IssueSeed } from '../cards/types'
+  import type { ResponseIntent } from '../../../../src/sim/modules/issues/issueSeedTypes'
 
-  let reportOpen = $state(false)
-  /**
-   * Tracks the choice the player marked for each seed this day. The
-   * foundation pass doesn't actually pass these as responseIntents
-   * (phase 88 owns that); for now they're a visual commitment so
-   * cards don't feel inert.
-   */
-  let pendingChoices = $state<Record<string, { slotId: string; verb: string }>>({})
+  type Beat = 'morning' | 'plan' | 'service' | 'closing' | 'report'
+  type PendingChoice =
+    | { kind: 'choice'; slotId: string; verb: string; choice: CardChoice }
+    | { kind: 'ignore' }
 
-  const morningSeeds = $derived(
-    gameStore.todaysSeeds.filter((s) => s.timing === 'morning_prep'),
-  )
-  const cards = $derived(
+  let beat = $state<Beat>('morning')
+  let picks = $state<PickedAction[]>([])
+  let staffPriorities = $state<Record<string, string>>({})
+  let pendingBySeedId = $state<Record<string, PendingChoice>>({})
+
+  let pickerOpen = $state(false)
+  let staffSheetOpen = $state(false)
+  let transitioning = $state(false)
+
+  // ── Derived seed slices ───────────────────────────────────────────
+  const morningSeeds = $derived(gameStore.seedsForTiming('morning_prep'))
+  const serviceSeeds = $derived(gameStore.seedsForTiming('during_service'))
+  const closingSeeds = $derived([
+    ...gameStore.seedsForTiming('closing'),
+    ...gameStore.seedsForTiming('end_week'),
+    ...gameStore.seedsForTiming('end_month'),
+  ])
+
+  const morningCards = $derived(
     morningSeeds.map((seed) => ({
       seed,
-      view: renderMockCard(seed, gameStore.state),
-      pending: pendingChoices[seed.id],
+      view: renderCard(seed, gameStore.state),
+      pending: pendingBySeedId[seed.id],
     })),
   )
 
@@ -39,107 +77,257 @@
 
   const diffLines = $derived(significantDiffLines(gameStore.latestResult, 8))
 
-  function runService() {
-    // Phase 88 will translate `pendingChoices` into ResponseIntents
-    // here. For the foundation, we discard them and just advance.
-    gameStore.runDay()
-    pendingChoices = {}
-    reportOpen = true
+  // ── Beat transitions ──────────────────────────────────────────────
+  function startPlanning() {
+    beat = 'plan'
   }
 
-  function closeReport() {
-    reportOpen = false
+  function startService() {
+    // Pacing transition; 600ms feels like "service runs" without being
+    // a loading screen. Reduced-motion users skip the wait.
+    transitioning = true
+    beat = 'service'
   }
 
-  function chooseFromCard(seedId: string) {
+  function endTransition() {
+    transitioning = false
+  }
+
+  function startClosing() {
+    beat = 'closing'
+  }
+
+  function endDay() {
+    // Bundle every player input into one simulateDay call. This is the
+    // single mutation point per game-day.
+    const intents: ResponseIntent[] = []
+    for (const seed of [...morningSeeds, ...serviceSeeds, ...closingSeeds]) {
+      const pending = pendingBySeedId[seed.id]
+      if (!pending) continue
+      if (pending.kind === 'ignore') {
+        intents.push(buildIgnoreIntent(seed))
+      } else {
+        intents.push(buildIntent(seed, pending.choice))
+      }
+    }
+    gameStore.runDay({
+      ownerActions: picksToInputs(picks),
+      staffPriorities: { ...staffPriorities },
+      responseIntents: intents,
+    })
+    // Per-day inputs reset; staffPriorities persist (the player set
+    // them and should expect them to stick).
+    picks = []
+    pendingBySeedId = {}
+    beat = 'report'
+  }
+
+  function nextDay() {
+    beat = 'morning'
+  }
+
+  // ── Card resolution callbacks ─────────────────────────────────────
+  function resolveSeed(seedId: string, pending: PendingChoice) {
+    pendingBySeedId = { ...pendingBySeedId, [seedId]: pending }
+  }
+
+  function morningChooseFor(seed: IssueSeed) {
     return (slotId: string, choice: CardChoice) => {
-      pendingChoices = {
-        ...pendingChoices,
-        [seedId]: { slotId, verb: choice.verb },
-      }
+      resolveSeed(seed.id, { kind: 'choice', slotId, verb: choice.verb, choice })
+    }
+  }
+  function morningIgnoreFor(seed: IssueSeed) {
+    return () => {
+      resolveSeed(seed.id, { kind: 'ignore' })
     }
   }
 
-  function ignoreCard(seedId: string) {
-    return () => {
-      pendingChoices = {
-        ...pendingChoices,
-        [seedId]: { slotId: 'ignore', verb: 'ignore' },
-      }
-    }
+  // CardDeck completion: when the deck is fully resolved, surface a
+  // Continue button rather than auto-advancing — auto-advance feels
+  // pulled-out-from-under on mobile.
+  let serviceComplete = $state(false)
+  let closingComplete = $state(false)
+
+  function onServiceComplete() {
+    serviceComplete = true
+  }
+  function onClosingComplete() {
+    closingComplete = true
   }
 </script>
 
+{#if transitioning}
+  <BeatTransition show={true} label="Service runs." oncomplete={endTransition} />
+{/if}
+
 <main class="day">
-  <section class="block" aria-label="At a glance">
-    <div class="glance mono">
-      <span><Icon name="coin" size={13} /> {gameStore.state.coin}</span>
-      <span><Icon name="staff" size={13} /> {staffCount} staff</span>
-      <span><Icon name="stock" size={13} /> {stockSummary}</span>
-    </div>
-  </section>
-
-  <section class="block" aria-label="Pressures">
-    <h2 class="block-label tag">Rising</h2>
-    <PressureRibbon />
-  </section>
-
-  <section class="block" aria-label="Morning">
-    <h2 class="block-label tag">Morning</h2>
-    {#if cards.length === 0}
-      <p class="quiet">
-        the tavern is quiet. no urgent matters this morning.
-      </p>
-    {:else}
-      <div class="card-stack">
-        {#each cards as { seed, view, pending } (seed.id)}
-          <div class="card-wrap" class:resolved={!!pending}>
-            <CardRenderer
-              card={view}
-              onchoose={chooseFromCard(seed.id)}
-              onignore={ignoreCard(seed.id)}
-            />
-            {#if pending}
-              <div class="pending tag">
-                noted: <strong>{pending.verb}</strong>
-              </div>
-            {/if}
-          </div>
-        {/each}
+  <!-- ─── Beat 1: Morning ────────────────────────────────────────── -->
+  {#if beat === 'morning'}
+    <section class="block" aria-label="At a glance">
+      <div class="glance mono">
+        <span><Icon name="coin" size={13} /> {gameStore.state.coin}</span>
+        <span><Icon name="staff" size={13} /> {staffCount} staff</span>
+        <span><Icon name="stock" size={13} /> {stockSummary}</span>
       </div>
-    {/if}
-  </section>
+    </section>
 
-  <section class="block" aria-label="Run">
-    <button class="run-btn" type="button" onclick={runService}>
-      Run Service
-    </button>
-    <p class="run-note tag">
-      no owner actions · staff on default priorities
-    </p>
-  </section>
-</main>
+    <section class="block" aria-label="Pressures">
+      <h2 class="block-label tag">Rising</h2>
+      <PressureRibbon />
+    </section>
 
-{#if reportOpen && gameStore.latestResult}
-  <div
-    class="report-backdrop"
-    onclick={closeReport}
-    onkeydown={(e) => e.key === 'Escape' && closeReport()}
-    role="presentation"
-  >
-    <div
-      class="report rise-in"
-      role="dialog"
-      tabindex="-1"
-      aria-modal="true"
-      aria-labelledby="report-title"
-      onclick={(e) => e.stopPropagation()}
-      onkeydown={(e) => e.stopPropagation()}
-    >
-      <header class="report-head">
-        <h2 id="report-title" class="display report-title">Day Closed</h2>
-        <span class="tag">significant changes</span>
-      </header>
+    <section class="block" aria-label="Morning">
+      <h2 class="block-label tag">Morning</h2>
+      {#if morningCards.length === 0}
+        <p class="quiet">
+          the tavern is quiet. no urgent matters this morning.
+        </p>
+      {:else}
+        <div class="card-stack">
+          {#each morningCards as { seed, view, pending } (seed.id)}
+            <div class="card-wrap" class:resolved={!!pending}>
+              <CardRenderer
+                card={view}
+                onchoose={morningChooseFor(seed)}
+                onignore={morningIgnoreFor(seed)}
+              />
+              {#if pending}
+                <div class="pending tag">
+                  {#if pending.kind === 'ignore'}
+                    ignored
+                  {:else}
+                    noted: <strong>{pending.verb}</strong>
+                  {/if}
+                </div>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </section>
+
+    <section class="block actions" aria-label="Continue">
+      <button class="primary" type="button" onclick={startPlanning}>
+        Plan the day
+      </button>
+    </section>
+  {/if}
+
+  <!-- ─── Beat 2: Plan ────────────────────────────────────────────── -->
+  {#if beat === 'plan'}
+    <section class="block" aria-label="Planning summary">
+      <h2 class="block-label tag">Plan the day</h2>
+      <p class="lede">
+        Pick up to 3 owner actions, set staff priorities. Service runs after.
+      </p>
+    </section>
+
+    <section class="block">
+      <div class="plan-rows">
+        <div class="plan-row">
+          <div>
+            <p class="plan-title">Owner actions</p>
+            <p class="plan-sub tag">
+              {picks.length === 0
+                ? 'none yet'
+                : picks.length === 1
+                  ? '1 action picked'
+                  : `${picks.length} actions picked`}
+            </p>
+          </div>
+          <button class="secondary" type="button" onclick={() => (pickerOpen = true)}>
+            {picks.length === 0 ? 'Pick' : 'Edit'}
+          </button>
+        </div>
+
+        <div class="plan-row">
+          <div>
+            <p class="plan-title">Staff priorities</p>
+            <p class="plan-sub tag">
+              {Object.keys(staffPriorities).length === 0
+                ? 'using defaults'
+                : `${Object.keys(staffPriorities).length} customised`}
+            </p>
+          </div>
+          <button class="secondary" type="button" onclick={() => (staffSheetOpen = true)}>
+            Set
+          </button>
+        </div>
+      </div>
+
+      {#if picks.length > 0}
+        <ul class="picks-list mono">
+          {#each picks as p (p.pickId)}
+            <li>
+              · {p.label}{#if p.targetLabel}: {p.targetLabel}{/if}
+              <span class="picks-cost">({p.actionPointCost} pt)</span>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+
+    <section class="block actions">
+      <button class="ghost" type="button" onclick={() => (beat = 'morning')}>
+        ← back
+      </button>
+      <button class="primary" type="button" onclick={startService}>
+        Run service
+      </button>
+    </section>
+  {/if}
+
+  <!-- ─── Beat 3: Service ────────────────────────────────────────── -->
+  {#if beat === 'service' && !transitioning}
+    <section class="block" aria-label="During service">
+      <h2 class="block-label tag">Service</h2>
+      {#if serviceSeeds.length === 0}
+        <p class="quiet">service runs quietly. nothing to react to.</p>
+      {:else}
+        <CardDeck
+          seeds={serviceSeeds}
+          {pendingBySeedId}
+          onresolve={resolveSeed}
+          oncomplete={onServiceComplete}
+        />
+      {/if}
+    </section>
+
+    <section class="block actions">
+      <button class="primary" type="button" onclick={startClosing}>
+        {serviceSeeds.length === 0 || serviceComplete ? 'Closing time →' : 'Skip to closing →'}
+      </button>
+    </section>
+  {/if}
+
+  <!-- ─── Beat 4: Closing ────────────────────────────────────────── -->
+  {#if beat === 'closing'}
+    <section class="block" aria-label="Closing">
+      <h2 class="block-label tag">Closing</h2>
+      {#if closingSeeds.length === 0}
+        <p class="quiet">nothing left to resolve. close up?</p>
+      {:else}
+        <CardDeck
+          seeds={closingSeeds}
+          {pendingBySeedId}
+          onresolve={resolveSeed}
+          oncomplete={onClosingComplete}
+        />
+      {/if}
+    </section>
+
+    <section class="block actions">
+      <button class="primary" type="button" onclick={endDay}>
+        End day
+      </button>
+    </section>
+  {/if}
+
+  <!-- ─── Beat 5: Report ─────────────────────────────────────────── -->
+  {#if beat === 'report' && gameStore.latestResult}
+    <section class="block" aria-label="Day closed">
+      <h2 class="block-label tag">Day closed</h2>
+      <p class="lede">Significant changes today.</p>
       {#if diffLines.length === 0}
         <p class="quiet">a quiet day. nothing crossed a threshold.</p>
       {:else}
@@ -154,12 +342,29 @@
           {/each}
         </ul>
       {/if}
-      <button class="next" type="button" onclick={closeReport}>
-        Next Day
+    </section>
+
+    <section class="block actions">
+      <button class="primary" type="button" onclick={nextDay}>
+        Next day
       </button>
-    </div>
-  </div>
-{/if}
+    </section>
+  {/if}
+</main>
+
+<!-- ─── Sheets ──────────────────────────────────────────────────── -->
+<ActionPicker
+  open={pickerOpen}
+  {picks}
+  onclose={() => (pickerOpen = false)}
+  onchange={(next) => (picks = next)}
+/>
+<StaffPrioritySheet
+  open={staffSheetOpen}
+  priorities={staffPriorities}
+  onclose={() => (staffSheetOpen = false)}
+  onchange={(next) => (staffPriorities = next)}
+/>
 
 <style>
   .day {
@@ -198,6 +403,12 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
+  }
+
+  .lede {
+    color: var(--text-dim);
+    font-style: italic;
+    font-size: 15px;
   }
 
   .quiet {
@@ -241,12 +452,19 @@
     font-weight: 500;
   }
 
-  .run-btn {
+  .actions {
+    flex-direction: row;
+    gap: var(--sp-sm);
+    align-items: center;
+  }
+
+  .primary {
+    flex: 1;
     font-family: var(--font-display);
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    font-size: 15px;
+    font-size: 14px;
     color: var(--accent);
     background: transparent;
     border: 1px solid var(--accent);
@@ -256,66 +474,80 @@
     transition: background var(--m-fast) var(--ease);
   }
 
-  .run-btn:hover,
-  .run-btn:focus-visible {
+  .primary:hover,
+  .primary:focus-visible {
     background: color-mix(in srgb, var(--accent) 12%, transparent);
   }
 
-  .run-note {
+  .secondary {
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid color-mix(in srgb, var(--candle-soft) 50%, transparent);
+    min-height: 40px;
+    transition: border-color var(--m-fast) var(--ease);
+  }
+
+  .secondary:hover,
+  .secondary:focus-visible {
+    border-color: var(--accent);
+  }
+
+  .ghost {
+    font-family: var(--font-body);
+    font-size: 14px;
     color: var(--text-faint);
-    text-align: center;
-    margin-top: var(--sp-xs);
+    padding: 8px 14px;
+    min-height: 40px;
   }
 
-  /* ─── Report dialog ─────────────────────────────────────────────── */
-
-  .report-backdrop {
-    position: fixed;
-    inset: 0;
-    background: color-mix(in srgb, var(--ink-deep) 80%, transparent);
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    z-index: 50;
-    padding: var(--sp-md);
-  }
-
-  .report {
-    background: var(--surface-raised);
-    border: var(--border);
-    border-radius: var(--radius-md) var(--radius-md) 0 0;
-    padding: var(--sp-lg) var(--sp-md);
-    max-width: var(--max-content);
-    width: 100%;
-    max-height: 80vh;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-md);
-    box-shadow: var(--shadow-md);
-  }
-
-  @media (min-width: 560px) {
-    .report-backdrop {
-      align-items: center;
-    }
-    .report {
-      border-radius: var(--radius-md);
-    }
-  }
-
-  .report-head {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    border-bottom: var(--border-faint);
-    padding-bottom: var(--sp-sm);
-  }
-
-  .report-title {
-    font-size: 22px;
+  .ghost:hover,
+  .ghost:focus-visible {
     color: var(--text);
   }
+
+  .plan-rows {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xs);
+  }
+
+  .plan-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-md);
+    padding: var(--sp-sm) var(--sp-md);
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    border: var(--border-faint);
+  }
+
+  .plan-title {
+    font-family: var(--font-body);
+    color: var(--text);
+    font-size: 16px;
+  }
+
+  .plan-sub {
+    margin-top: 2px;
+    color: var(--text-faint);
+  }
+
+  .picks-list {
+    color: var(--text-dim);
+    margin-top: var(--sp-sm);
+    padding-left: var(--sp-md);
+  }
+
+  .picks-cost {
+    color: var(--text-faint);
+    margin-left: var(--sp-xxs);
+  }
+
+  /* ─── Report ───────────────────────────────────────────────────── */
 
   .diff-list {
     display: flex;
@@ -350,24 +582,5 @@
 
   .diff-text {
     color: var(--text-dim);
-  }
-
-  .next {
-    font-family: var(--font-display);
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    font-size: 14px;
-    color: var(--accent);
-    border: 1px solid var(--accent);
-    border-radius: var(--radius-sm);
-    padding: 12px;
-    min-height: 48px;
-    margin-top: var(--sp-xs);
-  }
-
-  .next:hover,
-  .next:focus-visible {
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
   }
 </style>

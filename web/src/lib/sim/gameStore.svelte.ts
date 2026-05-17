@@ -55,6 +55,11 @@ class GameStore {
     const raw = slot?.seedsToday ?? []
     return (raw as IssueSeed[]).filter((s) => s.validation?.valid === true)
   }
+
+  /** Seeds filtered to a single timing slot (morning_prep / during_service / closing / end_week / end_month). */
+  seedsForTiming(timing: IssueSeed['timing']): IssueSeed[] {
+    return this.todaysSeeds.filter((s) => s.timing === timing)
+  }
 }
 
 export const gameStore = new GameStore()

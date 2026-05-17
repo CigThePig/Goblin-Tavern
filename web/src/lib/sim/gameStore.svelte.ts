@@ -9,6 +9,7 @@ import { simulateDay } from '../../../../src/sim/core/engine'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
 import { FULL_PIPELINE } from '../../../../src/sim/testing/simRunner'
 import type { TavernState } from '../../../../src/sim/state/TavernState'
+import type { CalendarState } from '../../../../src/sim/modules/calendar/types'
 import type { SimInput } from '../../../../src/sim/core/context'
 import type { SimResult } from '../../../../src/sim/core/result'
 import type { IssueSeed } from '../../../../src/sim/modules/issues/issueSeedTypes'
@@ -16,6 +17,13 @@ import type { IssueSeed } from '../../../../src/sim/modules/issues/issueSeedType
 class GameStore {
   state: TavernState = $state(createInitialTavernState())
   latestResult: SimResult | undefined = $state(undefined)
+  /**
+   * The calendar snapshotted BEFORE the most recent `runDay` call.
+   * The Daily Report needs this because the engine advances the
+   * calendar in its final phase, so `state.calendar` post-runDay is
+   * tomorrow's calendar; the just-closed day's calendar is here.
+   */
+  previousCalendar: CalendarState | undefined = $state(undefined)
   seedString: string = $state('crooked-keg')
 
   /**
@@ -31,6 +39,9 @@ class GameStore {
       ...(input.staffPriorities ? { staffPriorities: input.staffPriorities } : {}),
       ...(input.responseIntents ? { responseIntents: input.responseIntents } : {}),
     }
+    // Snapshot the calendar BEFORE simulateDay advances it so the
+    // post-day report can render an accurate "Day N closed" header.
+    this.previousCalendar = { ...this.state.calendar, tags: [...this.state.calendar.tags] }
     const result = simulateDay(this.state, fullInput, FULL_PIPELINE)
     this.state = result.state
     this.latestResult = result
@@ -45,6 +56,7 @@ class GameStore {
     if (seed) this.seedString = seed
     this.state = createInitialTavernState()
     this.latestResult = undefined
+    this.previousCalendar = undefined
   }
 
   /** Issue seeds the sim produced on the most recent day, valid only. */

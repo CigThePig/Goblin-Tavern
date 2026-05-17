@@ -1,0 +1,172 @@
+<!--
+  CauseDrilldown — bottom sheet showing the causes that contributed to
+  a given diff path or pressure id on the day just closed.
+
+  Reads `state.causes` via the projection helper. The list is already
+  filtered to today's absolute day and sorted by weight desc.
+-->
+<script lang="ts">
+  import BottomSheet from './BottomSheet.svelte'
+  import { gameStore } from '../sim/gameStore.svelte'
+  import {
+    causesForPath,
+    formatDiffPathTitle,
+  } from '../../../../src/reports/index'
+  import type { CauseEntry } from '../../../../src/sim/state/TavernState'
+
+  let {
+    open,
+    path,
+    onclose,
+  }: {
+    open: boolean
+    /** Diff path (e.g. `reputation.tasty`) or pressure path (`pressures.<id>`). */
+    path: string | undefined
+    onclose: () => void
+  } = $props()
+
+  const title = $derived(path ? formatDiffPathTitle(path) : '')
+  const causes = $derived.by<CauseEntry[]>(() => {
+    if (!path) return []
+    return causesForPath(gameStore.state, path, { limit: 10 })
+  })
+
+  // The weight bar uses the maximum weight in the list as 100% so the
+  // visual is relative — even small absolute weights look meaningful
+  // when they're the dominant cause that day.
+  const maxWeight = $derived(causes.reduce((m, c) => Math.max(m, c.weight), 1))
+
+  function weightPct(c: CauseEntry): number {
+    return Math.max(4, Math.min(100, (c.weight / maxWeight) * 100))
+  }
+
+  function directionMark(dir: CauseEntry['direction']): string {
+    if (dir === 'increase') return '+'
+    if (dir === 'decrease') return '−'
+    return '·'
+  }
+
+  function actorLabel(c: CauseEntry): string {
+    const refs = [...c.relatedActors, ...c.relatedLocations]
+    if (refs.length === 0) return ''
+    return refs
+      .slice(0, 2)
+      .map((r) => `${r.kind}/${r.id}`)
+      .join(', ')
+  }
+</script>
+
+<BottomSheet {open} {title} {onclose}>
+  {#if !path}
+    <p class="quiet">no path selected</p>
+  {:else if causes.length === 0}
+    <p class="quiet">no causes recorded for this change today.</p>
+  {:else}
+    <ul class="cause-list">
+      {#each causes as cause (cause.id)}
+        <li class="cause">
+          <div class="cause-head">
+            <span class="mark" data-dir={cause.direction}>{directionMark(cause.direction)}</span>
+            <span class="readable">{cause.readable}</span>
+            <span class="amount mono" data-dir={cause.direction}>
+              {cause.amount > 0 ? '+' : ''}{cause.amount}
+            </span>
+          </div>
+          <div class="weight-track">
+            <div class="weight-fill" style="width: {weightPct(cause)}%"></div>
+          </div>
+          <div class="cause-meta tag">
+            <span>weight {Math.round(cause.weight)}</span>
+            {#if actorLabel(cause)}
+              <span>· {actorLabel(cause)}</span>
+            {/if}
+          </div>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+</BottomSheet>
+
+<style>
+  .quiet {
+    color: var(--text-faint);
+    font-style: italic;
+    text-align: center;
+    padding: var(--sp-lg) 0;
+  }
+
+  .cause-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-sm);
+  }
+
+  .cause {
+    background: var(--ink-deep);
+    border: var(--border-faint);
+    border-radius: var(--radius-sm);
+    padding: var(--sp-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xs);
+  }
+
+  .cause-head {
+    display: grid;
+    grid-template-columns: 16px 1fr auto;
+    gap: var(--sp-xs);
+    align-items: baseline;
+  }
+
+  .mark {
+    font-family: var(--font-mono);
+    text-align: center;
+  }
+
+  .mark[data-dir='increase'] {
+    color: var(--gain);
+  }
+  .mark[data-dir='decrease'] {
+    color: var(--loss);
+  }
+  .mark[data-dir='neutral'] {
+    color: var(--text-faint);
+  }
+
+  .readable {
+    color: var(--text-dim);
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  .amount {
+    color: var(--text-dim);
+  }
+
+  .amount[data-dir='increase'] {
+    color: var(--gain);
+  }
+  .amount[data-dir='decrease'] {
+    color: var(--loss);
+  }
+
+  .weight-track {
+    height: 3px;
+    background: color-mix(in srgb, var(--ink) 70%, var(--ash) 30%);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .weight-fill {
+    height: 100%;
+    background: var(--candle-soft);
+    border-radius: 2px;
+    transition: width var(--m-base) var(--ease);
+  }
+
+  .cause-meta {
+    color: var(--text-faint);
+    display: flex;
+    gap: var(--sp-xs);
+  }
+</style>

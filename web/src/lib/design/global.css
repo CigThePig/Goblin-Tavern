@@ -1,0 +1,264 @@
+/* Goblin Tavern — global styles & design tokens
+ *
+ * Dark mode is the default ("tavern at night"). Light mode flips to a
+ * parchment palette via prefers-color-scheme. All motion gated on
+ * prefers-reduced-motion.
+ */
+
+:root {
+  /* Palette — dark / tavern at night */
+  --ink-deep: #14100c;
+  --ink: #1f1812;
+  --ink-raised: #2a2018;
+  --parchment: #e8dcc4;
+  --parchment-dim: #c8bca0;
+  --ash: #8a8170;
+  --candle: #d4a460;
+  --candle-soft: #8a6a3a;
+  --blood: #a8413a;
+  --moss: #6a8a4a;
+  --rust: #b8632c;
+  --seal: #5a2a2a;
+
+  /* Semantic */
+  --bg: var(--ink-deep);
+  --surface: var(--ink);
+  --surface-raised: var(--ink-raised);
+  --text: var(--parchment);
+  --text-dim: var(--parchment-dim);
+  --text-faint: var(--ash);
+  --accent: var(--candle);
+  --accent-soft: var(--candle-soft);
+  --loss: var(--blood);
+  --gain: var(--moss);
+  --risk: var(--rust);
+
+  /* Typography */
+  --font-display: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  --font-body: 'EB Garamond', Georgia, 'Times New Roman', serif;
+  --font-mono: 'IBM Plex Mono', 'SF Mono', Menlo, Consolas, monospace;
+
+  --type-display: 28px;
+  --type-display-lg: 34px;
+  --type-heading: 21px;
+  --type-body: 17px;
+  --type-mono: 14px;
+  --type-tag: 12px;
+
+  --line-tight: 1.25;
+  --line-body: 1.55;
+
+  /* Spacing */
+  --sp-xxs: 4px;
+  --sp-xs: 8px;
+  --sp-sm: 12px;
+  --sp-md: 16px;
+  --sp-lg: 24px;
+  --sp-xl: 32px;
+  --sp-xxl: 48px;
+
+  /* Layout */
+  --max-content: 560px;
+  --nav-h: 64px;
+  --topbar-h: 52px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --border: 1px solid var(--candle-soft);
+  --border-faint: 1px solid color-mix(in srgb, var(--candle-soft) 40%, transparent);
+
+  /* Elevation — warm candlelight bias */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4),
+    0 0 0 1px color-mix(in srgb, var(--candle) 8%, transparent);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5),
+    0 0 0 1px color-mix(in srgb, var(--candle) 12%, transparent);
+
+  /* Motion */
+  --m-fast: 150ms;
+  --m-base: 180ms;
+  --m-slow: 220ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Parchment mode — opt-in via prefers-color-scheme or [data-theme="light"] */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --bg: #ede1c8;
+    --surface: #e2d4b6;
+    --surface-raised: #d8c9a8;
+    --text: #2a2018;
+    --text-dim: #5a4a38;
+    --text-faint: #8a7a60;
+    --accent: #8a4a1a;
+    --accent-soft: #b87a3a;
+    --shadow-sm: 0 1px 2px rgba(50, 30, 10, 0.15);
+    --shadow-md: 0 4px 10px rgba(50, 30, 10, 0.2);
+  }
+}
+
+[data-theme='light'] {
+  --bg: #ede1c8;
+  --surface: #e2d4b6;
+  --surface-raised: #d8c9a8;
+  --text: #2a2018;
+  --text-dim: #5a4a38;
+  --text-faint: #8a7a60;
+  --accent: #8a4a1a;
+  --accent-soft: #b87a3a;
+}
+
+/* ─── Reset & defaults ─────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--type-body);
+  line-height: var(--line-body);
+  font-feature-settings: 'kern', 'liga', 'onum';
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+#app {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 500;
+  line-height: var(--line-tight);
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+ul,
+ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* ─── Utilities ────────────────────────────────────────────────────── */
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.heading {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-style: italic;
+  font-size: var(--type-heading);
+  color: var(--text);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--type-mono);
+  letter-spacing: -0.01em;
+}
+
+.tag {
+  font-family: var(--font-body);
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+  font-size: var(--type-tag);
+  color: var(--text-faint);
+}
+
+.parchment-grain {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--candle) 4%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 3px 3px;
+}
+
+/* ─── Motion ───────────────────────────────────────────────────────── */
+
+@keyframes flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  35% {
+    opacity: 0.95;
+  }
+  70% {
+    opacity: 0.92;
+  }
+}
+
+.flicker {
+  animation: flicker 1.6s ease-in-out infinite;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise-in {
+  animation: rise-in var(--m-base) var(--ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .flicker {
+    animation: none;
+    opacity: 1;
+  }
+}

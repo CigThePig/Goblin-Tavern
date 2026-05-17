@@ -223,8 +223,18 @@ export type MonthlyModuleState = {
   currentModifier: MonthModifier
   /** The accumulator buffer for the in-progress month. */
   accumulator: MonthlyAccumulator
-  /** Last finalized monthly result; cleared at the start of a new month. */
+  /**
+   * Last finalized monthly result. Set on `endMonth`; persists across
+   * the next month until the next `endMonth` replaces it. Pre-Phase-91
+   * saves (and fresh saves before day 28) see this as `undefined`.
+   */
   lastMonthlyResult?: MonthlyResult
+  /**
+   * Phase 91 — Bounded buffer of recent finalized monthly results,
+   * oldest first. Append-on-finalize; truncate from the front when
+   * length exceeds `MAX_MONTHLY_HISTORY` (12 months ≈ 1 calendar year).
+   */
+  monthlyHistory: MonthlyResult[]
   /** Has the current accumulation window already had endMonth run on it? */
   monthFinalized: boolean
 }

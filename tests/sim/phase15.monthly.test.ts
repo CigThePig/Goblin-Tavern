@@ -140,12 +140,19 @@ describe('Phase 15 §15.1 — endMonth gating', () => {
   it('the monthly accumulator resets at the start of the next month', () => {
     const base = withCoin(plentyOfStock(createInitialTavernState()), 600)
     const afterMonth1 = runMonth(base)
-    expect(getMonthlyModuleState(afterMonth1).monthFinalized).toBe(true)
+    const month1Slice = getMonthlyModuleState(afterMonth1)
+    expect(month1Slice.monthFinalized).toBe(true)
+    const month1Key = month1Slice.lastMonthlyResult!.monthKey
 
     const day29 = runDay(afterMonth1).state
     const slice = getMonthlyModuleState(day29)
     expect(slice.monthFinalized).toBe(false)
-    expect(slice.lastMonthlyResult).toBeUndefined()
+    // Phase 91 — `lastMonthlyResult` now persists across the next
+    // month so the Reports → Monthly screen can read it beyond day 28
+    // (the wipe used to leave the screen empty for 27/28 days). The
+    // accumulator still resets cleanly for the new month.
+    expect(slice.lastMonthlyResult).toBeDefined()
+    expect(slice.lastMonthlyResult!.monthKey).toBe(month1Key)
     expect(slice.monthNumber).toBe(2)
     expect(slice.accumulator.weekKeys.length).toBe(0)
   })

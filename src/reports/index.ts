@@ -5,6 +5,7 @@
 
 export { buildDailyReport, formatDiffPathTitle } from './dailyReportProjection'
 export { buildWeeklyOverview } from './weeklyOverviewProjection'
+export { buildMonthlyOverview } from './monthlyOverviewProjection'
 export {
   causesForPath,
   causesForPressure,
@@ -53,3 +54,22 @@ export type {
   WeeklyOverviewStaff,
   WeeklyOverviewWages,
 } from './weeklyOverviewProjection'
+export type {
+  MonthlyComparison,
+  MonthlyOverviewArc,
+  MonthlyOverviewCustomers,
+  MonthlyOverviewData,
+  MonthlyOverviewEconomy,
+  MonthlyOverviewEmptyReason,
+  MonthlyOverviewHeader,
+  MonthlyOverviewInspection,
+  MonthlyOverviewLandlord,
+  MonthlyOverviewModifier,
+  MonthlyOverviewPressureRow,
+  MonthlyOverviewPressures,
+  MonthlyOverviewRent,
+  MonthlyOverviewReputation,
+  MonthlyOverviewReputationRow,
+  MonthlyOverviewRival,
+  MonthlyOverviewUpgradeRow,
+} from './monthlyOverviewProjection'

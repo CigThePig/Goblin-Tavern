@@ -5,18 +5,24 @@
 
   Today renders the daily report for `gameStore.latestResult`.
   Pressures renders the all-21 dashboard.
-  Weekly / Monthly / Log are stubs with a one-line "available in phase N"
-  note — Phases 90, 91, and 94 fill them.
+  Weekly / Monthly read the persistent sim-side overviews from their
+  respective projections (Phases 90 / 91). Log is a stub for Phase 94.
 -->
 <script lang="ts">
   import DailyReport from '../components/DailyReport.svelte'
   import PressuresDashboard from '../components/PressuresDashboard.svelte'
   import WeeklyOverview from '../components/WeeklyOverview.svelte'
+  import MonthlyOverview from '../components/MonthlyOverview.svelte'
   import CauseDrilldown from '../components/CauseDrilldown.svelte'
   import { gameStore } from '../sim/gameStore.svelte'
-  import { buildDailyReport, buildWeeklyOverview } from '../../../../src/reports/index'
+  import {
+    buildDailyReport,
+    buildMonthlyOverview,
+    buildWeeklyOverview,
+  } from '../../../../src/reports/index'
   import type { DailyReportData } from '../../../../src/reports/types'
   import type { WeeklyOverviewData } from '../../../../src/reports/weeklyOverviewProjection'
+  import type { MonthlyOverviewData } from '../../../../src/reports/monthlyOverviewProjection'
 
   type Subview = 'today' | 'pressures' | 'weekly' | 'monthly' | 'log'
 
@@ -39,6 +45,9 @@
   })
 
   const weeklyOverview = $derived<WeeklyOverviewData>(buildWeeklyOverview(gameStore.state))
+  const monthlyOverview = $derived<MonthlyOverviewData>(
+    buildMonthlyOverview(gameStore.state),
+  )
 
   let pressureDrilldownPath = $state<string | undefined>(undefined)
   let pressureDrilldownOpen = $state(false)
@@ -50,6 +59,10 @@
 
   function closePressureDrilldown() {
     pressureDrilldownOpen = false
+  }
+
+  function navigateToPressures() {
+    subview = 'pressures'
   }
 </script>
 
@@ -82,9 +95,10 @@
     {:else if subview === 'weekly'}
       <WeeklyOverview data={weeklyOverview} />
     {:else if subview === 'monthly'}
-      <p class="placeholder">
-        Monthly overview — rent, landlord, inspection status, reputation profile, active arcs — lands in phase 91.
-      </p>
+      <MonthlyOverview
+        data={monthlyOverview}
+        onnavigatepressures={navigateToPressures}
+      />
     {:else if subview === 'log'}
       <p class="placeholder">
         Tavern Log — append-only timeline of every owner action, service incident, weekly close, and memory — lands in phase 94.

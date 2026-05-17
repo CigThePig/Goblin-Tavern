@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
   import { gameStore } from '../sim/gameStore.svelte'
+  import { glossaryStore } from '../glossary/glossaryStore.svelte'
 
   const cal = $derived(gameStore.state.calendar)
   const dayLabel = $derived(
@@ -14,6 +15,10 @@
       .map((w) => w[0]!.toUpperCase() + w.slice(1))
       .join(' ')
   }
+
+  function openGlossary() {
+    glossaryStore.show()
+  }
 </script>
 
 <header class="topbar">
@@ -23,9 +28,19 @@
   <div class="day">
     <span class="day-line">{dayLabel}</span>
   </div>
-  <div class="coin mono">
-    <Icon name="coin" size={14} />
-    <span>{coin}</span>
+  <div class="right">
+    <div class="coin mono">
+      <Icon name="coin" size={14} />
+      <span>{coin}</span>
+    </div>
+    <button
+      type="button"
+      class="help"
+      aria-label="Open glossary"
+      onclick={openGlossary}
+    >
+      ?
+    </button>
   </div>
 </header>
 
@@ -68,10 +83,37 @@
     max-width: 100%;
   }
 
+  .right {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-sm);
+  }
+
   .coin {
     display: inline-flex;
     align-items: center;
     gap: 4px;
     color: var(--accent);
+  }
+
+  .help {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+    color: var(--text-faint);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color var(--m-fast) var(--ease), border-color var(--m-fast) var(--ease);
+  }
+
+  .help:hover,
+  .help:focus-visible {
+    color: var(--accent);
+    border-color: var(--accent);
   }
 </style>

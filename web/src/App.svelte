@@ -3,7 +3,10 @@
   import AppShell from './lib/components/AppShell.svelte'
   import StartScreen from './lib/screens/StartScreen.svelte'
   import DayScreen from './lib/screens/DayScreen.svelte'
+  import ReportsScreen from './lib/screens/ReportsScreen.svelte'
   import ComingSoon from './lib/screens/ComingSoon.svelte'
+  import Glossary from './lib/components/Glossary.svelte'
+  import { glossaryStore } from './lib/glossary/glossaryStore.svelte'
   import type { Route } from './lib/components/BottomNav.svelte'
 
   type View = 'start' | Route
@@ -26,10 +29,7 @@
     {#if view === 'day'}
       <DayScreen />
     {:else if view === 'reports'}
-      <ComingSoon
-        title="Reports"
-        body="Daily, weekly, monthly digests. Pressures dashboard. Tavern Log. Wiring up in phase 89."
-      />
+      <ReportsScreen />
     {:else if view === 'tavern'}
       <ComingSoon
         title="Tavern"
@@ -43,3 +43,9 @@
     {/if}
   </AppShell>
 {/if}
+
+<Glossary
+  open={glossaryStore.open}
+  anchorTerm={glossaryStore.anchorTerm}
+  onclose={() => glossaryStore.close()}
+/>

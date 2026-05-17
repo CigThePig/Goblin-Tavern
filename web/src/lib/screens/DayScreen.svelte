@@ -22,10 +22,11 @@
   import BeatTransition from '../components/BeatTransition.svelte'
   import ActionPicker from '../components/ActionPicker.svelte'
   import StaffPrioritySheet from '../components/StaffPrioritySheet.svelte'
+  import DailyReport from '../components/DailyReport.svelte'
   import { renderCard } from '../cards/realCardRegistry'
   import { gameStore } from '../sim/gameStore.svelte'
-  import { significantDiffLines } from '../sim/significantDiffs'
   import { buildIntent, buildIgnoreIntent } from '../sim/intentBuilder'
+  import { buildDailyReport } from '../../../../src/reports/index'
   import {
     picksToInputs,
     type PickedAction,
@@ -75,7 +76,19 @@
     return parts.join(' · ')
   })
 
-  const diffLines = $derived(significantDiffLines(gameStore.latestResult, 8))
+  const dailyReport = $derived.by(() => {
+    const result = gameStore.latestResult
+    if (!result) return undefined
+    return buildDailyReport(result, gameStore.state, {
+      ...(gameStore.previousCalendar ? { previousCalendar: gameStore.previousCalendar } : {}),
+    })
+  })
+
+  const nextDayLabel = $derived.by(() => {
+    if (dailyReport?.header.isEndOfMonth) return 'Close the month'
+    if (dailyReport?.header.isEndOfWeek) return 'Close the week'
+    return 'Next day'
+  })
 
   // ── Beat transitions ──────────────────────────────────────────────
   function startPlanning() {
@@ -324,29 +337,12 @@
   {/if}
 
   <!-- ─── Beat 5: Report ─────────────────────────────────────────── -->
-  {#if beat === 'report' && gameStore.latestResult}
-    <section class="block" aria-label="Day closed">
-      <h2 class="block-label tag">Day closed</h2>
-      <p class="lede">Significant changes today.</p>
-      {#if diffLines.length === 0}
-        <p class="quiet">a quiet day. nothing crossed a threshold.</p>
-      {:else}
-        <ul class="diff-list">
-          {#each diffLines as d (d.path)}
-            <li class="diff-row">
-              <span class="diff-mark" data-dir={d.direction}>
-                {d.direction === 'gain' ? '+' : d.direction === 'loss' ? '−' : '·'}
-              </span>
-              <span class="diff-text">{d.readable}</span>
-            </li>
-          {/each}
-        </ul>
-      {/if}
-    </section>
+  {#if beat === 'report' && dailyReport}
+    <DailyReport report={dailyReport} />
 
     <section class="block actions">
       <button class="primary" type="button" onclick={nextDay}>
-        Next day
+        {nextDayLabel}
       </button>
     </section>
   {/if}
@@ -547,40 +543,5 @@
     margin-left: var(--sp-xxs);
   }
 
-  /* ─── Report ───────────────────────────────────────────────────── */
-
-  .diff-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-xs);
-  }
-
-  .diff-row {
-    display: grid;
-    grid-template-columns: 16px 1fr;
-    gap: var(--sp-xs);
-    align-items: baseline;
-    font-family: var(--font-body);
-    font-size: 15px;
-    line-height: 1.4;
-  }
-
-  .diff-mark {
-    font-family: var(--font-mono);
-    text-align: center;
-  }
-
-  .diff-mark[data-dir='gain'] {
-    color: var(--gain);
-  }
-  .diff-mark[data-dir='loss'] {
-    color: var(--loss);
-  }
-  .diff-mark[data-dir='neutral'] {
-    color: var(--text-faint);
-  }
-
-  .diff-text {
-    color: var(--text-dim);
-  }
+  /* ─── Report styling lives in DailyReport.svelte ─────────────────── */
 </style>

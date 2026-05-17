@@ -15,6 +15,7 @@
   import { gameStore } from '../sim/gameStore.svelte'
   import {
     ACTION_POINT_BUDGET,
+    actionDisabledReason,
     categoryLabel,
     getActionCategories,
     listActionsByCategory,
@@ -67,7 +68,10 @@
   }
 
   function tapAction(def: OwnerActionDefinition) {
-    if (pointsLeft < def.actionPointCost) return
+    // ISSUE-048 — mirror the disabled check so a targeted action that
+    // fails `canApply` for every candidate target doesn't open the
+    // target sub-sheet only for the player to discover dead options.
+    if (actionDisabledReason(def, gameStore.state, pointsLeft) !== undefined) return
     // Global or target-less action: add immediately.
     if (!def.targetType || def.targetType === 'global') {
       addPick({
@@ -122,17 +126,11 @@
     targetOptions = []
   }
 
-  // Disabled reason for a candidate action row.
+  // Disabled reason for a candidate action row. Thin closure over
+  // `pointsLeft` so Svelte reactivity wires through; the actual check
+  // lives in `actionDisabledReason` (see web/src/lib/sim/actionBuilder).
   function disabledReason(def: OwnerActionDefinition): string | undefined {
-    if (def.actionPointCost > pointsLeft) return 'budget full'
-    if (
-      def.targetType &&
-      def.targetType !== 'global' &&
-      listValidTargets(def, gameStore.state).length === 0
-    ) {
-      return 'no valid targets'
-    }
-    return undefined
+    return actionDisabledReason(def, gameStore.state, pointsLeft)
   }
 </script>
 

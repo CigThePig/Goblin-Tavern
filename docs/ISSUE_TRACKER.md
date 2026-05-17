@@ -85,6 +85,8 @@ how to verify the fix.
 | ISSUE-044 | Supplier reliability + relationship do not affect pricing | thin | done | 84 |
 | ISSUE-045 | `content/text/descriptors.ts` pool still empty Phase 22 stub | thin | done | 85 |
 | ISSUE-046 | Staff-management owner actions (hire / fire / kick) missing | broken | done | 86 |
+| ISSUE-047 | Generic Ignore button binds to non-ignore slots via verb-only matcher fallback | broken | done | 87 |
+| ISSUE-048 | ActionPicker enables owner actions that fail `canApply` (e.g. `patch_roof` with no coin) | broken | done | 88 |
 
 ---
 
@@ -1918,6 +1920,101 @@ since that work is `done`.
   suppresses that group's traffic to zero and lifts the
   reputation cost; after the window the group reappears with
   the configured loyalty hit.
+
+### ISSUE-047 — Generic Ignore button binds to non-ignore slots via verb-only matcher fallback
+
+- **Grade:** broken
+- **Status:** done
+- **Phase:** 87 (single-touch fix; no separate phase plan)
+- **Evidence:**
+  - `web/src/lib/sim/intentBuilder.ts:48-58` `buildIgnoreIntent` emits
+    `verb: 'ignore'`, `shape: 'ignore'`, `metadata.responseSlotId: 'ignore'`.
+  - `src/sim/modules/responses/selectConsequence.ts:26-48` (pre-fix)
+    walked three lookup paths: (1) `metadata.responseSlotId` exact id,
+    (2) `(verb, shape)` combo, (3) verb-only fallback.
+  - `src/sim/modules/issues/issueSeedGenerators.ts:988-995` defines
+    the staff_burnout `push_through` slot:
+    `allowedVerbs: ['ignore'], shape: 'risky_profitable'`. Its
+    `push_through_profile` (lines 1092+) carries delayed burnout
+    pressure and a per-staff `staff_quit_risk_<id>` future hook.
+  - When the staff_burnout card was shown, the deck rendered both
+    "Push through" (the modeled slot) and a generic "Ignore" button
+    (hardcoded in `web/src/lib/cards/CardRenderer.svelte:87-90`).
+    Tapping Ignore: lookup (1) missed (no slot has `id: 'ignore'`),
+    lookup (2) missed (shapes don't match), lookup (3) matched
+    `push_through` by verb alone and the engine applied
+    `push_through_profile` silently.
+- **Impact:** Violates the CLAUDE.md contract "cards must not invent
+  truth." The player thought they were skipping the card; the
+  simulation booked them into a modeled
+  do-nothing-and-accept-the-risk path with delayed pressure and a
+  future-day quit risk. Symmetric concern for any seed family where
+  a non-ignore slot's `allowedVerbs` happens to include `'ignore'`
+  (e.g. the `blame`/`ignore` slots at `expandedSeedGenerators.ts`
+  lines 898 and 1946).
+- **Scope:**
+  - Drop the verb-only fallback from `selectConsequence`. Callers
+    must set `metadata.responseSlotId` (the production path) or
+    match `(verb, shape)` exactly. Header comment captures the why.
+  - In `CardRenderer.svelte`, suppress the generic Ignore button
+    when any choice's verb is `'ignore'` — the modeled choice IS
+    the player's "do nothing" option and its real consequences.
+  - When no slot allows `ignore`, the generic button still renders
+    and the matcher safely no-ops the intent (logged & skipped by
+    `responsesModule.ts:188-201`, matching the existing comment in
+    `intentBuilder.ts:10-14`).
+- **Depends on:** —
+- **Test approach:** New `tests/sim/issue-generic-ignore-routing.test.ts`
+  pins three `selectConsequence` cases against a staff_burnout-shaped
+  `SelectableSeed`: generic ignore intent (no metadata) → no
+  slot/profile; named lookup with `responseSlotId: 'push_through'`
+  still binds; `(verb, shape)` exact combo still binds. Unit-level
+  rather than via `runDay` because `push_through`'s effects are
+  delayed — the matcher contract is the structural fix.
+
+### ISSUE-048 — ActionPicker enables owner actions that fail `canApply` (e.g. `patch_roof` with no coin)
+
+- **Grade:** broken
+- **Status:** done
+- **Phase:** 88 (single-touch fix; no separate phase plan)
+- **Evidence:**
+  - `web/src/lib/components/ActionPicker.svelte:126-136` (pre-fix)
+    `disabledReason` only checked `actionPointCost > pointsLeft` and
+    `listValidTargets(...).length === 0`. It never called
+    `canApply`.
+  - `src/sim/modules/ownerActions/actionDefinitions.ts:622-649`
+    `patch_roof.canApply` rejects with `'insufficient_coin'` when
+    `state.coin < patchRoofCost(roof.damage)`.
+  - With a damaged roof present, `listValidTargets` returns the
+    roof regardless of coin, so the picker showed Patch Roof
+    enabled. Tapping queued the action; the engine's
+    `applyOwnerActions` then dropped it silently via the
+    `if (!verdict.ok)` skip path.
+  - `web/src/lib/sim/actionBuilder.ts:168-180` already exported
+    `canApplyAction(def, state, input)` — the helper the picker
+    should have been calling.
+- **Impact:** The player could plan a day's action budget around
+  steps that silently do not happen. Generalises to any action with
+  preconditions beyond target presence (resource gates, world
+  state, cooldowns). Erodes trust in the picker and breaks the UI
+  contract that "disabled = will not happen."
+- **Scope:**
+  - Extract `actionDisabledReason(def, state, pointsLeft)` into
+    `web/src/lib/sim/actionBuilder.ts` as a pure helper:
+    budget check first, then `canApply` for global actions, or
+    "at least one target passes canApply" for targeted actions,
+    surfacing the first rejection reason when every target fails.
+  - Replace the in-component `disabledReason` with a thin closure
+    that forwards to the helper (`pointsLeft` reactive via closure).
+  - Mirror the check at the top of `tapAction` so the target
+    sub-sheet doesn't open for an action that can't apply to any
+    target.
+- **Depends on:** —
+- **Test approach:** New `tests/sim/issue-action-picker-canapply.test.ts`
+  pins four cases on `actionDisabledReason` with `patch_roof`:
+  damaged roof + zero coin → reason mentions `'coin'`; damaged roof
+  + ample coin → `undefined`; `pointsLeft = 0` short-circuits to
+  `'budget full'`; deleted roof area → `'no valid targets'`.
 
 ---
 

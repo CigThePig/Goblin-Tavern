@@ -179,6 +179,45 @@ export function canApplyAction(
   }
 }
 
+/**
+ * ISSUE-048 — Reason an action row should be disabled in the picker, or
+ * `undefined` if it's selectable. Mirrors the engine's
+ * `applyOwnerActions` validation so the UI doesn't silently queue
+ * actions the engine will reject.
+ *
+ * Order: budget first (cheapest, blocks before any `canApply` call);
+ * then for global / target-less defs, run `canApply` once; for targeted
+ * defs, require at least one target for which `canApply` succeeds —
+ * surfacing the first rejection reason when every target fails for the
+ * same cause (typically "insufficient_coin" or similar).
+ */
+export function actionDisabledReason(
+  def: OwnerActionDefinition,
+  state: TavernState,
+  pointsLeft: number,
+): string | undefined {
+  if (def.actionPointCost > pointsLeft) return 'budget full'
+
+  if (!def.targetType || def.targetType === 'global') {
+    const verdict = canApplyAction(def, state, { actionId: def.id })
+    return verdict.ok ? undefined : verdict.reason
+  }
+
+  const targets = listValidTargets(def, state)
+  if (targets.length === 0) return 'no valid targets'
+
+  let firstReason: string | undefined
+  for (const t of targets) {
+    const verdict = canApplyAction(def, state, {
+      actionId: def.id,
+      targetId: t.id,
+    })
+    if (verdict.ok) return undefined
+    if (firstReason === undefined) firstReason = verdict.reason
+  }
+  return firstReason ?? 'cannot apply now'
+}
+
 export function picksToInputs(
   picks: ReadonlyArray<PickedAction>,
 ): SimInputOwnerAction[] {

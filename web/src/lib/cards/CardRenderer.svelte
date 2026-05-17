@@ -20,6 +20,13 @@
 
   const showSeal = $derived((card.severity ?? 0) >= 70)
 
+  // ISSUE-047 — when the seed already models an `ignore`-verb slot, that
+  // slot (rendered as a normal choice) IS the player's "do nothing"
+  // option; the generic Ignore would be a sneakier alternative whose
+  // matcher path differs. Hide the generic button so the player must
+  // pick the modeled choice and its real consequences.
+  const hasIgnoreChoice = $derived(card.choices.some((c) => c.verb === 'ignore'))
+
   function shapeLabel(s: string): string {
     return s.replace(/_/g, ' ')
   }
@@ -84,10 +91,12 @@
       </button>
     {/each}
 
-    <button class="choice ignore" type="button" onclick={() => onignore?.()}>
-      <span class="choice-label">Ignore</span>
-      <span class="choice-meta tag">do nothing</span>
-    </button>
+    {#if !hasIgnoreChoice}
+      <button class="choice ignore" type="button" onclick={() => onignore?.()}>
+        <span class="choice-label">Ignore</span>
+        <span class="choice-meta tag">do nothing</span>
+      </button>
+    {/if}
   </div>
 </article>
 

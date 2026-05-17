@@ -214,8 +214,22 @@ export type WeeklyModuleState = {
   /** Notes recorded against signal accumulation (debug-friendly). */
   signalNotes: string[]
 
-  /** Last finalized weekly result. Set on endWeek, cleared at next week start. */
+  /**
+   * Last finalized weekly result. Set on endWeek; persists across the
+   * next week's accumulator reset until the next endWeek replaces it.
+   * Phase 90 changed this from one-day-of-life to durable: the
+   * accumulator reset in `freshAccumulator` carries this pointer over.
+   */
   lastWeeklyResult?: WeeklyResult
+
+  /**
+   * Bounded buffer of recent finalized weekly results, oldest first.
+   * Append-on-finalize; truncate from the front when length exceeds
+   * MAX_WEEKLY_HISTORY (12 weeks ≈ 3 months). Added in Phase 90 so the
+   * Reports → Weekly screen and future week-over-week analytics have a
+   * durable source instead of a single-day pointer.
+   */
+  weeklyHistory: WeeklyResult[]
 
   /** Phase 14 §14.3 — supplier invoice placeholder. Always empty in Option A. */
   supplierInvoices: SupplierInvoice[]

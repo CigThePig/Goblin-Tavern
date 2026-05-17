@@ -294,6 +294,77 @@ const MECHANIC_TERMS: GlossaryTerm[] = [
     oneLine: 'A unit of owner attention; you have 3 per day.',
     longer: 'Owner actions cost 1–3 points. The cap is the day\'s most important constraint.',
   },
+  // Phase 90 — terms surfaced by the Weekly overview screen.
+  {
+    id: 'patronage',
+    label: 'Patronage',
+    category: 'mechanic',
+    oneLine: 'How likely a customer group is to come back this week.',
+    longer: 'Patronage rises when a group leaves satisfied and falls when they get bad service or hit shortages. Drives next week\'s traffic.',
+  },
+  {
+    id: 'loyalty',
+    label: 'Loyalty',
+    category: 'mechanic',
+    oneLine: 'How firmly a group or person sticks with you through bad weeks.',
+    longer: 'Slow-moving. High loyalty cushions a bad service day; low loyalty turns a single incident into a defection.',
+  },
+  {
+    id: 'morale',
+    label: 'Morale',
+    category: 'mechanic',
+    oneLine: 'A staff member\'s mood. Affects skill checks and the chance of mistakes.',
+    longer: 'Recovered by bonuses, comfort actions, and quiet days. Drained by stress, conflict, and skipped pay.',
+  },
+  {
+    id: 'stress',
+    label: 'Stress',
+    category: 'mechanic',
+    oneLine: 'How frazzled a staff member is right now.',
+    longer: 'Rises with traffic spikes, incidents, and overlong shifts. High stress lowers skill output and can flip a staff member to unavailable.',
+  },
+  {
+    id: 'fatigue',
+    label: 'Fatigue',
+    category: 'mechanic',
+    oneLine: 'Accumulated tiredness across multiple days.',
+    longer: 'Slower to recover than stress. Sustained high fatigue leads to burnout and resignation seeds.',
+  },
+  {
+    id: 'wages',
+    label: 'Wages',
+    category: 'mechanic',
+    oneLine: 'Weekly pay owed to staff. Resolved at the end of each week.',
+    longer: 'Paid in full when coin is sufficient; otherwise the unpaid list takes a loyalty hit and may trigger a staff_request seed.',
+  },
+  {
+    id: 'weekly_signals',
+    label: 'Weekly Signals',
+    category: 'mechanic',
+    oneLine: 'How the week shifted your reputation: cheap, filthy, dangerous, tasty, reliable.',
+    longer: 'Signals roll up the week\'s service moments. They feed reputation changes and the monthly review.',
+  },
+  {
+    id: 'maintenance_backlog',
+    label: 'Maintenance Backlog',
+    category: 'mechanic',
+    oneLine: 'Areas with conditions bad enough to surface at week\'s end.',
+    longer: 'Severity is rated 0–10. Ignoring the backlog grows the maintenance pressure and risks inspection findings.',
+  },
+  {
+    id: 'supplier_invoice',
+    label: 'Supplier Invoice',
+    category: 'mechanic',
+    oneLine: 'A bill from a supplier; due in a future week.',
+    longer: 'Invoices arrive when restocking on credit. Unpaid invoices erode supplier relationships and unlock supplier_distrust.',
+  },
+  {
+    id: 'weekly_net',
+    label: 'Weekly Net',
+    category: 'mechanic',
+    oneLine: 'Sales minus expenses for the week.',
+    longer: 'Includes wages and any rent due in the week. Negative net eats into your coin and signals trouble paying next month\'s rent.',
+  },
 ]
 
 export const GLOSSARY_TERMS: GlossaryTerm[] = [

@@ -1,5 +1,6 @@
 export { weeklyModule } from './weeklyModule'
 export {
+  MAX_WEEKLY_HISTORY,
   WEEKLY_MODULE_ID,
   createInitialWeeklyModuleState,
   emptyEconomyTotals,

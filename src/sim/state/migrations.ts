@@ -13,6 +13,8 @@ import { createInitialWorldState } from './defaults'
 import { createStaffIdentity } from '../content/staff/staffIdentityFactory'
 import { ensureRequiredStaffIdentityProfilesRegistered } from '../content/staff/staffIdentityProfiles'
 import { createRngStreams } from '../core/rng'
+import { WEEKLY_MODULE_ID } from '../modules/weekly/state'
+import type { WeeklyModuleState, WeeklyResult } from '../modules/weekly/types'
 import type { AreaState, TavernState, WorldState } from './TavernState'
 
 export function ensureWorldBranch<T extends Partial<TavernState>>(
@@ -119,6 +121,30 @@ export function ensureStaffIdentityFields<
   }
   if (!changed) return state
   return { ...state, staff: nextStaff as T['staff'] }
+}
+
+// Phase 90 — pre-Phase-90 saves do not carry the `weeklyHistory` array on
+// the weekly module slice. This helper attaches an empty array when
+// missing and preserves any existing `lastWeeklyResult` as-is. Idempotent.
+// Callers wiring this into the save envelope path should run it before
+// `validateState`, mirroring `ensureWorldBranch` and the other
+// `ensure*` helpers above.
+export function ensureWeeklyHistoryField<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  if (!state.modules) return state
+  const slice = state.modules[WEEKLY_MODULE_ID] as
+    | (Partial<WeeklyModuleState> & { weeklyHistory?: WeeklyResult[] })
+    | undefined
+  if (!slice) return state
+  if (Array.isArray(slice.weeklyHistory)) return state
+  return {
+    ...state,
+    modules: {
+      ...state.modules,
+      [WEEKLY_MODULE_ID]: { ...slice, weeklyHistory: [] },
+    },
+  }
 }
 
 function isGeneratedNameLike(value: unknown): value is { display: string } {

@@ -90,6 +90,7 @@ describe('Phase 14 — Module shape', () => {
     expect(slice.weekKey).toBe('')
     expect(slice.weekFinalized).toBe(false)
     expect(slice.lastWeeklyResult).toBeUndefined()
+    expect(slice.weeklyHistory).toEqual([])
     expect(slice.economy.net).toBe(0)
     expect(slice.signals.cheap).toBe(0)
   })
@@ -100,6 +101,7 @@ describe('Phase 14 — Module shape', () => {
     expect(fresh.economy.purchases).toBe(0)
     expect(fresh.supplierInvoices).toEqual([])
     expect(fresh.signalNotes).toEqual([])
+    expect(fresh.weeklyHistory).toEqual([])
   })
 })
 
@@ -128,13 +130,20 @@ describe('Phase 14 §14.1 — endWeek gating', () => {
     for (let i = 0; i < 7; i += 1) current = runDay(current).state
     const week1 = getWeeklyModuleState(current)
     expect(week1.weekFinalized).toBe(true)
+    expect(week1.lastWeeklyResult).toBeDefined()
 
-    // Day 8 — startDay resets the weekly accumulator.
+    // Day 8 — startDay resets the weekly accumulator window, but Phase 90
+    // preserves `lastWeeklyResult` and `weeklyHistory` so the Reports tab
+    // can read the closed week beyond its close day.
     current = runDay(current).state
     const day8 = getWeeklyModuleState(current)
     expect(day8.weekFinalized).toBe(false)
-    expect(day8.lastWeeklyResult).toBeUndefined()
+    expect(day8.lastWeeklyResult).toBeDefined()
+    expect(day8.lastWeeklyResult!.weekKey).toBe(week1.lastWeeklyResult!.weekKey)
+    expect(day8.weeklyHistory.length).toBe(1)
+    expect(day8.weeklyHistory[0]!.weekKey).toBe(week1.lastWeeklyResult!.weekKey)
     expect(day8.startedOnDay).toBe(8)
+    expect(day8.economy.sales).toBe(0)
   })
 })
 

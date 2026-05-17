@@ -16,6 +16,7 @@ import type {
 } from '../service/types'
 
 import {
+  MAX_WEEKLY_HISTORY,
   WEEKLY_MODULE_ID,
   createInitialWeeklyModuleState,
   emptyEconomyTotals,
@@ -105,7 +106,16 @@ function snapshotCustomerStarting(state: TavernState): {
 }
 
 function freshAccumulator(state: TavernState): WeeklyModuleState {
+  // Phase 90 — `lastWeeklyResult` and `weeklyHistory` are durable across
+  // the accumulator reset so the Reports → Weekly screen has data on days
+  // 1–6 of the next week. Everything else is reset for the new accumulation
+  // window.
+  const previous = getWeeklyModuleState(state)
   const { satisfaction, patronage } = snapshotCustomerStarting(state)
+  const carry: Pick<WeeklyModuleState, 'lastWeeklyResult' | 'weeklyHistory'> = {
+    weeklyHistory: [...previous.weeklyHistory],
+    ...(previous.lastWeeklyResult ? { lastWeeklyResult: previous.lastWeeklyResult } : {}),
+  }
   return {
     weekKey: formatWeekKey(state),
     weekNumber: state.calendar.week,
@@ -131,6 +141,7 @@ function freshAccumulator(state: TavernState): WeeklyModuleState {
     regularSceneCounts: {},
     groupSceneCounts: {},
     sceneTypeCounts: {},
+    ...carry,
   }
 }
 
@@ -502,11 +513,21 @@ const endWeekHook: SimulationHook = (ctx: SimContext): void => {
 
   const result: WeeklyResult = { ...baseForCommunity, community }
 
+  // Phase 90 — append the finalized result to the bounded history buffer
+  // so the Reports → Weekly screen and future analytics can read it
+  // beyond the close day.
+  const nextHistory = [...sliceAfterWages.weeklyHistory, result]
+  const trimmedHistory =
+    nextHistory.length > MAX_WEEKLY_HISTORY
+      ? nextHistory.slice(nextHistory.length - MAX_WEEKLY_HISTORY)
+      : nextHistory
+
   replaceSlice(
     ctx,
     {
       ...sliceAfterWages,
       lastWeeklyResult: result,
+      weeklyHistory: trimmedHistory,
       weekFinalized: true,
       supplierInvoices,
     },
@@ -517,8 +538,13 @@ const endWeekHook: SimulationHook = (ctx: SimContext): void => {
 function buildWeeklyReport(ctx: SimContext): ReportSection | null {
   const slice = getWeeklyModuleState(ctx.state)
   if (!slice.lastWeeklyResult) return null
-  // Only emit a weekly report on the day endWeek finalized it. The
-  // slice gets reset on the next day's startDay so this stays one-shot.
+  // Phase 90 — `lastWeeklyResult` now persists across the next week, so
+  // the implicit "wiped tomorrow" one-shot is gone. Gate emission to the
+  // close day explicitly: generateReports runs before advanceCalendar,
+  // so on the close day `state.calendar.day` (the day-of-month) still
+  // matches the result's `endDay`. On the next day it has advanced and
+  // we skip emission until the next endWeek finalises a new result.
+  if (slice.lastWeeklyResult.endDay !== ctx.state.calendar.day) return null
   return buildWeeklyReportSection(slice.lastWeeklyResult)
 }
 
@@ -721,6 +747,7 @@ const WeeklyModuleStateSchema = z.object({
   signals: SignalSchema,
   signalNotes: z.array(z.string()),
   lastWeeklyResult: WeeklyResultSchema.optional(),
+  weeklyHistory: z.array(WeeklyResultSchema),
   supplierInvoices: z.array(SupplierInvoiceSchema),
   weekFinalized: z.boolean(),
   // Phase 34 §34.1 — community accumulators.

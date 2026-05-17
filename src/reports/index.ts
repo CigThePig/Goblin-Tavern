@@ -4,6 +4,7 @@
 // pull projection helpers, types, and the glossary from a single place.
 
 export { buildDailyReport, formatDiffPathTitle } from './dailyReportProjection'
+export { buildWeeklyOverview } from './weeklyOverviewProjection'
 export {
   causesForPath,
   causesForPressure,
@@ -33,3 +34,22 @@ export type {
   GlossaryCategory,
   GlossaryTerm,
 } from './types'
+export type {
+  CustomerGroupRow,
+  InvoiceRow,
+  MaintenanceRow,
+  StaffRow,
+  WeeklyComparison,
+  WeeklyOverviewCommunity,
+  WeeklyOverviewCustomerGroups,
+  WeeklyOverviewData,
+  WeeklyOverviewEconomy,
+  WeeklyOverviewEconomyTopRevenue,
+  WeeklyOverviewEmptyReason,
+  WeeklyOverviewHeader,
+  WeeklyOverviewInvoices,
+  WeeklyOverviewMaintenance,
+  WeeklyOverviewSignals,
+  WeeklyOverviewStaff,
+  WeeklyOverviewWages,
+} from './weeklyOverviewProjection'

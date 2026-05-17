@@ -13,6 +13,14 @@ import type {
 
 export const WEEKLY_MODULE_ID = 'weekly'
 
+/**
+ * Phase 90 — bounded buffer length for `WeeklyModuleState.weeklyHistory`.
+ * Keeps the most recent ~3 months on state so the Reports → Weekly
+ * screen and future analytics can compare across weeks without
+ * unbounded save growth.
+ */
+export const MAX_WEEKLY_HISTORY = 12
+
 export function emptyEconomyTotals(): WeeklyEconomyTotals {
   return {
     sales: 0,
@@ -55,6 +63,7 @@ export function createInitialWeeklyModuleState(): WeeklyModuleState {
     salesByStockId: {},
     signals: emptySignalTotals(),
     signalNotes: [],
+    weeklyHistory: [],
     supplierInvoices: [],
     weekFinalized: false,
     // Phase 34 §34.1 — community accumulators.

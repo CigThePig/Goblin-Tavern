@@ -11,10 +11,12 @@
 <script lang="ts">
   import DailyReport from '../components/DailyReport.svelte'
   import PressuresDashboard from '../components/PressuresDashboard.svelte'
+  import WeeklyOverview from '../components/WeeklyOverview.svelte'
   import CauseDrilldown from '../components/CauseDrilldown.svelte'
   import { gameStore } from '../sim/gameStore.svelte'
-  import { buildDailyReport } from '../../../../src/reports/index'
+  import { buildDailyReport, buildWeeklyOverview } from '../../../../src/reports/index'
   import type { DailyReportData } from '../../../../src/reports/types'
+  import type { WeeklyOverviewData } from '../../../../src/reports/weeklyOverviewProjection'
 
   type Subview = 'today' | 'pressures' | 'weekly' | 'monthly' | 'log'
 
@@ -35,6 +37,8 @@
       ...(gameStore.previousCalendar ? { previousCalendar: gameStore.previousCalendar } : {}),
     })
   })
+
+  const weeklyOverview = $derived<WeeklyOverviewData>(buildWeeklyOverview(gameStore.state))
 
   let pressureDrilldownPath = $state<string | undefined>(undefined)
   let pressureDrilldownOpen = $state(false)
@@ -76,9 +80,7 @@
     {:else if subview === 'pressures'}
       <PressuresDashboard onselect={openPressureDrilldown} />
     {:else if subview === 'weekly'}
-      <p class="placeholder">
-        Weekly digest screen — earnings, wages, supplier invoices, customer-group trends — lands in phase 90.
-      </p>
+      <WeeklyOverview data={weeklyOverview} />
     {:else if subview === 'monthly'}
       <p class="placeholder">
         Monthly overview — rent, landlord, inspection status, reputation profile, active arcs — lands in phase 91.

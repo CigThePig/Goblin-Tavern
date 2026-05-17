@@ -2,6 +2,7 @@ export {
   monthlyModule,
   createInitialMonthlyModuleState,
   getMonthlyModuleState,
+  MAX_MONTHLY_HISTORY,
   MONTHLY_MODULE_ID,
   emptyMonthlyEconomy,
   emptyAccumulator,

@@ -69,6 +69,14 @@ const DEFAULT_RIVAL_APPEAL = 30
 
 const TAX_MONTH_RENT_BUMP = 20
 
+/**
+ * Phase 91 — bounded buffer length for
+ * `MonthlyModuleState.monthlyHistory`. Keeps the most recent year on
+ * state so the Reports → Monthly screen can compare across months
+ * without unbounded save growth.
+ */
+export const MAX_MONTHLY_HISTORY = 12
+
 function formatMonthKey(year: number, month: number): string {
   return `Y${year}-M${month}`
 }
@@ -132,6 +140,7 @@ export function createInitialMonthlyModuleState(): MonthlyModuleState {
     },
     currentModifier: fallbackModifier(),
     accumulator: emptyAccumulator(),
+    monthlyHistory: [],
     monthFinalized: false,
   }
 }
@@ -212,6 +221,14 @@ const startDayHook: SimulationHook = (ctx: SimContext): void => {
       rivalTavern: slice.rivalTavern,
       currentModifier: modifier,
       accumulator: emptyAccumulator(),
+      // Phase 91 — preserve cross-month persistent fields so the
+      // Reports → Monthly screen reads truth across the full next
+      // month, not just on day 28 itself. `monthFinalized` still flips
+      // back to false so `buildMonthlyReport` stays one-shot per month.
+      ...(slice.lastMonthlyResult
+        ? { lastMonthlyResult: slice.lastMonthlyResult }
+        : {}),
+      monthlyHistory: [...slice.monthlyHistory],
       monthFinalized: false,
     }
     replaceSlice(ctx, fresh, 'reset_month')
@@ -498,6 +515,16 @@ const endMonthHook: SimulationHook = (ctx: SimContext): void => {
     ),
   }
 
+  // Phase 91 — append to bounded history. `slice.monthlyHistory` is
+  // oldest-first; this finalised result becomes the new last entry.
+  // The Reports → Monthly projection's previous-month lookup walks
+  // `history[length - 2]`, so the appended ordering matters.
+  const nextHistory = [...slice.monthlyHistory, result]
+  const trimmedHistory =
+    nextHistory.length > MAX_MONTHLY_HISTORY
+      ? nextHistory.slice(nextHistory.length - MAX_MONTHLY_HISTORY)
+      : nextHistory
+
   replaceSlice(
     ctx,
     {
@@ -511,6 +538,7 @@ const endMonthHook: SimulationHook = (ctx: SimContext): void => {
       currentModifier: slice.currentModifier,
       accumulator: accumulatorAfterRent,
       lastMonthlyResult: result,
+      monthlyHistory: trimmedHistory,
       monthFinalized: true,
     },
     'finalize_month',
@@ -746,6 +774,7 @@ const MonthlyModuleStateSchema = z.object({
   currentModifier: ModifierSchema,
   accumulator: AccumulatorSchema,
   lastMonthlyResult: MonthlyResultSchema.optional(),
+  monthlyHistory: z.array(MonthlyResultSchema),
   monthFinalized: z.boolean(),
 })
 

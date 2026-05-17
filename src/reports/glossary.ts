@@ -365,6 +365,56 @@ const MECHANIC_TERMS: GlossaryTerm[] = [
     oneLine: 'Sales minus expenses for the week.',
     longer: 'Includes wages and any rent due in the week. Negative net eats into your coin and signals trouble paying next month\'s rent.',
   },
+  // Phase 91 — terms surfaced by the Monthly overview screen.
+  {
+    id: 'rent',
+    label: 'Rent',
+    category: 'mechanic',
+    oneLine: 'Monthly fee owed to the landlord. Resolved on day 28.',
+    longer: 'Paid in full when coin is sufficient; otherwise it joins your arrears and missed-payment tally, raising landlord pressure for next month.',
+  },
+  {
+    id: 'inspection_suspicion',
+    label: 'Inspection Suspicion',
+    category: 'mechanic',
+    oneLine: 'How close an external inspector is to a surprise visit.',
+    longer: 'Rises with food safety, violence, and visible decay. Past 70 the inspector issues a warning; chronic warnings lead to an on-site inspection.',
+  },
+  {
+    id: 'reputation_tier',
+    label: 'Reputation Tier',
+    category: 'mechanic',
+    oneLine: 'How established each reputation axis is, on five bands: absent · faint · known · strong · defining.',
+    longer: 'Tier bands are 0–19 absent, 20–39 faint, 40–59 known, 60–79 strong, 80+ defining. Crossing a tier is a meaningful identity shift.',
+  },
+  {
+    id: 'upgrade_readiness',
+    label: 'Upgrade Readiness',
+    category: 'mechanic',
+    oneLine: 'Building upgrades the sim notices you could benefit from this month.',
+    longer: 'Read-only — not a purchase queue. Relevance scores reflect how strongly this month\'s state suggests the upgrade would pay off.',
+  },
+  {
+    id: 'month_modifier',
+    label: 'Month Modifier',
+    category: 'mechanic',
+    oneLine: 'A monthly flavor effect that shapes daily nudges and occasional surprises.',
+    longer: 'Picked deterministically per (seed, year, month): rainy_month, festival_month, tax_month, mold_bloom, quiet_roads, or adventurer_season. Each carries small daily effects and sometimes a month-end twist.',
+  },
+  {
+    id: 'rival_tavern',
+    label: 'Rival Tavern',
+    category: 'mechanic',
+    oneLine: 'A competitor whose strategy and appeal pull customers away.',
+    longer: 'Tracked as a single aggregated pressure plus an appeal meter. The rival\'s strategy (cheap, fancy, rowdy, clean) shapes which of your reputation axes they undercut.',
+  },
+  {
+    id: 'monthly_net',
+    label: 'Monthly Net',
+    category: 'mechanic',
+    oneLine: 'Sales minus expenses across the whole month.',
+    longer: 'Includes rent, wages, repairs, and waste. Negative monthly net erodes coin reserves and feeds debt pressure.',
+  },
 ]
 
 export const GLOSSARY_TERMS: GlossaryTerm[] = [

@@ -15,6 +15,8 @@ import { ensureRequiredStaffIdentityProfilesRegistered } from '../content/staff/
 import { createRngStreams } from '../core/rng'
 import { WEEKLY_MODULE_ID } from '../modules/weekly/state'
 import type { WeeklyModuleState, WeeklyResult } from '../modules/weekly/types'
+import { MONTHLY_MODULE_ID } from '../modules/monthly/types'
+import type { MonthlyModuleState, MonthlyResult } from '../modules/monthly/types'
 import type { AreaState, TavernState, WorldState } from './TavernState'
 
 export function ensureWorldBranch<T extends Partial<TavernState>>(
@@ -143,6 +145,30 @@ export function ensureWeeklyHistoryField<
     modules: {
       ...state.modules,
       [WEEKLY_MODULE_ID]: { ...slice, weeklyHistory: [] },
+    },
+  }
+}
+
+// Phase 91 — pre-Phase-91 saves do not carry the `monthlyHistory` array
+// on the monthly module slice. This helper attaches an empty array when
+// missing and preserves any existing `lastMonthlyResult` as-is. Idempotent.
+// Callers wiring this into the save envelope path should run it before
+// `validateState`, mirroring `ensureWeeklyHistoryField` and the other
+// `ensure*` helpers above.
+export function ensureMonthlyHistoryField<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  if (!state.modules) return state
+  const slice = state.modules[MONTHLY_MODULE_ID] as
+    | (Partial<MonthlyModuleState> & { monthlyHistory?: MonthlyResult[] })
+    | undefined
+  if (!slice) return state
+  if (Array.isArray(slice.monthlyHistory)) return state
+  return {
+    ...state,
+    modules: {
+      ...state.modules,
+      [MONTHLY_MODULE_ID]: { ...slice, monthlyHistory: [] },
     },
   }
 }

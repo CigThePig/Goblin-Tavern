@@ -203,16 +203,19 @@ describe('Phase 22 does not introduce card content', () => {
     expect(offending).toEqual([])
   })
 
-  it('has no card/deck/cardUI folder at the src/sim or src root', () => {
+  it('has no card/deck/cardUI folder under src/sim', () => {
+    // Phase 22 forbade card folders anywhere under src/. Phase 88
+    // explicitly introduces the card layer at `src/cards/` per
+    // `cards-contract.md` and `game-loop-and-ux.md §10`, so the
+    // `src` root scan is removed. The rule still stands inside the
+    // simulation: cards must NOT live under `src/sim/` because the
+    // simulation never imports cards (cards consume sim, not the
+    // other way around).
     const offending: string[] = []
-    for (const root of [
-      resolve(__dirname, '../../src/sim'),
-      resolve(__dirname, '../../src'),
-    ]) {
-      for (const entry of readdirSync(root)) {
-        if (CARD_FORBIDDEN_NAMES.includes(entry)) {
-          offending.push(join(root, entry))
-        }
+    const root = resolve(__dirname, '../../src/sim')
+    for (const entry of readdirSync(root)) {
+      if (CARD_FORBIDDEN_NAMES.includes(entry)) {
+        offending.push(join(root, entry))
       }
     }
     expect(offending).toEqual([])

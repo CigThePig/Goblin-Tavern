@@ -37,7 +37,12 @@
     { id: 'log', label: 'Log' },
   ]
 
-  let subview = $state<Subview>('today')
+  // Phase 93 / ISSUE-053 — Subview lives on the store and is persisted
+  // through the save envelope so Continue lands on the same tab.
+  const subview = $derived(gameStore.reportsSubview)
+  function setSubview(s: Subview) {
+    gameStore.setReportsSubview(s)
+  }
 
   const report = $derived.by<DailyReportData | undefined>(() => {
     const result = gameStore.latestResult
@@ -66,7 +71,7 @@
   }
 
   function navigateToPressures() {
-    subview = 'pressures'
+    setSubview('pressures')
   }
 </script>
 
@@ -78,7 +83,7 @@
         class="subtab"
         class:active={subview === tab.id}
         aria-current={subview === tab.id ? 'page' : undefined}
-        onclick={() => (subview = tab.id)}
+        onclick={() => setSubview(tab.id)}
       >
         {tab.label}
       </button>

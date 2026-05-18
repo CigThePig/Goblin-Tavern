@@ -27,14 +27,20 @@
     return gameStore.isQueued(actionId, targetId)
   }
 
+  let liveReason = $state<string | undefined>(undefined)
+
   function toggle(ref: ApplicableActionRef) {
     if (isQueued(ref.actionId)) {
       gameStore.removePicksFor(ref.actionId, targetId)
+      liveReason = undefined
       return
     }
     if (ref.disabledReason !== undefined) return
     const def = actionRegistry.get(ref.actionId)
-    gameStore.addPick({
+    // Phase 90 / ISSUE-050 — Funnel through tryAddPick so the daily
+    // action-point budget and live canApply check gate quick actions
+    // the same way the central picker does.
+    const result = gameStore.tryAddPick({
       actionId: ref.actionId,
       label: ref.label,
       category: ref.category,
@@ -43,6 +49,7 @@
       ...(targetLabel !== undefined ? { targetLabel } : {}),
       actionPointCost: ref.actionPointCost,
     })
+    liveReason = result.ok ? undefined : result.reason
   }
 </script>
 
@@ -82,6 +89,9 @@
         </li>
       {/each}
     </ul>
+    {#if liveReason}
+      <p class="live-reason">Couldn't queue: {liveReason}</p>
+    {/if}
   </div>
 {/if}
 
@@ -171,5 +181,12 @@
     font-style: italic;
     font-size: 12px;
     color: var(--loss);
+  }
+
+  .live-reason {
+    color: var(--loss);
+    font-size: 12px;
+    line-height: 1.4;
+    margin-top: var(--sp-xxs);
   }
 </style>

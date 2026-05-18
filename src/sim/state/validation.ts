@@ -1,8 +1,11 @@
 import type { z } from 'zod'
+import { FULL_PIPELINE } from '../canonicalPipeline'
 import type { SimulationModule } from '../core/module'
 import { moduleRegistry } from '../registries/moduleRegistry'
 import {
+  validateAreaContentReferences,
   validateRecipeReferences,
+  validateStockReferences,
   validateWorldReferences,
 } from './referenceValidation'
 import { buildTavernStateSchema } from './schemas'
@@ -16,6 +19,14 @@ import type { ValidationIssue } from './types'
 // registered simulation modules (§6.1.1). Unknown keys under
 // `state.modules` with no registered schema surface as warnings rather
 // than hard failures.
+//
+// Phase 92 / ISSUE-052 — When no explicit module list is provided, the
+// canonical `FULL_PIPELINE` is used. Previously the fallback was
+// `moduleRegistry.all()`, which is empty unless modules self-register,
+// so bare `validateState(state)` calls silently skipped module-state
+// schema enforcement. The registry is still consulted as a secondary
+// fallback for tests or hosts that intentionally limit the module set
+// via the registry.
 
 export type SafeValidateResult =
   | {
@@ -36,7 +47,10 @@ export type ValidateOptions = {
 function resolveModules(
   options?: ValidateOptions,
 ): ReadonlyArray<SimulationModule> {
-  return options?.modules ?? moduleRegistry.all()
+  if (options?.modules) return options.modules
+  const registered = moduleRegistry.all()
+  if (registered.length > 0) return registered
+  return FULL_PIPELINE
 }
 
 function formatZodErrors(error: z.ZodError): ValidationIssue[] {
@@ -93,6 +107,8 @@ export function validateState(
   const referenceErrors = [
     ...validateWorldReferences(parsed),
     ...validateRecipeReferences(parsed),
+    ...validateStockReferences(parsed),
+    ...validateAreaContentReferences(parsed),
   ]
   if (referenceErrors.length > 0) {
     throw new Error(formatErrorMessage(referenceErrors))
@@ -122,6 +138,8 @@ export function safeValidateState(
   const referenceErrors = [
     ...validateWorldReferences(parsed),
     ...validateRecipeReferences(parsed),
+    ...validateStockReferences(parsed),
+    ...validateAreaContentReferences(parsed),
   ]
   if (referenceErrors.length > 0) {
     return {

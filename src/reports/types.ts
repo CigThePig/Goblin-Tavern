@@ -111,6 +111,15 @@ export type MissedOpportunityLine = {
   diffPath?: string
   /** Sort key — higher = stronger signal. */
   impact: number
+  /**
+   * Phase 96 / ISSUE-056 — When the suggested remedy fails the
+   * owner-action `canApply` gate against the same state (insufficient
+   * coin, missing target, etc.), the projection annotates the line so
+   * the UI can say "would have needed: …" rather than implying the
+   * player could have selected it. Stays undefined when the action was
+   * applicable.
+   */
+  validityNote?: string
 }
 
 export type ReportCalendarHeader = {

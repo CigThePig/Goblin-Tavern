@@ -30,8 +30,14 @@ import {
   ACTION_POINT_BUDGET,
   nextPickId,
   picksToInputs,
+  sanitizePicks,
   type PickedAction,
 } from './actionBuilder'
+import { actionRegistry } from '../../../../src/sim/registries/actionRegistry'
+import {
+  actionDisabledReason,
+  actionDisabledReasonForTarget,
+} from '../../../../src/sim/modules/ownerActions/readonlyHelpers'
 import {
   INITIAL_DAY_SESSION,
   MISSED_OPPORTUNITY_DISMISSAL_WINDOW_DAYS,
@@ -41,7 +47,11 @@ import {
 import type {
   LatestResultLite,
   PersistedSession,
+  ReportsSubview,
   Route,
+  SaveResult,
+  TavernSubview,
+  WorldSubview,
 } from './persistence'
 
 class GameStore {
@@ -78,6 +88,13 @@ class GameStore {
   // returns there instead of being yanked back to Day.
   route: Route = $state('day')
 
+  // Phase 93 / ISSUE-053 — Last visited subview per top-level screen.
+  // Persisted in the save envelope so Reload/Continue lands the player
+  // on the same Monthly/Projects/Rumours tab they were reading.
+  reportsSubview: ReportsSubview = $state('today')
+  tavernSubview: TavernSubview = $state('areas')
+  worldSubview: WorldSubview = $state('regulars')
+
   // Phase 96 — One-shot flag the welcome-back pill reads. Set true on
   // hydration; flipped to false on the first beat advance.
   savedSnapshotJustLoaded: boolean = $state(false)
@@ -85,6 +102,14 @@ class GameStore {
   lastSavedAt: string | undefined = $state(undefined)
   /** Non-blocking error surfaced when a save couldn't be hydrated. */
   hydrationError: string | undefined = $state(undefined)
+  /**
+   * Phase 89 / ISSUE-049 — Last failed autosave attempt. The More →
+   * Saves section renders a recoverable banner when this is set; the
+   * App layer clears it on the next successful flush. Holding the
+   * typed `SaveResult` failure variant means the banner can show
+   * quota-specific copy.
+   */
+  saveError: Exclude<SaveResult, { ok: true }> | undefined = $state(undefined)
 
   /**
    * Phase 97 — Per-day dismissed missed-opportunity ids. Used by the
@@ -103,7 +128,13 @@ class GameStore {
    * lands on a new day.
    */
   runDay(extra: Partial<Omit<SimInput, 'seed'>> = {}): SimResult {
-    const seed = `${this.seedString}-d${this.state.calendar.day}`
+    // Phase 91 / ISSUE-051 — Use the absolute-day coordinate
+    // (`totalDaysElapsed`) instead of `calendar.day` (1–28). The old
+    // form repeated the same per-day RNG sequence every 28-day month,
+    // producing a non-stationary variance pattern. Expeditions store
+    // their own commission-time seed, so this change is determinism-safe
+    // for resolution of in-flight expeditions.
+    const seed = `${this.seedString}-d${this.state.calendar.totalDaysElapsed}`
     const queuedActions = picksToInputs(this.picks)
     const fullInput: SimInput = {
       seed,
@@ -147,9 +178,13 @@ class GameStore {
     this.serviceComplete = INITIAL_DAY_SESSION.serviceComplete
     this.closingComplete = INITIAL_DAY_SESSION.closingComplete
     this.route = 'day'
+    this.reportsSubview = 'today'
+    this.tavernSubview = 'areas'
+    this.worldSubview = 'regulars'
     this.savedSnapshotJustLoaded = false
     this.lastSavedAt = undefined
     this.hydrationError = undefined
+    this.saveError = undefined
     this.dismissedMissedOpportunityIds = new Set()
   }
 
@@ -167,13 +202,22 @@ class GameStore {
     this.latestResult = save.latestResultLite
       ? { ...save.latestResultLite, state: save.state }
       : undefined
-    this.picks = [...save.picks]
+    // Phase 89 / ISSUE-049 — Re-run pick sanitation against the
+    // (now-canonical) hydrated state. `validatePersistedSession` also
+    // sanitises, but running it here too means picks added from a
+    // snapshot/import path are filtered against the same rules even if
+    // a future call site forgets the upstream sanitiser.
+    const { picks: hydratedPicks } = sanitizePicks(save.picks, save.state)
+    this.picks = hydratedPicks
     this.staffPriorities = { ...save.staffPriorities }
     this.pendingBySeedId = { ...save.pendingBySeedId }
     this.beat = save.daySession.beat
     this.serviceComplete = save.daySession.serviceComplete
     this.closingComplete = save.daySession.closingComplete
     this.route = save.route
+    this.reportsSubview = save.subroutes?.reports ?? 'today'
+    this.tavernSubview = save.subroutes?.tavern ?? 'areas'
+    this.worldSubview = save.subroutes?.world ?? 'regulars'
     this.savedSnapshotJustLoaded = true
     this.lastSavedAt = save.savedAt
     this.hydrationError = undefined
@@ -220,6 +264,11 @@ class GameStore {
         closingComplete: this.closingComplete,
       },
       route: this.route,
+      subroutes: {
+        reports: this.reportsSubview,
+        tavern: this.tavernSubview,
+        world: this.worldSubview,
+      },
       dismissedMissedOpportunityIds: [...this.dismissedMissedOpportunityIds],
     }
   }
@@ -244,6 +293,36 @@ class GameStore {
     const full: PickedAction = { ...pick, pickId: nextPickId() }
     this.picks = [...this.picks, full]
     return full
+  }
+
+  /**
+   * Phase 90 / ISSUE-050 — Budget- and canApply-aware variant of
+   * `addPick`. Every UI entry point (central picker, Tavern quick
+   * actions, projects/policies, expedition sheet) should funnel through
+   * this so the queue cannot overflow the daily action-point budget or
+   * carry an invalid (action, target) pair into `runDay`.
+   *
+   * Returns the actual `PickedAction` on success, or a typed failure
+   * with a player-readable reason. Surfaces reasons identical to the
+   * central picker's `actionDisabledReason` output so the message is
+   * consistent across surfaces.
+   */
+  tryAddPick(
+    pick: Omit<PickedAction, 'pickId'>,
+  ):
+    | { ok: true; pick: PickedAction }
+    | { ok: false; reason: string } {
+    if (!actionRegistry.has(pick.actionId)) {
+      return { ok: false, reason: 'unknown action' }
+    }
+    const def = actionRegistry.get(pick.actionId)
+    const pointsLeft = ACTION_POINT_BUDGET - this.actionPointsQueued
+    const reason =
+      def.targetType && def.targetType !== 'global'
+        ? actionDisabledReasonForTarget(def, this.state, pick.targetId, pointsLeft)
+        : actionDisabledReason(def, this.state, pointsLeft)
+    if (reason) return { ok: false, reason }
+    return { ok: true, pick: this.addPick(pick) }
   }
 
   removePick(pickId: string): void {
@@ -317,6 +396,18 @@ class GameStore {
 
   setRoute(r: Route): void {
     this.route = r
+  }
+
+  setReportsSubview(v: ReportsSubview): void {
+    this.reportsSubview = v
+  }
+
+  setTavernSubview(v: TavernSubview): void {
+    this.tavernSubview = v
+  }
+
+  setWorldSubview(v: WorldSubview): void {
+    this.worldSubview = v
   }
 
   /** Dismiss the welcome-back pill without changing the beat. */

@@ -7,6 +7,10 @@
 // using the same path/message/code style as the Phase 6 validators.
 
 import { namingProfileRegistry } from '../content/naming/namingProfiles'
+import {
+  areaTraitRegistry,
+  areaUpgradeRegistry,
+} from '../content/tavern/index'
 import { recipeRegistry } from '../registries/recipeRegistry'
 import { staffRegistry } from '../registries/staffRegistry'
 import { stockRegistry } from '../registries/stockRegistry'
@@ -215,6 +219,63 @@ export function validateEntityRef(
 // ingredient ids. A recipe whose `inputs` point at an unknown
 // ingredient id is unservable; validation surfaces it instead of
 // letting the service flow throw at runtime.
+// Phase 92 / ISSUE-052 — Stock items reference storage areas via the
+// optional `storageAreaId` field; previously the field was schema-shape
+// only and a dangling id silently fell back to default spoilage. The
+// check below requires the id (when set) to exist in `state.areas`.
+export function validateStockReferences(state: TavernState): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  for (const [id, stock] of Object.entries(state.stock)) {
+    if (stock.storageAreaId === undefined) continue
+    if (!(stock.storageAreaId in state.areas)) {
+      issues.push(
+        makeIssue(
+          `stock.${id}.storageAreaId`,
+          `Stock '${id}' references unknown storage area '${stock.storageAreaId}'`,
+          'unknown_area_ref',
+        ),
+      )
+    }
+  }
+  return issues
+}
+
+// Phase 92 / ISSUE-052 — Area `traits` and `upgrades` carry registry
+// ids. The tavern overview projection calls `areaTraitRegistry.get()`
+// and `areaUpgradeRegistry.get()` directly, so an unknown id throws
+// during projection instead of failing validation up front.
+export function validateAreaContentReferences(
+  state: TavernState,
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  for (const [id, area] of Object.entries(state.areas)) {
+    for (let i = 0; i < area.traits.length; i += 1) {
+      const traitId = area.traits[i]!
+      if (!areaTraitRegistry.has(traitId)) {
+        issues.push(
+          makeIssue(
+            `areas.${id}.traits[${i}]`,
+            `Area '${id}' references unknown trait id '${traitId}'`,
+            'unknown_area_trait',
+          ),
+        )
+      }
+    }
+    for (const upgradeId of Object.keys(area.upgrades)) {
+      if (!areaUpgradeRegistry.has(upgradeId)) {
+        issues.push(
+          makeIssue(
+            `areas.${id}.upgrades.${upgradeId}`,
+            `Area '${id}' references unknown upgrade id '${upgradeId}'`,
+            'unknown_area_upgrade',
+          ),
+        )
+      }
+    }
+  }
+  return issues
+}
+
 export function validateRecipeReferences(state: TavernState): ValidationIssue[] {
   const issues: ValidationIssue[] = []
   for (const [id] of Object.entries(state.recipes)) {
@@ -597,6 +658,10 @@ export function validateWorldReferences(state: TavernState): ValidationIssue[] {
   }
 
   // Social rumours: subject and involved refs must resolve.
+  // Phase 92 / ISSUE-052 — bare `sourceEntityId` / `targetEntityId` are
+  // also validated against the union of known entity indexes so a
+  // rumour cannot survive validation while pointing at nothing.
+  const knownEntityIds = collectKnownEntityIds(state)
   for (const [id, rumour] of Object.entries(world.socialRumours)) {
     if (rumour.subject) {
       const subjectIssues = validateEntityRef(
@@ -617,7 +682,48 @@ export function validateWorldReferences(state: TavernState): ValidationIssue[] {
         issues.push(...involvedIssues)
       }
     }
+    if (
+      rumour.sourceEntityId !== undefined &&
+      !knownEntityIds.has(rumour.sourceEntityId)
+    ) {
+      issues.push(
+        makeIssue(
+          `world.socialRumours.${id}.sourceEntityId`,
+          `Rumour '${id}' sourceEntityId '${rumour.sourceEntityId}' does not match any known entity id`,
+          'unknown_rumour_endpoint',
+        ),
+      )
+    }
+    if (
+      rumour.targetEntityId !== undefined &&
+      !knownEntityIds.has(rumour.targetEntityId)
+    ) {
+      issues.push(
+        makeIssue(
+          `world.socialRumours.${id}.targetEntityId`,
+          `Rumour '${id}' targetEntityId '${rumour.targetEntityId}' does not match any known entity id`,
+          'unknown_rumour_endpoint',
+        ),
+      )
+    }
   }
 
   return issues
+}
+
+// Phase 92 / ISSUE-052 — Union of all entity ids a bare rumour endpoint
+// could legitimately refer to. The set is built lazily per validation
+// call so adding a new entity index in the future stays a one-line
+// change.
+function collectKnownEntityIds(state: TavernState): Set<string> {
+  const ids = new Set<string>()
+  for (const id of Object.keys(state.staff)) ids.add(id)
+  for (const id of Object.keys(state.customerGroups)) ids.add(id)
+  for (const id of Object.keys(state.world.cultures)) ids.add(id)
+  for (const id of Object.keys(state.world.factions)) ids.add(id)
+  for (const id of Object.keys(state.world.suppliers)) ids.add(id)
+  for (const id of Object.keys(state.world.regulars)) ids.add(id)
+  for (const id of Object.keys(state.world.notableNpcs)) ids.add(id)
+  for (const id of Object.keys(state.world.hireableAdventurers)) ids.add(id)
+  return ids
 }

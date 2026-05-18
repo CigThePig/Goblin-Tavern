@@ -10,35 +10,13 @@ import type { SimulationModule } from '../core/module'
 import type { TavernState } from '../state/TavernState'
 import { createInitialTavernState } from '../state/defaults'
 
-import { areasModule } from '../modules/areas/index'
-import { attributionModule } from '../modules/attribution/index'
-import { causesModule } from '../modules/causes/index'
-import { customersModule } from '../modules/customers/index'
-import { feedbackModule } from '../modules/feedback/index'
-import { historyModule } from '../modules/history/index'
-import { issueSeedsModule } from '../modules/issues/index'
-import { memoriesModule } from '../modules/memories/index'
-import { responsesModule } from '../modules/responses/index'
-import { localArcsModule } from '../modules/localArcs/index'
-import { monthlyModule } from '../modules/monthly/index'
-import { ownerActionsModule } from '../modules/ownerActions/index'
-import { pressuresModule } from '../modules/pressures/index'
-import { serviceModule } from '../modules/service/index'
-import { staffModule } from '../modules/staff/index'
-import { stockModule } from '../modules/stock/index'
-import { weeklyModule } from '../modules/weekly/index'
-// Phase 27 §27.4 — expanded world modules.
-import { worldModule } from '../modules/world/index'
-import { cultureModule } from '../modules/cultures/index'
-import { factionModule } from '../modules/factions/index'
-import { supplierModule } from '../modules/suppliers/index'
-import { regularModule } from '../modules/regulars/index'
-// Phase 69 / ISSUE-029 §6.4 — hireable adventurer roster module.
-import { adventurersModule } from '../modules/adventurers/index'
-// Phase 70 / ISSUE-030 §6.3 — expedition subsystem module.
-import { expeditionsModule } from '../modules/expeditions/index'
-// Phase 95 — Tavern Identity recomputation runs on endDay.
-import { tavernIdentityModule } from '../modules/tavernIdentity/index'
+// Phase 92 / ISSUE-052 — The canonical pipeline now lives outside of
+// `testing/` so production code (engine validation, persistence
+// migrations) can import it without depending on a test-runner module.
+// Re-exported here for backwards compatibility with the many callers
+// that already import `FULL_PIPELINE` from this file.
+import { FULL_PIPELINE } from '../canonicalPipeline'
+export { FULL_PIPELINE }
 
 // Phase 20 §20.1 — Cardless playtest runner.
 //
@@ -53,74 +31,6 @@ import { tavernIdentityModule } from '../modules/tavernIdentity/index'
 // The runner does not present anything to the user. It is the underlying
 // engine for cardless playtest reports, contradiction audits, seed
 // coverage, strategy comparison, and the final card-readiness gate.
-
-/**
- * The canonical full Phase 19 simulation pipeline. The order is
- * load-bearing: state owners (areas/stock/staff/customers) run before
- * the input/service modules, which run before weekly/monthly closers,
- * memory/history pipelines, then the analysis stack (causes →
- * pressures → feedback → issue seeds).
- */
-export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
-  areasModule,
-  stockModule,
-  staffModule,
-  customersModule,
-  // Phase 27 §27.4 — world skeleton modules sit between the state
-  // owners and the input/service modules. They currently register no-
-  // op hooks against the new Phase 27 phases; later phases (29, 30)
-  // give them real behaviour. The world module itself is listed first
-  // so its `state.modules.world` slot is reserved before domain
-  // modules that may eventually depend on it.
-  worldModule,
-  cultureModule,
-  factionModule,
-  supplierModule,
-  regularModule,
-  // Phase 69 / ISSUE-029 §6.4 — adventurers module runs alongside the
-  // other world-state modules. Its only hook is `endWeek`, so its
-  // position before service/owner-actions is just for clarity.
-  adventurersModule,
-  // Phase 70 / ISSUE-030 §6.3 — expeditions module ticks each day
-  // before the input/service path so newly-resolved expeditions can
-  // influence today's customer/service flow (e.g. fresh ingredients
-  // landing in stock at startDay).
-  expeditionsModule,
-  ownerActionsModule,
-  serviceModule,
-  weeklyModule,
-  monthlyModule,
-  // Phase 35 §35.5 — local arcs run after the monthly module so they
-  // observe the finalized month (modifier, accumulator) before seeding
-  // or progressing arcs.
-  localArcsModule,
-  // Phase 95 — Tavern identity recomputation. Its single `endDay`
-  // hook reads reputation, policies, areas, and cultures and writes
-  // any drift back via `modifyTavernIdentity`. Positioned after the
-  // arc/weekly/monthly closers so today's settled meters reach it,
-  // but before memories/history/causes capture the day's writes.
-  tavernIdentityModule,
-  memoriesModule,
-  historyModule,
-  causesModule,
-  // Phase 37 §37.1 — Attribution sits after causes/memories/scenes so
-  // its rules can read today's settled simulation truth, but before the
-  // pressure/feedback/issue-seed analytical stack so those layers can
-  // optionally fold in attribution-driven signals.
-  attributionModule,
-  pressuresModule,
-  feedbackModule,
-  issueSeedsModule,
-  // Phase 41 / ISSUE-001 — responses module wires the resolver into the
-  // engine. Its `applyResponses` phase slot fires between `closing` and
-  // `endDay`, so by the time `applyResponses` runs the day's seeds are
-  // present (issueSeedsModule populates them during `generateReports`
-  // for the previous day's snapshot — for current-day intents, the
-  // chooser must supply intents referencing seeds known at the moment
-  // they were chosen). The module also drains the pending queue on
-  // `startDay`, which is why it must be registered at all.
-  responsesModule,
-]
 
 /** A chooser produces the SimInput for a single simulated day. */
 export type DayInputChooser = (

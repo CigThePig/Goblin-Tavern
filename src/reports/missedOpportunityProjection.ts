@@ -35,6 +35,7 @@ import type {
 } from '../sim/modules/ownerActions/types'
 import type { ResolvedIntentRecord } from '../sim/modules/responses/types'
 import { actionRegistry } from '../sim/registries/actionRegistry'
+import { canApplyAction } from '../sim/modules/ownerActions/readonlyHelpers'
 import { pathToCauseTarget } from './causeLookup'
 import { resolveEntityLabel } from './entityLabels'
 import {
@@ -137,6 +138,9 @@ function composePressureLine(
     SECONDARY_WORD_BUDGET,
   )
   const impact = (snap.delta * snap.severity) / 100 * (remedy.impactWeight ?? 1)
+  // Phase 96 / ISSUE-056 — Annotate if the suggested remedy wouldn't
+  // have actually passed canApply against today's state.
+  const validityNote = remedyValidityNote(state, remedy.actionId, target?.id)
   return {
     id: makeId(closedDay, 'pressure_remedy', remedy.actionId, target?.id),
     kind: 'pressure_remedy',
@@ -148,7 +152,27 @@ function composePressureLine(
     ...(targetLabel ? { targetLabel } : {}),
     pressureId: snap.id,
     impact,
+    ...(validityNote ? { validityNote } : {}),
   }
+}
+
+// Phase 96 / ISSUE-056 — Returns a short note if the (action, target)
+// pair would not pass `canApply` against today's state. Undefined when
+// the remedy is applicable. The note is short enough to append to the
+// `readable` line without breaking the word budget.
+function remedyValidityNote(
+  state: TavernState,
+  actionId: string,
+  targetId: string | undefined,
+): string | undefined {
+  if (!actionRegistry.has(actionId)) return undefined
+  const def = actionRegistry.get(actionId)
+  const verdict = canApplyAction(def, state, {
+    actionId,
+    ...(targetId ? { targetId } : {}),
+  })
+  if (verdict.ok) return undefined
+  return clampWords(`would have needed: ${verdict.reason}`, 8)
 }
 
 function composePressureReadable(

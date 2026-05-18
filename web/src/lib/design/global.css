@@ -38,24 +38,29 @@
   --font-body: 'EB Garamond', Georgia, 'Times New Roman', serif;
   --font-mono: 'IBM Plex Mono', 'SF Mono', Menlo, Consolas, monospace;
 
-  --type-display: 28px;
-  --type-display-lg: 34px;
-  --type-heading: 21px;
-  --type-body: 17px;
-  --type-mono: 14px;
-  --type-tag: 12px;
+  /* Phase 93 / ISSUE-053 — Type tokens are rem so the
+     :root[data-font-scale='sm'|'md'|'lg'] base-px override scales
+     every consumer that uses these tokens. Previously they were px
+     literals, which made the font-scale setting only affect raw
+     elements rather than design-token-driven type. */
+  --type-display: 1.75rem;
+  --type-display-lg: 2.125rem;
+  --type-heading: 1.3125rem;
+  --type-body: 1.0625rem;
+  --type-mono: 0.875rem;
+  --type-tag: 0.75rem;
 
   --line-tight: 1.25;
   --line-body: 1.55;
 
-  /* Spacing */
-  --sp-xxs: 4px;
-  --sp-xs: 8px;
-  --sp-sm: 12px;
-  --sp-md: 16px;
-  --sp-lg: 24px;
-  --sp-xl: 32px;
-  --sp-xxl: 48px;
+  /* Spacing — also in rem so layout breathes with font scale. */
+  --sp-xxs: 0.25rem;
+  --sp-xs: 0.5rem;
+  --sp-sm: 0.75rem;
+  --sp-md: 1rem;
+  --sp-lg: 1.5rem;
+  --sp-xl: 2rem;
+  --sp-xxl: 3rem;
 
   /* Layout */
   --max-content: 560px;

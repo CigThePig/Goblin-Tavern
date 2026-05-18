@@ -30,7 +30,12 @@
     { id: 'projects', label: 'Projects' },
   ]
 
-  let subview = $state<Subview>('areas')
+  // Phase 93 / ISSUE-053 — Subview lives on the store and persists
+  // through the save envelope so Continue lands on the same tab.
+  const subview = $derived(gameStore.tavernSubview)
+  function setSubview(s: Subview) {
+    gameStore.setTavernSubview(s)
+  }
   let pickerOpen = $state(false)
 
   const data = $derived<TavernOverviewData>(buildTavernOverview(gameStore.state))
@@ -44,7 +49,7 @@
         class="subtab"
         class:active={subview === tab.id}
         aria-current={subview === tab.id ? 'page' : undefined}
-        onclick={() => (subview = tab.id)}
+        onclick={() => setSubview(tab.id)}
       >
         {tab.label}
       </button>

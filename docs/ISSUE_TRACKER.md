@@ -87,14 +87,14 @@ how to verify the fix.
 | ISSUE-046 | Staff-management owner actions (hire / fire / kick) missing | broken | done | 86 |
 | ISSUE-047 | Generic Ignore button binds to non-ignore slots via verb-only matcher fallback | broken | done | 87 |
 | ISSUE-048 | ActionPicker enables owner actions that fail `canApply` (e.g. `patch_roof` with no coin) | broken | done | 88 |
-| ISSUE-049 | Persistence contract, migration framework, and save-slot safety | broken | open | — |
-| ISSUE-050 | Cross-surface owner-action queue validity | broken | open | — |
-| ISSUE-051 | Day result/report timing and browser RNG seed correctness | broken | open | — |
-| ISSUE-052 | Validation source-of-truth and reference coverage | broken | open | — |
-| ISSUE-053 | Web navigation, modal accessibility, and UI state persistence | broken | open | — |
-| ISSUE-054 | Supplier pricing reaches restock gameplay | thin | open | — |
-| ISSUE-055 | Area content unpinning and customer-area rotation | thin | open | — |
-| ISSUE-056 | Advisory UI validity and future card-choice guardrails | thin | open | — |
+| ISSUE-049 | Persistence contract, migration framework, and save-slot safety | broken | done | 89 |
+| ISSUE-050 | Cross-surface owner-action queue validity | broken | done | 90 |
+| ISSUE-051 | Day result/report timing and browser RNG seed correctness | broken | done | 91 |
+| ISSUE-052 | Validation source-of-truth and reference coverage | broken | done | 92 |
+| ISSUE-053 | Web navigation, modal accessibility, and UI state persistence | broken | done | 93 |
+| ISSUE-054 | Supplier pricing reaches restock gameplay | thin | done | 94 |
+| ISSUE-055 | Area content unpinning and customer-area rotation | thin | done | 95 |
+| ISSUE-056 | Advisory UI validity and future card-choice guardrails | thin | done | 96 |
 
 ---
 
@@ -2036,8 +2036,8 @@ can land with targeted regression coverage instead of one-off fixes.
 ### ISSUE-049 — Persistence contract, migration framework, and save-slot safety
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 89
 - **Evidence:**
   - `P6-001` — autosave write failures are swallowed by `saveSession()` while
     `App.svelte` still updates `lastSavedAt`.
@@ -2068,8 +2068,8 @@ can land with targeted regression coverage instead of one-off fixes.
 ### ISSUE-050 — Cross-surface owner-action queue validity
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 90
 - **Evidence:**
   - `P3-001` — Tavern quick actions, project/policy buttons, and expedition
     commissioning call `gameStore.addPick()` directly and can overfill the daily
@@ -2091,8 +2091,8 @@ can land with targeted regression coverage instead of one-off fixes.
 ### ISSUE-051 — Day result/report timing and browser RNG seed correctness
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 91
 - **Evidence:**
   - `P2-001` — `collectReports()` runs before `generateReports` hooks, making
     issue-seed report output stale relative to same-day state.
@@ -2117,8 +2117,8 @@ can land with targeted regression coverage instead of one-off fixes.
 ### ISSUE-052 — Validation source-of-truth and reference coverage
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 92
 - **Evidence:**
   - `P2-003` / `P1-001` — bare `validateState(state)` reads the empty
     `moduleRegistry`, while runtime callers pass `FULL_PIPELINE`.
@@ -2142,8 +2142,8 @@ can land with targeted regression coverage instead of one-off fixes.
 ### ISSUE-053 — Web navigation, modal accessibility, and UI state persistence
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 93
 - **Evidence:**
   - `P5-001` — Day's Yesterday digest writes `gameStore.route` but does not
     update App's local `view`.
@@ -2169,8 +2169,8 @@ can land with targeted regression coverage instead of one-off fixes.
 ### ISSUE-054 — Supplier pricing reaches restock gameplay
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 94
 - **Evidence:**
   - `P4-003` — supplier relationship/reliability/market-condition pricing exists
     in helpers/reports, but `restock_item` still uses stock base price directly.
@@ -2187,8 +2187,8 @@ can land with targeted regression coverage instead of one-off fixes.
 ### ISSUE-055 — Area content unpinning and customer-area rotation
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 95
 - **Evidence:**
   - `P4-004` — issue-seed generators still hardcode `main_room` references and
     direct `areas.main_room.*` effects.
@@ -2203,8 +2203,8 @@ can land with targeted regression coverage instead of one-off fixes.
 ### ISSUE-056 — Advisory UI validity and future card-choice guardrails
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 96
 - **Evidence:**
   - `P3-003` — missed-opportunity recommendations do not run the same
     target/current-state checks as owner-action UI.

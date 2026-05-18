@@ -9,7 +9,15 @@
 // invoking `validateState()`. Phase 25 keeps the migration step opt-in
 // rather than building a full version-keyed migration framework just
 // for the world branch — see `phases-22-25` §"Migration Guidance".
-import { createInitialWorldState } from './defaults'
+//
+// Phase 89 / ISSUE-049 — extends the additive helper set with
+// `ensureRecipesSlice`, `ensureExpeditionsSlice`, and
+// `ensureModuleSlices` so saves predating Phase 65 / Phase 70 / late
+// module-state additions migrate forward instead of bouncing as
+// `invalid`.
+import { FULL_PIPELINE } from '../canonicalPipeline'
+import type { SimulationModule } from '../core/module'
+import { createInitialWorldState, createInitialTavernState } from './defaults'
 import { createStaffIdentity } from '../content/staff/staffIdentityFactory'
 import { ensureRequiredStaffIdentityProfilesRegistered } from '../content/staff/staffIdentityProfiles'
 import { createRngStreams } from '../core/rng'
@@ -17,7 +25,13 @@ import { WEEKLY_MODULE_ID } from '../modules/weekly/state'
 import type { WeeklyModuleState, WeeklyResult } from '../modules/weekly/types'
 import { MONTHLY_MODULE_ID } from '../modules/monthly/types'
 import type { MonthlyModuleState, MonthlyResult } from '../modules/monthly/types'
-import type { AreaState, TavernState, WorldState } from './TavernState'
+import type {
+  AreaState,
+  ExpeditionsState,
+  RecipeState,
+  TavernState,
+  WorldState,
+} from './TavernState'
 
 export function ensureWorldBranch<T extends Partial<TavernState>>(
   state: T,
@@ -171,6 +185,70 @@ export function ensureMonthlyHistoryField<
       [MONTHLY_MODULE_ID]: { ...slice, monthlyHistory: [] },
     },
   }
+}
+
+// Phase 89 / ISSUE-049 — pre-Phase-65 saves do not carry the
+// `recipes` slice. The schema now requires it, so without this helper
+// older saves bounce as `invalid` rather than migrating. We use the
+// default-state factory as the source of truth: any new starter recipe
+// added by `createInitialRecipes` reaches old saves through this path.
+export function ensureRecipesSlice<T extends { recipes?: unknown }>(
+  state: T,
+): T {
+  if (state.recipes && typeof state.recipes === 'object' && !Array.isArray(state.recipes)) {
+    return state
+  }
+  const defaults = createInitialTavernState().recipes
+  return { ...state, recipes: defaults as Record<string, RecipeState> }
+}
+
+// Phase 89 / ISSUE-049 — pre-Phase-70 saves do not carry the
+// `expeditions` slice. The schema now requires it as a structured
+// object with `active` and `completed` arrays.
+export function ensureExpeditionsSlice<T extends { expeditions?: unknown }>(
+  state: T,
+): T {
+  const existing = state.expeditions as Partial<ExpeditionsState> | undefined
+  if (
+    existing &&
+    Array.isArray(existing.active) &&
+    Array.isArray(existing.completed)
+  ) {
+    return state
+  }
+  const next: ExpeditionsState = {
+    active: Array.isArray(existing?.active) ? existing.active : [],
+    completed: Array.isArray(existing?.completed) ? existing.completed : [],
+  }
+  return { ...state, expeditions: next }
+}
+
+// Phase 89 / ISSUE-049 — synthesise any module-state slot the current
+// pipeline expects but the loaded save omits. The default factory holds
+// the fresh slice for every module registered today, so this helper
+// guarantees that loading a save written before a later module landed
+// produces a schema-valid state.
+//
+// Existing module slices in the save are preserved untouched; only
+// missing keys are added. This is the additive contract used elsewhere
+// in this file.
+export function ensureModuleSlices<T extends { modules?: Record<string, unknown> }>(
+  state: T,
+  modules: ReadonlyArray<SimulationModule> = FULL_PIPELINE,
+): T {
+  const defaults = createInitialTavernState().modules
+  const current = (state.modules ?? {}) as Record<string, unknown>
+  const next: Record<string, unknown> = { ...current }
+  let changed = false
+  for (const mod of modules) {
+    if (!mod.stateSchema) continue
+    if (!(mod.id in next) && mod.id in defaults) {
+      next[mod.id] = (defaults as Record<string, unknown>)[mod.id]
+      changed = true
+    }
+  }
+  if (!changed && state.modules) return state
+  return { ...state, modules: next }
 }
 
 function isGeneratedNameLike(value: unknown): value is { display: string } {

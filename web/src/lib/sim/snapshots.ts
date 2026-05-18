@@ -206,6 +206,91 @@ export function listSnapshots(): SnapshotMeta[] {
   })
 }
 
+/**
+ * Phase 89 / ISSUE-049 — Walk every storage key matching
+ * `SNAPSHOT_PAYLOAD_PREFIX` and surface any payload whose id is missing
+ * from the index. The reconstructed metadata uses the payload's own
+ * data (totalDaysElapsed, simSeed) so the More → Saves screen can
+ * surface a Recovered slot the player can load or delete.
+ *
+ * If the underlying storage adapter does not expose `length`/`key`
+ * (in-memory fallback in tests), we still scan the in-memory map.
+ */
+export function findOrphanSnapshots(): SnapshotMeta[] {
+  const indexed = new Set(readIndex().entries.map((e) => e.id))
+  const storage = getStorage()
+  type RealStorage = StorageLike & {
+    length?: number
+    key?: (i: number) => string | null
+  }
+  const real = storage as RealStorage
+
+  const keys: string[] = []
+  if (typeof real.length === 'number' && typeof real.key === 'function') {
+    const len = real.length
+    for (let i = 0; i < len; i += 1) {
+      const k = real.key(i)
+      if (k !== null) keys.push(k)
+    }
+  } else if (memoryFallback) {
+    for (const k of memoryFallback.keys()) keys.push(k)
+  }
+
+  const orphans: SnapshotMeta[] = []
+  for (const key of keys) {
+    if (!key.startsWith(SNAPSHOT_PAYLOAD_PREFIX)) continue
+    const id = key.slice(SNAPSHOT_PAYLOAD_PREFIX.length)
+    if (id === '' || indexed.has(id)) continue
+    const raw = storage.getItem(key)
+    if (raw === null || raw === '') continue
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      continue
+    }
+    if (typeof parsed !== 'object' || parsed === null) continue
+    const session = parsed as Partial<PersistedSession>
+    const day = session.state?.calendar?.totalDaysElapsed ?? 0
+    const seedString = session.simSeed ?? 'unknown'
+    const createdAt =
+      typeof session.savedAt === 'string'
+        ? session.savedAt
+        : new Date(0).toISOString()
+    orphans.push({
+      id,
+      name: 'Recovered',
+      createdAt,
+      day,
+      seedString,
+      bytes: raw.length,
+    })
+  }
+  return orphans
+}
+
+/**
+ * Phase 89 / ISSUE-049 — Adopt orphan payloads back into the index so
+ * the More → Saves screen can manage them like any other snapshot.
+ * Returns the number of slots recovered. Refuses to push the index
+ * past `MAX_NAMED_SNAPSHOTS`; remaining orphans stay accessible via
+ * `findOrphanSnapshots()` until the player frees a slot.
+ */
+export function recoverOrphanSnapshots(): number {
+  const orphans = findOrphanSnapshots()
+  if (orphans.length === 0) return 0
+  const index = readIndex()
+  const room = Math.max(0, MAX_NAMED_SNAPSHOTS - index.entries.length)
+  if (room === 0) return 0
+  const adopted = orphans.slice(0, room)
+  const nextIndex: SnapshotIndex = {
+    version: SNAPSHOT_INDEX_VERSION,
+    entries: [...adopted, ...index.entries],
+  }
+  if (!writeIndex(nextIndex)) return 0
+  return adopted.length
+}
+
 export function createSnapshot(
   name: string,
   session: PersistedSession,

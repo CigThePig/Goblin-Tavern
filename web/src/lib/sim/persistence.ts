@@ -36,13 +36,16 @@ import {
   ensureStaffIdentityFields,
   ensureWeeklyHistoryField,
   ensureMonthlyHistoryField,
+  ensureRecipesSlice,
+  ensureExpeditionsSlice,
+  ensureModuleSlices,
 } from '../../../../src/sim/state/migrations'
 import { safeValidateState } from '../../../../src/sim/state/validation'
-import { FULL_PIPELINE } from '../../../../src/sim/testing/simRunner'
+import { FULL_PIPELINE } from '../../../../src/sim/canonicalPipeline'
 import type { TavernState } from '../../../../src/sim/state/TavernState'
 import type { CalendarState } from '../../../../src/sim/modules/calendar/types'
 import type { SimResult } from '../../../../src/sim/core/result'
-import type { PickedAction } from './actionBuilder'
+import { sanitizePicks, type PickedAction } from './actionBuilder'
 import type {
   Beat,
   DaySessionSnapshot,
@@ -151,13 +154,51 @@ function getStorage(): StorageLike {
 // ──────────────────────────────────────────────────────────────────
 // Save
 
+// Phase 89 / ISSUE-049 — `saveSession()` previously returned `void` and
+// silently swallowed storage failures, so the UI's `lastSavedAt`
+// timestamp updated unconditionally even on a failed write. The typed
+// result lets the App layer keep the timestamp pinned to the last
+// successful write and surface a recoverable banner.
+export type SaveResult =
+  | { ok: true; savedAt: string }
+  | { ok: false; reason: SaveFailureReason; message: string }
+
+export type SaveFailureReason = 'quota' | 'unavailable' | 'unknown'
+
 let quotaWarned = false
 
-export function saveSession(session: PersistedSession): void {
+function classifyStorageError(err: unknown): SaveFailureReason {
+  if (err && typeof err === 'object') {
+    const e = err as { name?: unknown; code?: unknown }
+    if (
+      e.name === 'QuotaExceededError' ||
+      e.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+      e.code === 22 ||
+      e.code === 1014
+    ) {
+      return 'quota'
+    }
+  }
+  return 'unknown'
+}
+
+export function saveSession(session: PersistedSession): SaveResult {
+  let storage: StorageLike
+  try {
+    storage = getStorage()
+  } catch (err) {
+    return {
+      ok: false,
+      reason: 'unavailable',
+      message: describeErr(err),
+    }
+  }
   try {
     const payload = JSON.stringify(session)
-    getStorage().setItem(SAVE_STORAGE_KEY, payload)
+    storage.setItem(SAVE_STORAGE_KEY, payload)
+    return { ok: true, savedAt: session.savedAt }
   } catch (err) {
+    const reason = classifyStorageError(err)
     if (!quotaWarned) {
       quotaWarned = true
       // Quota errors are noisy but non-fatal. Drop a single warning so
@@ -169,6 +210,7 @@ export function saveSession(session: PersistedSession): void {
         err,
       )
     }
+    return { ok: false, reason, message: describeErr(err) }
   }
 }
 
@@ -231,13 +273,21 @@ export function validatePersistedSession(parsed: unknown): ValidationOutcome {
 
   let migratedState: TavernState
   try {
+    // Phase 89 / ISSUE-049 — additive migration chain. Each helper is
+    // idempotent and a no-op when the slice already matches the current
+    // shape. Order matters only where one helper depends on another's
+    // output; today that's just `ensureModuleSlices` running last after
+    // module-state-bearing slices are guaranteed.
     const s0 = rawState as Partial<TavernState>
     const s1 = ensureWorldBranch(s0)
     const s2 = ensureAreaIdentityFields(s1)
     const s3 = ensureStaffIdentityFields(s2)
-    const s4 = ensureWeeklyHistoryField(s3)
-    const s5 = ensureMonthlyHistoryField(s4)
-    const validation = safeValidateState(s5, { modules: FULL_PIPELINE })
+    const s4 = ensureRecipesSlice(s3)
+    const s5 = ensureExpeditionsSlice(s4)
+    const s6 = ensureWeeklyHistoryField(s5)
+    const s7 = ensureMonthlyHistoryField(s6)
+    const s8 = ensureModuleSlices(s7)
+    const validation = safeValidateState(s8, { modules: FULL_PIPELINE })
     if (!validation.success) {
       const first = validation.errors[0]
       return {
@@ -254,8 +304,21 @@ export function validatePersistedSession(parsed: unknown): ValidationOutcome {
   const savedAt = readString(parsed, 'savedAt') ?? new Date(0).toISOString()
   const route = readRoute(parsed, 'route') ?? 'day'
 
+  // Phase 89 / ISSUE-049 — Saved owner-action picks now run through a
+  // sanitiser before reaching the cross-screen queue. Drops shape
+  // errors, unknown actions, target-type drift, and dangling target
+  // ids. A console.warn surfaces the dropped count once per load.
   const picksRaw = (parsed as { picks?: unknown }).picks
-  const picks = Array.isArray(picksRaw) ? (picksRaw as PickedAction[]) : []
+  const { picks, droppedCount: droppedPicks } = sanitizePicks(
+    picksRaw,
+    migratedState,
+  )
+  if (droppedPicks > 0) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `goblin-tavern: dropped ${droppedPicks} invalid owner-action pick(s) during load`,
+    )
+  }
 
   const staffPrioritiesRaw = (parsed as { staffPriorities?: unknown }).staffPriorities
   const staffPriorities: Record<string, string> =

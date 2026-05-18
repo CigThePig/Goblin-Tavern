@@ -67,6 +67,21 @@
 
   let saveTimer: ReturnType<typeof setTimeout> | undefined
 
+  // Phase 89 / ISSUE-049 — apply the typed `SaveResult`. `lastSavedAt`
+  // is only pinned forward on a successful write; failed writes set
+  // `gameStore.saveError` so the More → Saves section can surface a
+  // banner with a Retry affordance. The banner clears on the next
+  // successful save.
+  function commitSaveResult(session: ReturnType<typeof gameStore.serializeForSave>) {
+    const result = saveSession(session)
+    if (result.ok) {
+      gameStore.lastSavedAt = result.savedAt
+      gameStore.saveError = undefined
+    } else {
+      gameStore.saveError = result
+    }
+  }
+
   function flushSaveNow() {
     if (!bootDone) return
     if (view === 'start') return
@@ -75,8 +90,7 @@
       saveTimer = undefined
     }
     const session = gameStore.serializeForSave()
-    saveSession(session)
-    gameStore.lastSavedAt = session.savedAt
+    commitSaveResult(session)
   }
 
   function scheduleSave() {
@@ -86,9 +100,14 @@
     saveTimer = setTimeout(() => {
       saveTimer = undefined
       const session = gameStore.serializeForSave()
-      saveSession(session)
-      gameStore.lastSavedAt = session.savedAt
+      commitSaveResult(session)
     }, 300)
+  }
+
+  // Exposed so the SavesSection retry button can re-attempt the latest
+  // write without waiting for the next debounce.
+  function retrySaveNow() {
+    flushSaveNow()
   }
 
   // Phase 98 — Mirror preferences onto `<html>` data-attributes. The

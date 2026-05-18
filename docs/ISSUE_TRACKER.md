@@ -87,7 +87,7 @@ how to verify the fix.
 | ISSUE-046 | Staff-management owner actions (hire / fire / kick) missing | broken | done | 86 |
 | ISSUE-047 | Generic Ignore button binds to non-ignore slots via verb-only matcher fallback | broken | done | 87 |
 | ISSUE-048 | ActionPicker enables owner actions that fail `canApply` (e.g. `patch_roof` with no coin) | broken | done | 88 |
-| ISSUE-049 | Persistence contract, migration framework, and save-slot safety | broken | open | — |
+| ISSUE-049 | Persistence contract, migration framework, and save-slot safety | broken | done | 89 |
 | ISSUE-050 | Cross-surface owner-action queue validity | broken | open | — |
 | ISSUE-051 | Day result/report timing and browser RNG seed correctness | broken | open | — |
 | ISSUE-052 | Validation source-of-truth and reference coverage | broken | done | 92 |
@@ -2036,8 +2036,8 @@ can land with targeted regression coverage instead of one-off fixes.
 ### ISSUE-049 — Persistence contract, migration framework, and save-slot safety
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 89
 - **Evidence:**
   - `P6-001` — autosave write failures are swallowed by `saveSession()` while
     `App.svelte` still updates `lastSavedAt`.

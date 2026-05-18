@@ -14,8 +14,10 @@
     createSnapshot,
     deleteSnapshot,
     estimateStorageBytes,
+    findOrphanSnapshots,
     listSnapshots,
     loadSnapshot,
+    recoverOrphanSnapshots,
     renameSnapshot,
     type SnapshotMeta,
     MAX_NAMED_SNAPSHOTS,
@@ -41,6 +43,7 @@
 
   let snapshots = $state<SnapshotMeta[]>(listSnapshots())
   let bytesUsed = $state(estimateStorageBytes())
+  let orphans = $state<SnapshotMeta[]>(findOrphanSnapshots())
 
   // Naming dialog state for "Snapshot now".
   let creatingName = $state('')
@@ -48,6 +51,10 @@
 
   // Confirm-load dialog.
   let pendingLoadId = $state<string | undefined>(undefined)
+  // Phase 89 / ISSUE-049 — Confirm-delete dialog. The id sits here
+  // while the player decides; `confirmDelete()` triggers the actual
+  // `deleteSnapshot` call. Mirrors the load-confirm pattern.
+  let pendingDeleteId = $state<string | undefined>(undefined)
 
   // Import flow.
   let importInputEl: HTMLInputElement | undefined = $state(undefined)
@@ -73,6 +80,16 @@
   function refresh() {
     snapshots = listSnapshots()
     bytesUsed = estimateStorageBytes()
+    orphans = findOrphanSnapshots()
+  }
+
+  function recoverOrphans() {
+    recoverOrphanSnapshots()
+    refresh()
+  }
+
+  function clearSaveError() {
+    gameStore.saveError = undefined
   }
 
   function takeSnapshot() {
@@ -121,8 +138,21 @@
   }
 
   function handleDelete(id: string) {
-    deleteSnapshot(id)
+    // Phase 89 / ISSUE-049 — Defer the destructive call behind a
+    // confirmation, mirroring the load-confirm path. A mistap on the
+    // row's × button no longer wipes the slot.
+    pendingDeleteId = id
+  }
+
+  function confirmDelete() {
+    if (!pendingDeleteId) return
+    deleteSnapshot(pendingDeleteId)
+    pendingDeleteId = undefined
     refresh()
+  }
+
+  function cancelDelete() {
+    pendingDeleteId = undefined
   }
 
   function handleRename(id: string, name: string) {
@@ -183,6 +213,28 @@
 
 <section class="saves-section" aria-labelledby="saves-h">
   <h2 id="saves-h" class="display heading-row">Saves</h2>
+
+  {#if gameStore.saveError}
+    <div class="save-error" role="status">
+      <p class="save-error-text">
+        {#if gameStore.saveError.reason === 'quota'}
+          Browser storage is full — your latest progress isn't saved.
+          Delete a snapshot or export the run, then retry.
+        {:else if gameStore.saveError.reason === 'unavailable'}
+          The browser blocked save writes (private mode or storage off).
+          Retry once storage is available.
+        {:else}
+          Couldn't write the latest autosave. Retry, and if it keeps
+          failing, export the run so you don't lose progress.
+        {/if}
+      </p>
+      <div class="confirm-actions">
+        <button class="primary-btn" type="button" onclick={clearSaveError}>
+          Dismiss
+        </button>
+      </div>
+    </div>
+  {/if}
 
   <div class="autosave-row">
     <div class="autosave-head">
@@ -248,6 +300,36 @@
         </button>
         <button class="ghost-btn" type="button" onclick={cancelLoad}>
           Cancel
+        </button>
+      </div>
+    </div>
+  {/if}
+
+  {#if pendingDeleteId}
+    <div class="confirm-block">
+      <p class="confirm-text">
+        Delete this snapshot? This can't be undone.
+      </p>
+      <div class="confirm-actions">
+        <button class="primary-btn" type="button" onclick={confirmDelete}>
+          Delete snapshot
+        </button>
+        <button class="ghost-btn" type="button" onclick={cancelDelete}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  {/if}
+
+  {#if orphans.length > 0}
+    <div class="confirm-block">
+      <p class="confirm-text">
+        Found {orphans.length} recoverable snapshot payload{orphans.length === 1 ? '' : 's'}
+        not tracked by the save list. They still take up browser storage.
+      </p>
+      <div class="confirm-actions">
+        <button class="primary-btn" type="button" onclick={recoverOrphans}>
+          Recover {orphans.length === 1 ? 'it' : 'them'}
         </button>
       </div>
     </div>
@@ -481,5 +563,21 @@
     color: var(--rust);
     font-size: 12px;
     line-height: 1.4;
+  }
+
+  .save-error {
+    padding: var(--sp-sm);
+    background: color-mix(in srgb, var(--loss) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--loss) 55%, transparent);
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xs);
+  }
+
+  .save-error-text {
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.45;
   }
 </style>

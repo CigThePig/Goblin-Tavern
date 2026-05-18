@@ -30,6 +30,7 @@ import {
   ACTION_POINT_BUDGET,
   nextPickId,
   picksToInputs,
+  sanitizePicks,
   type PickedAction,
 } from './actionBuilder'
 import {
@@ -42,6 +43,7 @@ import type {
   LatestResultLite,
   PersistedSession,
   Route,
+  SaveResult,
 } from './persistence'
 
 class GameStore {
@@ -85,6 +87,14 @@ class GameStore {
   lastSavedAt: string | undefined = $state(undefined)
   /** Non-blocking error surfaced when a save couldn't be hydrated. */
   hydrationError: string | undefined = $state(undefined)
+  /**
+   * Phase 89 / ISSUE-049 — Last failed autosave attempt. The More →
+   * Saves section renders a recoverable banner when this is set; the
+   * App layer clears it on the next successful flush. Holding the
+   * typed `SaveResult` failure variant means the banner can show
+   * quota-specific copy.
+   */
+  saveError: Exclude<SaveResult, { ok: true }> | undefined = $state(undefined)
 
   /**
    * Phase 97 — Per-day dismissed missed-opportunity ids. Used by the
@@ -150,6 +160,7 @@ class GameStore {
     this.savedSnapshotJustLoaded = false
     this.lastSavedAt = undefined
     this.hydrationError = undefined
+    this.saveError = undefined
     this.dismissedMissedOpportunityIds = new Set()
   }
 
@@ -167,7 +178,13 @@ class GameStore {
     this.latestResult = save.latestResultLite
       ? { ...save.latestResultLite, state: save.state }
       : undefined
-    this.picks = [...save.picks]
+    // Phase 89 / ISSUE-049 — Re-run pick sanitation against the
+    // (now-canonical) hydrated state. `validatePersistedSession` also
+    // sanitises, but running it here too means picks added from a
+    // snapshot/import path are filtered against the same rules even if
+    // a future call site forgets the upstream sanitiser.
+    const { picks: hydratedPicks } = sanitizePicks(save.picks, save.state)
+    this.picks = hydratedPicks
     this.staffPriorities = { ...save.staffPriorities }
     this.pendingBySeedId = { ...save.pendingBySeedId }
     this.beat = save.daySession.beat

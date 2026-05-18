@@ -90,7 +90,7 @@ how to verify the fix.
 | ISSUE-049 | Persistence contract, migration framework, and save-slot safety | broken | open | — |
 | ISSUE-050 | Cross-surface owner-action queue validity | broken | open | — |
 | ISSUE-051 | Day result/report timing and browser RNG seed correctness | broken | open | — |
-| ISSUE-052 | Validation source-of-truth and reference coverage | broken | open | — |
+| ISSUE-052 | Validation source-of-truth and reference coverage | broken | done | 92 |
 | ISSUE-053 | Web navigation, modal accessibility, and UI state persistence | broken | open | — |
 | ISSUE-054 | Supplier pricing reaches restock gameplay | thin | open | — |
 | ISSUE-055 | Area content unpinning and customer-area rotation | thin | open | — |
@@ -2117,8 +2117,8 @@ can land with targeted regression coverage instead of one-off fixes.
 ### ISSUE-052 — Validation source-of-truth and reference coverage
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 92
 - **Evidence:**
   - `P2-003` / `P1-001` — bare `validateState(state)` reads the empty
     `moduleRegistry`, while runtime callers pass `FULL_PIPELINE`.

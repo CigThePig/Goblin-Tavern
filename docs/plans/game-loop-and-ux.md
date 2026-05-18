@@ -90,6 +90,39 @@ What I'd want in a new-save flow:
   should be present-of-mind for a new player.
 - No tutorial dialog. The first day's report does the introducing.
 
+#### Amendment — 2026-05-18 (Progressive Onboarding arc)
+
+The "no character creation, no biome pick, no naming the tavern"
+decision above was correct for the pre-arc shape, where Day 1 already
+ran the full 25-module pipeline and the player landed on a dense,
+information-heavy screen. The judgment was: *adding a pre-game form on
+top of a busy first day would compound the friction.*
+
+The Progressive Onboarding arc (`docs/plans/progressive-onboarding.md`,
+phases 99–116, ISSUE-060…ISSUE-077) inverts the underlying constraint
+— Day 1 now runs a deliberately trimmed pipeline with most systems
+gated — and updates this section accordingly:
+
+- The new save flow becomes a **multi-step intro** with steps for
+  naming the owner-character, naming the tavern, and picking 1–2 staff
+  from a 5-candidate pool.
+- "The Crooked Keg" remains the **default tavern name** (the placeholder
+  on the input, accepted on empty submit). Owner-name default is
+  generated via the `npc_identity` RNG stream with a reroll button.
+- The flow is **skippable** — a "Skip and use defaults" affordance on
+  the welcome step jumps straight to confirmation with placeholder
+  values. This preserves the spirit of the original "one screen, one
+  button" intent for players who don't care about naming.
+- "No tutorial dialog" still holds. Each system unlock is announced by
+  a one-shot **discovery card** (a regular issue-seed card, not a
+  pop-up overlay) — the first-day report still does the introducing
+  for Day 1 itself.
+
+Customization is now what the player does **at the start *and* over
+weeks of play**, not exclusively the latter. See
+`docs/plans/progressive-onboarding.md` for the locked rules and the
+unlock schedule.
+
 ### 2.2 The first session
 
 Day one of a new save is the **state-introducing day**. There's no

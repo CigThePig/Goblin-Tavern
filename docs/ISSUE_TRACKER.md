@@ -98,6 +98,24 @@ how to verify the fix.
 | ISSUE-057 | End-of-day silent failure + UI error visibility | broken | done | 97 |
 | ISSUE-058 | Web UI component test coverage gap | thin | open | — |
 | ISSUE-059 | Unprotected `$derived.by(...)` blocks across the web layer | thin | open | — |
+| ISSUE-060 | Progressive Onboarding — design contract | design | open | 99 |
+| ISSUE-061 | `OnboardingState` slice + schema + migration | thin | open | 100 |
+| ISSUE-062 | `gateModule` + `unlocksModule` gating infrastructure | broken | open | 101 |
+| ISSUE-063 | Wire `gateModule` into `canonicalPipeline.ts` | thin | open | 102 |
+| ISSUE-064 | Trim `createInitialTavernState()` with `mode` flag | thin | open | 103 |
+| ISSUE-065 | New-game multi-step flow (owner + tavern naming) | thin | open | 104 |
+| ISSUE-066 | Staff candidate pool + selection at start | thin | open | 105 |
+| ISSUE-067 | `reports` + `tavern_management` UI unlocks (days 2–3) | thin | open | 106 |
+| ISSUE-068 | `suppliers` unlock (day 4) | thin | open | 107 |
+| ISSUE-069 | `crises` unlock — issue seeds + responses (day 5) | thin | open | 108 |
+| ISSUE-070 | `weekly_report` (day 7) + `weekly_economy` (day 14) split gating | thin | open | 109 |
+| ISSUE-071 | `regulars` unlock (day 10) | thin | open | 110 |
+| ISSUE-072 | `cultures` unlock (day 12) | thin | open | 111 |
+| ISSUE-073 | `factions` unlock (day 17) | thin | open | 112 |
+| ISSUE-074 | Grouped late unlocks — policies (21), monthly (28), projects (42), expeditions (70) | thin | open | 113 |
+| ISSUE-075 | Sub-tab gating in Reports / World / Tavern | thin | open | 114 |
+| ISSUE-076 | Discovery card narrative pass | thin | open | 115 |
+| ISSUE-077 | Migration finalize + fixture audit + integration walkthrough | broken | open | 116 |
 
 ---
 
@@ -2342,6 +2360,468 @@ can land with targeted regression coverage instead of one-off fixes.
 - **Test approach:** For each newly-wrapped derived, add a test that
   mocks the builder to throw and asserts the unavailable panel renders
   instead of a blank section.
+
+
+## Tier 4 — Progressive Onboarding Arc
+
+This tier reframes Day 1 as a goblin opening their tavern for the very
+first time, with the player naming their owner and tavern and picking
+1–2 staff at start. Simulation systems then unlock one at a time across
+the first ~10 weeks of in-game time, tied to story beats at day
+thresholds. Gated systems do not run hooks before they unlock — there
+is no hidden background simulation for invisible systems.
+
+The arc's full design lives in
+[`docs/plans/progressive-onboarding.md`](plans/progressive-onboarding.md).
+That document is the locked specification. Each issue below references
+the design doc for the authoritative rules; the entry itself records the
+issue-scoped evidence, scope summary, dependencies, and verification
+approach.
+
+The dependency chain forces a clear order: design contract first (060),
+state slice and infrastructure next (061, 062, 063), trimmed initial
+state and new-game flow (064, 065, 066), then per-system unlocks in
+day-order (067 through 074), then web polish and migration (075, 076,
+077).
+
+### ISSUE-060 — Progressive Onboarding — design contract
+
+- **Grade:** design
+- **Status:** open
+- **Phase:** 99
+- **Evidence:** Today, `createInitialTavernState()` at
+  `src/sim/state/defaults.ts:629` seeds the full world on day 0
+  (factions, cultures, suppliers, regulars, expeditions, all populated)
+  and `canonicalPipeline.ts:43` runs all 25 modules every day from day
+  1. The web layer's 5-tab bottom nav and ~25 sub-tabs render
+  unconditionally on day 1. `docs/plans/game-loop-and-ux.md §2.1`
+  explicitly forbids character creation and tavern naming, but the
+  rationale ("Day 1 is already information-heavy") is the same dense
+  Day-1 problem this arc aims to fix.
+- **Impact:** Without a locked design contract, the 17 downstream
+  issues in this tier have no shared anchor — phase plans would
+  duplicate scope decisions, gating mechanism choices, and the unlock
+  schedule. Patterned after Tier 1.5's `rare-ingredients-economy.md`.
+- **Scope:** New doc `docs/plans/progressive-onboarding.md` locking the
+  `SystemId` enum, unlock schedule (15 systems across days 1–70), the
+  `gateModule` + `unlocksModule` gating contract, the new-game flow
+  step shape, the trimmed initial-state rules, the migration shape, and
+  the out-of-scope list. Amend `docs/plans/game-loop-and-ux.md §2.1`
+  with a dated subsection — do not rewrite it.
+- **Depends on:** none.
+- **Test approach:** Doc review — no code in this issue. Acceptance is
+  the contract being merged and ISSUE-061…ISSUE-077 referencing it.
+
+### ISSUE-061 — `OnboardingState` slice + schema + migration
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** 100
+- **Evidence:** `TavernState` (`src/sim/state/TavernState.ts:5`) has no
+  player-character or unlock-state field. `meta` is identity that never
+  changes after save creation, so the new slice belongs as its own
+  top-level field. `src/sim/state/migrations.ts` carries
+  `ensureWorldBranch`, `ensureRecipesSlice`, `ensureExpeditionsSlice`
+  helpers — the new slice needs a matching `ensureOnboardingSlice` so
+  pre-arc saves load without validation errors.
+- **Impact:** Without the slice, the gating module (ISSUE-062) has
+  nowhere to write unlock state and the new-game flow (ISSUE-065) has
+  nowhere to store the owner-name choice.
+- **Scope:** See `docs/plans/progressive-onboarding.md §6.1, §7`. Add
+  the `OnboardingState` type at `TavernState.ts`, the schema in
+  `schemas.ts` (mounted on `TavernStateSchema`), the default factory
+  in `defaults.ts`, and `ensureOnboardingSlice` in `migrations.ts`.
+  Migrated saves set `isFullyUnlocked: true` and pre-fill
+  `discoveryCardsShown` with every SystemId.
+- **Depends on:** ISSUE-060 (design contract).
+- **Test approach:** Existing saves load without validation errors;
+  new saves carry the slice with only `core` unlocked; migrated saves
+  carry `isFullyUnlocked: true`.
+
+### ISSUE-062 — `gateModule` + `unlocksModule` gating infrastructure
+
+- **Grade:** broken
+- **Status:** open
+- **Phase:** 101
+- **Evidence:** `canonicalPipeline.ts:43` has no mechanism for
+  conditional hook execution. Every `SimulationModule` runs every hook
+  every day. The locked design (`docs/plans/progressive-onboarding.md
+  §5.3, §5.4`) requires (a) a registration-time wrapper that
+  short-circuits a module's hooks against an unlock check and (b) a
+  driver module that writes unlock state on `startDay`.
+- **Impact:** Without this infrastructure, no per-system gating is
+  possible. Every downstream unlock phase (ISSUE-067 onward) depends on
+  this.
+- **Scope:** See `docs/plans/progressive-onboarding.md §5.3, §5.4`. New
+  files `src/sim/modules/unlocks/{unlocksModule,gateModule,
+  unlockRegistry,types,index}.ts`. The `unlockRegistry` follows the
+  existing registry pattern (`pressureRegistry`, `supplierRegistry`).
+  `gateModule(mod, systemId)` returns a wrapped module whose every hook
+  short-circuits via `isUnlocked`. `unlocksModule.startDay` evaluates
+  pending conditions and writes to `state.onboarding.unlockedSystems`.
+- **Depends on:** ISSUE-061 (the state slice the module writes to).
+- **Test approach:** Applying `gateModule` to a fixture module makes
+  its hooks no-op until the unlock condition is satisfied. Deterministic
+  across reseeds. `unlocksModule` writes a cause entry per unlock.
+
+### ISSUE-063 — Wire `gateModule` into `canonicalPipeline.ts`
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** 102
+- **Evidence:** `canonicalPipeline.ts:43` registers 25 modules as a
+  static array with no gating. The design (`§6.4`) names which modules
+  wrap with which SystemId; this issue applies those wraps.
+- **Impact:** The infrastructure from ISSUE-062 has no effect until the
+  pipeline is wired. With `isFullyUnlocked: true` on migrated saves,
+  behaviour must remain bit-for-bit identical to today.
+- **Scope:** Edit `canonicalPipeline.ts`. Insert `unlocksModule` first.
+  Wrap `cultureModule`, `factionModule`, `supplierModule`,
+  `regularModule`, `adventurersModule`, `expeditionsModule`,
+  `monthlyModule`, `localArcsModule`, `issueSeedsModule`,
+  `responsesModule` with `gateModule`. Wrap `weeklyModule` with the
+  per-hook split-gate variant.
+- **Depends on:** ISSUE-062.
+- **Test approach:** New fixed-seed snapshot test in
+  `tests/sim/onboarding.gating.test.ts` — with `isFullyUnlocked: true`,
+  30 simulated days produce bit-for-bit identical state to a pre-arc
+  baseline snapshot.
+
+### ISSUE-064 — Trim `createInitialTavernState()` with `mode` flag
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** 103
+- **Evidence:** `createInitialTavernState()` at `defaults.ts:629`
+  hardcodes the tavern id, name, coin, areas, stock, staff, customer
+  groups, recipes, expeditions, world state. There is no path for a
+  trimmed Day-1 state. ~950 test fixtures call this function and depend
+  on the full default.
+- **Impact:** Without a mode flag, the new-game flow cannot produce the
+  minimal Day-1 state described in §6.3, and test fixtures break the
+  moment we change the default.
+- **Scope:** See `docs/plans/progressive-onboarding.md §6.3`. Add a
+  `mode: 'onboarding' | 'full'` argument (default `'onboarding'`), plus
+  `chosenStaffIds`, `ownerName`, `tavernName` config fields. Onboarding
+  mode produces 2 areas, 3 stock items, 3 recipes, `local_goblins`
+  only, empty world entities, 3 core pressures. Add a
+  `createFullInitialTavernState` re-export for fixture callers.
+- **Depends on:** ISSUE-061 (slice must exist on the trimmed state).
+- **Test approach:** Existing fixtures pass once switched to
+  `createFullInitialTavernState`. New test asserts trimmed-state
+  invariants (one customer group, empty world entities, 2 areas, etc.).
+
+### ISSUE-065 — New-game multi-step flow (owner + tavern naming)
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** 104
+- **Evidence:** `web/src/lib/screens/StartScreen.svelte:46–61` is a
+  single-step screen with two buttons ("Open the Tavern" / "Continue")
+  and an advanced disclosure for seed + difficulty. There is no naming
+  flow, no character creation, no staff selection.
+- **Impact:** The arc's narrative framing ("you are a goblin opening
+  your tavern") requires the player to commit to an owner-character
+  identity and tavern name before Day 1.
+- **Scope:** See `docs/plans/progressive-onboarding.md §5.6`. Refactor
+  `StartScreen.svelte` into a multi-step controller. New components in
+  `web/src/lib/screens/onboarding/`: `WelcomeStep`, `NameOwnerStep`,
+  `NameTavernStep`, `PickStaffStep`, `ConfirmStep`, `OnboardingFlow`.
+  Owner-name default via `npc_identity` RNG stream + `goblin_locals`
+  naming profile. Tavern-name default "The Crooked Keg". Empty submits
+  accept placeholders. "Skip and use defaults" affordance on
+  WelcomeStep.
+- **Depends on:** ISSUE-064 (the trimmed state path the flow writes
+  to), ISSUE-066 (the candidate pool for PickStaffStep).
+- **Test approach:** Svelte component test per step. End-to-end click
+  through asserts the resulting `TavernState` carries the chosen names
+  and staff.
+
+### ISSUE-066 — Staff candidate pool + selection at start
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** 105
+- **Evidence:** `createInitialStaff()` in `defaults.ts` seeds three
+  fixed staff via the staff registry. No player choice exists.
+  `staffIdentityFactory.ts` is already wired for named staff; the
+  candidate pool reuses this.
+- **Impact:** The arc's "you assembled this crew yourself" framing
+  requires the player to pick 1–2 from a candidate pool, not inherit a
+  fixed three.
+- **Scope:** See `docs/plans/progressive-onboarding.md §6.2`. New file
+  `src/sim/content/onboarding/staffCandidatePool.ts` — a deterministic
+  5-candidate roster from the game seed via the `staff_identity` RNG
+  stream. `createInitialTavernState({mode: 'onboarding', chosenStaffIds})`
+  accepts the player's picks; absent picks fall back to the first
+  candidate.
+- **Depends on:** ISSUE-064.
+- **Test approach:** Same game seed produces the same five candidates
+  in the same order across runs. Picking 1 or 2 produces a valid
+  starting staff record. Picking 0 falls back deterministically.
+
+### ISSUE-067 — `reports` + `tavern_management` UI unlocks (days 2–3)
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** 106
+- **Evidence:** `web/src/lib/components/BottomNav.svelte:10–16` shows
+  all five tabs unconditionally on day 1. Per the unlock schedule, the
+  Reports tab should appear day 2 and the Tavern tab day 3 — the player
+  needs to see a first daily report before "yesterday's tally" makes
+  sense, and the Tavern panel becomes meaningful once a full day has
+  passed.
+- **Impact:** A new player on day 1 sees all five tabs but most are
+  empty or unmotivated. Progressive disclosure starts here.
+- **Scope:** Register `reports` and `tavern_management` SystemIds with
+  day-2 and day-3 conditions in `unlockRegistry`. No `gateModule` calls
+  (these are UI-only unlocks). `BottomNav.svelte` reads
+  `state.onboarding.unlockedSystems` and emits only unlocked tabs.
+- **Depends on:** ISSUE-063 (gating wired) and ISSUE-064 (trimmed
+  state).
+- **Test approach:** Day-1 state shows `[Day, More]` in bottom nav;
+  day-2 adds Reports; day-3 adds Tavern. Migrated saves show all five.
+
+### ISSUE-068 — `suppliers` unlock (day 4)
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** 107
+- **Evidence:** `supplierModule` runs all hooks from day 1 today. The
+  player sees a populated Suppliers sub-tab in the World screen with no
+  story context for why suppliers exist. Per the schedule, suppliers
+  should knock on the door on day 4 with a discovery card.
+- **Impact:** Establishes the unlock pattern — gate one module, register
+  one condition, emit one discovery seed, reveal one sub-tab.
+- **Scope:** Wrap `supplierModule` via `gateModule(..., 'suppliers')`.
+  Register condition `day >= 4` in `unlockRegistry`. Add the
+  `discovery_suppliers` seed-family entry in `issueSeedGenerators.ts`.
+  Reveal the Suppliers sub-tab in `WorldScreen.svelte` via
+  `isUnlocked`. Reuse `FirstEncounterHint` + `TermLabel` for the
+  supplier glossary.
+- **Depends on:** ISSUE-063, ISSUE-069 (the `crises` unlock must precede
+  this so the discovery card can render — but `discovery_*` seeds emit
+  through `unlocksModule` directly, not via `issueSeedsModule`, so the
+  ordering is reversed: this issue can land before ISSUE-069 with a
+  banner-only discovery surface, then upgrade to a card when crises
+  unlocks. Confirm in the phase plan.)
+- **Test approach:** Days 1–3 with a fresh save record zero
+  `supplierModule` hook fires (verified via a hook-call counter); day
+  4 fires the discovery surface; suppliers sub-tab appears. Replay does
+  not duplicate the discovery.
+
+### ISSUE-069 — `crises` unlock — issue seeds + responses (day 5)
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** 108
+- **Evidence:** `issueSeedsModule` and `responsesModule` together
+  produce the card-driven incident shape of the day loop. On a fresh
+  save they fire from day 1. Per the schedule, the player should
+  experience two quiet days before crises begin — day 5 lands the first
+  issue-seed card.
+- **Impact:** Establishes the minimum cut for gating the card layer.
+  `causesModule`, `pressuresModule`, `feedbackModule` stay ungated
+  because they're cheap and self-contained; only the seed generation
+  and response application gate.
+- **Scope:** Wrap `issueSeedsModule` and `responsesModule` via
+  `gateModule(..., 'crises')`. Register condition `day >= 5`. Add the
+  `discovery_crises` seed family. After this unlock, all subsequent
+  discovery surfaces emit as cards (before, as banners).
+- **Depends on:** ISSUE-063, ISSUE-068 (the banner-to-card upgrade
+  needs the earlier discovery surfaces in place).
+- **Test approach:** Days 1–4 have zero card seeds. Day 5 emits the
+  discovery card. Day 6+ the card layer behaves as before for fresh
+  saves.
+
+### ISSUE-070 — `weekly_report` (day 7) + `weekly_economy` (day 14) split gating
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** 109
+- **Evidence:** `weeklyModule` has both informational hooks (report
+  building, trend strips) and economic hooks (wages, maintenance
+  invoices). They co-fire on day 7 today. The design splits them: the
+  weekly digest lands day 7, but wages don't start costing coin until
+  day 14, after the player has hired a second staff member.
+- **Impact:** The first week's "you lost coin you didn't know was
+  scheduled" moment is the friction this split solves. Two SystemIds
+  for one module.
+- **Scope:** See `docs/plans/progressive-onboarding.md §5.4`. Use the
+  per-hook split-gate variant `gateHook` to wrap `weeklyModule`'s
+  `endWeek` report hooks under `weekly_report` and its
+  wages/maintenance hooks under `weekly_economy`. Register conditions
+  `day >= 7` and `day >= 14`. Two discovery seed families.
+- **Depends on:** ISSUE-063 (split-gate variant must exist by then).
+- **Test approach:** Day 7 produces a weekly digest but no wages
+  ledger entries. Day 14 produces both. Both discovery cards fire once.
+
+### ISSUE-071 — `regulars` unlock (day 10)
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** 110
+- **Evidence:** `regularModule` runs from day 1 today, but the World >
+  Regulars sub-tab is empty until reputation conditions are met
+  organically. The design fires a named regular into existence on day
+  10 to motivate the system.
+- **Impact:** Establishes the "seed one entity at unlock time" pattern
+  — the unlock not only opens the gate but also creates the first
+  member of the world slice.
+- **Scope:** Wrap `regularModule` via `gateModule(..., 'regulars')`.
+  Register condition `day >= 10`. Seed one named regular at unlock time
+  via the `regular_identity` RNG stream — the regular has
+  `firstSeenDay: 10` and a small memory of visiting yesterday.
+- **Depends on:** ISSUE-063.
+- **Test approach:** Days 1–9 have empty `world.regulars`. Day 10 has
+  one named regular with `firstSeenDay: 10`. Discovery card references
+  the regular by name.
+
+### ISSUE-072 — `cultures` unlock (day 12)
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** 111
+- **Evidence:** `cultureModule` runs from day 1 with pre-seeded
+  cultures. The design empties `world.cultures` on Day 1 and seeds the
+  first non-goblin culture (`traveling_outsiders`) at unlock on day 12.
+- **Impact:** The narrative beat "a non-goblin walks in" needs the
+  cultures slice to actually empty before this day.
+- **Scope:** Wrap `cultureModule` via `gateModule(..., 'cultures')`.
+  Register condition `day >= 12`. Seed `traveling_outsiders` at unlock.
+  Customer groups gated by this culture become available organically
+  via the existing `customerModule` reputation check.
+- **Depends on:** ISSUE-063, ISSUE-064 (trimmed state must omit
+  cultures on Day 1).
+- **Test approach:** Days 1–11 have empty `world.cultures`. Day 12 has
+  `traveling_outsiders`. No customer-group changes between days 12 and
+  the reputation threshold being met.
+
+### ISSUE-073 — `factions` unlock (day 17)
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** 112
+- **Evidence:** `factionModule` and `localArcsModule` run from day 1.
+  Hardcoded faction-id lookups exist at
+  `issueSeedGenerators.ts:2672, 3618`, `expandedSeedGenerators.ts:181,
+  1168, 1171`, `localArcs/arcEngine.ts:70`. All are defensive (`if
+  (factions[id])`), so they tolerate empty maps but silently emit
+  weaker seeds. Day 17 seeds `town_watch` to satisfy these lookups
+  starting that day.
+- **Impact:** The most-referenced hardcoded faction id is `town_watch`.
+  Seeding it at unlock keeps the existing seed generators producing
+  their expected shapes from day 17 onward.
+- **Scope:** Wrap `factionModule` and `localArcsModule` via
+  `gateModule(..., 'factions')`. Register condition `day >= 17`. Seed
+  `town_watch` at unlock with the existing notable-NPC factory. Audit
+  the hardcoded lookups listed above and confirm they tolerate empty
+  factions on days 1–16.
+- **Depends on:** ISSUE-063, ISSUE-064.
+- **Test approach:** Days 1–16 have empty `world.factions`. Day 17 has
+  `town_watch`. The hardcoded seed generators emit their expected
+  shapes starting day 17. The seed audit confirms zero crashes on days
+  1–16.
+
+### ISSUE-074 — Grouped late unlocks — policies (21), monthly (28), projects (42), expeditions (70)
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** 113
+- **Evidence:** Four smaller unlocks following the same template,
+  grouped into one phase. `policies` gates owner-action availability
+  for policy toggles; `monthly` wraps `monthlyModule`; `projects`
+  gates `start_*` actions; `expeditions` wraps `adventurersModule` and
+  `expeditionsModule` and adds the only non-day predicate
+  (`culinary_renown >= 25` AND `day >= 70`).
+- **Impact:** Completes the unlock schedule. `monthly` is the
+  rent-day beat (day 28), the most narrative-heavy unlock after Day 1
+  itself.
+- **Scope:** Four SystemIds, four conditions, four discovery seeds.
+  `policies` and `projects` integrate via the existing `canApply`
+  predicate on owner actions (AND with `isUnlocked`). `monthly` wraps
+  `monthlyModule`. `expeditions` wraps `adventurersModule` and
+  `expeditionsModule` together.
+- **Depends on:** ISSUE-063, ISSUE-064.
+- **Test approach:** Each SystemId: gated hooks do not fire before
+  `unlockedDay`; discovery surfaces fire once; web tabs reveal at the
+  right day; `expeditions` does not unlock at day 70 if
+  `culinary_renown < 25`.
+
+### ISSUE-075 — Sub-tab gating in Reports / World / Tavern
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** 114
+- **Evidence:** `web/src/lib/screens/ReportsScreen.svelte:104`,
+  `WorldScreen.svelte:70`, `TavernScreen.svelte:49` render their
+  sub-tab lists unconditionally. The design requires sub-tabs to filter
+  by `isUnlocked` and the sub-tab row to suppress when only one
+  sub-tab is visible.
+- **Impact:** Without sub-tab gating, revealing a top-level tab still
+  exposes a row of mostly-empty sub-tabs.
+- **Scope:** Edit the three screen files. Filter `subTabs` by
+  `isUnlocked`. Suppress the sub-tab row when `subTabs.length === 1`
+  and render the single sub-tab directly.
+- **Depends on:** ISSUE-067 through ISSUE-074.
+- **Test approach:** Web component test per screen — mount with a
+  fresh-save state at day N, assert the correct sub-tab set renders.
+  Snapshot at day 3, day 10, day 28, day 70.
+
+### ISSUE-076 — Discovery card narrative pass
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** 115
+- **Evidence:** ISSUE-068 through ISSUE-074 each register a
+  `discovery_<system>` seed family, but the narrative composition is
+  scaffolded in those phases. This issue does a dedicated pass
+  consolidating all 15 families, ensuring each references the system's
+  glossary term inline and matches the Phase 95 voice.
+- **Impact:** Per the project's central rule, cards must reveal
+  simulation truth — discovery cards reveal `unlockedSystems[id]` was
+  written. The composition layer ensures they read like part of the
+  game, not a tutorial.
+- **Scope:** ~15 `discovery_*` family entries in
+  `issueSeedGenerators.ts`. One-shot cards; `discoveryCardsShown`
+  prevents replay. Cards reference glossary terms via `TermLabel` from
+  Phase 98. Reuse the seed family pattern at
+  `issueSeedGenerators.ts:3885+`.
+- **Depends on:** ISSUE-068 through ISSUE-074 (the families they
+  registered get consolidated here).
+- **Test approach:** One-line composition test per family. Each card
+  body references the SystemId's glossary term. No card invents facts
+  outside the seed's text-ingredient set.
+
+### ISSUE-077 — Migration finalize + fixture audit + integration walkthrough
+
+- **Grade:** broken
+- **Status:** open
+- **Phase:** 116
+- **Evidence:** ~950 `createInitialTavernState()` callers in `tests/`
+  expect the full default world. ISSUE-064 introduces
+  `createFullInitialTavernState`, but the fixture audit (which
+  callers actually need full state, which can use trimmed) is deferred
+  to the final phase. `ensureOnboardingSlice` from ISSUE-061 needs
+  end-to-end migration testing.
+- **Impact:** Without the audit, fixtures depending on full-world
+  state break silently as the default mode flips. Without the
+  walkthrough test, the unlock schedule has no end-to-end coverage.
+- **Scope:** Finalize `ensureOnboardingSlice` for mid-game saves (set
+  `isFullyUnlocked: true`, populate `discoveryCardsShown` with all
+  SystemIds). Audit the ~950 fixture callers — switch the ones that
+  rely on full world state to `createFullInitialTavernState`. Add
+  `tests/integration/onboarding/walkthrough.test.ts` — a fixed-seed
+  playthrough days 1, 7, 28, 70 with snapshot assertions at each
+  checkpoint.
+- **Depends on:** all of ISSUE-061 through ISSUE-076.
+- **Test approach:** Full `npm test` green. Migration test loads a
+  pre-arc save fixture and asserts all SystemIds carry `trigger:
+  'migration'`, `isFullyUnlocked: true`, and zero discovery cards fire.
+  Walkthrough test snapshots the trimmed state at days 1, 7, 28, 70.
+  Manual verification: dev server, click through new-game flow on a
+  phone viewport, confirm Day 1 has no World tab, Day 4 supplier card,
+  Day 7 weekly summary, Day 28 rent day.
 
 
 ## Deferred

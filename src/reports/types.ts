@@ -111,7 +111,7 @@ export type DailyReportData = {
   isQuiet: boolean
 }
 
-export type GlossaryCategory = 'pressure' | 'reputation' | 'mechanic'
+export type GlossaryCategory = 'pressure' | 'reputation' | 'mechanic' | 'log'
 
 export type GlossaryTerm = {
   id: string

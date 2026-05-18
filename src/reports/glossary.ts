@@ -615,10 +615,76 @@ const MECHANIC_TERMS: GlossaryTerm[] = [
   },
 ]
 
+// Phase 94 — Tavern Log vocabulary. One term per `HistoryCategory` plus
+// a top-level entry for the screen itself. Surfaced via `<TermLabel>` on
+// the Log screen's category chip toolbar.
+const LOG_TERMS: GlossaryTerm[] = [
+  {
+    id: 'tavern_log',
+    label: 'Tavern Log',
+    category: 'log',
+    oneLine: 'A chronological record of everything that has happened in your tavern.',
+    longer: 'The log is the backward-looking partner to the pressures dashboard. Where pressures show what is building, the log shows what has already occurred — pruned to the last 500 entries or 90 days, whichever covers more.',
+  },
+  {
+    id: 'history_owner_action',
+    label: 'Owner Action',
+    category: 'log',
+    oneLine: 'An action you took, queued, funded, or had auto-applied.',
+    longer: 'Includes immediate actions, project funding and progress, policy toggles, and social actions. Every action point you spend leaves an owner-action entry.',
+  },
+  {
+    id: 'history_service',
+    label: 'Service',
+    category: 'log',
+    oneLine: 'Something that happened during the service period — traffic, incidents, satisfaction shifts.',
+  },
+  {
+    id: 'history_weekly',
+    label: 'Weekly',
+    category: 'log',
+    oneLine: 'A weekly resolution event — wages paid or unpaid, supplier invoices, community routines.',
+  },
+  {
+    id: 'history_monthly',
+    label: 'Monthly',
+    category: 'log',
+    oneLine: 'A monthly resolution event — rent, landlord opinion, inspection windows, rival recalibration.',
+  },
+  {
+    id: 'history_state_change',
+    label: 'State Change',
+    category: 'log',
+    oneLine: 'A significant tracked change to tavern state — a meter crossing a threshold, an upgrade landing.',
+    longer: 'Distinct from owner actions: a state change records what happened as a consequence, not what was decided.',
+  },
+  {
+    id: 'history_memory',
+    label: 'Memory',
+    category: 'log',
+    oneLine: 'A persistent fact the world began to remember about you.',
+    longer: 'Memories age over time. The history entry records when one was minted; the memory itself lives on in state.memories until it expires or is resolved.',
+  },
+  {
+    id: 'history_pressure',
+    label: 'Pressure',
+    category: 'log',
+    oneLine: 'A noteworthy pressure shift — crossing a band, peaking, or being relieved.',
+    longer: 'Not every pressure tick lands here — only crossings the simulation flagged as worth remembering. Day-to-day pressure values live in the pressures dashboard.',
+  },
+  {
+    id: 'history_system',
+    label: 'System',
+    category: 'log',
+    oneLine: 'A book-keeping event from the simulation itself — migration notes, pruning, debug probes.',
+  },
+]
+
 export const GLOSSARY_TERMS: GlossaryTerm[] = [
   ...PRESSURE_TERMS,
   ...REPUTATION_TERMS,
   ...MECHANIC_TERMS,
+  ...LOG_TERMS,
 ]
 
 const TERMS_BY_ID = new Map(GLOSSARY_TERMS.map((t) => [t.id, t]))
@@ -632,6 +698,7 @@ export function termsByCategory(): Record<GlossaryCategory, GlossaryTerm[]> {
     pressure: PRESSURE_TERMS,
     reputation: REPUTATION_TERMS,
     mechanic: MECHANIC_TERMS,
+    log: LOG_TERMS,
   }
 }
 
@@ -650,4 +717,5 @@ export const GLOSSARY_CATEGORY_LABELS: Record<GlossaryCategory, string> = {
   pressure: 'Pressures',
   reputation: 'Reputation',
   mechanic: 'Mechanics',
+  log: 'Tavern Log',
 }

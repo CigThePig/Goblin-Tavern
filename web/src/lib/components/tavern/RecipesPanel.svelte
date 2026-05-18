@@ -30,14 +30,19 @@
     return gameStore.isQueued('toggle_recipe_menu', recipeId)
   }
 
+  let toggleError = $state<string | undefined>(undefined)
+
   function toggleMenu(row: RecipeRow, event: MouseEvent) {
     event.stopPropagation()
     if (isToggleQueued(row.id)) {
       gameStore.removePicksFor('toggle_recipe_menu', row.id)
+      toggleError = undefined
       return
     }
     const def = actionRegistry.get('toggle_recipe_menu')
-    gameStore.addPick({
+    // Phase 90 / ISSUE-050 — Funnel through tryAddPick so the menu
+    // toggle respects the same budget gate the central picker enforces.
+    const result = gameStore.tryAddPick({
       actionId: 'toggle_recipe_menu',
       label: def?.label ?? 'Toggle Recipe',
       category: 'immediate',
@@ -46,6 +51,7 @@
       targetLabel: row.label,
       actionPointCost: def?.actionPointCost ?? 0,
     })
+    toggleError = result.ok ? undefined : result.reason
   }
 </script>
 
@@ -149,6 +155,10 @@
         {/each}
       </ul>
     </section>
+  {/if}
+
+  {#if toggleError}
+    <p class="live-reason">Couldn't queue: {toggleError}</p>
   {/if}
 </section>
 
@@ -307,5 +317,11 @@
 
   .served {
     color: var(--text-faint);
+  }
+
+  .live-reason {
+    color: var(--loss);
+    font-size: 12px;
+    line-height: 1.4;
   }
 </style>

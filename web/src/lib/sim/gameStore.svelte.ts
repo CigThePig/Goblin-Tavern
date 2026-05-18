@@ -33,6 +33,11 @@ import {
   sanitizePicks,
   type PickedAction,
 } from './actionBuilder'
+import { actionRegistry } from '../../../../src/sim/registries/actionRegistry'
+import {
+  actionDisabledReason,
+  actionDisabledReasonForTarget,
+} from '../../../../src/sim/modules/ownerActions/readonlyHelpers'
 import {
   INITIAL_DAY_SESSION,
   MISSED_OPPORTUNITY_DISMISSAL_WINDOW_DAYS,
@@ -261,6 +266,36 @@ class GameStore {
     const full: PickedAction = { ...pick, pickId: nextPickId() }
     this.picks = [...this.picks, full]
     return full
+  }
+
+  /**
+   * Phase 90 / ISSUE-050 — Budget- and canApply-aware variant of
+   * `addPick`. Every UI entry point (central picker, Tavern quick
+   * actions, projects/policies, expedition sheet) should funnel through
+   * this so the queue cannot overflow the daily action-point budget or
+   * carry an invalid (action, target) pair into `runDay`.
+   *
+   * Returns the actual `PickedAction` on success, or a typed failure
+   * with a player-readable reason. Surfaces reasons identical to the
+   * central picker's `actionDisabledReason` output so the message is
+   * consistent across surfaces.
+   */
+  tryAddPick(
+    pick: Omit<PickedAction, 'pickId'>,
+  ):
+    | { ok: true; pick: PickedAction }
+    | { ok: false; reason: string } {
+    if (!actionRegistry.has(pick.actionId)) {
+      return { ok: false, reason: 'unknown action' }
+    }
+    const def = actionRegistry.get(pick.actionId)
+    const pointsLeft = ACTION_POINT_BUDGET - this.actionPointsQueued
+    const reason =
+      def.targetType && def.targetType !== 'global'
+        ? actionDisabledReasonForTarget(def, this.state, pick.targetId, pointsLeft)
+        : actionDisabledReason(def, this.state, pointsLeft)
+    if (reason) return { ok: false, reason }
+    return { ok: true, pick: this.addPick(pick) }
   }
 
   removePick(pickId: string): void {

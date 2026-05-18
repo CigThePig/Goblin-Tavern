@@ -22,9 +22,13 @@
     class="chip"
     class:over={overBudget}
     onclick={onopen}
-    aria-label="Open action queue"
+    aria-label={overBudget
+      ? 'Over the daily action budget — open action queue to trim'
+      : 'Open action queue'}
   >
-    <span class="label tag">Action queue</span>
+    <span class="label tag">
+      {overBudget ? 'Over budget' : 'Action queue'}
+    </span>
     <span class="counts mono">
       {points} / {ACTION_POINT_BUDGET}
       {#if count !== points}

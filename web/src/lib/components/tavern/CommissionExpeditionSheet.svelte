@@ -98,6 +98,8 @@
     days = d
   }
 
+  let queueError = $state<string | undefined>(undefined)
+
   function queue() {
     if (!canQueue || !runner) return
     const def = actionRegistry.get(COMMISSION_EXPEDITION_ACTION_ID)
@@ -110,7 +112,10 @@
     } else if (ingredientId) {
       options['targetIngredientId'] = ingredientId
     }
-    gameStore.addPick({
+    // Phase 90 / ISSUE-050 — Commission goes through tryAddPick so the
+    // action-point budget gate matches the central picker. Surface the
+    // reason inline if it fails (typically a budget conflict).
+    const result = gameStore.tryAddPick({
       actionId: COMMISSION_EXPEDITION_ACTION_ID,
       label: def?.label ?? 'Commission Expedition',
       category: 'immediate',
@@ -120,6 +125,11 @@
       actionPointCost: def?.actionPointCost ?? 1,
       options,
     })
+    if (!result.ok) {
+      queueError = result.reason
+      return
+    }
+    queueError = undefined
     reset()
     onclose()
   }
@@ -249,6 +259,9 @@
     <div class="foot">
       {#if disabledReason}
         <p class="reason">{disabledReason}</p>
+      {/if}
+      {#if queueError}
+        <p class="reason">Couldn't queue: {queueError}</p>
       {/if}
       <button
         type="button"

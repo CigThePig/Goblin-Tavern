@@ -27,14 +27,23 @@
     return gameStore.isQueued(actionId, targetId)
   }
 
+  let liveReason = $state<string | undefined>(undefined)
+
+  function tryQueue(pick: Parameters<typeof gameStore.tryAddPick>[0]): boolean {
+    const result = gameStore.tryAddPick(pick)
+    liveReason = result.ok ? undefined : result.reason
+    return result.ok
+  }
+
   function queueAction(ref: ApplicableActionRef, targetId?: string, targetLabel?: string) {
     if (isQueued(ref.actionId, targetId)) {
       gameStore.removePicksFor(ref.actionId, targetId)
+      liveReason = undefined
       return
     }
     if (ref.disabledReason !== undefined) return
     const def = actionRegistry.get(ref.actionId)
-    gameStore.addPick({
+    tryQueue({
       actionId: ref.actionId,
       label: ref.label,
       category: ref.category,
@@ -48,8 +57,7 @@
   function queueAvailableProject(row: AvailableProjectRow) {
     if (row.disabledReason !== undefined) return
     if (row.validTargets.length === 0) {
-      // global project with no explicit target
-      gameStore.addPick({
+      tryQueue({
         actionId: row.actionId,
         label: row.label,
         category: 'project',
@@ -58,9 +66,8 @@
       })
       return
     }
-    // Use the first valid target (most start_* actions have exactly one).
     const target = row.validTargets[0]!
-    gameStore.addPick({
+    tryQueue({
       actionId: row.actionId,
       label: row.label,
       category: 'project',
@@ -75,11 +82,12 @@
     if (!row.toggleActionId) return
     if (isQueued(row.toggleActionId)) {
       gameStore.removePicksFor(row.toggleActionId)
+      liveReason = undefined
       return
     }
     if (row.toggleDisabledReason !== undefined) return
     const def = actionRegistry.get(row.toggleActionId)
-    gameStore.addPick({
+    tryQueue({
       actionId: row.toggleActionId,
       label: row.toggleActionLabel ?? row.toggleActionId,
       category: 'policy',
@@ -280,6 +288,10 @@
         {/each}
       </ul>
     </section>
+  {/if}
+
+  {#if liveReason}
+    <p class="live-reason">Couldn't queue: {liveReason}</p>
   {/if}
 </section>
 
@@ -497,5 +509,11 @@
     color: var(--text-dim);
     font-size: 13px;
     margin-top: 2px;
+  }
+
+  .live-reason {
+    color: var(--loss);
+    font-size: 12px;
+    line-height: 1.4;
   }
 </style>

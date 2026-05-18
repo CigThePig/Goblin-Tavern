@@ -88,7 +88,7 @@ how to verify the fix.
 | ISSUE-047 | Generic Ignore button binds to non-ignore slots via verb-only matcher fallback | broken | done | 87 |
 | ISSUE-048 | ActionPicker enables owner actions that fail `canApply` (e.g. `patch_roof` with no coin) | broken | done | 88 |
 | ISSUE-049 | Persistence contract, migration framework, and save-slot safety | broken | done | 89 |
-| ISSUE-050 | Cross-surface owner-action queue validity | broken | open | — |
+| ISSUE-050 | Cross-surface owner-action queue validity | broken | done | 90 |
 | ISSUE-051 | Day result/report timing and browser RNG seed correctness | broken | open | — |
 | ISSUE-052 | Validation source-of-truth and reference coverage | broken | done | 92 |
 | ISSUE-053 | Web navigation, modal accessibility, and UI state persistence | broken | open | — |
@@ -2068,8 +2068,8 @@ can land with targeted regression coverage instead of one-off fixes.
 ### ISSUE-050 — Cross-surface owner-action queue validity
 
 - **Grade:** broken
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 90
 - **Evidence:**
   - `P3-001` — Tavern quick actions, project/policy buttons, and expedition
     commissioning call `gameStore.addPick()` directly and can overfill the daily

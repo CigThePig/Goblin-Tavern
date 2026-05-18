@@ -71,22 +71,28 @@ export function pickKitchenAdjacentArea(
   return areaRef(candidates[idx]!)
 }
 
-// Repairable: prefers areas with non-zero damage when any qualify;
-// otherwise falls back to inspection-relevant / structure-tagged areas
-// in rotation. Used for damage/repair seeds where the player should
-// see different areas across the 28-day rotation window.
+// Repairable: when any area is damaged, prefers the area with the
+// highest damage. This matches player expectations — "repair the
+// damage" should target what's worst, not rotate. When several areas
+// are tied at the top, rotation breaks the tie deterministically so
+// content still varies across the 28-day rotation window. With no
+// damage anywhere, falls back to inspection-relevant / structure
+// areas in rotation.
 export function pickRepairableArea(
   ctx: SimContext,
   family: string,
 ): EntityRef {
-  const damaged = Object.values(ctx.state.areas)
-    .filter((a) => a.damage > 0)
-    .sort((a, b) => b.damage - a.damage)
-    .map((a) => a.id)
+  const damaged = Object.values(ctx.state.areas).filter((a) => a.damage > 0)
   if (damaged.length > 0) {
+    const maxDamage = Math.max(...damaged.map((a) => a.damage))
+    const topTier = damaged
+      .filter((a) => a.damage === maxDamage)
+      .map((a) => a.id)
+      .sort()
+    if (topTier.length === 1) return areaRef(topTier[0]!)
     const today = ctx.state.calendar.totalDaysElapsed
-    const idx = (familyHash(family) + today) % damaged.length
-    return areaRef(damaged[idx]!)
+    const idx = (familyHash(family) + today) % topTier.length
+    return areaRef(topTier[idx]!)
   }
   const fallback = Object.values(ctx.state.areas)
     .filter(

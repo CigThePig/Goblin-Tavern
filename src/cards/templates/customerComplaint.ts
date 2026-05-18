@@ -1,16 +1,19 @@
 // Complaint template — a regular has something to say. Centres the card
 // on the named complainant when one is supplied via `namedEntities`.
 // Mirrors cards-contract §7 Template 2.
+//
+// Phase 95 — Voice pass.
 
 import {
-  buildBody,
   buildChoicesFromSeed,
   buildStakes,
   familyTag,
-  formatTitle,
   makeCardView,
 } from '../cardHelpers'
+import { composeBody, composeTitle, type ComposeOpts } from '../voice/index'
 import type { CardDefinition } from '../types'
+
+const DEFINITION_TONES = ['personal', 'customer'] as const
 
 export const customerComplaintCard: CardDefinition = {
   id: 'customer_complaint.complaint.relational',
@@ -20,7 +23,7 @@ export const customerComplaintCard: CardDefinition = {
     timings: ['during_service', 'closing'],
   },
   priority: 70,
-  toneHints: ['personal'],
+  toneHints: [...DEFINITION_TONES],
   render: (seed, state) => {
     const ti = seed.textIngredients
     const namedRegular = ti.namedEntities?.find((n) => n.role === 'complainant')
@@ -37,13 +40,21 @@ export const customerComplaintCard: CardDefinition = {
 
     const subject = ti.problemNoun ?? ti.subject
 
+    const opts: ComposeOpts = {
+      toneHints: [...DEFINITION_TONES, ...seed.toneHints],
+      key: seed.id,
+    }
+
     return makeCardView({
-      title: formatTitle([`${display}:`, subject]),
-      body: buildBody([
-        firstOpinion ?? ti.sensoryDetails[0],
-        ti.relevantMemories?.[0],
-        ti.recentContext[0],
-      ]),
+      title: composeTitle([`${display}:`, subject], opts),
+      body: composeBody(
+        [
+          firstOpinion ?? ti.sensoryDetails[0],
+          ti.relevantMemories?.[0],
+          ti.recentContext[0],
+        ],
+        opts,
+      ),
       stakes: buildStakes(seed, 2),
       choices: buildChoicesFromSeed(seed, {
         // Relational cards favour "appease" / "delegate" if available;

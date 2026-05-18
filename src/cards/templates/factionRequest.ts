@@ -1,20 +1,23 @@
 // Relationship-test template — faction or culture moment. Reads the
 // stored faction relationship to pick a relation noun (cooperation /
 // tension / rivalry / truce / feud). Mirrors cards-contract §7 Template 6.
+//
+// Phase 95 — Voice pass.
 
 import {
   pickFactionRelationNoun,
   type FactionRelationKey,
 } from '../../sim/content/text/descriptors'
 import {
-  buildBody,
   buildChoicesFromSeed,
   buildStakes,
   familyTag,
-  formatTitle,
   makeCardView,
 } from '../cardHelpers'
+import { composeBody, composeTitle, type ComposeOpts } from '../voice/index'
 import type { CardDefinition } from '../types'
+
+const DEFINITION_TONES = ['social', 'relational', 'faction'] as const
 
 function pickFactionRelation(relationship: number): FactionRelationKey {
   if (relationship <= 20) return 'feud'
@@ -31,7 +34,7 @@ export const factionRequestCard: CardDefinition = {
     seedTypes: ['relationship_test', 'social_conflict'],
   },
   priority: 75,
-  toneHints: ['social', 'relational'],
+  toneHints: [...DEFINITION_TONES],
   render: (seed, state) => {
     const ti = seed.textIngredients
     const factionRef =
@@ -41,15 +44,20 @@ export const factionRequestCard: CardDefinition = {
       ? pickFactionRelationNoun(pickFactionRelation(faction.relationship), seed.id)
       : undefined
 
+    const opts: ComposeOpts = {
+      toneHints: [...DEFINITION_TONES, ...seed.toneHints],
+      key: seed.id,
+    }
+
     return makeCardView({
-      title: formatTitle(
+      title: composeTitle(
         faction ? [`${faction.label}:`, `a ${relationNoun}`] : [ti.subject],
+        opts,
       ),
-      body: buildBody([
-        ti.socialContext?.[0],
-        ti.perceivedBlame?.[0],
-        ti.relevantMemories?.[0],
-      ]),
+      body: composeBody(
+        [ti.socialContext?.[0], ti.perceivedBlame?.[0], ti.relevantMemories?.[0]],
+        opts,
+      ),
       stakes: buildStakes(seed),
       choices: buildChoicesFromSeed(seed, {
         overrides: () => (factionRef?.id ? { targetId: factionRef.id } : {}),

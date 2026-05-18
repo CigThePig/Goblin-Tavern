@@ -26,6 +26,7 @@ import type { OwnerActionApplied } from '../sim/modules/ownerActions/types'
 import type { DailyServiceResult } from '../sim/modules/service/types'
 
 import { closedDayAbsolute } from './causeLookup'
+import { composeEmpty } from '../cards/voice/index'
 import type {
   DailyReportData,
   ReportCalendarHeader,
@@ -104,6 +105,9 @@ export function buildDailyReport(
     coinDelta === 0 &&
     reputationDeltas.length === 0
 
+  const voiceKey = `${state.meta.tavernId}.d${closedDay}`
+  const quietLine = isQuiet ? composeEmpty('quiet', voiceKey) : undefined
+
   return {
     header,
     coinBefore,
@@ -118,6 +122,7 @@ export function buildDailyReport(
     futureHooks,
     ...(weeklyDigest ? { weeklyDigest } : {}),
     ...(monthlyDigest ? { monthlyDigest } : {}),
+    ...(quietLine ? { quietLine } : {}),
     isQuiet,
   }
 }
@@ -146,11 +151,15 @@ function buildHeader(
   const isEndOfWeek = closedDayOfWeek === 7
   const isEndOfMonth = previousCalendar ? cal.day === 28 : false
 
+  const voiceKey = `${state.meta.tavernId}.d${totalElapsed}`
+  const headerVoice = composeEmpty('header', voiceKey)
+
   return {
     closedDayOrdinal: totalElapsed,
     dayLabel: `Day ${closedCalendarDay} · Week ${closedWeek} · Month ${closedMonth} · ${formatDayType(closedDayType)}`,
     isEndOfWeek,
     isEndOfMonth,
+    ...(headerVoice ? { headerVoice } : {}),
   }
 }
 

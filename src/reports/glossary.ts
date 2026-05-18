@@ -613,6 +613,49 @@ const MECHANIC_TERMS: GlossaryTerm[] = [
     oneLine: 'The persistent signature of your tavern: founding day, what it is known for, the rules of the house.',
     longer: 'Identity is not a class label — there is no "Filthy But Beloved" badge. The signature is a small set of facts the simulation collects as the player plays: founding day, atmosphere tags, house rules, and the cluster of regulars and reputations it attracts.',
   },
+  // Phase 95 — Voice & Identity Pass.
+  {
+    id: 'voice',
+    label: 'Voice',
+    category: 'mechanic',
+    oneLine: 'Small style choices a card makes when composing its text.',
+    longer: 'Cards never invent facts. Voice picks among ways to phrase the same facts based on the seed\'s tone hints, deterministically per seed id — same card, same wording, every render.',
+  },
+  {
+    id: 'atmosphere',
+    label: 'Atmosphere',
+    category: 'mechanic',
+    oneLine: 'Short tags describing what the tavern feels like right now.',
+    longer: 'Computed each day from area conditions and the cultures who feel at home. "Grimy floors" lands when half your areas are dirty; "miner-leaning" lands when miners are familiar and comfortable.',
+  },
+  {
+    id: 'known_for',
+    label: 'Known For',
+    category: 'mechanic',
+    oneLine: 'Reputation axes strong enough to define what people say about the place.',
+    longer: 'Any axis at or above 50 contributes. Cap of 3, sorted by axis value. The strip shows up to three — "cheap drinks", "tasty plates", and so on.',
+  },
+  {
+    id: 'house_rules',
+    label: 'House Rules',
+    category: 'mechanic',
+    oneLine: 'The standing policies currently in force at your tavern.',
+    longer: 'Every enabled policy contributes a rule fragment. The list is sticky and stable as long as the policies stay on; toggling a policy updates the list on the next endDay.',
+  },
+  {
+    id: 'attribution_hint',
+    label: 'Voices',
+    category: 'mechanic',
+    oneLine: 'Aggregated public beliefs about the tavern — who respects, blames, or distrusts you.',
+    longer: 'Surfaces public, sturdy attributions: high-strength, high-publicness beliefs grouped by perceiver kind. Tagged "perhaps wrongly" when the attribution is false or partial. A small window onto identity-as-perception.',
+  },
+  {
+    id: 'nickname',
+    label: 'Nickname',
+    category: 'mechanic',
+    oneLine: 'A name people in the area call your tavern — emerges from sustained, public rumours.',
+    longer: 'Nicknames live in `state.world.socialRumours` tagged "nickname". The strip surfaces up to two by strength; only rumours whose accuracy is not "false" appear.',
+  },
 ]
 
 // Phase 94 — Tavern Log vocabulary. One term per `HistoryCategory` plus

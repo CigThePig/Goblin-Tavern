@@ -27,6 +27,10 @@
   import { gameStore } from '../sim/gameStore.svelte'
   import { buildIntent, buildIgnoreIntent } from '../sim/intentBuilder'
   import { buildDailyReport } from '../../../../src/reports/index'
+  // Phase 95 — Voice composer. The day-screen empty-state lines
+  // pull from the same `composeEmpty` pool the report header uses,
+  // deterministically keyed by (tavernId, day, beat).
+  import { composeEmpty } from '../../../../src/cards/voice/index'
   import type { CardChoice } from '../cards/types'
   import type { IssueSeed } from '../cards/types'
   import type { ResponseIntent } from '../../../../src/sim/modules/issues/issueSeedTypes'
@@ -86,6 +90,16 @@
     if (dailyReport?.header.isEndOfWeek) return 'Close the week'
     return 'Next day'
   })
+
+  // Phase 95 — Voice for empty-state lines. Key uses the calendar day
+  // ordinal so a single calendar day reads the same line through all
+  // three beats unless the player relaunches the app on a new day.
+  const voiceKeyBase = $derived(
+    `${gameStore.state.meta.tavernId}.d${gameStore.state.calendar.totalDaysElapsed}`,
+  )
+  const morningEmpty = $derived(composeEmpty('morning', `${voiceKeyBase}.morning`))
+  const serviceEmpty = $derived(composeEmpty('service', `${voiceKeyBase}.service`))
+  const closingEmpty = $derived(composeEmpty('closing', `${voiceKeyBase}.closing`))
 
   // ── Beat transitions ──────────────────────────────────────────────
   function startPlanning() {
@@ -183,9 +197,7 @@
     <section class="block" aria-label="Morning">
       <h2 class="block-label tag">Morning</h2>
       {#if morningCards.length === 0}
-        <p class="quiet">
-          the tavern is quiet. no urgent matters this morning.
-        </p>
+        <p class="quiet">{morningEmpty}</p>
       {:else}
         <div class="card-stack">
           {#each morningCards as { seed, view, pending } (seed.id)}
@@ -286,7 +298,7 @@
     <section class="block" aria-label="During service">
       <h2 class="block-label tag">Service</h2>
       {#if serviceSeeds.length === 0}
-        <p class="quiet">service runs quietly. nothing to react to.</p>
+        <p class="quiet">{serviceEmpty}</p>
       {:else}
         <CardDeck
           seeds={serviceSeeds}
@@ -309,7 +321,7 @@
     <section class="block" aria-label="Closing">
       <h2 class="block-label tag">Closing</h2>
       {#if closingSeeds.length === 0}
-        <p class="quiet">nothing left to resolve. close up?</p>
+        <p class="quiet">{closingEmpty}</p>
       {:else}
         <CardDeck
           seeds={closingSeeds}

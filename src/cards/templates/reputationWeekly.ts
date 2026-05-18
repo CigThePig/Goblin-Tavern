@@ -1,16 +1,19 @@
 // End-of-week reputation-shift template — reads recent causes to explain
 // the trend. Mirrors cards-contract §7 Template 7.
+//
+// Phase 95 — Voice pass.
 
 import type { CauseEntry, TavernState } from '../../sim/state/TavernState'
 import {
-  buildBody,
   buildChoicesFromSeed,
   buildStakes,
   familyTag,
-  formatTitle,
   makeCardView,
 } from '../cardHelpers'
+import { composeBody, composeTitle, type ComposeOpts } from '../voice/index'
 import type { CardDefinition } from '../types'
+
+const DEFINITION_TONES = ['reflective', 'reputation'] as const
 
 function topCausesForReputationAxis(
   state: TavernState,
@@ -32,16 +35,24 @@ export const reputationShiftWeeklyCard: CardDefinition = {
     timings: ['end_week'],
   },
   priority: 55,
-  toneHints: ['reflective'],
+  toneHints: [...DEFINITION_TONES],
   render: (seed, state) => {
     const ti = seed.textIngredients
     const axisTag = seed.domain.find((d) => d.startsWith('reputation.'))
     const axis = axisTag?.split('.')[1] ?? 'reputable'
     const topCauses = topCausesForReputationAxis(state, axis, 2)
 
+    const opts: ComposeOpts = {
+      toneHints: [...DEFINITION_TONES, ...seed.toneHints],
+      key: seed.id,
+    }
+
     return makeCardView({
-      title: formatTitle(['Weekly shift:', ti.subject]),
-      body: buildBody([ti.recentContext[0], ...topCauses.map((c) => c.readable)]),
+      title: composeTitle(['Weekly shift:', ti.subject], opts),
+      body: composeBody(
+        [ti.recentContext[0], ...topCauses.map((c) => c.readable)],
+        opts,
+      ),
       stakes: buildStakes(seed, 2),
       choices: buildChoicesFromSeed(seed, { overrides: () => ({ maxPreview: 2 }) }),
       severity: seed.severity,

@@ -92,7 +92,7 @@ how to verify the fix.
 | ISSUE-051 | Day result/report timing and browser RNG seed correctness | broken | done | 91 |
 | ISSUE-052 | Validation source-of-truth and reference coverage | broken | done | 92 |
 | ISSUE-053 | Web navigation, modal accessibility, and UI state persistence | broken | done | 93 |
-| ISSUE-054 | Supplier pricing reaches restock gameplay | thin | open | — |
+| ISSUE-054 | Supplier pricing reaches restock gameplay | thin | done | 94 |
 | ISSUE-055 | Area content unpinning and customer-area rotation | thin | open | — |
 | ISSUE-056 | Advisory UI validity and future card-choice guardrails | thin | open | — |
 
@@ -2169,8 +2169,8 @@ can land with targeted regression coverage instead of one-off fixes.
 ### ISSUE-054 — Supplier pricing reaches restock gameplay
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 94
 - **Evidence:**
   - `P4-003` — supplier relationship/reliability/market-condition pricing exists
     in helpers/reports, but `restock_item` still uses stock base price directly.

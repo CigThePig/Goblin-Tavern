@@ -5,6 +5,10 @@ import { staffRegistry } from '../../registries/staffRegistry'
 import { stockRegistry } from '../../registries/stockRegistry'
 import { restockItem } from '../stock/sales'
 import { spendCoin } from '../stock/ledger'
+import {
+  getMissedDeliveryProbability,
+  pickRestockSupplier,
+} from '../suppliers/pricing'
 
 import type {
   ActionTarget,
@@ -246,6 +250,24 @@ const repairArea: OwnerActionDefinition = {
 
 const DEFAULT_RESTOCK_AMOUNT = 40
 
+// Phase 94 / ISSUE-054 — Compute the per-unit price the restock action
+// will pay. Uses the best available supplier's effective price (which
+// folds in relationship, reliability tie-break, market conditions,
+// and price bias). Falls back to the stock's bare base price when no
+// supplier provides the item — that's the legacy behaviour the
+// original action used.
+function computeRestockUnitPrice(
+  ctx: SimContext,
+  stockId: string,
+): { unitPrice: number; supplierId: string | undefined } {
+  const pick = pickRestockSupplier(ctx.state, stockId)
+  if (pick) {
+    return { unitPrice: pick.effectivePrice, supplierId: pick.supplier.id }
+  }
+  const item = ctx.state.stock[stockId]
+  return { unitPrice: item?.basePrice ?? 0, supplierId: undefined }
+}
+
 const restockItemAction: OwnerActionDefinition = {
   id: 'restock_item',
   label: 'Restock Item',
@@ -262,7 +284,8 @@ const restockItemAction: OwnerActionDefinition = {
       input.amount !== undefined && input.amount > 0
         ? Math.floor(input.amount)
         : DEFAULT_RESTOCK_AMOUNT
-    const cost = amount * item.basePrice
+    const { unitPrice } = computeRestockUnitPrice(ctx, input.targetId)
+    const cost = Math.ceil(amount * unitPrice)
     if (ctx.state.coin < cost) {
       return reject(
         'insufficient_coin',
@@ -277,8 +300,48 @@ const restockItemAction: OwnerActionDefinition = {
       input.amount !== undefined && input.amount > 0
         ? Math.floor(input.amount)
         : DEFAULT_RESTOCK_AMOUNT
-    const cost = amount * item.basePrice
+    const { unitPrice, supplierId } = computeRestockUnitPrice(ctx, item.id)
+    const cost = Math.ceil(amount * unitPrice)
     const before = item.quantity
+
+    // Phase 94 / ISSUE-054 — Missed-delivery integration. If the picked
+    // supplier rolls a miss, the order is queued but the stock doesn't
+    // arrive today. Coin is NOT spent (player-friendly: nothing changes
+    // hands until product does). The cause is recorded so the daily
+    // report attributes the failure to the supplier.
+    let missed = false
+    if (supplierId) {
+      const supplier = ctx.state.world.suppliers[supplierId]
+      if (supplier) {
+        const missProb = getMissedDeliveryProbability(supplier)
+        if (missProb > 0) {
+          const roll = ctx.getRngStream('supplier_delivery').float()
+          missed = roll < missProb
+        }
+      }
+    }
+
+    if (missed && supplierId) {
+      return {
+        actionId: restockItemAction.id,
+        label: `Missed restock: ${item.label}`,
+        targetId: item.id,
+        actionPointCost: restockItemAction.actionPointCost,
+        effects: [
+          `${item.label} delivery missed (supplier ${supplierId})`,
+          'coin unchanged',
+        ],
+        data: {
+          stockId: item.id,
+          quantity: { before, after: before },
+          coin: { spent: 0 },
+          supplierId,
+          missed: true,
+          unitPrice,
+        },
+      }
+    }
+
     restockItem(
       ctx,
       item.id,
@@ -288,6 +351,20 @@ const restockItemAction: OwnerActionDefinition = {
     )
     const after = ctx.state.stock[item.id]!.quantity
 
+    // Phase 94 / ISSUE-054 — Successful purchase nudges the supplier
+    // relationship up by 1, closing the feedback loop (higher
+    // relationship → cheaper future restocks).
+    if (supplierId) {
+      const supplier = ctx.state.world.suppliers[supplierId]
+      if (supplier) {
+        ctx.modifySupplier(
+          supplierId,
+          { relationship: Math.min(100, supplier.relationship + 1) },
+          { source: 'ownerActions', reason: 'restock_relationship_nudge' },
+        )
+      }
+    }
+
     return {
       actionId: restockItemAction.id,
       label: `Restocked ${item.label}`,
@@ -296,11 +373,13 @@ const restockItemAction: OwnerActionDefinition = {
       effects: [
         `${item.label} ${before} → ${after}`,
         `coin -${cost}`,
+        ...(supplierId ? [`supplier ${supplierId}`] : []),
       ],
       data: {
         stockId: item.id,
         quantity: { before, after },
         coin: { spent: cost },
+        ...(supplierId ? { supplierId, unitPrice } : {}),
       },
     }
   },

@@ -2,8 +2,10 @@ import { marketConditionRegistry } from '../../content/suppliers/marketCondition
 import type {
   StockState,
   SupplierWorldState,
+  TavernState,
 } from '../../state/TavernState'
 import type { ActiveMarketCondition } from './types'
+import { getSupplierModuleState } from './state'
 
 // Phase 29 §29.6 — Effective base price helper.
 //
@@ -91,4 +93,49 @@ export function getMissedDeliveryProbability(
 ): number {
   const raw = (60 - supplier.reliability) * 0.005
   return Math.max(0, Math.min(0.5, raw))
+}
+
+// Phase 94 / ISSUE-054 — Best-supplier pick for the restock action.
+// Walks every supplier providing `stockId`, scores them by effective
+// price first (cheaper wins), reliability as tie-break. Returns the
+// chosen supplier plus its effective unit price so the action can
+// emit a cause that records both the cost and the chosen partner.
+// Falls back to `undefined` when no supplier exists; the caller is
+// responsible for using the raw `stock.basePrice` in that case.
+export type RestockSupplierPick = {
+  supplier: SupplierWorldState
+  effectivePrice: number
+}
+
+export function pickRestockSupplier(
+  state: TavernState,
+  stockId: string,
+): RestockSupplierPick | undefined {
+  const stock = state.stock[stockId]
+  if (!stock) return undefined
+  const moduleState = getSupplierModuleState(state)
+  const activeConditions = moduleState.activeMarketConditions
+  let best: RestockSupplierPick | undefined
+  for (const supplier of Object.values(state.world.suppliers)) {
+    if (!supplier.goodsProvided.includes(stockId)) continue
+    const effectivePrice = Math.max(
+      0,
+      getEffectiveBasePrice(stock, supplier, activeConditions),
+    )
+    if (!best) {
+      best = { supplier, effectivePrice }
+      continue
+    }
+    if (effectivePrice < best.effectivePrice) {
+      best = { supplier, effectivePrice }
+      continue
+    }
+    if (
+      effectivePrice === best.effectivePrice &&
+      supplier.reliability > best.supplier.reliability
+    ) {
+      best = { supplier, effectivePrice }
+    }
+  }
+  return best
 }

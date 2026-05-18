@@ -6,6 +6,7 @@
 export { buildDailyReport, formatDiffPathTitle } from './dailyReportProjection'
 export { buildWeeklyOverview } from './weeklyOverviewProjection'
 export { buildMonthlyOverview } from './monthlyOverviewProjection'
+export { buildTavernOverview } from './tavernOverviewProjection'
 export {
   causesForPath,
   causesForPressure,
@@ -73,3 +74,26 @@ export type {
   MonthlyOverviewRival,
   MonthlyOverviewUpgradeRow,
 } from './monthlyOverviewProjection'
+export type {
+  ActiveExpeditionRow,
+  AdventurerRow,
+  ApplicableActionRef,
+  AreaPanelData,
+  AreaRow,
+  AreaTraitRow,
+  AreaUpgradeRow,
+  AvailableProjectRow,
+  CompletedExpeditionRow,
+  PolicyRow,
+  ProjectPanelData,
+  ProjectRow,
+  RecipePanelData,
+  RecipeRow,
+  SocialActionRow,
+  StaffPanelData,
+  StaffPanelRow,
+  StockPanelData,
+  StockRow,
+  SupplyPipelineData,
+  TavernOverviewData,
+} from './tavernOverviewProjection'

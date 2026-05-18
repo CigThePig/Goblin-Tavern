@@ -87,6 +87,14 @@ how to verify the fix.
 | ISSUE-046 | Staff-management owner actions (hire / fire / kick) missing | broken | done | 86 |
 | ISSUE-047 | Generic Ignore button binds to non-ignore slots via verb-only matcher fallback | broken | done | 87 |
 | ISSUE-048 | ActionPicker enables owner actions that fail `canApply` (e.g. `patch_roof` with no coin) | broken | done | 88 |
+| ISSUE-049 | Persistence contract, migration framework, and save-slot safety | broken | open | — |
+| ISSUE-050 | Cross-surface owner-action queue validity | broken | open | — |
+| ISSUE-051 | Day result/report timing and browser RNG seed correctness | broken | open | — |
+| ISSUE-052 | Validation source-of-truth and reference coverage | broken | open | — |
+| ISSUE-053 | Web navigation, modal accessibility, and UI state persistence | broken | open | — |
+| ISSUE-054 | Supplier pricing reaches restock gameplay | thin | open | — |
+| ISSUE-055 | Area content unpinning and customer-area rotation | thin | open | — |
+| ISSUE-056 | Advisory UI validity and future card-choice guardrails | thin | open | — |
 
 ---
 
@@ -2017,6 +2025,201 @@ since that work is `done`.
   `'budget full'`; deleted roof area → `'no valid targets'`.
 
 ---
+
+
+## Seven-pass investigation repair roadmap
+
+The following issues come from `docs/plans/seven-pass-investigation-plan.md`
+Phase 7. They intentionally group findings by root cause so each repair phase
+can land with targeted regression coverage instead of one-off fixes.
+
+### ISSUE-049 — Persistence contract, migration framework, and save-slot safety
+
+- **Grade:** broken
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `P6-001` — autosave write failures are swallowed by `saveSession()` while
+    `App.svelte` still updates `lastSavedAt`.
+  - `P6-002` / `P1-002` / `P2-004` — browser load/import/snapshot paths use
+    additive helpers instead of a version-stepped migration pipeline, and do not
+    synthesize required newer slices such as `recipes` or `expeditions`.
+  - `P6-003` — saved `picks` are cast without deep validation.
+  - `P6-004` / `P6-005` — snapshot delete is immediate and index corruption can
+    strand payload keys.
+- **Impact:** Players can lose progress while seeing a recent-save timestamp,
+  older exported saves can fail instead of migrate, and corrupted/imported
+  session sidecars can reach runtime paths after validation.
+- **Scope:**
+  - Make save writes return a typed result and surface storage/quota failures in
+    the UI without advancing `lastSavedAt`.
+  - Replace the current ad-hoc migration chain with explicit version steps or
+    default-slice migrations that cover every required top-level/module slice.
+  - Validate/sanitize saved owner-action picks before hydration.
+  - Add snapshot delete confirmation/undo and decide whether to recover or clean
+    orphan payloads.
+- **Depends on:** ISSUE-052 for reference-validation gaps that old-save fixtures
+  should catch.
+- **Test approach:** Use storage adapters/fixtures for successful autosave,
+  throwing storage writes, old saves missing late slices, malformed picks,
+  invalid JSON/imports, snapshot delete confirmation, and orphan-index recovery
+  or cleanup behavior.
+
+### ISSUE-050 — Cross-surface owner-action queue validity
+
+- **Grade:** broken
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `P3-001` — Tavern quick actions, project/policy buttons, and expedition
+    commissioning call `gameStore.addPick()` directly and can overfill the daily
+    action-point queue.
+  - `P6-003` — persisted picks are not validated before hydration.
+- **Impact:** The UI can plan actions that the engine later rejects or skips,
+  undermining the action budget and making saved/imported queues unsafe.
+- **Scope:**
+  - Centralize queue mutation behind a budget- and `canApply`-aware helper.
+  - Reuse the helper from all non-picker action surfaces and from save import
+    sanitation.
+  - Surface clear over-budget/invalid reasons before End Day rather than after
+    engine rejection.
+- **Depends on:** none
+- **Test approach:** Component-helper and store-level tests for each action entry
+  point: central picker, quick actions, projects/policies, expedition sheet, and
+  hydrated saved picks.
+
+### ISSUE-051 — Day result/report timing and browser RNG seed correctness
+
+- **Grade:** broken
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `P2-001` — `collectReports()` runs before `generateReports` hooks, making
+    issue-seed report output stale relative to same-day state.
+  - `P2-002` — browser `runDay()` seeds by day-of-month, repeating seeds every
+    28-day month for systems using `ctx.rng`.
+  - `P2-005` — change-tracker comments still describe no-longer-produced
+    per-phase diffs.
+- **Impact:** Same-day reports can lie about newly generated issue seeds, and
+  browser long-run variance repeats by calendar day even when headless runners
+  use unique absolute-day seeds.
+- **Scope:**
+  - Reorder report generation or move issue-seed generation to the correct
+    phase so report state and `SimResult.reports` agree.
+  - Use an absolute-day/calendar-coordinate seed in the browser runner while
+    preserving expedition stored-seed determinism.
+  - Refresh stale diff/change-tracker docs after the runtime decision.
+- **Depends on:** none
+- **Test approach:** Engine tests for report/hook ordering and browser-store tests
+  proving seeds differ across month boundaries while saved expeditions remain
+  deterministic.
+
+### ISSUE-052 — Validation source-of-truth and reference coverage
+
+- **Grade:** broken
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `P2-003` / `P1-001` — bare `validateState(state)` reads the empty
+    `moduleRegistry`, while runtime callers pass `FULL_PIPELINE`.
+  - `P4-001` — stock `storageAreaId` is not reference-validated.
+  - `P4-002` — area trait and upgrade ids can throw during projection instead
+    of failing validation.
+  - `P4-005` — bare rumour source/target ids are not validated.
+- **Impact:** Diagnostics and imports can miss module-state errors, while stale
+  references can survive validation and later degrade UI labels or crash report
+  projections.
+- **Scope:**
+  - Establish one canonical validation module list/helper and deprecate or
+    populate `moduleRegistry`.
+  - Add reference checks for stock storage areas, area traits/upgrades, and
+    rumour endpoints.
+  - Ensure persistence/import paths and diagnostics use the same helper.
+- **Depends on:** none
+- **Test approach:** Reference-validation fixtures with dangling ids and a bare
+  validation call that must enforce the same module schemas as runtime.
+
+### ISSUE-053 — Web navigation, modal accessibility, and UI state persistence
+
+- **Grade:** broken
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `P5-001` — Day's Yesterday digest writes `gameStore.route` but does not
+    update App's local `view`.
+  - `P5-002` — `BottomSheet` stops Escape propagation inside dialogs and does
+    not focus/restore focus.
+  - `P5-003` — Reports/Tavern/World sub-tabs are not persisted.
+  - `P5-004` / `P3-002` — font-scale coverage and queued-chip copy remain polish
+    gaps.
+- **Impact:** Some in-app navigation is inert until reload, modal users can get
+  trapped or lose focus context, and restored sessions can land on the wrong
+  subview despite route persistence.
+- **Scope:**
+  - Route all in-app navigation through a single App/store contract.
+  - Fix modal Escape handling, initial focus, and focus restoration centrally.
+  - Decide whether subroutes enter the save envelope; if not, document them as
+    intentionally ephemeral.
+  - Clean queued-chip duplication and font-scale copy/coverage as polish.
+- **Depends on:** ISSUE-049 if subroute persistence changes the session envelope.
+- **Test approach:** Browser/component smoke coverage for digest navigation,
+  BottomSheet Escape/focus behavior, route/subroute reload, and preference-driven
+  font-scale expectations.
+
+### ISSUE-054 — Supplier pricing reaches restock gameplay
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `P4-003` — supplier relationship/reliability/market-condition pricing exists
+    in helpers/reports, but `restock_item` still uses stock base price directly.
+- **Impact:** Supplier relationship systems look gameplay-bearing in reports but
+  do not influence the primary purchase loop.
+- **Scope:** Decide whether restock should select a supplier and route through
+  effective supplier pricing/reliability, or explicitly keep supplier pricing as
+  report-only flavor.
+- **Depends on:** ISSUE-050 if restock UI changes action targeting/validation.
+- **Test approach:** If gameplay-bearing, simulate restock under different
+  supplier relationships/market conditions and assert coin, stock, and reports
+  reflect effective price/delivery outcomes.
+
+### ISSUE-055 — Area content unpinning and customer-area rotation
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `P4-004` — issue-seed generators still hardcode `main_room` references and
+    direct `areas.main_room.*` effects.
+- **Impact:** New customer-facing areas remain underused by issue content,
+  reducing content diversity and making area investments less visible.
+- **Scope:** Add shared area pickers for customer-facing, kitchen-adjacent, and
+  repairable contexts; keep `main_room` only as fallback.
+- **Depends on:** ISSUE-052 for stronger area reference validation.
+- **Test approach:** Seed-generation tests across states with multiple eligible
+  areas proving references/effects can target non-`main_room` areas.
+
+### ISSUE-056 — Advisory UI validity and future card-choice guardrails
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** —
+- **Evidence:**
+  - `P3-003` — missed-opportunity recommendations do not run the same
+    target/current-state checks as owner-action UI.
+  - `P3-004` — `CardChoice.disabledReason` has a renderer slot but no producer.
+- **Impact:** Advisory UI can teach actions that may not have been valid, and
+  future response-slot preconditions could render inconsistently if added later.
+- **Scope:** Add historical/current validity constraints for missed-opportunity
+  recommendations, or clearly label them as generic advice; keep disabled card
+  choices covered by helper-level guardrails before any preconditioned choices
+  ship.
+- **Depends on:** ISSUE-050 for shared action validity helpers.
+- **Test approach:** Projection tests for missed opportunities where remedy
+  actions are unaffordable/targetless, plus a renderer/helper fixture for future
+  disabled card-choice metadata.
+
 
 ## Deferred
 

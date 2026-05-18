@@ -1,18 +1,18 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
-
-  export type Route = 'day' | 'reports' | 'tavern' | 'world'
+  import type { Route } from '../sim/persistence'
 
   let {
     active,
     onnavigate,
   }: { active: Route; onnavigate: (r: Route) => void } = $props()
 
-  const tabs: { id: Route; label: string; icon: 'day' | 'reports' | 'tavern' | 'world' }[] = [
+  const tabs: { id: Route; label: string; icon: 'day' | 'reports' | 'tavern' | 'world' | 'more' }[] = [
     { id: 'day', label: 'Day', icon: 'day' },
     { id: 'reports', label: 'Reports', icon: 'reports' },
     { id: 'tavern', label: 'Tavern', icon: 'tavern' },
     { id: 'world', label: 'World', icon: 'world' },
+    { id: 'more', label: 'More', icon: 'more' },
   ]
 </script>
 
@@ -35,7 +35,7 @@
     position: sticky;
     bottom: 0;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     height: var(--nav-h);
     background: var(--ink);
     border-top: var(--border-faint);

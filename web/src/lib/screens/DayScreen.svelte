@@ -33,6 +33,7 @@
   import YesterdayDigest from '../components/YesterdayDigest.svelte'
   import { renderCard } from '../cards/realCardRegistry'
   import { gameStore } from '../sim/gameStore.svelte'
+  import { prefsStore } from '../prefs/prefsStore.svelte'
   import { buildIntent, buildIgnoreIntent } from '../sim/intentBuilder'
   import { buildDailyReport } from '../../../../src/reports/index'
   import { projectYesterdayDigest } from '../../../../src/reports/yesterdayDigest'
@@ -156,7 +157,16 @@
     gameStore.setBeat('closing')
   }
 
+  // Phase 98 — Confirm-end-day preference. When on, the End Day button
+  // shows an in-place "Are you sure?" instead of firing immediately.
+  let confirmingEndDay = $state(false)
+
   function endDay() {
+    if (prefsStore.preferences.confirmEndDay && !confirmingEndDay) {
+      confirmingEndDay = true
+      return
+    }
+    confirmingEndDay = false
     // Bundle every player input into one simulateDay call. This is the
     // single mutation point per game-day. Picks and staffPriorities are
     // already on the store; runDay reads them automatically.
@@ -172,6 +182,10 @@
     }
     gameStore.runDay({ responseIntents: intents })
     gameStore.setBeat('report')
+  }
+
+  function cancelEndDay() {
+    confirmingEndDay = false
   }
 
   // Phase 96 — Quick Day path. Skips Beats 2-4 entirely. Submits any
@@ -386,9 +400,19 @@
     </section>
 
     <section class="block actions">
-      <button class="primary" type="button" onclick={endDay}>
-        End day
-      </button>
+      {#if confirmingEndDay}
+        <div class="confirm-row">
+          <p class="confirm-text">Close out the day? Decisions you skipped are gone.</p>
+          <div class="confirm-actions">
+            <button class="primary" type="button" onclick={endDay}>End day</button>
+            <button class="ghost" type="button" onclick={cancelEndDay}>Wait</button>
+          </div>
+        </div>
+      {:else}
+        <button class="primary" type="button" onclick={endDay}>
+          End day
+        </button>
+      {/if}
     </section>
   {/if}
 
@@ -555,6 +579,29 @@
   .ghost:hover,
   .ghost:focus-visible {
     color: var(--text);
+  }
+
+  .confirm-row {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xs);
+    padding: var(--sp-sm);
+    background: color-mix(in srgb, var(--loss) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--loss) 40%, transparent);
+    border-radius: var(--radius-sm);
+  }
+
+  .confirm-text {
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.45;
+    text-align: center;
+  }
+
+  .confirm-actions {
+    display: flex;
+    gap: var(--sp-xs);
   }
 
   .plan-rows {

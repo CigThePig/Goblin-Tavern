@@ -277,6 +277,40 @@ describe('persistence — dismissed missed opportunities (Phase 97)', () => {
   })
 })
 
+describe('persistence — route (Phase 98)', () => {
+  it("round-trips a save with route: 'more'", () => {
+    const base = makeBasicSession()
+    const session: PersistedSession = { ...base, route: 'more' }
+    saveSession(session)
+    const out = loadSession()
+    expect(out.kind).toBe('loaded')
+    if (out.kind !== 'loaded') return
+    expect(out.save.route).toBe('more')
+  })
+
+  it("a pre-Phase-98 save with route: 'day' still loads cleanly", () => {
+    const session = makeBasicSession()
+    saveSession(session)
+    const out = loadSession()
+    expect(out.kind).toBe('loaded')
+    if (out.kind !== 'loaded') return
+    expect(out.save.route).toBe('day')
+  })
+
+  it('falls back to day when route is unknown (defensive sanitization)', () => {
+    const session = makeBasicSession()
+    saveSession(session)
+    const raw = storage.getItem(SAVE_STORAGE_KEY)!
+    const blob = JSON.parse(raw)
+    blob.route = 'unicorn'
+    storage.setItem(SAVE_STORAGE_KEY, JSON.stringify(blob))
+    const out = loadSession()
+    expect(out.kind).toBe('loaded')
+    if (out.kind !== 'loaded') return
+    expect(out.save.route).toBe('day')
+  })
+})
+
 describe('persistence — clearSession', () => {
   it('clears the stored save and returns fresh on the next load', () => {
     const session = makeBasicSession()

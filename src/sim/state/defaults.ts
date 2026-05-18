@@ -78,6 +78,10 @@ import type {
   TavernState,
   WorldState,
 } from './TavernState'
+import {
+  applyDifficultyToBase,
+  type DifficultyConfig,
+} from './difficulty'
 
 // Phase 8 §8.1 — Area defaults are sourced from `areaRegistry` rather than
 // inlined. The registry holds the same Phase 5 numbers, so this is a
@@ -622,9 +626,12 @@ export function createInitialWorldState(
   }
 }
 
-export function createInitialTavernState(overrides?: Partial<TavernState>): TavernState {
+export function createInitialTavernState(
+  overrides?: Partial<TavernState>,
+  difficulty?: DifficultyConfig,
+): TavernState {
   const customerGroups = createInitialCustomerGroups()
-  const base: TavernState = {
+  const initial: TavernState = {
     meta: {
       tavernId: 'the_crooked_keg',
       tavernName: 'The Crooked Keg',
@@ -705,6 +712,11 @@ export function createInitialTavernState(overrides?: Partial<TavernState>): Tave
       responses: createInitialResponsesModuleState(),
     },
   }
+
+  // Phase 98 — Difficulty is applied to the freshly-built base BEFORE
+  // overrides merge. Overrides always win, which keeps the existing
+  // test fixtures (which pass `overrides`) bit-for-bit unchanged.
+  const base = difficulty ? applyDifficultyToBase(initial, difficulty) : initial
 
   if (!overrides) {
     return base

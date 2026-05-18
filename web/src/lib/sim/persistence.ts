@@ -56,7 +56,7 @@ export const SAVE_VERSION = 1 as const
 // root, so duplicating it would roughly double the save size.
 export type LatestResultLite = Omit<SimResult, 'state'>
 
-export type Route = 'day' | 'reports' | 'tavern' | 'world'
+export type Route = 'day' | 'reports' | 'tavern' | 'world' | 'more'
 
 export type PersistedSession = {
   saveVersion: typeof SAVE_VERSION
@@ -85,6 +85,16 @@ export type LoadOutcome =
   | { kind: 'invalid'; reason: string }
   | { kind: 'incompatible'; saveVersion: number }
 
+/**
+ * Validation outcome for an already-parsed `PersistedSession`-shaped
+ * object. Shared by `loadSession`, snapshot load, and import paths so
+ * all three go through the same migration + zod validation pipeline.
+ */
+export type ValidationOutcome =
+  | { kind: 'loaded'; save: PersistedSession }
+  | { kind: 'invalid'; reason: string }
+  | { kind: 'incompatible'; saveVersion: number }
+
 const VALID_BEATS: ReadonlySet<Beat> = new Set<Beat>([
   'morning',
   'plan',
@@ -97,6 +107,7 @@ const VALID_ROUTES: ReadonlySet<Route> = new Set<Route>([
   'reports',
   'tavern',
   'world',
+  'more',
 ])
 
 // ──────────────────────────────────────────────────────────────────
@@ -188,6 +199,19 @@ export function loadSession(): LoadOutcome {
     return { kind: 'invalid', reason: `malformed JSON: ${describeErr(err)}` }
   }
 
+  return validatePersistedSession(parsed)
+}
+
+/**
+ * Validate a parsed payload against the `PersistedSession` shape. Runs
+ * the same migration + zod pipeline as `loadSession`. Used by snapshot
+ * load (`snapshots.loadSnapshot`) and JSON import (`exportImport.parseImportedSession`).
+ *
+ * Accepts the unknown JSON, returns a typed outcome with either the
+ * fully migrated + sanitized session, an `invalid` reason, or
+ * `incompatible` with the discovered saveVersion.
+ */
+export function validatePersistedSession(parsed: unknown): ValidationOutcome {
   if (!isObject(parsed)) {
     return { kind: 'invalid', reason: 'save root is not an object' }
   }

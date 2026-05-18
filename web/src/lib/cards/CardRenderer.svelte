@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from '../components/Icon.svelte'
+  import { prefsStore } from '../prefs/prefsStore.svelte'
   import type { CardView, CardChoice } from './types'
 
   let {
@@ -11,6 +12,11 @@
     onchoose?: (slotId: string, choice: CardChoice) => void
     onignore?: () => void
   } = $props()
+
+  // Phase 98 — Show the seed-family tag in the card corner unless the
+  // player has hidden it via Preferences. The data is always available;
+  // visibility is a player preference.
+  const showSeedTag = $derived(prefsStore.preferences.showSeedTags)
 
   const stakeIcon = (d: 'loss' | 'gain' | 'risk') =>
     d === 'loss' ? 'stake-loss' : d === 'gain' ? 'stake-gain' : 'stake-risk'
@@ -35,7 +41,7 @@
 <article class="card rise-in" aria-label={card.title}>
   <header class="head">
     <h2 class="title display">{card.title}</h2>
-    {#if card.tag}
+    {#if card.tag && showSeedTag}
       <span class="tag">{card.tag}</span>
     {/if}
     {#if showSeal}

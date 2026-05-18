@@ -19,6 +19,7 @@
 
 import { simulateDay } from '../../../../src/sim/core/engine'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
+import type { DifficultyConfig } from '../../../../src/sim/state/difficulty'
 import { FULL_PIPELINE } from '../../../../src/sim/testing/simRunner'
 import type { TavernState } from '../../../../src/sim/state/TavernState'
 import type { CalendarState } from '../../../../src/sim/modules/calendar/types'
@@ -131,11 +132,12 @@ class GameStore {
 
   /**
    * Fresh save. The Crooked Keg, day zero, dirty, broke, goblin-authentic
-   * (see game-loop-and-ux.md §2.1).
+   * (see game-loop-and-ux.md §2.1). Phase 98 — optional `difficulty`
+   * preset modulates day-zero coin / cleanliness / pressure baselines.
    */
-  reset(seed?: string): void {
+  reset(seed?: string, difficulty?: DifficultyConfig): void {
     if (seed) this.seedString = seed
-    this.state = createInitialTavernState()
+    this.state = createInitialTavernState(undefined, difficulty)
     this.latestResult = undefined
     this.previousCalendar = undefined
     this.picks = []

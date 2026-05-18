@@ -370,6 +370,7 @@ const OwnerActionTargetTypeSchema = z.enum([
   'faction',
   'project',
   'policy',
+  'recipe',
   'global',
 ])
 

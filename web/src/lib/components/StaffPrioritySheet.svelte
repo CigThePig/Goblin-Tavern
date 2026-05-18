@@ -20,16 +20,14 @@
 
   let {
     open,
-    priorities,
     onclose,
-    onchange,
   }: {
     open: boolean
-    priorities: Record<string, string>
     onclose: () => void
-    onchange: (next: Record<string, string>) => void
   } = $props()
 
+  // Phase 92 — staff priorities live on gameStore (sticky across days).
+  const priorities = $derived(gameStore.staffPriorities)
   const staff = $derived(Object.values(gameStore.state.staff))
 
   function currentPriorityFor(staffId: string, roleId: string): string {
@@ -37,7 +35,7 @@
   }
 
   function setPriority(staffId: string, priorityId: string) {
-    onchange({ ...priorities, [staffId]: priorityId })
+    gameStore.setStaffPriority(staffId, priorityId)
   }
 </script>
 

@@ -2,27 +2,34 @@
 //
 // Wraps the actionRegistry so the UI can:
 //   - list available actions by category,
-//   - query a definition's valid targets against the current state
-//     (cheap memoization on a state-version key — recomputed every day
-//     since most state mutations affect target validity),
+//   - query a definition's valid targets against the current state,
 //   - format a SimInputOwnerAction for `gameStore.runDay`,
 //   - track the running action-point total so the 3-point cap can be
 //     enforced before submission.
 //
-// The engine validates again on `applyOwnerActions`; the UI layer is
-// belt-and-suspenders, not the source of truth.
+// Phase 92 moved the read-only ctx + canApply / disabledReason / target
+// helpers down into `src/sim/modules/ownerActions/readonlyHelpers.ts`
+// so the reports projection layer can use them too. This file remains
+// the web-side surface: `PickedAction`, picks → SimInput conversion,
+// counter helpers, and the category label table.
 
 import {
   actionRegistry,
   type OwnerActionDefinition,
 } from '../../../../src/sim/registries/actionRegistry'
+import {
+  actionDisabledReason,
+  actionDisabledReasonForTarget,
+  applicableActionsForTarget,
+  canApplyAction,
+  listValidTargets,
+  makeReadOnlyCtx,
+} from '../../../../src/sim/modules/ownerActions/readonlyHelpers'
 import type {
-  ActionTarget,
   OwnerActionCategory,
   OwnerActionInput,
 } from '../../../../src/sim/modules/ownerActions/types'
-import type { SimContext, SimInputOwnerAction } from '../../../../src/sim/core/context'
-import type { TavernState } from '../../../../src/sim/state/TavernState'
+import type { SimInputOwnerAction } from '../../../../src/sim/core/context'
 
 export const ACTION_POINT_BUDGET = 3
 
@@ -36,6 +43,11 @@ export type PickedAction = {
   targetId?: string
   targetLabel?: string
   actionPointCost: number
+  /**
+   * Phase 92 — Optional structured options for actions that need them
+   * (commission_expedition, etc.). Forwarded verbatim to the engine.
+   */
+  options?: Record<string, unknown>
 }
 
 let pickIdCounter = 0
@@ -57,173 +69,13 @@ export function getActionCategories(): OwnerActionCategory[] {
   return ['immediate', 'project', 'policy', 'social']
 }
 
-/**
- * Cheap shim that gives action definitions a `getValidTargets`-callable
- * context without spinning up a full `SimContext`. The owner-action
- * definitions only read `ctx.state` (and a couple of metadata accessors)
- * from `getValidTargets`; we proxy those and throw on anything else so
- * a regression that starts using the heavier API surface is loud.
- */
-function makeReadOnlyCtx(state: TavernState): SimContext {
-  const refuse = (name: string) => () => {
-    throw new Error(`actionBuilder: readonly ctx — '${name}' not supported`)
-  }
-  // The cast is intentional: this is a UI-only shim. The owner-action
-  // definitions whose `getValidTargets` we want to call only touch
-  // `state`, the calendar accessors, and (rarely) `getMemoriesByTag`.
-  // Everything else throws so any future drift is caught loudly.
-  const ctx = {
-    state,
-    input: { seed: 'ui-readonly' },
-    rng: {} as never,
-    rngStreams: {} as never,
-    getRngStream: refuse('getRngStream'),
-    getRngStreamByName: refuse('getRngStreamByName'),
-    reports: [],
-    logs: [],
-    addReportSection: refuse('addReportSection'),
-    addLog: refuse('addLog'),
-    getDayType: () => state.calendar.dayType,
-    isEndOfWeek: () => false,
-    isEndOfMonth: () => false,
-    validate: refuse('validate'),
-    modifyArea: refuse('modifyArea'),
-    modifyStock: refuse('modifyStock'),
-    modifyStaff: refuse('modifyStaff'),
-    addStaff: refuse('addStaff'),
-    removeStaff: refuse('removeStaff'),
-    modifyCustomerGroup: refuse('modifyCustomerGroup'),
-    modifyRecipe: refuse('modifyRecipe'),
-    modifyExpeditions: refuse('modifyExpeditions'),
-    modifyCoin: refuse('modifyCoin'),
-    modifyReputation: refuse('modifyReputation'),
-    modifyModuleState: refuse('modifyModuleState'),
-    modifyCulture: refuse('modifyCulture'),
-    modifyFaction: refuse('modifyFaction'),
-    modifySupplier: refuse('modifySupplier'),
-    modifyRegular: refuse('modifyRegular'),
-    modifyNotableNpc: refuse('modifyNotableNpc'),
-    modifyHireableAdventurer: refuse('modifyHireableAdventurer'),
-    addHireableAdventurer: refuse('addHireableAdventurer'),
-    removeHireableAdventurer: refuse('removeHireableAdventurer'),
-    modifyLocalEvent: refuse('modifyLocalEvent'),
-    modifySocialRumour: refuse('modifySocialRumour'),
-    modifyTavernIdentity: refuse('modifyTavernIdentity'),
-    getCulture: (id: string) => state.world.cultures[id],
-    getFaction: (id: string) => state.world.factions[id],
-    getSupplier: (id: string) => state.world.suppliers[id],
-    getRegular: (id: string) => state.world.regulars[id],
-    getNotableNpc: (id: string) => state.world.notableNpcs[id],
-    getLocalEvent: (id: string) => state.world.localEvents[id],
-    getSocialRumour: (id: string) => state.world.socialRumours[id],
-    addMemory: refuse('addMemory'),
-    addEntityMemory: refuse('addEntityMemory'),
-    removeMemory: refuse('removeMemory'),
-    hasMemory: (id: string) => state.memories.some((m) => m.id === id),
-    getMemory: (id: string) => state.memories.find((m) => m.id === id),
-    getMemoriesByTag: (tag: string) =>
-      state.memories.filter((m) => m.tags.includes(tag)),
-    getMemoriesForActor: refuse('getMemoriesForActor'),
-    getMemoriesForLocation: refuse('getMemoriesForLocation'),
-    getMemoryStrength: refuse('getMemoryStrength'),
-    ageMemoriesEndOfDay: refuse('ageMemoriesEndOfDay'),
-    addHistory: refuse('addHistory'),
-    getRecentHistory: refuse('getRecentHistory'),
-    getHistoryByTag: refuse('getHistoryByTag'),
-    pruneHistoryBefore: refuse('pruneHistoryBefore'),
-    addCause: refuse('addCause'),
-    getCausesForTarget: (target: string) =>
-      state.causes.filter((c) => c.target === target),
-    getCausesByTag: (tag: string) =>
-      state.causes.filter((c) => c.tags.includes(tag)),
-    getRecentCauses: refuse('getRecentCauses'),
-    getTopCausesForTarget: refuse('getTopCausesForTarget'),
-    ageCausesEndOfDay: refuse('ageCausesEndOfDay'),
-    modifyPressure: refuse('modifyPressure'),
-    getDiff: () => undefined,
-    getDiffs: () => [],
-  } satisfies SimContext
-  return ctx
-}
-
-export function listValidTargets(
-  def: OwnerActionDefinition,
-  state: TavernState,
-): ActionTarget[] {
-  try {
-    return def.getValidTargets(makeReadOnlyCtx(state))
-  } catch (err) {
-    // Some action definitions reach for ctx APIs the UI shim refuses.
-    // Failing soft is better than blocking the picker.
-    if (typeof console !== 'undefined') {
-      console.warn(
-        `actionBuilder: getValidTargets('${def.id}') threw — falling back to empty target list`,
-        err,
-      )
-    }
-    return []
-  }
-}
-
-export function canApplyAction(
-  def: OwnerActionDefinition,
-  state: TavernState,
-  input: OwnerActionInput,
-): { ok: true } | { ok: false; reason: string } {
-  try {
-    const result = def.canApply(makeReadOnlyCtx(state), input)
-    if (result.ok) return { ok: true }
-    return { ok: false, reason: result.reason }
-  } catch (err) {
-    return { ok: false, reason: (err as Error).message }
-  }
-}
-
-/**
- * ISSUE-048 — Reason an action row should be disabled in the picker, or
- * `undefined` if it's selectable. Mirrors the engine's
- * `applyOwnerActions` validation so the UI doesn't silently queue
- * actions the engine will reject.
- *
- * Order: budget first (cheapest, blocks before any `canApply` call);
- * then for global / target-less defs, run `canApply` once; for targeted
- * defs, require at least one target for which `canApply` succeeds —
- * surfacing the first rejection reason when every target fails for the
- * same cause (typically "insufficient_coin" or similar).
- */
-export function actionDisabledReason(
-  def: OwnerActionDefinition,
-  state: TavernState,
-  pointsLeft: number,
-): string | undefined {
-  if (def.actionPointCost > pointsLeft) return 'budget full'
-
-  if (!def.targetType || def.targetType === 'global') {
-    const verdict = canApplyAction(def, state, { actionId: def.id })
-    return verdict.ok ? undefined : verdict.reason
-  }
-
-  const targets = listValidTargets(def, state)
-  if (targets.length === 0) return 'no valid targets'
-
-  let firstReason: string | undefined
-  for (const t of targets) {
-    const verdict = canApplyAction(def, state, {
-      actionId: def.id,
-      targetId: t.id,
-    })
-    if (verdict.ok) return undefined
-    if (firstReason === undefined) firstReason = verdict.reason
-  }
-  return firstReason ?? 'cannot apply now'
-}
-
 export function picksToInputs(
   picks: ReadonlyArray<PickedAction>,
 ): SimInputOwnerAction[] {
   return picks.map((p) => {
     const input: SimInputOwnerAction = { actionId: p.actionId }
     if (p.targetId !== undefined) input.targetId = p.targetId
+    if (p.options !== undefined) input.options = p.options
     return input
   })
 }
@@ -244,3 +96,16 @@ export function categoryLabel(c: OwnerActionCategory): string {
       return 'Social'
   }
 }
+
+// Re-export the sim-side helpers so existing import sites keep working.
+export {
+  actionDisabledReason,
+  actionDisabledReasonForTarget,
+  applicableActionsForTarget,
+  canApplyAction,
+  listValidTargets,
+  makeReadOnlyCtx,
+}
+
+// Type re-exports for convenience at call sites.
+export type { OwnerActionInput }

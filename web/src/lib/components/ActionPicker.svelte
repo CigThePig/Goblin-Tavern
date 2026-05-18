@@ -32,14 +32,10 @@
 
   let {
     open,
-    picks,
     onclose,
-    onchange,
   }: {
     open: boolean
-    picks: PickedAction[]
     onclose: () => void
-    onchange: (next: PickedAction[]) => void
   } = $props()
 
   const categories = getActionCategories()
@@ -49,6 +45,8 @@
   let targetingFor = $state<OwnerActionDefinition | null>(null)
   let targetOptions = $state<ActionTarget[]>([])
 
+  // Phase 92 — picks live on gameStore so any screen can read/write them.
+  const picks = $derived(gameStore.picks)
   const pointsUsed = $derived(totalActionPoints(picks))
   const pointsLeft = $derived(ACTION_POINT_BUDGET - pointsUsed)
 
@@ -60,11 +58,11 @@
   }
 
   function addPick(p: PickedAction) {
-    onchange([...picks, p])
+    gameStore.setPicks([...gameStore.picks, p])
   }
 
   function removePick(pickId: string) {
-    onchange(picks.filter((p) => p.pickId !== pickId))
+    gameStore.removePick(pickId)
   }
 
   function tapAction(def: OwnerActionDefinition) {

@@ -27,10 +27,6 @@
   import { gameStore } from '../sim/gameStore.svelte'
   import { buildIntent, buildIgnoreIntent } from '../sim/intentBuilder'
   import { buildDailyReport } from '../../../../src/reports/index'
-  import {
-    picksToInputs,
-    type PickedAction,
-  } from '../sim/actionBuilder'
   import type { CardChoice } from '../cards/types'
   import type { IssueSeed } from '../cards/types'
   import type { ResponseIntent } from '../../../../src/sim/modules/issues/issueSeedTypes'
@@ -41,8 +37,9 @@
     | { kind: 'ignore' }
 
   let beat = $state<Beat>('morning')
-  let picks = $state<PickedAction[]>([])
-  let staffPriorities = $state<Record<string, string>>({})
+  // Phase 92 — picks and staffPriorities live on gameStore (cross-screen).
+  const picks = $derived(gameStore.picks)
+  const staffPriorities = $derived(gameStore.staffPriorities)
   let pendingBySeedId = $state<Record<string, PendingChoice>>({})
 
   let pickerOpen = $state(false)
@@ -112,7 +109,8 @@
 
   function endDay() {
     // Bundle every player input into one simulateDay call. This is the
-    // single mutation point per game-day.
+    // single mutation point per game-day. Picks and staffPriorities are
+    // already on the store; runDay reads them automatically.
     const intents: ResponseIntent[] = []
     for (const seed of [...morningSeeds, ...serviceSeeds, ...closingSeeds]) {
       const pending = pendingBySeedId[seed.id]
@@ -123,14 +121,7 @@
         intents.push(buildIntent(seed, pending.choice))
       }
     }
-    gameStore.runDay({
-      ownerActions: picksToInputs(picks),
-      staffPriorities: { ...staffPriorities },
-      responseIntents: intents,
-    })
-    // Per-day inputs reset; staffPriorities persist (the player set
-    // them and should expect them to stick).
-    picks = []
+    gameStore.runDay({ responseIntents: intents })
     pendingBySeedId = {}
     beat = 'report'
   }
@@ -349,18 +340,8 @@
 </main>
 
 <!-- ─── Sheets ──────────────────────────────────────────────────── -->
-<ActionPicker
-  open={pickerOpen}
-  {picks}
-  onclose={() => (pickerOpen = false)}
-  onchange={(next) => (picks = next)}
-/>
-<StaffPrioritySheet
-  open={staffSheetOpen}
-  priorities={staffPriorities}
-  onclose={() => (staffSheetOpen = false)}
-  onchange={(next) => (staffPriorities = next)}
-/>
+<ActionPicker open={pickerOpen} onclose={() => (pickerOpen = false)} />
+<StaffPrioritySheet open={staffSheetOpen} onclose={() => (staffSheetOpen = false)} />
 
 <style>
   .day {

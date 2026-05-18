@@ -123,7 +123,14 @@ describe('Phase 13 — Owner action registry', () => {
       expect(ids.has(id)).toBe(true)
     }
     for (const def of actionRegistry.all()) {
-      expect(def.actionPointCost).toBe(1)
+      // Phase 92 added `toggle_recipe_menu` as a 0 AP logistical toggle
+      // (flipping `RecipeState.onMenu` doesn't represent owner labor).
+      // Every other action still costs at least 1 AP.
+      if (def.id === 'toggle_recipe_menu') {
+        expect(def.actionPointCost).toBe(0)
+      } else {
+        expect(def.actionPointCost).toBeGreaterThanOrEqual(1)
+      }
       expect(typeof def.label).toBe('string')
       expect(Array.isArray(def.tags)).toBe(true)
       expect(typeof def.canApply).toBe('function')

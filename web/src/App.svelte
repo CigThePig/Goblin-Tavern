@@ -225,29 +225,68 @@
     oncontinue={continueGame}
   />
 {:else}
-  <AppShell route={view} onnavigate={navigate}>
-    {#if view === 'day'}
-      <DayScreen />
-    {:else if view === 'reports'}
-      <ReportsScreen />
-    {:else if view === 'tavern'}
-      <TavernScreen />
-    {:else if view === 'world'}
-      <WorldScreen />
-    {:else if view === 'more'}
-      <MoreScreen
-        onreplaced={() => {
-          // Phase 98 — Snapshot load or import has replaced the current
-          // run. Drop the player into Day on the just-hydrated state so
-          // the new world is immediately playable; the autosave will
-          // flush on the next save cycle, so a reload from here surfaces
-          // the standard welcome-back path.
-          view = gameStore.route
-          gameStore.setRoute(gameStore.route)
-        }}
-      />
-    {/if}
-  </AppShell>
+  <!--
+    Phase 97 / ISSUE-057 — Top-level error boundary. Catches render-phase
+    errors (a throw inside a $derived.by, a component render crash, a
+    bad reactive read). Does NOT catch event-handler errors — those are
+    handled per-call (see endDay/runQuickDay in DayScreen). The failed
+    snippet receives (error, reset); calling reset() retries the
+    boundary's children with a fresh render.
+  -->
+  <svelte:boundary>
+    <AppShell route={view} onnavigate={navigate}>
+      {#if view === 'day'}
+        <DayScreen />
+      {:else if view === 'reports'}
+        <ReportsScreen />
+      {:else if view === 'tavern'}
+        <TavernScreen />
+      {:else if view === 'world'}
+        <WorldScreen />
+      {:else if view === 'more'}
+        <MoreScreen
+          onreplaced={() => {
+            // Phase 98 — Snapshot load or import has replaced the current
+            // run. Drop the player into Day on the just-hydrated state so
+            // the new world is immediately playable; the autosave will
+            // flush on the next save cycle, so a reload from here surfaces
+            // the standard welcome-back path.
+            view = gameStore.route
+            gameStore.setRoute(gameStore.route)
+          }}
+        />
+      {/if}
+    </AppShell>
+
+    {#snippet failed(error, reset)}
+      <div class="app-error" role="alert">
+        <p class="app-error-title">Something went wrong.</p>
+        <p class="app-error-message mono">
+          {error instanceof Error ? error.message : String(error)}
+        </p>
+        <div class="app-error-actions">
+          <button
+            type="button"
+            class="app-error-btn"
+            onclick={() => {
+              view = 'day'
+              gameStore.setRoute('day')
+              reset()
+            }}
+          >
+            Go to Day
+          </button>
+          <button
+            type="button"
+            class="app-error-btn ghost"
+            onclick={() => location.reload()}
+          >
+            Reload
+          </button>
+        </div>
+      </div>
+    {/snippet}
+  </svelte:boundary>
 {/if}
 
 <Glossary
@@ -260,5 +299,62 @@
   .boot {
     min-height: 100dvh;
     background: var(--bg);
+  }
+
+  /* Phase 97 / ISSUE-057 — render-phase error recovery panel. */
+  .app-error {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-md);
+    padding: var(--sp-xl) var(--sp-md);
+    background: var(--bg);
+    color: var(--text);
+    text-align: center;
+  }
+
+  .app-error-title {
+    font-family: var(--font-display);
+    color: var(--accent);
+    font-size: 22px;
+    letter-spacing: 0.06em;
+  }
+
+  .app-error-message {
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 520px;
+    padding: var(--sp-sm) var(--sp-md);
+    background: var(--surface);
+    border: 1px solid color-mix(in srgb, var(--loss) 40%, transparent);
+    border-radius: var(--radius-md);
+    word-break: break-word;
+  }
+
+  .app-error-actions {
+    display: flex;
+    gap: var(--sp-sm);
+  }
+
+  .app-error-btn {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-size: 13px;
+    color: var(--accent);
+    background: transparent;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    padding: 10px 16px;
+    min-height: 40px;
+  }
+
+  .app-error-btn.ghost {
+    color: var(--text-faint);
+    border-color: color-mix(in srgb, var(--candle-soft) 40%, transparent);
   }
 </style>

@@ -44,18 +44,39 @@
     gameStore.setReportsSubview(s)
   }
 
-  const report = $derived.by<DailyReportData | undefined>(() => {
+  // Phase 97 / ISSUE-057 — Discriminated unions so a throw from any of
+  // the three projections renders an inline error panel instead of
+  // silently blanking the section. 'empty' covers "no day has been
+  // simulated yet" (only meaningful for the daily report).
+  type ProjectionSlot<T> =
+    | { ok: 'success'; data: T }
+    | { ok: 'empty' }
+    | { ok: 'error'; error: string }
+
+  function safeProject<T>(fn: () => T): ProjectionSlot<T> {
+    try {
+      return { ok: 'success', data: fn() }
+    } catch (err) {
+      return { ok: 'error', error: err instanceof Error ? err.message : String(err) }
+    }
+  }
+
+  const report: ProjectionSlot<DailyReportData> = $derived.by(() => {
     const result = gameStore.latestResult
-    if (!result) return undefined
-    return buildDailyReport(result, gameStore.state, {
-      ...(gameStore.previousCalendar ? { previousCalendar: gameStore.previousCalendar } : {}),
-      dismissedMissedOpportunityIds: gameStore.dismissedMissedOpportunityIds,
-    })
+    if (!result) return { ok: 'empty' }
+    return safeProject(() =>
+      buildDailyReport(result, gameStore.state, {
+        ...(gameStore.previousCalendar ? { previousCalendar: gameStore.previousCalendar } : {}),
+        dismissedMissedOpportunityIds: gameStore.dismissedMissedOpportunityIds,
+      }),
+    )
   })
 
-  const weeklyOverview = $derived<WeeklyOverviewData>(buildWeeklyOverview(gameStore.state))
-  const monthlyOverview = $derived<MonthlyOverviewData>(
-    buildMonthlyOverview(gameStore.state),
+  const weeklyOverview: ProjectionSlot<WeeklyOverviewData> = $derived.by(() =>
+    safeProject(() => buildWeeklyOverview(gameStore.state)),
+  )
+  const monthlyOverview: ProjectionSlot<MonthlyOverviewData> = $derived.by(() =>
+    safeProject(() => buildMonthlyOverview(gameStore.state)),
   )
 
   let pressureDrilldownPath = $state<string | undefined>(undefined)
@@ -92,22 +113,41 @@
 
   <section class="content">
     {#if subview === 'today'}
-      {#if report}
-        <DailyReport {report} />
-      {:else}
+      {#if report.ok === 'success'}
+        <DailyReport report={report.data} />
+      {:else if report.ok === 'empty'}
         <p class="placeholder">
           Open the tavern and run a day to see today's report.
         </p>
+      {:else}
+        <div class="report-error" role="alert">
+          <p class="report-error-title">Report unavailable</p>
+          <p class="report-error-message mono">{report.error}</p>
+        </div>
       {/if}
     {:else if subview === 'pressures'}
       <PressuresDashboard onselect={openPressureDrilldown} />
     {:else if subview === 'weekly'}
-      <WeeklyOverview data={weeklyOverview} />
+      {#if weeklyOverview.ok === 'success'}
+        <WeeklyOverview data={weeklyOverview.data} />
+      {:else if weeklyOverview.ok === 'error'}
+        <div class="report-error" role="alert">
+          <p class="report-error-title">Weekly overview unavailable</p>
+          <p class="report-error-message mono">{weeklyOverview.error}</p>
+        </div>
+      {/if}
     {:else if subview === 'monthly'}
-      <MonthlyOverview
-        data={monthlyOverview}
-        onnavigatepressures={navigateToPressures}
-      />
+      {#if monthlyOverview.ok === 'success'}
+        <MonthlyOverview
+          data={monthlyOverview.data}
+          onnavigatepressures={navigateToPressures}
+        />
+      {:else if monthlyOverview.ok === 'error'}
+        <div class="report-error" role="alert">
+          <p class="report-error-title">Monthly overview unavailable</p>
+          <p class="report-error-message mono">{monthlyOverview.error}</p>
+        </div>
+      {/if}
     {:else if subview === 'log'}
       <TavernLog />
     {/if}
@@ -180,5 +220,32 @@
     border-radius: var(--radius-md);
     border: var(--border-faint);
     line-height: 1.6;
+  }
+
+  /* Phase 97 / ISSUE-057 — projection failure fallback. */
+  .report-error {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xs);
+    padding: var(--sp-md);
+    background: color-mix(in srgb, var(--loss) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--loss) 40%, transparent);
+    border-radius: var(--radius-md);
+  }
+
+  .report-error-title {
+    color: var(--text);
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .report-error-message {
+    color: var(--text-dim);
+    font-size: 12px;
+    line-height: 1.4;
+    word-break: break-word;
+    padding: var(--sp-xs) var(--sp-sm);
+    background: var(--ink-deep);
+    border-radius: var(--radius-sm);
   }
 </style>

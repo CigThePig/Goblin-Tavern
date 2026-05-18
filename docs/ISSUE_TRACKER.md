@@ -95,6 +95,9 @@ how to verify the fix.
 | ISSUE-054 | Supplier pricing reaches restock gameplay | thin | done | 94 |
 | ISSUE-055 | Area content unpinning and customer-area rotation | thin | done | 95 |
 | ISSUE-056 | Advisory UI validity and future card-choice guardrails | thin | done | 96 |
+| ISSUE-057 | End-of-day silent failure + UI error visibility | broken | done | 97 |
+| ISSUE-058 | Web UI component test coverage gap | thin | open | — |
+| ISSUE-059 | Unprotected `$derived.by(...)` blocks across the web layer | thin | open | — |
 
 ---
 
@@ -2219,6 +2222,126 @@ can land with targeted regression coverage instead of one-off fixes.
 - **Test approach:** Projection tests for missed opportunities where remedy
   actions are unaffordable/targetless, plus a renderer/helper fixture for future
   disabled card-choice metadata.
+
+### ISSUE-057 — End-of-day silent failure + UI error visibility
+
+- **Grade:** broken
+- **Status:** done
+- **Phase:** 97
+- **Evidence:**
+  - User report (DayScreen, fresh Day 1 closing beat): clicking END DAY
+    produced no visible state change.
+  - `web/src/lib/screens/DayScreen.svelte:164-185` — `endDay()` called
+    `gameStore.runDay()` bare; any throw from `simulateDay` aborted the
+    handler before `setBeat('report')` ran. The button truly did nothing.
+  - `web/src/lib/screens/DayScreen.svelte:106-113` and
+    `web/src/lib/screens/ReportsScreen.svelte:47-54` — `buildDailyReport()`
+    invoked inside `$derived.by(...)` with no error containment. A throw
+    propagated through Svelte 5's reactive layer and the surrounding
+    `{#if … && dailyReport}` block hid the entire report.
+  - `App.svelte` had no `<svelte:boundary>`; render-time errors anywhere
+    in the tree silenced the UI.
+  - `tests/web/` had no Svelte component tests — the day loop had never
+    been exercised in CI.
+- **Impact:** Any simulation or projection regression — past or future —
+  manifested as the game appearing to lock up at end-of-day, with no
+  error message and no recovery path. Players were stuck; the team had
+  no test signal.
+- **Scope:**
+  - Add typed `runError: { message; stack? }` field + `clearRunError()`
+    on `gameStore` (matches the existing `saveError` precedent).
+  - Wrap both `gameStore.runDay()` callsites in `DayScreen.svelte`
+    (`endDay`, `runQuickDay`) with try/catch. On throw: set `runError`,
+    do NOT advance the beat. Surface an in-place banner with Retry +
+    Dismiss.
+  - Replace `dailyReport` (DayScreen) and `report` / `weeklyOverview` /
+    `monthlyOverview` (ReportsScreen) with discriminated-union
+    `{ ok: 'success'|'empty'|'error', ... }` deriveds wrapping the
+    builder calls in try/catch. Each subview renders a small fallback
+    panel on the error branch instead of disappearing.
+  - In DayScreen's `beat === 'report'` block, render one of three
+    branches keyed on `dailyReport.ok`: real `<DailyReport>` for success;
+    "Day complete (no report yet)" panel for `empty`; "Report
+    unavailable" panel with the error message for `error`. All three
+    expose a Next day button so the player can always move forward.
+  - Add a top-level `<svelte:boundary>` in `App.svelte` around the
+    `<AppShell>` block with a `failed` snippet rendering a recovery
+    panel (Go to Day + Reload).
+  - Use `$state.snapshot(this.state)` inside `gameStore.runDay()` before
+    passing to `simulateDay` — the canonical Svelte 5 idiom that also
+    keeps the engine's `structuredClone` path safe in stricter
+    environments (jsdom in component tests).
+  - Add the first Svelte component tests under `tests/web/components/`:
+    happy path, `simulateDay` throws, `buildDailyReport` throws. Plus
+    one ReportsScreen projection-failure test. Vitest config gains an
+    `environmentMatchGlobs` entry routing those files through jsdom.
+- **Depends on:** none (defensive layer; sits above engine and projection
+  code).
+- **Test approach:** Three tests in `tests/web/components/dayScreen.test.ts`
+  cover the happy path and both throw paths (sim and report). One test
+  in `tests/web/components/reportsScreen.test.ts` covers the projection
+  fallback when the user views a report whose builder throws. The
+  thrown-error tests assert the error message is on screen and a
+  forward path remains.
+
+### ISSUE-058 — Web UI component test coverage gap
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** —
+- **Evidence:** `tests/web/` contained only data-layer tests (preferences,
+  persistence, exportImport, subroutePersistence, queueValidity,
+  firstEncounter, snapshots, difficulty) before ISSUE-057. Zero
+  `*.svelte.test.ts` files. Zero coverage of `web/src/lib/screens/` or
+  `web/src/lib/components/`. The day loop, picker sheets, sticky pick
+  chip, modal sheets, and bottom-nav routing had never been exercised
+  in CI.
+- **Impact:** UI regressions (broken handlers, missing bindings, blank
+  screens) cannot be caught by `npm test`. Each phase that touches the
+  UI risks the same class of issue as ISSUE-057.
+- **Scope:** Add smoke tests for each top-level screen (Day, Reports,
+  Tavern, World, More, Start) and the major bottom-sheet components
+  (ActionPicker, StaffPrioritySheet, CommissionExpeditionSheet). Each
+  test mounts the screen with a representative `gameStore` state,
+  asserts key elements render, exercises one primary interaction,
+  asserts a visible state change. Reuse the jsdom +
+  `@testing-library/svelte` stack established in ISSUE-057.
+- **Depends on:** ISSUE-057 (establishes the test stack and
+  `environmentMatchGlobs` config).
+- **Test approach:** One smoke test per screen, plus one cross-screen
+  flow (Tavern → queue an action → Day → End Day → Report reflects the
+  queued action).
+
+### ISSUE-059 — Unprotected `$derived.by(...)` blocks across the web layer
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** —
+- **Evidence:** 21 `$derived.by(...)` blocks across `web/src/lib/`
+  (DayScreen, ReportsScreen, TavernScreen, TopBar, Glossary,
+  PressuresDashboard, CommissionExpeditionSheet, PressureRibbon,
+  TermLabel, TavernLog, CauseDrilldown, SupplierDetailSheet,
+  TavernIdentityStrip, SavesSection, SnapshotRow). Most are local
+  label / filter / projection computations; a small number call
+  cross-module builders. ISSUE-057 wrapped the four highest-risk call
+  sites (`buildDailyReport` × 2, `buildWeeklyOverview`,
+  `buildMonthlyOverview`); the rest remain unprotected against throws
+  that the new App-level `<svelte:boundary>` would catch but only at
+  the cost of unmounting the whole screen.
+- **Impact:** Same class as ISSUE-057 but lower likelihood — most of
+  these derives are simple label/filter computations. Cross-module
+  builders are the highest residual risk (notably `buildTavernOverview`
+  in `TavernScreen.svelte:41`).
+- **Scope:** Audit each `$derived.by` call. Categorise as: (a) trivial
+  filter/map over store state — leave alone, App-boundary covers;
+  (b) builder/projection that can plausibly throw — wrap in the same
+  `{ ok, data | error }` discriminated union pattern from ISSUE-057,
+  render a small "unavailable" panel for the false branch.
+- **Depends on:** ISSUE-057 (introduces the discriminated-union pattern
+  and the per-section fallback panel styling).
+- **Test approach:** For each newly-wrapped derived, add a test that
+  mocks the builder to throw and asserts the unavailable panel renders
+  instead of a blank section.
 
 
 ## Deferred

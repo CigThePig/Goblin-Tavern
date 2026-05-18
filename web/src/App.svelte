@@ -5,7 +5,7 @@
   import DayScreen from './lib/screens/DayScreen.svelte'
   import ReportsScreen from './lib/screens/ReportsScreen.svelte'
   import TavernScreen from './lib/screens/TavernScreen.svelte'
-  import ComingSoon from './lib/screens/ComingSoon.svelte'
+  import WorldScreen from './lib/screens/WorldScreen.svelte'
   import Glossary from './lib/components/Glossary.svelte'
   import { glossaryStore } from './lib/glossary/glossaryStore.svelte'
   import type { Route } from './lib/components/BottomNav.svelte'
@@ -34,10 +34,7 @@
     {:else if view === 'tavern'}
       <TavernScreen />
     {:else if view === 'world'}
-      <ComingSoon
-        title="World"
-        body="Regulars, suppliers, factions, cultures, NPCs, rumours. Hidden until populated. Wiring up in phase 93."
-      />
+      <WorldScreen />
     {/if}
   </AppShell>
 {/if}

@@ -7,6 +7,7 @@ export { buildDailyReport, formatDiffPathTitle } from './dailyReportProjection'
 export { buildWeeklyOverview } from './weeklyOverviewProjection'
 export { buildMonthlyOverview } from './monthlyOverviewProjection'
 export { buildTavernOverview } from './tavernOverviewProjection'
+export { buildWorldOverview } from './worldOverviewProjection'
 export {
   causesForPath,
   causesForPressure,
@@ -97,3 +98,23 @@ export type {
   SupplyPipelineData,
   TavernOverviewData,
 } from './tavernOverviewProjection'
+export type {
+  AttributionRow,
+  CultureMembers,
+  CultureRow,
+  CulturesPanelData,
+  FactionRow,
+  FactionsPanelData,
+  MemoryRow,
+  NpcRow,
+  NpcsPanelData,
+  RegularRow,
+  RegularsPanelData,
+  RumourRow,
+  RumoursPanelData,
+  SupplierGoodRow,
+  SupplierRow,
+  SuppliersPanelData,
+  TavernIdentityData,
+  WorldOverviewData,
+} from './worldOverviewProjection'

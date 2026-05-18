@@ -1,6 +1,12 @@
 import { defineConfig } from 'vitest/config'
+import { svelte } from '@sveltejs/vite-plugin-svelte'
+import { svelteTesting } from '@testing-library/svelte/vite'
 
 export default defineConfig({
+  // Phase 97 / ISSUE-057 — `svelteTesting()` adds the `browser` resolve
+  // condition so Svelte's client-side mount() is used in tests (the
+  // SSR build throws "mount(...) is not available on the server").
+  plugins: [svelte({ hot: false }), svelteTesting()],
   test: {
     include: ['tests/**/*.test.ts'],
     // Tier 2 follow-up (docs/plans/phase-53-59-tier2-followups.md):
@@ -20,5 +26,10 @@ export default defineConfig({
     poolOptions: {
       forks: { isolate: true },
     },
+    // Phase 97 / ISSUE-057 — Svelte component tests need a DOM. Route
+    // anything under tests/web/components/ through jsdom; everything else
+    // stays on the faster node default. `environmentMatchGlobs` is the
+    // vitest 1.x API; renames in vitest 3.x — flag at upgrade time.
+    environmentMatchGlobs: [['tests/web/components/**/*.test.ts', 'jsdom']],
   },
 })

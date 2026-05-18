@@ -45,6 +45,7 @@
   import type { IssueSeed } from '../cards/types'
   import type { ResponseIntent } from '../../../../src/sim/modules/issues/issueSeedTypes'
   import type { PendingChoice } from '../sim/daySession'
+  import type { DailyReportData } from '../../../../src/reports/types'
 
   // Phase 96 — Beat & pending state read from the store so they survive
   // a reload. The store also resets these on `runDay()`.
@@ -103,13 +104,29 @@
     return parts.join(' · ')
   })
 
-  const dailyReport = $derived.by(() => {
+  // Phase 97 / ISSUE-057 — Discriminated union so a throw inside
+  // `buildDailyReport` is observable instead of silently hiding the
+  // report block. `'empty'` means no day has been simulated yet;
+  // `'error'` carries the thrown message so the fallback panel can
+  // surface it. `'success'` keeps the renderer pure.
+  type DailyReportSlot =
+    | { ok: 'success'; data: DailyReportData }
+    | { ok: 'empty' }
+    | { ok: 'error'; error: string }
+
+  const dailyReport: DailyReportSlot = $derived.by(() => {
     const result = gameStore.latestResult
-    if (!result) return undefined
-    return buildDailyReport(result, gameStore.state, {
-      ...(gameStore.previousCalendar ? { previousCalendar: gameStore.previousCalendar } : {}),
-      dismissedMissedOpportunityIds: gameStore.dismissedMissedOpportunityIds,
-    })
+    if (!result) return { ok: 'empty' }
+    try {
+      const data = buildDailyReport(result, gameStore.state, {
+        ...(gameStore.previousCalendar ? { previousCalendar: gameStore.previousCalendar } : {}),
+        dismissedMissedOpportunityIds: gameStore.dismissedMissedOpportunityIds,
+      })
+      return { ok: 'success', data }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      return { ok: 'error', error: message }
+    }
   })
 
   // Phase 96 — Morning yesterday digest. Only shows when the engine
@@ -117,13 +134,14 @@
   // DailyReportData the Report screen would render.
   const yesterdayDigest = $derived.by(() => {
     if (beat !== 'morning') return undefined
-    if (!dailyReport) return undefined
-    return projectYesterdayDigest(dailyReport)
+    if (dailyReport.ok !== 'success') return undefined
+    return projectYesterdayDigest(dailyReport.data)
   })
 
   const nextDayLabel = $derived.by(() => {
-    if (dailyReport?.header.isEndOfMonth) return 'Close the month'
-    if (dailyReport?.header.isEndOfWeek) return 'Close the week'
+    if (dailyReport.ok !== 'success') return 'Next day'
+    if (dailyReport.data.header.isEndOfMonth) return 'Close the month'
+    if (dailyReport.data.header.isEndOfWeek) return 'Close the week'
     return 'Next day'
   })
 
@@ -180,8 +198,20 @@
         intents.push(buildIntent(seed, pending.choice))
       }
     }
-    gameStore.runDay({ responseIntents: intents })
-    gameStore.setBeat('report')
+    // Phase 97 / ISSUE-057 — Catch any throw from `simulateDay` (engine
+    // invariants, validation, hook crashes). Without this the click
+    // handler dies before `setBeat('report')` runs and the button
+    // appears to do nothing. On error: pin the message to the store so
+    // the banner renders; do NOT advance the beat. On success: advance.
+    try {
+      gameStore.runDay({ responseIntents: intents })
+      gameStore.setBeat('report')
+    } catch (err) {
+      gameStore.runError = {
+        message: err instanceof Error ? err.message : String(err),
+        ...(err instanceof Error && err.stack ? { stack: err.stack } : {}),
+      }
+    }
   }
 
   function cancelEndDay() {
@@ -192,8 +222,26 @@
   // picks the player queued from other surfaces (Tavern panels, etc.)
   // along with sticky staff priorities.
   function runQuickDay() {
-    gameStore.runDay({ responseIntents: [] })
-    gameStore.setBeat('report')
+    // Phase 97 / ISSUE-057 — Same try/catch wrap as `endDay` so a sim
+    // throw from the Quick Day path is visible too.
+    try {
+      gameStore.runDay({ responseIntents: [] })
+      gameStore.setBeat('report')
+    } catch (err) {
+      gameStore.runError = {
+        message: err instanceof Error ? err.message : String(err),
+        ...(err instanceof Error && err.stack ? { stack: err.stack } : {}),
+      }
+    }
+  }
+
+  function retryEndDay() {
+    gameStore.clearRunError()
+    endDay()
+  }
+
+  function dismissRunError() {
+    gameStore.clearRunError()
   }
 
   function nextDay() {
@@ -283,6 +331,18 @@
         </div>
       {/if}
     </section>
+
+    {#if gameStore.runError}
+      <!-- Phase 97 / ISSUE-057 — Same banner pattern as the closing
+           beat so a thrown Quick Day call surfaces too. -->
+      <section class="block run-error-banner" role="alert" aria-label="End day failed">
+        <p class="banner-title">Couldn't run the day.</p>
+        <p class="banner-message mono">{gameStore.runError.message}</p>
+        <div class="banner-actions">
+          <button class="secondary" type="button" onclick={dismissRunError}>Dismiss</button>
+        </div>
+      </section>
+    {/if}
 
     <section class="block actions" aria-label="Continue">
       <button class="primary" type="button" onclick={startPlanning}>
@@ -399,6 +459,20 @@
       {/if}
     </section>
 
+    {#if gameStore.runError}
+      <!-- Phase 97 / ISSUE-057 — Surface the actual sim throw to the
+           player. Without this banner an exception in simulateDay
+           appeared as "End Day did nothing". -->
+      <section class="block run-error-banner" role="alert" aria-label="End day failed">
+        <p class="banner-title">Couldn't end the day.</p>
+        <p class="banner-message mono">{gameStore.runError.message}</p>
+        <div class="banner-actions">
+          <button class="secondary" type="button" onclick={retryEndDay}>Retry</button>
+          <button class="ghost" type="button" onclick={dismissRunError}>Dismiss</button>
+        </div>
+      </section>
+    {/if}
+
     <section class="block actions">
       {#if confirmingEndDay}
         <div class="confirm-row">
@@ -417,14 +491,40 @@
   {/if}
 
   <!-- ─── Beat 5: Report ─────────────────────────────────────────── -->
-  {#if beat === 'report' && dailyReport}
-    <DailyReport report={dailyReport} />
+  {#if beat === 'report'}
+    {#if dailyReport.ok === 'success'}
+      <DailyReport report={dailyReport.data} />
 
-    <section class="block actions">
-      <button class="primary" type="button" onclick={nextDay}>
-        {nextDayLabel}
-      </button>
-    </section>
+      <section class="block actions">
+        <button class="primary" type="button" onclick={nextDay}>
+          {nextDayLabel}
+        </button>
+      </section>
+    {:else if dailyReport.ok === 'empty'}
+      <!-- Phase 97 / ISSUE-057 — Fallback when the report beat is
+           reached without a SimResult. Should not happen under normal
+           flow (runDay always sets latestResult), but a hydrated save
+           or future state edge case might. Always offer a way forward. -->
+      <section class="block report-fallback" aria-label="Day complete">
+        <p class="fallback-title">Day complete.</p>
+        <p class="fallback-sub">No report is available for this day.</p>
+        <button class="primary" type="button" onclick={nextDay}>
+          {nextDayLabel}
+        </button>
+      </section>
+    {:else}
+      <!-- Phase 97 / ISSUE-057 — buildDailyReport threw. Surface the
+           message instead of a blank screen. Still give the player a
+           Next day button so they can escape the broken report. -->
+      <section class="block report-fallback report-fallback-error" aria-label="Report unavailable">
+        <p class="fallback-title">Report unavailable</p>
+        <p class="fallback-error mono">{dailyReport.error}</p>
+        <p class="fallback-sub">The day did advance — only the summary failed to build.</p>
+        <button class="primary" type="button" onclick={nextDay}>
+          {nextDayLabel}
+        </button>
+      </section>
+    {/if}
   {/if}
 </main>
 
@@ -641,6 +741,74 @@
   .picks-cost {
     color: var(--text-faint);
     margin-left: var(--sp-xxs);
+  }
+
+  /* ─── Phase 97 / ISSUE-057 — error banner and report fallback ─────── */
+  .run-error-banner {
+    padding: var(--sp-sm) var(--sp-md);
+    background: color-mix(in srgb, var(--loss) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--loss) 45%, transparent);
+    border-radius: var(--radius-md);
+    gap: var(--sp-xs);
+  }
+
+  .banner-title {
+    color: var(--text);
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .banner-message {
+    color: var(--text-dim);
+    font-size: 12px;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  .banner-actions {
+    display: flex;
+    gap: var(--sp-xs);
+    margin-top: var(--sp-xs);
+  }
+
+  .report-fallback {
+    align-items: center;
+    text-align: center;
+    padding: var(--sp-lg) var(--sp-md);
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    border: var(--border-faint);
+    gap: var(--sp-xs);
+  }
+
+  .report-fallback-error {
+    background: color-mix(in srgb, var(--loss) 6%, transparent);
+    border-color: color-mix(in srgb, var(--loss) 35%, transparent);
+  }
+
+  .fallback-title {
+    font-family: var(--font-display);
+    color: var(--accent);
+    font-size: 18px;
+    letter-spacing: 0.04em;
+  }
+
+  .fallback-sub {
+    color: var(--text-dim);
+    font-style: italic;
+    font-size: 14px;
+  }
+
+  .fallback-error {
+    color: var(--text-dim);
+    font-size: 12px;
+    line-height: 1.4;
+    word-break: break-word;
+    padding: var(--sp-xs) var(--sp-sm);
+    background: var(--ink-deep);
+    border-radius: var(--radius-sm);
+    border: 1px solid color-mix(in srgb, var(--candle-soft) 30%, transparent);
+    max-width: 100%;
   }
 
   /* ─── Report styling lives in DailyReport.svelte ─────────────────── */

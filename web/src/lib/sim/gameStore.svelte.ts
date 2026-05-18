@@ -112,6 +112,14 @@ class GameStore {
   saveError: Exclude<SaveResult, { ok: true }> | undefined = $state(undefined)
 
   /**
+   * Phase 97 / ISSUE-057 — Last thrown error from a `runDay()` call.
+   * `runDay` itself never swallows; the UI handler wraps the call,
+   * stamps the captured error here on throw, and renders a banner
+   * with a Retry affordance. Mirrors the saveError pattern.
+   */
+  runError: { message: string; stack?: string } | undefined = $state(undefined)
+
+  /**
    * Phase 97 — Per-day dismissed missed-opportunity ids. Used by the
    * daily-report projection to filter the "What you could have done"
    * block. A new Set reference is assigned on every change so `$state`
@@ -145,7 +153,15 @@ class GameStore {
       ...(extra.responseIntents ? { responseIntents: extra.responseIntents } : {}),
     }
     this.previousCalendar = { ...this.state.calendar, tags: [...this.state.calendar.tags] }
-    const result = simulateDay(this.state, fullInput, FULL_PIPELINE)
+    // Phase 97 / ISSUE-057 — `$state.snapshot` returns a deep, plain
+    // (non-proxied) clone of the reactive state. Required so the
+    // engine's `structuredClone` in `cloneTavernState` doesn't choke
+    // on Svelte's deep proxy in environments where structuredClone
+    // is stricter than Chrome's (e.g. jsdom in component tests).
+    // The cost is one extra deep copy per day, which is negligible
+    // next to the rest of the day pipeline.
+    const stateSnapshot = $state.snapshot(this.state) as TavernState
+    const result = simulateDay(stateSnapshot, fullInput, FULL_PIPELINE)
     this.state = result.state
     this.latestResult = result
     // Per-day picks reset; staff priorities persist by design.
@@ -185,6 +201,7 @@ class GameStore {
     this.lastSavedAt = undefined
     this.hydrationError = undefined
     this.saveError = undefined
+    this.runError = undefined
     this.dismissedMissedOpportunityIds = new Set()
   }
 
@@ -413,6 +430,11 @@ class GameStore {
   /** Dismiss the welcome-back pill without changing the beat. */
   dismissWelcomeBack(): void {
     this.savedSnapshotJustLoaded = false
+  }
+
+  /** Clear the last `runDay` error. Called from the DayScreen banner. */
+  clearRunError(): void {
+    this.runError = undefined
   }
 
   // ── Missed-opportunity dismissals (Phase 97) ────────────────────

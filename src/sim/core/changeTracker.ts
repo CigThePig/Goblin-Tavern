@@ -10,11 +10,20 @@ import {
 
 // Phase 17 §17.1 / §17.8 — Change tracker.
 //
-// Snapshots TavernState at phase boundaries (start of owner actions,
-// start of service, start of week, start of month) and computes the
-// diff at the matching closing boundary. The engine owns one instance
-// per `simulateDay` call so module hooks can ask "what changed during
-// owner actions today?" without re-walking the state tree themselves.
+// Snapshots TavernState at the full-day boundary and computes the
+// diff after the calendar tick. The engine owns one instance per
+// `simulateDay` call so module hooks can ask "what changed during
+// today?" without re-walking the state tree themselves.
+//
+// Phase 76 / ISSUE-036 retired the per-phase boundaries (start of owner
+// actions, start of service, start of week, start of month): nothing
+// consumed them in production, and finalising the `service` boundary
+// five slots before `generateReports` meant any new consumer would have
+// read stale state. Today only `'day'` is captured and finalised; the
+// boundary union is preserved for forward extensibility.
+//
+// Phase 91 / ISSUE-051 refreshed this comment after re-establishing the
+// `generateReports` → `collectReports` ordering in the engine.
 //
 // Snapshots use `cloneTavernState` (structuredClone) so the captured
 // `before` snapshot is never mutated by later phases of the same day.

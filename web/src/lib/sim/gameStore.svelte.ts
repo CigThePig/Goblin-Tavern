@@ -118,7 +118,13 @@ class GameStore {
    * lands on a new day.
    */
   runDay(extra: Partial<Omit<SimInput, 'seed'>> = {}): SimResult {
-    const seed = `${this.seedString}-d${this.state.calendar.day}`
+    // Phase 91 / ISSUE-051 — Use the absolute-day coordinate
+    // (`totalDaysElapsed`) instead of `calendar.day` (1–28). The old
+    // form repeated the same per-day RNG sequence every 28-day month,
+    // producing a non-stationary variance pattern. Expeditions store
+    // their own commission-time seed, so this change is determinism-safe
+    // for resolution of in-flight expeditions.
+    const seed = `${this.seedString}-d${this.state.calendar.totalDaysElapsed}`
     const queuedActions = picksToInputs(this.picks)
     const fullInput: SimInput = {
       seed,

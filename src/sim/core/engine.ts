@@ -1493,11 +1493,17 @@ export function simulateDay(
       continue
     }
 
+    runHooks(phase, sortedModules, ctx, runtime)
+
+    // Phase 91 / ISSUE-051 — `collectReports` runs AFTER the
+    // `generateReports` hook so report builders see state mutations the
+    // hook just wrote. Previously `collectReports` ran first, leaving
+    // SimResult.reports[issueSeeds] describing the previous day's seeds
+    // while state already held today's. Modules that build reports from
+    // settled state (everyone today) get the correct picture.
     if (phase === 'generateReports') {
       collectReports(sortedModules, ctx, runtime)
     }
-
-    runHooks(phase, sortedModules, ctx, runtime)
 
     if (phase === 'validate') {
       collectModuleValidations(sortedModules, ctx, runtime)

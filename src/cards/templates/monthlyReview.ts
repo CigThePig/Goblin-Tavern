@@ -1,16 +1,19 @@
 // Monthly-review template — surfaces top pressures so the player reads
 // the month, then offers any strategic choices the seed presents.
 // Mirrors cards-contract §7 Template 8.
+//
+// Phase 95 — Voice pass.
 
 import {
-  buildBody,
   buildChoicesFromSeed,
   buildStakes,
   familyTag,
-  formatTitle,
   makeCardView,
 } from '../cardHelpers'
+import { composeBody, composeTitle, type ComposeOpts } from '../voice/index'
 import type { CardDefinition } from '../types'
+
+const DEFINITION_TONES = ['strategic', 'reflective', 'summary', 'monthly'] as const
 
 export const monthlyReviewCard: CardDefinition = {
   id: 'monthly_review.strategic',
@@ -20,7 +23,7 @@ export const monthlyReviewCard: CardDefinition = {
     timings: ['end_month'],
   },
   priority: 40,
-  toneHints: ['strategic', 'reflective'],
+  toneHints: [...DEFINITION_TONES],
   render: (seed, state) => {
     const ti = seed.textIngredients
     const topPressures = Object.values(state.pressures)
@@ -29,14 +32,22 @@ export const monthlyReviewCard: CardDefinition = {
       .sort((a, b) => b.value - a.value)
       .slice(0, 3)
 
+    const opts: ComposeOpts = {
+      toneHints: [...DEFINITION_TONES, ...seed.toneHints],
+      key: seed.id,
+    }
+
     return makeCardView({
-      title: formatTitle(['Month in review:', ti.subject]),
-      body: buildBody([
-        ti.calendarContext?.[0],
-        ...topPressures.map(
-          (p) => `${p.label} ${p.value} (${p.trend >= 0 ? '+' : ''}${p.trend})`,
-        ),
-      ]),
+      title: composeTitle(['Month in review:', ti.subject], opts),
+      body: composeBody(
+        [
+          ti.calendarContext?.[0],
+          ...topPressures.map(
+            (p) => `${p.label} ${p.value} (${p.trend >= 0 ? '+' : ''}${p.trend})`,
+          ),
+        ],
+        opts,
+      ),
       stakes: buildStakes(seed),
       choices: buildChoicesFromSeed(seed, {
         overrides: () => ({ includeDelayed: true }),

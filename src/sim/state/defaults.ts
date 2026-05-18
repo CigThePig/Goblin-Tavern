@@ -607,9 +607,14 @@ export function createInitialWorldState(
     localEvents: {},
     tavernIdentity: {
       foundingDay: 0,
-      knownFor: [],
+      // Phase 95 — Day-zero photo. The Crooked Keg is a dirty cheap
+      // goblin dive on day one (game-loop-and-ux.md §1: "the player
+      // isn't building from zero — they're inheriting a mess"). The
+      // tavern-identity module will overwrite these on the first
+      // endDay; the seeds make the day-zero strip carry meaning.
+      knownFor: ['cheap goblin food'],
       houseRules: [],
-      atmosphereTags: [],
+      atmosphereTags: ['grimy floors', 'goblin-flavored'],
     },
     socialRumours: {},
     // Phase 69 / ISSUE-029 §5.4 — hireable adventurer roster.

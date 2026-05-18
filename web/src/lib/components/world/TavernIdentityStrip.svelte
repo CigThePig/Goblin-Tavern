@@ -5,6 +5,12 @@
   rather than a class label: founding day, top atmosphere tags, count
   of house rules and known-for adjectives. Collapsed to a single line
   by default; tap to expand and reveal the full lists.
+
+  Phase 95 — Voice & Identity Pass. Identity is now populated daily by
+  `tavernIdentityModule`; the strip carries non-empty content from day
+  zero. Two new sections — "Voices" (aggregated public attributions)
+  and "Nicknames" (sturdy nickname rumours) — surface the §9.5 option-2
+  "identity-as-perception" layer.
 -->
 <script lang="ts">
   import TermLabel from '../TermLabel.svelte'
@@ -14,7 +20,21 @@
 
   let expanded = $state(false)
 
-  const summaryTags = $derived(data.atmosphereTags.slice(0, 3))
+  // The lede prefers atmosphere tags but falls back to known-for so
+  // a day-one strip with only "cheap goblin food" still reads.
+  const summaryTags = $derived.by(() => {
+    if (data.atmosphereTags.length > 0) return data.atmosphereTags.slice(0, 3)
+    if (data.knownFor.length > 0) return data.knownFor.slice(0, 3)
+    return []
+  })
+
+  const hasIdentityContent = $derived(
+    data.knownFor.length > 0 ||
+      data.houseRules.length > 0 ||
+      data.atmosphereTags.length > 0 ||
+      data.attributionHints.length > 0 ||
+      data.nicknames.length > 0,
+  )
 </script>
 
 <section class="strip" aria-label="Tavern identity">
@@ -29,7 +49,9 @@
       <span class="age tag">day {data.daysOpen} open</span>
     </div>
     <div class="hints">
-      {#if summaryTags.length > 0}
+      {#if data.nicknames.length > 0}
+        <span class="hint nickname">"{data.nicknames[0]}"</span>
+      {:else if summaryTags.length > 0}
         <span class="hint">{summaryTags.join(' · ')}</span>
       {:else}
         <span class="hint quiet">no atmosphere recorded yet</span>
@@ -49,27 +71,63 @@
 
       {#if data.atmosphereTags.length > 0}
         <div class="kv">
-          <p class="kv-label tag">Atmosphere</p>
+          <p class="kv-label tag">
+            <TermLabel term="atmosphere" label="Atmosphere" />
+          </p>
           <p class="kv-value">{data.atmosphereTags.join(' · ')}</p>
         </div>
       {/if}
 
       {#if data.knownFor.length > 0}
         <div class="kv">
-          <p class="kv-label tag">Known for</p>
+          <p class="kv-label tag">
+            <TermLabel term="known_for" label="Known for" />
+          </p>
           <p class="kv-value">{data.knownFor.join(' · ')}</p>
         </div>
       {/if}
 
       {#if data.houseRules.length > 0}
         <div class="kv">
-          <p class="kv-label tag">House rules</p>
+          <p class="kv-label tag">
+            <TermLabel term="house_rules" label="House rules" />
+          </p>
           <ul class="rules">
             {#each data.houseRules as rule, i (i)}
               <li>{rule}</li>
             {/each}
           </ul>
         </div>
+      {/if}
+
+      {#if data.attributionHints.length > 0}
+        <div class="kv">
+          <p class="kv-label tag">
+            <TermLabel term="attribution_hint" label="Voices" />
+          </p>
+          <ul class="rules voices">
+            {#each data.attributionHints as hint, i (i)}
+              <li>{hint}</li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
+
+      {#if data.nicknames.length > 0}
+        <div class="kv">
+          <p class="kv-label tag">
+            <TermLabel term="nickname" label="Nicknames" />
+          </p>
+          <p class="kv-value nicknames">
+            {#each data.nicknames as name, i (i)}
+              {#if i > 0} · {/if}"{name}"
+            {/each}
+          </p>
+        </div>
+      {/if}
+
+      {#if !hasIdentityContent}
+        <p class="kv-value quiet">No identity content yet. Run a day to populate.</p>
       {/if}
     </div>
   {/if}
@@ -140,6 +198,11 @@
     color: var(--text-faint);
   }
 
+  .hint.nickname {
+    color: var(--accent-soft);
+    font-style: italic;
+  }
+
   .chev {
     color: var(--text-faint);
     flex-shrink: 0;
@@ -168,6 +231,11 @@
     font-size: 14px;
   }
 
+  .kv-value.quiet {
+    color: var(--text-faint);
+    font-style: italic;
+  }
+
   .rules {
     color: var(--text-dim);
     font-size: 14px;
@@ -177,5 +245,15 @@
 
   .rules li {
     list-style: disc;
+  }
+
+  .rules.voices li {
+    list-style: circle;
+    font-style: italic;
+  }
+
+  .nicknames {
+    font-style: italic;
+    color: var(--accent-soft);
   }
 </style>

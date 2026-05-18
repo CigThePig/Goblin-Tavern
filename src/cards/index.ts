@@ -35,3 +35,16 @@ export type {
   CardChoice,
   StakeView,
 } from './types'
+// Phase 95 — Voice composer surface. Templates and the report layer
+// import the composer through this entry point so the voice slice
+// stays a single import target.
+export {
+  composeTitle,
+  composeBody,
+  composeEmpty,
+  pickFromPool,
+  TONE_POOLS,
+  EMPTY_STATE_POOLS,
+  type ComposeOpts,
+  type TonePool,
+} from './voice/index'

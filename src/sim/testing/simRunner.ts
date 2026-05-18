@@ -37,6 +37,8 @@ import { regularModule } from '../modules/regulars/index'
 import { adventurersModule } from '../modules/adventurers/index'
 // Phase 70 / ISSUE-030 §6.3 — expedition subsystem module.
 import { expeditionsModule } from '../modules/expeditions/index'
+// Phase 95 — Tavern Identity recomputation runs on endDay.
+import { tavernIdentityModule } from '../modules/tavernIdentity/index'
 
 // Phase 20 §20.1 — Cardless playtest runner.
 //
@@ -92,6 +94,12 @@ export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   // observe the finalized month (modifier, accumulator) before seeding
   // or progressing arcs.
   localArcsModule,
+  // Phase 95 — Tavern identity recomputation. Its single `endDay`
+  // hook reads reputation, policies, areas, and cultures and writes
+  // any drift back via `modifyTavernIdentity`. Positioned after the
+  // arc/weekly/monthly closers so today's settled meters reach it,
+  // but before memories/history/causes capture the day's writes.
+  tavernIdentityModule,
   memoriesModule,
   historyModule,
   causesModule,

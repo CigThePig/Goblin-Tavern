@@ -91,6 +91,13 @@ export type ReportCalendarHeader = {
   dayLabel: string
   isEndOfWeek: boolean
   isEndOfMonth: boolean
+  /**
+   * Phase 95 — Voice line for the report header. Composed
+   * deterministically per (tavernId, closed-day ordinal) from the
+   * `header` empty-state pool. Stable across re-renders. Optional so
+   * upstream callers that don't want the voice can ignore it.
+   */
+  headerVoice?: string
 }
 
 export type DailyReportData = {
@@ -109,6 +116,11 @@ export type DailyReportData = {
   monthlyDigest?: ReportDigest
   /** Truthy if the report has nothing meaningful to show. */
   isQuiet: boolean
+  /**
+   * Phase 95 — Voice line shown only when `isQuiet === true`. Pure
+   * presentation; absence is the historical behaviour.
+   */
+  quietLine?: string
 }
 
 export type GlossaryCategory = 'pressure' | 'reputation' | 'mechanic' | 'log'

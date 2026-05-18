@@ -73,6 +73,9 @@
     <p class="head-line display">
       Day {report.header.closedDayOrdinal} closed
     </p>
+    {#if report.header.headerVoice}
+      <p class="head-voice">{report.header.headerVoice}</p>
+    {/if}
     <div class="head-stats">
       <span class="stat">
         <span class="stat-label tag">Coin</span>
@@ -203,7 +206,7 @@
 
   {#if report.isQuiet}
     <section class="block">
-      <p class="quiet">a quiet day. nothing crossed a threshold.</p>
+      <p class="quiet">{report.quietLine ?? 'a quiet day. nothing crossed a threshold.'}</p>
     </section>
   {/if}
 </section>
@@ -236,6 +239,14 @@
     font-size: 22px;
     letter-spacing: 0.08em;
     color: var(--text);
+  }
+
+  .head-voice {
+    color: var(--text-dim);
+    font-style: italic;
+    font-size: 14px;
+    line-height: 1.4;
+    margin-top: -2px;
   }
 
   .head-stats {

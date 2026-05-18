@@ -91,6 +91,12 @@ export type TavernIdentityData = {
   knownFor: string[]
   houseRules: string[]
   atmosphereTags: string[]
+  // Phase 95 — Identity-as-perception. Composed at projection time
+  // from attribution and rumour state. The strip surfaces these as
+  // "Voices" and "Nicknames" so the player can read what the world
+  // around the tavern thinks of it (game-loop-and-ux §9.5 option 2).
+  attributionHints: string[]
+  nicknames: string[]
 }
 
 // ---------- Regulars ----------
@@ -292,6 +298,136 @@ export function buildWorldOverview(state: TavernState): WorldOverviewData {
 
 // ---------- Identity ----------
 
+const ATTRIBUTION_HINT_CAP = 4
+const NICKNAME_CAP = 2
+const ATTRIBUTION_PUBLICNESS_MIN = 40
+const ATTRIBUTION_STRENGTH_MIN = 50
+
+/**
+ * Phase 95 — Compose a short, public-facing identity hint phrasing
+ * the type of belief a perceiver cohort holds. Keys off
+ * `attributionType` first, then the perceiver kind so factions read
+ * different from regulars.
+ */
+type HintTemplate = {
+  positive: string
+  negative: string
+}
+
+const ATTRIBUTION_HINT_TEMPLATES: Readonly<
+  Record<AttributionType, HintTemplate>
+> = Object.freeze({
+  credit: { positive: '$P credit this place', negative: '$P credit this place' },
+  gratitude: {
+    positive: '$P are grateful',
+    negative: '$P are grateful',
+  },
+  trust: { positive: '$P trust the host', negative: '$P trust the host' },
+  blame: { positive: '$P blame the host', negative: '$P blame the host' },
+  resentment: {
+    positive: '$P resent the place',
+    negative: '$P resent the place',
+  },
+  distrust: { positive: '$P distrust the host', negative: '$P distrust the host' },
+  suspicion: { positive: '$P are suspicious', negative: '$P are suspicious' },
+})
+
+/**
+ * Pretty-print a perceiver cohort as a player-facing phrase. The
+ * resolver returns "Granny Hoss" for a regular and "The Black Hand"
+ * for a faction; we want plural-ish, lowercase fragments so the
+ * surrounding template reads well. Names stay as-is.
+ */
+function formatPerceiverLabel(kind: string, label: string): string {
+  switch (kind) {
+    case 'faction':
+      return label // proper-noun faction names
+    case 'culture':
+      return label.toLowerCase()
+    case 'customer_group':
+      return label.toLowerCase()
+    case 'regular':
+    case 'notable_npc':
+      return label
+    default:
+      return label
+  }
+}
+
+function projectAttributionHints(state: TavernState): string[] {
+  const slice = state.modules['attribution'] as
+    | { attributions?: AttributionState[] }
+    | undefined
+  const attributions = slice?.attributions ?? []
+  if (attributions.length === 0) return []
+
+  type Candidate = {
+    score: number
+    perceiverKind: string
+    attributionType: AttributionType
+    label: string
+    accuracy: AttributionAccuracy
+  }
+  const candidates: Candidate[] = []
+  for (const a of attributions) {
+    if (a.publicness < ATTRIBUTION_PUBLICNESS_MIN) continue
+    if (a.strength < ATTRIBUTION_STRENGTH_MIN) continue
+    if (a.accuracy === 'unknown') continue
+    const label = formatPerceiverLabel(
+      a.perceivedBy.kind,
+      resolveEntityLabel(state, a.perceivedBy),
+    )
+    if (!label) continue
+    candidates.push({
+      score: a.publicness * a.strength,
+      perceiverKind: a.perceivedBy.kind,
+      attributionType: a.attributionType,
+      label,
+      accuracy: a.accuracy,
+    })
+  }
+  candidates.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score
+    return a.label.localeCompare(b.label)
+  })
+
+  const seenKey = new Set<string>()
+  const out: string[] = []
+  for (const c of candidates) {
+    // Cap: at most one hint per (perceiver kind, attribution type)
+    // so a single noisy regular doesn't dominate the strip.
+    const dedupKey = `${c.perceiverKind}::${c.attributionType}`
+    if (seenKey.has(dedupKey)) continue
+    seenKey.add(dedupKey)
+    const template = ATTRIBUTION_HINT_TEMPLATES[c.attributionType]
+    if (!template) continue
+    let phrase = template.positive.replace('$P', c.label)
+    // Note false attributions so the player reads "perceived, not
+    // necessarily true." Cards-contract §3.5 leans into the gap.
+    if (c.accuracy === 'false' || c.accuracy === 'partial') {
+      phrase = `${phrase} (perhaps wrongly)`
+    }
+    out.push(phrase)
+    if (out.length >= ATTRIBUTION_HINT_CAP) break
+  }
+  return out
+}
+
+function projectNicknames(state: TavernState): string[] {
+  const rumours = Object.values(state.world.socialRumours ?? {})
+  if (rumours.length === 0) return []
+  const candidates = rumours
+    .filter((r) => r.accuracy !== 'false' && (r.tags ?? []).includes('nickname'))
+    .slice()
+    .sort((a, b) => {
+      if (b.strength !== a.strength) return b.strength - a.strength
+      if (b.lastSpreadDay !== a.lastSpreadDay) return b.lastSpreadDay - a.lastSpreadDay
+      return a.id.localeCompare(b.id)
+    })
+    .slice(0, NICKNAME_CAP)
+  return candidates.map((r) => r.label)
+}
+
 function projectIdentity(state: TavernState): TavernIdentityData {
   const identity: TavernIdentityState = state.world.tavernIdentity
   const daysOpen = Math.max(
@@ -304,6 +440,8 @@ function projectIdentity(state: TavernState): TavernIdentityData {
     knownFor: [...identity.knownFor],
     houseRules: [...identity.houseRules],
     atmosphereTags: [...identity.atmosphereTags],
+    attributionHints: projectAttributionHints(state),
+    nicknames: projectNicknames(state),
   }
 }
 

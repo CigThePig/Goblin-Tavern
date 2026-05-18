@@ -1,6 +1,8 @@
 // Warning template — premises problem that will get worse. Always shows
 // at least one delayed effect so the repair-or-pay-later tradeoff is
 // legible. Mirrors cards-contract §7 Template 4.
+//
+// Phase 95 — Voice pass.
 
 import {
   pickAreaStateAdjective,
@@ -8,14 +10,15 @@ import {
 } from '../../sim/content/text/descriptors'
 import type { AreaState } from '../../sim/state/TavernState'
 import {
-  buildBody,
   buildChoicesFromSeed,
   buildStakes,
   familyTag,
-  formatTitle,
   makeCardView,
 } from '../cardHelpers'
+import { composeBody, composeTitle, type ComposeOpts } from '../voice/index'
 import type { CardDefinition } from '../types'
+
+const DEFINITION_TONES = ['premises', 'delayed_risk', 'maintenance'] as const
 
 function pickAreaCondition(area: AreaState): AreaConditionKey {
   if (area.damage >= 50) return 'damaged'
@@ -33,22 +36,27 @@ export const maintenanceWarningCard: CardDefinition = {
     timings: ['morning_prep'],
   },
   priority: 60,
-  toneHints: ['premises', 'delayed_risk'],
+  toneHints: [...DEFINITION_TONES],
   render: (seed, state) => {
     const ti = seed.textIngredients
     const areaRef = seed.location?.kind === 'area' ? seed.location : undefined
     const area = areaRef ? state.areas[areaRef.id] : undefined
     const adj = area ? pickAreaStateAdjective(pickAreaCondition(area), seed.id) : undefined
 
+    const opts: ComposeOpts = {
+      toneHints: [...DEFINITION_TONES, ...seed.toneHints],
+      key: seed.id,
+    }
+
     return makeCardView({
-      title: formatTitle(
+      title: composeTitle(
         area ? [adj, `${area.label}:`, ti.subject] : [ti.subject],
+        opts,
       ),
-      body: buildBody([
-        ti.sensoryDetails[0],
-        ti.pressureContext?.[0],
-        ti.stakesReadable[0],
-      ]),
+      body: composeBody(
+        [ti.sensoryDetails[0], ti.pressureContext?.[0], ti.stakesReadable[0]],
+        opts,
+      ),
       stakes: buildStakes(seed),
       choices: buildChoicesFromSeed(seed, {
         overrides: () => ({

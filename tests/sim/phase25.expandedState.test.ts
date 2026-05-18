@@ -118,11 +118,15 @@ describe('Phase 25 — Expanded world and social state', () => {
     expect(typeof state.world.notableNpcs).toBe('object')
     expect(state.world.localEvents).toEqual({})
     expect(state.world.socialRumours).toEqual({})
+    // Phase 95 — day-zero photo: the dirty-cheap-goblin-dive seeds
+    // populate knownFor + atmosphereTags so the World identity strip
+    // carries meaning on day one. The new tavernIdentityModule
+    // overwrites these on the first endDay.
     expect(state.world.tavernIdentity).toEqual({
       foundingDay: 0,
-      knownFor: [],
+      knownFor: ['cheap goblin food'],
       houseRules: [],
-      atmosphereTags: [],
+      atmosphereTags: ['grimy floors', 'goblin-flavored'],
     })
   })
 

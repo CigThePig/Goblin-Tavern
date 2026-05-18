@@ -1,16 +1,19 @@
 // Opportunity template — supplier knocks with a deal. Surfaces the
 // supplier's stored reliability/relationship rather than fabricating
 // numbers. Mirrors cards-contract §7 Template 3.
+//
+// Phase 95 — Voice pass.
 
 import {
-  buildBody,
   buildChoicesFromSeed,
   buildStakes,
   familyTag,
-  formatTitle,
   makeCardView,
 } from '../cardHelpers'
+import { composeBody, composeTitle, type ComposeOpts } from '../voice/index'
 import type { CardDefinition } from '../types'
+
+const DEFINITION_TONES = ['transactional', 'market', 'supplier'] as const
 
 export const supplierOfferCard: CardDefinition = {
   id: 'supplier_relationship.opportunity.deal',
@@ -20,7 +23,7 @@ export const supplierOfferCard: CardDefinition = {
     timings: ['morning_prep'],
   },
   priority: 50,
-  toneHints: ['transactional'],
+  toneHints: [...DEFINITION_TONES],
   render: (seed, state) => {
     const ti = seed.textIngredients
     const supplierRef =
@@ -30,9 +33,17 @@ export const supplierOfferCard: CardDefinition = {
       supplier?.name?.display ?? supplier?.label ?? 'A supplier'
     const reliabilityNote = supplier ? `reliability ${supplier.reliability}` : undefined
 
+    const opts: ComposeOpts = {
+      toneHints: [...DEFINITION_TONES, ...seed.toneHints],
+      key: seed.id,
+    }
+
     return makeCardView({
-      title: formatTitle([`${supplierLabel}:`, ti.subject]),
-      body: buildBody([ti.marketContext?.[0], reliabilityNote, ti.recentContext[0]]),
+      title: composeTitle([`${supplierLabel}:`, ti.subject], opts),
+      body: composeBody(
+        [ti.marketContext?.[0], reliabilityNote, ti.recentContext[0]],
+        opts,
+      ),
       stakes: buildStakes(seed),
       choices: buildChoicesFromSeed(seed, {
         overrides: () => (supplierRef?.id ? { targetId: supplierRef.id } : {}),

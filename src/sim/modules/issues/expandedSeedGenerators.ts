@@ -54,6 +54,10 @@ import {
   urgencyFromPressures,
 } from './generatorHelpers'
 import type { IssueSeedGenerator } from './issueSeedRegistry'
+import {
+  pickCustomerFacingArea,
+  pickRepairableArea,
+} from './areaPickers'
 import { recencyPenalty, recordPick } from './seedRotation'
 import { listActiveArcs } from '../localArcs/arcEngine'
 import {
@@ -2261,7 +2265,7 @@ function generateCultureConflict(ctx: SimContext): IssueSeed[] {
       labelHint: 'Change seating policy',
       allowedVerbs: ['rebrand'],
       shape: 'compromise',
-      targetOptions: [areaRef('main_room')],
+      targetOptions: [pickCustomerFacingArea(ctx, 'culture_conflict')],
       expectedEffects: ['lower tension', 'displease other groups'],
     },
     {
@@ -3297,7 +3301,7 @@ function buildSeasonalArcContent(
                 'reputation',
               ]),
               effect('pressure', 'pressure:violence', 8, 'Brawl spills', ['pressure']),
-              effect('state_change', 'areas.main_room.damage', 6, 'Broken stools', ['area']),
+              effect('state_change', `areas.${pickRepairableArea(ctx, 'staff_identity_brawl').id}.damage`, 6, 'Broken stools', ['area']),
             ],
             delayedEffects: [
               effect('pressure', 'pressure:rumour_pressure', 8, 'Word of the brawl spreads', [

@@ -59,34 +59,16 @@ import {
 // trigger condition is met they build a structured seed. Generators do
 // NOT decide whether the seed should be presented — ranking does that.
 
-// Phase 73 / ISSUE-033 §6.8 — `main_room` un-pin helper.
-//
-// Seeds whose "location" used to hard-pin to `main_room` now ask the
-// picker for a customer-facing area. The selection rotates via a
-// deterministic day-index + family-name hash so the same area
-// doesn't dominate the 28-day named-entity-repetition report. Falls
-// back to `main_room` if no other customer-facing area exists.
-function familyHash(family: string): number {
-  let h = 0
-  for (let i = 0; i < family.length; i += 1) {
-    h = (h * 31 + family.charCodeAt(i)) >>> 0
-  }
-  return h
-}
-
-function pickCustomerFacingArea(
-  ctx: SimContext,
-  family: string,
-): EntityRef {
-  const candidates = Object.values(ctx.state.areas)
-    .filter((a) => a.tags.includes('customer_facing'))
-    .map((a) => a.id)
-    .sort()
-  if (candidates.length === 0) return areaRef('main_room')
-  const today = ctx.state.calendar.totalDaysElapsed
-  const idx = (familyHash(family) + today) % candidates.length
-  return areaRef(candidates[idx]!)
-}
+// Phase 73 / ISSUE-033 §6.8 / Phase 95 / ISSUE-055 — area pickers live
+// in `./areaPickers.ts` so both this file and `expandedSeedGenerators.ts`
+// share the same rotation logic. The helpers fall back to `main_room`
+// (or `kitchen` for kitchen-adjacent picks) only when no tagged area
+// qualifies — never as the default behaviour.
+import {
+  pickCustomerFacingArea,
+  pickKitchenAdjacentArea,
+  pickRepairableArea,
+} from './areaPickers'
 
 // ----------------------------------------------------------------------
 // Food safety
@@ -1297,6 +1279,13 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
   recordComplaintPick(ctx, `customer_group:${group.id}`)
   const groupRef = customerRef(group.id)
 
+  // Phase 95 / ISSUE-055 — Rotate the area the complaint anchors to so
+  // private_booth / stage_corner / private rooms get rotation time
+  // alongside main_room. The chosen id replaces the hardcoded
+  // `main_room` paths in this family's effect strings.
+  const complaintAreaRef = pickCustomerFacingArea(ctx, 'customer_complaint')
+  const complaintAreaId = complaintAreaRef.id
+
   // Pull a named regular from the group's starter roster (rotates via a
   // sub-family key so individual regulars don't dominate either).
   const regulars = Object.values(ctx.state.world.regulars).filter(
@@ -1363,7 +1352,10 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
       labelHint: 'Fix the root cause',
       allowedVerbs: ['clean', 'repair'],
       shape: 'long_term_investment',
-      targetOptions: [areaRef('main_room'), areaRef('kitchen')],
+      targetOptions: [
+        pickCustomerFacingArea(ctx, 'customer_complaint'),
+        pickKitchenAdjacentArea(ctx, 'customer_complaint'),
+      ],
       expectedEffects: ['raise cleanliness', 'time/coin cost'],
     },
     {
@@ -1484,8 +1476,8 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
       id: 'fix_root_profile',
       responseSlotId: 'fix_root',
       immediateEffects: [
-        effect('state_change', 'areas.main_room.cleanliness', 18, 'Cleaner main room', ['area']),
-        effect('state_change', 'areas.main_room.damage', -8, 'Patched as part of clean-up', ['area']),
+        effect('state_change', `areas.${complaintAreaId}.cleanliness`, 18, `Cleaner ${complaintAreaId}`, ['area']),
+        effect('state_change', `areas.${complaintAreaId}.damage`, -8, 'Patched as part of clean-up', ['area']),
         effect('state_change', 'coin', -10, 'Cleaning cost', ['coin']),
         effect('pressure', 'pressure:reputation_drift', -5, 'Stabilize reputation', ['pressure']),
         effect('state_change', `${groupPath}.satisfaction`, 6, 'Visible cleanup wins respect', [
@@ -1505,7 +1497,7 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
         {
           id: `${group.id}_root_cleaned_recently`,
           actors: [groupRef, ...staffActors],
-          tags: ['cleanliness', 'main_room', 'attribution'],
+          tags: ['cleanliness', complaintAreaId, 'attribution'],
         },
         ...(staffEntityRef
           ? [
@@ -2179,10 +2171,10 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
     },
     {
       id: 'repair_damage',
-      labelHint: 'Repair the main room',
+      labelHint: 'Repair the damage',
       allowedVerbs: ['repair'],
       shape: 'short_term_patch',
-      targetOptions: [areaRef('main_room')],
+      targetOptions: [pickRepairableArea(ctx, 'violence_repair')],
       expectedEffects: ['lower damage', 'spend coin'],
     },
   ]
@@ -2290,36 +2282,43 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
         { id: 'dangerous_rep_locked', tags: ['reputation', 'dangerous', 'identity'] },
       ],
     }),
-    makeProfile({
-      id: 'repair_damage_profile',
-      responseSlotId: 'repair_damage',
-      immediateEffects: [
-        effect('state_change', 'areas.main_room.damage', -20, 'Repair damage', ['area']),
-        effect('state_change', 'coin', -12, 'Repair cost', ['coin']),
-      ],
-      delayedEffects: [
-        effect(
-          'pressure',
-          'pressure:staff_burnout',
-          3,
-          'Repair shifts tire the crew',
-          ['pressure', 'staff', 'delay:3'],
-        ),
-        effect(
-          'future_hook',
-          'main_room_resilient',
-          10,
-          'Main room may shrug off later damage',
-          ['future_hook', 'area', 'main_room'],
-        ),
-      ],
-      memories: [
-        { id: 'main_room_repaired_recently', tags: ['maintenance', 'main_room'] },
-      ],
-      futureHooks: [
-        { id: 'main_room_resilient', tags: ['area', 'main_room', 'opportunity'] },
-      ],
-    }),
+    // Phase 95 / ISSUE-055 — Repair anchors to a repairable area (most
+    // damaged available, falling back to inspection-relevant). Effect
+    // paths follow the chosen area instead of pinning `main_room`.
+    (() => {
+      const repairAreaRef = pickRepairableArea(ctx, 'violence_repair')
+      const repairAreaId = repairAreaRef.id
+      return makeProfile({
+        id: 'repair_damage_profile',
+        responseSlotId: 'repair_damage',
+        immediateEffects: [
+          effect('state_change', `areas.${repairAreaId}.damage`, -20, 'Repair damage', ['area']),
+          effect('state_change', 'coin', -12, 'Repair cost', ['coin']),
+        ],
+        delayedEffects: [
+          effect(
+            'pressure',
+            'pressure:staff_burnout',
+            3,
+            'Repair shifts tire the crew',
+            ['pressure', 'staff', 'delay:3'],
+          ),
+          effect(
+            'future_hook',
+            `${repairAreaId}_resilient`,
+            10,
+            `${repairAreaId} may shrug off later damage`,
+            ['future_hook', 'area', repairAreaId],
+          ),
+        ],
+        memories: [
+          { id: `${repairAreaId}_repaired_recently`, tags: ['maintenance', repairAreaId] },
+        ],
+        futureHooks: [
+          { id: `${repairAreaId}_resilient`, tags: ['area', repairAreaId, 'opportunity'] },
+        ],
+      })
+    })(),
   ]
 
   const seedIdValue = seedId('violence', target.id, ctx)
@@ -2346,7 +2345,7 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
       affectedActors: [target],
       causes,
       stakes: [
-        stake('damage_stake', 'area:main_room', 'Main room may take damage', 'loss', ['damage']),
+        stake('damage_stake', `area:${pickCustomerFacingArea(ctx, 'violence').id}`, 'Customer-facing space may take damage', 'loss', ['damage']),
         stake('merchant_loss', 'customer:merchants', 'Merchants may flee', 'risk', ['merchants']),
       ],
       responseSlots,
@@ -3231,7 +3230,7 @@ function generateInspection(ctx: SimContext): IssueSeed[] {
       urgency: urgencyFromPressures(ctx, ['inspection']),
       primaryActor: inspectorActor,
       affectedActors: seedAffected,
-      location: areaRef('main_room'),
+      location: pickCustomerFacingArea(ctx, 'inspection'),
       causes,
       stakes: [
         stake('inspection_stake', 'pressure:inspection', 'Inspector may visit', 'risk', [
@@ -3518,8 +3517,9 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
       urgency: Math.max(25, snap.urgency),
       // Audit fixes pass 1 §5.3 — Reputation is tavern-wide; omit
       // primaryActor (was singleton system:reputation) and locate the
-      // seed in the public room instead.
-      location: areaRef('main_room'),
+      // seed in a customer-facing area instead. Phase 95 / ISSUE-055
+      // rotates the location across customer-facing areas.
+      location: pickCustomerFacingArea(ctx, 'reputation_shift'),
       affectedActors: [],
       causes,
       stakes: [

@@ -841,6 +841,60 @@ const buyMugs: OwnerActionDefinition = {
   },
 }
 
+// ---------- 13.13 toggle_recipe_menu ----------
+
+// Phase 92 — Recipes panel needs a player-driven way to flip the
+// `RecipeState.onMenu` flag. Zero AP cost: this is a logistical toggle,
+// not a labor action. If the cook lacks the skill or the kitchen lacks
+// the ingredients, the service code already refuses to serve the dish;
+// charging an action point for the toggle itself would punish menu
+// experimentation.
+const toggleRecipeMenu: OwnerActionDefinition = {
+  id: 'toggle_recipe_menu',
+  label: 'Toggle Recipe On/Off Menu',
+  category: 'immediate',
+  tags: ['recipe', 'menu', 'logistics'],
+  targetType: 'recipe',
+  actionPointCost: 0,
+  getValidTargets: (ctx) =>
+    Object.values(ctx.state.recipes).map((r) => ({
+      id: r.id,
+      label: r.label,
+      hint: r.onMenu ? 'on menu' : 'off menu',
+    })),
+  canApply: (ctx, input) => {
+    if (!input.targetId) return reject('missing_target', 'toggle_recipe_menu requires targetId')
+    if (!ctx.state.recipes[input.targetId]) {
+      return reject('unknown_target', `Unknown recipe '${input.targetId}'`)
+    }
+    return OK
+  },
+  apply: (ctx, input) => {
+    const recipe = ctx.state.recipes[input.targetId!]!
+    const before = recipe.onMenu
+    const next = !before
+    ctx.modifyRecipe(
+      recipe.id,
+      { onMenu: next },
+      {
+        source: `owner_action.toggle_recipe_menu.${recipe.id}`,
+        tags: ['owner_action', 'recipe', 'menu'],
+      },
+    )
+    return {
+      actionId: toggleRecipeMenu.id,
+      label: next ? 'Added to Menu' : 'Removed from Menu',
+      targetId: recipe.id,
+      actionPointCost: toggleRecipeMenu.actionPointCost,
+      effects: [`${recipe.label} ${next ? 'on menu' : 'off menu'}`],
+      data: {
+        recipeId: recipe.id,
+        onMenu: { before, after: next },
+      },
+    }
+  },
+}
+
 // ---------- Required action set ----------
 
 // Phase 70 / ISSUE-030 §6.3 — the commission-expedition action lives in
@@ -862,6 +916,7 @@ export const REQUIRED_OWNER_ACTIONS: OwnerActionDefinition[] = [
   patchRoof,
   fumigateCellar,
   buyMugs,
+  toggleRecipeMenu,
   commissionExpedition,
   ...STAFF_MANAGEMENT_ACTIONS,
 ]
@@ -880,6 +935,7 @@ export {
   patchRoof,
   fumigateCellar,
   buyMugs,
+  toggleRecipeMenu,
 }
 
 // Defensive helper used by the report builder: pull a fallback label

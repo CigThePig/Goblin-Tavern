@@ -31,6 +31,7 @@ export type OwnerActionTargetType =
   | 'faction'
   | 'project'
   | 'policy'
+  | 'recipe'
   | 'global'
 
 // Phase 33 §33.2 — Category metadata on each action definition. Lets the

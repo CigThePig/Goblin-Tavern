@@ -66,6 +66,14 @@ export type ChoiceOverrides = {
   includeDelayed?: boolean
   /** Cap the preview at fewer than 3 lines (e.g. complaint = 2). */
   maxPreview?: number
+  /**
+   * Phase 96 / ISSUE-056 — Optional reason string that makes the choice
+   * appear disabled in the renderer. `CardChoice.disabledReason` is
+   * already read by the UI; this is the producer-side hook so future
+   * card templates can declare preconditions without touching the
+   * renderer. Existing helpers pass it through unchanged.
+   */
+  disabledReason?: string
 }
 
 export function buildChoice(
@@ -93,6 +101,9 @@ export function buildChoice(
     previewEffects,
   }
   if (targetId !== undefined) choice.targetId = targetId
+  if (overrides.disabledReason !== undefined) {
+    choice.disabledReason = overrides.disabledReason
+  }
   return choice
 }
 

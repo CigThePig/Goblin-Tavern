@@ -94,7 +94,7 @@ how to verify the fix.
 | ISSUE-053 | Web navigation, modal accessibility, and UI state persistence | broken | done | 93 |
 | ISSUE-054 | Supplier pricing reaches restock gameplay | thin | done | 94 |
 | ISSUE-055 | Area content unpinning and customer-area rotation | thin | done | 95 |
-| ISSUE-056 | Advisory UI validity and future card-choice guardrails | thin | open | — |
+| ISSUE-056 | Advisory UI validity and future card-choice guardrails | thin | done | 96 |
 
 ---
 
@@ -2203,8 +2203,8 @@ can land with targeted regression coverage instead of one-off fixes.
 ### ISSUE-056 — Advisory UI validity and future card-choice guardrails
 
 - **Grade:** thin
-- **Status:** open
-- **Phase:** —
+- **Status:** done
+- **Phase:** 96
 - **Evidence:**
   - `P3-003` — missed-opportunity recommendations do not run the same
     target/current-state checks as owner-action UI.

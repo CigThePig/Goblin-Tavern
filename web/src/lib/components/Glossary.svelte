@@ -28,7 +28,7 @@
 
   let query = $state('')
   const grouped = termsByCategory()
-  const CATEGORY_ORDER: GlossaryCategory[] = ['pressure', 'reputation', 'mechanic']
+  const CATEGORY_ORDER: GlossaryCategory[] = ['pressure', 'reputation', 'mechanic', 'log']
 
   const filtered = $derived.by<GlossaryTerm[]>(() => {
     if (query.trim().length === 0) return GLOSSARY_TERMS
@@ -41,6 +41,7 @@
       pressure: [],
       reputation: [],
       mechanic: [],
+      log: [],
     }
     for (const t of filtered) result[t.category].push(t)
     return result

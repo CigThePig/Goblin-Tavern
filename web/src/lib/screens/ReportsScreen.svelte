@@ -6,13 +6,16 @@
   Today renders the daily report for `gameStore.latestResult`.
   Pressures renders the all-21 dashboard.
   Weekly / Monthly read the persistent sim-side overviews from their
-  respective projections (Phases 90 / 91). Log is a stub for Phase 94.
+  respective projections (Phases 90 / 91). Log renders `state.history`
+  via `buildTavernLog` with filter chips for category, tag, day range,
+  search, and "involving" entity (Phase 94).
 -->
 <script lang="ts">
   import DailyReport from '../components/DailyReport.svelte'
   import PressuresDashboard from '../components/PressuresDashboard.svelte'
   import WeeklyOverview from '../components/WeeklyOverview.svelte'
   import MonthlyOverview from '../components/MonthlyOverview.svelte'
+  import TavernLog from '../components/TavernLog.svelte'
   import CauseDrilldown from '../components/CauseDrilldown.svelte'
   import { gameStore } from '../sim/gameStore.svelte'
   import {
@@ -100,9 +103,7 @@
         onnavigatepressures={navigateToPressures}
       />
     {:else if subview === 'log'}
-      <p class="placeholder">
-        Tavern Log — append-only timeline of every owner action, service incident, weekly close, and memory — lands in phase 94.
-      </p>
+      <TavernLog />
     {/if}
   </section>
 </main>

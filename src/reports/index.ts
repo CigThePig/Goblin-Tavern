@@ -9,6 +9,12 @@ export { buildMonthlyOverview } from './monthlyOverviewProjection'
 export { buildTavernOverview } from './tavernOverviewProjection'
 export { buildWorldOverview } from './worldOverviewProjection'
 export {
+  buildTavernLog,
+  HISTORY_CATEGORY_LABELS,
+  TAG_FACET_LIMIT,
+} from './tavernLogProjection'
+export { resolveEntityLabel, resolveBareEntityId } from './entityLabels'
+export {
   causesForPath,
   causesForPressure,
   closedDayAbsolute,
@@ -118,3 +124,16 @@ export type {
   TavernIdentityData,
   WorldOverviewData,
 } from './worldOverviewProjection'
+export type {
+  TavernLogAppliedFilters,
+  TavernLogCategoryFacet,
+  TavernLogChipRef,
+  TavernLogData,
+  TavernLogDayGroup,
+  TavernLogDayRange,
+  TavernLogEmptyReason,
+  TavernLogFilters,
+  TavernLogRow,
+  TavernLogTagFacet,
+} from './tavernLogProjection'
+export type { HistoryCategory, HistoryEntry } from '../sim/state/TavernState'

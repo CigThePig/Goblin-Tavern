@@ -127,6 +127,18 @@
     }
   })
 
+  // Phase 93 / ISSUE-053 — Sync the App-level `view` from
+  // `gameStore.route` whenever the store route changes (e.g. the
+  // Yesterday digest tap-through, snapshot/import replacement). Before
+  // this, App rendered from local `view` only, so store-only route
+  // writes were inert until reload.
+  $effect(() => {
+    if (!bootDone) return
+    if (view === 'start') return
+    const next = gameStore.route
+    if (next !== view) view = next
+  })
+
   // Phase 96 — Autosave effect. Reads the gameStore fields that should
   // trigger a save; the dependency list is intentionally narrow so the
   // effect doesn't fire on bookkeeping-only mutations.
@@ -141,6 +153,9 @@
     void gameStore.serviceComplete
     void gameStore.closingComplete
     void gameStore.route
+    void gameStore.reportsSubview
+    void gameStore.tavernSubview
+    void gameStore.worldSubview
     void gameStore.latestResult
     void view
     scheduleSave()

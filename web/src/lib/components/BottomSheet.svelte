@@ -23,16 +23,52 @@
     footer?: Snippet
   } = $props()
 
-  function handleKey(e: KeyboardEvent) {
-    if (e.key === 'Escape') onclose()
-  }
+  // Phase 93 / ISSUE-053 — Modal a11y.
+  // The dialog used to call `stopPropagation()` on every keydown, which
+  // meant Escape never reached the backdrop handler once any control
+  // inside the sheet had focus. The new contract:
+  //   1. Escape is handled at the window level while the sheet is open.
+  //      This is the only listener; the dialog no longer intercepts.
+  //   2. On open, focus moves into the dialog itself so screen-reader
+  //      and keyboard users land inside the modal context.
+  //   3. On close, focus restores to the element that was active just
+  //      before the sheet opened.
+  let dialogEl: HTMLDivElement | undefined = $state(undefined)
+  let previouslyFocused: HTMLElement | null = null
+
+  $effect(() => {
+    if (typeof document === 'undefined') return
+    if (!open) return
+    previouslyFocused = document.activeElement as HTMLElement | null
+    // Focus the dialog after Svelte has mounted it. queueMicrotask
+    // lets the DOM commit before we read the ref.
+    queueMicrotask(() => {
+      dialogEl?.focus()
+    })
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onclose()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      // Restore focus only when the sheet was actually closed by this
+      // effect's teardown, i.e. when `open` flips back to false.
+      if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+        previouslyFocused.focus()
+      }
+      previouslyFocused = null
+    }
+  })
 </script>
 
 {#if open}
   <div
     class="sheet-backdrop"
     onclick={onclose}
-    onkeydown={handleKey}
     role="presentation"
   >
     <div
@@ -41,8 +77,8 @@
       aria-modal="true"
       aria-label={title}
       tabindex="-1"
+      bind:this={dialogEl}
       onclick={(e) => e.stopPropagation()}
-      onkeydown={(e) => e.stopPropagation()}
     >
       <header class="sheet-head">
         <div class="drag-handle" aria-hidden="true"></div>

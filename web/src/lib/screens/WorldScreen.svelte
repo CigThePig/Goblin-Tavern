@@ -37,7 +37,12 @@
     { id: 'rumours', label: 'Rumours' },
   ]
 
-  let subview = $state<Subview>('regulars')
+  // Phase 93 / ISSUE-053 — Subview lives on the store and persists
+  // through the save envelope so Continue lands on the same tab.
+  const subview = $derived(gameStore.worldSubview)
+  function setSubview(s: Subview) {
+    gameStore.setWorldSubview(s)
+  }
   let pickerOpen = $state(false)
 
   const data = $derived<WorldOverviewData>(buildWorldOverview(gameStore.state))
@@ -66,7 +71,7 @@
         class:active={subview === tab.id}
         class:empty={c === 0}
         aria-current={subview === tab.id ? 'page' : undefined}
-        onclick={() => (subview = tab.id)}
+        onclick={() => setSubview(tab.id)}
       >
         <span class="label">{tab.label}</span>
         <span class="count mono">{c === 0 ? '—' : c}</span>

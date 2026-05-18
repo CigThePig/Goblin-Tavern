@@ -163,13 +163,16 @@
             <button
               type="button"
               class="chip"
-              aria-label="Remove {p.label}"
+              aria-label={p.targetLabel
+                ? `Remove ${p.label} on ${p.targetLabel}`
+                : `Remove ${p.label}`}
               onclick={() => removePick(p.pickId)}
             >
-              <span class="chip-label">
-                {p.label}{#if p.targetLabel}: {p.targetLabel}{/if}
-              </span>
-              <span class="chip-x">×</span>
+              <span class="chip-label">{p.label}</span>
+              {#if p.targetLabel}
+                <span class="chip-target">{p.targetLabel}</span>
+              {/if}
+              <span class="chip-x" aria-hidden="true">×</span>
             </button>
           {/each}
         </div>
@@ -252,6 +255,17 @@
   }
 
   .chip-x {
+    color: var(--text-faint);
+  }
+
+  .chip-target {
+    color: var(--text-faint);
+    font-style: italic;
+    font-size: 12px;
+  }
+  .chip-target::before {
+    content: '·';
+    margin-right: 4px;
     color: var(--text-faint);
   }
 

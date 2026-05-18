@@ -61,6 +61,36 @@ export type LatestResultLite = Omit<SimResult, 'state'>
 
 export type Route = 'day' | 'reports' | 'tavern' | 'world' | 'more'
 
+// Phase 93 / ISSUE-053 — Sub-tab persistence. Previously these were
+// local `$state` in each screen and reset to defaults on reload. The
+// envelope now carries the last visited subview per screen so Continue
+// lands the player where they were.
+export type ReportsSubview =
+  | 'today'
+  | 'pressures'
+  | 'weekly'
+  | 'monthly'
+  | 'log'
+export type TavernSubview =
+  | 'areas'
+  | 'stock'
+  | 'recipes'
+  | 'staff'
+  | 'projects'
+export type WorldSubview =
+  | 'regulars'
+  | 'suppliers'
+  | 'factions'
+  | 'cultures'
+  | 'npcs'
+  | 'rumours'
+
+export type SubroutesState = {
+  reports?: ReportsSubview
+  tavern?: TavernSubview
+  world?: WorldSubview
+}
+
 export type PersistedSession = {
   saveVersion: typeof SAVE_VERSION
   savedAt: string
@@ -80,6 +110,12 @@ export type PersistedSession = {
    * an `incompatible` bounce.
    */
   dismissedMissedOpportunityIds?: string[]
+  /**
+   * Phase 93 / ISSUE-053 — Last visited subview per top-level screen.
+   * Optional so older saves (pre-Phase-93) keep loading; absent
+   * subroutes fall back to the each screen's default at hydrate time.
+   */
+  subroutes?: SubroutesState
 }
 
 export type LoadOutcome =
@@ -111,6 +147,28 @@ const VALID_ROUTES: ReadonlySet<Route> = new Set<Route>([
   'tavern',
   'world',
   'more',
+])
+const VALID_REPORTS_SUBVIEWS: ReadonlySet<ReportsSubview> = new Set([
+  'today',
+  'pressures',
+  'weekly',
+  'monthly',
+  'log',
+])
+const VALID_TAVERN_SUBVIEWS: ReadonlySet<TavernSubview> = new Set([
+  'areas',
+  'stock',
+  'recipes',
+  'staff',
+  'projects',
+])
+const VALID_WORLD_SUBVIEWS: ReadonlySet<WorldSubview> = new Set([
+  'regulars',
+  'suppliers',
+  'factions',
+  'cultures',
+  'npcs',
+  'rumours',
 ])
 
 // ──────────────────────────────────────────────────────────────────
@@ -354,6 +412,13 @@ export function validatePersistedSession(parsed: unknown): ValidationOutcome {
     ? dismissedRaw.filter((v): v is string => typeof v === 'string')
     : []
 
+  // Phase 93 / ISSUE-053 — Sanitise subroutes. Unknown enum values
+  // drop the field so the screen falls back to its default subview.
+  const subroutesRaw = (parsed as { subroutes?: unknown }).subroutes
+  const subroutes: SubroutesState = isObject(subroutesRaw)
+    ? sanitizeSubroutes(subroutesRaw)
+    : {}
+
   const save: PersistedSession = {
     saveVersion: SAVE_VERSION,
     savedAt,
@@ -365,6 +430,7 @@ export function validatePersistedSession(parsed: unknown): ValidationOutcome {
     daySession,
     route,
     dismissedMissedOpportunityIds,
+    ...(Object.keys(subroutes).length > 0 ? { subroutes } : {}),
     ...(previousCalendar ? { previousCalendar } : {}),
     ...(latestResultLite ? { latestResultLite } : {}),
   }
@@ -423,6 +489,32 @@ function readString(obj: unknown, key: string): string | undefined {
 function readRoute(obj: unknown, key: string): Route | undefined {
   const v = readString(obj, key)
   return v && VALID_ROUTES.has(v as Route) ? (v as Route) : undefined
+}
+
+function sanitizeSubroutes(raw: Record<string, unknown>): SubroutesState {
+  const out: SubroutesState = {}
+  const reportsRaw = raw['reports']
+  if (
+    typeof reportsRaw === 'string' &&
+    VALID_REPORTS_SUBVIEWS.has(reportsRaw as ReportsSubview)
+  ) {
+    out.reports = reportsRaw as ReportsSubview
+  }
+  const tavernRaw = raw['tavern']
+  if (
+    typeof tavernRaw === 'string' &&
+    VALID_TAVERN_SUBVIEWS.has(tavernRaw as TavernSubview)
+  ) {
+    out.tavern = tavernRaw as TavernSubview
+  }
+  const worldRaw = raw['world']
+  if (
+    typeof worldRaw === 'string' &&
+    VALID_WORLD_SUBVIEWS.has(worldRaw as WorldSubview)
+  ) {
+    out.world = worldRaw as WorldSubview
+  }
+  return out
 }
 
 function sanitizeDaySession(raw: unknown): DaySessionSnapshot {

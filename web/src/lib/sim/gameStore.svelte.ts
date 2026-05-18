@@ -47,8 +47,11 @@ import {
 import type {
   LatestResultLite,
   PersistedSession,
+  ReportsSubview,
   Route,
   SaveResult,
+  TavernSubview,
+  WorldSubview,
 } from './persistence'
 
 class GameStore {
@@ -84,6 +87,13 @@ class GameStore {
   // boot so a player who closed the app while reading the Tavern panel
   // returns there instead of being yanked back to Day.
   route: Route = $state('day')
+
+  // Phase 93 / ISSUE-053 — Last visited subview per top-level screen.
+  // Persisted in the save envelope so Reload/Continue lands the player
+  // on the same Monthly/Projects/Rumours tab they were reading.
+  reportsSubview: ReportsSubview = $state('today')
+  tavernSubview: TavernSubview = $state('areas')
+  worldSubview: WorldSubview = $state('regulars')
 
   // Phase 96 — One-shot flag the welcome-back pill reads. Set true on
   // hydration; flipped to false on the first beat advance.
@@ -168,6 +178,9 @@ class GameStore {
     this.serviceComplete = INITIAL_DAY_SESSION.serviceComplete
     this.closingComplete = INITIAL_DAY_SESSION.closingComplete
     this.route = 'day'
+    this.reportsSubview = 'today'
+    this.tavernSubview = 'areas'
+    this.worldSubview = 'regulars'
     this.savedSnapshotJustLoaded = false
     this.lastSavedAt = undefined
     this.hydrationError = undefined
@@ -202,6 +215,9 @@ class GameStore {
     this.serviceComplete = save.daySession.serviceComplete
     this.closingComplete = save.daySession.closingComplete
     this.route = save.route
+    this.reportsSubview = save.subroutes?.reports ?? 'today'
+    this.tavernSubview = save.subroutes?.tavern ?? 'areas'
+    this.worldSubview = save.subroutes?.world ?? 'regulars'
     this.savedSnapshotJustLoaded = true
     this.lastSavedAt = save.savedAt
     this.hydrationError = undefined
@@ -248,6 +264,11 @@ class GameStore {
         closingComplete: this.closingComplete,
       },
       route: this.route,
+      subroutes: {
+        reports: this.reportsSubview,
+        tavern: this.tavernSubview,
+        world: this.worldSubview,
+      },
       dismissedMissedOpportunityIds: [...this.dismissedMissedOpportunityIds],
     }
   }
@@ -375,6 +396,18 @@ class GameStore {
 
   setRoute(r: Route): void {
     this.route = r
+  }
+
+  setReportsSubview(v: ReportsSubview): void {
+    this.reportsSubview = v
+  }
+
+  setTavernSubview(v: TavernSubview): void {
+    this.tavernSubview = v
+  }
+
+  setWorldSubview(v: WorldSubview): void {
+    this.worldSubview = v
   }
 
   /** Dismiss the welcome-back pill without changing the beat. */

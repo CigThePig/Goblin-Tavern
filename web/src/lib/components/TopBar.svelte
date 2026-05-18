@@ -2,12 +2,24 @@
   import Icon from './Icon.svelte'
   import { gameStore } from '../sim/gameStore.svelte'
   import { glossaryStore } from '../glossary/glossaryStore.svelte'
+  import { relativeTime } from '../sim/persistence'
 
   const cal = $derived(gameStore.state.calendar)
   const dayLabel = $derived(
     `Day ${cal.day} · Week ${cal.week} · Month ${cal.month} · ${formatDayType(cal.dayType)}`,
   )
   const coin = $derived(gameStore.state.coin)
+
+  // Phase 96 — Welcome-back pill. Shown only when a save was just
+  // restored AND the wall-clock gap since the last save is ≥ 4h. The
+  // store flips `savedSnapshotJustLoaded` off on the first beat
+  // advance (or on the 30s auto-dismiss in App.svelte), so this is
+  // an intentionally short-lived surface.
+  const welcomeBack = $derived.by(() => {
+    if (!gameStore.savedSnapshotJustLoaded) return undefined
+    if (!gameStore.lastSavedAt) return undefined
+    return relativeTime(gameStore.lastSavedAt, new Date())
+  })
 
   function formatDayType(d: string): string {
     return d
@@ -19,6 +31,10 @@
   function openGlossary() {
     glossaryStore.show()
   }
+
+  function dismissPill() {
+    gameStore.dismissWelcomeBack()
+  }
 </script>
 
 <header class="topbar">
@@ -27,6 +43,16 @@
   </div>
   <div class="day">
     <span class="day-line">{dayLabel}</span>
+    {#if welcomeBack}
+      <button
+        type="button"
+        class="welcome"
+        onclick={dismissPill}
+        aria-label="Dismiss welcome message"
+      >
+        welcome back · {welcomeBack.phrase}
+      </button>
+    {/if}
   </div>
   <div class="right">
     <div class="coin mono">
@@ -68,6 +94,10 @@
   .day {
     text-align: center;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
   }
 
   .day-line {
@@ -81,6 +111,26 @@
     text-overflow: ellipsis;
     display: inline-block;
     max-width: 100%;
+  }
+
+  .welcome {
+    font-family: var(--font-body);
+    font-variant: small-caps;
+    letter-spacing: 0.06em;
+    font-size: 11px;
+    color: var(--accent-soft);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    border-radius: 999px;
+    padding: 1px 8px;
+    min-height: 18px;
+    transition: opacity var(--m-fast) var(--ease);
+  }
+
+  .welcome:hover,
+  .welcome:focus-visible {
+    color: var(--accent);
+    border-color: var(--accent);
   }
 
   .right {

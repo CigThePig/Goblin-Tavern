@@ -656,6 +656,28 @@ const MECHANIC_TERMS: GlossaryTerm[] = [
     oneLine: 'A name people in the area call your tavern — emerges from sustained, public rumours.',
     longer: 'Nicknames live in `state.world.socialRumours` tagged "nickname". The strip surfaces up to two by strength; only rumours whose accuracy is not "false" appear.',
   },
+  // Phase 96 — Session continuity.
+  {
+    id: 'autosave',
+    label: 'Autosave',
+    category: 'mechanic',
+    oneLine: 'Your run saves automatically — close the app and your tavern picks up exactly where you left off.',
+    longer: 'The save is local to this browser; it covers your sim state, queued owner actions, sticky staff priorities, and the exact beat you were on. There is no manual save button. Start over from the title screen if you want to reset.',
+  },
+  {
+    id: 'quick_day',
+    label: 'Quick Day',
+    category: 'mechanic',
+    oneLine: 'A single-tap shortcut on quiet days — when nothing on fire needs your attention.',
+    longer: 'Available when the sim produced zero cards for today across all five timing slots. Quick Day submits any actions you already queued and your sticky staff priorities, then jumps straight to the daily report.',
+  },
+  {
+    id: 'welcome_back',
+    label: 'Welcome Back',
+    category: 'mechanic',
+    oneLine: 'A small pill that surfaces when you return after a few hours away.',
+    longer: 'Real-world clock only — the tavern does not run while the app is closed. The pill auto-dismisses after the first beat advance or 30 seconds, whichever comes first.',
+  },
 ]
 
 // Phase 94 — Tavern Log vocabulary. One term per `HistoryCategory` plus

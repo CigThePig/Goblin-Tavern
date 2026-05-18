@@ -1,15 +1,46 @@
 <script lang="ts">
   import Icon from '../components/Icon.svelte'
   import { gameStore } from '../sim/gameStore.svelte'
+  import { relativeTime } from '../sim/persistence'
 
-  let { onstart }: { onstart: () => void } = $props()
+  let {
+    onstart,
+    oncontinue,
+    existingSave,
+    banner,
+  }: {
+    onstart: () => void
+    oncontinue?: (() => void) | undefined
+    existingSave?: { day: number; lastSavedAt: string } | undefined
+    banner?: string | undefined
+  } = $props()
 
   let advancedOpen = $state(false)
   let seedDraft = $state(gameStore.seedString)
 
+  // Phase 96 — Continue and Start-Over are the two paths when a save
+  // exists. The advanced disclosure only makes sense for a fresh run,
+  // since editing the seed on an existing save would silently fork
+  // the world. Tuck it under the Start-over button.
+  const hasSave = $derived(!!existingSave)
+
+  const elapsed = $derived.by(() => {
+    if (!existingSave) return undefined
+    return relativeTime(existingSave.lastSavedAt, new Date())
+  })
+
   function openTavern() {
-    gameStore.reset(seedDraft.trim() || 'crooked-keg')
+    // From a hydrated save, the seed input is hidden — Start Over
+    // returns to the default Crooked Keg seed rather than carrying
+    // forward the previous world's flavour. From a fresh boot, the
+    // seed input is editable and its value wins.
+    const seed = hasSave ? 'crooked-keg' : seedDraft.trim() || 'crooked-keg'
+    gameStore.reset(seed)
     onstart()
+  }
+
+  function continueTavern() {
+    oncontinue?.()
   }
 </script>
 
@@ -30,42 +61,62 @@
     </p>
   </div>
 
-  <button class="primary" type="button" onclick={openTavern}>
-    Open the Tavern
-  </button>
+  {#if banner}
+    <p class="banner mono" role="status">{banner}</p>
+  {/if}
 
-  <div class="advanced">
-    <button
-      class="adv-toggle"
-      type="button"
-      aria-expanded={advancedOpen}
-      onclick={() => (advancedOpen = !advancedOpen)}
-    >
-      {advancedOpen ? '▾' : '▸'} advanced
-    </button>
-    {#if advancedOpen}
-      <div class="adv-body">
-        <label class="adv-row">
-          <span class="adv-label tag">seed</span>
-          <input
-            class="adv-input mono"
-            type="text"
-            bind:value={seedDraft}
-            placeholder="crooked-keg"
-            spellcheck="false"
-            autocapitalize="off"
-            autocomplete="off"
-          />
-        </label>
-        <p class="adv-note mono">
-          same seed + same input = same days. change to fork the world.
-        </p>
-      </div>
+  <div class="cta-stack">
+    {#if hasSave && oncontinue}
+      <button class="primary" type="button" onclick={continueTavern}>
+        Continue — Day {existingSave!.day}
+        {#if elapsed}
+          <span class="cta-sub">last seen {elapsed.phrase} ago</span>
+        {/if}
+      </button>
+      <button class="ghost" type="button" onclick={openTavern}>
+        Start over
+      </button>
+    {:else}
+      <button class="primary" type="button" onclick={openTavern}>
+        Open the Tavern
+      </button>
     {/if}
   </div>
 
+  {#if !hasSave}
+    <div class="advanced">
+      <button
+        class="adv-toggle"
+        type="button"
+        aria-expanded={advancedOpen}
+        onclick={() => (advancedOpen = !advancedOpen)}
+      >
+        {advancedOpen ? '▾' : '▸'} advanced
+      </button>
+      {#if advancedOpen}
+        <div class="adv-body">
+          <label class="adv-row">
+            <span class="adv-label tag">seed</span>
+            <input
+              class="adv-input mono"
+              type="text"
+              bind:value={seedDraft}
+              placeholder="crooked-keg"
+              spellcheck="false"
+              autocapitalize="off"
+              autocomplete="off"
+            />
+          </label>
+          <p class="adv-note mono">
+            same seed + same input = same days. change to fork the world.
+          </p>
+        </div>
+      {/if}
+    </div>
+  {/if}
+
   <footer class="foot tag">
-    headless sim · 86 phases · cards forthcoming
+    headless sim · 95 phases · cards in flight
   </footer>
 </main>
 
@@ -123,6 +174,25 @@
     max-width: 30ch;
   }
 
+  .banner {
+    max-width: 36ch;
+    padding: var(--sp-sm) var(--sp-md);
+    background: color-mix(in srgb, var(--loss) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--loss) 40%, transparent);
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .cta-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-sm);
+    width: 100%;
+    max-width: 320px;
+  }
+
   .primary {
     font-family: var(--font-display);
     font-weight: 700;
@@ -138,12 +208,39 @@
     transition:
       background var(--m-fast) var(--ease),
       box-shadow var(--m-fast) var(--ease);
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
   }
 
   .primary:hover,
   .primary:focus-visible {
     background: color-mix(in srgb, var(--accent) 12%, transparent);
     box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+
+  .cta-sub {
+    font-family: var(--font-body);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: none;
+    color: var(--text-faint);
+    font-weight: 400;
+  }
+
+  .ghost {
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--text-faint);
+    padding: 10px 14px;
+    min-height: 40px;
+    background: transparent;
+  }
+
+  .ghost:hover,
+  .ghost:focus-visible {
+    color: var(--text-dim);
   }
 
   .advanced {

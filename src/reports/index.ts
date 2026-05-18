@@ -13,6 +13,7 @@ export {
   HISTORY_CATEGORY_LABELS,
   TAG_FACET_LIMIT,
 } from './tavernLogProjection'
+export { projectYesterdayDigest } from './yesterdayDigest'
 export { resolveEntityLabel, resolveBareEntityId } from './entityLabels'
 export {
   causesForPath,
@@ -137,3 +138,9 @@ export type {
   TavernLogTagFacet,
 } from './tavernLogProjection'
 export type { HistoryCategory, HistoryEntry } from '../sim/state/TavernState'
+export type {
+  YesterdayDigestCoin,
+  YesterdayDigestData,
+  YesterdayDigestDirection,
+  YesterdayDigestSecondary,
+} from './yesterdayDigest'

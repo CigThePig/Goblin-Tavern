@@ -13,6 +13,13 @@
   across days). All three flush into a single `gameStore.runDay(...)`
   call when the player taps End Day. The engine sees one
   `simulateDay` per game-day.
+
+  Phase 96 lifted `beat`, `pendingBySeedId`, and the two deck-complete
+  flags onto `gameStore` so a refresh resumes on the same beat with
+  intents preserved. The morning beat also offers a Quick Day shortcut
+  when the sim produced zero valid seeds across all five timing slots
+  (game-loop §3.7), and a "Yesterday" digest when a previous day's
+  report exists (game-loop §2.3).
 -->
 <script lang="ts">
   import PressureRibbon from '../components/PressureRibbon.svelte'
@@ -23,10 +30,12 @@
   import ActionPicker from '../components/ActionPicker.svelte'
   import StaffPrioritySheet from '../components/StaffPrioritySheet.svelte'
   import DailyReport from '../components/DailyReport.svelte'
+  import YesterdayDigest from '../components/YesterdayDigest.svelte'
   import { renderCard } from '../cards/realCardRegistry'
   import { gameStore } from '../sim/gameStore.svelte'
   import { buildIntent, buildIgnoreIntent } from '../sim/intentBuilder'
   import { buildDailyReport } from '../../../../src/reports/index'
+  import { projectYesterdayDigest } from '../../../../src/reports/yesterdayDigest'
   // Phase 95 — Voice composer. The day-screen empty-state lines
   // pull from the same `composeEmpty` pool the report header uses,
   // deterministically keyed by (tavernId, day, beat).
@@ -34,20 +43,21 @@
   import type { CardChoice } from '../cards/types'
   import type { IssueSeed } from '../cards/types'
   import type { ResponseIntent } from '../../../../src/sim/modules/issues/issueSeedTypes'
+  import type { PendingChoice } from '../sim/daySession'
 
-  type Beat = 'morning' | 'plan' | 'service' | 'closing' | 'report'
-  type PendingChoice =
-    | { kind: 'choice'; slotId: string; verb: string; choice: CardChoice }
-    | { kind: 'ignore' }
-
-  let beat = $state<Beat>('morning')
-  // Phase 92 — picks and staffPriorities live on gameStore (cross-screen).
+  // Phase 96 — Beat & pending state read from the store so they survive
+  // a reload. The store also resets these on `runDay()`.
+  const beat = $derived(gameStore.beat)
   const picks = $derived(gameStore.picks)
   const staffPriorities = $derived(gameStore.staffPriorities)
-  let pendingBySeedId = $state<Record<string, PendingChoice>>({})
+  const pendingBySeedId = $derived(gameStore.pendingBySeedId)
+  const serviceComplete = $derived(gameStore.serviceComplete)
 
   let pickerOpen = $state(false)
   let staffSheetOpen = $state(false)
+  // `transitioning` is the only beat-local view bit — it's a pacing
+  // animation flag. Restoring it on hydration would mean replaying a
+  // half-finished service transition, which is a UX bug. Stays local.
   let transitioning = $state(false)
 
   // ── Derived seed slices ───────────────────────────────────────────
@@ -58,6 +68,21 @@
     ...gameStore.seedsForTiming('end_week'),
     ...gameStore.seedsForTiming('end_month'),
   ])
+
+  // Phase 96 — Quick Day eligibility. The morning beat surfaces the
+  // single-tap shortcut when the engine produced zero valid seeds
+  // across all five timing slots. Picks may still be queued (e.g. from
+  // the Tavern → Restock surface); the button label morphs to surface
+  // that intent rather than silently dropping it.
+  const todaysSeedCount = $derived(gameStore.todaysSeeds.length)
+  const quickDayAvailable = $derived(
+    beat === 'morning' && todaysSeedCount === 0,
+  )
+  const quickDayLabel = $derived.by(() => {
+    if (picks.length === 0) return 'Quick Day'
+    if (picks.length === 1) return 'Quick Day · 1 action queued'
+    return `Quick Day · ${picks.length} actions queued`
+  })
 
   const morningCards = $derived(
     morningSeeds.map((seed) => ({
@@ -85,6 +110,15 @@
     })
   })
 
+  // Phase 96 — Morning yesterday digest. Only shows when the engine
+  // has a previous day to summarise. Derived from the same
+  // DailyReportData the Report screen would render.
+  const yesterdayDigest = $derived.by(() => {
+    if (beat !== 'morning') return undefined
+    if (!dailyReport) return undefined
+    return projectYesterdayDigest(dailyReport)
+  })
+
   const nextDayLabel = $derived.by(() => {
     if (dailyReport?.header.isEndOfMonth) return 'Close the month'
     if (dailyReport?.header.isEndOfWeek) return 'Close the week'
@@ -103,14 +137,14 @@
 
   // ── Beat transitions ──────────────────────────────────────────────
   function startPlanning() {
-    beat = 'plan'
+    gameStore.setBeat('plan')
   }
 
   function startService() {
     // Pacing transition; 600ms feels like "service runs" without being
     // a loading screen. Reduced-motion users skip the wait.
     transitioning = true
-    beat = 'service'
+    gameStore.setBeat('service')
   }
 
   function endTransition() {
@@ -118,7 +152,7 @@
   }
 
   function startClosing() {
-    beat = 'closing'
+    gameStore.setBeat('closing')
   }
 
   function endDay() {
@@ -136,17 +170,30 @@
       }
     }
     gameStore.runDay({ responseIntents: intents })
-    pendingBySeedId = {}
-    beat = 'report'
+    gameStore.setBeat('report')
+  }
+
+  // Phase 96 — Quick Day path. Skips Beats 2-4 entirely. Submits any
+  // picks the player queued from other surfaces (Tavern panels, etc.)
+  // along with sticky staff priorities.
+  function runQuickDay() {
+    gameStore.runDay({ responseIntents: [] })
+    gameStore.setBeat('report')
   }
 
   function nextDay() {
-    beat = 'morning'
+    gameStore.setBeat('morning')
+  }
+
+  function openTodayReport() {
+    // YesterdayDigest tap-through. Routes to Reports tab via the store
+    // so the App-level navigate effect picks it up on next render.
+    gameStore.setRoute('reports')
   }
 
   // ── Card resolution callbacks ─────────────────────────────────────
   function resolveSeed(seedId: string, pending: PendingChoice) {
-    pendingBySeedId = { ...pendingBySeedId, [seedId]: pending }
+    gameStore.resolveSeed(seedId, pending)
   }
 
   function morningChooseFor(seed: IssueSeed) {
@@ -160,17 +207,11 @@
     }
   }
 
-  // CardDeck completion: when the deck is fully resolved, surface a
-  // Continue button rather than auto-advancing — auto-advance feels
-  // pulled-out-from-under on mobile.
-  let serviceComplete = $state(false)
-  let closingComplete = $state(false)
-
   function onServiceComplete() {
-    serviceComplete = true
+    gameStore.setServiceComplete(true)
   }
   function onClosingComplete() {
-    closingComplete = true
+    gameStore.setClosingComplete(true)
   }
 </script>
 
@@ -188,6 +229,12 @@
         <span><Icon name="stock" size={13} /> {stockSummary}</span>
       </div>
     </section>
+
+    {#if yesterdayDigest}
+      <section class="block" aria-label="Yesterday">
+        <YesterdayDigest digest={yesterdayDigest} onopen={openTodayReport} />
+      </section>
+    {/if}
 
     <section class="block" aria-label="Pressures">
       <h2 class="block-label tag">Rising</h2>
@@ -226,6 +273,11 @@
       <button class="primary" type="button" onclick={startPlanning}>
         Plan the day
       </button>
+      {#if quickDayAvailable}
+        <button class="secondary quick-day" type="button" onclick={runQuickDay}>
+          {quickDayLabel}
+        </button>
+      {/if}
     </section>
   {/if}
 
@@ -284,7 +336,7 @@
     </section>
 
     <section class="block actions">
-      <button class="ghost" type="button" onclick={() => (beat = 'morning')}>
+      <button class="ghost" type="button" onclick={() => gameStore.setBeat('morning')}>
         ← back
       </button>
       <button class="primary" type="button" onclick={startService}>
@@ -482,6 +534,13 @@
   .secondary:hover,
   .secondary:focus-visible {
     border-color: var(--accent);
+  }
+
+  .quick-day {
+    flex: 1;
+    text-align: center;
+    color: var(--text-dim);
+    font-style: italic;
   }
 
   .ghost {

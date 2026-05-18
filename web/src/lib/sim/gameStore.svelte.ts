@@ -10,6 +10,12 @@
 // Tavern panels can queue actions (Restock, Clean, Toggle policy, …)
 // that DayScreen then submits at end-of-day. `staffPriorities` is
 // sticky across days (engine semantic) and survives navigation.
+//
+// Phase 96 lifted the day-session view state — current beat, pending
+// intents per seed, and the two deck-completion flags — onto the store
+// so the persistence layer can autosave/restore the player's exact
+// position. The store remains storage-agnostic: `App.svelte` owns the
+// localStorage I/O via `persistence.ts`.
 
 import { simulateDay } from '../../../../src/sim/core/engine'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
@@ -25,6 +31,16 @@ import {
   picksToInputs,
   type PickedAction,
 } from './actionBuilder'
+import {
+  INITIAL_DAY_SESSION,
+  type Beat,
+  type PendingChoice,
+} from './daySession'
+import type {
+  LatestResultLite,
+  PersistedSession,
+  Route,
+} from './persistence'
 
 class GameStore {
   state: TavernState = $state(createInitialTavernState())
@@ -48,11 +64,33 @@ class GameStore {
    */
   staffPriorities: Record<string, string> = $state({})
 
+  // Phase 96 — Day-session view state. Lives on the store so refreshes
+  // resume on the same beat with the same pending intents.
+  beat: Beat = $state(INITIAL_DAY_SESSION.beat)
+  pendingBySeedId: Record<string, PendingChoice> = $state({})
+  serviceComplete: boolean = $state(INITIAL_DAY_SESSION.serviceComplete)
+  closingComplete: boolean = $state(INITIAL_DAY_SESSION.closingComplete)
+
+  // Phase 96 — Last selected top-level route. The App restores this on
+  // boot so a player who closed the app while reading the Tavern panel
+  // returns there instead of being yanked back to Day.
+  route: Route = $state('day')
+
+  // Phase 96 — One-shot flag the welcome-back pill reads. Set true on
+  // hydration; flipped to false on the first beat advance.
+  savedSnapshotJustLoaded: boolean = $state(false)
+  /** ISO timestamp of the last successful save flush. */
+  lastSavedAt: string | undefined = $state(undefined)
+  /** Non-blocking error surfaced when a save couldn't be hydrated. */
+  hydrationError: string | undefined = $state(undefined)
+
   /**
    * Run one simulated day. Bundles the queued picks, sticky staff
    * priorities, and any per-day response intents into a single
    * `simulateDay` call. Picks are reset after the engine call; staff
-   * priorities persist.
+   * priorities persist. The day-session flags reset to a fresh
+   * morning — engine always advances the calendar, so the player
+   * lands on a new day.
    */
   runDay(extra: Partial<Omit<SimInput, 'seed'>> = {}): SimResult {
     const seed = `${this.seedString}-d${this.state.calendar.day}`
@@ -71,6 +109,12 @@ class GameStore {
     this.latestResult = result
     // Per-day picks reset; staff priorities persist by design.
     this.picks = []
+    // Day-session flags reset for the new day. The caller (DayScreen)
+    // sets `beat = 'report'` after this call to surface the daily
+    // report; subsequent beats land naturally on the new day.
+    this.pendingBySeedId = {}
+    this.serviceComplete = false
+    this.closingComplete = false
     return result
   }
 
@@ -85,6 +129,81 @@ class GameStore {
     this.previousCalendar = undefined
     this.picks = []
     this.staffPriorities = {}
+    this.beat = INITIAL_DAY_SESSION.beat
+    this.pendingBySeedId = {}
+    this.serviceComplete = INITIAL_DAY_SESSION.serviceComplete
+    this.closingComplete = INITIAL_DAY_SESSION.closingComplete
+    this.route = 'day'
+    this.savedSnapshotJustLoaded = false
+    this.lastSavedAt = undefined
+    this.hydrationError = undefined
+  }
+
+  // ── Persistence boundary ─────────────────────────────────────────
+
+  /**
+   * Restore from a previously-saved session. Single-source — the
+   * caller has already validated and migrated `save.state` through
+   * `persistence.loadSession()`.
+   */
+  hydrateFromSave(save: PersistedSession): void {
+    this.seedString = save.simSeed
+    this.state = save.state
+    this.previousCalendar = save.previousCalendar
+    this.latestResult = save.latestResultLite
+      ? { ...save.latestResultLite, state: save.state }
+      : undefined
+    this.picks = [...save.picks]
+    this.staffPriorities = { ...save.staffPriorities }
+    this.pendingBySeedId = { ...save.pendingBySeedId }
+    this.beat = save.daySession.beat
+    this.serviceComplete = save.daySession.serviceComplete
+    this.closingComplete = save.daySession.closingComplete
+    this.route = save.route
+    this.savedSnapshotJustLoaded = true
+    this.lastSavedAt = save.savedAt
+    this.hydrationError = undefined
+  }
+
+  /**
+   * Serialize current store state for saving. The caller (App) drops
+   * the result through `persistence.saveSession()`. The `savedAt`
+   * timestamp is filled in here so the same value lands both in
+   * storage and (post-save) on `lastSavedAt`.
+   */
+  serializeForSave(): PersistedSession {
+    const latestResultLite: LatestResultLite | undefined = this.latestResult
+      ? {
+          reports: this.latestResult.reports,
+          logs: this.latestResult.logs,
+          validation: this.latestResult.validation,
+          diffs: this.latestResult.diffs,
+        }
+      : undefined
+    return {
+      saveVersion: 1,
+      savedAt: new Date().toISOString(),
+      simSeed: this.seedString,
+      state: this.state,
+      ...(this.previousCalendar
+        ? {
+            previousCalendar: {
+              ...this.previousCalendar,
+              tags: [...this.previousCalendar.tags],
+            },
+          }
+        : {}),
+      ...(latestResultLite ? { latestResultLite } : {}),
+      picks: [...this.picks],
+      staffPriorities: { ...this.staffPriorities },
+      pendingBySeedId: { ...this.pendingBySeedId },
+      daySession: {
+        beat: this.beat,
+        serviceComplete: this.serviceComplete,
+        closingComplete: this.closingComplete,
+      },
+      route: this.route,
+    }
   }
 
   /** Issue seeds the sim produced on the most recent day, valid only. */
@@ -154,6 +273,37 @@ class GameStore {
 
   setStaffPriorities(next: Record<string, string>): void {
     this.staffPriorities = next
+  }
+
+  // ── Day-session setters (Phase 96) ──────────────────────────────
+
+  setBeat(next: Beat): void {
+    if (this.beat === next) return
+    this.beat = next
+    // Any beat advance dismisses the welcome-back pill — the player
+    // has signalled they're oriented again.
+    this.savedSnapshotJustLoaded = false
+  }
+
+  resolveSeed(seedId: string, pending: PendingChoice): void {
+    this.pendingBySeedId = { ...this.pendingBySeedId, [seedId]: pending }
+  }
+
+  setServiceComplete(value: boolean): void {
+    this.serviceComplete = value
+  }
+
+  setClosingComplete(value: boolean): void {
+    this.closingComplete = value
+  }
+
+  setRoute(r: Route): void {
+    this.route = r
+  }
+
+  /** Dismiss the welcome-back pill without changing the beat. */
+  dismissWelcomeBack(): void {
+    this.savedSnapshotJustLoaded = false
   }
 }
 

@@ -2,7 +2,7 @@
   import TopBar from './TopBar.svelte'
   import BottomNav from './BottomNav.svelte'
   import type { Snippet } from 'svelte'
-  import type { Route } from './BottomNav.svelte'
+  import type { Route } from '../sim/persistence'
 
   let {
     route,

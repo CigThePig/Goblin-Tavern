@@ -15,6 +15,7 @@
     | 'reports'
     | 'tavern'
     | 'world'
+    | 'more'
     | 'flame'
     | 'seal'
 
@@ -86,6 +87,11 @@
   {:else if name === 'world'}
     <circle cx="12" cy="12" r="8" />
     <path d="M4 12 L20 12 M12 4 Q16 8 16 12 Q16 16 12 20 Q8 16 8 12 Q8 8 12 4" />
+  {:else if name === 'more'}
+    <circle cx="12" cy="12" r="3.5" />
+    <path
+      d="M12 3 L12 6 M12 18 L12 21 M3 12 L6 12 M18 12 L21 12 M5.6 5.6 L7.7 7.7 M16.3 16.3 L18.4 18.4 M5.6 18.4 L7.7 16.3 M16.3 7.7 L18.4 5.6"
+    />
   {:else if name === 'flame'}
     <path d="M12 3 Q8 8 8 13 Q8 18 12 21 Q16 18 16 13 Q16 9 13 6 Q12 8 11 9 Q12 6 12 3 Z" />
   {:else if name === 'seal'}

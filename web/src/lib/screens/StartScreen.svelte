@@ -1,7 +1,12 @@
 <script lang="ts">
   import Icon from '../components/Icon.svelte'
   import { gameStore } from '../sim/gameStore.svelte'
+  import { prefsStore } from '../prefs/prefsStore.svelte'
   import { relativeTime } from '../sim/persistence'
+  import {
+    DIFFICULTY_PRESETS,
+    type DifficultyId,
+  } from '../../../../src/sim/state/difficulty'
 
   let {
     onstart,
@@ -17,6 +22,15 @@
 
   let advancedOpen = $state(false)
   let seedDraft = $state(gameStore.seedString)
+
+  // Phase 98 — sticky difficulty default lives in preferences.
+  const difficultyOptions: { id: DifficultyId; label: string; description: string }[] = [
+    { id: 'easy', label: 'Easy', description: DIFFICULTY_PRESETS.easy.description },
+    { id: 'standard', label: 'Standard', description: DIFFICULTY_PRESETS.standard.description },
+    { id: 'hard', label: 'Hard', description: DIFFICULTY_PRESETS.hard.description },
+  ]
+  const selectedDifficulty = $derived(prefsStore.preferences.lastDifficulty)
+  const selectedDescription = $derived(DIFFICULTY_PRESETS[selectedDifficulty].description)
 
   // Phase 96 — Continue and Start-Over are the two paths when a save
   // exists. The advanced disclosure only makes sense for a fresh run,
@@ -35,7 +49,9 @@
     // forward the previous world's flavour. From a fresh boot, the
     // seed input is editable and its value wins.
     const seed = hasSave ? 'crooked-keg' : seedDraft.trim() || 'crooked-keg'
-    gameStore.reset(seed)
+    // Phase 98 — Update the seed string on the store; the parent's
+    // `startGame()` applies the prefs' difficulty and calls reset.
+    gameStore.seedString = seed
     onstart()
   }
 
@@ -95,6 +111,23 @@
       </button>
       {#if advancedOpen}
         <div class="adv-body">
+          <div class="adv-row">
+            <span class="adv-label tag">difficulty</span>
+            <div class="diff-row">
+              {#each difficultyOptions as opt (opt.id)}
+                <button
+                  type="button"
+                  class="diff-chip"
+                  class:selected={selectedDifficulty === opt.id}
+                  aria-pressed={selectedDifficulty === opt.id}
+                  onclick={() => prefsStore.setLastDifficulty(opt.id)}
+                >
+                  {opt.label}
+                </button>
+              {/each}
+            </div>
+            <p class="adv-note mono">{selectedDescription}</p>
+          </div>
           <label class="adv-row">
             <span class="adv-label tag">seed</span>
             <input
@@ -296,6 +329,40 @@
     text-align: left;
     font-size: 12px;
     line-height: 1.4;
+  }
+
+  .diff-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--sp-xxs);
+  }
+
+  .diff-chip {
+    font-family: var(--font-body);
+    font-variant: small-caps;
+    letter-spacing: 0.06em;
+    font-size: 12px;
+    color: var(--text-dim);
+    background: var(--bg);
+    border: 1px solid var(--candle-soft);
+    border-radius: var(--radius-sm);
+    padding: 8px 6px;
+    min-height: 36px;
+    transition:
+      background var(--m-fast) var(--ease),
+      color var(--m-fast) var(--ease),
+      border-color var(--m-fast) var(--ease);
+  }
+
+  .diff-chip:hover,
+  .diff-chip:focus-visible {
+    color: var(--text);
+  }
+
+  .diff-chip.selected {
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--accent);
+    border-color: var(--accent);
   }
 
   .foot {

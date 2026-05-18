@@ -249,16 +249,75 @@ ol {
   animation: rise-in var(--m-base) var(--ease) both;
 }
 
+/* Phase 98 — Player-controlled reduced-motion override.
+ *
+ * The OS `prefers-reduced-motion` media query stays the default
+ * (the `'auto'` value in preferences). When the player explicitly
+ * sets reduced motion to `'on'` or `'off'`, we apply or cancel the
+ * effect via a `data-reduced-motion` attribute on `<html>` — set by
+ * `App.svelte`'s prefs effect.
+ *
+ * Order: `[data-reduced-motion='true']` and the media query both
+ * apply when active; `[data-reduced-motion='false']` is the explicit
+ * cancel that resets durations back to their token defaults so the
+ * player can override the OS preference downward.
+ */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  :root:not([data-reduced-motion='false']) *,
+  :root:not([data-reduced-motion='false']) *::before,
+  :root:not([data-reduced-motion='false']) *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
-  .flicker {
+  :root:not([data-reduced-motion='false']) .flicker {
     animation: none;
     opacity: 1;
   }
+}
+
+[data-reduced-motion='true'] *,
+[data-reduced-motion='true'] *::before,
+[data-reduced-motion='true'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+[data-reduced-motion='true'] .flicker {
+  animation: none;
+  opacity: 1;
+}
+
+/* Phase 98 — Player-controlled font scaling.
+ *
+ * Adjusts the root font-size so any rem-relative sizing in the design
+ * tokens scales with the player's pick. Most existing tokens are px,
+ * so the visible change at sm/lg is modest by design — this is a
+ * comfort knob, not a typography rework. The Settings copy in
+ * `SettingsSection.svelte` says "affects body text" to set the
+ * expectation.
+ */
+:root[data-font-scale='sm'] {
+  font-size: 15px;
+}
+:root[data-font-scale='lg'] {
+  font-size: 19px;
+}
+
+/* Phase 98 — First-encounter hint pulse. The `.first-encounter-pulse`
+ * class is applied to a `TermLabel` chip while its hint is on screen
+ * so the player can spot the source of the popover. Subtle, no jank.
+ */
+@keyframes first-encounter-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+}
+
+.first-encounter-pulse {
+  animation: first-encounter-pulse 1.8s ease-in-out infinite;
 }

@@ -686,6 +686,30 @@ const MECHANIC_TERMS: GlossaryTerm[] = [
     oneLine: 'A small pill that surfaces when you return after a few hours away.',
     longer: 'Real-world clock only — the tavern does not run while the app is closed. The pill auto-dismisses after the first beat advance or 30 seconds, whichever comes first.',
   },
+  // Phase 98 — Anchors referenced by the More > Help section so the
+  // help row buttons resolve to real glossary entries rather than
+  // invented copy.
+  {
+    id: 'settings',
+    label: 'Settings',
+    category: 'mechanic',
+    oneLine: 'Display, comfort, and tutorial toggles, separate from your save.',
+    longer: 'Lives under the More tab. Preferences are stored in their own browser slot and survive Start Over — losing a slider position to a corrupted save would be a bad UX, so they never share storage.',
+  },
+  {
+    id: 'save_slots',
+    label: 'Save Slots',
+    category: 'mechanic',
+    oneLine: 'Named snapshots in addition to the always-on autosave.',
+    longer: 'Up to five named snapshots live alongside the rolling autosave. Loading a snapshot replaces the current run after a confirm; export downloads a JSON file you can keep elsewhere or share.',
+  },
+  {
+    id: 'font_scale',
+    label: 'Font Scale',
+    category: 'mechanic',
+    oneLine: 'A comfort knob for body text size. Three steps, sticky across sessions.',
+    longer: 'Adjusts the root font-size so the body text in cards, reports, and panels scales. Header type and tags stay fixed for layout stability.',
+  },
 ]
 
 // Phase 94 — Tavern Log vocabulary. One term per `HistoryCategory` plus

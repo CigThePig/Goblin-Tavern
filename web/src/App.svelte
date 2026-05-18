@@ -4,6 +4,7 @@
   import StartScreen from './lib/screens/StartScreen.svelte'
   import DayScreen from './lib/screens/DayScreen.svelte'
   import ReportsScreen from './lib/screens/ReportsScreen.svelte'
+  import TavernScreen from './lib/screens/TavernScreen.svelte'
   import ComingSoon from './lib/screens/ComingSoon.svelte'
   import Glossary from './lib/components/Glossary.svelte'
   import { glossaryStore } from './lib/glossary/glossaryStore.svelte'
@@ -31,10 +32,7 @@
     {:else if view === 'reports'}
       <ReportsScreen />
     {:else if view === 'tavern'}
-      <ComingSoon
-        title="Tavern"
-        body="Areas, stock, recipes, staff, projects, policies. State-as-place. Wiring up in phase 92."
-      />
+      <TavernScreen />
     {:else if view === 'world'}
       <ComingSoon
         title="World"

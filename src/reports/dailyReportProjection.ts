@@ -27,8 +27,10 @@ import type { DailyServiceResult } from '../sim/modules/service/types'
 
 import { closedDayAbsolute } from './causeLookup'
 import { composeEmpty } from '../cards/voice/index'
+import { projectMissedOpportunities } from './missedOpportunityProjection'
 import type {
   DailyReportData,
+  MissedOpportunityLine,
   ReportCalendarHeader,
   ReportDiffLine,
   ReportDirection,
@@ -71,6 +73,12 @@ export type BuildDailyReportOptions = {
    * ordinal but loses week/month-boundary accuracy.
    */
   previousCalendar?: CalendarState
+  /**
+   * Phase 97 — Per-day dismissed missed-opportunity ids. Filtered out
+   * of the projection so once a player dismisses a hint it stays gone
+   * for that closed day.
+   */
+  dismissedMissedOpportunityIds?: ReadonlySet<string>
 }
 
 export function buildDailyReport(
@@ -92,6 +100,16 @@ export function buildDailyReport(
   const serviceLines = projectServiceLines(result)
   const risingPressures = projectRisingPressures(result, state)
   const futureHooks = projectFutureHooks(state, closedDay)
+  const missedOpportunities: MissedOpportunityLine[] = projectMissedOpportunities(
+    result,
+    state,
+    {
+      closedDay,
+      ...(options.dismissedMissedOpportunityIds
+        ? { dismissedIds: options.dismissedMissedOpportunityIds }
+        : {}),
+    },
+  )
   const weeklyDigest = projectDigest(result, 'weekly')
   const monthlyDigest = projectDigest(result, 'monthly')
 
@@ -102,6 +120,7 @@ export function buildDailyReport(
     serviceLines.length === 0 &&
     risingPressures.length === 0 &&
     futureHooks.length === 0 &&
+    missedOpportunities.length === 0 &&
     coinDelta === 0 &&
     reputationDeltas.length === 0
 
@@ -120,6 +139,7 @@ export function buildDailyReport(
     serviceLines,
     risingPressures,
     futureHooks,
+    ...(missedOpportunities.length > 0 ? { missedOpportunities } : {}),
     ...(weeklyDigest ? { weeklyDigest } : {}),
     ...(monthlyDigest ? { monthlyDigest } : {}),
     ...(quietLine ? { quietLine } : {}),

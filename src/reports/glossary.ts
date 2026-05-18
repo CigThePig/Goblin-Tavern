@@ -656,6 +656,14 @@ const MECHANIC_TERMS: GlossaryTerm[] = [
     oneLine: 'A name people in the area call your tavern — emerges from sustained, public rumours.',
     longer: 'Nicknames live in `state.world.socialRumours` tagged "nickname". The strip surfaces up to two by strength; only rumours whose accuracy is not "false" appear.',
   },
+  // Phase 97 — Missed-opportunity affordance on the daily report.
+  {
+    id: 'missed_opportunity',
+    label: 'Missed Opportunity',
+    category: 'mechanic',
+    oneLine: 'A moment where an earlier action would have prevented or eased today\'s problem.',
+    longer: 'Each daily report can include up to three of these. They aren\'t blame — the sim shows the path you didn\'t take so you learn the action surface without a tutorial. Tap the small dismiss button if a hint isn\'t useful for today.',
+  },
   // Phase 96 — Session continuity.
   {
     id: 'autosave',

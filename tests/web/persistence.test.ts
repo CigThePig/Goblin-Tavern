@@ -228,6 +228,55 @@ describe('persistence — failure modes', () => {
   })
 })
 
+describe('persistence — dismissed missed opportunities (Phase 97)', () => {
+  it('round-trips a non-empty dismissed-ids array', () => {
+    const base = makeBasicSession()
+    const ids = [
+      'missed_opp:3:pressure_remedy:clean_area:kitchen',
+      'missed_opp:3:ignored_seed:buy:seed-shortage',
+    ]
+    const session: PersistedSession = {
+      ...base,
+      dismissedMissedOpportunityIds: ids,
+    }
+    saveSession(session)
+    const out = loadSession()
+    expect(out.kind).toBe('loaded')
+    if (out.kind !== 'loaded') return
+    expect(out.save.dismissedMissedOpportunityIds).toEqual(ids)
+  })
+
+  it('an old save with no field hydrates with an empty array', () => {
+    const session = makeBasicSession()
+    saveSession(session)
+    const raw = storage.getItem(SAVE_STORAGE_KEY)!
+    const blob = JSON.parse(raw)
+    // Explicitly remove the field to simulate a pre-Phase-97 save.
+    delete blob.dismissedMissedOpportunityIds
+    storage.setItem(SAVE_STORAGE_KEY, JSON.stringify(blob))
+    const out = loadSession()
+    expect(out.kind).toBe('loaded')
+    if (out.kind !== 'loaded') return
+    expect(out.save.dismissedMissedOpportunityIds).toEqual([])
+  })
+
+  it('ignores non-string entries in the persisted array', () => {
+    const session = makeBasicSession()
+    saveSession(session)
+    const raw = storage.getItem(SAVE_STORAGE_KEY)!
+    const blob = JSON.parse(raw)
+    blob.dismissedMissedOpportunityIds = ['valid-id', 123, null, 'another-id']
+    storage.setItem(SAVE_STORAGE_KEY, JSON.stringify(blob))
+    const out = loadSession()
+    expect(out.kind).toBe('loaded')
+    if (out.kind !== 'loaded') return
+    expect(out.save.dismissedMissedOpportunityIds).toEqual([
+      'valid-id',
+      'another-id',
+    ])
+  })
+})
+
 describe('persistence — clearSession', () => {
   it('clears the stored save and returns fresh on the next load', () => {
     const session = makeBasicSession()

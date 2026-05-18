@@ -14,6 +14,14 @@ export {
   TAG_FACET_LIMIT,
 } from './tavernLogProjection'
 export { projectYesterdayDigest } from './yesterdayDigest'
+export { projectMissedOpportunities } from './missedOpportunityProjection'
+export { PRESSURE_REMEDIES, resolveRemedyTarget } from './pressureRemedyMap'
+export type { RemedyEntry } from './pressureRemedyMap'
+export type {
+  MissedOpportunityKind,
+  MissedOpportunityLine,
+  ProjectMissedOpportunitiesOptions,
+} from './missedOpportunityProjection'
 export { resolveEntityLabel, resolveBareEntityId } from './entityLabels'
 export {
   causesForPath,

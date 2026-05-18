@@ -70,6 +70,13 @@ export type PersistedSession = {
   pendingBySeedId: Record<string, PendingChoice>
   daySession: DaySessionSnapshot
   route: Route
+  /**
+   * Phase 97 — Per-day dismissed missed-opportunity ids. Pruned at day
+   * rollover to a 7-day window. Optional in storage so old saves
+   * (created before Phase 97 landed) hydrate to an empty set without
+   * an `incompatible` bounce.
+   */
+  dismissedMissedOpportunityIds?: string[]
 }
 
 export type LoadOutcome =
@@ -254,6 +261,12 @@ export function loadSession(): LoadOutcome {
     ? (latestResultLiteRaw as LatestResultLite)
     : undefined
 
+  const dismissedRaw = (parsed as { dismissedMissedOpportunityIds?: unknown })
+    .dismissedMissedOpportunityIds
+  const dismissedMissedOpportunityIds: string[] = Array.isArray(dismissedRaw)
+    ? dismissedRaw.filter((v): v is string => typeof v === 'string')
+    : []
+
   const save: PersistedSession = {
     saveVersion: SAVE_VERSION,
     savedAt,
@@ -264,6 +277,7 @@ export function loadSession(): LoadOutcome {
     pendingBySeedId,
     daySession,
     route,
+    dismissedMissedOpportunityIds,
     ...(previousCalendar ? { previousCalendar } : {}),
     ...(latestResultLite ? { latestResultLite } : {}),
   }

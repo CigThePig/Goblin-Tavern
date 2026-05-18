@@ -11,8 +11,10 @@
 -->
 <script lang="ts">
   import CauseDrilldown from './CauseDrilldown.svelte'
+  import MissedOpportunities from './MissedOpportunities.svelte'
   import PressureCard from './PressureCard.svelte'
   import TermLabel from './TermLabel.svelte'
+  import { gameStore } from '../sim/gameStore.svelte'
   import type {
     DailyReportData,
     ReportDiffLine,
@@ -25,6 +27,10 @@
   }: {
     report: DailyReportData
   } = $props()
+
+  function dismissMissedOpportunity(id: string) {
+    gameStore.dismissMissedOpportunity(id)
+  }
 
   let drilldownPath = $state<string | undefined>(undefined)
   let drilldownOpen = $state(false)
@@ -175,6 +181,14 @@
         {/each}
       </ul>
     </section>
+  {/if}
+
+  <!-- ── What you could have done (Phase 97) ───────────────────── -->
+  {#if report.missedOpportunities && report.missedOpportunities.length > 0}
+    <MissedOpportunities
+      opportunities={report.missedOpportunities}
+      ondismiss={dismissMissedOpportunity}
+    />
   {/if}
 
   <!-- ── What's building ────────────────────────────────────────── -->

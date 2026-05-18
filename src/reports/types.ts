@@ -5,7 +5,7 @@
 // of simulation output, analogous to `src/cards/`. The simulation
 // never imports from here; the report layer freely imports sim types.
 
-import type { CauseEntry, MemoryState } from '../sim/state/TavernState'
+import type { CauseEntry, EntityRef, MemoryState } from '../sim/state/TavernState'
 import type { CalendarState } from '../sim/modules/calendar/types'
 import type { ResolvedIntentRecord } from '../sim/modules/responses/types'
 import type {
@@ -85,6 +85,34 @@ export type ReportDigest = {
   lines: string[]
 }
 
+// Phase 97 — Missed-opportunity projection. The daily report surfaces
+// up to three "you could have done X" hints between "What happened" and
+// "What's building". Computed purely from existing sim outputs (causes,
+// applied owner actions, ignored seeds, pressure snapshots).
+export type MissedOpportunityKind =
+  | 'pressure_remedy'
+  | 'ignored_seed'
+  | 'diff_counterfactual'
+
+export type MissedOpportunityLine = {
+  /** Stable id used for dedup keys and per-day dismissal. */
+  id: string
+  kind: MissedOpportunityKind
+  /** Primary line, ≤ 14 words. Hypothetical mood. */
+  readable: string
+  /** Optional rationale line, ≤ 10 words. */
+  secondary?: string
+  actionId: string
+  actionLabel: string
+  targetRef?: EntityRef
+  targetLabel?: string
+  pressureId?: string
+  seedId?: string
+  diffPath?: string
+  /** Sort key — higher = stronger signal. */
+  impact: number
+}
+
 export type ReportCalendarHeader = {
   /** The day-number of the day that just closed (per totalDaysElapsed). */
   closedDayOrdinal: number
@@ -112,6 +140,8 @@ export type DailyReportData = {
   serviceLines: ReportServiceLine[]
   risingPressures: ReportPressureLine[]
   futureHooks: ReportHookLine[]
+  /** Phase 97 — "What you could have done" block. Up to 3 lines. */
+  missedOpportunities?: MissedOpportunityLine[]
   weeklyDigest?: ReportDigest
   monthlyDigest?: ReportDigest
   /** Truthy if the report has nothing meaningful to show. */

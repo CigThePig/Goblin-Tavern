@@ -107,6 +107,7 @@
     if (!result) return undefined
     return buildDailyReport(result, gameStore.state, {
       ...(gameStore.previousCalendar ? { previousCalendar: gameStore.previousCalendar } : {}),
+      dismissedMissedOpportunityIds: gameStore.dismissedMissedOpportunityIds,
     })
   })
 

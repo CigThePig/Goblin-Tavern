@@ -33,6 +33,7 @@ import {
 } from './actionBuilder'
 import {
   INITIAL_DAY_SESSION,
+  MISSED_OPPORTUNITY_DISMISSAL_WINDOW_DAYS,
   type Beat,
   type PendingChoice,
 } from './daySession'
@@ -85,6 +86,14 @@ class GameStore {
   hydrationError: string | undefined = $state(undefined)
 
   /**
+   * Phase 97 — Per-day dismissed missed-opportunity ids. Used by the
+   * daily-report projection to filter the "What you could have done"
+   * block. A new Set reference is assigned on every change so `$state`
+   * triggers downstream `$derived`s.
+   */
+  dismissedMissedOpportunityIds: Set<string> = $state(new Set())
+
+  /**
    * Run one simulated day. Bundles the queued picks, sticky staff
    * priorities, and any per-day response intents into a single
    * `simulateDay` call. Picks are reset after the engine call; staff
@@ -115,6 +124,8 @@ class GameStore {
     this.pendingBySeedId = {}
     this.serviceComplete = false
     this.closingComplete = false
+    // Phase 97 — Prune stale dismissal entries so the set stays bounded.
+    this.pruneMissedOpportunityDismissals()
     return result
   }
 
@@ -137,6 +148,7 @@ class GameStore {
     this.savedSnapshotJustLoaded = false
     this.lastSavedAt = undefined
     this.hydrationError = undefined
+    this.dismissedMissedOpportunityIds = new Set()
   }
 
   // ── Persistence boundary ─────────────────────────────────────────
@@ -163,6 +175,9 @@ class GameStore {
     this.savedSnapshotJustLoaded = true
     this.lastSavedAt = save.savedAt
     this.hydrationError = undefined
+    this.dismissedMissedOpportunityIds = new Set(
+      save.dismissedMissedOpportunityIds ?? [],
+    )
   }
 
   /**
@@ -203,6 +218,7 @@ class GameStore {
         closingComplete: this.closingComplete,
       },
       route: this.route,
+      dismissedMissedOpportunityIds: [...this.dismissedMissedOpportunityIds],
     }
   }
 
@@ -305,6 +321,53 @@ class GameStore {
   dismissWelcomeBack(): void {
     this.savedSnapshotJustLoaded = false
   }
+
+  // ── Missed-opportunity dismissals (Phase 97) ────────────────────
+
+  /** Mark a missed-opportunity hint as dismissed. The id is the
+   *  projection's stable `missed_opp:{closedDay}:{kind}:{actionId}:{targetId}`
+   *  string. A new Set reference is assigned to trigger `$state`. */
+  dismissMissedOpportunity(id: string): void {
+    if (this.dismissedMissedOpportunityIds.has(id)) return
+    const next = new Set(this.dismissedMissedOpportunityIds)
+    next.add(id)
+    this.dismissedMissedOpportunityIds = next
+  }
+
+  /**
+   * Drop dismissal entries whose `closedDay` (extracted from the id
+   * prefix `missed_opp:{closedDay}:…`) is older than the window.
+   * Called after `runDay` so the set never grows unbounded.
+   */
+  pruneMissedOpportunityDismissals(): void {
+    const cutoff =
+      this.state.calendar.totalDaysElapsed -
+      1 -
+      MISSED_OPPORTUNITY_DISMISSAL_WINDOW_DAYS
+    if (this.dismissedMissedOpportunityIds.size === 0) return
+    const next = new Set<string>()
+    let changed = false
+    for (const id of this.dismissedMissedOpportunityIds) {
+      const closedDay = parseClosedDay(id)
+      if (closedDay === undefined || closedDay >= cutoff) {
+        next.add(id)
+      } else {
+        changed = true
+      }
+    }
+    if (changed) {
+      this.dismissedMissedOpportunityIds = next
+    }
+  }
+}
+
+function parseClosedDay(id: string): number | undefined {
+  // id: `missed_opp:{closedDay}:{kind}:{actionId}:{targetId}`
+  const parts = id.split(':')
+  if (parts.length < 5) return undefined
+  if (parts[0] !== 'missed_opp') return undefined
+  const day = Number(parts[1])
+  return Number.isFinite(day) ? day : undefined
 }
 
 export const gameStore = new GameStore()

@@ -24,3 +24,12 @@ export const INITIAL_DAY_SESSION: DaySessionSnapshot = {
   serviceComplete: false,
   closingComplete: false,
 }
+
+/**
+ * Phase 97 — How long (in days) a per-line missed-opportunity dismissal
+ * survives in the save before being pruned. Seven days keeps a window
+ * wide enough for a player who flips back to a recent day's report to
+ * see their dismissals respected, narrow enough that the set stays
+ * tiny.
+ */
+export const MISSED_OPPORTUNITY_DISMISSAL_WINDOW_DAYS = 7

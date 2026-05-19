@@ -12,6 +12,7 @@
 -->
 <script lang="ts">
   import BottomSheet from './BottomSheet.svelte'
+  import TermLabel from './TermLabel.svelte'
   import { gameStore } from '../sim/gameStore.svelte'
   import {
     ACTION_POINT_BUDGET,
@@ -311,7 +312,7 @@
   {#snippet footer()}
     <div class="foot-row">
       <span class="budget mono" aria-live="polite">
-        action points: {pointsUsed} / {ACTION_POINT_BUDGET}
+        <TermLabel term="action_points" label="action points" />: {pointsUsed} / {ACTION_POINT_BUDGET}
       </span>
       <button class="confirm" type="button" onclick={onclose}>
         Done

@@ -501,6 +501,13 @@ const MECHANIC_TERMS: GlossaryTerm[] = [
     longer: 'Reliability shifts with completed jobs (success raises it, failures and lost runs lower it). A long-trusted adventurer becomes a known quantity.',
   },
   {
+    id: 'project',
+    label: 'Project',
+    category: 'mechanic',
+    oneLine: 'A multi-day construction or social effort the owner commits to. Progresses each day until it pays out.',
+    longer: 'Projects appear under Plan the Day → Projects. Each banks progress toward a target; on completion they apply durable effects (a new area, a social outcome, a renown bump).',
+  },
+  {
     id: 'project_progress',
     label: 'Project Progress',
     category: 'mechanic',
@@ -709,6 +716,108 @@ const MECHANIC_TERMS: GlossaryTerm[] = [
     category: 'mechanic',
     oneLine: 'A comfort knob for body text size. Three steps, sticky across sessions.',
     longer: 'Adjusts the root font-size so the body text in cards, reports, and panels scales. Header type and tags stay fixed for layout stability.',
+  },
+  // Phase 118 — Terms surfaced by the clarity pass that previously
+  // lacked glossary entries.
+  {
+    id: 'upkeep',
+    label: 'Upkeep',
+    category: 'mechanic',
+    oneLine: 'Items the tavern consumes daily to keep running — firewood, mugs, raw ingredients.',
+    longer: 'Upkeep recipes never appear on the customer menu. They draw down stock automatically every day; "used for upkeep" pills explain falling quantities you didn\'t serve.',
+  },
+  {
+    id: 'queued_action',
+    label: 'Queued Action',
+    category: 'mechanic',
+    oneLine: 'A pick from Plan the Day that costs action points but applies tomorrow morning.',
+    longer: 'Action chips are queued during planning, not applied immediately. Tap one to cancel before ending the day. They run in order at the start of the next sim day.',
+  },
+  {
+    id: 'action_points',
+    label: 'Action Points',
+    category: 'mechanic',
+    oneLine: 'A unit of owner attention; you have 3 per day.',
+    longer: 'Owner actions cost 1–3 points. The cap is the day\'s most important constraint. Unspent points do not carry over.',
+  },
+  {
+    id: 'shortage',
+    label: 'Shortage',
+    category: 'mechanic',
+    oneLine: 'Stock that has dropped low enough to start hurting service.',
+    longer: 'A shortage triggers stock_shortage pressure. Recipes with shortage ingredients are blocked from being served. Watch the Stock panel for "low" pills.',
+  },
+  {
+    id: 'outcome_success',
+    label: 'Success',
+    category: 'mechanic',
+    oneLine: 'An expedition outcome — the runner returned with what was sought.',
+  },
+  {
+    id: 'outcome_partial_success',
+    label: 'Partial Success',
+    category: 'mechanic',
+    oneLine: 'An expedition outcome — partial haul, some risk realised.',
+  },
+  {
+    id: 'outcome_failure',
+    label: 'Failure',
+    category: 'mechanic',
+    oneLine: 'An expedition outcome — the runner came back empty-handed.',
+  },
+  {
+    id: 'outcome_runner_lost',
+    label: 'Runner Lost',
+    category: 'mechanic',
+    oneLine: 'An expedition outcome — the runner did not return. They are gone from the hireable roster.',
+  },
+  {
+    id: 'dayType_quiet_day',
+    label: 'Quiet Day',
+    category: 'mechanic',
+    oneLine: 'A day with no calendar pressure — low traffic, gentle pacing.',
+  },
+  {
+    id: 'dayType_supplier_day',
+    label: 'Supplier Day',
+    category: 'mechanic',
+    oneLine: 'A day when deliveries arrive and supplier offers are most likely.',
+  },
+  {
+    id: 'dayType_payday',
+    label: 'Payday',
+    category: 'mechanic',
+    oneLine: 'A weekly day when staff wages and patron purses run heavy.',
+  },
+  {
+    id: 'dayType_market_day',
+    label: 'Market Day',
+    category: 'mechanic',
+    oneLine: 'A weekly day when traffic spikes and rare ingredients appear in passing trade.',
+  },
+  {
+    id: 'dayType_festival_eve',
+    label: 'Festival Eve',
+    category: 'mechanic',
+    oneLine: 'The night before a festival — anticipation, prep, premium prices.',
+  },
+  {
+    id: 'dayType_festival_day',
+    label: 'Festival Day',
+    category: 'mechanic',
+    oneLine: 'A festival itself — busiest traffic, biggest risks, biggest rewards.',
+  },
+  {
+    id: 'dayType_rent_day',
+    label: 'Rent Day',
+    category: 'mechanic',
+    oneLine: 'A monthly day when the landlord collects.',
+  },
+  {
+    id: 'dayType_inspection_day',
+    label: 'Inspection Day',
+    category: 'mechanic',
+    oneLine: 'A day when an inspector visits — food safety, cleanliness, and house rules all under scrutiny.',
   },
 ]
 

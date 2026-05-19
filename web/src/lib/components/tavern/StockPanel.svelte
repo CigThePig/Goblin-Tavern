@@ -66,7 +66,9 @@
                 {#if row.isLow}<span class="warn-pill tag">low</span>{/if}
                 {#if row.isSpoiling}<span class="warn-pill tag">spoiling</span>{/if}
                 {#if row.isUpkeepConsumed}
-                  <span class="upkeep-pill tag">used for upkeep</span>
+                  <span class="upkeep-pill tag">
+                    <TermLabel term="upkeep" label="used for upkeep" />
+                  </span>
                 {/if}
               </div>
             </button>

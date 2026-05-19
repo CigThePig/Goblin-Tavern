@@ -35,6 +35,28 @@ how to verify the fix.
 - `superseded` — replaced by a later issue or arc. The entry stays in
   place as history; the `Superseded by:` field names the replacement.
 
+## Current work
+
+Next up, in this order:
+
+1. **ISSUE-058** — Web UI component test coverage gap (phase 119).
+2. **ISSUE-059** — Unprotected `$derived.by(...)` blocks across the web
+   layer (phase 120). Depends on ISSUE-057 (already done) and shares the
+   test-stack work with ISSUE-058.
+3. **Tier 4 Progressive Onboarding arc** — start at **ISSUE-060**
+   (phase 99, design contract); strictly linear through **ISSUE-077**
+   (phase 116). Locked design contract: `docs/plans/progressive-onboarding.md`.
+
+After Tier 4: no further work is planned in the tracker. The card-layer
+contract (`docs/plans/cards-contract.md`) is locked and waiting; new
+issues will be added here when that work starts.
+
+**Phase numbers vs. order.** Phase numbers are a file-naming convention,
+not an execution order — ISSUE-058 has phase 119 but is next because of
+its ISSUE-NNN ordering and the suggested sequencing rule below. Always
+follow this "Current work" list and the `Depends on` chains; ignore
+phase-number arithmetic when deciding what's next.
+
 ## Issue index
 
 | ID | Title | Grade | Status | Phase |
@@ -96,8 +118,8 @@ how to verify the fix.
 | ISSUE-055 | Area content unpinning and customer-area rotation | thin | done | 95 |
 | ISSUE-056 | Advisory UI validity and future card-choice guardrails | thin | done | 96 |
 | ISSUE-057 | End-of-day silent failure + UI error visibility | broken | done | 97 |
-| ISSUE-058 | Web UI component test coverage gap | thin | open | — |
-| ISSUE-059 | Unprotected `$derived.by(...)` blocks across the web layer | thin | open | — |
+| ISSUE-058 | Web UI component test coverage gap | thin | open | 119 |
+| ISSUE-059 | Unprotected `$derived.by(...)` blocks across the web layer | thin | open | 120 |
 | ISSUE-060 | Progressive Onboarding — design contract | design | open | 99 |
 | ISSUE-061 | `OnboardingState` slice + schema + migration | thin | open | 100 |
 | ISSUE-062 | `gateModule` + `unlocksModule` gating infrastructure | broken | open | 101 |
@@ -118,6 +140,7 @@ how to verify the fix.
 | ISSUE-077 | Migration finalize + fixture audit + integration walkthrough | broken | open | 116 |
 | ISSUE-078 | UI/UX clarity pass — humanize ids, paths, policies, recipes | broken | done | 117 |
 | ISSUE-079 | UI/UX comprehension pass — diff grouping, empty states, glossary, density | thin | done | 118 |
+| ISSUE-080 | More tab + save slots + first-encounter hints + difficulty (retroactive) | thin | done | 98 |
 
 ---
 
@@ -590,6 +613,7 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 - **Grade:** thin
 - **Status:** done
 - **Phase:** 65
+- **Supersedes:** ISSUE-007 (grow stock items roster)
 - **Evidence:**
   - `src/sim/registries/stockRegistry.ts` — 6 stock items, no rarity
     classification.
@@ -695,6 +719,7 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 - **Grade:** thin
 - **Status:** done
 - **Phase:** 68
+- **Supersedes:** ISSUE-009 (grow suppliers roster + specialty category)
 - **Evidence:**
   - `src/sim/content/suppliers/supplierRegistry.ts` — 4 suppliers, one
     per category. All goods provided are `common` tier.
@@ -799,6 +824,7 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 - **Grade:** thin
 - **Status:** done
 - **Phase:** 71
+- **Supersedes:** ISSUE-005 (grow staff roster + role-specific identity)
 - **Evidence:**
   - `src/sim/registries/staffRegistry.ts` — 3 roles, all with similar
     skill profiles (45–55). No skill differentiation against recipe
@@ -836,6 +862,7 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 - **Grade:** thin
 - **Status:** done
 - **Phase:** 72
+- **Supersedes:** ISSUE-008 (grow customer groups roster)
 - **Evidence:**
   - `src/sim/registries/customerRegistry.ts` — 5 groups, all active
     from day zero. No threshold-gated arrival.
@@ -872,6 +899,7 @@ second (026), reputation and acquisition paths next (027, 028, 029,
 - **Grade:** thin
 - **Status:** done
 - **Phase:** 73
+- **Supersedes:** ISSUE-006 (grow areas roster + un-pin `main_room`)
 - **Evidence:**
   - `src/sim/registries/areaRegistry.ts:32,49,66,83,100` — 5 areas,
     all generic.
@@ -2308,7 +2336,7 @@ can land with targeted regression coverage instead of one-off fixes.
 
 - **Grade:** thin
 - **Status:** open
-- **Phase:** —
+- **Phase:** 119
 - **Evidence:** `tests/web/` contained only data-layer tests (preferences,
   persistence, exportImport, subroutePersistence, queueValidity,
   firstEncounter, snapshots, difficulty) before ISSUE-057. Zero
@@ -2336,7 +2364,7 @@ can land with targeted regression coverage instead of one-off fixes.
 
 - **Grade:** thin
 - **Status:** open
-- **Phase:** —
+- **Phase:** 120
 - **Evidence:** 21 `$derived.by(...)` blocks across `web/src/lib/`
   (DayScreen, ReportsScreen, TavernScreen, TopBar, Glossary,
   PressuresDashboard, CommissionExpeditionSheet, PressureRibbon,
@@ -3026,6 +3054,60 @@ is the design seed for ISSUE-079.
   - Manual: end a busy day with mixed diffs; confirm grouped
     sections render and the area/stock detail sheets carry the
     moved-out metrics.
+
+---
+
+## Retroactively tracked phases
+
+These phases shipped before being recorded in the tracker. Entries here
+are intentionally lighter than the rest — they document what landed,
+not what was scoped, because the scoping happened in the phase plan.
+They exist so the tracker is a complete record of all phase work.
+
+### ISSUE-080 — More tab + save slots + first-encounter hints + difficulty (retroactive)
+
+- **Grade:** thin
+- **Status:** done
+- **Phase:** 98
+- **Implementation record:** `docs/plans/phase-98-more-tab.md`.
+- **Evidence:** Web UI had four bottom-nav tabs (Day, Reports, Tavern,
+  World) but no settings, save management, help, or about surface. The
+  `game-loop-and-ux.md §6` brief called for a fifth "More" tab; §9.4
+  flagged first-encounter tooltips as an open question; §2.1 flagged
+  new-game difficulty/seed options.
+- **Impact:** Returning players had no way to manage save slots beyond
+  the autosave, no way to reset or to change accessibility settings,
+  and no in-product help for unfamiliar terms. New players hit the
+  full simulation depth on Day 1 with no opt-in cushion.
+- **Scope (delivered):** Fifth bottom-nav tab with Settings (font scale,
+  reduced motion, show-seed-tags toggle, confirm-before-end-day toggle,
+  show-first-encounter-hints toggle, reset), Saves (autosave row + up
+  to 5 named snapshots with rename / delete / load / export / import),
+  Help, About. First-encounter hint system with per-term one-time
+  tooltips. 3-preset difficulty picker on the Start screen (lenient /
+  default / harsh) feeding the seed and starting modifiers.
+- **Depends on:** ISSUE-049 (persistence + migration framework).
+- **Test approach (delivered):** `tests/web/firstEncounter.test.ts`,
+  `tests/web/snapshots.test.ts`, `tests/web/difficulty.test.ts`,
+  plus the settings / saves round-trip tests in `tests/web/preferences.test.ts`
+  and `tests/web/persistence.test.ts`.
+
+---
+
+## Related notes
+
+External documents that inform tracker work but are not themselves
+tracked issues:
+
+- `docs/plans/seven-pass-investigation-plan.md` — cross-cutting audit
+  that surfaced most of ISSUE-034…057.
+- `docs/plans/phase-53-59-tier2-followups.md` — perf notes from the
+  Tier 2 pass: `phase20.cardlessPlaytest` RAM growth and
+  `phase40.expandedReadiness` long runtime. Not currently tracked
+  as ISSUEs; the underlying behaviour predates the Tier 2 work.
+- `docs/P20F1.md` — investigation into the `response_impact` gate
+  scoring at 28 / 70 (catalog gap + scorer gap + threshold gap, in
+  that order).
 
 ---
 

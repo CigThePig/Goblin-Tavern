@@ -36,6 +36,24 @@ export type ReportDiffLine = {
   tags: string[]
 }
 
+/**
+ * Phase 118 — Grouped projection of the day's significant changes.
+ * `dailyReportProjection` populates this alongside the flat
+ * `topDiffs` list so the daily-report view can render one section
+ * per category instead of a wall of mixed rows. Every group is
+ * present even when empty so callers can iterate a stable order.
+ */
+export type GroupedDiffs = {
+  /** Coin delta + every `reputation.<axis>` change. */
+  coinAndReputation: ReportDiffLine[]
+  /** Every `stock.<id>.<field>` change. */
+  stock: ReportDiffLine[]
+  /** Every `pressures.<id>.value` change. */
+  pressures: ReportDiffLine[]
+  /** Every `areas.<id>.<field>` change. */
+  areas: ReportDiffLine[]
+}
+
 export type ReportReputationDelta = {
   axis: string
   label: string
@@ -159,7 +177,17 @@ export type DailyReportData = {
   coinAfter: number
   coinDelta: number
   reputationDeltas: ReportReputationDelta[]
+  /**
+   * Flat, capped list of the day's biggest diffs. Preserved for
+   * snapshot stability and any caller that wants a single bucket.
+   * The view layer prefers `groupedDiffs`.
+   */
   topDiffs: ReportDiffLine[]
+  /**
+   * Phase 118 — Same significant changes grouped by category for the
+   * Daily Report view. See {@link GroupedDiffs}.
+   */
+  groupedDiffs: GroupedDiffs
   ownerActionsApplied: ReportOwnerActionLine[]
   resolvedIntents: ReportResolvedIntent[]
   serviceLines: ReportServiceLine[]

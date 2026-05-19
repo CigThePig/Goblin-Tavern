@@ -18,7 +18,17 @@ export type ReportDirection = 'gain' | 'loss' | 'neutral'
 export type ReportDiffLine = {
   /** Diff path, used as the key for cause drilldown. */
   path: string
+  /**
+   * Engine-generated machine-readable form, e.g.
+   * `stock.ale.quantity 80 → 0 (-80)`. Kept for snapshot stability
+   * and log forwarding; the UI binds to `humanReadable` instead.
+   */
   readable: string
+  /**
+   * Phase 117 — Player-facing line, e.g. `Ale stock: 80 → 0 (−80)`.
+   * Populated by the projection via `humanizeDiff()`.
+   */
+  humanReadable: string
   direction: ReportDirection
   delta: number
   before: unknown
@@ -68,6 +78,12 @@ export type ReportOwnerActionLine = {
   actionId: string
   label: string
   targetId?: string
+  /**
+   * Phase 117 — Player-facing target label resolved from the action's
+   * `targetType` via `idLabel()`. Populated by the projection so the
+   * UI doesn't have to know how to translate per-category target ids.
+   */
+  targetLabel?: string
   actionPointCost: number
   effects: string[]
 }

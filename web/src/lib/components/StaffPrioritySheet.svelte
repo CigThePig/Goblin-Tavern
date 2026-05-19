@@ -17,6 +17,7 @@
     getAllowedPrioritiesForRole,
     getDefaultPriorityForRole,
   } from '../../../../src/sim/registries/staffPriorityRegistry'
+  import { idLabel } from '../../../../src/reports/labels/idLabel'
 
   let {
     open,
@@ -48,7 +49,7 @@
         <div class="row">
           <header class="who">
             <span class="name">{member.name.display}</span>
-            <span class="role tag">{member.role.replace(/_/g, ' ')}</span>
+            <span class="role tag">{idLabel('staffRole', member.role)}</span>
           </header>
           <div class="meters mono">
             <span>morale {member.morale}</span>

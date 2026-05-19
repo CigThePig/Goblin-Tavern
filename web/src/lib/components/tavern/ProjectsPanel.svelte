@@ -12,6 +12,7 @@
   import { gameStore } from '../../sim/gameStore.svelte'
   import { actionRegistry } from '../../../../../src/sim/registries/actionRegistry'
   import { categoryLabel } from '../../sim/actionBuilder'
+  import { idLabel } from '../../../../../src/reports/labels/idLabel'
   import type {
     AvailableProjectRow,
     PolicyRow,
@@ -111,7 +112,9 @@
           <li class="project">
             <header class="head">
               <span class="label">{project.label}</span>
-              <span class="status tag status-{project.status}">{project.status}</span>
+              <span class="status tag status-{project.status}">
+                {idLabel('projectStatus', project.status)}
+              </span>
             </header>
             <p class="meta tag">
               {#if project.targetLabel}
@@ -225,7 +228,7 @@
           <header class="head">
             <span class="label">{policy.label}</span>
             <span class="status tag" class:on={policy.enabled}>
-              {policy.enabled ? 'enabled' : 'disabled'}
+              {policy.enabled ? 'On' : 'Off'}
             </span>
           </header>
           {#if policy.enabled && policy.daysActive > 0}
@@ -247,9 +250,9 @@
               onclick={() => togglePolicy(policy)}
             >
               {#if queued}
-                queued · tap to remove
+                queued · tap to cancel
               {:else}
-                {policy.enabled ? 'queue disable' : 'queue enable'}
+                {policy.enabled ? 'Turn off' : 'Turn on'}
               {/if}
               {#if policy.toggleDisabledReason && !queued}
                 <span class="r">·{policy.toggleDisabledReason}</span>
@@ -272,7 +275,7 @@
           <li class="social outcome-{social.outcome}">
             <header class="s-head">
               <span class="s-label">{social.actionLabel}</span>
-              <span class="s-outcome tag">{social.outcome}</span>
+              <span class="s-outcome tag">{idLabel('socialOutcome', social.outcome)}</span>
             </header>
             <p class="s-meta tag">
               {social.targetLabel}

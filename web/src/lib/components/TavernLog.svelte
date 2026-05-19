@@ -21,6 +21,7 @@
 <script lang="ts">
   import TermLabel from './TermLabel.svelte'
   import { gameStore } from '../sim/gameStore.svelte'
+  import { idLabel } from '../../../../src/reports/labels/idLabel'
   import {
     buildTavernLog,
     HISTORY_CATEGORY_LABELS,
@@ -146,7 +147,7 @@
             aria-pressed={tagSet.has(facet.tag)}
             onclick={() => toggleTag(facet.tag)}
           >
-            {facet.tag} <span class="count mono">{facet.totalCount}</span>
+            {idLabel('logFacet', facet.tag)} <span class="count mono">{facet.totalCount}</span>
           </button>
         {/each}
       </div>
@@ -216,7 +217,7 @@
                         class="tag-pill"
                         class:active={tagSet.has(t)}
                         onclick={() => toggleTag(t)}
-                      >{t}</button>
+                      >{idLabel('logFacet', t)}</button>
                     {/each}
                   </div>
                 {/if}

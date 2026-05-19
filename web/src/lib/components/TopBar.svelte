@@ -3,10 +3,11 @@
   import { gameStore } from '../sim/gameStore.svelte'
   import { glossaryStore } from '../glossary/glossaryStore.svelte'
   import { relativeTime } from '../sim/persistence'
+  import { idLabel } from '../../../../src/reports/labels/idLabel'
 
   const cal = $derived(gameStore.state.calendar)
   const dayLabel = $derived(
-    `Day ${cal.day} · Week ${cal.week} · Month ${cal.month} · ${formatDayType(cal.dayType)}`,
+    `Day ${cal.day} · Week ${cal.week} · Month ${cal.month} · ${idLabel('dayType', cal.dayType)}`,
   )
   const coin = $derived(gameStore.state.coin)
 
@@ -20,13 +21,6 @@
     if (!gameStore.lastSavedAt) return undefined
     return relativeTime(gameStore.lastSavedAt, new Date())
   })
-
-  function formatDayType(d: string): string {
-    return d
-      .split('_')
-      .map((w) => w[0]!.toUpperCase() + w.slice(1))
-      .join(' ')
-  }
 
   function openGlossary() {
     glossaryStore.show()

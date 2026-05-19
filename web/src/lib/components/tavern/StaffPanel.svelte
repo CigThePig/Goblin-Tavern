@@ -23,7 +23,7 @@
 
 <section class="panel" aria-label="Staff">
   <p class="summary tag">
-    {data.rows.length} {data.rows.length === 1 ? 'staff' : 'staff'}
+    {data.rows.length} {data.rows.length === 1 ? 'staff member' : 'staff'}
     {#if data.unpaidCount > 0}
       · <span class="warn">{data.unpaidCount} unpaid this week</span>
     {/if}

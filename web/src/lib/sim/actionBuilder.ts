@@ -25,11 +25,16 @@ import {
   listValidTargets,
   makeReadOnlyCtx,
 } from '../../../../src/sim/modules/ownerActions/readonlyHelpers'
+import {
+  POLICY_STARTERS,
+  type PolicyStarterDefinition,
+} from '../../../../src/sim/modules/ownerActions/policyActions'
 import type {
   OwnerActionCategory,
   OwnerActionInput,
 } from '../../../../src/sim/modules/ownerActions/types'
 import type { SimInputOwnerAction } from '../../../../src/sim/core/context'
+import type { TavernState } from '../../../../src/sim/state/TavernState'
 
 export const ACTION_POINT_BUDGET = 3
 
@@ -197,6 +202,124 @@ function sanitizeSinglePick(
     ...(options !== undefined ? { options } : {}),
   }
   return sanitized
+}
+
+// Phase 117 — Policy toggle row support for ActionPicker.
+//
+// The owner-action registry carries paired `enable_X` / `disable_X`
+// definitions for every starter policy (14 actions for 7 policies).
+// Surfacing both halves of every pair is the visual of "Disable Allow
+// Tabs for Regulars" sitting next to "Enable Allow Tabs for Regulars"
+// — a double-negative inventory. Instead the picker renders one row
+// per policy and the helper resolves the matching half based on
+// current state. Conflict awareness is preserved by inspecting the
+// pick queue for the conflicting policy's enable action.
+
+export type PolicyToggleRow = {
+  policyId: string
+  label: string
+  effects: string
+  /** Current persisted state of the policy. */
+  enabled: boolean
+  /**
+   * The action that toggles the policy *given current state*. If
+   * `enabled === true`, this is the disable_X action; otherwise, the
+   * enable_X action.
+   */
+  actionId: string
+  actionPointCost: number
+  /**
+   * Already queued in the current pick list? Lets the row render an
+   * accent-styled chip-equivalent state and supports tap-to-cancel.
+   */
+  queued: boolean
+  /**
+   * Optional explainer for why the toggle is disabled (budget, missing
+   * registry entry, conflicting queued action). `undefined` means the
+   * row is interactive.
+   */
+  disabledReason?: string
+  /**
+   * Optional callout when the *conflicting* policy is queued in the
+   * same plan. Players can still queue this toggle, but the message
+   * makes the interaction legible.
+   */
+  conflictNote?: string
+}
+
+type ToggleQueryInput = {
+  state: TavernState
+  pointsLeft: number
+  picks: ReadonlyArray<PickedAction>
+}
+
+export function listPolicyToggleRows(input: ToggleQueryInput): PolicyToggleRow[] {
+  const { state, pointsLeft, picks } = input
+  const policies =
+    (state.modules['ownerActions'] as
+      | { policies?: Record<string, { enabled?: boolean }> }
+      | undefined)?.policies ?? {}
+  const queuedActionIds = new Set(picks.map((p) => p.actionId))
+
+  return POLICY_STARTERS.map((starter) =>
+    buildPolicyToggleRow(starter, policies, queuedActionIds, pointsLeft, picks),
+  ).sort((a, b) => a.label.localeCompare(b.label))
+}
+
+function buildPolicyToggleRow(
+  starter: PolicyStarterDefinition,
+  policies: Record<string, { enabled?: boolean }>,
+  queuedActionIds: Set<string>,
+  pointsLeft: number,
+  picks: ReadonlyArray<PickedAction>,
+): PolicyToggleRow {
+  const enabled = policies[starter.id]?.enabled === true
+  const actionId = enabled
+    ? `disable_${starter.policyType}`
+    : `enable_${starter.policyType}`
+  const inverseActionId = enabled
+    ? `enable_${starter.policyType}`
+    : `disable_${starter.policyType}`
+
+  const queued = queuedActionIds.has(actionId)
+  // If the inverse is queued, treat *this* row as not-queued — the
+  // queue resolves consistently because it inverts the policy back.
+  const inverseQueued = queuedActionIds.has(inverseActionId)
+
+  const row: PolicyToggleRow = {
+    policyId: starter.id,
+    label: starter.label,
+    effects: starter.effects[0] ?? '',
+    enabled,
+    actionId,
+    actionPointCost: 1,
+    queued,
+  }
+
+  if (!actionRegistry.has(actionId)) {
+    row.disabledReason = 'action not available'
+    return row
+  }
+
+  // Budget check uses pointsLeft inclusive of the row's own cost; if
+  // already queued, tapping cancels the pick so the budget check is
+  // skipped for the queued state.
+  if (!queued && !inverseQueued && pointsLeft < row.actionPointCost) {
+    row.disabledReason = `${row.actionPointCost} pt — out of action points`
+  }
+
+  if (starter.conflictsWith && starter.conflictsWith.length > 0) {
+    for (const conflictId of starter.conflictsWith) {
+      const conflictEnableId = `enable_${conflictId}`
+      if (picks.some((p) => p.actionId === conflictEnableId)) {
+        const conflictStarter = POLICY_STARTERS.find((p) => p.policyType === conflictId)
+        row.conflictNote = `Conflicts with queued ${conflictStarter?.label ?? conflictId}.`
+        break
+      }
+    }
+  }
+
+  return row
 }
 
 export function categoryLabel(c: OwnerActionCategory): string {

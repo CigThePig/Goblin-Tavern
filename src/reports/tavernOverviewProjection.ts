@@ -137,6 +137,14 @@ export type StockRow = {
   tags: string[]
   isLow: boolean
   isSpoiling: boolean
+  /**
+   * Phase 117 — true when this stock item is referenced by at least
+   * one `upkeep`-tagged recipe (firewood, mugs, raw ingredients).
+   * Lets the Stock panel surface a "used for upkeep" hint so players
+   * understand why the quantity drops without re-introducing the
+   * recipe to the Recipes menu.
+   */
+  isUpkeepConsumed: boolean
   applicableActions: ApplicableActionRef[]
 }
 
@@ -454,11 +462,28 @@ function projectStockRow(state: TavernState, item: StockState): StockRow {
     tags: [...item.tags],
     isLow: item.quantity <= LOW_QUANTITY_THRESHOLD,
     isSpoiling: item.spoilage >= SPOILAGE_THRESHOLD,
+    isUpkeepConsumed: stockConsumedByUpkeep(item.id),
     applicableActions,
   }
   if (item.storageAreaId !== undefined) row.storageAreaId = item.storageAreaId
   if (storageAreaLabel !== undefined) row.storageAreaLabel = storageAreaLabel
   return row
+}
+
+/**
+ * Phase 117 — true if at least one `upkeep`-tagged recipe consumes
+ * the given stock id. Used by `StockPanel.svelte` to render a "used
+ * for upkeep" hint on firewood/mug rows so the daily quantity drop
+ * is legible without re-introducing the recipe to the Recipes menu.
+ */
+function stockConsumedByUpkeep(stockId: string): boolean {
+  for (const def of recipeRegistry.all()) {
+    if (!def.tags.includes('upkeep')) continue
+    if (def.inputs.some((input) => input.ingredientId === stockId)) {
+      return true
+    }
+  }
+  return false
 }
 
 function projectSupplyPipeline(state: TavernState): SupplyPipelineData {
@@ -568,13 +593,25 @@ function projectCompleted(
 // ---------- Recipes ----------
 
 function projectRecipes(state: TavernState): RecipePanelData {
+  // Phase 117 — `upkeep`-tagged recipes (firewood, mugs, raw
+  // ingredient consumption) are simulation-side consumption pipelines,
+  // not player-facing menu choices. Filter them out of both lists so
+  // the Recipes panel only shows dishes a customer might order. The
+  // recipe instances stay in state and the service module still
+  // resolves them if explicitly referenced.
   const rows = Object.values(state.recipes)
+    .filter((r) => !isUpkeepRecipe(r.id))
     .map((r) => projectRecipeRow(state, r))
     .sort((a, b) => a.label.localeCompare(b.label))
   return {
     onMenu: rows.filter((r) => r.onMenu),
     available: rows.filter((r) => !r.onMenu),
   }
+}
+
+function isUpkeepRecipe(recipeId: string): boolean {
+  if (!recipeRegistry.has(recipeId)) return false
+  return recipeRegistry.get(recipeId).tags.includes('upkeep')
 }
 
 function projectRecipeRow(state: TavernState, recipe: RecipeState): RecipeRow {

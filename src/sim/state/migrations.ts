@@ -18,6 +18,10 @@
 import { FULL_PIPELINE } from '../canonicalPipeline'
 import type { SimulationModule } from '../core/module'
 import { createInitialWorldState, createInitialTavernState } from './defaults'
+import {
+  ensureRequiredRecipesRegistered,
+  recipeRegistry,
+} from '../registries/recipeRegistry'
 import { createStaffIdentity } from '../content/staff/staffIdentityFactory'
 import { ensureRequiredStaffIdentityProfilesRegistered } from '../content/staff/staffIdentityProfiles'
 import { createRngStreams } from '../core/rng'
@@ -200,6 +204,38 @@ export function ensureRecipesSlice<T extends { recipes?: unknown }>(
   }
   const defaults = createInitialTavernState().recipes
   return { ...state, recipes: defaults as Record<string, RecipeState> }
+}
+
+// Phase 117 / ISSUE-078 — pre-clarity-pass saves may have the three
+// upkeep recipes (dish_firewood, dish_mugs, dish_ingredients) stuck
+// `onMenu: true`. These were never meaningful menu items, so we flip
+// them off across all existing saves and refresh their `tags` from
+// the registry so the `'upkeep'` marker is present in state for
+// downstream filters. New saves start them off via the registry's
+// `defaultState`. Recipe instances stay in state for sim continuity.
+export function flipUpkeepRecipesOffMenu<T extends { recipes?: Record<string, RecipeState> }>(
+  state: T,
+): T {
+  if (!state.recipes || typeof state.recipes !== 'object') return state
+  ensureRequiredRecipesRegistered()
+  let changed = false
+  const next: Record<string, RecipeState> = { ...state.recipes }
+  for (const [id, recipe] of Object.entries(state.recipes)) {
+    if (!recipe || typeof recipe !== 'object') continue
+    if (!recipeRegistry.has(id)) continue
+    const def = recipeRegistry.get(id)
+    if (!def.tags.includes('upkeep')) continue
+    const tagsAlready = recipe.tags?.includes('upkeep') ?? false
+    if (recipe.onMenu === false && tagsAlready) continue
+    next[id] = {
+      ...recipe,
+      onMenu: false,
+      tags: tagsAlready ? recipe.tags : [...(recipe.tags ?? []), 'upkeep'],
+    }
+    changed = true
+  }
+  if (!changed) return state
+  return { ...state, recipes: next }
 }
 
 // Phase 89 / ISSUE-049 — pre-Phase-70 saves do not carry the

@@ -8,6 +8,7 @@
 <script lang="ts">
   import MeterBar from './MeterBar.svelte'
   import AreaDetailSheet from './AreaDetailSheet.svelte'
+  import { humanizeId } from '../../../../../src/reports/labels/idLabel'
   import type { AreaPanelData, AreaRow } from '../../../../../src/reports/tavernOverviewProjection'
 
   let { data }: { data: AreaPanelData } = $props()
@@ -46,7 +47,9 @@
             </div>
           {/if}
           {#if row.activeProblems.length > 0}
-            <p class="problems">⚠ {row.activeProblems.join(', ')}</p>
+            <p class="problems">
+              ⚠ {row.activeProblems.map((p) => humanizeId(p)).join(', ')}
+            </p>
           {/if}
         </button>
       </li>

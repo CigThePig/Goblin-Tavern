@@ -28,6 +28,9 @@ import type { DailyServiceResult } from '../sim/modules/service/types'
 import { closedDayAbsolute } from './causeLookup'
 import { composeEmpty } from '../cards/voice/index'
 import { projectMissedOpportunities } from './missedOpportunityProjection'
+import { humanizeDiff, humanizePath } from './labels/humanizePath'
+import { idLabel, humanizeId } from './labels/idLabel'
+import { actionRegistry } from '../sim/registries/actionRegistry'
 import type {
   DailyReportData,
   MissedOpportunityLine,
@@ -95,7 +98,7 @@ export function buildDailyReport(
   const { coinBefore, coinAfter, coinDelta } = coinBeforeAfter(allChanges, state)
   const reputationDeltas = projectReputationDeltas(significant)
   const topDiffs = projectTopDiffs(significant)
-  const ownerActionsApplied = projectOwnerActions(result)
+  const ownerActionsApplied = projectOwnerActions(result, state)
   const resolvedIntents = projectResolvedIntents(state)
   const serviceLines = projectServiceLines(result)
   const risingPressures = projectRisingPressures(result, state)
@@ -176,18 +179,11 @@ function buildHeader(
 
   return {
     closedDayOrdinal: totalElapsed,
-    dayLabel: `Day ${closedCalendarDay} · Week ${closedWeek} · Month ${closedMonth} · ${formatDayType(closedDayType)}`,
+    dayLabel: `Day ${closedCalendarDay} · Week ${closedWeek} · Month ${closedMonth} · ${idLabel('dayType', closedDayType)}`,
     isEndOfWeek,
     isEndOfMonth,
     ...(headerVoice ? { headerVoice } : {}),
   }
-}
-
-function formatDayType(value: string): string {
-  return value
-    .split('_')
-    .map((word) => (word ? word[0]!.toUpperCase() + word.slice(1) : word))
-    .join(' ')
 }
 
 // ---------- Coin / reputation ----------
@@ -229,15 +225,20 @@ function projectTopDiffs(significant: StateChange[]): ReportDiffLine[] {
   return [...significant]
     .sort((a, b) => Math.abs(b.delta ?? 0) - Math.abs(a.delta ?? 0))
     .slice(0, TOP_DIFFS_CAP)
-    .map((c) => ({
-      path: c.path,
-      readable: c.readable,
-      direction: changeDirection(c),
-      delta: Number(c.delta ?? 0),
-      before: c.before,
-      after: c.after,
-      tags: c.tags,
-    }))
+    .map((c) => {
+      const line: ReportDiffLine = {
+        path: c.path,
+        readable: c.readable,
+        humanReadable: '',
+        direction: changeDirection(c),
+        delta: Number(c.delta ?? 0),
+        before: c.before,
+        after: c.after,
+        tags: c.tags,
+      }
+      line.humanReadable = humanizeDiff(line)
+      return line
+    })
 }
 
 function changeDirection(change: StateChange): ReportDirection {
@@ -249,16 +250,81 @@ function changeDirection(change: StateChange): ReportDirection {
 
 // ---------- Owner actions ----------
 
-function projectOwnerActions(result: SimResult): ReportOwnerActionLine[] {
+function projectOwnerActions(
+  result: SimResult,
+  state: TavernState,
+): ReportOwnerActionLine[] {
   const section = result.reports.find((r) => r.id === 'ownerActions')
   const applied = (section?.data?.['applied'] as OwnerActionApplied[] | undefined) ?? []
-  return applied.map((a) => ({
-    actionId: a.actionId,
-    label: a.label,
-    ...(a.targetId !== undefined ? { targetId: a.targetId } : {}),
-    actionPointCost: a.actionPointCost,
-    effects: [...a.effects],
-  }))
+  return applied.map((a) => {
+    const line: ReportOwnerActionLine = {
+      actionId: a.actionId,
+      label: a.label,
+      actionPointCost: a.actionPointCost,
+      effects: [...a.effects],
+    }
+    if (a.targetId !== undefined) {
+      line.targetId = a.targetId
+      const targetLabel = resolveActionTargetLabel(a.actionId, a.targetId, state)
+      if (targetLabel) line.targetLabel = targetLabel
+    }
+    return line
+  })
+}
+
+/**
+ * Phase 117 — Resolve a player-facing label for an owner-action
+ * target. Reads the action definition's `targetType` (via the action
+ * registry) and dispatches to the matching id source:
+ * registry-backed lookups for area / stock / recipe / policy, and
+ * state-backed lookups for staff / regular / supplier / faction.
+ * Falls back to `humanizeId(targetId)` when no source resolves.
+ */
+function resolveActionTargetLabel(
+  actionId: string,
+  targetId: string,
+  state: TavernState,
+): string | undefined {
+  if (!actionRegistry.has(actionId)) return humanizeId(targetId)
+  const def = actionRegistry.get(actionId)
+  switch (def.targetType) {
+    case 'area':
+      return idLabel('area', targetId)
+    case 'stock':
+      return idLabel('stock', targetId)
+    case 'recipe':
+      return idLabel('recipe', targetId)
+    case 'policy':
+      return idLabel('policy', targetId)
+    case 'staff':
+      return state.staff[targetId]?.name.display ?? humanizeId(targetId)
+    case 'regular': {
+      const reg = state.world?.regulars?.[targetId]
+      return reg?.name?.display ?? humanizeId(targetId)
+    }
+    case 'supplier': {
+      const sup = state.world?.suppliers?.[targetId]
+      return sup?.name?.display ?? sup?.label ?? humanizeId(targetId)
+    }
+    case 'faction': {
+      const fac = state.world?.factions?.[targetId]
+      return fac?.label ?? humanizeId(targetId)
+    }
+    case 'customer_group': {
+      const cg = state.customerGroups?.[targetId]
+      return cg?.label ?? humanizeId(targetId)
+    }
+    case 'project': {
+      const projects =
+        (state.modules['ownerActions'] as { projects?: Record<string, { label?: string }> } | undefined)
+          ?.projects ?? {}
+      return projects[targetId]?.label ?? humanizeId(targetId)
+    }
+    case 'global':
+      return undefined
+    default:
+      return humanizeId(targetId)
+  }
 }
 
 // ---------- Resolved intents ----------
@@ -414,20 +480,12 @@ function projectDigest(result: SimResult, id: 'weekly' | 'monthly'): ReportDiges
 /**
  * Stable readable label for an arbitrary diff path, used by the
  * drilldown sheet when state lookups are unhelpful (e.g. coin).
+ *
+ * Phase 117 — delegates to the shared `humanizePath()` so the
+ * drilldown title matches the row text in the daily report.
  */
 export function formatDiffPathTitle(path: string): string {
-  if (path === 'coin') return 'Coin'
-  if (path.startsWith('reputation.')) {
-    const axis = path.slice('reputation.'.length)
-    const label =
-      REPUTATION_AXIS_LABELS[axis as keyof ReputationState] ?? axis
-    return `Reputation · ${label}`
-  }
-  if (path.startsWith('pressures.')) {
-    const id = path.slice('pressures.'.length).split('.')[0] ?? path
-    return `Pressure · ${id}`
-  }
-  return path
+  return humanizePath(path)
 }
 
 export { type CauseEntry }

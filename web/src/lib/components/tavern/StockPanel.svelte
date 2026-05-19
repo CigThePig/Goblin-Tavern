@@ -37,6 +37,9 @@
       {#if data.inventory.spoilingCount > 0}
         · <span class="warn">{data.inventory.spoilingCount} spoiling</span>
       {/if}
+      {#if data.inventory.rows.length > 0 && data.inventory.lowStockCount === 0 && data.inventory.spoilingCount === 0}
+        · <span class="ok">No shortages — supply is keeping up with demand.</span>
+      {/if}
     </p>
     {#if data.inventory.rows.length === 0}
       <p class="quiet">Storage is quiet.</p>
@@ -216,6 +219,10 @@
 
   .warn {
     color: var(--risk);
+  }
+
+  .ok {
+    color: var(--text-faint);
   }
 
   .quiet {

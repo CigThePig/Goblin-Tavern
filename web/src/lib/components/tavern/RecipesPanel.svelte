@@ -61,7 +61,10 @@
       <TermLabel term="on_menu" label="On menu" /> ({data.onMenu.length})
     </h2>
     {#if data.onMenu.length === 0}
-      <p class="quiet">No recipes on the menu. Customers will have nothing to order.</p>
+      <p class="quiet">
+        No recipes on the menu. Customers will have nothing to order.
+        Stew, Ale, and Mushrooms are good starters.
+      </p>
     {:else}
       <ul class="rows">
         {#each data.onMenu as row (row.id)}

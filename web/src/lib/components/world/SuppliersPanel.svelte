@@ -20,7 +20,9 @@
 
 <section class="panel" aria-label="Suppliers">
   {#if data.rows.length === 0}
-    <p class="empty">No suppliers yet.</p>
+    <p class="empty">
+      You haven't met any suppliers yet. They arrive as your reputation grows.
+    </p>
   {:else}
     <ul class="rows">
       {#each data.rows as row (row.id)}

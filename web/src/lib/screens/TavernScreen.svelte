@@ -19,6 +19,7 @@
   import { gameStore } from '../sim/gameStore.svelte'
   import { buildTavernOverview } from '../../../../src/reports/index'
   import type { TavernOverviewData } from '../../../../src/reports/tavernOverviewProjection'
+  import { safeProject, type ProjectionSlot } from '../sim/projectionSlot'
 
   type Subview = 'areas' | 'stock' | 'recipes' | 'staff' | 'projects'
 
@@ -38,7 +39,12 @@
   }
   let pickerOpen = $state(false)
 
-  const data = $derived<TavernOverviewData>(buildTavernOverview(gameStore.state))
+  // Phase 120 / ISSUE-059 — Wrap the cross-module projection so a throw
+  // surfaces a screen-local "unavailable" panel instead of unmounting
+  // the whole AppShell through the top-level boundary.
+  const data: ProjectionSlot<TavernOverviewData> = $derived.by(() =>
+    safeProject(() => buildTavernOverview(gameStore.state)),
+  )
 </script>
 
 <main class="tavern">
@@ -57,16 +63,23 @@
   </nav>
 
   <section class="content">
-    {#if subview === 'areas'}
-      <AreasPanel data={data.areas} />
-    {:else if subview === 'stock'}
-      <StockPanel data={data.stock} />
-    {:else if subview === 'recipes'}
-      <RecipesPanel data={data.recipes} />
-    {:else if subview === 'staff'}
-      <StaffPanel data={data.staff} />
-    {:else if subview === 'projects'}
-      <ProjectsPanel data={data.projects} />
+    {#if data.ok === 'success'}
+      {#if subview === 'areas'}
+        <AreasPanel data={data.data.areas} />
+      {:else if subview === 'stock'}
+        <StockPanel data={data.data.stock} />
+      {:else if subview === 'recipes'}
+        <RecipesPanel data={data.data.recipes} />
+      {:else if subview === 'staff'}
+        <StaffPanel data={data.data.staff} />
+      {:else if subview === 'projects'}
+        <ProjectsPanel data={data.data.projects} />
+      {/if}
+    {:else if data.ok === 'error'}
+      <div class="panel-error" role="alert" aria-label="Tavern overview unavailable">
+        <p class="panel-error-title">Tavern overview unavailable</p>
+        <p class="panel-error-message mono">{data.error}</p>
+      </div>
     {/if}
   </section>
 </main>
@@ -124,5 +137,30 @@
   .content {
     display: flex;
     flex-direction: column;
+  }
+
+  /* Phase 120 / ISSUE-059 — projection failure fallback. */
+  .panel-error {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xs);
+    padding: var(--sp-md);
+    background: color-mix(in srgb, var(--loss) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--loss) 40%, transparent);
+    border-radius: var(--radius-md);
+  }
+  .panel-error-title {
+    color: var(--text);
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .panel-error-message {
+    color: var(--text-dim);
+    font-size: 12px;
+    line-height: 1.4;
+    word-break: break-word;
+    padding: var(--sp-xs) var(--sp-sm);
+    background: var(--ink-deep);
+    border-radius: var(--radius-sm);
   }
 </style>

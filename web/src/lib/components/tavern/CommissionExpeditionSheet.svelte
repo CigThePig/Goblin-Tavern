@@ -10,6 +10,7 @@
   import { stockRegistry } from '../../../../../src/sim/registries/stockRegistry'
   import { actionRegistry } from '../../../../../src/sim/registries/actionRegistry'
   import { COMMISSION_EXPEDITION_ACTION_ID } from '../../../../../src/sim/modules/expeditions/commissionExpedition'
+  import { safeProject, type ProjectionSlot } from '../../sim/projectionSlot'
   import type {
     AdventurerRow,
     SupplyPipelineData,
@@ -43,18 +44,32 @@
   const cost = $derived(runner ? runner.wageBase * days : 0)
 
   // Rare ingredients catalog from the registry (uncommon / rare / legendary).
-  const ingredientCatalog = $derived.by(() => {
-    return stockRegistry
-      .all()
-      .filter((s) => s.defaultState.rarity && s.defaultState.rarity !== 'common')
-      .sort((a, b) => a.label.localeCompare(b.label))
-      .map((s) => ({
-        id: s.id,
-        label: s.label,
-        rarity: s.defaultState.rarity,
-        inStock: gameStore.state.stock[s.id]?.quantity ?? 0,
-      }))
-  })
+  // Phase 120 / ISSUE-059 — Wrap the registry read so a throw renders a
+  // small inline note instead of bubbling through the App boundary and
+  // unmounting the sheet's parent screen.
+  type IngredientRow = {
+    id: string
+    label: string
+    rarity: string | undefined
+    inStock: number
+  }
+  const ingredientCatalogSlot: ProjectionSlot<IngredientRow[]> = $derived.by(() =>
+    safeProject(() =>
+      stockRegistry
+        .all()
+        .filter((s) => s.defaultState.rarity && s.defaultState.rarity !== 'common')
+        .sort((a, b) => a.label.localeCompare(b.label))
+        .map((s) => ({
+          id: s.id,
+          label: s.label,
+          rarity: s.defaultState.rarity,
+          inStock: gameStore.state.stock[s.id]?.quantity ?? 0,
+        })),
+    ),
+  )
+  const ingredientCatalog = $derived(
+    ingredientCatalogSlot.ok === 'success' ? ingredientCatalogSlot.data : [],
+  )
 
   const enoughCoin = $derived(gameStore.state.coin >= cost)
 
@@ -209,7 +224,11 @@
     {:else}
       <section class="block">
         <p class="block-label tag">3 · Target ingredient</p>
-        {#if ingredientCatalog.length === 0}
+        {#if ingredientCatalogSlot.ok === 'error'}
+          <p class="quiet" role="status" aria-live="polite">
+            Couldn't load the ingredient catalog ({ingredientCatalogSlot.error}).
+          </p>
+        {:else if ingredientCatalog.length === 0}
           <p class="quiet">No rare ingredients in the registry.</p>
         {:else}
           <ul class="ingredients">

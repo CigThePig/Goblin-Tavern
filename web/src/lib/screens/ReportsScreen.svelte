@@ -26,6 +26,7 @@
   import type { DailyReportData } from '../../../../src/reports/types'
   import type { WeeklyOverviewData } from '../../../../src/reports/weeklyOverviewProjection'
   import type { MonthlyOverviewData } from '../../../../src/reports/monthlyOverviewProjection'
+  import { safeProject, type ProjectionSlot } from '../sim/projectionSlot'
 
   type Subview = 'today' | 'pressures' | 'weekly' | 'monthly' | 'log'
 
@@ -47,20 +48,9 @@
   // Phase 97 / ISSUE-057 — Discriminated unions so a throw from any of
   // the three projections renders an inline error panel instead of
   // silently blanking the section. 'empty' covers "no day has been
-  // simulated yet" (only meaningful for the daily report).
-  type ProjectionSlot<T> =
-    | { ok: 'success'; data: T }
-    | { ok: 'empty' }
-    | { ok: 'error'; error: string }
-
-  function safeProject<T>(fn: () => T): ProjectionSlot<T> {
-    try {
-      return { ok: 'success', data: fn() }
-    } catch (err) {
-      return { ok: 'error', error: err instanceof Error ? err.message : String(err) }
-    }
-  }
-
+  // simulated yet" (only meaningful for the daily report). Phase 119+120
+  // / ISSUE-058+059 lifted the type and helper into a shared module so
+  // every wrapped derived across the web layer uses the same shape.
   const report: ProjectionSlot<DailyReportData> = $derived.by(() => {
     const result = gameStore.latestResult
     if (!result) return { ok: 'empty' }

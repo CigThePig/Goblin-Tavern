@@ -53,10 +53,6 @@
                 <span class="qty mono">×{row.quantity}</span>
                 <span class="chev" aria-hidden="true">›</span>
               </header>
-              <div class="meters">
-                <MeterBar label="quality" value={row.quality} mode="wellness" />
-                <MeterBar label="freshness" value={row.freshness} mode="wellness" />
-              </div>
               <div class="meta">
                 <span class="rarity tag rarity-{row.rarity}">{row.rarity}</span>
                 <span class="price mono">{row.salePrice}c each</span>
@@ -257,7 +253,7 @@
     background: var(--surface);
     border: var(--border-faint);
     border-radius: var(--radius-md);
-    min-height: 88px;
+    min-height: 56px;
     transition: border-color var(--m-fast) var(--ease);
   }
 
@@ -285,12 +281,6 @@
 
   .chev {
     color: var(--text-faint);
-  }
-
-  .meters {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--sp-xs) var(--sp-md);
   }
 
   .meta {

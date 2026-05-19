@@ -8,12 +8,23 @@
 <script lang="ts">
   import MeterBar from './MeterBar.svelte'
   import AreaDetailSheet from './AreaDetailSheet.svelte'
-  import { humanizeId } from '../../../../../src/reports/labels/idLabel'
   import type { AreaPanelData, AreaRow } from '../../../../../src/reports/tavernOverviewProjection'
 
   let { data }: { data: AreaPanelData } = $props()
 
   let selected = $state<AreaRow | null>(null)
+
+  type WorstMeter = { label: 'dirty' | 'damage' | 'smell' | 'risk'; value: number }
+
+  function worstMeter(row: AreaRow): WorstMeter {
+    const candidates: WorstMeter[] = [
+      { label: 'dirty', value: 100 - row.cleanliness },
+      { label: 'damage', value: row.damage },
+      { label: 'smell', value: row.smell },
+      { label: 'risk', value: row.risk },
+    ]
+    return candidates.reduce((a, b) => (b.value > a.value ? b : a))
+  }
 
   function open(row: AreaRow) {
     selected = row
@@ -26,18 +37,21 @@
 <section class="panel" aria-label="Areas">
   <ul class="rows">
     {#each data.rows as row (row.id)}
+      {@const worst = worstMeter(row)}
       <li>
         <button class="row" type="button" onclick={() => open(row)}>
           <header class="head">
             <span class="label">{row.label}</span>
             <span class="adj tag">{row.conditionAdjective}</span>
+            {#if row.activeProblems.length > 0}
+              <span class="problem-badge tag" aria-label="{row.activeProblems.length} active problems">
+                ⚠ {row.activeProblems.length}
+              </span>
+            {/if}
             <span class="chev" aria-hidden="true">›</span>
           </header>
-          <div class="meters">
-            <MeterBar label="dirty" value={100 - row.cleanliness} mode="pressure" />
-            <MeterBar label="damage" value={row.damage} mode="pressure" />
-            <MeterBar label="smell" value={row.smell} mode="pressure" />
-            <MeterBar label="risk" value={row.risk} mode="pressure" />
+          <div class="single-meter">
+            <MeterBar label={worst.label} value={worst.value} mode="pressure" />
           </div>
           {#if row.traits.length > 0}
             <div class="traits">
@@ -45,11 +59,6 @@
                 <span class="trait tag">{trait.label}</span>
               {/each}
             </div>
-          {/if}
-          {#if row.activeProblems.length > 0}
-            <p class="problems">
-              ⚠ {row.activeProblems.map((p) => humanizeId(p)).join(', ')}
-            </p>
           {/if}
         </button>
       </li>
@@ -92,8 +101,8 @@
   }
 
   .head {
-    display: grid;
-    grid-template-columns: 1fr auto auto;
+    display: flex;
+    flex-wrap: wrap;
     align-items: baseline;
     gap: var(--sp-xs);
   }
@@ -102,6 +111,7 @@
     font-family: var(--font-body);
     font-size: 16px;
     color: var(--text);
+    margin-right: auto;
   }
 
   .adj {
@@ -113,11 +123,16 @@
     font-size: 16px;
   }
 
-  .meters {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--sp-xs) var(--sp-md);
+  .single-meter {
     margin-top: 2px;
+  }
+
+  .problem-badge {
+    color: var(--loss);
+    background: color-mix(in srgb, var(--loss) 14%, transparent);
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 600;
   }
 
   .traits {
@@ -132,12 +147,5 @@
     background: color-mix(in srgb, var(--candle-soft) 14%, transparent);
     padding: 2px 8px;
     border-radius: 999px;
-  }
-
-  .problems {
-    color: var(--loss);
-    font-style: italic;
-    font-size: 13px;
-    margin-top: 2px;
   }
 </style>

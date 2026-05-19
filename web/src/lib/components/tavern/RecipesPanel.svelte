@@ -30,6 +30,12 @@
     return gameStore.isQueued('toggle_recipe_menu', recipeId)
   }
 
+  function servedLabel(row: RecipeRow): string {
+    const parts = [`prep ${row.prepDifficulty}`]
+    if (row.timesServed > 0) parts.push(`served ${row.timesServed} times`)
+    return parts.join(' · ')
+  }
+
   let toggleError = $state<string | undefined>(undefined)
 
   function toggleMenu(row: RecipeRow, event: MouseEvent) {
@@ -89,13 +95,10 @@
                     .join(', ')}
                 </span>
                 <span class="tier tag rarity-{row.demandTier}">{row.demandTier}</span>
-                <span class="prep tag">prep {row.prepDifficulty}</span>
               </div>
+              <p class="meta-line tag">{servedLabel(row)}</p>
               {#if row.blocked}
                 <p class="blocked">⚠ {row.blockedReason}</p>
-              {/if}
-              {#if row.timesServed > 0}
-                <p class="served tag">served {row.timesServed} times</p>
               {/if}
             </div>
             <button
@@ -140,8 +143,8 @@
                     .join(', ')}
                 </span>
                 <span class="tier tag rarity-{row.demandTier}">{row.demandTier}</span>
-                <span class="prep tag">prep {row.prepDifficulty}</span>
               </div>
+              <p class="meta-line tag">{servedLabel(row)}</p>
               {#if row.blocked}
                 <p class="blocked">⚠ {row.blockedReason}</p>
               {/if}
@@ -308,18 +311,16 @@
     background: color-mix(in srgb, var(--rust) 16%, transparent);
   }
 
-  .prep {
+  .meta-line {
     color: var(--text-faint);
+    margin: 2px 0 0;
+    font-size: 12px;
   }
 
   .blocked {
     color: var(--loss);
     font-style: italic;
     font-size: 13px;
-  }
-
-  .served {
-    color: var(--text-faint);
   }
 
   .live-reason {

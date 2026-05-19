@@ -54,8 +54,6 @@
             </p>
             <div class="meters">
               <MeterBar label="morale" value={row.morale} mode="wellness" />
-              <MeterBar label="stress" value={row.stress} mode="pressure" />
-              <MeterBar label="fatigue" value={row.fatigue} mode="pressure" />
             </div>
             {#if row.currentPriorityLabel}
               <p class="priority tag">priority: {row.currentPriorityLabel}</p>
@@ -110,7 +108,7 @@
     background: var(--surface);
     border: var(--border-faint);
     border-radius: var(--radius-md);
-    min-height: 96px;
+    min-height: 72px;
     transition: border-color var(--m-fast) var(--ease);
   }
 
@@ -150,7 +148,7 @@
 
   .meters {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr;
     gap: var(--sp-xs) var(--sp-md);
   }
 

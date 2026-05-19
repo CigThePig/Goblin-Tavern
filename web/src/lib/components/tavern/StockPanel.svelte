@@ -47,7 +47,19 @@
       <ul class="rows">
         {#each data.inventory.rows as row (row.id)}
           <li>
-            <button class="row" type="button" onclick={() => open(row)}>
+            <div
+              class="row"
+              role="button"
+              tabindex={0}
+              onclick={() => open(row)}
+              onkeydown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  open(row)
+                }
+              }}
+              aria-label={`Open ${row.label}`}
+            >
               <header class="head">
                 <span class="label">{row.label}</span>
                 <span class="qty mono">×{row.quantity}</span>
@@ -67,7 +79,7 @@
                   </span>
                 {/if}
               </div>
-            </button>
+            </div>
           </li>
         {/each}
       </ul>

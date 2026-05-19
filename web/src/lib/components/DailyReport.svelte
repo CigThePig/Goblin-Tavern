@@ -191,6 +191,22 @@
       </ul>
     </section>
   {/if}
+  {#if report.groupedDiffs.other.length > 0}
+    <section class="block">
+      <h2 class="block-label tag">Other</h2>
+      <ul class="diff-list">
+        {#each report.groupedDiffs.other as d (d.path)}
+          <li>
+            <button class="diff-row" type="button" onclick={() => openDiffDrilldown(d)}>
+              <span class="diff-mark" data-dir={d.direction}>{diffMark(d)}</span>
+              <span class="diff-text">{d.humanReadable}</span>
+              <span class="diff-chevron tag">↗</span>
+            </button>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
 
   <!-- ── What happened ──────────────────────────────────────────── -->
   {#if report.ownerActionsApplied.length > 0 || report.resolvedIntents.length > 0 || report.serviceLines.length > 0}

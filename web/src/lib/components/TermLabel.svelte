@@ -49,8 +49,9 @@
 
   const pulsing = $derived(showHint && prefsStore.currentlyShowingHint === term)
 
-  function open() {
+  function open(e: MouseEvent) {
     if (!entry) return
+    e.stopPropagation()
     glossaryStore.show(term)
   }
 </script>

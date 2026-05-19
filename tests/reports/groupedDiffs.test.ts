@@ -182,9 +182,11 @@ describe('projectGroupedDiffs — Phase 118', () => {
     expect(Array.isArray(report.groupedDiffs.stock)).toBe(true)
     expect(Array.isArray(report.groupedDiffs.pressures)).toBe(true)
     expect(Array.isArray(report.groupedDiffs.areas)).toBe(true)
+    expect(Array.isArray(report.groupedDiffs.other)).toBe(true)
     expect(report.groupedDiffs.stock).toEqual([])
     expect(report.groupedDiffs.pressures).toEqual([])
     expect(report.groupedDiffs.areas).toEqual([])
+    expect(report.groupedDiffs.other).toEqual([])
   })
 
   it('each grouped line carries a populated humanReadable', () => {
@@ -212,7 +214,7 @@ describe('projectGroupedDiffs — Phase 118', () => {
     }
   })
 
-  it('drops unrecognised paths from the grouped view (but topDiffs keeps them)', () => {
+  it('routes unrecognised paths into the `other` bucket', () => {
     const result = makeResultWithDayChanges(
       [
         makeChange('coin', 0, 50),
@@ -221,12 +223,39 @@ describe('projectGroupedDiffs — Phase 118', () => {
       baseState,
     )
     const report = buildDailyReport(result, baseState)
-    // staff path doesn't fit any of the four groups
-    expect(report.groupedDiffs.coinAndReputation.length).toBe(1)
+    // coin lands in coinAndReputation; the unmapped staff path now
+    // surfaces in `other` instead of being silently dropped.
+    expect(report.groupedDiffs.coinAndReputation.map((d) => d.path)).toEqual(['coin'])
     expect(report.groupedDiffs.stock.length).toBe(0)
     expect(report.groupedDiffs.pressures.length).toBe(0)
     expect(report.groupedDiffs.areas.length).toBe(0)
+    expect(report.groupedDiffs.other.map((d) => d.path)).toEqual(['staff.s1.morale'])
     // Flat topDiffs still surfaces both
     expect(report.topDiffs.length).toBe(2)
+  })
+
+  it('collects staff / customers / recipes / world paths into `other` with humanized labels', () => {
+    const result = makeResultWithDayChanges(
+      [
+        makeChange('staff.s1.morale', 80, 50),
+        makeChange('customers.locals.sentiment', 60, 80),
+        makeChange('recipes.stew.onMenu', 0, 1),
+        makeChange('factions.tinkers_guild.standing', 0, -20),
+      ],
+      baseState,
+    )
+    const report = buildDailyReport(result, baseState)
+    const paths = report.groupedDiffs.other.map((d) => d.path).sort()
+    expect(paths).toEqual(
+      [
+        'customers.locals.sentiment',
+        'factions.tinkers_guild.standing',
+        'recipes.stew.onMenu',
+        'staff.s1.morale',
+      ].sort(),
+    )
+    for (const line of report.groupedDiffs.other) {
+      expect(line.humanReadable.length).toBeGreaterThan(0)
+    }
   })
 })

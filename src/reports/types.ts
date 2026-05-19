@@ -52,6 +52,14 @@ export type GroupedDiffs = {
   pressures: ReportDiffLine[]
   /** Every `areas.<id>.<field>` change. */
   areas: ReportDiffLine[]
+  /**
+   * Catch-all for significant changes that don't match the four named
+   * prefixes — staff, customers, recipes, and world-relationship slices
+   * (cultures, factions, suppliers, regulars, local events, social
+   * rumours, hireable adventurers). Keeps the classifier total so the
+   * daily view never silently drops a significant diff.
+   */
+  other: ReportDiffLine[]
 }
 
 export type ReportReputationDelta = {

@@ -32,6 +32,7 @@ function baseReport(overrides: Partial<DailyReportData> = {}): DailyReportData {
       stock: [],
       pressures: [],
       areas: [],
+      other: [],
     },
     ownerActionsApplied: [],
     resolvedIntents: [],

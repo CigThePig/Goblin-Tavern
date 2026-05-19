@@ -247,14 +247,15 @@ function projectTopDiffs(significant: StateChange[]): ReportDiffLine[] {
 }
 
 /**
- * Phase 118 — Group `significant` changes into the four buckets the
- * Daily Report view renders. Every line still flows through
- * `humanizeDiff()` so labels match the flat `topDiffs` list.
+ * Phase 118 — Group `significant` changes into the buckets the Daily
+ * Report view renders. Every line still flows through `humanizeDiff()`
+ * so labels match the flat `topDiffs` list.
  *
  * Process:
  *   1. Classify by path prefix into coin&reputation / stock /
- *      pressures / areas. Unrecognised paths (rare) are dropped from
- *      the grouped view but stay in `topDiffs`.
+ *      pressures / areas. Anything else (staff, customers, recipes,
+ *      world-relationship slices, …) lands in `other` so significant
+ *      diffs are never silently dropped.
  *   2. Sort each group by `|delta|` desc.
  *   3. Apply per-group cap (4).
  *   4. Enforce overall ceiling (12) by trimming the smallest-delta
@@ -266,10 +267,10 @@ function projectGroupedDiffs(significant: StateChange[]): GroupedDiffs {
     stock: [],
     pressures: [],
     areas: [],
+    other: [],
   }
   for (const c of significant) {
     const bucket = classifyDiffPath(c.path)
-    if (!bucket) continue
     const line: ReportDiffLine = {
       path: c.path,
       readable: c.readable,
@@ -292,13 +293,13 @@ function projectGroupedDiffs(significant: StateChange[]): GroupedDiffs {
   return groups
 }
 
-function classifyDiffPath(path: string): keyof GroupedDiffs | undefined {
+function classifyDiffPath(path: string): keyof GroupedDiffs {
   if (path === 'coin') return 'coinAndReputation'
   if (path.startsWith('reputation.')) return 'coinAndReputation'
   if (path.startsWith('stock.')) return 'stock'
   if (path.startsWith('pressures.') && path.endsWith('.value')) return 'pressures'
   if (path.startsWith('areas.')) return 'areas'
-  return undefined
+  return 'other'
 }
 
 function enforceOverallCap(groups: GroupedDiffs, cap: number): void {

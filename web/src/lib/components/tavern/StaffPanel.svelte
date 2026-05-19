@@ -28,37 +28,41 @@
       · <span class="warn">{data.unpaidCount} unpaid this week</span>
     {/if}
   </p>
-  <ul class="rows">
-    {#each data.rows as row (row.id)}
-      <li>
-        <button class="row" type="button" onclick={() => open(row)}>
-          <header class="head">
-            <span class="label">{row.name}</span>
-            {#if row.unavailable}
-              <span class="out tag">out</span>
+  {#if data.rows.length === 0}
+    <p class="quiet">
+      You have no staff. Hire from the World → Hireable list.
+    </p>
+  {:else}
+    <ul class="rows">
+      {#each data.rows as row (row.id)}
+        <li>
+          <button class="row" type="button" onclick={() => open(row)}>
+            <header class="head">
+              <span class="label">{row.name}</span>
+              {#if row.unavailable}
+                <span class="out tag">out</span>
+              {/if}
+              <span class="chev" aria-hidden="true">›</span>
+            </header>
+            <p class="role tag">
+              {row.roleLabel} · skill {row.skill} · {row.wage}c/wk
+              {#if row.paidThisWeek}
+                · paid
+              {:else}
+                · <span class="unpaid">unpaid</span>
+              {/if}
+            </p>
+            <div class="meters">
+              <MeterBar label="morale" value={row.morale} mode="wellness" />
+            </div>
+            {#if row.currentPriorityLabel}
+              <p class="priority tag">priority: {row.currentPriorityLabel}</p>
             {/if}
-            <span class="chev" aria-hidden="true">›</span>
-          </header>
-          <p class="role tag">
-            {row.roleLabel} · skill {row.skill} · {row.wage}c/wk
-            {#if row.paidThisWeek}
-              · paid
-            {:else}
-              · <span class="unpaid">unpaid</span>
-            {/if}
-          </p>
-          <div class="meters">
-            <MeterBar label="morale" value={row.morale} mode="wellness" />
-            <MeterBar label="stress" value={row.stress} mode="pressure" />
-            <MeterBar label="fatigue" value={row.fatigue} mode="pressure" />
-          </div>
-          {#if row.currentPriorityLabel}
-            <p class="priority tag">priority: {row.currentPriorityLabel}</p>
-          {/if}
-        </button>
-      </li>
-    {/each}
-  </ul>
+          </button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
 </section>
 
 <StaffDetailSheet staff={selected} open={selected !== null} onclose={close} />
@@ -78,6 +82,16 @@
     color: var(--risk);
   }
 
+  .quiet {
+    color: var(--text-faint);
+    font-style: italic;
+    padding: var(--sp-md);
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    border: var(--border-faint);
+    text-align: center;
+  }
+
   .rows {
     display: flex;
     flex-direction: column;
@@ -94,7 +108,7 @@
     background: var(--surface);
     border: var(--border-faint);
     border-radius: var(--radius-md);
-    min-height: 96px;
+    min-height: 72px;
     transition: border-color var(--m-fast) var(--ease);
   }
 
@@ -134,7 +148,7 @@
 
   .meters {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr;
     gap: var(--sp-xs) var(--sp-md);
   }
 

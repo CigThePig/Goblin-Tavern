@@ -134,10 +134,12 @@ Manual spot-checks per the screenshots:
 
 ## §8 — Follow-up phase: Comprehension Pass 2
 
-Tracked as `ISSUE-079`, `Phase 118`. When that phase begins, lift
-this section into its own file at
-`docs/plans/phase-118-ui-ux-comprehension-pass.md` per the
-per-issue workflow in `CLAUDE.md`.
+Tracked as `ISSUE-079`, `Phase 118`. The design seed below has been
+lifted into its own plan file at
+`docs/plans/phase-118-ui-ux-comprehension-pass.md` per the per-issue
+workflow in `CLAUDE.md`. The sub-sections that follow remain here as
+historical context for the original clarity-pass framing; the
+authoritative plan for Phase 118 lives in the lifted file.
 
 ### 8.1 Diff grouping in the Daily Report
 

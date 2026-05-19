@@ -33,6 +33,7 @@ import { idLabel, humanizeId } from './labels/idLabel'
 import { actionRegistry } from '../sim/registries/actionRegistry'
 import type {
   DailyReportData,
+  GroupedDiffs,
   MissedOpportunityLine,
   ReportCalendarHeader,
   ReportDiffLine,
@@ -60,6 +61,8 @@ const REPUTATION_AXIS_LABELS: Record<keyof ReputationState, string> = {
 }
 
 const TOP_DIFFS_CAP = 8
+const TOP_DIFFS_PER_GROUP_CAP = 4
+const TOP_DIFFS_OVERALL_CAP = 12
 const RISING_PRESSURE_CAP = 5
 const RISING_PRESSURE_MIN_VALUE = 25
 const HOOK_CAP = 5
@@ -98,6 +101,7 @@ export function buildDailyReport(
   const { coinBefore, coinAfter, coinDelta } = coinBeforeAfter(allChanges, state)
   const reputationDeltas = projectReputationDeltas(significant)
   const topDiffs = projectTopDiffs(significant)
+  const groupedDiffs = projectGroupedDiffs(significant)
   const ownerActionsApplied = projectOwnerActions(result, state)
   const resolvedIntents = projectResolvedIntents(state)
   const serviceLines = projectServiceLines(result)
@@ -137,6 +141,7 @@ export function buildDailyReport(
     coinDelta,
     reputationDeltas,
     topDiffs,
+    groupedDiffs,
     ownerActionsApplied,
     resolvedIntents,
     serviceLines,
@@ -239,6 +244,82 @@ function projectTopDiffs(significant: StateChange[]): ReportDiffLine[] {
       line.humanReadable = humanizeDiff(line)
       return line
     })
+}
+
+/**
+ * Phase 118 — Group `significant` changes into the four buckets the
+ * Daily Report view renders. Every line still flows through
+ * `humanizeDiff()` so labels match the flat `topDiffs` list.
+ *
+ * Process:
+ *   1. Classify by path prefix into coin&reputation / stock /
+ *      pressures / areas. Unrecognised paths (rare) are dropped from
+ *      the grouped view but stay in `topDiffs`.
+ *   2. Sort each group by `|delta|` desc.
+ *   3. Apply per-group cap (4).
+ *   4. Enforce overall ceiling (12) by trimming the smallest-delta
+ *      tails across all groups until the total fits.
+ */
+function projectGroupedDiffs(significant: StateChange[]): GroupedDiffs {
+  const groups: GroupedDiffs = {
+    coinAndReputation: [],
+    stock: [],
+    pressures: [],
+    areas: [],
+  }
+  for (const c of significant) {
+    const bucket = classifyDiffPath(c.path)
+    if (!bucket) continue
+    const line: ReportDiffLine = {
+      path: c.path,
+      readable: c.readable,
+      humanReadable: '',
+      direction: changeDirection(c),
+      delta: Number(c.delta ?? 0),
+      before: c.before,
+      after: c.after,
+      tags: c.tags,
+    }
+    line.humanReadable = humanizeDiff(line)
+    groups[bucket].push(line)
+  }
+  for (const key of Object.keys(groups) as Array<keyof GroupedDiffs>) {
+    groups[key] = groups[key]
+      .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+      .slice(0, TOP_DIFFS_PER_GROUP_CAP)
+  }
+  enforceOverallCap(groups, TOP_DIFFS_OVERALL_CAP)
+  return groups
+}
+
+function classifyDiffPath(path: string): keyof GroupedDiffs | undefined {
+  if (path === 'coin') return 'coinAndReputation'
+  if (path.startsWith('reputation.')) return 'coinAndReputation'
+  if (path.startsWith('stock.')) return 'stock'
+  if (path.startsWith('pressures.') && path.endsWith('.value')) return 'pressures'
+  if (path.startsWith('areas.')) return 'areas'
+  return undefined
+}
+
+function enforceOverallCap(groups: GroupedDiffs, cap: number): void {
+  const keys = Object.keys(groups) as Array<keyof GroupedDiffs>
+  let total = keys.reduce((n, k) => n + groups[k].length, 0)
+  while (total > cap) {
+    let weakestKey: keyof GroupedDiffs | undefined
+    let weakestDelta = Infinity
+    for (const k of keys) {
+      const last = groups[k].at(-1)
+      if (!last) continue
+      const d = Math.abs(last.delta)
+      if (d < weakestDelta) {
+        weakestDelta = d
+        weakestKey = k
+      }
+    }
+    if (!weakestKey) break
+    groups[weakestKey].pop()
+    total--
+  }
 }
 
 function changeDirection(change: StateChange): ReportDirection {

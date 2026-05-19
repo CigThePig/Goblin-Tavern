@@ -127,11 +127,59 @@
   {/if}
 
   <!-- ── Significant changes ────────────────────────────────────── -->
-  {#if report.topDiffs.length > 0}
+  {#if report.groupedDiffs.coinAndReputation.length > 0}
     <section class="block">
-      <h2 class="block-label tag">Significant changes</h2>
+      <h2 class="block-label tag">Coin &amp; reputation</h2>
       <ul class="diff-list">
-        {#each report.topDiffs as d (d.path)}
+        {#each report.groupedDiffs.coinAndReputation as d (d.path)}
+          <li>
+            <button class="diff-row" type="button" onclick={() => openDiffDrilldown(d)}>
+              <span class="diff-mark" data-dir={d.direction}>{diffMark(d)}</span>
+              <span class="diff-text">{d.humanReadable}</span>
+              <span class="diff-chevron tag">↗</span>
+            </button>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
+  {#if report.groupedDiffs.stock.length > 0}
+    <section class="block">
+      <h2 class="block-label tag">Stock</h2>
+      <ul class="diff-list">
+        {#each report.groupedDiffs.stock as d (d.path)}
+          <li>
+            <button class="diff-row" type="button" onclick={() => openDiffDrilldown(d)}>
+              <span class="diff-mark" data-dir={d.direction}>{diffMark(d)}</span>
+              <span class="diff-text">{d.humanReadable}</span>
+              <span class="diff-chevron tag">↗</span>
+            </button>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
+  {#if report.groupedDiffs.pressures.length > 0}
+    <section class="block">
+      <h2 class="block-label tag">Pressures</h2>
+      <ul class="diff-list">
+        {#each report.groupedDiffs.pressures as d (d.path)}
+          <li>
+            <button class="diff-row" type="button" onclick={() => openDiffDrilldown(d)}>
+              <span class="diff-mark" data-dir={d.direction}>{diffMark(d)}</span>
+              <span class="diff-text">{d.humanReadable}</span>
+              <span class="diff-chevron tag">↗</span>
+            </button>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
+  {#if report.groupedDiffs.areas.length > 0}
+    <section class="block">
+      <h2 class="block-label tag">Areas</h2>
+      <ul class="diff-list">
+        {#each report.groupedDiffs.areas as d (d.path)}
           <li>
             <button class="diff-row" type="button" onclick={() => openDiffDrilldown(d)}>
               <span class="diff-mark" data-dir={d.direction}>{diffMark(d)}</span>

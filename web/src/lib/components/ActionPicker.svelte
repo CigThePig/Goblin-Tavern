@@ -12,6 +12,7 @@
 -->
 <script lang="ts">
   import BottomSheet from './BottomSheet.svelte'
+  import TermLabel from './TermLabel.svelte'
   import { gameStore } from '../sim/gameStore.svelte'
   import {
     ACTION_POINT_BUDGET,
@@ -222,6 +223,10 @@
             </button>
           {/each}
         </div>
+      {:else}
+        <p class="unspent tag" aria-live="polite">
+          Your action points are unspent. Tap Done to skip planning.
+        </p>
       {/if}
 
       <div class="tabs" role="tablist" aria-label="Action categories">
@@ -276,7 +281,9 @@
       {:else}
         <ul class="actions">
           {#if actionsForTab.length === 0}
-            <li class="empty tag">no actions in this category</li>
+            <li class="empty tag">
+              Nothing to do in this tab right now. Try Immediate.
+            </li>
           {/if}
           {#each actionsForTab as def (def.id)}
             {@const reason = disabledReason(def)}
@@ -305,7 +312,7 @@
   {#snippet footer()}
     <div class="foot-row">
       <span class="budget mono" aria-live="polite">
-        action points: {pointsUsed} / {ACTION_POINT_BUDGET}
+        <TermLabel term="action_points" label="action points" />: {pointsUsed} / {ACTION_POINT_BUDGET}
       </span>
       <button class="confirm" type="button" onclick={onclose}>
         Done
@@ -385,6 +392,13 @@
     text-align: center;
     padding: var(--sp-lg);
     color: var(--text-faint);
+  }
+
+  .unspent {
+    padding: var(--sp-sm) var(--sp-md);
+    color: var(--text-faint);
+    text-align: center;
+    margin: 0;
   }
 
   .action {

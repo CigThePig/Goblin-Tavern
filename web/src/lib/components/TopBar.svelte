@@ -1,14 +1,17 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
+  import TermLabel from './TermLabel.svelte'
   import { gameStore } from '../sim/gameStore.svelte'
   import { glossaryStore } from '../glossary/glossaryStore.svelte'
   import { relativeTime } from '../sim/persistence'
   import { idLabel } from '../../../../src/reports/labels/idLabel'
 
   const cal = $derived(gameStore.state.calendar)
-  const dayLabel = $derived(
-    `Day ${cal.day} · Week ${cal.week} · Month ${cal.month} · ${idLabel('dayType', cal.dayType)}`,
+  const dayCount = $derived(
+    `Day ${cal.day} · Week ${cal.week} · Month ${cal.month}`,
   )
+  const dayTypeLabel = $derived(idLabel('dayType', cal.dayType))
+  const dayTypeTermId = $derived(`dayType_${cal.dayType}`)
   const coin = $derived(gameStore.state.coin)
 
   // Phase 96 — Welcome-back pill. Shown only when a save was just
@@ -36,7 +39,10 @@
     <Icon name="mark" size={26} label="Goblin Tavern" />
   </div>
   <div class="day">
-    <span class="day-line">{dayLabel}</span>
+    <span class="day-line">
+      {dayCount} ·
+      <TermLabel term={dayTypeTermId} label={dayTypeLabel} />
+    </span>
     {#if welcomeBack}
       <button
         type="button"

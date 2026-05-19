@@ -37,6 +37,9 @@
       {#if data.inventory.spoilingCount > 0}
         · <span class="warn">{data.inventory.spoilingCount} spoiling</span>
       {/if}
+      {#if data.inventory.rows.length > 0 && data.inventory.lowStockCount === 0 && data.inventory.spoilingCount === 0}
+        · <span class="ok">No shortages — supply is keeping up with demand.</span>
+      {/if}
     </p>
     {#if data.inventory.rows.length === 0}
       <p class="quiet">Storage is quiet.</p>
@@ -50,10 +53,6 @@
                 <span class="qty mono">×{row.quantity}</span>
                 <span class="chev" aria-hidden="true">›</span>
               </header>
-              <div class="meters">
-                <MeterBar label="quality" value={row.quality} mode="wellness" />
-                <MeterBar label="freshness" value={row.freshness} mode="wellness" />
-              </div>
               <div class="meta">
                 <span class="rarity tag rarity-{row.rarity}">{row.rarity}</span>
                 <span class="price mono">{row.salePrice}c each</span>
@@ -63,7 +62,9 @@
                 {#if row.isLow}<span class="warn-pill tag">low</span>{/if}
                 {#if row.isSpoiling}<span class="warn-pill tag">spoiling</span>{/if}
                 {#if row.isUpkeepConsumed}
-                  <span class="upkeep-pill tag">used for upkeep</span>
+                  <span class="upkeep-pill tag">
+                    <TermLabel term="upkeep" label="used for upkeep" />
+                  </span>
                 {/if}
               </div>
             </button>
@@ -218,6 +219,10 @@
     color: var(--risk);
   }
 
+  .ok {
+    color: var(--text-faint);
+  }
+
   .quiet {
     color: var(--text-faint);
     font-style: italic;
@@ -248,7 +253,7 @@
     background: var(--surface);
     border: var(--border-faint);
     border-radius: var(--radius-md);
-    min-height: 88px;
+    min-height: 56px;
     transition: border-color var(--m-fast) var(--ease);
   }
 
@@ -276,12 +281,6 @@
 
   .chev {
     color: var(--text-faint);
-  }
-
-  .meters {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--sp-xs) var(--sp-md);
   }
 
   .meta {

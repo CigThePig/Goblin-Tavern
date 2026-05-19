@@ -27,6 +27,12 @@ function baseReport(overrides: Partial<DailyReportData> = {}): DailyReportData {
     coinDelta: 0,
     reputationDeltas: [],
     topDiffs: [],
+    groupedDiffs: {
+      coinAndReputation: [],
+      stock: [],
+      pressures: [],
+      areas: [],
+    },
     ownerActionsApplied: [],
     resolvedIntents: [],
     serviceLines: [],

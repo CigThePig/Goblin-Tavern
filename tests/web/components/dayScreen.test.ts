@@ -32,8 +32,12 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/svelte'
 const mocks = vi.hoisted(() => ({
   simulateDay: vi.fn(),
   buildDailyReport: vi.fn(),
+  projectYesterdayDigest: vi.fn(),
   realSimulateDay: undefined as undefined | ((...args: unknown[]) => unknown),
   realBuildDailyReport: undefined as undefined | ((...args: unknown[]) => unknown),
+  realProjectYesterdayDigest: undefined as
+    | undefined
+    | ((...args: unknown[]) => unknown),
 }))
 
 vi.mock('../../../src/sim/core/engine', async (importOriginal) => {
@@ -54,6 +58,20 @@ vi.mock('../../../src/reports/index', async (importOriginal) => {
   return { ...actual, buildDailyReport: mocks.buildDailyReport }
 })
 
+// Phase 120 / ISSUE-059 — the morning yesterday digest now uses safeProject
+// around projectYesterdayDigest. Mock it so we can force a throw and
+// verify the inline fallback renders without unmounting the morning view.
+vi.mock('../../../src/reports/yesterdayDigest', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  mocks.realProjectYesterdayDigest = actual['projectYesterdayDigest'] as (
+    ...args: unknown[]
+  ) => unknown
+  mocks.projectYesterdayDigest.mockImplementation((...args) =>
+    mocks.realProjectYesterdayDigest!(...args),
+  )
+  return { ...actual, projectYesterdayDigest: mocks.projectYesterdayDigest }
+})
+
 // Imports must come AFTER vi.mock so the mocks are applied.
 const { default: DayScreen } = await import('../../../web/src/lib/screens/DayScreen.svelte')
 const { gameStore } = await import('../../../web/src/lib/sim/gameStore.svelte')
@@ -64,6 +82,9 @@ describe('DayScreen — end-of-day flow (Phase 97 / ISSUE-057)', () => {
     mocks.simulateDay.mockImplementation((...args) => mocks.realSimulateDay!(...args))
     mocks.buildDailyReport.mockImplementation((...args) =>
       mocks.realBuildDailyReport!(...args),
+    )
+    mocks.projectYesterdayDigest.mockImplementation((...args) =>
+      mocks.realProjectYesterdayDigest!(...args),
     )
   })
 
@@ -113,6 +134,34 @@ describe('DayScreen — end-of-day flow (Phase 97 / ISSUE-057)', () => {
 
     expect(gameStore.runError).toBeUndefined()
     expect(gameStore.beat).toBe('report')
+  })
+
+  it('projectYesterdayDigest throws: morning beat renders the digest fallback panel', async () => {
+    // Run a real day so the morning beat has yesterday's report to digest.
+    gameStore.runDay({ responseIntents: [] })
+    expect(gameStore.latestResult).toBeDefined()
+
+    // Mock the digest projection to throw on the next reactive read.
+    mocks.projectYesterdayDigest.mockImplementation(() => {
+      throw new Error('digest projection broke')
+    })
+
+    render(DayScreen)
+    gameStore.setBeat('morning')
+
+    // The digest-fallback section renders the error message in place
+    // of the YesterdayDigest component. The rest of the morning beat
+    // (At a glance, Pressures, Morning cards) stays live.
+    expect(
+      screen.getByRole('alert', { name: /yesterday unavailable/i }),
+    ).toBeTruthy()
+    expect(screen.getByText(/digest projection broke/)).toBeTruthy()
+    // At-a-glance section still rendered (proof the morning beat
+    // didn't unmount).
+    expect(
+      screen.getByRole('region', { name: /at a glance/i }) ||
+        screen.getAllByLabelText(/at a glance/i)[0],
+    ).toBeTruthy()
   })
 
   it('buildDailyReport throws: beat advances, fallback panel renders with Next day button', async () => {

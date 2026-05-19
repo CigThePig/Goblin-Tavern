@@ -36,7 +36,10 @@
   import { prefsStore } from '../prefs/prefsStore.svelte'
   import { buildIntent, buildIgnoreIntent } from '../sim/intentBuilder'
   import { buildDailyReport } from '../../../../src/reports/index'
-  import { projectYesterdayDigest } from '../../../../src/reports/yesterdayDigest'
+  import {
+    projectYesterdayDigest,
+    type YesterdayDigestData,
+  } from '../../../../src/reports/yesterdayDigest'
   // Phase 95 — Voice composer. The day-screen empty-state lines
   // pull from the same `composeEmpty` pool the report header uses,
   // deterministically keyed by (tavernId, day, beat).
@@ -46,6 +49,7 @@
   import type { ResponseIntent } from '../../../../src/sim/modules/issues/issueSeedTypes'
   import type { PendingChoice } from '../sim/daySession'
   import type { DailyReportData } from '../../../../src/reports/types'
+  import { safeProject, type ProjectionSlot } from '../sim/projectionSlot'
 
   // Phase 96 — Beat & pending state read from the store so they survive
   // a reload. The store also resets these on `runDay()`.
@@ -108,34 +112,34 @@
   // `buildDailyReport` is observable instead of silently hiding the
   // report block. `'empty'` means no day has been simulated yet;
   // `'error'` carries the thrown message so the fallback panel can
-  // surface it. `'success'` keeps the renderer pure.
-  type DailyReportSlot =
-    | { ok: 'success'; data: DailyReportData }
-    | { ok: 'empty' }
-    | { ok: 'error'; error: string }
-
-  const dailyReport: DailyReportSlot = $derived.by(() => {
+  // surface it. `'success'` keeps the renderer pure. Phase 119+120 /
+  // ISSUE-058+059 lifted the type and helper into `../sim/projectionSlot`
+  // for reuse across the web layer.
+  const dailyReport: ProjectionSlot<DailyReportData> = $derived.by(() => {
     const result = gameStore.latestResult
     if (!result) return { ok: 'empty' }
-    try {
-      const data = buildDailyReport(result, gameStore.state, {
+    return safeProject(() =>
+      buildDailyReport(result, gameStore.state, {
         ...(gameStore.previousCalendar ? { previousCalendar: gameStore.previousCalendar } : {}),
         dismissedMissedOpportunityIds: gameStore.dismissedMissedOpportunityIds,
-      })
-      return { ok: 'success', data }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      return { ok: 'error', error: message }
-    }
+      }),
+    )
   })
 
   // Phase 96 — Morning yesterday digest. Only shows when the engine
   // has a previous day to summarise. Derived from the same
-  // DailyReportData the Report screen would render.
-  const yesterdayDigest = $derived.by(() => {
-    if (beat !== 'morning') return undefined
-    if (dailyReport.ok !== 'success') return undefined
-    return projectYesterdayDigest(dailyReport.data)
+  // DailyReportData the Report screen would render. Phase 120 /
+  // ISSUE-059 wraps the inner `projectYesterdayDigest` call so a throw
+  // surfaces a tiny inline fallback instead of bubbling through the
+  // App boundary and unmounting the entire morning beat. The projection
+  // legitimately returns `undefined` for a quiet day; we collapse that
+  // to the 'empty' branch so the consumer's three-way check stays clean.
+  const yesterdayDigest: ProjectionSlot<YesterdayDigestData> = $derived.by(() => {
+    if (beat !== 'morning') return { ok: 'empty' }
+    if (dailyReport.ok !== 'success') return { ok: 'empty' }
+    const slot = safeProject(() => projectYesterdayDigest(dailyReport.data))
+    if (slot.ok === 'success' && slot.data === undefined) return { ok: 'empty' }
+    return slot as ProjectionSlot<YesterdayDigestData>
   })
 
   const nextDayLabel = $derived.by(() => {
@@ -293,9 +297,14 @@
       </div>
     </section>
 
-    {#if yesterdayDigest}
+    {#if yesterdayDigest.ok === 'success'}
       <section class="block" aria-label="Yesterday">
-        <YesterdayDigest digest={yesterdayDigest} onopen={openTodayReport} />
+        <YesterdayDigest digest={yesterdayDigest.data} onopen={openTodayReport} />
+      </section>
+    {:else if yesterdayDigest.ok === 'error'}
+      <section class="block digest-fallback" aria-label="Yesterday unavailable" role="alert">
+        <p class="fallback-title">Yesterday digest unavailable</p>
+        <p class="fallback-error mono">{yesterdayDigest.error}</p>
       </section>
     {/if}
 
@@ -784,6 +793,20 @@
   .report-fallback-error {
     background: color-mix(in srgb, var(--loss) 6%, transparent);
     border-color: color-mix(in srgb, var(--loss) 35%, transparent);
+  }
+
+  /* Phase 120 / ISSUE-059 — Morning yesterday digest fallback. Smaller
+     and tighter than the report fallback since the digest itself is a
+     small inline block. */
+  .digest-fallback {
+    padding: var(--sp-sm) var(--sp-md);
+    background: color-mix(in srgb, var(--loss) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--loss) 35%, transparent);
+    border-radius: var(--radius-md);
+    gap: var(--sp-xs);
+  }
+  .digest-fallback .fallback-title {
+    font-size: 14px;
   }
 
   .fallback-title {

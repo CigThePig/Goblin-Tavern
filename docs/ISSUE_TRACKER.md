@@ -39,13 +39,12 @@ how to verify the fix.
 
 Next up, in this order:
 
-1. **ISSUE-058** — Web UI component test coverage gap (phase 119).
-2. **ISSUE-059** — Unprotected `$derived.by(...)` blocks across the web
-   layer (phase 120). Depends on ISSUE-057 (already done) and shares the
-   test-stack work with ISSUE-058.
-3. **Tier 4 Progressive Onboarding arc** — start at **ISSUE-060**
+1. **Tier 4 Progressive Onboarding arc** — start at **ISSUE-060**
    (phase 99, design contract); strictly linear through **ISSUE-077**
    (phase 116). Locked design contract: `docs/plans/progressive-onboarding.md`.
+
+ISSUE-058 and ISSUE-059 landed together as the combined phase 119+120
+(see `docs/plans/phase-119-120-web-test-coverage-and-derived-audit.md`).
 
 After Tier 4: no further work is planned in the tracker. The card-layer
 contract (`docs/plans/cards-contract.md`) is locked and waiting; new
@@ -118,8 +117,8 @@ phase-number arithmetic when deciding what's next.
 | ISSUE-055 | Area content unpinning and customer-area rotation | thin | done | 95 |
 | ISSUE-056 | Advisory UI validity and future card-choice guardrails | thin | done | 96 |
 | ISSUE-057 | End-of-day silent failure + UI error visibility | broken | done | 97 |
-| ISSUE-058 | Web UI component test coverage gap | thin | open | 119 |
-| ISSUE-059 | Unprotected `$derived.by(...)` blocks across the web layer | thin | open | 120 |
+| ISSUE-058 | Web UI component test coverage gap | thin | done | 119 |
+| ISSUE-059 | Unprotected `$derived.by(...)` blocks across the web layer | thin | done | 120 |
 | ISSUE-060 | Progressive Onboarding — design contract | design | open | 99 |
 | ISSUE-061 | `OnboardingState` slice + schema + migration | thin | open | 100 |
 | ISSUE-062 | `gateModule` + `unlocksModule` gating infrastructure | broken | open | 101 |
@@ -2335,7 +2334,7 @@ can land with targeted regression coverage instead of one-off fixes.
 ### ISSUE-058 — Web UI component test coverage gap
 
 - **Grade:** thin
-- **Status:** open
+- **Status:** done
 - **Phase:** 119
 - **Evidence:** `tests/web/` contained only data-layer tests (preferences,
   persistence, exportImport, subroutePersistence, queueValidity,
@@ -2363,7 +2362,7 @@ can land with targeted regression coverage instead of one-off fixes.
 ### ISSUE-059 — Unprotected `$derived.by(...)` blocks across the web layer
 
 - **Grade:** thin
-- **Status:** open
+- **Status:** done
 - **Phase:** 120
 - **Evidence:** 21 `$derived.by(...)` blocks across `web/src/lib/`
   (DayScreen, ReportsScreen, TavernScreen, TopBar, Glossary,

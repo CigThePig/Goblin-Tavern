@@ -13,6 +13,7 @@
     formatDiffPathTitle,
   } from '../../../../src/reports/index'
   import type { CauseEntry } from '../../../../src/sim/state/TavernState'
+  import { safeProject, type ProjectionSlot } from '../sim/projectionSlot'
 
   let {
     open,
@@ -26,10 +27,15 @@
   } = $props()
 
   const title = $derived(path ? formatDiffPathTitle(path) : '')
-  const causes = $derived.by<CauseEntry[]>(() => {
-    if (!path) return []
-    return causesForPath(gameStore.state, path, { limit: 10 })
+  // Phase 120 / ISSUE-059 — Wrap the cross-module cause lookup so a
+  // throw renders an in-sheet "unavailable" panel instead of bubbling
+  // through the App-level boundary and unmounting the whole reports
+  // surface beneath it.
+  const causesSlot: ProjectionSlot<CauseEntry[]> = $derived.by(() => {
+    if (!path) return { ok: 'empty' }
+    return safeProject(() => causesForPath(gameStore.state, path, { limit: 10 }))
   })
+  const causes = $derived(causesSlot.ok === 'success' ? causesSlot.data : [])
 
   // The weight bar uses the maximum weight in the list as 100% so the
   // visual is relative — even small absolute weights look meaningful
@@ -59,6 +65,11 @@
 <BottomSheet {open} {title} {onclose}>
   {#if !path}
     <p class="quiet">no path selected</p>
+  {:else if causesSlot.ok === 'error'}
+    <div class="cause-error" role="alert">
+      <p class="cause-error-title">Causes unavailable</p>
+      <p class="cause-error-message mono">{causesSlot.error}</p>
+    </div>
   {:else if causes.length === 0}
     <p class="quiet">no causes recorded for this change today.</p>
   {:else}
@@ -168,5 +179,30 @@
     color: var(--text-faint);
     display: flex;
     gap: var(--sp-xs);
+  }
+
+  /* Phase 120 / ISSUE-059 — projection failure fallback. */
+  .cause-error {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xs);
+    padding: var(--sp-md);
+    background: color-mix(in srgb, var(--loss) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--loss) 40%, transparent);
+    border-radius: var(--radius-md);
+  }
+  .cause-error-title {
+    color: var(--text);
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .cause-error-message {
+    color: var(--text-dim);
+    font-size: 12px;
+    line-height: 1.4;
+    word-break: break-word;
+    padding: var(--sp-xs) var(--sp-sm);
+    background: var(--ink-deep);
+    border-radius: var(--radius-sm);
   }
 </style>

@@ -4,13 +4,28 @@ A text-based goblin tavern management simulation built **simulation-first**: a h
 
 ## Current Status
 
-Phases 1–40 are **implemented**. The headless simulation lives under `src/sim/` (core engine, registries, ~26 domain modules under `src/sim/modules/`, a content layer under `src/sim/content/` covering naming, cultures, factions, suppliers, npc, staff, tavern, events, and text, state with Zod schemas, and testing utilities). Phase-by-phase coverage runs from `tests/sim/phase2.structure.test.ts` through `tests/sim/phase40.expandedReadiness.test.ts`. Run `npm test` (Vitest) and `npm run typecheck` (TypeScript) to validate changes.
+**Phases 1–40 (initial build + expansion arc): done.** The headless simulation lives under `src/sim/` (core engine, registries, ~26 domain modules under `src/sim/modules/`, a content layer under `src/sim/content/` covering naming, cultures, factions, suppliers, npc, staff, tavern, events, and text, state with Zod schemas, and testing utilities). Phase-by-phase test coverage runs from `tests/sim/phase2.structure.test.ts` through the repair-pass tests (currently up to `phase97.missedOpportunityRoundtrip.test.ts`). Run `npm test` (Vitest) and `npm run typecheck` (TypeScript) to validate changes.
 
-Current work is the **post-Phase-40 repair pass** tracked in [`docs/ISSUE_TRACKER.md`](docs/ISSUE_TRACKER.md). That file is the authoritative source for what needs to change, evidence, scope, dependencies, and test approach for each repair bundle. Phases 1–40 left real gaps (silent calculators, dead consumers, thin rosters, no-op response pipeline); the tracker bundles those fixes into 33 issues across two tiers — the tier 0–2 repair issues (ISSUE-001…ISSUE-024) plus the tier 1.5 **Rare Ingredients Economy** arc (ISSUE-025…ISSUE-033) that replaces the original ISSUE-005…ISSUE-009 flat roster grows with a unified gameplay system.
+**Phases 41–97 + 117–118 (post-Phase-40 repair pass + UI/UX clarity): done.** The repair pass landed Tier 0 infrastructure (ISSUE-001…004), Tier 1 roster grows (ISSUE-010…012; ISSUE-005…009 superseded by the Tier 1.5 arc), the **Tier 1.5 Rare Ingredients Economy** arc (ISSUE-025…033, phases 65–73), Tier 2 family rewrites (ISSUE-013…019), Tier 3 polish + audit fixes (ISSUE-020…057), and the Tier 5 UI/UX clarity passes (ISSUE-078/079, phases 117–118). The web "More" tab + save slots + first-encounter hints + difficulty work (phase 98) shipped as part of the web chassis and is tracked retroactively as ISSUE-080.
 
-**Phase numbering for the repair pass:** each `ISSUE-NNN` in the tracker becomes a phase offset by 40 — `ISSUE-001` → phase 41, `ISSUE-002` → phase 42, …, `ISSUE-024` → phase 64, `ISSUE-025` → phase 65, …, `ISSUE-033` → phase 73. Phase plan files for repair work land under `docs/plans/` named by phase number (e.g. `phase-41-response-pipeline.md`).
+**Open work** — see [`docs/ISSUE_TRACKER.md`](docs/ISSUE_TRACKER.md) for full evidence, scope, dependencies, and test approach:
 
-The Tier 1.5 arc has its own locked design contract at [`docs/plans/rare-ingredients-economy.md`](docs/plans/rare-ingredients-economy.md) (analogous to `phase-21-expansion-contract.md` for the expansion arc). Per-issue phase plans for phases 65–73 implement against the rules in that document rather than restating them.
+1. **ISSUE-058** — web UI component test coverage gap (phase 119).
+2. **ISSUE-059** — unprotected `$derived.by(...)` blocks across the web layer (phase 120).
+3. **Tier 4 Progressive Onboarding arc** — ISSUE-060…077, phases 99–116. Locked design contract at [`docs/plans/progressive-onboarding.md`](docs/plans/progressive-onboarding.md). Reframes Day 1 as "first time opening a tavern" and unlocks simulation systems one at a time across the first ~10 weeks of in-game time.
+
+The tracker carries **79 issues across 5 tiers** (Tier 0 infrastructure; Tier 1 + 1.5 roster grows + Rare Ingredients; Tier 2 family rewrites; Tier 3 polish + audit; Tier 4 onboarding; Tier 5 UI/UX clarity). 55 are `done`, 20 are `open`, 5 are `superseded` by the Rare Ingredients arc. ISSUE_TRACKER.md is the authoritative source for what changes; the "Current work" callout at the top of that file names the next-up issue.
+
+**Phase numbering.** ISSUE-001…057 follow `phase = 40 + N` (phases 41–97). Phase 98 belongs to the retroactive ISSUE-080. Tier 4 onboarding (ISSUE-060…077) → phases 99–116. Tier 5 UI/UX clarity (ISSUE-078/079) → phases 117–118. ISSUE-058/059 take the next free integers, phases 119/120. **Phase numbers are a file-naming convention; execution order is set by ISSUE-NNN ordering and the `Depends on` chains, not by phase number** — start with whatever the tracker's "Current work" callout names, even if its phase number is higher than a later-tier issue.
+
+**Locked design contracts** (read these before planning work in their scope):
+
+- `docs/plans/phase-01-simulation-contract.md` — vision, pillars, core gameplay model (foundational, phase 1).
+- `docs/plans/phase-21-expansion-contract.md` — expansion arc (phases 21–40): identity, culture, place, and relationships become persistent state, not card flavour.
+- `docs/plans/rare-ingredients-economy.md` — Tier 1.5 arc (ISSUE-025…033, phases 65–73).
+- `docs/plans/cards-contract.md` — bridge between headless sim and card UI layer (for the eventual card-layer work).
+- `docs/plans/game-loop-and-ux.md` — game loop / UX working contract (§8–9 explicitly open).
+- `docs/plans/progressive-onboarding.md` — Tier 4 arc (ISSUE-060…077, phases 99–116); amends `game-loop-and-ux.md §2.1`.
 
 Per-issue workflow: the user puts Claude Code in plan mode, Claude reads the matching tracker entry, produces a phase plan file in `docs/plans/`, then implements. Update the issue's `Status` and `Phase` fields in the tracker inline as work progresses; closed issues stay in the tracker as history.
 
@@ -48,23 +63,28 @@ const result = simulateDay(previousState, playerInput, runConfig)
 
 ```
 docs/
-  ISSUE_TRACKER.md                                                      # Post-Phase-40 repair pass — current work
+  ISSUE_TRACKER.md                                                      # Authoritative repair-pass tracker — 79 issues, current work
+  P20F1.md                                                              # Investigation: response_impact gate at 28/70 (2026-05-13)
   plans/
-    phase-01-simulation-contract.md                                     # Vision, pillars, core gameplay model
+    phase-01-simulation-contract.md                                     # LOCKED: vision, pillars, core gameplay model (phase 1)
     phases-02-05.md                                                     # Project structure, calendar, RNG, state
     phases-06-10.md                                                     # Areas, stock, economy, customers
     phases-11-15.md                                                     # Staff, service loop, owner actions, weekly, monthly
     phases-16-20.md                                                     # Memories, causes, pressures, issue seeds, card-ready output
-    phase-21-expansion-contract.md                                      # Expansion arc vision and scope rules
+    phase-21-expansion-contract.md                                      # LOCKED: expansion arc vision and scope rules
     phases-22-25-expansion-structure-calendar-rng-state.md              # Content folders, calendar tags, RNG streams, world state
     phases-26-30-expansion-validation-hooks-areas-suppliers-cultures.md # Cross-ref validation, new phase hooks, area traits, suppliers, cultures
     phases-31-35-expansion-staff-scenes-projects-community-arcs.md      # Staff identity, service scenes, owner projects, weekly community, seasonal arcs
     phases-36-40-expansion-memory-attribution-pressures-seeds-readiness.md # Entity-scoped memory, attribution, pressure webs, expanded seeds, final readiness
-    rare-ingredients-economy.md                                         # Tier 1.5 locked design contract (ISSUE-025…ISSUE-033, phases 65–73)
-    cards-contract.md                                                   # Card-layer contract: what cards read/write, definition shape, 8 templates
-    phase-41-*.md … phase-86-*.md                                       # Repair-pass plans, one per ISSUE-NNN in ISSUE_TRACKER.md (added as each phase starts)
+    rare-ingredients-economy.md                                         # LOCKED: Tier 1.5 design contract (ISSUE-025…033, phases 65–73)
+    cards-contract.md                                                   # LOCKED: card-layer contract (8 templates; for eventual card work)
+    game-loop-and-ux.md                                                 # Working contract: game loop / UX; §8–9 open
+    progressive-onboarding.md                                           # LOCKED: Tier 4 design contract (ISSUE-060…077, phases 99–116)
+    seven-pass-investigation-plan.md                                    # Cross-cutting audit that informed ISSUE-034…057
+    phase-53-59-tier2-followups.md                                      # Perf notes from Tier 2 pass (phase20 OOM, phase40 runtime) — not tracked as ISSUE
+    phase-41-*.md … phase-120-*.md                                      # Per-phase plans, mostly one per ISSUE-NNN in ISSUE_TRACKER.md (created as each phase starts)
 
-src/sim/                # Phases 1–40 implementation (headless, pure)
+src/sim/                # Phases 1–40 (initial build + expansion) + repair-pass extensions; headless, pure
   core/                 # engine, context, rng, phases, diff, effect, reports, types
   state/                # TavernState, schemas (zod), validation, migrations
   registries/           # Registry<T> + concrete registries (areas, stock, customers, staff, actions, pressures, …)
@@ -76,13 +96,14 @@ src/sim/                # Phases 1–40 implementation (headless, pure)
                         # npc, staff, tavern, events, text
   testing/              # simRunner, createTestState, runDay/Week/Month, fixtures
   utils/                # ids, math, clamp
-tests/sim/              # phase2.structure.test.ts … phase40.expandedReadiness.test.ts
+tests/sim/              # phase2.structure.test.ts … phase97.*.test.ts (per-phase coverage through the repair pass)
+web/                    # Svelte web UI (phases 87–98, 117–118; Tier 4 onboarding will land here)
 ```
 
 ## Working on This Repo
 
 - **Read the relevant phase doc before implementing.** Each phase doc has explicit "Acceptance Criteria" and "Do Not Do" sections. Respect both.
-- **Repair-pass work (phases 41–73) is driven by `docs/ISSUE_TRACKER.md`.** Before planning a repair phase, read the matching `ISSUE-NNN` entry — it carries the full Evidence, Impact, Scope, Depends on, and Test approach. The tracker's `Depends on` field is hard: a dependency issue must reach `done` before dependent work starts. Update an issue's `Status` and `Phase` fields inline as work progresses; closed issues stay in the tracker as history, not noise. Phases 65–73 additionally implement against the locked rules in `docs/plans/rare-ingredients-economy.md` — per-issue phase plans for that arc reference the design doc rather than restating it.
+- **Repair-pass work (phases 41–120, ongoing) is driven by `docs/ISSUE_TRACKER.md`.** Before planning a repair phase, read the matching `ISSUE-NNN` entry — it carries the full Evidence, Impact, Scope, Depends on, and Test approach. The tracker's `Depends on` field is hard: a dependency issue must reach `done` before dependent work starts. Update an issue's `Status` and `Phase` fields inline as work progresses; closed issues stay in the tracker as history, not noise. Phases 65–73 additionally implement against the locked rules in `docs/plans/rare-ingredients-economy.md`, and phases 99–116 against `docs/plans/progressive-onboarding.md` — per-issue phase plans for those arcs reference the design doc rather than restating it.
 - **Do not skip ahead.** Don't add cards, UI, narrative text, or issue-seed *content* before the phase that introduces them. The plans are sequential for a reason.
 - **No `Math.random()` in sim code.** Even for one-off helpers — use the seeded RNG from context.
 - **No browser/runtime dependencies in `src/sim/`.** The simulation must run headless in tests and (eventually) in any host environment.

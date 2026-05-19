@@ -70,15 +70,22 @@ const REQUIRED_RECIPES: RecipeDefinition[] = [
     },
   },
   {
+    // Phase 117 — `dish_ingredients` consumes raw kitchen `ingredients`
+    // stock; it never represented a coherent menu item ("Cook Surplus"
+    // read as developer shorthand to players). Tagged `upkeep` so the
+    // Recipes panel projection filters it out, and `onMenu: false` so
+    // fresh saves don't expose it. Underlying consumption mechanics
+    // are unchanged — service still resolves the recipe if explicitly
+    // referenced.
     id: 'dish_ingredients',
     label: 'Cook Surplus',
-    tags: ['food', 'raw', 'perishable', 'ingredient', 'dish'],
+    tags: ['food', 'raw', 'perishable', 'ingredient', 'dish', 'upkeep'],
     inputs: [{ ingredientId: 'ingredients', quantity: 1 }],
     prepDifficulty: 20,
     demandTier: 'common',
     culturalTags: [],
     defaultState: {
-      onMenu: true,
+      onMenu: false,
       timesServed: 0,
       daysSinceLastServed: 0,
       lastServedDay: null,
@@ -108,30 +115,36 @@ const REQUIRED_RECIPES: RecipeDefinition[] = [
     },
   },
   {
+    // Phase 117 — Firewood is fuel, not food. Tagged `upkeep` and
+    // off-menu by default; the Recipes panel filters by tag and the
+    // Stock panel surfaces a "used for upkeep" hint on firewood
+    // instead.
     id: 'dish_firewood',
     label: 'Firewood Bundle',
-    tags: ['fuel', 'utility', 'dish'],
+    tags: ['fuel', 'utility', 'dish', 'upkeep'],
     inputs: [{ ingredientId: 'firewood', quantity: 1 }],
     prepDifficulty: 20,
     demandTier: 'common',
     culturalTags: [],
     defaultState: {
-      onMenu: true,
+      onMenu: false,
       timesServed: 0,
       daysSinceLastServed: 0,
       lastServedDay: null,
     },
   },
   {
+    // Phase 117 — Mugs are service equipment, not a menu item. Same
+    // `upkeep` treatment as firewood.
     id: 'dish_mugs',
     label: 'Replacement Mug',
-    tags: ['equipment', 'service_item', 'service_capacity', 'breakable', 'dish'],
+    tags: ['equipment', 'service_item', 'service_capacity', 'breakable', 'dish', 'upkeep'],
     inputs: [{ ingredientId: 'mugs', quantity: 1 }],
     prepDifficulty: 20,
     demandTier: 'common',
     culturalTags: [],
     defaultState: {
-      onMenu: true,
+      onMenu: false,
       timesServed: 0,
       daysSinceLastServed: 0,
       lastServedDay: null,

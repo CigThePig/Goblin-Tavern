@@ -200,7 +200,7 @@ function buildEnableDefinition(
       if (existing?.enabled === true) {
         return reject(
           'policy_already_enabled',
-          `Policy ${starter.policyType} is already enabled`,
+          `${starter.label} is already on.`,
         )
       }
       return OK
@@ -233,7 +233,7 @@ function buildDisableDefinition(
       if (!existing || existing.enabled !== true) {
         return reject(
           'policy_not_enabled',
-          `Policy ${starter.policyType} is not enabled`,
+          `${starter.label} is already off.`,
         )
       }
       return OK

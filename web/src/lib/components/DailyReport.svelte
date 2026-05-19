@@ -135,7 +135,7 @@
           <li>
             <button class="diff-row" type="button" onclick={() => openDiffDrilldown(d)}>
               <span class="diff-mark" data-dir={d.direction}>{diffMark(d)}</span>
-              <span class="diff-text">{d.readable}</span>
+              <span class="diff-text">{d.humanReadable}</span>
               <span class="diff-chevron tag">↗</span>
             </button>
           </li>
@@ -154,7 +154,7 @@
             <span class="ledger-mark accent">★</span>
             <div class="ledger-body">
               <span class="ledger-line">
-                {a.label}{#if a.targetId} · {a.targetId}{/if}
+                {a.label}{#if a.targetLabel || a.targetId} · {a.targetLabel ?? a.targetId}{/if}
                 <span class="ledger-cost tag">({a.actionPointCost} pt)</span>
               </span>
               {#if a.effects.length > 0}

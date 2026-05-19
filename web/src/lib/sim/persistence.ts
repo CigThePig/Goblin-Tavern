@@ -39,6 +39,7 @@ import {
   ensureRecipesSlice,
   ensureExpeditionsSlice,
   ensureModuleSlices,
+  flipUpkeepRecipesOffMenu,
 } from '../../../../src/sim/state/migrations'
 import { safeValidateState } from '../../../../src/sim/state/validation'
 import { FULL_PIPELINE } from '../../../../src/sim/canonicalPipeline'
@@ -341,7 +342,8 @@ export function validatePersistedSession(parsed: unknown): ValidationOutcome {
     const s2 = ensureAreaIdentityFields(s1)
     const s3 = ensureStaffIdentityFields(s2)
     const s4 = ensureRecipesSlice(s3)
-    const s5 = ensureExpeditionsSlice(s4)
+    const s4b = flipUpkeepRecipesOffMenu(s4)
+    const s5 = ensureExpeditionsSlice(s4b)
     const s6 = ensureWeeklyHistoryField(s5)
     const s7 = ensureMonthlyHistoryField(s6)
     const s8 = ensureModuleSlices(s7)

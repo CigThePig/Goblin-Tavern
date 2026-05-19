@@ -138,7 +138,15 @@ describe('buildTavernOverview — day-zero state', () => {
     const state = startingState()
     const data = buildTavernOverview(state)
     const total = data.recipes.onMenu.length + data.recipes.available.length
-    expect(total).toBe(Object.keys(state.recipes).length)
+    // Phase 117 — `upkeep`-tagged recipes (firewood, mugs, raw
+    // ingredient consumption) are filtered out of the Recipes panel
+    // entirely. The projection's recipe count is therefore "all
+    // state recipes minus upkeep recipes", not the raw state count.
+    const upkeepCount = Object.values(state.recipes).filter((r) =>
+      r.tags?.includes('upkeep'),
+    ).length
+    expect(total).toBe(Object.keys(state.recipes).length - upkeepCount)
+    expect(upkeepCount).toBeGreaterThan(0) // sanity: filter is active
     for (const recipe of [...data.recipes.onMenu, ...data.recipes.available]) {
       expect(typeof recipe.prepDifficulty).toBe('number')
       expect(['common', 'uncommon', 'rare', 'legendary']).toContain(

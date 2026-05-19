@@ -6,6 +6,7 @@
   import StockDetailSheet from './StockDetailSheet.svelte'
   import CommissionExpeditionSheet from './CommissionExpeditionSheet.svelte'
   import TermLabel from '../TermLabel.svelte'
+  import { idLabel } from '../../../../../src/reports/labels/idLabel'
   import type {
     StockPanelData,
     StockRow,
@@ -61,6 +62,9 @@
                 {/if}
                 {#if row.isLow}<span class="warn-pill tag">low</span>{/if}
                 {#if row.isSpoiling}<span class="warn-pill tag">spoiling</span>{/if}
+                {#if row.isUpkeepConsumed}
+                  <span class="upkeep-pill tag">used for upkeep</span>
+                {/if}
               </div>
             </button>
           </li>
@@ -158,7 +162,7 @@
             <li class="completion outcome-{rec.outcome}">
               <header class="comp-head">
                 <span class="comp-name">{rec.runnerName}</span>
-                <span class="comp-outcome tag">{rec.outcome.replace(/_/g, ' ')}</span>
+                <span class="comp-outcome tag">{idLabel('expeditionOutcome', rec.outcome)}</span>
               </header>
               <p class="comp-meta tag">
                 day {rec.resolvedDay}
@@ -322,6 +326,14 @@
     background: color-mix(in srgb, var(--risk) 12%, transparent);
     padding: 2px 8px;
     border-radius: 999px;
+  }
+
+  .upkeep-pill {
+    color: var(--text-faint);
+    background: color-mix(in srgb, var(--candle-soft) 10%, transparent);
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-style: italic;
   }
 
   /* Supply pipeline */

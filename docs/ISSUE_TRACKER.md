@@ -116,6 +116,8 @@ how to verify the fix.
 | ISSUE-075 | Sub-tab gating in Reports / World / Tavern | thin | open | 114 |
 | ISSUE-076 | Discovery card narrative pass | thin | open | 115 |
 | ISSUE-077 | Migration finalize + fixture audit + integration walkthrough | broken | open | 116 |
+| ISSUE-078 | UI/UX clarity pass — humanize ids, paths, policies, recipes | broken | done | 117 |
+| ISSUE-079 | UI/UX comprehension pass — diff grouping, empty states, glossary, density | thin | open | 118 |
 
 ---
 
@@ -2847,6 +2849,183 @@ pass.
   the direct write path is supplemented by attribution propagation,
   which clears the audit threshold. Re-evaluate if faction memories
   show up thin again in a future readiness run.
+
+---
+
+## Tier 5 — UI/UX Clarity Arc
+
+This tier sits between Tier 3 polish and Tier 4 progressive
+onboarding. The clarity issues land *before* Tier 4 because
+progressive pacing of system introductions cannot fix
+comprehensibility — a player who unlocks "policies" on Day 21 and
+sees fourteen contradictory action rows still bounces off. Each
+surface has to read as English first; pacing layers in next.
+
+The arc spans two phases: ISSUE-078 (translation + structural
+fixes) and ISSUE-079 (information design follow-up). The
+ISSUE-078 design lives at
+[`docs/plans/phase-117-ui-ux-clarity-pass.md`](plans/phase-117-ui-ux-clarity-pass.md);
+that file's `§8 Follow-up phase — Comprehension Pass 2` section
+is the design seed for ISSUE-079.
+
+### ISSUE-078 — UI/UX clarity pass — humanize ids, paths, policies, recipes
+
+- **Grade:** broken
+- **Status:** done
+- **Phase:** 117
+- **Evidence:** Three player-facing surfaces leak machine-readable
+  ids verbatim:
+  - `ActionPicker` → Policies tab lists both
+    `Enable Allow Tabs for Regulars` and
+    `Disable Allow Tabs for Regulars` simultaneously, with
+    subtext `Policy allow_tabs_for_regulars is not enabled`
+    (raw snake_case id). 7 policies → 14 action rows, half of
+    them always disabled.
+  - `DailyReport` → Significant Changes section renders the
+    engine's raw `readable` field:
+    `stock.ale.quantity 80 → 0 (-80)`,
+    `pressures.staff_loyalty_risk.value 0 → 75 (+75)`,
+    `pressures.cultural_tension.value 0 → 35 (+35)`. JSON-pointer
+    paths with `.value` / `.quantity` internal suffixes shown to
+    the player.
+  - `RecipesPanel` → Tavern → Recipes lists `Firewood Bundle`,
+    `Replacement Mug`, and `Cook Surplus` as menu items, all
+    `onMenu: true` by default. Firewood is fuel; mugs are
+    service equipment; "Cook Surplus" is developer shorthand for
+    raw-ingredient consumption. None are dishes a customer
+    orders.
+  Smaller leaks across the panels: `member.role.replace(/_/g, ' ')`
+  for staff role labels, `{social.outcome}` and `{project.status}`
+  rendering raw enum strings, `{facet.tag}` showing
+  `staff_action`/`weekly_event` underscored.
+- **Impact:** The Day-1 player can't distinguish system noise
+  from a coherent surface. Even with progressive onboarding pacing
+  systems in over weeks, individual screens still look like
+  developer inspectors. Progressive onboarding cannot fix it
+  without this work landing first.
+- **Scope:**
+  - **Translation utility.** New `src/reports/labels/idLabel.ts`
+    centralises every id → label resolution: registry-backed
+    categories (`stock`, `recipe`, `pressure`, `area`, `staffRole`,
+    `staffPriority`, `action`, `policy`) consult the matching
+    registry; enum-shaped categories (`projectStatus`,
+    `socialOutcome`, `expeditionOutcome`, `areaField`, `logFacet`,
+    `dayType`, `reputation`) consult a colocated static table.
+    Fallback is `humanizeId(id)` so render sites never crash on
+    unknown values.
+  - **Path humanizer.** New `src/reports/labels/humanizePath.ts`
+    consumes engine-emitted JSON-pointer paths and returns
+    player-facing labels (`stock.ale.quantity` → `Ale stock`).
+    `humanizeDiff(d)` composes the label with the before/after/
+    delta using typographic minus. `projectTopDiffs()` populates
+    a new `humanReadable` field on `ReportDiffLine`; the engine's
+    `readable` stays byte-identical for snapshot stability.
+    `DailyReport.svelte` binds to `humanReadable`. The
+    `formatDiffPathTitle()` helper used by the drilldown sheet
+    delegates to `humanizePath`.
+  - **Owner-action target labels.** `ReportOwnerActionLine` gains
+    `targetLabel`; `projectOwnerActions` resolves it through the
+    action's `targetType` (area/stock/recipe/policy → registry;
+    staff/regular/supplier/faction/customer_group → state
+    lookup). The "What happened" ledger renders the label.
+  - **Policy toggle UX.** `actionBuilder.ts` gains
+    `listPolicyToggleRows(state, pointsLeft, picks)` that returns
+    one row per starter policy, resolving the matching `enable_X`
+    or `disable_X` action by current state. `ActionPicker.svelte`
+    renders these rows instead of the paired action list when
+    `tab === 'policy'`: each row is a toggle with ON/OFF state
+    pill, effects subtitle, and conflict callout when the
+    inverse policy's enable is queued. The 14 underlying
+    registry actions stay registered — only the picker UI
+    changes. Reject reasons in `policyActions.ts` switch from
+    `Policy <snake_id> is not enabled` to
+    `<Policy Label> is already off.`.
+  - **Recipes upkeep filter.** `recipeRegistry.ts` tags
+    `dish_firewood`, `dish_mugs`, `dish_ingredients` with
+    `'upkeep'` and flips their `defaultState.onMenu` to `false`.
+    `tavernOverviewProjection.ts:buildRecipePanel` excludes
+    upkeep-tagged recipes from both `onMenu` and `available`.
+    `StockRow` gains `isUpkeepConsumed` so `StockPanel.svelte`
+    renders a "used for upkeep" pill on firewood/mugs rows. New
+    migration `flipUpkeepRecipesOffMenu` runs in
+    `web/src/lib/sim/persistence.ts` so pre-clarity-pass saves
+    drop these from the menu automatically.
+  - **Microcopy sweep.** `StaffPrioritySheet.svelte` uses
+    `idLabel('staffRole', ...)` instead of regex replace.
+    `StaffPanel.svelte` fixes the `'staff' : 'staff'` ternary
+    plural bug to `'staff member' : 'staff'`.
+    `ProjectsPanel.svelte` uses `idLabel('projectStatus', ...)`
+    and `idLabel('socialOutcome', ...)`, and updates the inline
+    policy toggle button labels from "queue enable"/"queue
+    disable" to "Turn on"/"Turn off".
+    `StockPanel.svelte` uses `idLabel('expeditionOutcome', ...)`.
+    `AreasPanel.svelte` routes `activeProblems` through
+    `humanizeId`.  `TavernLog.svelte` routes facet chips and
+    inline tag pills through `idLabel('logFacet', ...)`.
+    `TopBar.svelte` uses `idLabel('dayType', ...)`; the local
+    `formatDayType` is removed, and the daily report header in
+    `dailyReportProjection.ts` does the same.
+- **Depends on:** —
+- **Test approach:**
+  - `tests/reports/labels.test.ts` — 25 tests covering
+    `idLabel`, `humanizeId`, `humanizePath`, `humanizeDiff`
+    across every category and the canonical-path
+    no-leakage assertion.
+  - `tests/reports/upkeepRecipeFilter.test.ts` — 7 tests
+    asserting the three upkeep recipes carry the tag, start
+    off-menu, are excluded from the panel projection, that
+    firewood/mugs surface `isUpkeepConsumed: true`, and the
+    migration is idempotent + flips legacy `onMenu: true`.
+  - `tests/web/policyToggleRows.test.ts` — 7 tests covering
+    one-row-per-policy, label not raw id, correct enable_X /
+    disable_X dispatch by state, budget disable, queued-pick
+    bypass, conflict note.
+  - `tests/reports/tavernOverviewProjection.test.ts` — existing
+    recipe-count assertion updated to subtract upkeep recipes
+    (sanity check that the filter is active).
+
+### ISSUE-079 — UI/UX comprehension pass — diff grouping, empty states, glossary, density
+
+- **Grade:** thin
+- **Status:** open
+- **Phase:** 118
+- **Evidence:** Even with ISSUE-078 landed, four classes of
+  comprehension friction remain. They are covered in detail in
+  §8 of `docs/plans/phase-117-ui-ux-clarity-pass.md` (the
+  "Follow-up phase — Comprehension Pass 2" section). Summary:
+  (1) The Daily Report's `Significant changes` list flat-renders
+  up to 8 mixed-category rows. (2) Empty states across panels
+  default to no message or to "no items in this category"
+  — players hit dead ends with no guidance. (3) Glossary
+  coverage is partial: new terms surfaced by ISSUE-078 (upkeep,
+  policy ON/OFF, action points, queued action, demand tier,
+  spoilage, shortage, expedition outcomes, day types, every
+  pressure label) lack `TermLabel` wiring. (4) Tavern panel rows
+  pack too many metrics inline — staff row, stock row, area row,
+  recipe row each push 4–6 data points into one line.
+- **Impact:** The clarity pass makes each surface *legible*; the
+  comprehension pass makes each surface *scannable* and explains
+  its vocabulary on first encounter. Without this, the
+  progressive-onboarding arc still delivers screens that work
+  but feel dense.
+- **Scope:** See `docs/plans/phase-117-ui-ux-clarity-pass.md §8`
+  for the full design seed. When this phase starts, lift §8.1–§8.5
+  into a dedicated phase plan file at
+  `docs/plans/phase-118-ui-ux-comprehension-pass.md` per the
+  per-issue workflow in `CLAUDE.md`.
+- **Depends on:** ISSUE-078
+- **Test approach:**
+  - Group-render test asserting the Daily Report renders one
+    `<section>` per non-empty group (coin/reputation, stock,
+    pressures, areas) with per-group caps applied.
+  - Per-panel empty-state test mounting each panel against a
+    fixture state with the relevant list empty and asserting
+    the new copy renders.
+  - Glossary coverage test that walks every `TermLabel` term in
+    components and asserts a matching glossary entry.
+  - Manual: end a busy day with mixed diffs; confirm grouped
+    sections render and the area/stock detail sheets carry the
+    moved-out metrics.
 
 ---
 

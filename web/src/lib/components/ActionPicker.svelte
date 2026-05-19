@@ -19,10 +19,12 @@
     categoryLabel,
     getActionCategories,
     listActionsByCategory,
+    listPolicyToggleRows,
     listValidTargets,
     nextPickId,
     totalActionPoints,
     type PickedAction,
+    type PolicyToggleRow,
   } from '../sim/actionBuilder'
   import type { OwnerActionDefinition } from '../../../../src/sim/registries/actionRegistry'
   import type {
@@ -51,6 +53,17 @@
   const pointsLeft = $derived(ACTION_POINT_BUDGET - pointsUsed)
 
   const actionsForTab = $derived(listActionsByCategory(tab))
+
+  // Phase 117 — Policy toggles render as one row per policy instead
+  // of paired enable/disable definitions. Only computed when the
+  // Policies tab is active, but cheap enough to derive eagerly.
+  const policyRows = $derived(
+    listPolicyToggleRows({
+      state: gameStore.state,
+      pointsLeft,
+      picks,
+    }),
+  )
 
   function selectTab(c: OwnerActionCategory) {
     tab = c
@@ -130,6 +143,39 @@
   function disabledReason(def: OwnerActionDefinition): string | undefined {
     return actionDisabledReason(def, gameStore.state, pointsLeft)
   }
+
+  // Phase 117 — Policy toggle tap handler.
+  function tapPolicyRow(row: PolicyToggleRow) {
+    if (row.disabledReason) return
+    if (row.queued) {
+      // The toggle for *this* direction is queued; cancelling restores
+      // the player's intent that the policy stay in its current state.
+      const target = picks.find((p) => p.actionId === row.actionId)
+      if (target) removePick(target.pickId)
+      return
+    }
+    // If the inverse direction is queued (player flipped, then is
+    // flipping back), remove the inverse pick to reach the same end
+    // state without spending two points.
+    const inverseId = row.enabled
+      ? `enable_${row.policyId}`
+      : `disable_${row.policyId}`
+    const inversePick = picks.find((p) => p.actionId === inverseId)
+    if (inversePick) {
+      removePick(inversePick.pickId)
+      return
+    }
+    addPick({
+      pickId: nextPickId(),
+      actionId: row.actionId,
+      label: row.enabled ? `Turn off ${row.label}` : `Turn on ${row.label}`,
+      category: 'policy',
+      targetType: 'policy',
+      targetId: row.policyId,
+      targetLabel: row.label,
+      actionPointCost: row.actionPointCost,
+    })
+  }
 </script>
 
 <BottomSheet {open} title="Plan the day" {onclose}>
@@ -193,30 +239,66 @@
         {/each}
       </div>
 
-      <ul class="actions">
-        {#if actionsForTab.length === 0}
-          <li class="empty tag">no actions in this category</li>
-        {/if}
-        {#each actionsForTab as def (def.id)}
-          {@const reason = disabledReason(def)}
-          <li>
-            <button
-              type="button"
-              class="action"
-              disabled={!!reason}
-              onclick={() => tapAction(def)}
-            >
-              <span class="action-head">
-                <span class="action-label">{def.label}</span>
-                <span class="action-cost mono">{def.actionPointCost} pt</span>
-              </span>
-              {#if reason}
-                <span class="action-reason tag">{reason}</span>
-              {/if}
-            </button>
-          </li>
-        {/each}
-      </ul>
+      {#if tab === 'policy'}
+        <ul class="actions">
+          {#each policyRows as row (row.policyId)}
+            <li>
+              <button
+                type="button"
+                class="action policy-row"
+                class:queued={row.queued}
+                disabled={!!row.disabledReason}
+                onclick={() => tapPolicyRow(row)}
+                aria-pressed={row.enabled}
+              >
+                <span class="action-head">
+                  <span class="action-label">{row.label}</span>
+                  <span class="policy-state" data-state={row.enabled ? 'on' : 'off'}>
+                    {#if row.queued}
+                      → {row.enabled ? 'off' : 'on'}
+                    {:else}
+                      {row.enabled ? 'on' : 'off'}
+                    {/if}
+                  </span>
+                </span>
+                {#if row.effects}
+                  <span class="policy-effect tag">{row.effects}</span>
+                {/if}
+                {#if row.disabledReason}
+                  <span class="action-reason tag">{row.disabledReason}</span>
+                {:else if row.conflictNote}
+                  <span class="action-reason tag conflict">{row.conflictNote}</span>
+                {/if}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {:else}
+        <ul class="actions">
+          {#if actionsForTab.length === 0}
+            <li class="empty tag">no actions in this category</li>
+          {/if}
+          {#each actionsForTab as def (def.id)}
+            {@const reason = disabledReason(def)}
+            <li>
+              <button
+                type="button"
+                class="action"
+                disabled={!!reason}
+                onclick={() => tapAction(def)}
+              >
+                <span class="action-head">
+                  <span class="action-label">{def.label}</span>
+                  <span class="action-cost mono">{def.actionPointCost} pt</span>
+                </span>
+                {#if reason}
+                  <span class="action-reason tag">{reason}</span>
+                {/if}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
     {/if}
   {/snippet}
 
@@ -349,6 +431,50 @@
 
   .action-reason {
     color: var(--loss);
+  }
+
+  .action-reason.conflict {
+    color: var(--risk);
+  }
+
+  .policy-row.queued {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+
+  .policy-state {
+    font-family: var(--font-body);
+    font-variant: small-caps;
+    letter-spacing: 0.08em;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    min-width: 56px;
+    text-align: center;
+  }
+
+  .policy-state[data-state='on'] {
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+
+  .policy-state[data-state='off'] {
+    color: var(--text-faint);
+    border: 1px solid color-mix(in srgb, var(--ash) 30%, transparent);
+  }
+
+  .policy-row.queued .policy-state {
+    color: var(--text);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+
+  .policy-effect {
+    color: var(--text-faint);
+    font-style: italic;
+    font-size: 12px;
+    line-height: 1.4;
   }
 
   .foot-row {

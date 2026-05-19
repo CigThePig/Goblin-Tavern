@@ -117,7 +117,7 @@ how to verify the fix.
 | ISSUE-076 | Discovery card narrative pass | thin | open | 115 |
 | ISSUE-077 | Migration finalize + fixture audit + integration walkthrough | broken | open | 116 |
 | ISSUE-078 | UI/UX clarity pass — humanize ids, paths, policies, recipes | broken | done | 117 |
-| ISSUE-079 | UI/UX comprehension pass — diff grouping, empty states, glossary, density | thin | in_progress | 118 |
+| ISSUE-079 | UI/UX comprehension pass — diff grouping, empty states, glossary, density | thin | done | 118 |
 
 ---
 
@@ -2987,7 +2987,7 @@ is the design seed for ISSUE-079.
 ### ISSUE-079 — UI/UX comprehension pass — diff grouping, empty states, glossary, density
 
 - **Grade:** thin
-- **Status:** in_progress
+- **Status:** done
 - **Phase:** 118
 - **Evidence:** Even with ISSUE-078 landed, four classes of
   comprehension friction remain. They are covered in detail in

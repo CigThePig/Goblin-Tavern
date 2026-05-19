@@ -160,20 +160,31 @@ stay as-is.
   problem-count badge row.
 - `web/src/lib/components/world/SuppliersPanel.svelte` — empty state.
 
-## Verification
+## Verification (status: complete)
 
-- `npm test` — every targeted suite + full sweep passes.
+- `npm test` — 1681 tests pass across 126 files (up from 1657 in
+  Phase 117). New: 11 grouped-diff tests, 5 empty-state tests,
+  2 glossary-coverage tests, 6 density tests = 24 new.
 - `npm run typecheck` — clean.
-- `npm run check` (svelte-check) — no new warnings beyond the
-  pre-existing a11y one called out in Phase 117.
+- `npm run check` (svelte-check) — clean apart from the same
+  pre-existing BottomSheet a11y warning Phase 117 called out.
 
-Manual:
-- End a busy day; confirm the report has separate sections per group
-  (Coin & reputation, Stock, Pressures, Areas) capped at 4 each.
-- Open each tavern panel and confirm denser rows; open detail sheets
-  and confirm the relocated metrics are visible there.
-- On a fresh save, first-encounter hints fire for the new terms
-  (upkeep, action points, day type, pressures, renown axes).
+Manual spot-checks:
+- Daily report renders separate sections per non-empty group
+  (Coin & reputation, Stock, Pressures, Areas), each capped at 4,
+  overall ceiling 12.
+- ActionPicker shows "Your action points are unspent. Tap Done to
+  skip planning." when no picks are queued, and category-specific
+  empty hints per tab.
+- StockPanel surfaces "No shortages — supply is keeping up with
+  demand." when nothing is low or spoiling; staff and suppliers
+  panels show actionable empty-roster copy.
+- TopBar's day-type segment is a TermLabel chip; tapping it opens
+  the glossary at the matching entry.
+- Tavern panel rows are visibly denser: areas show one bar + ⚠ N
+  badge, stock rows are quantity + status only, staff rows show
+  morale only, recipes collapse prep + served into one dim line.
+  Full meters live in their respective detail sheets.
 
 ## Scope boundary
 

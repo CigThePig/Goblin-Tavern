@@ -12,6 +12,7 @@ import {
   ensureStarterNamingProfilesRegistered,
   namingProfileRegistry,
 } from '../../content/naming/namingProfiles'
+import { createRegularCastAttributes } from '../../content/cast/createCastAttributes'
 
 import {
   REGULARS_MODULE_ID,
@@ -130,6 +131,16 @@ function createRegular(
   const today = ctx.state.calendar.totalDaysElapsed
   const favoriteStockId = pickFavoriteStockId(ctx, group)
 
+  // Phase 121 / ISSUE-090 — Living Cast Phase A. Bounded selection
+  // vocabulary attached to every emergent regular. Rolls land on the
+  // SAME regular_identity stream, AFTER the name + favouriteStock
+  // rolls, so existing canonical regular names stay byte-identical.
+  const castAttributes = createRegularCastAttributes({
+    ...(group.cultureId !== undefined ? { cultureId: group.cultureId } : {}),
+    customerGroupId: group.id,
+    rng,
+  })
+
   const regular: RegularWorldState = {
     id,
     name,
@@ -144,6 +155,7 @@ function createRegular(
     lastSeenDay: today,
     tags: ['regular', ...(group.cultureId ? [`culture:${group.cultureId}`] : [])],
     activeFlags: [],
+    castAttributes,
   }
 
   ctx.state.world.regulars[id] = regular

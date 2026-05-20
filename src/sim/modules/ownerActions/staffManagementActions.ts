@@ -1,5 +1,6 @@
 import type { SimContext } from '../../core/context'
 import { createStaffIdentity } from '../../content/staff/staffIdentityFactory'
+import { createStaffCastAttributes } from '../../content/cast/createCastAttributes'
 import { staffRegistry } from '../../registries/staffRegistry'
 import { spendCoin } from '../stock/ledger'
 import type { StaffState } from '../../state/TavernState'
@@ -112,6 +113,17 @@ const hireStaffAction: OwnerActionDefinition = {
       ...(preferredCultureId !== undefined ? { preferredCultureId } : {}),
     })
 
+    // Phase 121 / ISSUE-090 — Living Cast Phase A. Cast-attribute rolls
+    // share the staff_identity stream and land AFTER the identity rolls,
+    // matching the canonical day-zero ordering in `createInitialStaff`.
+    const castAttributes = createStaffCastAttributes({
+      roleId: def.id,
+      ...(identity.cultureId !== undefined
+        ? { cultureId: identity.cultureId }
+        : {}),
+      rng: identityRng,
+    })
+
     const newStaff: StaffState = {
       id: hireId,
       name: generatedName,
@@ -120,6 +132,7 @@ const hireStaffAction: OwnerActionDefinition = {
       ...def.defaultState,
       activeFlags: [...def.defaultState.activeFlags],
       identity,
+      castAttributes,
     }
 
     spendCoin(ctx, HIRE_STAFF_COST, {

@@ -1,4 +1,5 @@
 import type { CalendarState } from '../modules/calendar/types'
+import type { CastAttributes } from '../content/cast/castTypes'
 import type { GeneratedName, NamingProfileId } from '../content/naming/nameTypes'
 import type { RngStreamState } from '../core/rng'
 
@@ -179,6 +180,13 @@ export type StaffState = {
   // staff module's validate hook flags missing identity as a structural
   // issue.
   identity?: StaffIdentityState
+  // Phase 121 / ISSUE-090 — Living Cast Phase A. Bounded selection
+  // vocabulary (specialty, blindspot, affinities, voice). Optional
+  // during the migration window for pre-Phase-A saves; the
+  // `ensureCastAttributes` migration helper attaches deterministic
+  // defaults before validation. New state created via
+  // `createInitialTavernState` always populates it.
+  castAttributes?: CastAttributes
 }
 
 // Phase 10 §"Customer Group State" — Phase 10 extends the Phase 5 shape
@@ -493,6 +501,13 @@ export type RegularWorldState = {
   knownIncidentIds: string[]
   tags: string[]
   activeFlags: string[]
+  // Phase 121 / ISSUE-090 — Living Cast Phase A. Bounded selection
+  // vocabulary (social specialty, blindspot, affinities, voice).
+  // Optional during the migration window for pre-Phase-A saves;
+  // `ensureCastAttributes` attaches deterministic defaults before
+  // validation. New regulars created via `regularModule.createRegular`
+  // always populate it.
+  castAttributes?: CastAttributes
 }
 
 export type NotableNpcWorldState = {

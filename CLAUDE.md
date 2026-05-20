@@ -8,13 +8,16 @@ A text-based goblin tavern management simulation built **simulation-first**: a h
 
 **Phases 41–97 + 117–120 (post-Phase-40 repair pass + UI/UX clarity + web test stack): done.** The repair pass landed Tier 0 infrastructure (ISSUE-001…004), Tier 1 roster grows (ISSUE-010…012; ISSUE-005…009 superseded by the Tier 1.5 arc), the **Tier 1.5 Rare Ingredients Economy** arc (ISSUE-025…033, phases 65–73), Tier 2 family rewrites (ISSUE-013…019), Tier 3 polish + audit fixes (ISSUE-020…057), the Tier 5 UI/UX clarity passes (ISSUE-078/079, phases 117–118), and the combined web test-coverage + `$derived` audit (ISSUE-058/059, phases 119–120). The web "More" tab + save slots + first-encounter hints + difficulty work (phase 98) shipped as part of the web chassis and is tracked retroactively as ISSUE-080.
 
+**Phase 121 (Living Cast arc, Phase A): done.** Bounded selection vocabulary attached to staff and regulars (`specialty`, `blindspot`, `affinity[]`, `voiceProfile` with 4 axes + optional verbal-tic). Lives under `src/sim/content/cast/`; reuses the `staff_identity` / `regular_identity` named RNG streams; stored as plain JSON on `StaffState.castAttributes` and `RegularWorldState.castAttributes`. Tracked as ISSUE-090.
+
 **Open work** — see [`docs/ISSUE_TRACKER.md`](docs/ISSUE_TRACKER.md) for full evidence, scope, dependencies, and test approach:
 
 1. **Tier 4 Progressive Onboarding arc** — ISSUE-060…077, phases 99–116. Locked design contract at [`docs/plans/progressive-onboarding.md`](docs/plans/progressive-onboarding.md). Reframes Day 1 as "first time opening a tavern" and unlocks simulation systems one at a time across the first ~10 weeks of in-game time.
+2. **Tier 6 Living Cast arc Phases B–G** — locked roadmap at [`docs/plans/living-cast-arc.md`](docs/plans/living-cast-arc.md), framework contract at [`docs/plans/card-composition-framework.md`](docs/plans/card-composition-framework.md). Phase A (ISSUE-090, phase 121) is done; Phase B is authorial hand-iteration (no Claude Code involvement); Phases C–G land as separate ISSUE entries when they start.
 
-The tracker carries **79 issues across 5 tiers** (Tier 0 infrastructure; Tier 1 + 1.5 roster grows + Rare Ingredients; Tier 2 family rewrites; Tier 3 polish + audit; Tier 4 onboarding; Tier 5 UI/UX clarity). 57 are `done`, 18 are `open`, 5 are `superseded` by the Rare Ingredients arc. ISSUE_TRACKER.md is the authoritative source for what changes; the "Current work" callout at the top of that file names the next-up issue.
+The tracker carries **80 issues across 6 tiers** (Tier 0 infrastructure; Tier 1 + 1.5 roster grows + Rare Ingredients; Tier 2 family rewrites; Tier 3 polish + audit; Tier 4 onboarding; Tier 5 UI/UX clarity; Tier 6 Living Cast). 58 are `done`, 18 are `open`, 5 are `superseded` by the Rare Ingredients arc. ISSUE_TRACKER.md is the authoritative source for what changes; the "Current work" callout at the top of that file names the next-up issue.
 
-**Phase numbering.** ISSUE-001…057 follow `phase = 40 + N` (phases 41–97). Phase 98 belongs to the retroactive ISSUE-080. Tier 4 onboarding (ISSUE-060…077) → phases 99–116. Tier 5 UI/UX clarity (ISSUE-078/079) → phases 117–118. ISSUE-058/059 take the next free integers, phases 119/120. **Phase numbers are a file-naming convention; execution order is set by ISSUE-NNN ordering and the `Depends on` chains, not by phase number** — start with whatever the tracker's "Current work" callout names, even if its phase number is higher than a later-tier issue.
+**Phase numbering.** ISSUE-001…057 follow `phase = 40 + N` (phases 41–97). Phase 98 belongs to the retroactive ISSUE-080. Tier 4 onboarding (ISSUE-060…077) → phases 99–116. Tier 5 UI/UX clarity (ISSUE-078/079) → phases 117–118. ISSUE-058/059 take the next free integers, phases 119/120. Tier 6 Living Cast Phase A (ISSUE-090) → phase 121. **Phase numbers are a file-naming convention; execution order is set by ISSUE-NNN ordering and the `Depends on` chains, not by phase number** — start with whatever the tracker's "Current work" callout names, even if its phase number is higher than a later-tier issue.
 
 **Locked design contracts** (read these before planning work in their scope):
 
@@ -24,6 +27,8 @@ The tracker carries **79 issues across 5 tiers** (Tier 0 infrastructure; Tier 1 
 - `docs/plans/cards-contract.md` — bridge between headless sim and card UI layer (for the eventual card-layer work).
 - `docs/plans/game-loop-and-ux.md` — game loop / UX working contract (§8–9 explicitly open).
 - `docs/plans/progressive-onboarding.md` — Tier 4 arc (ISSUE-060…077, phases 99–116); amends `game-loop-and-ux.md §2.1`.
+- `docs/plans/living-cast-arc.md` — Living Cast arc roadmap (Phase A = ISSUE-090 / phase 121, done; Phases B–G upcoming). Pairs with `card-composition-framework.md`.
+- `docs/plans/card-composition-framework.md` — locked compositional framework for the card layer (slots, snippets, deterministic assembly). Sits below `cards-contract.md`; resolves its §9 "tone/presentation pipeline" question.
 
 Per-issue workflow: the user puts Claude Code in plan mode, Claude reads the matching tracker entry, produces a phase plan file in `docs/plans/`, then implements. Update the issue's `Status` and `Phase` fields in the tracker inline as work progresses; closed issues stay in the tracker as history.
 

@@ -19,6 +19,7 @@
 //     `formatTitle` / `buildBody` shape when no tones are given.
 
 import { TONE_POOLS, EMPTY_STATE_POOLS } from './tonePools'
+import { fnvIndex } from '../../sim/utils/fnv'
 
 const MAX_TITLE_WORDS = 6
 const MAX_BODY_LINES = 3
@@ -31,17 +32,10 @@ export type ComposeOpts = {
   key: string
 }
 
-// ---------- Hash ----------
-
-function fnvIndex(key: string, modulo: number): number {
-  if (modulo <= 0) return 0
-  let hash = 0x811c9dc5
-  for (let i = 0; i < key.length; i += 1) {
-    hash ^= key.charCodeAt(i)
-    hash = Math.imul(hash, 0x01000193) >>> 0
-  }
-  return hash % modulo
-}
+// Phase 123 / ISSUE-092: the FNV-1a helper moved to
+// `src/sim/utils/fnv.ts` so the compose slice and this composer share
+// one implementation. The `__internal.fnvIndex` re-export at the bottom
+// of this file preserves the existing test surface.
 
 // ---------- Word ops ----------
 

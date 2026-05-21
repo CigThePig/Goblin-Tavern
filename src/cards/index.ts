@@ -26,8 +26,27 @@ export {
   factionRequestCard,
   reputationShiftWeeklyCard,
   monthlyReviewCard,
+  drinkOrderCard,
   fallbackCard,
 } from './templates/index'
+// Phase 123 — Living Cast arc, Phase C. The compose slice is the bottom
+// half of the card layer; templates author against these types.
+export {
+  assembleSlots,
+  defineCompositionalCard,
+  evalCondition,
+  pickSnippet,
+  specificityOf,
+} from './compose/index'
+export type {
+  CompositionalCardTemplate,
+  FilledSlots,
+  Snippet,
+  SnippetCondition,
+  SnippetPool,
+  SlotSpec,
+  VoiceRegisterId,
+} from './compose/index'
 export type {
   CardDefinition,
   CardAppliesTo,

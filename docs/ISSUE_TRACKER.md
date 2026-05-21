@@ -43,9 +43,13 @@ Next up, in this order:
    (phase 99, design contract); strictly linear through **ISSUE-077**
    (phase 116). Locked design contract: `docs/plans/progressive-onboarding.md`.
 2. **Tier 6 Living Cast arc** — kicks off the card-layer work. Phase A
-   landed as **ISSUE-090** (phase 121, status `done`); Phases B–G run
-   against the locked roadmap `docs/plans/living-cast-arc.md` and the
-   framework contract `docs/plans/card-composition-framework.md`.
+   landed as **ISSUE-090** (phase 121, status `done`); Phase B is the
+   hand-authored convergence artifact at
+   `docs/plans/living-cast-arc-phase-b.md` (no tracker ISSUE because no
+   code shipped); Phase C landed as **ISSUE-092** (phase 123, status
+   `done`). Phases D–G run against the locked roadmap
+   `docs/plans/living-cast-arc.md` and the framework contract
+   `docs/plans/card-composition-framework.md`.
 
 ISSUE-058 and ISSUE-059 landed together as the combined phase 119+120
 (see `docs/plans/phase-119-120-web-test-coverage-and-derived-audit.md`).
@@ -147,6 +151,7 @@ phase-number arithmetic when deciding what's next.
 | ISSUE-079 | UI/UX comprehension pass — diff grouping, empty states, glossary, density | thin | done | 118 |
 | ISSUE-080 | More tab + save slots + first-encounter hints + difficulty (retroactive) | thin | done | 98 |
 | ISSUE-090 | Living Cast Phase A — bounded cast attributes on staff + regulars | thin | done | 121 |
+| ISSUE-092 | Living Cast Phase C — composition runtime + first compositional card | thin | done | 123 |
 
 ---
 
@@ -3156,6 +3161,72 @@ scale-out) will select against. Locked roadmap:
   tests (which were the regression guard — pre-Phase-A starter
   regulars needed the new factory too, caught and fixed during
   implementation).
+
+### ISSUE-092 — Living Cast Phase C: composition runtime + first compositional card
+
+- **Grade:** thin
+- **Status:** done
+- **Phase:** 123
+- **Implementation record:** `docs/plans/phase-123-composition-runtime.md`.
+- **Evidence:** `card-composition-framework.md §2–3, §8` specifies the
+  bottom half of the card layer — typed snippets, data conditions, a
+  deterministic slot assembler, and `defineCompositionalCard` — but
+  shipped nothing. Phase B converged a `drink_order` template + pool
+  by hand and surfaced two structural findings: Phase A stores voice
+  as structured scalars (`CastAttributes.voice.axes[axis] ∈ {0,1,2}`
+  + optional `verbalTic`), so the framework's `actorTrait` exact-
+  string condition cannot match voice; and the pool needs a single-
+  axis middle rung because two-axis snippets fire rarely under the
+  `[-1,0,0,1]` perturbation.
+- **Impact:** Without the compose slice no compositional card can
+  render — every Phase D / E / F / G phase depends on this runtime.
+  The eight hand-written templates kept working untouched; Phase C
+  only adds, never replaces.
+- **Scope (delivered):** New compose slice at `src/cards/compose/`
+  with `types.ts` (Snippet / SnippetPool / SnippetCondition /
+  SlotSpec / CompositionalCardTemplate / FilledSlots, plus plain-
+  string `VoiceRegisterId`), `conditions.ts` (the eleven framework
+  primitives + Phase-B's `voiceAxis` atLeast/atMost forms +
+  `verbalTic`, all flat-data conditions; `actorTrait` declared but
+  always-false as a forward seam), `assemble.ts` (deterministic
+  `pickSnippet` / `assembleSlots` / `specificityOf` with FNV
+  tie-break), `defineCompositionalCard.ts` (factory that wraps a
+  template into the existing `CardDefinition` shape so the registry,
+  selection, and renderer never learn this layer exists), and a
+  committed pool slice `pools/drinkOrder/` carrying Phase B's
+  `order_line` (17 snippets across fallback + single-axis + two-axis
+  + verbal-tic rungs) and `manner_note` (5 snippets) verbatim. New
+  template `src/cards/templates/drinkOrder.ts` wires through
+  `defineCompositionalCard` and applies to `regular_customer /
+  relationship_test / during_service` seeds (currently uncovered by
+  any card; primaryActor is already a regular ref). The shared FNV
+  helper moved to `src/sim/utils/fnv.ts`; `descriptors.ts` and
+  `voice/composer.ts` both import it, with `__internal.fnvIndex`
+  re-exported for test back-compat. `sim_backed_hook` slot ships
+  empty per Phase B's "DISABLED for spike" decision (sim does not
+  emit `repeatCount`/`subjectTag`).
+- **Depends on:** ISSUE-090 (Phase A bounded cast attributes — done).
+  Phase B's hand-iterated spec is a documentation artifact at
+  `docs/plans/living-cast-arc-phase-b.md`; no tracker entry.
+- **Test approach (delivered):** Three new suites covering 45 gates.
+  `tests/cards/compose/conditions.test.ts` (21 gates) exercises each
+  of the thirteen condition kinds with positive + negative cases,
+  including the forward-seam `actorTrait` and `repeatCount` returning
+  false today, plus `voiceAxis`/`verbalTic` graceful degradation
+  (missing actor, missing castAttributes, non-cast-bearing kinds).
+  `tests/cards/compose/assemble.test.ts` (12 gates) covers
+  specificity ordering, optional-slot omission, FNV tie-break
+  stability, and determinism across structuredClone.
+  `tests/cards/templates.drinkOrder.test.ts` (12 gates) is the
+  live integration: `pickCardForSeed` returns `drinkOrderCard` for
+  the right seed; the seed's body[0] is one of the 17 committed
+  snippets; specific cast profiles produce the expected snippet
+  ("Ale. Cold. No speech with it." for `terseness=2, warmth=0`);
+  the unconditional fallback fires on neutral profiles; complaint-
+  type seeds still route to `customerComplaintCard`; missing cast
+  attributes route to `fallbackCard`; render is deterministic and
+  non-mutating. Full suite green at 1764/1764 (1719 pre-Phase-C +
+  45 new).
 
 ---
 

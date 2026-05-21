@@ -202,23 +202,11 @@ export function buildDiversitySampler(
   }
 }
 
-/**
- * Pull every regular and staff `name.display` from the given state.
- * Used to feed the sim-coherence gate the list of names it should ban
- * from flavor snippet text.
- */
-export function representativeBannedNames(
-  state: TavernState,
-): readonly string[] {
-  const out = new Set<string>()
-  for (const regular of Object.values(state.world.regulars)) {
-    if (regular?.name?.display) out.add(regular.name.display)
-  }
-  for (const staff of Object.values(state.staff)) {
-    if (staff?.name?.display) out.add(staff.name.display)
-  }
-  return [...out]
-}
+// Phase 125 / ISSUE-094: `representativeBannedNames` moved to
+// `src/cards/compose/gates/representativeBannedNames.ts` so the
+// generation pipeline can import it without reaching into `tests/`.
+// Re-exported here for the existing call sites.
+export { representativeBannedNames } from '../../../../src/cards/compose/gates/representativeBannedNames'
 
 export const __testing = {
   firstRegularId,

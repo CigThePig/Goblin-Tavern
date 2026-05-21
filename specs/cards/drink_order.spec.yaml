@@ -1,0 +1,414 @@
+# Phase 125 / ISSUE-094 — Living Cast arc, Phase E.
+#
+# Generation spec for the drink_order template. The shape is FIXED to
+# the format Phase B converged on; see docs/plans/living-cast-arc-phase-b.md
+# for the authoring narrative, the reasoning behind each field, and the
+# claim/flavor split. This file is the build-time input the pipeline at
+# scripts/generate-pool/ consumes; the doc is the design record. Edits
+# to this file are reviewed via PR.
+#
+# The sim_backed_hook slot is intentionally DISABLED — the underlying sim
+# signals (per-actor repeat-visit count, stock_shortage pressure id) do
+# not yet exist. The pipeline skips disabled slots; runtime ignores them.
+
+templateId: drink_order
+voiceRegister: tavern_floor
+status: phase_b_complete_revised
+purpose: >
+  Generate short in-character drink-order lines for a staff-facing or
+  player-facing tavern card without inventing unsupported facts. Voice
+  variation is driven by the shipped Phase-A CastAttributes.voice scalars.
+
+slots:
+  - id: order_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      The actual request for ale, beer, or a house drink. It may show mood,
+      personality, and voice. It must not claim a specific past event.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      A tiny optional beat showing delivery, posture, impatience, or social
+      texture. Omitted rather than weak.
+
+  - id: sim_backed_hook
+    required: false
+    claims: sim-backed
+    maxWords: 12
+    status: DISABLED_FOR_SPIKE
+    description: >
+      Reserved for a line referencing a real seed/state condition (repeat
+      visit, named actor, rising pressure, memory). DISABLED until the sim
+      actually emits the backing signal. Do not wire into Phase C's live pool.
+
+voiceAxesInPlay:
+  terseness:
+    0: full clause
+    1: compact
+    2: clipped imperative
+  warmth:
+    0: prickly/distant
+    1: neutral
+    2: familiar/inviting
+  formality:
+    0: casual/slang
+    1: plain
+    2: titled/ceremonious
+  floridity:
+    0: literal
+    1: one image allowed
+    2: vivid but short, no lore
+
+verbalTicsCovered:
+  - trails_off
+  - interrupts_self
+  - understates
+  - repeats_for_emphasis
+  - qualifies_everything
+  - italicises_stakes
+  - quotes_someone_else
+
+allowedTargets:
+  - ale
+  - beer
+  - house ale
+  - dark ale
+  - small beer
+  - bitter
+  - stout
+  - whatever is cold
+
+mustNotInvent:
+  - named NPCs
+  - named factions
+  - specific injuries
+  - specific battles
+  - debt history
+  - previous tavern incidents
+  - who paid whose tab
+  - claims about supply unless the seed/state says so
+
+hardBounds:
+  order_line: 12
+  manner_note: 10
+  sim_backed_hook: 12
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+  noDirectMechanicalLanguage: true
+
+gradientPolicy:
+  base: one unconditional fallback (always fires)
+  middle: single-axis snippets (voiceAxis atLeast/atMost) — the COMMON rung
+  top: two-axis snippets — the RARE rung, sharpens when both extremes land
+  tic: single verbalTic snippets — independent of the axis rungs
+
+positiveExemplars:
+  - id: terse_prickly_plain
+    claims: flavor
+    voice: { terseness: 2, warmth: 0 }
+    order_line: "Ale. Now. Before my patience sobers up."
+    manner_note: "They tap two coins once."
+    why_it_works: "Strong personality, no world claim, fits a card slot."
+
+  - id: warm_informal_plain
+    claims: flavor
+    voice: { warmth: 2, formality: 0 }
+    order_line: "House ale, friend. The kind that forgives a long day."
+    manner_note: "Their grin arrives before the coin."
+    why_it_works: "Warm without backstory. 'Long day' is mood, not a specific event."
+
+  - id: formal_restrained
+    claims: flavor
+    voice: { formality: 2, floridity: 0 }
+    order_line: "A small beer, if the house can spare it."
+    manner_note: "They wait with careful hands."
+    why_it_works: "Formality through phrasing, not added lore."
+
+  - id: florid_road_voice
+    claims: flavor
+    voice: { floridity: 2, terseness: 0 }
+    order_line: "Bring me something dark enough to hide my thoughts."
+    manner_note: "They smile like a locked chest."
+    why_it_works: "Vivid but non-factual. No named history."
+
+  - id: clipped_warm
+    claims: flavor
+    voice: { terseness: 2, warmth: 2 }
+    order_line: "Big mug. Good ale. You know the one."
+    manner_note: "The counter creaks under one friendly elbow."
+    why_it_works: "Distinct rhythm from warmth + terseness; generic physical beat."
+
+  - id: just_terse
+    claims: flavor
+    voice: { terseness: 2 }
+    order_line: "Ale. The usual size."
+    manner_note: "No wasted motion."
+    why_it_works: "Fires on terseness alone — common, anchors the middle rung."
+
+  - id: just_warm
+    claims: flavor
+    voice: { warmth: 2 }
+    order_line: "Whatever's good tonight — surprise me kindly."
+    why_it_works: "Fires on warmth alone. Open, generous, no claim."
+
+  - id: just_formal
+    claims: flavor
+    voice: { formality: 2 }
+    order_line: "An ale, when it is convenient to pour one."
+    why_it_works: "Hedged courtesy carries formality with no lore."
+
+  - id: just_florid
+    claims: flavor
+    voice: { floridity: 2 }
+    order_line: "Your darkest pour, the colour of a closed door."
+    why_it_works: "One image, still short, claims nothing checkable."
+
+  - id: just_plain_cold
+    claims: flavor
+    voice: { warmth: 0 }
+    order_line: "An ale. That's all."
+    why_it_works: "Low warmth alone reads as curt without needing terseness too."
+
+  - id: tic_qualifies
+    claims: flavor
+    voice: { verbalTic: qualifies_everything }
+    order_line: "A mild ale, I think. Nothing too heroic, more or less."
+    manner_note: "They count the price twice."
+    why_it_works: "Hedges land the tic without overwhelming the line."
+
+  - id: tic_interrupts
+    claims: flavor
+    voice: { verbalTic: interrupts_self }
+    order_line: "Dark ale — no, bitter. Whichever bites first."
+    why_it_works: "Self-reversal changes sentence motion; stays compact."
+
+  - id: tic_understates
+    claims: flavor
+    voice: { verbalTic: understates }
+    order_line: "A stout, please. Something with a bit of spine."
+    manner_note: "Their coat is wetter than they admit."
+    why_it_works: "'A bit of spine' downgrades stakes; no checkable claim."
+
+  - id: tic_repeats
+    claims: flavor
+    voice: { verbalTic: repeats_for_emphasis }
+    order_line: "Ale. A proper ale — proper, mind you."
+    why_it_works: "Doubled word lands the tic in four words."
+
+  - id: tic_trails_off
+    claims: flavor
+    voice: { verbalTic: trails_off }
+    order_line: "Just ale. Something quiet, if there's… you know."
+    why_it_works: "Mid-clause fade is the whole tic; still parses as a request."
+
+  - id: tic_italicises
+    claims: flavor
+    voice: { verbalTic: italicises_stakes }
+    order_line: "An ale. A good one — that part matters."
+    why_it_works: "One weighted beat lands the stress tic, no lore."
+
+  - id: tic_quotes_someone
+    claims: flavor
+    voice: { verbalTic: quotes_someone_else }
+    order_line: "Ale, as my old captain always ordered it."
+    why_it_works: >
+      Borderline-safe: 'old captain' is a generic attribution, not a named
+      NPC or checkable relation.
+
+negativeExamples:
+  - id: mad_lib_flatness
+    line: "The customer wants ale."
+    fails: [specificity-gradient, voice-bounds]
+    reason: "Mechanically true but dead; invites placeholder prose."
+
+  - id: unsupported_backstory
+    line: "After killing three cave trolls, I need your strongest ale."
+    fails: [sim-coherence]
+    reason: "Invents combat history; needs a memory/seed condition, not valid as flavor."
+
+  - id: lore_overreach
+    line: "By decree of the Sapphire Baron, pour me a lawful stout."
+    fails: [sim-coherence, voice-bounds]
+    reason: "Invents an authority and setting object. Formality is not lore licence."
+
+  - id: modern_slang
+    line: "Hit me with whatever ale is trending tonight."
+    fails: [voice-bounds]
+    reason: "Register breaks tavern-fantasy voice."
+
+  - id: overlong_florid
+    line: "Bring forth a thunder-dark cathedral of barley where my ruined hopes may kneel."
+    fails: [length, voice-bounds]
+    reason: "Floridity is not permission to become a parody cannon."
+
+  - id: conditional_without_condition
+    line: "Put it on the miner captain's tab again."
+    fails: [sim-coherence]
+    reason: "Needs named entity + tab relation + repeat history; no condition guarantees them."
+
+  - id: two_extreme_overreliance
+    line: "(a pool whose only specific snippets each require two axis extremes)"
+    fails: [specificity-gradient, diversity]
+    reason: >
+      Not a single bad line but a bad POOL SHAPE. Two-extreme snippets fire
+      rarely under [-1,0,0,1] perturbation; pool collapses onto fallback.
+
+snippetPools:
+  - slotId: order_line
+    required: true
+    snippets:
+      - id: order_fallback_plain
+        text: "An ale, please. Whatever the house recommends."
+        conditions: []
+
+      - id: order_terse
+        text: "Ale. The usual size."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+      - id: order_warm
+        text: "Whatever's good tonight — surprise me kindly."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: order_cold
+        text: "An ale. That's all."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: order_formal
+        text: "An ale, when it is convenient to pour one."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+      - id: order_florid
+        text: "Your darkest pour, the colour of a closed door."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+
+      - id: order_terse_cold
+        text: "Ale. Cold. No speech with it."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: order_terse_warm
+        text: "Big mug. Good ale. You know the one."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: order_warm_informal
+        text: "House ale, friend. The kind that forgives a long day."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atMost: 0 }
+      - id: order_formal_plain
+        text: "A small beer, if the house can spare it."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atMost: 0 }
+      - id: order_florid_open
+        text: "Bring me something dark enough to hide my thoughts."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atMost: 0 }
+
+      - id: order_tic_qualifies
+        text: "A mild ale, I think. Nothing too heroic, more or less."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: qualifies_everything }
+      - id: order_tic_interrupts
+        text: "Dark ale — no, bitter. Whichever bites first."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: interrupts_self }
+      - id: order_tic_understates
+        text: "A stout, please. Something with a bit of spine."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: understates }
+      - id: order_tic_repeats
+        text: "Ale. A proper ale — proper, mind you."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: repeats_for_emphasis }
+      - id: order_tic_trails_off
+        text: "Just ale. Something quiet, if there's… you know."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: trails_off }
+      - id: order_tic_italicises
+        text: "An ale. A good one — that part matters."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: italicises_stakes }
+      - id: order_tic_quotes
+        text: "Ale, as my old captain always ordered it."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: quotes_someone_else }
+
+  - slotId: manner_note
+    required: false
+    snippets:
+      - id: manner_warm_coin
+        text: "Their grin arrives before the coin."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: manner_cold_coin
+        text: "They tap two coins once."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+      - id: manner_formal_wait
+        text: "They wait with careful hands."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+      - id: manner_florid_smile
+        text: "They smile like a locked chest."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: manner_nervous_count
+        text: "They count the price twice."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: qualifies_everything }
+
+  - slotId: sim_backed_hook
+    required: false
+    status: DISABLED_FOR_SPIKE
+    snippets: []
+
+diversityCases:
+  - terseness>=2 alone -> clipped demand
+  - warmth>=2 alone -> open, generous request
+  - warmth<=0 alone -> curt request
+  - formality>=2 alone -> careful/hedged request
+  - floridity>=2 alone -> one vivid image, still short
+  - terseness>=2 AND warmth<=0 -> rare sharpened cold demand (top rung)
+  - any verbalTic present -> one sentence-motion variant
+  - no matching condition -> plain fallback (allowed plain, never dead)
+
+mustPass:
+  coverage:
+    rule: required slot order_line has at least one unconditional fallback
+    current: order_fallback_plain
+  specificityGradient:
+    rule: >
+      pool contains (a) fallback, (b) single-axis middle-rung snippets, (c)
+      two-axis top-rung snippets, and (d) tic snippets. The single-axis rung
+      is mandatory.
+    current: true
+  voiceBounds:
+    rule: every order_line <= 12 words; every manner_note <= 10 words
+    current: true
+  simCoherence:
+    rule: >
+      flavor slots assert no checkable history; sim_backed_hook is DISABLED
+      and ships empty until backing signals are verified to exist.
+    current: true
+  determinism:
+    rule: same seed + same state + same slot returns same snippet after tie-break
+    current: proven by Phase C/D
+  diversity:
+    rule: >
+      sample pool yields >= 6 distinct order_line outputs across a RANDOM cast
+      sample drawn from the real [-1,0,0,1]-perturbed distribution.
+    current: proven by Phase D harness

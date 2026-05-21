@@ -39,3 +39,4 @@ export {
   type GateReport,
   type GateViolation,
 } from './types'
+export { representativeBannedNames } from './representativeBannedNames'

@@ -47,9 +47,10 @@ Next up, in this order:
    hand-authored convergence artifact at
    `docs/plans/living-cast-arc-phase-b.md` (no tracker ISSUE because no
    code shipped); Phase C landed as **ISSUE-092** (phase 123, status
-   `done`); Phase D landed as **ISSUE-093** (phase 124, status `done`).
-   Phase E (generation pipeline) is next, unblocked by Phase D's gate
-   library. Phases E–G run against the locked roadmap
+   `done`); Phase D landed as **ISSUE-093** (phase 124, status `done`);
+   Phase E landed as **ISSUE-094** (phase 125, status `done`).
+   Phase F (multi-template scale-out) is next, unblocked by Phase E's
+   pipeline. Phases F–G run against the locked roadmap
    `docs/plans/living-cast-arc.md` and the framework contract
    `docs/plans/card-composition-framework.md`.
 
@@ -155,6 +156,7 @@ phase-number arithmetic when deciding what's next.
 | ISSUE-090 | Living Cast Phase A — bounded cast attributes on staff + regulars | thin | done | 121 |
 | ISSUE-092 | Living Cast Phase C — composition runtime + first compositional card | thin | done | 123 |
 | ISSUE-093 | Living Cast Phase D — six structural gates harness | thin | done | 124 |
+| ISSUE-094 | Living Cast Phase E — model-authored generation pipeline | thin | done | 125 |
 
 ---
 
@@ -3164,6 +3166,77 @@ scale-out) will select against. Locked roadmap:
   tests (which were the regression guard — pre-Phase-A starter
   regulars needed the new factory too, caught and fixed during
   implementation).
+
+### ISSUE-094 — Living Cast Phase E: model-authored generation pipeline
+
+- **Grade:** thin
+- **Status:** done
+- **Phase:** 125
+- **Implementation record:** `docs/plans/phase-125-generation-pipeline.md`.
+- **Evidence:** `living-cast-arc.md` Phase E ("Generation Pipeline")
+  describes the build-time loop that turns a Phase-B-style generation
+  spec into a tested, committed `SnippetPool` via the model and the
+  Phase-D gates. Phase D shipped `runAllGates` as a callable library
+  but no caller; Phase B is the hand-authored convergence artifact
+  whose YAML format the pipeline must consume; the framework's §7
+  explicitly defers the pipeline to a later phase. Phase E is that
+  later phase.
+- **Impact:** Without a pipeline, every new template's snippet pool
+  requires hand-authoring, which Phase F's "hundreds of lines, many
+  personalities, in an evening" arc goal cannot survive. The pipeline
+  is also the only mechanism that makes the gates load-bearing — until
+  generated output flows through them in CI, the gates only protect
+  the four hand-authored pool files Phase C committed.
+- **Scope (delivered):** New pipeline slice at `scripts/generate-pool/`
+  with one file per stage (`loadSpec`, `specSchema`, `buildPrompt`,
+  `callModel`, `parseModelOutput`, `runGates`, `dedupe`, `levenshtein`,
+  `retryLoop`, `emitPool`, `writePoolFiles`, plus `cli.ts` and
+  `index.ts`). The spec YAML lifted from
+  `docs/plans/living-cast-arc-phase-b.md` lands at
+  `specs/cards/drink_order.spec.yaml` with a strict Zod schema that
+  rejects unknown keys. Generation calls Sonnet 4.6 (configurable);
+  spec + exemplars are cached via `cache_control: ephemeral` so
+  per-slot retries reuse the prefix. Parsed output flows into a
+  Phase-D `runAllGates` sweep (all six gates) — gate failures + dedupe
+  rejections feed back into the next retry as plain text, up to a
+  three-attempt budget. Within-slot dedupe uses normalised
+  Levenshtein on canonicalised text at threshold 0.85; cross-slot
+  dedupe collapses canonical equality only. Emitter sorts snippets by
+  `(specificity, id)` so identical model output produces a
+  byte-identical `.ts` file; the writer drops files directly under
+  `src/cards/compose/pools/<templateId>/` so the regenerated PR shows
+  the diff against the existing committed pool. GitHub Action at
+  `.github/workflows/generate-pool.yml` runs on `workflow_dispatch`,
+  reads `ANTHROPIC_API_KEY` from repo secrets, calls the pipeline,
+  and opens a PR via `peter-evans/create-pull-request@v6`. The
+  Phase-D helper `representativeBannedNames` was lifted from
+  `tests/cards/compose/gates/samplers.ts` to
+  `src/cards/compose/gates/representativeBannedNames.ts` so the
+  pipeline can import it without reaching into `tests/`; the test
+  file re-exports for backwards compatibility.
+- **Depends on:** ISSUE-093 (Phase D gate library — done).
+- **Test approach (delivered):** Seven new test files at
+  `tests/cards/compose/pipeline/`. `loadSpec.test.ts` parses the real
+  spec file and asserts unknown-key rejection. `buildPrompt.test.ts`
+  asserts the cached prefix carries spec content, the retry tail
+  carries violations + parse errors + dedupe rejections, and the two
+  halves remain split for cache placement. `parseModelOutput.test.ts`
+  covers happy-path fenced YAML, missing fence, bad YAML, missing
+  fields, unknown condition kinds. `dedupe.test.ts` walks every pair
+  in the committed 17-snippet `order_line` pool to confirm zero
+  false positives at 0.85 (regression net), plus planted near-dups,
+  cross-slot canonical equality, and specificity-based keeper
+  selection. `runGates.test.ts` runs the existing Phase-C pools
+  through the adapter and confirms all six gates pass; planted bad
+  snippets fail the expected gate. `retryLoop.test.ts` injects a mock
+  `generateCompletion` and exercises invalid-then-valid recovery,
+  exhaustion after three failures, and the gate-violations-feed-back
+  loop. `integration.test.ts` is the convergence proof — loads the
+  real spec, threads the committed Phase-C pools as the mock model
+  response, runs the full pipeline against a `tmpdir`, asserts the
+  emitted files land at the expected paths and the accepted in-memory
+  pools clear `runAllGates`. Full suite green; no regressions on
+  Phase A/C/D or sim tests.
 
 ### ISSUE-093 — Living Cast Phase D: six structural gates harness
 

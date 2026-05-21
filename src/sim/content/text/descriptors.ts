@@ -6,6 +6,12 @@
 // by the eventual card layer on top of these pools; this file holds
 // the raw vocabulary.
 //
+// Phase 123 / ISSUE-092: the FNV-1a helper that picks a deterministic
+// fragment from a pool moved to `src/sim/utils/fnv.ts` so the compose
+// slice and the voice composer share one implementation.
+
+import { fnvIndex } from '../../utils/fnv'
+//
 // Three pools cover the most common descriptor needs across the
 // existing issue-seed families:
 //
@@ -65,21 +71,6 @@ export function severityTier(severity: number): SeverityTier {
   if (severity >= 70) return 'high'
   if (severity >= 40) return 'medium'
   return 'low'
-}
-
-// Deterministic pick from a pool given a string key. The hash is a
-// tiny FNV-1a fold over the key so the same seed string always
-// returns the same fragment without dragging the simulation RNG
-// into the text layer. Callers pass the seed-id (or similar stable
-// string) so re-views of the same seed produce stable text.
-function fnvIndex(key: string, modulo: number): number {
-  if (modulo <= 0) return 0
-  let hash = 0x811c9dc5
-  for (let i = 0; i < key.length; i += 1) {
-    hash ^= key.charCodeAt(i)
-    hash = Math.imul(hash, 0x01000193) >>> 0
-  }
-  return hash % modulo
 }
 
 export function pickSeverityAdjective(

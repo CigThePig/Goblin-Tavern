@@ -94,9 +94,14 @@ mustNotInvent:
   - claims about supply unless the seed/state says so
 
 hardBounds:
-  order_line: 12
-  manner_note: 10
-  sim_backed_hook: 12
+  # Phase 126 / ISSUE-095 — Per-slot word budgets are now keyed by slot
+  # id under `perSlotWords`, not hardcoded as `order_line:` /
+  # `manner_note:` top-level keys. Phase F's second template needs the
+  # same field for its own slot ids; the schema generalised in step.
+  perSlotWords:
+    order_line: 12
+    manner_note: 10
+    sim_backed_hook: 12
   punctuation: normal prose punctuation only
   noFragmentsThatRequireConcatenation: true
   noMadLibPlaceholders: true
@@ -111,114 +116,134 @@ gradientPolicy:
   tic: single verbalTic snippets — independent of the axis rungs
 
 positiveExemplars:
+  # Phase 126 / ISSUE-095 — Per-slot exemplar text is now nested under
+  # `slotLines`, keyed by slot id, not flat `order_line:` /
+  # `manner_note:` fields. Same content; slot-agnostic shape.
   - id: terse_prickly_plain
     claims: flavor
     voice: { terseness: 2, warmth: 0 }
-    order_line: "Ale. Now. Before my patience sobers up."
-    manner_note: "They tap two coins once."
+    slotLines:
+      order_line: "Ale. Now. Before my patience sobers up."
+      manner_note: "They tap two coins once."
     why_it_works: "Strong personality, no world claim, fits a card slot."
 
   - id: warm_informal_plain
     claims: flavor
     voice: { warmth: 2, formality: 0 }
-    order_line: "House ale, friend. The kind that forgives a long day."
-    manner_note: "Their grin arrives before the coin."
+    slotLines:
+      order_line: "House ale, friend. The kind that forgives a long day."
+      manner_note: "Their grin arrives before the coin."
     why_it_works: "Warm without backstory. 'Long day' is mood, not a specific event."
 
   - id: formal_restrained
     claims: flavor
     voice: { formality: 2, floridity: 0 }
-    order_line: "A small beer, if the house can spare it."
-    manner_note: "They wait with careful hands."
+    slotLines:
+      order_line: "A small beer, if the house can spare it."
+      manner_note: "They wait with careful hands."
     why_it_works: "Formality through phrasing, not added lore."
 
   - id: florid_road_voice
     claims: flavor
     voice: { floridity: 2, terseness: 0 }
-    order_line: "Bring me something dark enough to hide my thoughts."
-    manner_note: "They smile like a locked chest."
+    slotLines:
+      order_line: "Bring me something dark enough to hide my thoughts."
+      manner_note: "They smile like a locked chest."
     why_it_works: "Vivid but non-factual. No named history."
 
   - id: clipped_warm
     claims: flavor
     voice: { terseness: 2, warmth: 2 }
-    order_line: "Big mug. Good ale. You know the one."
-    manner_note: "The counter creaks under one friendly elbow."
+    slotLines:
+      order_line: "Big mug. Good ale. You know the one."
+      manner_note: "The counter creaks under one friendly elbow."
     why_it_works: "Distinct rhythm from warmth + terseness; generic physical beat."
 
   - id: just_terse
     claims: flavor
     voice: { terseness: 2 }
-    order_line: "Ale. The usual size."
-    manner_note: "No wasted motion."
+    slotLines:
+      order_line: "Ale. The usual size."
+      manner_note: "No wasted motion."
     why_it_works: "Fires on terseness alone — common, anchors the middle rung."
 
   - id: just_warm
     claims: flavor
     voice: { warmth: 2 }
-    order_line: "Whatever's good tonight — surprise me kindly."
+    slotLines:
+      order_line: "Whatever's good tonight — surprise me kindly."
     why_it_works: "Fires on warmth alone. Open, generous, no claim."
 
   - id: just_formal
     claims: flavor
     voice: { formality: 2 }
-    order_line: "An ale, when it is convenient to pour one."
+    slotLines:
+      order_line: "An ale, when it is convenient to pour one."
     why_it_works: "Hedged courtesy carries formality with no lore."
 
   - id: just_florid
     claims: flavor
     voice: { floridity: 2 }
-    order_line: "Your darkest pour, the colour of a closed door."
+    slotLines:
+      order_line: "Your darkest pour, the colour of a closed door."
     why_it_works: "One image, still short, claims nothing checkable."
 
   - id: just_plain_cold
     claims: flavor
     voice: { warmth: 0 }
-    order_line: "An ale. That's all."
+    slotLines:
+      order_line: "An ale. That's all."
     why_it_works: "Low warmth alone reads as curt without needing terseness too."
 
   - id: tic_qualifies
     claims: flavor
     voice: { verbalTic: qualifies_everything }
-    order_line: "A mild ale, I think. Nothing too heroic, more or less."
-    manner_note: "They count the price twice."
+    slotLines:
+      order_line: "A mild ale, I think. Nothing too heroic, more or less."
+      manner_note: "They count the price twice."
     why_it_works: "Hedges land the tic without overwhelming the line."
 
   - id: tic_interrupts
     claims: flavor
     voice: { verbalTic: interrupts_self }
-    order_line: "Dark ale — no, bitter. Whichever bites first."
+    slotLines:
+      order_line: "Dark ale — no, bitter. Whichever bites first."
     why_it_works: "Self-reversal changes sentence motion; stays compact."
 
   - id: tic_understates
     claims: flavor
     voice: { verbalTic: understates }
-    order_line: "A stout, please. Something with a bit of spine."
-    manner_note: "Their coat is wetter than they admit."
+    slotLines:
+      order_line: "A stout, please. Something with a bit of spine."
+      manner_note: "Their coat is wetter than they admit."
     why_it_works: "'A bit of spine' downgrades stakes; no checkable claim."
 
   - id: tic_repeats
     claims: flavor
     voice: { verbalTic: repeats_for_emphasis }
-    order_line: "Ale. A proper ale — proper, mind you."
+    slotLines:
+      order_line: "Ale. A proper ale — proper, mind you."
     why_it_works: "Doubled word lands the tic in four words."
 
   - id: tic_trails_off
     claims: flavor
     voice: { verbalTic: trails_off }
-    order_line: "Just ale. Something quiet, if there's… you know."
+    slotLines:
+      order_line: "Just ale. Something quiet, if there's… you know."
     why_it_works: "Mid-clause fade is the whole tic; still parses as a request."
 
   - id: tic_italicises
     claims: flavor
     voice: { verbalTic: italicises_stakes }
-    order_line: "An ale. A good one — that part matters."
+    slotLines:
+      order_line: "An ale. A good one — that part matters."
     why_it_works: "One weighted beat lands the stress tic, no lore."
 
   - id: tic_quotes_someone
     claims: flavor
     voice: { verbalTic: quotes_someone_else }
-    order_line: "Ale, as my old captain always ordered it."
+    slotLines:
+      order_line: "Ale, as my old captain always ordered it."
     why_it_works: >
       Borderline-safe: 'old captain' is a generic attribution, not a named
       NPC or checkable relation.

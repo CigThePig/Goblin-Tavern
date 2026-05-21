@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 
 import { checkSimCoherence } from '../../../../src/cards/compose/gates'
 import { drinkOrderTemplate } from '../../../../src/cards/templates/drinkOrder'
+import { staffAsideTemplate } from '../../../../src/cards/templates/staffAside'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
 import {
   backedHistoryClaimSlot,
@@ -23,6 +24,20 @@ describe('sim-coherence gate — happy path', () => {
   it('the real drinkOrder template passes against a representative state', () => {
     const state = createInitialTavernState()
     const report = checkSimCoherence(drinkOrderTemplate, {
+      bannedDisplayNames: representativeBannedNames(state),
+    })
+    expect(report.pass).toBe(true)
+    expect(report.violations).toEqual([])
+  })
+
+  // Phase 126 / ISSUE-095 — staffAside's flavor-only pool must clear the
+  // gate against the same representative banned-name list. The pool
+  // avoids history phrases ("yesterday", "again", "twice now") and the
+  // role-claim patterns ("the cook", "your server"). Comment in
+  // asideLine.ts records the constraint.
+  it('the real staffAside template passes against a representative state', () => {
+    const state = createInitialTavernState()
+    const report = checkSimCoherence(staffAsideTemplate, {
       bannedDisplayNames: representativeBannedNames(state),
     })
     expect(report.pass).toBe(true)

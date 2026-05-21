@@ -90,7 +90,9 @@ function describeExemplars(
 ): string {
   const lines: string[] = ['POSITIVE EXEMPLARS:']
   for (const ex of spec.positiveExemplars) {
-    const text = slotId === 'manner_note' ? ex.manner_note : ex.order_line
+    // Phase 126 / ISSUE-095: exemplar text is keyed by slot id under
+    // `slotLines`, not hardcoded `order_line` / `manner_note` fields.
+    const text = ex.slotLines[slotId]
     if (!text) continue
     const voicePairs = Object.entries(ex.voice).map(
       ([k, v]) => `${k}=${v}`,

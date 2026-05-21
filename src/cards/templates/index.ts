@@ -13,6 +13,7 @@ import { factionRequestCard } from './factionRequest'
 import { reputationShiftWeeklyCard } from './reputationWeekly'
 import { monthlyReviewCard } from './monthlyReview'
 import { drinkOrderCard } from './drinkOrder'
+import { staffAsideCard } from './staffAside'
 import { fallbackCard, FALLBACK_CARD_ID } from './fallback'
 import type { CardDefinition } from '../types'
 
@@ -26,6 +27,7 @@ export const REQUIRED_CARDS: ReadonlyArray<CardDefinition> = [
   reputationShiftWeeklyCard,
   monthlyReviewCard,
   drinkOrderCard,
+  staffAsideCard,
   fallbackCard,
 ]
 
@@ -40,5 +42,6 @@ export {
   reputationShiftWeeklyCard,
   monthlyReviewCard,
   drinkOrderCard,
+  staffAsideCard,
   fallbackCard,
 }

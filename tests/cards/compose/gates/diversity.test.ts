@@ -10,15 +10,30 @@ import { describe, expect, it } from 'vitest'
 
 import { checkPoolDiversity } from '../../../../src/cards/compose/gates'
 import { drinkOrderTemplate } from '../../../../src/cards/templates/drinkOrder'
-import type { SlotSpec } from '../../../../src/cards/compose/types'
+import { staffAsideTemplate } from '../../../../src/cards/templates/staffAside'
+import type {
+  CompositionalCardTemplate,
+  SlotSpec,
+} from '../../../../src/cards/compose/types'
 import {
   buildTemplate,
   lowDiversityPool,
 } from './fixtures'
-import { buildDiversitySampler } from './samplers'
+import {
+  buildDiversitySampler,
+  buildStaffDiversitySampler,
+} from './samplers'
 
-function slotById(id: string): SlotSpec {
-  const slot = drinkOrderTemplate.slots.find((s) => s.id === id)
+function slotById(template: CompositionalCardTemplate, id: string): SlotSpec
+function slotById(id: string): SlotSpec
+function slotById(
+  arg1: CompositionalCardTemplate | string,
+  arg2?: string,
+): SlotSpec {
+  const template =
+    typeof arg1 === 'string' ? drinkOrderTemplate : arg1
+  const id = typeof arg1 === 'string' ? arg1 : (arg2 as string)
+  const slot = template.slots.find((s) => s.id === id)
   if (!slot) throw new Error(`test: missing slot "${id}"`)
   return slot
 }
@@ -51,6 +66,32 @@ describe('diversity gate — happy path', () => {
     // should hit a 100-sample draw from the real distribution.
     const sampler = buildDiversitySampler({ rngSeed: 'manner-note-diversity' })
     const slot = slotById('manner_note')
+    const report = checkPoolDiversity(slot, sampler, {
+      sampleSize: 100,
+      minDistinct: 3,
+    })
+    expect(report.pass).toBe(true)
+    expect(report.observed.distinct).toBeGreaterThanOrEqual(3)
+  })
+
+  // Phase 126 / ISSUE-095 — Phase F's second template clears the same
+  // diversity bar against the real staff `[-1,0,0,1]`-perturbed
+  // distribution (samples drawn via `createStaffCastAttributes`, so the
+  // same culture-aware bias applies as in the live factory).
+  it('staffAside aside_line yields ≥ 6 distinct outputs across 100 staff samples', () => {
+    const sampler = buildStaffDiversitySampler({ rngSeed: 'staff-aside-diversity' })
+    const slot = slotById(staffAsideTemplate, 'aside_line')
+    const report = checkPoolDiversity(slot, sampler, {
+      sampleSize: 100,
+      minDistinct: 6,
+    })
+    expect(report.pass).toBe(true)
+    expect(report.observed.distinct).toBeGreaterThanOrEqual(6)
+  })
+
+  it('staffAside manner_note (optional) yields ≥ 3 distinct non-undefined outputs across 100 staff samples', () => {
+    const sampler = buildStaffDiversitySampler({ rngSeed: 'staff-manner-diversity' })
+    const slot = slotById(staffAsideTemplate, 'manner_note')
     const report = checkPoolDiversity(slot, sampler, {
       sampleSize: 100,
       minDistinct: 3,

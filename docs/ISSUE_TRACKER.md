@@ -49,9 +49,11 @@ Next up, in this order:
    code shipped); Phase C landed as **ISSUE-092** (phase 123, status
    `done`); Phase D landed as **ISSUE-093** (phase 124, status `done`);
    Phase E landed as **ISSUE-094** (phase 125, status `done`).
-   Phase F (multi-template scale-out) is next, unblocked by Phase E's
-   pipeline. Phases F–G run against the locked roadmap
-   `docs/plans/living-cast-arc.md` and the framework contract
+   Phase F's first situation (staff_aside) landed as **ISSUE-095**
+   (phase 126, status `done`) — hand-authored pool + spec, no API key
+   used. Phase F repeats per situation: each new compositional template
+   gets its own ISSUE-NNN entry. Phases F–G run against the locked
+   roadmap `docs/plans/living-cast-arc.md` and the framework contract
    `docs/plans/card-composition-framework.md`.
 
 ISSUE-058 and ISSUE-059 landed together as the combined phase 119+120
@@ -157,6 +159,7 @@ phase-number arithmetic when deciding what's next.
 | ISSUE-092 | Living Cast Phase C — composition runtime + first compositional card | thin | done | 123 |
 | ISSUE-093 | Living Cast Phase D — six structural gates harness | thin | done | 124 |
 | ISSUE-094 | Living Cast Phase E — model-authored generation pipeline | thin | done | 125 |
+| ISSUE-095 | Living Cast Phase F (first situation) — staff_aside template | thin | done | 126 |
 
 ---
 
@@ -3166,6 +3169,79 @@ scale-out) will select against. Locked roadmap:
   tests (which were the regression guard — pre-Phase-A starter
   regulars needed the new factory too, caught and fixed during
   implementation).
+
+### ISSUE-095 — Living Cast Phase F (first situation): staff_aside template
+
+- **Grade:** thin
+- **Status:** done
+- **Phase:** 126
+- **Implementation record:** `docs/plans/phase-126-staff-aside.md`.
+- **Evidence:** `living-cast-arc.md` Phase F ("Scale Out") describes the
+  centerpiece phase: each new card situation gets its own template +
+  spec, the Phase-C runtime and Phase-D gates and Phase-E pipeline
+  reuse unchanged, voice is a generation dimension rather than a runtime
+  transformer. After Phase E shipped, the next move is one situation
+  landing as proof. The `staff_identity / relationship_test /
+  morning_prep` combination is the cleanest first scale-out: a staff
+  member as `primaryActor` (see
+  `src/sim/modules/issues/expandedSeedGenerators.ts:810`), Phase-A cast
+  attributes available, currently uncovered (the hand-written
+  `staffRequest` template only matches `staff_request` / `complaint` at
+  `closing`, so `relationship_test` / `morning_prep` seeds fall through
+  to the fallback today).
+- **Impact:** Without a second compositional template, the
+  Phase-C runtime + Phase-D gates + Phase-E pipeline have only the
+  drink_order spike to validate them. Phase F's "hundreds of lines,
+  many personalities, in an evening" goal needs templates to multiply;
+  this is the first multiplication. Hand-authored rather than
+  pipeline-generated this round (user explicitly opted out of API
+  spend); the matching spec at `specs/cards/staff_aside.spec.yaml`
+  records intent for a future regeneration. The schema generalisation
+  fixed in this phase (Phase-E hardcoded the first template's slot ids
+  under `HardBoundsSchema` and `PositiveExemplarSchema`) unblocks every
+  subsequent Phase-F situation from needing the same fix.
+- **Scope (delivered):** New compositional template + pool slice at
+  `src/cards/templates/staffAside.ts` and `src/cards/compose/pools/staffAside/`
+  (`asideLine.ts` with 18 snippets across four rungs, `mannerNote.ts`
+  with 5 snippets, `index.ts` re-exports). Voice register
+  `'staff_quarters'` (back-of-house, pre-shift, owner-facing) keeps
+  exemplars from bleeding into the customer-facing `tavern_floor`
+  register. The template's `custom` predicate guards on
+  `state.staff[ref.id]?.castAttributes !== undefined` — mirrors
+  drinkOrder's regulars-side check; graceful degradation per framework
+  §5. `REQUIRED_CARDS` now holds 10 cards (9 hand-written + 2
+  compositional). Phase-E schema generalised: `HardBoundsSchema` keys
+  per-slot budgets under `perSlotWords: Record<slotId, number>`,
+  `PositiveExemplarSchema` keys exemplar text under `slotLines:
+  Record<slotId, string>`, `buildPrompt.ts` reads
+  `ex.slotLines[slotId]`. `specs/cards/drink_order.spec.yaml` migrated
+  to the new shape (same content, slot-agnostic shell);
+  `specs/cards/staff_aside.spec.yaml` ships in the new shape from the
+  start. Test sampler helpers lifted into `buildStaffDeterminismSamples`
+  and `buildStaffDiversitySampler` (use `createStaffCastAttributes`
+  reproducing the real Phase-A `[-1,0,0,1]`-perturbed staff
+  distribution).
+- **Depends on:** ISSUE-090 (Phase A cast attributes — done),
+  ISSUE-092 (Phase C runtime — done), ISSUE-093 (Phase D gates — done),
+  ISSUE-094 (Phase E pipeline — done; spec format the new spec reuses).
+- **Test approach (delivered):** New integration test file at
+  `tests/cards/templates.staffAside.test.ts` — 14 tests parallel to
+  `templates.drinkOrder.test.ts` (registry coverage, fallback predicate
+  when castAttributes missing, title centres on named staff, body[0]
+  is a committed snippet, unconditional fallback on neutral axes,
+  two-axis snippet selection on terseness=2 + warmth=0, tic snippet
+  selection on qualifies_everything against neutral axes, choices
+  project the seed's response slots, severity/tag flow from seed,
+  determinism via `structuredClone`, no state mutation, three-distinct
+  body lines across three distinct voice profiles). Each Phase-D gate
+  test (`coverage`, `specificity`, `voiceBounds`, `simCoherence`,
+  `determinism`, `diversity`, `runAllGates`) gained a parallel block
+  exercising `staffAsideTemplate` against the same gate it already runs
+  for `drinkOrderTemplate`. Pipeline tests (`loadSpec`, `buildPrompt`,
+  `integration`, `runGates`) stay green under the generalised schema
+  (drink_order spec was migrated to the new shape in the same change).
+  Full suite green at 1856/1856 across 155 files; `npm run typecheck`
+  clean.
 
 ### ISSUE-094 — Living Cast Phase E: model-authored generation pipeline
 

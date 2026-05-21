@@ -69,8 +69,7 @@ verbalTicsCovered: []
 allowedTargets: []
 mustNotInvent: []
 hardBounds:
-  order_line: 12
-  manner_note: 10
+  perSlotWords: { a: 10 }
   punctuation: x
   noFragmentsThatRequireConcatenation: true
   noMadLibPlaceholders: true

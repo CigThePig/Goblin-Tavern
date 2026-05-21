@@ -15,7 +15,10 @@
 // same sample, so the test is itself deterministic.
 
 import { createRng } from '../../../../src/sim/core/rng'
-import { createRegularCastAttributes } from '../../../../src/sim/content/cast'
+import {
+  createRegularCastAttributes,
+  createStaffCastAttributes,
+} from '../../../../src/sim/content/cast'
 import type {
   CastAttributes,
   VerbalTicId,
@@ -208,10 +211,157 @@ export function buildDiversitySampler(
 // Re-exported here for the existing call sites.
 export { representativeBannedNames } from '../../../../src/cards/compose/gates/representativeBannedNames'
 
+// ---- Phase 126 / ISSUE-095 — Living Cast Phase F (first situation) ----
+//
+// Staff-side equivalents of the regular-side helpers above. The new
+// staff_aside template (`staff_identity / relationship_test /
+// morning_prep`) needs the same determinism + diversity coverage the
+// drinkOrder template enjoys. Mirror structure, swap the actor kind:
+//   - `firstStaffId(state)` against `state.staff`
+//   - `installStaffCast(state, staffId, cast)` against `state.staff[id]`
+//   - `staffAsideSeedFor(staffId, id)` emits a staff_identity seed
+//   - `createStaffCastAttributes` rolls the per-sample cast attributes
+//     reproducing the same `[-1,0,0,1]` perturbation Phase A applies.
+
+function firstStaffId(state: TavernState): string {
+  const id = Object.keys(state.staff)[0]
+  if (!id) {
+    throw new Error('samplers: createInitialTavernState() must have a staff member')
+  }
+  return id
+}
+
+function staffRef(id: string): EntityRef {
+  return { kind: 'staff', id }
+}
+
+function installStaffCast(
+  state: TavernState,
+  staffId: string,
+  cast: CastAttributes,
+): TavernState {
+  return {
+    ...state,
+    staff: {
+      ...state.staff,
+      [staffId]: {
+        ...state.staff[staffId]!,
+        castAttributes: cast,
+      },
+    },
+  }
+}
+
+function staffAsideSeedFor(staffId: string, id: string): IssueSeed {
+  return makeSeed({
+    id,
+    family: 'staff_identity',
+    type: 'relationship_test',
+    timing: 'morning_prep',
+    severity: 40,
+    domain: ['staff', 'identity', 'social'],
+    primaryActor: staffRef(staffId),
+    textIngredients: {
+      subject: 'before the doors open',
+      sensoryDetails: ['the kettle clicks awake'],
+      recentContext: ['tense week of service'],
+    },
+  })
+}
+
+/** Hand-picked determinism profiles against a staff actor — mirrors
+ *  `buildDeterminismSamples()` but installs cast on `state.staff` and
+ *  emits a `staff_identity / relationship_test / morning_prep` seed. */
+export function buildStaffDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  const staffId = firstStaffId(baseState)
+  const profiles: CastAttributes[] = [
+    neutralCast(),
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 2, warmth: 1, formality: 1, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 1, warmth: 2, formality: 1, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 1, warmth: 0, formality: 1, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 1, warmth: 1, formality: 2, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 1, warmth: 1, formality: 1, floridity: 2 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 2, warmth: 0, formality: 1, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 2, warmth: 2, formality: 1, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 1, warmth: 2, formality: 0, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 1, warmth: 1, formality: 2, floridity: 0 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 0, warmth: 1, formality: 1, floridity: 2 } },
+    },
+    ...VERBAL_TIC_IDS.map<CastAttributes>((tic) => ({
+      ...neutralCast(),
+      voice: {
+        axes: { terseness: 1, warmth: 1, formality: 1, floridity: 1 },
+        verbalTic: tic,
+      },
+    })),
+  ]
+  return profiles.map((cast, i) => ({
+    seed: staffAsideSeedFor(staffId, `staff-determinism-${i}`),
+    state: installStaffCast(baseState, staffId, cast),
+  }))
+}
+
+/** Roll a fresh staff `CastAttributes` per sample via the real factory
+ *  (`createStaffCastAttributes`), install it, and emit a `(seed, state)`
+ *  pair targeting that staff member. Same `rngSeed` ⇒ same sequence. */
+export function buildStaffDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  const seed = options.rngSeed ?? 'phase-126-staff-diversity'
+  const rng = createRng(`${seed}:staff_identity`)
+  const baseState = createInitialTavernState()
+  const staffId = firstStaffId(baseState)
+  const roleId = baseState.staff[staffId]!.role
+  return (i: number) => {
+    // Pass the role so the factory uses the right specialty domain;
+    // diversity is per-axis voice variance, not per-role.
+    const cast = createStaffCastAttributes({ roleId, rng })
+    const state = installStaffCast(baseState, staffId, cast)
+    return {
+      seed: staffAsideSeedFor(staffId, `staff-diversity-${i}`),
+      state,
+    }
+  }
+}
+
 export const __testing = {
   firstRegularId,
   installCast,
   drinkOrderSeedFor,
   regularRef,
   neutralCast,
+  firstStaffId,
+  installStaffCast,
+  staffAsideSeedFor,
+  staffRef,
 }

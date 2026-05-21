@@ -1,0 +1,422 @@
+# Phase 126 / ISSUE-095 — Living Cast arc, Phase F (first situation).
+#
+# Generation spec for the staff_aside template — the first Phase F
+# scale-out beyond the Phase B / C drink_order spike. The committed
+# snippet pool at `src/cards/compose/pools/staffAside/` was authored by
+# hand following this spec; this file is the design record and the
+# build-time input a future Phase E run could regenerate against.
+#
+# IMPORTANT — running `npm run generate-pool -- --spec specs/cards/staff_aside.spec.yaml`
+# (or the matching GitHub Actions workflow) will OVERWRITE the hand-
+# authored pool at `src/cards/compose/pools/staffAside/*.ts` with model
+# output. See `scripts/generate-pool/writePoolFiles.ts`. If you re-run
+# generation, intend to replace the current pool.
+
+templateId: staff_aside
+voiceRegister: staff_quarters
+status: phase_f_hand_authored
+purpose: >
+  Generate short in-character pre-shift remarks from a staff member to the
+  owner. Voice variation is driven by the shipped Phase-A
+  CastAttributes.voice scalars carried by staff (createStaffCastAttributes).
+  No claim about specific events, named NPCs, factions, or past incidents.
+
+slots:
+  - id: aside_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      The staff member's voiced remark before service opens. May show
+      mood, fatigue, professionalism, or attitude; must not claim a
+      specific past event or named entity.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      An optional physical beat — posture, hands, breath, expression.
+      Omitted rather than weak.
+
+voiceAxesInPlay:
+  terseness:
+    0: full clause
+    1: compact
+    2: clipped imperative
+  warmth:
+    0: prickly/distant
+    1: neutral
+    2: familiar/inviting
+  formality:
+    0: casual/blunt
+    1: plain
+    2: titled/professional
+  floridity:
+    0: literal
+    1: one image allowed
+    2: vivid but short, no lore
+
+verbalTicsCovered:
+  - trails_off
+  - interrupts_self
+  - understates
+  - repeats_for_emphasis
+  - qualifies_everything
+  - italicises_stakes
+  - quotes_someone_else
+
+# Targets the line may reach for. Pre-shift is a posture/work moment, not
+# a customer-facing transaction — there is no drink or menu item to ask
+# for. Listing the conceptual "subject of the remark" keeps the model
+# anchored.
+allowedTargets:
+  - the day ahead
+  - the morning
+  - the work
+  - the kitchen
+  - the floor
+  - the owner directly
+  - silence held
+
+mustNotInvent:
+  - named NPCs
+  - named factions
+  - specific injuries
+  - specific battles
+  - debt history
+  - previous tavern incidents
+  - who slighted whom
+  - claims about supply unless the seed/state says so
+
+hardBounds:
+  perSlotWords:
+    aside_line: 12
+    manner_note: 10
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+  noDirectMechanicalLanguage: true
+
+gradientPolicy:
+  base: one unconditional fallback (always fires)
+  middle: single-axis snippets (voiceAxis atLeast/atMost) — the COMMON rung
+  top: two-axis snippets — the RARE rung, sharpens when both extremes land
+  tic: single verbalTic snippets — independent of the axis rungs
+
+positiveExemplars:
+  - id: terse_prickly_plain
+    claims: flavor
+    voice: { terseness: 2, warmth: 0 }
+    slotLines:
+      aside_line: "What's wrong. Say it and I'll handle it."
+      manner_note: "They roll their sleeves before answering."
+    why_it_works: "Sharp, owner-facing, no checkable claim."
+
+  - id: warm_informal_plain
+    claims: flavor
+    voice: { warmth: 2, formality: 0 }
+    slotLines:
+      aside_line: "Look — I'm not going anywhere. We sort it."
+      manner_note: "They start the kettle without being asked."
+    why_it_works: "Familiar without backstory. Mood, not history."
+
+  - id: formal_restrained
+    claims: flavor
+    voice: { formality: 2, floridity: 0 }
+    slotLines:
+      aside_line: "I shall remain steady, if conduct serves."
+      manner_note: "They stand a little straighter than the room asks."
+    why_it_works: "Professional voice from phrasing alone."
+
+  - id: florid_open_voice
+    claims: flavor
+    voice: { floridity: 2, terseness: 0 }
+    slotLines:
+      aside_line: "I've been carrying a heavy hush since dawn."
+    why_it_works: "One vivid image, claims nothing specific."
+
+  - id: clipped_warm
+    claims: flavor
+    voice: { terseness: 2, warmth: 2 }
+    slotLines:
+      aside_line: "Quick word. I'm in your corner today."
+    why_it_works: "Brisk + supportive. No event claimed."
+
+  - id: just_terse
+    claims: flavor
+    voice: { terseness: 2 }
+    slotLines:
+      aside_line: "Ready. Tell me what's needed."
+    why_it_works: "Single-axis middle-rung anchor."
+
+  - id: just_warm
+    claims: flavor
+    voice: { warmth: 2 }
+    slotLines:
+      aside_line: "You look tired. We'll see the morning through together."
+    why_it_works: "Solidarity reads warm without inventing detail."
+
+  - id: just_formal
+    claims: flavor
+    voice: { formality: 2 }
+    slotLines:
+      aside_line: "At your service, as the house requires."
+    why_it_works: "Hedged courtesy carries formality with no lore."
+
+  - id: just_florid
+    claims: flavor
+    voice: { floridity: 2 }
+    slotLines:
+      aside_line: "Sleep tasted like ash. Still — the kettle's hot."
+    why_it_works: "One image plus a return to work."
+
+  - id: just_plain_cold
+    claims: flavor
+    voice: { warmth: 0 }
+    slotLines:
+      aside_line: "If there's a problem, say it plainly."
+    why_it_works: "Low warmth alone reads as curt without needing terseness."
+
+  - id: tic_qualifies
+    claims: flavor
+    voice: { verbalTic: qualifies_everything }
+    slotLines:
+      aside_line: "It's fine, I think. Mostly. Probably."
+      manner_note: "They wipe the same spot twice."
+    why_it_works: "Hedging is the whole tic; no fact claimed."
+
+  - id: tic_interrupts
+    claims: flavor
+    voice: { verbalTic: interrupts_self }
+    slotLines:
+      aside_line: "I'm — well, I'm here. That should count for something."
+    why_it_works: "Self-reversal IS the tic; stays compact."
+
+  - id: tic_understates
+    claims: flavor
+    voice: { verbalTic: understates }
+    slotLines:
+      aside_line: "A bit of strain, perhaps. Nothing the work won't sort."
+    why_it_works: "'A bit of strain' downgrades stakes; no specific incident."
+
+  - id: tic_repeats
+    claims: flavor
+    voice: { verbalTic: repeats_for_emphasis }
+    slotLines:
+      aside_line: "I'll work. I'll work, and I'll work properly."
+    why_it_works: "Tripled word lands the tic; stakes implied via repetition."
+
+  - id: tic_trails_off
+    claims: flavor
+    voice: { verbalTic: trails_off }
+    slotLines:
+      aside_line: "I just wanted to say — well, you know…"
+    why_it_works: "Mid-clause fade is the whole tic; still parses as a thought."
+
+  - id: tic_italicises
+    claims: flavor
+    voice: { verbalTic: italicises_stakes }
+    slotLines:
+      aside_line: "I am still here. That part should count."
+    why_it_works: "One weighted beat lands the stress tic."
+
+  - id: tic_quotes_someone
+    claims: flavor
+    voice: { verbalTic: quotes_someone_else }
+    slotLines:
+      aside_line: "As my old master said — show up first."
+    why_it_works: >
+      Borderline-safe: 'old master' is generic attribution, not a named
+      NPC or checkable relation — mirrors drink_order's 'old captain'.
+
+negativeExamples:
+  - id: mad_lib_flatness
+    line: "The staff member is here today."
+    fails: [specificity-gradient, voice-bounds]
+    reason: "Mechanically true but dead; invites placeholder prose."
+
+  - id: unsupported_backstory
+    line: "After yesterday's brawl, I almost didn't come back."
+    fails: [sim-coherence]
+    reason: "Invents incident history; needs memory/repeat condition."
+
+  - id: lore_overreach
+    line: "By the Sapphire Baron's writ, I shall serve faithfully today."
+    fails: [sim-coherence, voice-bounds]
+    reason: "Invents authority and setting object. Formality is not lore licence."
+
+  - id: modern_slang
+    line: "Lowkey not vibing with this morning, owner."
+    fails: [voice-bounds]
+    reason: "Register breaks tavern-fantasy voice."
+
+  - id: overlong_florid
+    line: "Allow me to lay before you a cathedral of pre-dawn exhaustion, owner."
+    fails: [length, voice-bounds]
+    reason: "Floridity is not permission to monologue."
+
+  - id: conditional_without_condition
+    line: "Brakka's lies put me in this mood."
+    fails: [sim-coherence]
+    reason: "Names a specific NPC + asserts blame relation; no condition backs that."
+
+  - id: two_extreme_overreliance
+    line: "(a pool whose only specific snippets each require two axis extremes)"
+    fails: [specificity-gradient, diversity]
+    reason: >
+      Bad POOL SHAPE, not a single bad line. Same lesson as drink_order:
+      two-extreme snippets fire rarely under [-1,0,0,1] perturbation, so
+      the pool collapses onto the fallback in play. A single-axis middle
+      rung is mandatory.
+
+snippetPools:
+  - slotId: aside_line
+    required: true
+    snippets:
+      - id: aside_fallback_plain
+        text: "Morning. I'm ready when you are."
+        conditions: []
+
+      - id: aside_terse
+        text: "Ready. Tell me what's needed."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+      - id: aside_warm
+        text: "You look tired. We'll see the morning through together."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: aside_cold
+        text: "If there's a problem, say it plainly."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: aside_formal
+        text: "At your service, as the house requires."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+      - id: aside_florid
+        text: "Sleep tasted like ash. Still — the kettle's hot."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+
+      - id: aside_terse_cold
+        text: "What's wrong. Say it and I'll handle it."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: aside_terse_warm
+        text: "Quick word. I'm in your corner today."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: aside_warm_informal
+        text: "Look — I'm not going anywhere. We sort it."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atMost: 0 }
+      - id: aside_formal_plain
+        text: "I shall remain steady, if conduct serves."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atMost: 0 }
+      - id: aside_florid_open
+        text: "I've been carrying a heavy hush since dawn."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atMost: 0 }
+
+      - id: aside_tic_qualifies
+        text: "It's fine, I think. Mostly. Probably."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: qualifies_everything }
+      - id: aside_tic_interrupts
+        text: "I'm — well, I'm here. That should count for something."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: interrupts_self }
+      - id: aside_tic_understates
+        text: "A bit of strain, perhaps. Nothing the work won't sort."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: understates }
+      - id: aside_tic_repeats
+        text: "I'll work. I'll work, and I'll work properly."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: repeats_for_emphasis }
+      - id: aside_tic_trails_off
+        text: "I just wanted to say — well, you know…"
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: trails_off }
+      - id: aside_tic_italicises
+        text: "I am still here. That part should count."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: italicises_stakes }
+      - id: aside_tic_quotes
+        text: "As my old master said — show up first."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: quotes_someone_else }
+
+  - slotId: manner_note
+    required: false
+    snippets:
+      - id: manner_warm_kettle
+        text: "They start the kettle without being asked."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: manner_cold_sleeves
+        text: "They roll their sleeves before answering."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+      - id: manner_formal_stand
+        text: "They stand a little straighter than the room asks."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+      - id: manner_florid_smile
+        text: "Their smile fits like a borrowed coat."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: manner_qualifies_wipe
+        text: "They wipe the same spot twice."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: qualifies_everything }
+
+diversityCases:
+  - terseness>=2 alone -> brisk professional readiness
+  - warmth>=2 alone -> solidarity / care for the owner
+  - warmth<=0 alone -> curt willingness
+  - formality>=2 alone -> ceremonious assurance
+  - floridity>=2 alone -> one inward image
+  - terseness>=2 AND warmth<=0 -> sharpened cold competence (top rung)
+  - any verbalTic present -> one sentence-motion variant
+  - no matching condition -> plain fallback (allowed plain, never dead)
+
+mustPass:
+  coverage:
+    rule: required slot aside_line has at least one unconditional fallback
+    current: aside_fallback_plain
+  specificityGradient:
+    rule: >
+      pool contains (a) fallback, (b) single-axis middle-rung snippets, (c)
+      two-axis top-rung snippets, and (d) tic snippets. The single-axis rung
+      is mandatory.
+    current: true
+  voiceBounds:
+    rule: every aside_line <= 12 words; every manner_note <= 10 words
+    current: true
+  simCoherence:
+    rule: >
+      flavor slots assert no checkable history; staff-identity seed framing
+      (loyalty risk, blame, slighted) flows through textIngredients, not
+      through the voice line.
+    current: true
+  determinism:
+    rule: same seed + same state + same slot returns same snippet after tie-break
+    current: proven by Phase C/D / F template tests
+  diversity:
+    rule: >
+      sample pool yields >= 6 distinct aside_line outputs across a RANDOM
+      staff cast sample drawn from the real [-1,0,0,1]-perturbed
+      distribution.
+    current: proven by Phase D harness extended in Phase F

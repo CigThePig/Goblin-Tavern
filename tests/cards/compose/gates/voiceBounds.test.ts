@@ -11,6 +11,7 @@ import {
   DEFAULT_BODY_WORD_BUDGET,
 } from '../../../../src/cards/compose/gates'
 import { drinkOrderTemplate } from '../../../../src/cards/templates/drinkOrder'
+import { staffAsideTemplate } from '../../../../src/cards/templates/staffAside'
 import {
   buildTemplate,
   overBudgetSlot,
@@ -19,6 +20,14 @@ import {
 describe('voice-bounds gate — happy path', () => {
   it('the real drinkOrder template passes with default config', () => {
     const report = checkVoiceBounds(drinkOrderTemplate)
+    expect(report.pass).toBe(true)
+    expect(report.violations).toEqual([])
+  })
+
+  // Phase 126 / ISSUE-095 — staffAside's per-slot budgets mirror drinkOrder's
+  // (aside_line ≤ 12, manner_note ≤ 10). Every committed snippet must respect them.
+  it('the real staffAside template passes with default config', () => {
+    const report = checkVoiceBounds(staffAsideTemplate)
     expect(report.pass).toBe(true)
     expect(report.violations).toEqual([])
   })

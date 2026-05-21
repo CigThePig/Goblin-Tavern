@@ -10,6 +10,7 @@ export type {
   Snippet,
   SnippetCondition,
   SnippetPool,
+  SlotClaimMode,
   SlotSpec,
   VerbalTicId,
   VoiceAxisId,
@@ -20,3 +21,6 @@ export type {
 export { evalCondition } from './conditions'
 export { assembleSlots, pickSnippet, specificityOf } from './assemble'
 export { defineCompositionalCard } from './defineCompositionalCard'
+
+// Phase 124 / ISSUE-093 — structural gate harness (framework §6).
+export * from './gates'

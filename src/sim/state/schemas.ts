@@ -210,6 +210,49 @@ export const StaffIdentityStateSchema = z.object({
   backgroundHook: z.string().optional(),
 })
 
+// Phase 121 / ISSUE-090 — Living Cast Phase A.
+//
+// Bounded selection vocabulary attached to staff and regulars. The
+// schemas mirror the TS shapes in `src/sim/content/cast/castTypes.ts`.
+// Voice axes are constrained to {0, 1, 2}; affinity strength to {1, 2};
+// polarity to a fixed enum. `verbalTic` is an open string at the
+// schema layer — the verbal-tic registry enforces membership at the
+// module/test layer (same pattern as `StaffState.role`).
+export const VoiceAxisIdSchema = z.enum([
+  'terseness',
+  'warmth',
+  'formality',
+  'floridity',
+])
+export const VoiceAxisValueSchema = z
+  .number()
+  .int()
+  .min(0)
+  .max(2) as z.ZodType<0 | 1 | 2>
+
+export const VoiceProfileSchema = z.object({
+  axes: z.object({
+    terseness: VoiceAxisValueSchema,
+    warmth: VoiceAxisValueSchema,
+    formality: VoiceAxisValueSchema,
+    floridity: VoiceAxisValueSchema,
+  }),
+  verbalTic: z.string().optional(),
+})
+
+export const AffinityAxisSchema = z.object({
+  target: z.string(),
+  polarity: z.enum(['toward', 'away']),
+  strength: z.union([z.literal(1), z.literal(2)]),
+})
+
+export const CastAttributesSchema = z.object({
+  specialty: z.string(),
+  blindspot: z.string(),
+  affinities: z.array(AffinityAxisSchema),
+  voice: VoiceProfileSchema,
+})
+
 // Phase 11 §11.1 — `role` is a registry-validated string (`StaffRoleId`),
 // not a hard-coded union, per the "Role typing clarification" forward
 // note. The schema accepts any string; the staff module's validate hook
@@ -240,6 +283,9 @@ export const StaffStateSchema = z.object({
   tags: z.array(z.string()),
   activeFlags: z.array(z.string()),
   identity: StaffIdentityStateSchema.optional(),
+  // Phase 121 / ISSUE-090 — optional during migration window;
+  // `ensureCastAttributes` attaches defaults to pre-Phase-A saves.
+  castAttributes: CastAttributesSchema.optional(),
 })
 
 // Phase 30 §30.2 — schema extended with cultural linkage fields. The
@@ -520,6 +566,9 @@ export const RegularWorldStateSchema = z.object({
   knownIncidentIds: z.array(z.string()),
   tags: z.array(z.string()),
   activeFlags: z.array(z.string()),
+  // Phase 121 / ISSUE-090 — optional during migration window;
+  // `ensureCastAttributes` attaches defaults to pre-Phase-A saves.
+  castAttributes: CastAttributesSchema.optional(),
 })
 
 export const NotableNpcWorldStateSchema = z.object({

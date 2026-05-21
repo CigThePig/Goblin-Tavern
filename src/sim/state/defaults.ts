@@ -37,6 +37,11 @@ import {
 } from '../content/suppliers/supplierRegistry'
 import { createStaffIdentity } from '../content/staff/staffIdentityFactory'
 import { ensureRequiredStaffIdentityProfilesRegistered } from '../content/staff/staffIdentityProfiles'
+import {
+  createRegularCastAttributes,
+  createStaffCastAttributes,
+} from '../content/cast/createCastAttributes'
+import { ensureRequiredVerbalTicsRegistered } from '../content/cast/verbalTics'
 import { createNotableNpc } from '../content/npc/npcFactory'
 import {
   createHireableAdventurer,
@@ -158,6 +163,7 @@ function createInitialRecipes(): Record<string, RecipeState> {
 function createInitialStaff(): Record<string, StaffState> {
   ensureRequiredStaffRolesRegistered()
   ensureRequiredStaffIdentityProfilesRegistered()
+  ensureRequiredVerbalTicsRegistered()
   const streams = createRngStreams('initial-staff-identity')
   const identityRng = streams.get('staff_identity')
   const existingNames = new Set<string>()
@@ -181,6 +187,19 @@ function createInitialStaff(): Record<string, StaffState> {
       existingNames,
     })
     existingNames.add(generatedName.display)
+    // Phase 121 / ISSUE-090 — Living Cast Phase A. The cast attribute
+    // rolls land on the SAME staff_identity stream, AFTER the existing
+    // name + work-style + stress-response + background-hook rolls. That
+    // ordering is load-bearing: it keeps every canonical pre-Phase-A
+    // identity field byte-identical and only burns new rolls at the
+    // end of the per-staff sequence.
+    const castAttributes = createStaffCastAttributes({
+      roleId: def.id,
+      ...(identity.cultureId !== undefined
+        ? { cultureId: identity.cultureId }
+        : {}),
+      rng: identityRng,
+    })
     staff[def.defaultStaffId] = {
       id: def.defaultStaffId,
       name: generatedName,
@@ -189,6 +208,7 @@ function createInitialStaff(): Record<string, StaffState> {
       ...def.defaultState,
       activeFlags: [...def.defaultState.activeFlags],
       identity,
+      castAttributes,
     }
   }
   return staff
@@ -469,6 +489,17 @@ function createInitialRegulars(
     const tags = ['regular', 'starter']
     if (cultureId) tags.push(`culture:${cultureId}`)
 
+    // Phase 121 / ISSUE-090 — Living Cast Phase A. Starter regulars get
+    // cast attributes from the same regular_identity stream the name
+    // generator uses, AFTER each regular's name is rolled, mirroring
+    // the order in `regularModule.createRegular`. Stable starter seed
+    // (`initial-regulars`) keeps the roster deterministic across runs.
+    const castAttributes = createRegularCastAttributes({
+      ...(cultureId !== undefined ? { cultureId } : {}),
+      customerGroupId: group.id,
+      rng,
+    })
+
     regulars[id] = {
       id,
       name,
@@ -483,6 +514,7 @@ function createInitialRegulars(
       knownIncidentIds: [],
       tags,
       activeFlags: [],
+      castAttributes,
     }
   }
   return regulars

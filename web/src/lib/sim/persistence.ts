@@ -34,6 +34,7 @@ import {
   ensureWorldBranch,
   ensureAreaIdentityFields,
   ensureStaffIdentityFields,
+  ensureCastAttributes,
   ensureWeeklyHistoryField,
   ensureMonthlyHistoryField,
   ensureRecipesSlice,
@@ -346,8 +347,15 @@ export function validatePersistedSession(parsed: unknown): ValidationOutcome {
     const s5 = ensureExpeditionsSlice(s4b)
     const s6 = ensureWeeklyHistoryField(s5)
     const s7 = ensureMonthlyHistoryField(s6)
-    const s8 = ensureModuleSlices(s7)
-    const validation = safeValidateState(s8, { modules: FULL_PIPELINE })
+    // Phase 121 / ISSUE-090 — Living Cast Phase A. Attaches cast
+    // attributes to pre-Phase-A staff + regulars; no-op when already
+    // present. Runs after the other ensure* helpers so that any
+    // identity/world slice it depends on is already populated, and
+    // before `ensureModuleSlices` for ordering symmetry with the rest
+    // of the chain.
+    const s8 = ensureCastAttributes(s7)
+    const s9 = ensureModuleSlices(s8)
+    const validation = safeValidateState(s9, { modules: FULL_PIPELINE })
     if (!validation.success) {
       const first = validation.errors[0]
       return {

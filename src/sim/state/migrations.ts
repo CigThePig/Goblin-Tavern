@@ -24,6 +24,11 @@ import {
 } from '../registries/recipeRegistry'
 import { createStaffIdentity } from '../content/staff/staffIdentityFactory'
 import { ensureRequiredStaffIdentityProfilesRegistered } from '../content/staff/staffIdentityProfiles'
+import {
+  createRegularCastAttributes,
+  createStaffCastAttributes,
+} from '../content/cast/createCastAttributes'
+import { ensureRequiredVerbalTicsRegistered } from '../content/cast/verbalTics'
 import { createRngStreams } from '../core/rng'
 import { WEEKLY_MODULE_ID } from '../modules/weekly/state'
 import type { WeeklyModuleState, WeeklyResult } from '../modules/weekly/types'
@@ -189,6 +194,121 @@ export function ensureMonthlyHistoryField<
       [MONTHLY_MODULE_ID]: { ...slice, monthlyHistory: [] },
     },
   }
+}
+
+// Phase 121 / ISSUE-090 — Living Cast Phase A.
+//
+// Pre-Phase-A saves carry no `castAttributes` on staff or regulars.
+// This helper walks both collections, attaches deterministic
+// attributes via a dedicated RNG stream pair (`initial-cast-attributes`)
+// so the migration is reproducible regardless of save age, and is a
+// structural no-op when every entity already carries the field.
+// Idempotent. Callers wiring this into the save envelope path should
+// run it after the other `ensure*` helpers and before `validateState`,
+// mirroring the existing chain in `web/src/lib/sim/persistence.ts`.
+export function ensureCastAttributes<
+  T extends Partial<Pick<TavernState, 'staff' | 'world'>>,
+>(state: T): T {
+  ensureRequiredVerbalTicsRegistered()
+
+  const staffNeedsMigration = staffEntriesNeedingCastAttributes(state.staff)
+  const regularsNeedingMigration = regularsNeedingCastAttributes(
+    state.world?.regulars,
+  )
+  if (
+    staffNeedsMigration.length === 0 &&
+    regularsNeedingMigration.length === 0
+  ) {
+    return state
+  }
+
+  const streams = createRngStreams('initial-cast-attributes')
+  let next = state
+
+  if (staffNeedsMigration.length > 0 && state.staff) {
+    const rng = streams.get('staff_identity')
+    const nextStaff: Record<string, unknown> = { ...state.staff }
+    const ordered = [...staffNeedsMigration].sort((a, b) =>
+      a.id.localeCompare(b.id),
+    )
+    for (const member of ordered) {
+      const cultureId = member.identity?.cultureId
+      const castAttributes = createStaffCastAttributes({
+        roleId: member.role,
+        ...(cultureId !== undefined ? { cultureId } : {}),
+        rng,
+      })
+      nextStaff[member.id] = { ...member, castAttributes }
+    }
+    next = { ...next, staff: nextStaff as T['staff'] }
+  }
+
+  if (regularsNeedingMigration.length > 0 && next.world?.regulars) {
+    const rng = streams.get('regular_identity')
+    const nextRegulars: Record<string, unknown> = { ...next.world.regulars }
+    const ordered = [...regularsNeedingMigration].sort((a, b) =>
+      a.id.localeCompare(b.id),
+    )
+    for (const regular of ordered) {
+      const castAttributes = createRegularCastAttributes({
+        ...(regular.cultureId !== undefined
+          ? { cultureId: regular.cultureId }
+          : {}),
+        customerGroupId: regular.customerGroupId,
+        rng,
+      })
+      nextRegulars[regular.id] = { ...regular, castAttributes }
+    }
+    next = {
+      ...next,
+      world: {
+        ...next.world,
+        regulars: nextRegulars as NonNullable<typeof next.world.regulars>,
+      },
+    } as T
+  }
+
+  return next
+}
+
+type StaffMigrationCandidate = {
+  id: string
+  role: string
+  identity?: { cultureId?: string }
+  castAttributes?: unknown
+}
+
+function staffEntriesNeedingCastAttributes(
+  staff: Record<string, StaffMigrationCandidate> | undefined,
+): StaffMigrationCandidate[] {
+  if (!staff) return []
+  const out: StaffMigrationCandidate[] = []
+  for (const member of Object.values(staff)) {
+    if (!member) continue
+    if (member.castAttributes) continue
+    out.push(member)
+  }
+  return out
+}
+
+type RegularMigrationCandidate = {
+  id: string
+  customerGroupId: string
+  cultureId?: string
+  castAttributes?: unknown
+}
+
+function regularsNeedingCastAttributes(
+  regulars: Record<string, RegularMigrationCandidate> | undefined,
+): RegularMigrationCandidate[] {
+  if (!regulars) return []
+  const out: RegularMigrationCandidate[] = []
+  for (const regular of Object.values(regulars)) {
+    if (!regular) continue
+    if (regular.castAttributes) continue
+    out.push(regular)
+  }
+  return out
 }
 
 // Phase 89 / ISSUE-049 — pre-Phase-65 saves do not carry the

@@ -42,13 +42,19 @@ Next up, in this order:
 1. **Tier 4 Progressive Onboarding arc** — start at **ISSUE-060**
    (phase 99, design contract); strictly linear through **ISSUE-077**
    (phase 116). Locked design contract: `docs/plans/progressive-onboarding.md`.
+2. **Tier 6 Living Cast arc** — kicks off the card-layer work. Phase A
+   landed as **ISSUE-090** (phase 121, status `done`); Phases B–G run
+   against the locked roadmap `docs/plans/living-cast-arc.md` and the
+   framework contract `docs/plans/card-composition-framework.md`.
 
 ISSUE-058 and ISSUE-059 landed together as the combined phase 119+120
 (see `docs/plans/phase-119-120-web-test-coverage-and-derived-audit.md`).
 
-After Tier 4: no further work is planned in the tracker. The card-layer
-contract (`docs/plans/cards-contract.md`) is locked and waiting; new
-issues will be added here when that work starts.
+After Tier 4: the Living Cast arc takes over. The card-layer contract
+(`docs/plans/cards-contract.md`) is locked; the compositional framework
+(`docs/plans/card-composition-framework.md`) is locked; Phase A of the
+arc is done. New tracker issues land here as each Living Cast phase
+starts.
 
 **Phase numbers vs. order.** Phase numbers are a file-naming convention,
 not an execution order — ISSUE-058 has phase 119 but is next because of
@@ -140,6 +146,7 @@ phase-number arithmetic when deciding what's next.
 | ISSUE-078 | UI/UX clarity pass — humanize ids, paths, policies, recipes | broken | done | 117 |
 | ISSUE-079 | UI/UX comprehension pass — diff grouping, empty states, glossary, density | thin | done | 118 |
 | ISSUE-080 | More tab + save slots + first-encounter hints + difficulty (retroactive) | thin | done | 98 |
+| ISSUE-090 | Living Cast Phase A — bounded cast attributes on staff + regulars | thin | done | 121 |
 
 ---
 
@@ -3090,6 +3097,65 @@ They exist so the tracker is a complete record of all phase work.
   `tests/web/snapshots.test.ts`, `tests/web/difficulty.test.ts`,
   plus the settings / saves round-trip tests in `tests/web/preferences.test.ts`
   and `tests/web/persistence.test.ts`.
+
+---
+
+## Tier 6 — Living Cast arc (card-layer kickoff)
+
+The Living Cast arc gives each character a unique voice without
+hand-writing dialogue. Phase A lays the bounded selection vocabulary
+later phases (compositional runtime, test gates, generation pipeline,
+scale-out) will select against. Locked roadmap:
+`docs/plans/living-cast-arc.md`. Framework contract:
+`docs/plans/card-composition-framework.md`.
+
+### ISSUE-090 — Living Cast Phase A: bounded cast attributes on staff + regulars
+
+- **Grade:** thin
+- **Status:** done
+- **Phase:** 121
+- **Implementation record:** `docs/plans/phase-121-character-depth.md`.
+- **Evidence:** The 20-line voice demo failed for the sim because it
+  minted fresh ad-hoc tags per line (`fae_touched_wanderer`,
+  `anti_mage`). At scale, freeform tags are unselectable noise — the
+  compose-layer assembler (`card-composition-framework.md §3`) needs
+  *bounded* vocabulary to pick deterministically. Staff carried only
+  free-form `personalityTags` + `workStyle` / `stressResponse` enums
+  (`StaffIdentityState` @ `src/sim/state/TavernState.ts:149`); regulars
+  carried no identity vocabulary at all beyond name + culture pointer
+  (`RegularWorldState` @ `src/sim/state/TavernState.ts:481`).
+- **Impact:** Without this layer, the entire Living Cast arc cannot
+  start — Phase B's hand-iterated generation spike has no attributes
+  to reference, and the `actorTrait` SnippetCondition declared in
+  `card-composition-framework.md §2.3` has no fields to read.
+- **Scope (delivered):** New content slice at `src/sim/content/cast/`
+  owning `CastAttributes` (`specialty`, `blindspot`, 1–2 `affinity`
+  axes, `voiceProfile` with 4 axes + optional verbal-tic id), data
+  tables (per-role staff specialties; shared social specialties for
+  regulars; affinity targets; culture-aware voice defaults; verbal-tic
+  registry), and two factories that roll attributes from the existing
+  `staff_identity` / `regular_identity` named RNG streams *after* the
+  existing identity rolls so all canonical pre-Phase-A names and
+  identity fields stay byte-identical. Optional `castAttributes?` on
+  `StaffState` and `RegularWorldState` with Zod schemas, an additive
+  `ensureCastAttributes` migration helper, and wiring into
+  `createInitialStaff`, `createInitialRegulars`,
+  `regularModule.createRegular`, the `hire_staff` owner action, and
+  `web/src/lib/sim/persistence.ts` migration chain.
+- **Depends on:** none. The Living Cast arc has no upstream tracker
+  dependency; the Tier 4 onboarding arc and Phase A are independent.
+- **Test approach (delivered):** `tests/sim/phase121.castAttributes.test.ts`
+  (13 gates): schema round-trip; determinism across re-render; stream
+  isolation; no regression on existing identity fields (Phase 31
+  contract preserved); culture-aware bias (miner_workcrew terseness
+  mean > merchant_roadfolk terseness mean by ≥ 0.8 across 80 samples);
+  migration round-trip + idempotency + determinism; bounded outputs
+  per role/social domain; no-prose check (every string field is an id
+  ≤ 32 chars, no spaces); registry coverage sanity. Full suite stayed
+  green at 1719/1719 including the existing persistence round-trip
+  tests (which were the regression guard — pre-Phase-A starter
+  regulars needed the new factory too, caught and fixed during
+  implementation).
 
 ---
 

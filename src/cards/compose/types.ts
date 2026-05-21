@@ -118,6 +118,14 @@ export type SnippetPool = {
   snippets: Snippet[]
 }
 
+/** Sim-coherence policy for a slot. `'flavor'` (the default) means the
+ *  slot makes no checkable sim claims — the Phase-D sim-coherence gate
+ *  scans for invented entity names and unbacked history language.
+ *  `'sim_backed'` means every non-fallback snippet must carry at least
+ *  one state-lookup condition (`pressureRising`, `memoryPresent`,
+ *  `repeatCount`, `hasNamedEntity`). Set on the slot, read by gates. */
+export type SlotClaimMode = 'flavor' | 'sim_backed'
+
 export type SlotSpec = {
   /** Unique within the template. */
   id: string
@@ -128,6 +136,13 @@ export type SlotSpec = {
   /** When true, an empty result omits the slot rather than forcing a
    *  fallback. Silence beats weak copy. */
   optional?: boolean
+  /** Per-slot word-budget cap on every snippet's `text`. Defaults to the
+   *  framework body cap (12 words, framework §4) when omitted. The
+   *  Phase-D `voice-bounds` gate enforces this. */
+  wordBudget?: number
+  /** Sim-coherence policy. Defaults to `'flavor'` — slots that make no
+   *  checkable sim claims. Phase-D `sim-coherence` gate reads this. */
+  claimMode?: SlotClaimMode
 }
 
 // ---------- Template + factory shape ----------

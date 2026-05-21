@@ -45,7 +45,11 @@ import {
   orderLinePool,
 } from '../compose/pools/drinkOrder'
 
-const DRINK_ORDER_TEMPLATE: CompositionalCardTemplate = {
+// Phase 124 / ISSUE-093: exported so the Phase-D gate harness (and
+// Phase-E generation pipeline) can run structural checks against the
+// template's slots + pools directly. `defineCompositionalCard` only
+// returns a `CardDefinition`; the gates work on `CompositionalCardTemplate`.
+export const drinkOrderTemplate: CompositionalCardTemplate = {
   id: 'regular_customer.drink_order',
   appliesTo: {
     seedFamilies: ['regular_customer'],
@@ -63,12 +67,24 @@ const DRINK_ORDER_TEMPLATE: CompositionalCardTemplate = {
   priority: 60,
   voiceRegister: 'tavern_floor',
   slots: [
-    { id: 'order_line', role: 'utterance', pool: orderLinePool },
+    // Phase B budgets locked: order_line ≤ 12 words, manner_note ≤ 10 words
+    // (`docs/plans/living-cast-arc-phase-b.md` §"Must-pass gates").
+    // Phase D moves those numbers from the doc into the slot data so the
+    // voice-bounds gate has a single source of truth.
+    {
+      id: 'order_line',
+      role: 'utterance',
+      pool: orderLinePool,
+      wordBudget: 12,
+      claimMode: 'flavor',
+    },
     {
       id: 'manner_note',
       role: 'aside',
       pool: mannerNotePool,
       optional: true,
+      wordBudget: 10,
+      claimMode: 'flavor',
     },
   ],
   toCardView: (filled, seed, state) => {
@@ -110,5 +126,5 @@ function buildDrinkOrderBody(filled: FilledSlots, seed: IssueSeed): string[] {
 }
 
 export const drinkOrderCard: CardDefinition = defineCompositionalCard(
-  DRINK_ORDER_TEMPLATE,
+  drinkOrderTemplate,
 )

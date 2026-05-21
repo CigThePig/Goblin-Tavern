@@ -47,7 +47,9 @@ Next up, in this order:
    hand-authored convergence artifact at
    `docs/plans/living-cast-arc-phase-b.md` (no tracker ISSUE because no
    code shipped); Phase C landed as **ISSUE-092** (phase 123, status
-   `done`). Phases D–G run against the locked roadmap
+   `done`); Phase D landed as **ISSUE-093** (phase 124, status `done`).
+   Phase E (generation pipeline) is next, unblocked by Phase D's gate
+   library. Phases E–G run against the locked roadmap
    `docs/plans/living-cast-arc.md` and the framework contract
    `docs/plans/card-composition-framework.md`.
 
@@ -152,6 +154,7 @@ phase-number arithmetic when deciding what's next.
 | ISSUE-080 | More tab + save slots + first-encounter hints + difficulty (retroactive) | thin | done | 98 |
 | ISSUE-090 | Living Cast Phase A — bounded cast attributes on staff + regulars | thin | done | 121 |
 | ISSUE-092 | Living Cast Phase C — composition runtime + first compositional card | thin | done | 123 |
+| ISSUE-093 | Living Cast Phase D — six structural gates harness | thin | done | 124 |
 
 ---
 
@@ -3161,6 +3164,95 @@ scale-out) will select against. Locked roadmap:
   tests (which were the regression guard — pre-Phase-A starter
   regulars needed the new factory too, caught and fixed during
   implementation).
+
+### ISSUE-093 — Living Cast Phase D: six structural gates harness
+
+- **Grade:** thin
+- **Status:** done
+- **Phase:** 124
+- **Implementation record:** `docs/plans/phase-124-test-harness.md`.
+- **Evidence:** `card-composition-framework.md §6` names six structural
+  gates — coverage, specificity-gradient, voice-bounds, sim-coherence,
+  determinism, diversity — that let pool generation replace human
+  review. Phase C shipped the runtime and `drinkOrderCard` but no
+  gates; the existing `tests/cards/compose/` suite covers the
+  *runtime* (per-condition arms, FNV tie-break, optional-slot
+  omission, integration on a real seed) but does not exercise the
+  *pool data* against the six framework gates. Phase B's
+  "Must-pass gates for this template" block
+  (`docs/plans/living-cast-arc-phase-b.md` §"Must-pass gates")
+  enumerates exactly what each gate means for `drink_order` (e.g.
+  `order_line ≤ 12 words`, `manner_note ≤ 10 words`, ≥ 6 distinct
+  order_line outputs across the perturbed cast distribution), but
+  those numbers lived only in the doc.
+- **Impact:** Without the gates, Phase E (the generation pipeline)
+  has no programmatic way to reject bad model output, and Phase F's
+  scale-out across situations and voices is unsafe — each new pool
+  would need hand review. The gates are also the regression net for
+  the existing Phase B pool: a future edit that breaks coverage or
+  collapses diversity would land silently.
+- **Scope (delivered):** New gate library at
+  `src/cards/compose/gates/` with one file per gate
+  (`coverage.ts`, `specificity.ts`, `voiceBounds.ts`,
+  `simCoherence.ts`, `determinism.ts`, `diversity.ts`), shared
+  `types.ts` (`GateReport`, `GateViolation`), and a composite
+  `runAllGates.ts` runner that Phase E will import unchanged.
+  Two additive optional fields on `SlotSpec` —
+  `wordBudget?: number` (defaults to framework body cap 12) and
+  `claimMode?: 'flavor' | 'sim_backed'` (defaults to `'flavor'`) —
+  move Phase B's locked numbers from the doc into the slot data and
+  give the sim-coherence gate a structural distinction to switch
+  on. `drinkOrder.ts` annotated: `order_line` gets `wordBudget: 12,
+  claimMode: 'flavor'`; `manner_note` gets `wordBudget: 10,
+  claimMode: 'flavor'`. Sim-coherence runs three default detectors
+  on flavor slots — banned display-name substring scan, history-
+  claim regex (`twice now`, `yesterday`, `last week`, etc.)
+  requiring a `memoryPresent`/`repeatCount` condition, role-claim
+  regex (`your cook`, `the cleaner`, …) requiring a `hasNamedEntity`
+  condition — and on `sim_backed` slots requires every non-fallback
+  snippet to carry a state-lookup condition. Diversity sampler
+  uses `createRegularCastAttributes` with a deterministic
+  `prando`-seeded RNG so the test reproduces the real `[-1,0,0,1]`
+  cast distribution and stays itself deterministic. New named
+  export `drinkOrderTemplate` on `src/cards/templates/drinkOrder.ts`
+  so gates can run against the `CompositionalCardTemplate` directly
+  (the existing `drinkOrderCard` `CardDefinition` export is unchanged).
+- **Depends on:** ISSUE-092 (Phase C composition runtime — done).
+- **Test approach (delivered):** Seven new test files at
+  `tests/cards/compose/gates/` covering 28 gates.
+  `coverage.test.ts` (3): real drinkOrder passes; no-fallback
+  fixture fails with `missing_unconditional_fallback`; optional
+  slots are exempt. `specificity.test.ts` (4): real passes;
+  all-fallback fails with `no_conditioned_snippet`; no-fallback
+  fails with `no_fallback`; optional slots are exempt.
+  `voiceBounds.test.ts` (5): real passes with the locked 12/10
+  budgets read from `slot.wordBudget`; over-budget fixture fails
+  with `over_budget`; `config.perSlot` override beats slot data;
+  default 12-word budget applies when nothing else carries one.
+  `simCoherence.test.ts` (8): real passes against the
+  `representativeBannedNames(createInitialTavernState())` list;
+  banned-name fixture fails with `banned_display_name`; unbacked
+  "twice now" fails with `unbacked_history_claim`; same text with
+  a `memoryPresent` condition passes; unbacked "your cook" fails
+  with `unbacked_role_claim`; sim_backed slot with a voice-only
+  snippet fails with `sim_backed_missing_lookup`; sim_backed
+  fallback is exempt; sim_backed with a `memoryPresent` condition
+  passes. `determinism.test.ts` (2): real drinkOrder is byte-equal
+  across `structuredClone` over a 15+-sample matrix covering
+  neutral, every single-axis extreme, every two-axis exemplar
+  pair, and every verbal tic; a planted state-mutating
+  `toCardView` fails with `state_mutated_during_render`.
+  `diversity.test.ts` (3): real `order_line` yields ≥ 6 distinct
+  outputs across 100 samples drawn from the real `[-1,0,0,1]`
+  distribution; `manner_note` yields ≥ 3; a synthetic
+  never-fires pool yields 1 and fails with
+  `insufficient_diversity`. `runAllGates.test.ts` (3): real
+  drinkOrder template clears all six gates in one call; a planted
+  over-budget snippet flips only `voiceBounds.pass` while every
+  other sub-report stays green (independent failure attribution
+  is the Phase-E contract); a configured slot that does not exist
+  on the template surfaces as `diversity_slot_not_found`. Full
+  suite green; no regressions.
 
 ### ISSUE-092 — Living Cast Phase C: composition runtime + first compositional card
 

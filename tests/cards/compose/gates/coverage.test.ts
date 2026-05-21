@@ -11,6 +11,10 @@ import {
   drinkOrderTemplate,
 } from '../../../../src/cards/templates/drinkOrder'
 import {
+  staffAsideCard,
+  staffAsideTemplate,
+} from '../../../../src/cards/templates/staffAside'
+import {
   buildTemplate,
   noFallbackSlot,
 } from './fixtures'
@@ -23,6 +27,14 @@ describe('coverage gate', () => {
     // Sanity belt: the live card is the same template object via the
     // factory, so a one-line guard against accidental skew.
     expect(drinkOrderCard.id).toBe(drinkOrderTemplate.id)
+  })
+
+  // Phase 126 / ISSUE-095 — Phase F's second template clears the same gate.
+  it('the real staffAside template passes — aside_line has aside_fallback_plain', () => {
+    const report = checkCoverage(staffAsideTemplate)
+    expect(report.pass).toBe(true)
+    expect(report.violations).toEqual([])
+    expect(staffAsideCard.id).toBe(staffAsideTemplate.id)
   })
 
   it('a template missing the order_line fallback fails with missing_unconditional_fallback', () => {

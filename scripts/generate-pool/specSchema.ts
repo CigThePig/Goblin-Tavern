@@ -50,11 +50,17 @@ const VoiceAxesInPlaySchema = z
   })
   .strict()
 
+// Phase 126 / ISSUE-095 — Living Cast Phase F (first situation).
+// Per-slot word budgets used to live inline (`order_line: 12`,
+// `manner_note: 10`, `sim_backed_hook?: …`) — a Phase-E hardcode of the
+// first template's slot ids. Phase F surfaces the gap: a second template
+// needs its own slot ids in the same field. The shape generalises to a
+// `perSlotWords: Record<slotId, number>` record keyed by the spec's own
+// `slots[].id` values. The prose-policy booleans stay flat — they apply
+// to every snippet regardless of slot.
 const HardBoundsSchema = z
   .object({
-    order_line: z.number().int().positive(),
-    manner_note: z.number().int().positive(),
-    sim_backed_hook: z.number().int().positive().optional(),
+    perSlotWords: z.record(z.string().min(1), z.number().int().positive()),
     punctuation: z.string(),
     noFragmentsThatRequireConcatenation: z.boolean(),
     noMadLibPlaceholders: z.boolean(),
@@ -83,13 +89,18 @@ const ExemplarVoiceSchema = z
   })
   .strict()
 
+// Phase 126 / ISSUE-095 — Living Cast Phase F (first situation).
+// Per-slot exemplar text used to live inline (`order_line: ...`,
+// `manner_note?: ...`) — same Phase-E hardcode as `HardBoundsSchema`.
+// Generalised to a `slotLines: Record<slotId, string>` map; an exemplar
+// supplies text for whichever slots it speaks to. `buildPrompt` looks up
+// `ex.slotLines[slotId]` per slot.
 const PositiveExemplarSchema = z
   .object({
     id: z.string().min(1),
     claims: SlotClaimsSchema,
     voice: ExemplarVoiceSchema,
-    order_line: z.string(),
-    manner_note: z.string().optional(),
+    slotLines: z.record(z.string().min(1), z.string()),
     why_it_works: z.string(),
   })
   .strict()

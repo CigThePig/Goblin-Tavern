@@ -13,7 +13,11 @@ import { describe, expect, it } from 'vitest'
 
 import { checkDeterminism } from '../../../../src/cards/compose/gates'
 import { drinkOrderTemplate } from '../../../../src/cards/templates/drinkOrder'
-import { buildDeterminismSamples } from './samplers'
+import { staffAsideTemplate } from '../../../../src/cards/templates/staffAside'
+import {
+  buildDeterminismSamples,
+  buildStaffDeterminismSamples,
+} from './samplers'
 
 describe('determinism gate', () => {
   it('the real drinkOrder template is deterministic across the full sample matrix', () => {
@@ -24,6 +28,17 @@ describe('determinism gate', () => {
     expect(samples.length).toBeGreaterThanOrEqual(15)
 
     const report = checkDeterminism(drinkOrderTemplate, samples)
+    expect(report.pass).toBe(true)
+    expect(report.violations).toEqual([])
+  })
+
+  // Phase 126 / ISSUE-095 — Phase F's staff template is structurally
+  // deterministic under the same sample matrix shape (mirrored against a
+  // staff actor instead of a regular).
+  it('the real staffAside template is deterministic across the full staff sample matrix', () => {
+    const samples = buildStaffDeterminismSamples()
+    expect(samples.length).toBeGreaterThanOrEqual(15)
+    const report = checkDeterminism(staffAsideTemplate, samples)
     expect(report.pass).toBe(true)
     expect(report.violations).toEqual([])
   })

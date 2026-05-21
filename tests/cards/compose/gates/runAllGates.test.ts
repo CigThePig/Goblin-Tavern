@@ -10,11 +10,14 @@ import { describe, expect, it } from 'vitest'
 
 import { runAllGates } from '../../../../src/cards/compose/gates'
 import { drinkOrderTemplate } from '../../../../src/cards/templates/drinkOrder'
+import { staffAsideTemplate } from '../../../../src/cards/templates/staffAside'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
 import { buildTemplate } from './fixtures'
 import {
   buildDeterminismSamples,
   buildDiversitySampler,
+  buildStaffDeterminismSamples,
+  buildStaffDiversitySampler,
   representativeBannedNames,
 } from './samplers'
 
@@ -35,6 +38,39 @@ describe('runAllGates — happy path', () => {
         {
           slotId: 'manner_note',
           sampler: buildDiversitySampler({ rngSeed: 'run-all-manner' }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  // Phase 126 / ISSUE-095 — the same composite runner clears the new
+  // staffAside template against the same six gates. Diversity samplers
+  // and determinism profiles target a staff actor; banned-names list is
+  // shared (it includes both staff and regular display names).
+  it('the real staffAside template passes all six gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(staffAsideTemplate, {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: buildStaffDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'aside_line',
+          sampler: buildStaffDiversitySampler({ rngSeed: 'run-all-aside' }),
+          config: { sampleSize: 100, minDistinct: 6 },
+        },
+        {
+          slotId: 'manner_note',
+          sampler: buildStaffDiversitySampler({ rngSeed: 'run-all-staff-manner' }),
           config: { sampleSize: 100, minDistinct: 3 },
         },
       ],

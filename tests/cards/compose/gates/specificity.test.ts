@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 
 import { checkSpecificityGradient } from '../../../../src/cards/compose/gates'
 import { drinkOrderTemplate } from '../../../../src/cards/templates/drinkOrder'
+import { staffAsideTemplate } from '../../../../src/cards/templates/staffAside'
 import {
   allFallbackSlot,
   buildTemplate,
@@ -16,6 +17,13 @@ import {
 describe('specificity gradient gate', () => {
   it('the real drinkOrder template passes — order_line has fallback + 15 conditioned', () => {
     const report = checkSpecificityGradient(drinkOrderTemplate)
+    expect(report.pass).toBe(true)
+    expect(report.violations).toEqual([])
+  })
+
+  // Phase 126 / ISSUE-095 — Phase F's second template carries the same gradient.
+  it('the real staffAside template passes — aside_line has fallback + 17 conditioned', () => {
+    const report = checkSpecificityGradient(staffAsideTemplate)
     expect(report.pass).toBe(true)
     expect(report.violations).toEqual([])
   })

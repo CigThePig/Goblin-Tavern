@@ -27,6 +27,7 @@ export {
   reputationShiftWeeklyCard,
   monthlyReviewCard,
   drinkOrderCard,
+  staffAsideCard,
   fallbackCard,
 } from './templates/index'
 // Phase 123 — Living Cast arc, Phase C. The compose slice is the bottom

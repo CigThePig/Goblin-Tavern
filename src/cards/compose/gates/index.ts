@@ -40,3 +40,10 @@ export {
   type GateViolation,
 } from './types'
 export { representativeBannedNames } from './representativeBannedNames'
+export {
+  checkDedupe,
+  canonicaliseText,
+  DEFAULT_DEDUPE_THRESHOLD,
+  type DedupeConfig,
+} from './dedupe'
+export { levenshtein, normalisedSimilarity } from './levenshtein'

@@ -19,6 +19,7 @@ import {
   type DiversitySampler,
   type DiversityObservation,
 } from './diversity'
+import { checkDedupe, type DedupeConfig } from './dedupe'
 import type { GateReport } from './types'
 
 export type DiversitySlotConfig = {
@@ -32,6 +33,7 @@ export type AllGatesConfig = {
   simCoherence: SimCoherenceConfig
   determinism: { samples: readonly DeterminismSample[] }
   diversity: readonly DiversitySlotConfig[]
+  dedupe?: DedupeConfig
 }
 
 export type DiversityReportEntry = GateReport & {
@@ -47,6 +49,7 @@ export type AllGatesReport = {
   simCoherence: GateReport
   determinism: GateReport
   diversity: DiversityReportEntry[]
+  dedupe: GateReport
 }
 
 export function runAllGates(
@@ -58,6 +61,7 @@ export function runAllGates(
   const voiceBounds = checkVoiceBounds(template, config.voiceBounds)
   const simCoherence = checkSimCoherence(template, config.simCoherence)
   const determinism = checkDeterminism(template, config.determinism.samples)
+  const dedupe = checkDedupe(template, config.dedupe)
   const diversity = config.diversity.map<DiversityReportEntry>((entry) => {
     const slot = template.slots.find((s) => s.id === entry.slotId)
     if (!slot) {
@@ -88,7 +92,8 @@ export function runAllGates(
     voiceBounds.pass &&
     simCoherence.pass &&
     determinism.pass &&
-    diversity.every((d) => d.pass)
+    diversity.every((d) => d.pass) &&
+    dedupe.pass
   return {
     pass,
     coverage,
@@ -97,5 +102,6 @@ export function runAllGates(
     simCoherence,
     determinism,
     diversity,
+    dedupe,
   }
 }

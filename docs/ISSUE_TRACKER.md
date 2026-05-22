@@ -160,6 +160,7 @@ phase-number arithmetic when deciding what's next.
 | ISSUE-093 | Living Cast Phase D — six structural gates harness | thin | done | 124 |
 | ISSUE-094 | Living Cast Phase E — model-authored generation pipeline | thin | done | 125 |
 | ISSUE-095 | Living Cast Phase F (first situation) — staff_aside template | thin | done | 126 |
+| ISSUE-096 | Voiced Surface Phase 1 — signal surface; DSL `signalEquals` + wired `repeatCount` | thin | done | 127 |
 
 ---
 
@@ -3169,6 +3170,97 @@ scale-out) will select against. Locked roadmap:
   tests (which were the regression guard — pre-Phase-A starter
   regulars needed the new factory too, caught and fixed during
   implementation).
+
+### ISSUE-096 — Voiced Surface Phase 1: signal surface + DSL signalEquals + wired repeatCount
+
+- **Grade:** thin
+- **Status:** done
+- **Phase:** 127
+- **Implementation record:** `docs/plans/phase-127-signal-surface.md`.
+- **Evidence:** `docs/plans/voiced-surface-arc.md` Phase 1 names the
+  blocker: the sim's truth isn't reachable by the snippet layer. The
+  `repeatCount` snippet condition was declared but always returned `false`
+  (`src/cards/compose/conditions.ts:119–125`); `drink_order`'s
+  `sim_backed_hook` slot was `DISABLED_FOR_SPIKE` because "the underlying
+  sim signals do not yet exist" (`specs/cards/drink_order.spec.yaml`); no
+  read-only query surface existed for band tiers (supplier reliability,
+  faction relation, area condition). The four target situations the doc
+  highlights all needed to state facts the DSL could not express.
+- **Impact:** Without a signal surface, the Voiced Surface arc's
+  scale-out cannot begin — Phase 3's establishing-line spike requires
+  band/repeat-count signals to author against, and every Phase 7–14
+  migration requires them too. This phase ships the machine that makes
+  the rest of the arc possible.
+- **Scope (delivered):**
+  - New `src/sim/signals/` module — pure read-only functions over
+    `TavernState`. Eight band signals (`supplier.reliability`,
+    `supplier.relationship`, `staff.stress`, `staff.fatigue`,
+    `faction.relationship`, `faction.influence`, `area.condition`,
+    `area.cleanliness`) with 3-tier (`low`/`mid`/`high`) bands; threshold
+    table at `40/70` exported as data so gates can enumerate. The
+    unified `querySignal(state, signal, ref)` dispatcher validates the
+    entity-ref kind against the signal and returns `{ missing: true }`
+    on mismatch. `repeatCountByTag` counts memory tags inside a 28-day
+    rolling window. `pressureTrend` / `pressureIsRising` re-export the
+    pressure read used by the existing condition so the snippet DSL
+    and signal surface never drift.
+  - One new DSL primitive — `{ kind: 'signalEquals'; role; signal;
+    equals }` on `SnippetCondition`. Pure data (no closures), trivially
+    enumerable, sim-coherence whitelist updated.
+  - `repeatCount` rewired against `repeatCountByTag`. The
+    "always-false" forward-seam disappears; the previously-skipped
+    `repeatCount` test in `conditions.test.ts` now exercises real
+    memory-tag windows.
+  - `drink_order` spec: `sim_backed_hook` slot relabelled from
+    `DISABLED_FOR_SPIKE` to `SIGNAL_AVAILABLE`. The pipeline schema and
+    skip logic widened to accept either status — both still skip — so
+    the build-time pipeline keeps working unchanged.
+  - `TEXT_INGREDIENT_ROLE: Record<keyof TextIngredients,
+    'signal-backed' | 'flavor-seed'>` added next to
+    `TEXT_INGREDIENT_LIMITS`. Numeric / classification fields are
+    declared signal-backed; sensory and structural fields are
+    flavor-seed. `cards-contract.md §3.3` gains a paragraph stating
+    that `sim_backed` slots must reach for signals; flavor-seed fields
+    may be borrowed by `flavor` slots as decoration.
+- **Depends on:** ISSUE-090 (Phase A cast attributes — done),
+  ISSUE-092 (Phase C runtime — done), ISSUE-093 (Phase D gates — done).
+- **Deferred — handed to Phase 7 (ISSUE-102):** Staff blame-mode
+  classification ("publicly blamed" vs "quietly slighted" vs
+  "self-blamed"). Of the four audit targets, three sit on already-
+  existing numeric fields in `TavernState` and became signals as a
+  purely additive change. Blame-mode is the outlier: no discrete
+  classification exists today (`perceivedBlame: string[]` is
+  pre-rendered prose). The deferral was a user-approved scope decision
+  (see plan §"Explicit deferrals"). Phase 7 (Staff & Personnel
+  migration) — the first downstream phase needing it — owns the
+  additive sim change. The contract for that work is recorded in the
+  plan file: add optional `blameMode?: BlameMode` to memory drafts /
+  state (Zod `.optional()` — no migration), stamp from a verb→mode
+  data table at the response-resolver's memory-write sites, add
+  `latestBlameMode(state, staffId)` signal, widen `signalEquals`'s
+  `equals` type to include `BlameMode` (additive — no existing snippet
+  uses it). Phase 3's spike (supplier-led) is not blocked.
+- **Also deferred (audit candidates that didn't force a new primitive
+  this phase):** `relationshipTier` — folded into `signalEquals` (band
+  signals cover it). `namedEntityRole`/tenure — no audit target forces
+  it; lands when first needed. Ordered-band comparisons
+  (`signalAtLeast`) — `signalEquals` is the v1; ordered shape lands
+  when authoring need surfaces.
+- **Test approach (delivered):** Seven new Phase 127 test files —
+  `tests/sim/phase127.signals.numeric.test.ts` (boundary tests for all
+  eight band signals + the dispatcher),
+  `tests/sim/phase127.signals.repeats.test.ts` (window arithmetic),
+  `tests/sim/phase127.signals.pressureTrend.test.ts` (parity with
+  `evalCondition({pressureRising})`),
+  `tests/sim/phase127.pressureIds.publication.test.ts` (11 pressure
+  ids addressable on state from day zero),
+  `tests/sim/phase127.textIngredientRole.test.ts` (exhaustiveness +
+  role assignments), `tests/cards/compose/phase127.signalEquals.condition.test.ts`
+  (the new DSL primitive end-to-end), `tests/cards/compose/phase127.simBackedHookSignal.test.ts`
+  (the slot's intended signals reach). The existing `conditions.test.ts`
+  block that asserted `repeatCount` is always false was rewritten to
+  exercise the now-wired path. Full suite green at 1929/1929 across 164
+  files; `npm run typecheck` clean.
 
 ### ISSUE-095 — Living Cast Phase F (first situation): staff_aside template
 

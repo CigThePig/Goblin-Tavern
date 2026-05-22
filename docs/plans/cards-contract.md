@@ -328,6 +328,8 @@ export type SeedValidation = {
 
 Cards filter out `seed.validation.valid === false` before rendering. Warnings are non-blocking but should be surfaced in dev tooling.
 
+**Signal-backed vs flavor-seed fields (Phase 127 / ISSUE-096 — Voiced Surface, Phase 1).** The fields above split into two contractual roles, declared as data on `TEXT_INGREDIENT_ROLE: Record<keyof TextIngredients, 'signal-backed' | 'flavor-seed'>` next to `TEXT_INGREDIENT_LIMITS`. **Signal-backed** fields (`recentContext`, `pressureContext`, `marketContext`, `perceivedBlame`) carry numbers / classifications whose underlying truth lives on `TavernState`; a `sim_backed` slot must NOT read them as truth — it must query the read-only signal surface at `src/sim/signals/` (`querySignal`, `repeatCountByTag`, `pressureTrend`, …) so the sim-coherence gate can validate the claim. The fields remain present for validation, legacy templates, and debugging. **Flavor-seed** fields (`sensoryDetails`, `actorOpinions`, `socialContext`, `relevantMemories`, `calendarContext`, `arcContext`, plus the structural / referential `subject`, `problemNoun`, `stakesReadable`, `namedEntities`) are sensory or labelling fragments a `flavor` slot may borrow as decoration; they make no checkable sim claim. The Phase 127 contract test asserts the map is exhaustive over `keyof TextIngredients`.
+
 ### 3.4 Diffs and Causes
 
 `StateChange` / `StateDiff` / `TaggedStateDiff` (`src/sim/core/diff.ts:32`):

@@ -43,18 +43,23 @@ export async function runPipeline(
   opts: RunPipelineOptions,
 ): Promise<PipelineResult> {
   const { spec, generate } = opts
-  const activeSlots = spec.slots.filter(
-    (s) => s.status !== 'DISABLED_FOR_SPIKE',
-  )
+  // Phase 127 / ISSUE-096 — both `DISABLED_FOR_SPIKE` and
+  // `SIGNAL_AVAILABLE` mark a slot as "no pool authored yet"; the
+  // pipeline skips both. The reason string preserves which status was
+  // set so logs stay informative.
+  const isSkipped = (s: string | undefined): boolean =>
+    s === 'DISABLED_FOR_SPIKE' || s === 'SIGNAL_AVAILABLE'
+
+  const activeSlots = spec.slots.filter((s) => !isSkipped(s.status))
   const acceptedBySlot = new Map<string, Snippet[]>()
   const perSlot: PerSlotResult[] = []
 
   for (const slot of spec.slots) {
-    if (slot.status === 'DISABLED_FOR_SPIKE') {
+    if (isSkipped(slot.status)) {
       perSlot.push({
         status: 'skipped',
         slotId: slot.id,
-        reason: 'DISABLED_FOR_SPIKE',
+        reason: slot.status ?? 'DISABLED_FOR_SPIKE',
       })
       continue
     }

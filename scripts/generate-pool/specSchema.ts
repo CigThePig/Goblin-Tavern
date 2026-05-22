@@ -35,7 +35,12 @@ const SlotSpecSchema = z
     claims: SlotClaimsSchema,
     maxWords: z.number().int().positive(),
     description: z.string(),
-    status: z.literal('DISABLED_FOR_SPIKE').optional(),
+    // Phase 127 / ISSUE-096 — `SIGNAL_AVAILABLE` joins the skip-equivalent
+    // statuses. It signals that Phase 1's signal surface reaches this slot
+    // but no snippet pool has been authored yet; the pipeline treats it
+    // the same way it treats `DISABLED_FOR_SPIKE` until a spike or
+    // migration phase fills the pool.
+    status: z.enum(['DISABLED_FOR_SPIKE', 'SIGNAL_AVAILABLE']).optional(),
   })
   .strict()
 
@@ -213,7 +218,12 @@ const SnippetPoolSeedSchema = z
   .object({
     slotId: z.string().min(1),
     required: z.boolean(),
-    status: z.literal('DISABLED_FOR_SPIKE').optional(),
+    // Phase 127 / ISSUE-096 — `SIGNAL_AVAILABLE` joins the skip-equivalent
+    // statuses. It signals that Phase 1's signal surface reaches this slot
+    // but no snippet pool has been authored yet; the pipeline treats it
+    // the same way it treats `DISABLED_FOR_SPIKE` until a spike or
+    // migration phase fills the pool.
+    status: z.enum(['DISABLED_FOR_SPIKE', 'SIGNAL_AVAILABLE']).optional(),
     snippets: z.array(SnippetSeedSchema),
   })
   .strict()

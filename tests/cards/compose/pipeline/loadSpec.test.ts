@@ -28,8 +28,11 @@ describe('loadSpec', () => {
       'manner_note',
       'sim_backed_hook',
     ])
-    const disabled = spec.slots.find((s) => s.id === 'sim_backed_hook')
-    expect(disabled?.status).toBe('DISABLED_FOR_SPIKE')
+    // Phase 127 / ISSUE-096 — status relabelled from DISABLED_FOR_SPIKE to
+    // SIGNAL_AVAILABLE once Phase 1's signal surface shipped. The pipeline
+    // still treats both as skip-equivalent until a snippet pool is authored.
+    const slot = spec.slots.find((s) => s.id === 'sim_backed_hook')
+    expect(slot?.status).toBe('SIGNAL_AVAILABLE')
     expect(spec.positiveExemplars.length).toBeGreaterThanOrEqual(15)
     expect(spec.negativeExamples.length).toBeGreaterThan(0)
   })

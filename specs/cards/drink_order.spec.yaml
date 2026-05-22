@@ -7,9 +7,14 @@
 # scripts/generate-pool/ consumes; the doc is the design record. Edits
 # to this file are reviewed via PR.
 #
-# The sim_backed_hook slot is intentionally DISABLED — the underlying sim
-# signals (per-actor repeat-visit count, stock_shortage pressure id) do
-# not yet exist. The pipeline skips disabled slots; runtime ignores them.
+# The sim_backed_hook slot is marked SIGNAL_AVAILABLE (was DISABLED_FOR_SPIKE
+# before Phase 127 / ISSUE-096). Phase 1 of the Voiced Surface arc shipped
+# the signal surface (`src/sim/signals/`) — `repeatCount` is wired against
+# memory tags, `signalEquals` reaches the numeric band signals, and
+# `pressureRising` is verified against real pressure ids. The slot stays
+# empty in the live pool until Phase 3's establishing-line spike (or a
+# later migration) authors a snippet against those signals. The pipeline
+# skips both statuses; runtime ignores them.
 
 templateId: drink_order
 voiceRegister: tavern_floor
@@ -40,11 +45,16 @@ slots:
     required: false
     claims: sim-backed
     maxWords: 12
-    status: DISABLED_FOR_SPIKE
+    status: SIGNAL_AVAILABLE
     description: >
       Reserved for a line referencing a real seed/state condition (repeat
-      visit, named actor, rising pressure, memory). DISABLED until the sim
-      actually emits the backing signal. Do not wire into Phase C's live pool.
+      visit, named actor, rising pressure, memory). Phase 127 / ISSUE-096
+      (Voiced Surface, Phase 1) shipped the signal surface — `repeatCount`
+      is wired against memory tags; `signalEquals` reaches numeric band
+      signals; `pressureRising` is verified against the real pressure ids.
+      The slot stays empty in the live pool until Phase 3's establishing-
+      line spike (or a later migration) authors a snippet against those
+      signals.
 
 voiceAxesInPlay:
   terseness:
@@ -398,7 +408,7 @@ snippetPools:
 
   - slotId: sim_backed_hook
     required: false
-    status: DISABLED_FOR_SPIKE
+    status: SIGNAL_AVAILABLE
     snippets: []
 
 diversityCases:
@@ -426,8 +436,9 @@ mustPass:
     current: true
   simCoherence:
     rule: >
-      flavor slots assert no checkable history; sim_backed_hook is DISABLED
-      and ships empty until backing signals are verified to exist.
+      flavor slots assert no checkable history; sim_backed_hook ships
+      empty (status SIGNAL_AVAILABLE per Phase 127 / ISSUE-096 — Phase 1's
+      signal surface reaches it; no snippet authored until Phase 3 spike).
     current: true
   determinism:
     rule: same seed + same state + same slot returns same snippet after tie-break

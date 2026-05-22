@@ -33,6 +33,7 @@ import type {
   VoiceAxisId,
   VoiceAxisValue,
 } from '../../sim/content/cast'
+import type { BandId, SignalId } from '../../sim/signals'
 import type { CardView, CardAppliesTo } from '../types'
 
 /**
@@ -93,6 +94,16 @@ export type SnippetCondition =
       atMost: VoiceAxisValue
     }
   | { kind: 'verbalTic'; role: string; tic: VerbalTicId }
+  // — Phase 127 / ISSUE-096 — Voiced Surface arc, Phase 1. State-lookup
+  //   over the read-only signal surface at `src/sim/signals/`. `signal`
+  //   names a band query (e.g. `'supplier.reliability'`); `equals`
+  //   matches against the resolved `BandId`. The condition resolves the
+  //   actor via the same `resolveActorRef` rules as `voiceAxis` and
+  //   returns false when the actor doesn't resolve, the ref kind
+  //   doesn't match the signal, or the underlying field is missing.
+  //   Stays data and stays inspectable — the gates enumerate
+  //   `(SignalId, BandId)` to walk the reachable space.
+  | { kind: 'signalEquals'; role: string; signal: SignalId; equals: BandId }
 
 // ---------- Snippet / SnippetPool / SlotSpec ----------
 

@@ -87,7 +87,7 @@ describe('runGatesOnCandidates', () => {
     expect(result.report.coverage.pass).toBe(false)
   })
 
-  it('skips DISABLED_FOR_SPIKE slots — no diversity entry for sim_backed_hook', async () => {
+  it('skips DISABLED_FOR_SPIKE / SIGNAL_AVAILABLE slots — no diversity entry for sim_backed_hook', async () => {
     const spec = await loadSpecFromFile(REAL_SPEC_PATH)
     const candidates = new Map<string, Snippet[]>([
       ['order_line', orderLinePool.snippets as Snippet[]],

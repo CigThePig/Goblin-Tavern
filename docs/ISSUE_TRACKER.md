@@ -161,6 +161,7 @@ phase-number arithmetic when deciding what's next.
 | ISSUE-094 | Living Cast Phase E — model-authored generation pipeline | thin | done | 125 |
 | ISSUE-095 | Living Cast Phase F (first situation) — staff_aside template | thin | done | 126 |
 | ISSUE-096 | Voiced Surface Phase 1 — signal surface; DSL `signalEquals` + wired `repeatCount` | thin | done | 127 |
+| ISSUE-097 | Voiced Surface Phase 2 — universal cast: castAttributes on supplier/faction/customer-group/notable-NPC | thin | done | 128 |
 
 ---
 
@@ -3170,6 +3171,90 @@ scale-out) will select against. Locked roadmap:
   tests (which were the regression guard — pre-Phase-A starter
   regulars needed the new factory too, caught and fixed during
   implementation).
+
+### ISSUE-097 — Voiced Surface Phase 2: universal cast on supplier/faction/customer-group/notable-NPC
+
+- **Grade:** thin
+- **Status:** done
+- **Phase:** 128
+- **Implementation record:** `docs/plans/phase-128-universal-cast.md`.
+- **Evidence:** `docs/plans/voiced-surface-arc.md` Phase 2 names the
+  blocker: most actors a card voices cannot be voiced. Phase A landed
+  `castAttributes` only on staff and regulars (`StaffState.castAttributes`,
+  `RegularWorldState.castAttributes`); `resolveActorCastAttributes` at
+  `src/cards/compose/conditions.ts:42-44` explicitly returned `undefined`
+  for every other ref kind and the comment named the gap. Three of the
+  four broken-card screenshots the arc cites voice a supplier, a faction,
+  and a culture cohort — none of which carried voice attributes today.
+  Phase 7–14 migrations cannot author snippets keyed on `voiceAxis` /
+  `verbalTic` for those actors until this is fixed.
+- **Impact:** Without universal cast, the Voiced Surface arc's
+  scale-out cannot proceed to Movement II. Phase 3's establishing-line
+  spike (supplier-led) needs a supplier voice profile; every cluster in
+  phases 7–14 needs its centring actor to carry voice attributes.
+- **Scope (delivered):**
+  - Four new exported type aliases on
+    `src/sim/content/cast/castTypes.ts`:
+    `SupplierCastAttributes`, `FactionCastAttributes`,
+    `NotableNpcCastAttributes` (all alias `CastAttributes`), and
+    `CustomerGroupCastAttributes` (voice-only; cohorts aren't
+    individuals, so specialty/blindspot/affinities don't fit a crowd).
+  - Three specialty-domain files —
+    `supplierSpecialties.ts` (per-`supplierType` domain with fallback),
+    `factionSpecialties.ts` (shared `FACTION_SOCIAL_SPECIALTIES`),
+    `notableNpcSpecialties.ts` (per-NPC-`kind` domain with fallback).
+  - Five new factories on `createCastAttributes.ts`:
+    `createSupplierCastAttributes`, `createFactionCastAttributes`,
+    `createNotableNpcCastAttributes`,
+    `createCustomerGroupCastAttributes` (voice-only — reuses
+    `rollVoiceProfile` only). The committed roll order at the top of
+    the file is preserved for every full-shape factory.
+  - Three new identity streams on `RngStreamId` —
+    `supplier_identity`, `faction_identity`, `customer_group_identity`
+    — plus the existing `npc_identity` stream reused for notable NPCs.
+  - Day-zero seeding in `createInitialSuppliers`,
+    `createInitialFactions`, `createInitialCustomerGroups` — id-sorted
+    iteration mirroring the Phase 121 staff pattern, deterministic
+    seeds (`initial-supplier-identity` /
+    `initial-faction-identity` /
+    `initial-customer-group-identity`).
+  - `createNotableNpc` extended to roll `castAttributes` AFTER the
+    existing name roll — preserves every canonical pre-Phase-2 NPC
+    name byte-identical. Both day-zero NPCs and runtime-created NPCs
+    pick up the new field through the same factory.
+  - `ensureCastAttributes` extended with four new sweeps (suppliers,
+    factions, customer groups, notable NPCs). Same
+    `'initial-cast-attributes'` seed namespace as Phase A. Idempotent;
+    structural no-op when every entity already carries the field.
+  - Zod schema extensions on `SupplierWorldStateSchema`,
+    `FactionWorldStateSchema`, `NotableNpcWorldStateSchema`, and
+    `CustomerGroupStateSchema` (each gains an optional `castAttributes`
+    field). New `CustomerGroupCastAttributesSchema` for the voice-only
+    shape; the three full-shape kinds reuse `CastAttributesSchema`.
+  - `resolveActorCastAttributes` widened to dispatch on
+    `'supplier' | 'faction' | 'notable_npc' | 'customer_group'`. The
+    customer-group branch returns an adapter shape (empty
+    `specialty`/`blindspot`/`affinities`, real `voice`) so the
+    `CastAttribute` condition primitives (`voiceAxis`, `verbalTic`)
+    evaluate uniformly across kinds.
+- **Depends on:** ISSUE-090 (Phase A cast attributes — done),
+  ISSUE-096 (Phase 1 signal surface — done; not a hard schema
+  dependency, but both share the `'initial-cast-attributes'` seed
+  namespace and the resolver lives next to `signalEquals`).
+- **Test approach (delivered):** Three new Phase-128 test files —
+  `tests/sim/phase128.universalCast.test.ts` (23 tests covering
+  schema round-trip, determinism, stream isolation, culture defaults
+  flow-through, bounded outputs, no-prose, registry coverage,
+  fallback domains, group voice-only shape, cross-kind invariants,
+  Phase-A non-regression, and new RNG stream snapshot reachability);
+  `tests/sim/phase128.migration.test.ts` (8 tests covering each
+  sweep, idempotency, determinism, structural no-op, partial
+  backfill); `tests/cards/compose/phase128.resolveActor.test.ts`
+  (8 tests covering `voiceAxis` atLeast/atMost and `verbalTic`
+  across all four new kinds, plus missing-actor / missing-cast-
+  attribute fall-through). Phase 121 tests stay green (staff +
+  regular `castAttributes` byte-identical post-Phase-2). Full suite
+  and `npm run typecheck` green.
 
 ### ISSUE-096 — Voiced Surface Phase 1: signal surface + DSL signalEquals + wired repeatCount
 

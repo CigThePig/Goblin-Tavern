@@ -33,13 +33,20 @@ import type {
   AffinityPolarity,
   AffinityStrength,
   CastAttributes,
+  CustomerGroupCastAttributes,
+  FactionCastAttributes,
+  NotableNpcCastAttributes,
+  SupplierCastAttributes,
   VoiceAxisId,
   VoiceAxisValue,
   VoiceProfile,
 } from './castTypes'
 import { getCultureVoiceDefault } from './cultureVoiceDefaults'
+import { FACTION_SOCIAL_SPECIALTIES } from './factionSpecialties'
+import { getNotableNpcSpecialtyDomain } from './notableNpcSpecialties'
 import { REGULAR_SOCIAL_SPECIALTIES } from './regularSpecialties'
 import { getStaffSpecialtyDomain } from './staffSpecialties'
+import { getSupplierSpecialtyDomain } from './supplierSpecialties'
 import {
   ensureRequiredVerbalTicsRegistered,
   verbalTicRegistry,
@@ -86,6 +93,78 @@ export function createRegularCastAttributes(
     domain: REGULAR_SOCIAL_SPECIALTIES,
     cultureId: args.cultureId,
   })
+}
+
+// Phase 128 / ISSUE-097 — Voiced Surface Phase 2 (Universal Cast).
+//
+// Factories for the four new actor kinds. Each reuses `rollAttributes`
+// (suppliers/factions/notable NPCs) or `rollVoiceProfile` (customer
+// groups) unchanged, so the committed roll order at the top of this
+// file applies identically.
+export type CreateSupplierCastAttributesArgs = {
+  supplierType: string
+  cultureId?: string
+  rng: SimRng
+}
+
+export type CreateFactionCastAttributesArgs = {
+  cultureId?: string
+  rng: SimRng
+}
+
+export type CreateNotableNpcCastAttributesArgs = {
+  profileKind: string
+  cultureId?: string
+  rng: SimRng
+}
+
+export type CreateCustomerGroupCastAttributesArgs = {
+  cultureId?: string
+  rng: SimRng
+}
+
+export function createSupplierCastAttributes(
+  args: CreateSupplierCastAttributesArgs,
+): SupplierCastAttributes {
+  ensureRequiredVerbalTicsRegistered()
+  return rollAttributes({
+    rng: args.rng,
+    domain: getSupplierSpecialtyDomain(args.supplierType),
+    cultureId: args.cultureId,
+  })
+}
+
+export function createFactionCastAttributes(
+  args: CreateFactionCastAttributesArgs,
+): FactionCastAttributes {
+  ensureRequiredVerbalTicsRegistered()
+  return rollAttributes({
+    rng: args.rng,
+    domain: FACTION_SOCIAL_SPECIALTIES,
+    cultureId: args.cultureId,
+  })
+}
+
+export function createNotableNpcCastAttributes(
+  args: CreateNotableNpcCastAttributesArgs,
+): NotableNpcCastAttributes {
+  ensureRequiredVerbalTicsRegistered()
+  return rollAttributes({
+    rng: args.rng,
+    domain: getNotableNpcSpecialtyDomain(args.profileKind),
+    cultureId: args.cultureId,
+  })
+}
+
+// Voice-only — groups don't carry specialty/blindspot/affinities; only
+// the voice profile is rolled. Roll order matches the tail of
+// `rollAttributes` so a future widening to the full shape would keep
+// the voice axes byte-identical.
+export function createCustomerGroupCastAttributes(
+  args: CreateCustomerGroupCastAttributesArgs,
+): CustomerGroupCastAttributes {
+  ensureRequiredVerbalTicsRegistered()
+  return { voice: rollVoiceProfile(args.rng, args.cultureId) }
 }
 
 type RollArgs = {

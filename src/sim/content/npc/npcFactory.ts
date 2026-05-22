@@ -13,6 +13,7 @@
 // matches `state.world.notableNpcs[id]` directly so the caller can
 // write it without an adapter layer.
 
+import { createNotableNpcCastAttributes } from '../cast/createCastAttributes'
 import type { SimRng } from '../../core/rng'
 import type { NotableNpcWorldState } from '../../state/TavernState'
 import { generateName } from '../naming/nameGenerator'
@@ -53,6 +54,18 @@ export function createNotableNpc(
       : undefined,
   )
 
+  // Phase 128 / ISSUE-097 — Voiced Surface Phase 2 (Universal Cast).
+  // Cast attribute roll lands on the SAME rng, AFTER the existing
+  // name roll. Mirrors the staff/regular ordering at
+  // `defaults.ts:190-202`: the load-bearing property is that every
+  // canonical pre-Phase-2 NPC name stays byte-identical and only
+  // new rolls burn at the end of the per-NPC sequence.
+  const castAttributes = createNotableNpcCastAttributes({
+    profileKind: profile.kind,
+    ...(profile.cultureId !== undefined ? { cultureId: profile.cultureId } : {}),
+    rng: args.rng,
+  })
+
   const npc: NotableNpcWorldState = {
     id: args.npcId,
     name: generatedName,
@@ -65,6 +78,7 @@ export function createNotableNpc(
     firstSeenDay: args.firstSeenDay,
     tags: [...profile.tags],
     activeFlags: [...profile.activeFlags],
+    castAttributes,
   }
 
   return { npc, generatedName }

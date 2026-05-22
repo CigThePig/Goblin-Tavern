@@ -29,9 +29,19 @@ function resolveActorRef(role: string, seed: IssueSeed): EntityRef | undefined {
 }
 
 /** Look up the resolved actor's `castAttributes`. Returns `undefined`
- *  when the actor doesn't resolve, when the kind has no cast surface
- *  yet (e.g. supplier, faction), or when the entity exists but the
- *  Phase-A migration hasn't reached it. */
+ *  when the actor doesn't resolve, when the entity exists but the
+ *  Phase-A / Phase-2 migration hasn't reached it, or when the kind has
+ *  no cast surface at all.
+ *
+ *  Phase 128 / ISSUE-097 — coverage widened to the four new actor kinds:
+ *  supplier, faction, notable_npc carry the full shape; customer_group
+ *  carries voice-only (groups are cohorts, not individuals — see
+ *  `castTypes.ts` `CustomerGroupCastAttributes`). The adapter shape
+ *  below keeps the return type uniform so the `CastAttribute`
+ *  primitives (voiceAxis*, verbalTic, actorTrait) evaluate identically
+ *  across kinds; specialty/blindspot/affinities on a group will not
+ *  match because the adapter returns empty defaults — that's the
+ *  intended behaviour. */
 function resolveActorCastAttributes(
   role: string,
   seed: IssueSeed,
@@ -41,6 +51,21 @@ function resolveActorCastAttributes(
   if (!ref) return undefined
   if (ref.kind === 'staff') return state.staff[ref.id]?.castAttributes
   if (ref.kind === 'regular') return state.world.regulars[ref.id]?.castAttributes
+  if (ref.kind === 'supplier') return state.world.suppliers[ref.id]?.castAttributes
+  if (ref.kind === 'faction') return state.world.factions[ref.id]?.castAttributes
+  if (ref.kind === 'notable_npc') {
+    return state.world.notableNpcs[ref.id]?.castAttributes
+  }
+  if (ref.kind === 'customer_group') {
+    const group = state.customerGroups[ref.id]
+    if (!group?.castAttributes) return undefined
+    return {
+      specialty: '',
+      blindspot: '',
+      affinities: [],
+      voice: group.castAttributes.voice,
+    }
+  }
   return undefined
 }
 

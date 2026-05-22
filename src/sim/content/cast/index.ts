@@ -10,6 +10,10 @@ export type {
   AffinityPolarity,
   AffinityStrength,
   CastAttributes,
+  CustomerGroupCastAttributes,
+  FactionCastAttributes,
+  NotableNpcCastAttributes,
+  SupplierCastAttributes,
   VerbalTicId,
   VoiceAxisId,
   VoiceAxisValue,
@@ -32,6 +36,21 @@ export {
 
 export { REGULAR_SOCIAL_SPECIALTIES } from './regularSpecialties'
 
+// Phase 128 / ISSUE-097 — Voiced Surface Phase 2 (Universal Cast).
+export {
+  SUPPLIER_FALLBACK_DOMAIN,
+  SUPPLIER_SPECIALTY_DOMAIN,
+  getSupplierSpecialtyDomain,
+} from './supplierSpecialties'
+
+export { FACTION_SOCIAL_SPECIALTIES } from './factionSpecialties'
+
+export {
+  NOTABLE_NPC_FALLBACK_DOMAIN,
+  NOTABLE_NPC_SPECIALTY_DOMAIN,
+  getNotableNpcSpecialtyDomain,
+} from './notableNpcSpecialties'
+
 export {
   AFFINITY_TARGETS,
   AFFINITY_TARGET_SET,
@@ -46,8 +65,18 @@ export {
 export {
   createStaffCastAttributes,
   createRegularCastAttributes,
+  // Phase 128 / ISSUE-097.
+  createCustomerGroupCastAttributes,
+  createFactionCastAttributes,
+  createNotableNpcCastAttributes,
+  createSupplierCastAttributes,
 } from './createCastAttributes'
 export type {
   CreateStaffCastAttributesArgs,
   CreateRegularCastAttributesArgs,
+  // Phase 128 / ISSUE-097.
+  CreateCustomerGroupCastAttributesArgs,
+  CreateFactionCastAttributesArgs,
+  CreateNotableNpcCastAttributesArgs,
+  CreateSupplierCastAttributesArgs,
 } from './createCastAttributes'

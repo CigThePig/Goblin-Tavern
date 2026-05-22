@@ -38,8 +38,11 @@ import {
 import { createStaffIdentity } from '../content/staff/staffIdentityFactory'
 import { ensureRequiredStaffIdentityProfilesRegistered } from '../content/staff/staffIdentityProfiles'
 import {
+  createCustomerGroupCastAttributes,
+  createFactionCastAttributes,
   createRegularCastAttributes,
   createStaffCastAttributes,
+  createSupplierCastAttributes,
 } from '../content/cast/createCastAttributes'
 import { ensureRequiredVerbalTicsRegistered } from '../content/cast/verbalTics'
 import { createNotableNpc } from '../content/npc/npcFactory'
@@ -222,8 +225,21 @@ function createInitialStaff(): Record<string, StaffState> {
 // groups via `ensureRequiredCustomerGroupsRegistered`.
 function createInitialCustomerGroups(): Record<string, CustomerGroupState> {
   ensureRequiredCustomerGroupsRegistered()
+  ensureRequiredVerbalTicsRegistered()
+  // Phase 128 / ISSUE-097 — one identity stream per actor kind, mirroring
+  // the `'initial-staff-identity'` pattern. Sort by id so a future
+  // registry-storage refactor doesn't shift assignments.
+  const streams = createRngStreams('initial-customer-group-identity')
+  const identityRng = streams.get('customer_group_identity')
   const groups: Record<string, CustomerGroupState> = {}
-  for (const def of customerRegistry.all()) {
+  const orderedDefs = [...customerRegistry.all()].sort((a, b) =>
+    a.id.localeCompare(b.id),
+  )
+  for (const def of orderedDefs) {
+    const castAttributes = createCustomerGroupCastAttributes({
+      cultureId: def.defaultState.cultureId,
+      rng: identityRng,
+    })
     groups[def.id] = {
       id: def.id,
       label: def.label,
@@ -237,6 +253,7 @@ function createInitialCustomerGroups(): Record<string, CustomerGroupState> {
       relationshipToOtherGroups: {
         ...def.defaultState.relationshipToOtherGroups,
       },
+      castAttributes,
     }
   }
   return groups
@@ -347,8 +364,20 @@ function createInitialPressures(): Record<string, PressureState> {
 // available.
 function createInitialSuppliers(): Record<string, SupplierWorldState> {
   ensureRequiredSuppliersRegistered()
+  ensureRequiredVerbalTicsRegistered()
+  // Phase 128 / ISSUE-097 — supplier identity stream, sorted iteration.
+  const streams = createRngStreams('initial-supplier-identity')
+  const identityRng = streams.get('supplier_identity')
   const suppliers: Record<string, SupplierWorldState> = {}
-  for (const def of supplierRegistry.all()) {
+  const orderedDefs = [...supplierRegistry.all()].sort((a, b) =>
+    a.id.localeCompare(b.id),
+  )
+  for (const def of orderedDefs) {
+    const castAttributes = createSupplierCastAttributes({
+      supplierType: def.supplierType,
+      ...(def.cultureId !== undefined ? { cultureId: def.cultureId } : {}),
+      rng: identityRng,
+    })
     suppliers[def.id] = {
       id: def.id,
       label: def.label,
@@ -369,6 +398,7 @@ function createInitialSuppliers(): Record<string, SupplierWorldState> {
       ...(def.cultureId !== undefined ? { cultureId: def.cultureId } : {}),
       tags: [...def.tags],
       activeFlags: [],
+      castAttributes,
     }
   }
   return suppliers
@@ -402,8 +432,19 @@ function createInitialCultures(): Record<string, CultureWorldState> {
 // with its starting relationship/influence/trust/fear meters.
 function createInitialFactions(): Record<string, FactionWorldState> {
   ensureRequiredFactionsRegistered()
+  ensureRequiredVerbalTicsRegistered()
+  // Phase 128 / ISSUE-097 — faction identity stream, sorted iteration.
+  const streams = createRngStreams('initial-faction-identity')
+  const identityRng = streams.get('faction_identity')
   const factions: Record<string, FactionWorldState> = {}
-  for (const def of factionRegistry.all()) {
+  const orderedDefs = [...factionRegistry.all()].sort((a, b) =>
+    a.id.localeCompare(b.id),
+  )
+  for (const def of orderedDefs) {
+    const castAttributes = createFactionCastAttributes({
+      ...(def.cultureId !== undefined ? { cultureId: def.cultureId } : {}),
+      rng: identityRng,
+    })
     factions[def.id] = {
       id: def.id,
       label: def.label,
@@ -414,6 +455,7 @@ function createInitialFactions(): Record<string, FactionWorldState> {
       fear: def.defaultFear,
       tags: [...def.tags],
       activeFlags: [],
+      castAttributes,
     }
   }
   return factions

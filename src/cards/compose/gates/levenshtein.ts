@@ -1,8 +1,9 @@
-// Phase 125 / ISSUE-094 — Living Cast arc, Phase E.
+// Phase 130 / ISSUE-099 — Voiced Surface arc, Phase 4.
 //
-// Small DP Levenshtein implementation. Used by the dedupe stage to
-// gauge near-duplicate snippet pairs after canonicalisation. No new
-// dependency; this is the only edit-distance need in the pipeline.
+// Small DP Levenshtein implementation. Used by the dedupe gate to gauge
+// near-duplicate snippet pairs after canonicalisation. Lifted from the
+// retired `scripts/generate-pool/levenshtein.ts` (Phase 125 / ISSUE-094)
+// so the structural guarantee survives pipeline retirement.
 
 export function levenshtein(a: string, b: string): number {
   if (a === b) return 0

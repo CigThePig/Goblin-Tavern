@@ -160,7 +160,7 @@ fails when it should. Wait for plan approval before implementing.
 
 ## Phase E — Generation Pipeline (the scale engine)
 
-**Provisional:** phase 125 / ISSUE-094.
+**Provisional:** phase 125 / ISSUE-094. **Retired in the Voiced Surface arc, Phase 4 / ISSUE-099 / phase 130.** The build-time API path is gone; authoring is now an in-repo Claude Code plan-mode run. The 0.85-dedupe structural guarantee survives as `checkDedupe` in `src/cards/compose/gates/`. See [`voiced-surface-arc.md`](./voiced-surface-arc.md) Appendix A for the replacement loop.
 
 **Goal.** The build-time loop: a spec goes in, the model generates, the harness runs, failures retry, near-duplicates get pruned, a committed pool comes out. Runs as a GitHub Action so you wake up to PRs.
 

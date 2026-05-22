@@ -3,14 +3,13 @@
 # Generation spec for the staff_aside template — the first Phase F
 # scale-out beyond the Phase B / C drink_order spike. The committed
 # snippet pool at `src/cards/compose/pools/staffAside/` was authored by
-# hand following this spec; this file is the design record and the
-# build-time input a future Phase E run could regenerate against.
+# hand following this spec; this file is the design record the in-repo
+# Claude Code authoring loop reads.
 #
-# IMPORTANT — running `npm run generate-pool -- --spec specs/cards/staff_aside.spec.yaml`
-# (or the matching GitHub Actions workflow) will OVERWRITE the hand-
-# authored pool at `src/cards/compose/pools/staffAside/*.ts` with model
-# output. See `scripts/generate-pool/writePoolFiles.ts`. If you re-run
-# generation, intend to replace the current pool.
+# (Phase 130 / ISSUE-099, Voiced Surface arc Phase 4, retired the
+# build-time `npm run generate-pool` pipeline. Pool authoring is now an
+# in-repo plan-mode run gated by `runAllGates` — see
+# `docs/plans/voiced-surface-arc.md` Appendix A.)
 
 templateId: staff_aside
 voiceRegister: staff_quarters

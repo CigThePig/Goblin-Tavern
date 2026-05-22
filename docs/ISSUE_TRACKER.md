@@ -163,6 +163,7 @@ phase-number arithmetic when deciding what's next.
 | ISSUE-096 | Voiced Surface Phase 1 — signal surface; DSL `signalEquals` + wired `repeatCount` | thin | done | 127 |
 | ISSUE-097 | Voiced Surface Phase 2 — universal cast: castAttributes on supplier/faction/customer-group/notable-NPC | thin | done | 128 |
 | ISSUE-098 | Voiced Surface Phase 3 — establishing-line spike: `supplier_reliability` spec | thin | done | 129 |
+| ISSUE-099 | Voiced Surface Phase 4 — retire build-time API pipeline; document Claude Code authoring loop | tech-debt | done | 130 |
 
 ---
 
@@ -3172,6 +3173,126 @@ scale-out) will select against. Locked roadmap:
   tests (which were the regression guard — pre-Phase-A starter
   regulars needed the new factory too, caught and fixed during
   implementation).
+
+### ISSUE-099 — Voiced Surface Phase 4: retire the build-time API pipeline; document the Claude Code authoring loop
+
+- **Grade:** tech-debt
+- **Status:** done
+- **Phase:** 130
+- **Implementation record:** Deleted `scripts/generate-pool/` (14 files),
+  `.github/workflows/generate-pool.yml`, and `tests/cards/compose/pipeline/`
+  (8 files). Removed `@anthropic-ai/sdk`, `yaml`, and `tsx` from
+  `package.json`; removed the `generate-pool` npm script; regenerated
+  `package-lock.json`. New gate library files
+  `src/cards/compose/gates/levenshtein.ts` and
+  `src/cards/compose/gates/dedupe.ts` (lifted + trimmed from the retired
+  pipeline modules) provide `checkDedupe(template, config?)` returning a
+  `GateReport` with the same 0.85 within-slot Levenshtein-on-canonical
+  + canonical-equality cross-slot semantics the pipeline enforced.
+  Wired into `runAllGates` as the seventh gate; exported from
+  `src/cards/compose/gates/index.ts`. New
+  `tests/cards/compose/gates/dedupe.test.ts` (10 tests) carries forward
+  the regression-net role of the retired pipeline test against both
+  committed templates. Standing authoring-loop recipe added as
+  Appendix A in `docs/plans/voiced-surface-arc.md`.
+- **Evidence:** `docs/plans/voiced-surface-arc.md` Phase 4 prescribes
+  retirement of the Phase-125 build-time pipeline in favour of an
+  in-repo Claude Code plan-mode authoring loop, with the structural
+  guarantees that lived outside the gates (dedupe @ 0.85, specificity-
+  sorted emit) folded into the gate/test suite. Phase 3
+  (`supplier_reliability.spec.yaml`) shipped with new top-level keys
+  (`appliesTo`, `simSignalsInUse`, `loopback`) that the strict Zod
+  `GenerationSpecSchema` in `scripts/generate-pool/loadSpec.ts` rejects
+  — Codex flagged this as P1 ("Keep supplier spec parseable by
+  generate-pool schema") on the Phase-3 PR, and `npm run generate-pool
+  -- --spec specs/cards/supplier_reliability.spec.yaml --dry-run` exits
+  with validation errors. The arc's locked correction is that the
+  pipeline retires; the Codex P1 is therefore resolved by removal of
+  the strict schema rather than by extending it.
+- **Impact:** Two-fold. (1) Pipeline retirement: no Anthropic SDK
+  dependency in the project tree; no `ANTHROPIC_API_KEY` referenced
+  anywhere in `.github/workflows/` or `scripts/`; no
+  `workflow_dispatch` build-time API call. Every snippet pool from
+  Phase 4 onward is hand-authored in-repo through the
+  `runAllGates`-gated authoring loop. (2) Codex P1 resolved: the
+  supplier spec's `appliesTo` / `simSignalsInUse` / `loopback` keys are
+  now legitimate because the strict schema is gone; specs are design
+  artifacts the agent reads, not Zod-validated data.
+- **Scope (delivered):**
+  - **Deleted** `scripts/generate-pool/` (cli.ts, buildPrompt.ts,
+    callModel.ts, parseModelOutput.ts, loadSpec.ts, specSchema.ts,
+    runGates.ts, retryLoop.ts, dedupe.ts, levenshtein.ts, emitPool.ts,
+    writePoolFiles.ts, index.ts, types.ts) and
+    `.github/workflows/generate-pool.yml`.
+  - **Deleted** `tests/cards/compose/pipeline/` (buildPrompt.test.ts,
+    parseModelOutput.test.ts, loadSpec.test.ts, retryLoop.test.ts,
+    integration.test.ts, emitPool.test.ts, runGates.test.ts,
+    dedupe.test.ts — the last one's role moves to `gates/dedupe.test.ts`).
+  - **Lifted** `scripts/generate-pool/levenshtein.ts` →
+    `src/cards/compose/gates/levenshtein.ts` (verbatim DP
+    implementation + `normalisedSimilarity`).
+  - **Lifted + trimmed** `scripts/generate-pool/dedupe.ts` →
+    `src/cards/compose/gates/dedupe.ts`: kept `canonicaliseText`,
+    `DEFAULT_DEDUPE_THRESHOLD = 0.85`, within-slot pair-wise
+    similarity check, and cross-slot canonical-equality check;
+    dropped the `DedupeRejection` shape, keeper resolution, and the
+    retry-feedback fields (all retry-loop machinery, irrelevant to a
+    structural gate). New entry point
+    `checkDedupe(template, config?): GateReport`.
+  - **Edited** `src/cards/compose/gates/runAllGates.ts`: added
+    `dedupe: GateReport` to `AllGatesReport` and `dedupe?: DedupeConfig`
+    to `AllGatesConfig`; composite `pass` includes `dedupe.pass`.
+  - **Edited** `src/cards/compose/gates/index.ts`: exports
+    `checkDedupe`, `canonicaliseText`, `DEFAULT_DEDUPE_THRESHOLD`,
+    `DedupeConfig`, `levenshtein`, `normalisedSimilarity`.
+  - **New** `tests/cards/compose/gates/dedupe.test.ts` (10 tests):
+    regression net asserting `drinkOrderTemplate` and
+    `staffAsideTemplate` clear the dedupe gate; pair-wise audit of the
+    committed `orderLinePool` (17 snippets) and `mannerNotePool`; six
+    sharpness tests planting near-duplicates, cross-slot canonical
+    duplicates, and a cross-slot near-dup negative case; a
+    `canonicaliseText` utility test.
+  - **Edited** `package.json`: removed `generate-pool` script; removed
+    devDep `tsx`; removed deps `@anthropic-ai/sdk` and `yaml`.
+    `package-lock.json` regenerated; `npm audit` confirms zero
+    references to the dropped packages.
+  - **Edited** `docs/plans/voiced-surface-arc.md`: added Appendix A —
+    "The Claude Code authoring loop" — the standing prompt, the
+    gate-to-green checklist (per-gate failure-mode table), the
+    iterate-on-violation recipe, commit hygiene, and an explicit
+    inventory of what does and does not survive retirement.
+  - **Edited** `CLAUDE.md`: appended a Phase 130 status callout;
+    annotated the Phase 125 paragraph as "done; retired in Phase 130."
+  - **Specs preserved** under `specs/cards/` (`drink_order`,
+    `staff_aside`, `supplier_reliability`) — design artifacts the
+    authoring loop reads. No Zod gate over their shape.
+- **Codex P1 resolution callout:** The Codex comment on
+  `specs/cards/supplier_reliability.spec.yaml` lines +34..+37 asked us
+  to keep the spec parseable by `GenerationSpecSchema`. We considered
+  extending the schema to accept `appliesTo` / `simSignalsInUse` /
+  `loopback`, and rejected that alternative — the Voiced Surface arc's
+  first locked correction explicitly retires the pipeline that owns
+  the schema. The right resolution is to delete the schema with the
+  loader. After this issue lands, no machinery in the repo validates
+  spec YAML against a fixed shape; the supplier spec's new keys are
+  legitimate by removal.
+- **Depends on:** None hard. ISSUE-094 (Phase 125) is the pipeline this
+  retires; ISSUE-095 (Phase 126) wrote the staff_aside pool by hand
+  already, proving the in-repo authoring path is viable.
+- **Test approach (delivered):**
+  - `npm test -- --run tests/cards/compose/gates/` — 8 test files,
+    46 tests pass, including the new `dedupe.test.ts` (10) and the
+    existing `runAllGates.test.ts` (4) which now exercises the
+    seven-gate composite report against the live `drinkOrderTemplate`
+    and `staffAsideTemplate`.
+  - `npm test -- --run` — full suite green at 1935 tests across 160
+    test files (baseline 1968/167 minus the 43 deleted pipeline tests
+    plus the 10 new dedupe tests; net −33 tests, −7 files).
+  - `npm run typecheck` — clean.
+  - Orphan check: `grep -rn "scripts/generate-pool\|@anthropic-ai/sdk\|
+    from 'yaml'" src/ web/ tests/ scripts/ .github/` returns only two
+    historical comments inside the new `levenshtein.ts` and `dedupe.ts`
+    that name where the code was lifted from.
 
 ### ISSUE-098 — Voiced Surface Phase 3: establishing-line spike (supplier_reliability spec)
 

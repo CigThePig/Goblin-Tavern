@@ -1,20 +1,23 @@
-# Phase 125 / ISSUE-094 — Living Cast arc, Phase E.
+# Phase 125 / ISSUE-094 — Living Cast arc, Phase E. (Pipeline retired
+# in Phase 130 / ISSUE-099, Voiced Surface arc Phase 4. This spec is
+# now a design artifact the in-repo Claude Code authoring loop reads;
+# no `npm run generate-pool` invocation exists. See `voiced-surface-arc.md`
+# Appendix A.)
 #
-# Generation spec for the drink_order template. The shape is FIXED to
+# Generation spec for the drink_order template. The shape was FIXED to
 # the format Phase B converged on; see docs/plans/living-cast-arc-phase-b.md
 # for the authoring narrative, the reasoning behind each field, and the
-# claim/flavor split. This file is the build-time input the pipeline at
-# scripts/generate-pool/ consumes; the doc is the design record. Edits
-# to this file are reviewed via PR.
+# claim/flavor split. With the strict GenerationSpecSchema retired, this
+# file is reference + design record — the agent reads it, the
+# `src/cards/compose/gates/` library polices the pools.
 #
 # The sim_backed_hook slot is marked SIGNAL_AVAILABLE (was DISABLED_FOR_SPIKE
 # before Phase 127 / ISSUE-096). Phase 1 of the Voiced Surface arc shipped
 # the signal surface (`src/sim/signals/`) — `repeatCount` is wired against
 # memory tags, `signalEquals` reaches the numeric band signals, and
 # `pressureRising` is verified against real pressure ids. The slot stays
-# empty in the live pool until Phase 3's establishing-line spike (or a
-# later migration) authors a snippet against those signals. The pipeline
-# skips both statuses; runtime ignores them.
+# empty in the live pool until a migration phase authors a snippet against
+# those signals.
 
 templateId: drink_order
 voiceRegister: tavern_floor

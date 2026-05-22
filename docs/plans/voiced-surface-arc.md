@@ -376,3 +376,90 @@ aren't landing. Every change passes runAllGates. Wait for plan approval.
 1. **Context comes from the sim being reachable, not from more prose.** Movement I (especially Phase 1's signal surface and the Phase-3 establishing line) is what makes cards say *what happened*. Skipping it just scales today's mood-only thinness.
 2. **Authoring is a Claude Code run, gated to green — not an API call.** The Phase-4 loop is the scaling unit; the six gates are the reviewer. You author specs; the gates pass pools.
 3. **It's the Living Cast spine, generalised.** Same framework, same flavor/sim-backed split, same "voice is a generation dimension." This arc just carries it to sim-backed claims and to every line in the game, then makes consistency testable.
+
+---
+
+# Appendix A — The Claude Code authoring loop
+
+**Landed in Phase 4 (ISSUE-099 / phase 130).** The Phase-125 build-time pipeline (`scripts/generate-pool/`, `.github/workflows/generate-pool.yml`, the strict `GenerationSpecSchema`, the `ANTHROPIC_API_KEY` secret usage) is gone. The repeatable scaling unit is now an in-repo Claude Code plan-mode run. The structural guarantees that lived inside the pipeline survive as a seventh gate (`checkDedupe`) in `src/cards/compose/gates/`; the six framework gates are unchanged.
+
+## When you use it
+
+A migration phase (Movement II) or any future situation: the situation has a converged spec under `specs/cards/<situation>.spec.yaml` and you want a `SnippetPool` for one or more of its slots.
+
+## The standing prompt
+
+```
+Enter plan mode. Authoring pools for <situation>.
+
+Read:
+- specs/cards/<situation>.spec.yaml (the spec — slots, voiceRegister,
+  voiceAxesInPlay, verbalTicsCovered, hardBounds.perSlotWords, mustNotInvent,
+  positiveExemplars, negativeExamples, snippetPools, diversityCases, mustPass)
+- src/cards/compose/pools/drinkOrder/orderLine.ts (the existing pool file
+  shape — header, `import type { SnippetPool }`, snippet objects)
+- docs/plans/card-composition-framework.md §2–6 (data primitives + gates)
+- docs/plans/living-cast-arc-phase-b.md (the flavor/sim-backed split)
+
+For each `snippetPools[]` entry whose `status` is unset (i.e. not
+DISABLED_FOR_SPIKE / SIGNAL_AVAILABLE), author the pool directly at
+`src/cards/compose/pools/<templateId>/<slotId>.ts`, matching the existing
+file shape exactly. Honour the spec's hardBounds, positiveExemplars,
+negativeExamples, voiceAxesInPlay coverage, and verbalTicsCovered.
+
+When you have one slot drafted, run:
+  npm test -- --run tests/cards/compose/gates/
+  npm test -- --run tests/cards/templates/<situation>
+  npm run typecheck
+
+Read each failing gate's report (coverage / specificity / voiceBounds /
+simCoherence / determinism / diversity / dedupe). Fix the offending
+snippet(s) in place and re-run. Iterate to green per slot before moving
+to the next. When all pools clear runAllGates + per-situation tests +
+typecheck + the full `npm test -- --run`, commit.
+```
+
+## The gate-to-green checklist
+
+For every authored slot:
+
+1. `npm test -- --run tests/cards/compose/gates/dedupe.test.ts` — your new pool has no near-duplicate pair within the slot, and no canonical-equal text across slots.
+2. `npm test -- --run tests/cards/compose/gates/` — all seven structural gates pass (coverage, specificity, voiceBounds, simCoherence, determinism, diversity, dedupe). Per-template integration tests should exercise the live template through `runAllGates`.
+3. `npm test -- --run tests/cards/templates/<situation>` — the situation's own template tests pass.
+4. `npm run typecheck` — types green.
+5. `npm test -- --run` — full regression green.
+
+A failing gate emits a `GateViolation[]` naming the offending `slotId` / `snippetId` and a stable `reason` string. Match on the reason to know which class of fix the snippet needs:
+
+| Gate | Failure modes |
+|---|---|
+| `coverage` | A required slot has no unconditional fallback. Add one snippet with `conditions: []`. |
+| `specificity` | A higher-specificity snippet is unreachable given the gradient. Adjust conditions or remove the dead higher rung. |
+| `voiceBounds` | A snippet exceeds `slot.wordBudget` (or `hardBounds.perSlotWords[slotId]`). Rewrite shorter; never clamp with `…`. |
+| `simCoherence` | A snippet invents a name or makes a checkable claim a signal doesn't back. Either drop the claim or add a Phase-1 signal condition. |
+| `determinism` | The same `(seed, state)` resolves to two different snippets. Tighten conditions or break a tie via the FNV id. |
+| `diversity` | Sampling under realistic voice perturbation collapses too narrowly. Add an alternative phrasing or relax an over-tight condition. |
+| `dedupe` | Two snippets within a slot are ≥ 0.85 similar (canonical), or two across slots are canonically equal. Reword one. |
+
+## Iterate-on-violation recipe
+
+No retry budget. The agent iterates until green or names the **spec gap** (a missing voice axis, a missing signal, a hardBound that's too tight). A spec gap is fed back to the spec author — it is not papered over in the pool.
+
+## Commit hygiene
+
+One commit per slot reaching green keeps the history bisectable. Final commit message ties the cluster to its ISSUE-NNN entry and the situation name.
+
+## What does NOT survive pipeline retirement
+
+- The Anthropic SDK dependency, the `ANTHROPIC_API_KEY` secret, and the `workflow_dispatch` GitHub Action — gone.
+- The strict Zod `GenerationSpecSchema` that rejected unknown spec keys — gone. Specs are design artifacts the agent reads; the arc documents what shapes they take.
+- The deterministic emitter that produced byte-identical output from the same model response — gone with no replacement. Hand-authored pools are written in readability order (fallback first, then by axis or theme); they have no automated re-run to be stable across.
+- The retry loop, parser, and prompt builder — gone. The agent's plan-mode iteration replaces them.
+
+## What DOES survive
+
+- All six framework gates, unchanged.
+- The new seventh gate `checkDedupe` (0.85 within-slot, canonical-equality cross-slot), enforcing the structural guarantee that lived inside the pipeline's dedupe step.
+- Every committed spec under `specs/cards/`.
+- Every committed pool under `src/cards/compose/pools/`.
+- `representativeBannedNames` for the sim-coherence gate.

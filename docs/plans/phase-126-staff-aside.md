@@ -68,7 +68,7 @@ The four rungs follow Phase B's structural fix: a fallback (specificity 0), sing
 
 ## What this phase deliberately did NOT do
 
-- No model-generated pool. The user asked for "not through an API key"; the spec records intent and the pool was hand-authored against it. A future Phase E run (`npm run generate-pool -- --spec specs/cards/staff_aside.spec.yaml`) would overwrite the pool with model output — header comment in the spec calls this out.
+- No model-generated pool. The user asked for "not through an API key"; the spec records intent and the pool was hand-authored against it. (Phase E was retired in phase 130 / ISSUE-099, the Voiced Surface arc's Phase 4: pool authoring is now an in-repo Claude Code plan-mode run; no `npm run generate-pool` invocation exists. The hand-authored shape this phase landed is now the standing pattern. See `voiced-surface-arc.md` Appendix A.)
 - No `sim_backed_hook` slot. Phase B's lesson holds: until the underlying sim signals (per-actor repeat-visit count, confirmed pressure ids) are clearly emitted, a sim_backed slot would ship dead snippets or assert unbacked facts.
 - No new DSL primitives. The 11 framework conditions + Phase B's two voice forms suffice.
 - No second Phase F situation in this phase. The roadmap explicitly says "Repeat this prompt per situation. That repetition is the whole point" — each situation gets its own ISSUE entry and phase number.

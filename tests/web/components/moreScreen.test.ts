@@ -21,11 +21,12 @@ describe('MoreScreen — smoke (Phase 119 / ISSUE-058)', () => {
     cleanup()
   })
 
-  it('renders all four sections (Settings, Saves, Help, About)', () => {
+  it('renders all five sections (Settings, Saves, Help, Diagnostics, About)', () => {
     render(MoreScreen, { props: { onreplaced: () => {} } })
     expect(screen.getByRole('heading', { name: /^settings$/i })).toBeTruthy()
     expect(screen.getByRole('heading', { name: /^saves$/i })).toBeTruthy()
     expect(screen.getByRole('heading', { name: /^help$/i })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: /^diagnostics$/i })).toBeTruthy()
     expect(screen.getByRole('heading', { name: /^about$/i })).toBeTruthy()
   })
 })

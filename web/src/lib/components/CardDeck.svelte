@@ -13,6 +13,7 @@
     - oncomplete: called when every seed in the deck has a pending entry
 -->
 <script lang="ts">
+  import { untrack } from 'svelte'
   import CardRenderer from '../cards/CardRenderer.svelte'
   import { renderCard } from '../cards/realCardRegistry'
   import { gameStore } from '../sim/gameStore.svelte'
@@ -56,16 +57,21 @@
 
   // Keep `index` pointed at the next unresolved card. Avoids the player
   // staring at a "resolved" card after picking something.
+  //
+  // The effect both reads and writes `index`. Without `untrack`, the
+  // clamp `index = cards.length - 1` lands on a resolved card, which
+  // re-fires the effect via the `index` dep — and the cycle hits
+  // Svelte's effect_update_depth_exceeded. Tracking only the real
+  // inputs (cards.length, pendingBySeedId) breaks the self-loop.
   $effect(() => {
-    while (
-      index < cards.length &&
-      pendingBySeedId[cards[index]!.seed.id]
-    ) {
-      index += 1
-    }
-    if (index >= cards.length && cards.length > 0) {
-      index = cards.length - 1
-    }
+    const len = cards.length
+    const pending = pendingBySeedId
+    untrack(() => {
+      let next = index
+      while (next < len && pending[cards[next]!.seed.id]) next += 1
+      if (next >= len && len > 0) next = len - 1
+      if (next !== index) index = next
+    })
   })
 
   function pickChoice(seed: IssueSeed) {

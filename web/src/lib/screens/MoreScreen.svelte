@@ -13,6 +13,7 @@
   import SettingsSection from '../components/more/SettingsSection.svelte'
   import SavesSection from '../components/more/SavesSection.svelte'
   import HelpSection from '../components/more/HelpSection.svelte'
+  import DiagnosticsSection from '../components/more/DiagnosticsSection.svelte'
   import AboutSection from '../components/more/AboutSection.svelte'
 
   let {
@@ -26,6 +27,7 @@
   <SettingsSection />
   <SavesSection {onreplaced} />
   <HelpSection />
+  <DiagnosticsSection />
   <AboutSection />
 </div>
 

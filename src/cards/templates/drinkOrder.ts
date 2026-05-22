@@ -29,7 +29,6 @@ import {
   buildChoicesFromSeed,
   buildStakes,
   familyTag,
-  formatTitle,
   makeCardView,
 } from '../cardHelpers'
 import type { CardDefinition } from '../types'
@@ -41,6 +40,7 @@ import type {
 import type { IssueSeed } from '../../sim/modules/issues/issueSeedTypes'
 import type { TavernState } from '../../sim/state/TavernState'
 import {
+  drinkOrderTitlePool,
   mannerNotePool,
   orderLinePool,
 } from '../compose/pools/drinkOrder'
@@ -67,6 +67,19 @@ export const drinkOrderTemplate: CompositionalCardTemplate = {
   priority: 60,
   voiceRegister: 'tavern_floor',
   slots: [
+    // Phase 131 / ISSUE-100 — Voiced Surface arc, Phase 5. The title is
+    // now a composed slot with its own pool + 6-word budget. The
+    // template glue (`buildDrinkOrderTitle`) prepends the regular's
+    // display name to the chosen snippet without any clamping — the
+    // voice-bounds gate forbids trailing "…" so titles are authored
+    // short, never truncated.
+    {
+      id: 'title',
+      role: 'title',
+      pool: drinkOrderTitlePool,
+      wordBudget: 6,
+      claimMode: 'flavor',
+    },
     // Phase B budgets locked: order_line ≤ 12 words, manner_note ≤ 10 words
     // (`docs/plans/living-cast-arc-phase-b.md` §"Must-pass gates").
     // Phase D moves those numbers from the doc into the slot data so the
@@ -89,7 +102,7 @@ export const drinkOrderTemplate: CompositionalCardTemplate = {
   ],
   toCardView: (filled, seed, state) => {
     return makeCardView({
-      title: buildDrinkOrderTitle(seed, state),
+      title: buildDrinkOrderTitle(filled, seed, state),
       // The order_line snippet IS the body's voice line (Phase B caps
       // it at 12 words — body budget, not title budget). manner_note,
       // when present, follows as a physical aside; sensory + recent
@@ -105,12 +118,20 @@ export const drinkOrderTemplate: CompositionalCardTemplate = {
   },
 }
 
-function buildDrinkOrderTitle(seed: IssueSeed, state: TavernState): string {
+function buildDrinkOrderTitle(
+  filled: FilledSlots,
+  seed: IssueSeed,
+  state: TavernState,
+): string {
   const ref = seed.primaryActor
   const regular =
     ref && ref.kind === 'regular' ? state.world.regulars[ref.id] : undefined
   const display = regular?.name.display ?? seed.textIngredients.subject ?? 'A regular'
-  return formatTitle([`${display}:`, 'orders a drink'])
+  // Required slot with an unconditional fallback — `filled['title']` is
+  // always defined in practice. The `?? 'orders a drink'` is defensive
+  // only (mirrors the pool's fallback text).
+  const snippet = filled['title'] ?? 'orders a drink'
+  return `${display}: ${snippet}`
 }
 
 function buildDrinkOrderBody(filled: FilledSlots, seed: IssueSeed): string[] {

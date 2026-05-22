@@ -30,6 +30,16 @@ describe('runAllGates — happy path', () => {
       },
       determinism: { samples: buildDeterminismSamples() },
       diversity: [
+        // Phase 131 / ISSUE-100 — title is now a composed slot; the
+        // diversity sampler exercises it the same way as order_line.
+        // The title pool is small (one fallback plus a voice-axis-
+        // conditioned variant per axis) so the achievable distinct
+        // count is correspondingly lower.
+        {
+          slotId: 'title',
+          sampler: buildDiversitySampler({ rngSeed: 'run-all-title' }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
         {
           slotId: 'order_line',
           sampler: buildDiversitySampler({ rngSeed: 'run-all-order' }),
@@ -63,6 +73,11 @@ describe('runAllGates — happy path', () => {
       },
       determinism: { samples: buildStaffDeterminismSamples() },
       diversity: [
+        {
+          slotId: 'title',
+          sampler: buildStaffDiversitySampler({ rngSeed: 'run-all-staff-title' }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
         {
           slotId: 'aside_line',
           sampler: buildStaffDiversitySampler({ rngSeed: 'run-all-aside' }),

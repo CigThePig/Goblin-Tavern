@@ -183,14 +183,27 @@ describe('staffAsideCard — render output', () => {
     expect(wordCount(view.body[0]!)).toBeLessThanOrEqual(12)
   })
 
-  it('title centres on the named staff member', () => {
+  it('title centres on the named staff member and never truncates with "…"', () => {
     const state = createInitialTavernState()
     const staffId = firstStaffId(state)
     const seed = staffAsideSeed(staffId)
     const view = staffAsideCard.render(seed, state)
     const display = state.staff[staffId]!.name.display
+    // Phase 131 / ISSUE-100 — title is a composed slot; template glue
+    // prepends the display name with no clamping. Long names extend
+    // the title rather than truncating with "…".
     expect(view.title.toLowerCase()).toContain(display.split(' ')[0]!.toLowerCase())
-    expect(wordCount(view.title.replace('…', ''))).toBeLessThanOrEqual(6)
+    expect(view.title).not.toContain('…')
+    expect(view.title).not.toContain('...')
+  })
+
+  it('renders the same title for the same seed (compositional determinism)', () => {
+    const state = createInitialTavernState()
+    const staffId = firstStaffId(state)
+    const seed = staffAsideSeed(staffId)
+    const a = staffAsideCard.render(seed, state)
+    const b = staffAsideCard.render(seed, state)
+    expect(a.title).toBe(b.title)
   })
 
   it('falls back to the unconditional snippet when no axes match', () => {

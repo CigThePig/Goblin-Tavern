@@ -9,6 +9,7 @@ export {
   checkVoiceBounds,
   wordCount,
   DEFAULT_BODY_WORD_BUDGET,
+  VOICE_BOUNDS_REASONS,
   type VoiceBoundsConfig,
 } from './voiceBounds'
 export {

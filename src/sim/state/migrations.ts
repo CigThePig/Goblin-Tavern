@@ -25,8 +25,12 @@ import {
 import { createStaffIdentity } from '../content/staff/staffIdentityFactory'
 import { ensureRequiredStaffIdentityProfilesRegistered } from '../content/staff/staffIdentityProfiles'
 import {
+  createCustomerGroupCastAttributes,
+  createFactionCastAttributes,
+  createNotableNpcCastAttributes,
   createRegularCastAttributes,
   createStaffCastAttributes,
+  createSupplierCastAttributes,
 } from '../content/cast/createCastAttributes'
 import { ensureRequiredVerbalTicsRegistered } from '../content/cast/verbalTics'
 import { createRngStreams } from '../core/rng'
@@ -207,7 +211,9 @@ export function ensureMonthlyHistoryField<
 // run it after the other `ensure*` helpers and before `validateState`,
 // mirroring the existing chain in `web/src/lib/sim/persistence.ts`.
 export function ensureCastAttributes<
-  T extends Partial<Pick<TavernState, 'staff' | 'world'>>,
+  T extends Partial<
+    Pick<TavernState, 'staff' | 'world' | 'customerGroups'>
+  >,
 >(state: T): T {
   ensureRequiredVerbalTicsRegistered()
 
@@ -215,9 +221,29 @@ export function ensureCastAttributes<
   const regularsNeedingMigration = regularsNeedingCastAttributes(
     state.world?.regulars,
   )
+  // Phase 128 / ISSUE-097 — four new sweeps for supplier, faction,
+  // customer-group, and notable-NPC. Same `'initial-cast-attributes'`
+  // seed namespace so one entry point handles every Phase-A / Phase-2
+  // backfill.
+  const suppliersNeedingMigration = suppliersNeedingCastAttributes(
+    state.world?.suppliers,
+  )
+  const factionsNeedingMigration = factionsNeedingCastAttributes(
+    state.world?.factions,
+  )
+  const groupsNeedingMigration = customerGroupsNeedingCastAttributes(
+    state.customerGroups,
+  )
+  const npcsNeedingMigration = notableNpcsNeedingCastAttributes(
+    state.world?.notableNpcs,
+  )
   if (
     staffNeedsMigration.length === 0 &&
-    regularsNeedingMigration.length === 0
+    regularsNeedingMigration.length === 0 &&
+    suppliersNeedingMigration.length === 0 &&
+    factionsNeedingMigration.length === 0 &&
+    groupsNeedingMigration.length === 0 &&
+    npcsNeedingMigration.length === 0
   ) {
     return state
   }
@@ -268,6 +294,97 @@ export function ensureCastAttributes<
     } as T
   }
 
+  if (suppliersNeedingMigration.length > 0 && next.world?.suppliers) {
+    const rng = streams.get('supplier_identity')
+    const nextSuppliers: Record<string, unknown> = { ...next.world.suppliers }
+    const ordered = [...suppliersNeedingMigration].sort((a, b) =>
+      a.id.localeCompare(b.id),
+    )
+    for (const supplier of ordered) {
+      const castAttributes = createSupplierCastAttributes({
+        supplierType: supplier.supplierType,
+        ...(supplier.cultureId !== undefined
+          ? { cultureId: supplier.cultureId }
+          : {}),
+        rng,
+      })
+      nextSuppliers[supplier.id] = { ...supplier, castAttributes }
+    }
+    next = {
+      ...next,
+      world: {
+        ...next.world,
+        suppliers: nextSuppliers as NonNullable<typeof next.world.suppliers>,
+      },
+    } as T
+  }
+
+  if (factionsNeedingMigration.length > 0 && next.world?.factions) {
+    const rng = streams.get('faction_identity')
+    const nextFactions: Record<string, unknown> = { ...next.world.factions }
+    const ordered = [...factionsNeedingMigration].sort((a, b) =>
+      a.id.localeCompare(b.id),
+    )
+    for (const faction of ordered) {
+      const castAttributes = createFactionCastAttributes({
+        ...(faction.cultureId !== undefined
+          ? { cultureId: faction.cultureId }
+          : {}),
+        rng,
+      })
+      nextFactions[faction.id] = { ...faction, castAttributes }
+    }
+    next = {
+      ...next,
+      world: {
+        ...next.world,
+        factions: nextFactions as NonNullable<typeof next.world.factions>,
+      },
+    } as T
+  }
+
+  if (groupsNeedingMigration.length > 0 && next.customerGroups) {
+    const rng = streams.get('customer_group_identity')
+    const nextGroups: Record<string, unknown> = { ...next.customerGroups }
+    const ordered = [...groupsNeedingMigration].sort((a, b) =>
+      a.id.localeCompare(b.id),
+    )
+    for (const group of ordered) {
+      const castAttributes = createCustomerGroupCastAttributes({
+        ...(group.cultureId !== undefined ? { cultureId: group.cultureId } : {}),
+        rng,
+      })
+      nextGroups[group.id] = { ...group, castAttributes }
+    }
+    next = {
+      ...next,
+      customerGroups: nextGroups as T['customerGroups'],
+    }
+  }
+
+  if (npcsNeedingMigration.length > 0 && next.world?.notableNpcs) {
+    const rng = streams.get('npc_identity')
+    const nextNpcs: Record<string, unknown> = { ...next.world.notableNpcs }
+    const ordered = [...npcsNeedingMigration].sort((a, b) =>
+      a.id.localeCompare(b.id),
+    )
+    for (const npc of ordered) {
+      const castAttributes = createNotableNpcCastAttributes({
+        profileKind: npc.kind,
+        ...(npc.cultureId !== undefined ? { cultureId: npc.cultureId } : {}),
+        rng,
+      })
+      nextNpcs[npc.id] = { ...npc, castAttributes }
+    }
+    next = {
+      ...next,
+      world: {
+        ...next.world,
+        notableNpcs: nextNpcs as NonNullable<typeof next.world.notableNpcs>,
+      },
+    } as T
+  }
+
   return next
 }
 
@@ -307,6 +424,85 @@ function regularsNeedingCastAttributes(
     if (!regular) continue
     if (regular.castAttributes) continue
     out.push(regular)
+  }
+  return out
+}
+
+// Phase 128 / ISSUE-097 — Voiced Surface Phase 2 (Universal Cast).
+type SupplierMigrationCandidate = {
+  id: string
+  supplierType: string
+  cultureId?: string
+  castAttributes?: unknown
+}
+
+function suppliersNeedingCastAttributes(
+  suppliers: Record<string, SupplierMigrationCandidate> | undefined,
+): SupplierMigrationCandidate[] {
+  if (!suppliers) return []
+  const out: SupplierMigrationCandidate[] = []
+  for (const supplier of Object.values(suppliers)) {
+    if (!supplier) continue
+    if (supplier.castAttributes) continue
+    out.push(supplier)
+  }
+  return out
+}
+
+type FactionMigrationCandidate = {
+  id: string
+  cultureId?: string
+  castAttributes?: unknown
+}
+
+function factionsNeedingCastAttributes(
+  factions: Record<string, FactionMigrationCandidate> | undefined,
+): FactionMigrationCandidate[] {
+  if (!factions) return []
+  const out: FactionMigrationCandidate[] = []
+  for (const faction of Object.values(factions)) {
+    if (!faction) continue
+    if (faction.castAttributes) continue
+    out.push(faction)
+  }
+  return out
+}
+
+type CustomerGroupMigrationCandidate = {
+  id: string
+  cultureId: string
+  castAttributes?: unknown
+}
+
+function customerGroupsNeedingCastAttributes(
+  groups: Record<string, CustomerGroupMigrationCandidate> | undefined,
+): CustomerGroupMigrationCandidate[] {
+  if (!groups) return []
+  const out: CustomerGroupMigrationCandidate[] = []
+  for (const group of Object.values(groups)) {
+    if (!group) continue
+    if (group.castAttributes) continue
+    out.push(group)
+  }
+  return out
+}
+
+type NotableNpcMigrationCandidate = {
+  id: string
+  kind: string
+  cultureId?: string
+  castAttributes?: unknown
+}
+
+function notableNpcsNeedingCastAttributes(
+  npcs: Record<string, NotableNpcMigrationCandidate> | undefined,
+): NotableNpcMigrationCandidate[] {
+  if (!npcs) return []
+  const out: NotableNpcMigrationCandidate[] = []
+  for (const npc of Object.values(npcs)) {
+    if (!npc) continue
+    if (npc.castAttributes) continue
+    out.push(npc)
   }
   return out
 }

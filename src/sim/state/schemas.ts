@@ -253,6 +253,19 @@ export const CastAttributesSchema = z.object({
   voice: VoiceProfileSchema,
 })
 
+// Phase 128 / ISSUE-097 — Voiced Surface Phase 2 (Universal Cast).
+//
+// Customer groups carry a voice-only attribute set (cohorts aren't
+// individuals; specialty/blindspot/affinities don't fit a crowd, and
+// the existing `preferredStockTags` / `dislikedTags` /
+// `relationshipToOtherGroups` fields already mechanically encode
+// collective likes/dislikes). Suppliers, factions, and notable NPCs
+// reuse `CastAttributesSchema` directly via the aliases declared in
+// `castTypes.ts` — no new schema needed for those three.
+export const CustomerGroupCastAttributesSchema = z.object({
+  voice: VoiceProfileSchema,
+})
+
 // Phase 11 §11.1 — `role` is a registry-validated string (`StaffRoleId`),
 // not a hard-coded union, per the "Role typing clarification" forward
 // note. The schema accepts any string; the staff module's validate hook
@@ -316,6 +329,9 @@ export const CustomerGroupStateSchema = z.object({
   relationshipToOtherGroups: z.record(z.string(), z.number()),
   // Phase 72 / ISSUE-032 §5.6 — optional renown-activation threshold.
   minRenownThreshold: z.number().min(0).max(100).optional(),
+  // Phase 128 / ISSUE-097 — optional during migration window;
+  // `ensureCastAttributes` attaches defaults to pre-Phase-2 saves.
+  castAttributes: CustomerGroupCastAttributesSchema.optional(),
 })
 
 export const ReputationStateSchema = z.object({
@@ -532,6 +548,8 @@ export const FactionWorldStateSchema = z.object({
   cultureId: z.string().optional(),
   tags: z.array(z.string()),
   activeFlags: z.array(z.string()),
+  // Phase 128 / ISSUE-097 — optional during migration window.
+  castAttributes: CastAttributesSchema.optional(),
 })
 
 export const SupplierWorldStateSchema = z.object({
@@ -549,6 +567,8 @@ export const SupplierWorldStateSchema = z.object({
   lastDeliveryDay: nonNegativeInt().optional(),
   tags: z.array(z.string()),
   activeFlags: z.array(z.string()),
+  // Phase 128 / ISSUE-097 — optional during migration window.
+  castAttributes: CastAttributesSchema.optional(),
 })
 
 export const RegularWorldStateSchema = z.object({
@@ -582,6 +602,9 @@ export const NotableNpcWorldStateSchema = z.object({
   lastSeenDay: nonNegativeInt().optional(),
   tags: z.array(z.string()),
   activeFlags: z.array(z.string()),
+  // Phase 128 / ISSUE-097 — optional during migration window;
+  // runtime creation via `createNotableNpc` always populates it.
+  castAttributes: CastAttributesSchema.optional(),
 })
 
 // Phase 69 / ISSUE-029 §5.4 — Hireable adventurer roster schema.

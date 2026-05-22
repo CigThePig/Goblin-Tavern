@@ -46,3 +46,26 @@ export type CastAttributes = {
   affinities: AffinityAxis[]
   voice: VoiceProfile
 }
+
+// Phase 128 / ISSUE-097 — Voiced Surface Phase 2 (Universal Cast).
+//
+// Per-actor cast attribute aliases. Suppliers, factions, and notable NPCs
+// each carry the full shape so their cards can voice through the same
+// specialty/blindspot/affinity/voice surface staff and regulars already
+// have. Aliases (not a single shared type) keep room for per-kind
+// divergence later — e.g. a supplier-only field derived from
+// `supplierType` — without touching the staff/regular call sites.
+export type SupplierCastAttributes = CastAttributes
+export type FactionCastAttributes = CastAttributes
+export type NotableNpcCastAttributes = CastAttributes
+
+// Customer groups are cohorts, not individuals: collective likes/dislikes
+// already live mechanically on `preferredStockTags` / `dislikedTags` /
+// `relationshipToOtherGroups`. Specialty/blindspot don't fit a crowd, so
+// the group surface is voice-only. The compose-layer resolver returns an
+// adapter shape (empty `specialty`/`blindspot`/`affinities`) so the four
+// `CastAttribute` snippet condition primitives evaluate uniformly across
+// kinds.
+export type CustomerGroupCastAttributes = {
+  voice: VoiceProfile
+}

@@ -145,6 +145,15 @@ export type RngStreamId =
   // Keeping this stream separate from `service` means a missed
   // delivery does not shift the daily service order, and vice versa.
   | 'supplier_delivery'
+  // Phase 128 / ISSUE-097 — Voiced Surface Phase 2 (Universal Cast).
+  // Identity streams for suppliers, factions, and customer groups so
+  // their `castAttributes` rolls stay isolated from per-day variance
+  // (mirrors the `staff_identity` / `regular_identity` pattern). The
+  // Phase-63 prune comment above explicitly anticipated `supplier_identity`
+  // returning when real random behaviour landed in that subsystem.
+  | 'supplier_identity'
+  | 'faction_identity'
+  | 'customer_group_identity'
 
 export type RngStreamState = Record<RngStreamId, RngState>
 
@@ -177,6 +186,10 @@ const ALL_STREAM_IDS: ReadonlyArray<RngStreamId> = [
   'adventurer_roster',
   // Phase 84 / ISSUE-044.
   'supplier_delivery',
+  // Phase 128 / ISSUE-097.
+  'supplier_identity',
+  'faction_identity',
+  'customer_group_identity',
 ]
 
 export function createRngStreams(

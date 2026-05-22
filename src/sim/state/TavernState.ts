@@ -1,5 +1,11 @@
 import type { CalendarState } from '../modules/calendar/types'
-import type { CastAttributes } from '../content/cast/castTypes'
+import type {
+  CastAttributes,
+  CustomerGroupCastAttributes,
+  FactionCastAttributes,
+  NotableNpcCastAttributes,
+  SupplierCastAttributes,
+} from '../content/cast/castTypes'
 import type { GeneratedName, NamingProfileId } from '../content/naming/nameTypes'
 import type { RngStreamState } from '../core/rng'
 
@@ -227,6 +233,13 @@ export type CustomerGroupState = {
   // `culinary_renown` crosses the threshold. Optional; existing
   // groups remain always-available (treated as threshold 0).
   minRenownThreshold?: number
+  // Phase 128 / ISSUE-097 — Voiced Surface Phase 2 (Universal Cast).
+  // Voice-only bounded vocabulary so card snippets keyed on a cohort
+  // can pick a register (terse miner crew vs florid road merchants).
+  // Optional during the migration window; `ensureCastAttributes`
+  // attaches deterministic defaults before validation. New state from
+  // `createInitialTavernState` always populates it.
+  castAttributes?: CustomerGroupCastAttributes
 }
 
 // Phase 15 §15.5 — Reputation is multi-axis. The `respectable` axis was
@@ -467,6 +480,10 @@ export type FactionWorldState = {
   cultureId?: string
   tags: string[]
   activeFlags: string[]
+  // Phase 128 / ISSUE-097 — Voiced Surface Phase 2 (Universal Cast).
+  // Optional during the migration window; `ensureCastAttributes`
+  // attaches deterministic defaults to pre-Phase-2 saves.
+  castAttributes?: FactionCastAttributes
 }
 
 export type SupplierWorldState = {
@@ -484,6 +501,10 @@ export type SupplierWorldState = {
   lastDeliveryDay?: number
   tags: string[]
   activeFlags: string[]
+  // Phase 128 / ISSUE-097 — Voiced Surface Phase 2 (Universal Cast).
+  // Optional during the migration window; `ensureCastAttributes`
+  // attaches deterministic defaults to pre-Phase-2 saves.
+  castAttributes?: SupplierCastAttributes
 }
 
 export type RegularWorldState = {
@@ -521,6 +542,11 @@ export type NotableNpcWorldState = {
   lastSeenDay?: number
   tags: string[]
   activeFlags: string[]
+  // Phase 128 / ISSUE-097 — Voiced Surface Phase 2 (Universal Cast).
+  // Optional during the migration window; `ensureCastAttributes`
+  // attaches deterministic defaults to pre-Phase-2 saves. Runtime
+  // creation via `createNotableNpc` always populates it.
+  castAttributes?: NotableNpcCastAttributes
 }
 
 // Phase 70 / ISSUE-030 §5.3 — Expedition subsystem types.

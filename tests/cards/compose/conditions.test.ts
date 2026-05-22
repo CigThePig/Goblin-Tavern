@@ -253,11 +253,14 @@ describe('evalCondition — state-lookup primitives', () => {
   })
 })
 
-describe('evalCondition — forward-seam primitives (always false today)', () => {
-  const state = createInitialTavernState()
-  const seed = seedWith()
-
-  it('repeatCount is always false until the sim emits subjectTag tracking', () => {
+describe('evalCondition — repeatCount (Phase 127 / ISSUE-096 — wired)', () => {
+  // Phase 127 wired this condition against memory-tag counts in a
+  // rolling window. The full window-arithmetic coverage lives in
+  // tests/sim/phase127.repeats.test.ts; here we just confirm the DSL
+  // arm calls into the signal layer correctly.
+  it('returns false when no memories carry the tag', () => {
+    const state = createInitialTavernState()
+    const seed = seedWith()
     expect(
       evalCondition(
         { kind: 'repeatCount', subjectTag: 'ale_complaint', atLeast: 2 },
@@ -266,6 +269,65 @@ describe('evalCondition — forward-seam primitives (always false today)', () =>
       ),
     ).toBe(false)
   })
+
+  it('returns true once enough recent memories carry the tag', () => {
+    const base = createInitialTavernState()
+    const seed = seedWith()
+    const cal = base.calendar
+    const stamp = (offsetDays: number) => ({
+      year: cal.year,
+      month: cal.month,
+      week: cal.week,
+      day: cal.day,
+      absoluteDay: cal.totalDaysElapsed - offsetDays,
+    })
+    const withMemories: TavernState = {
+      ...base,
+      memories: [
+        {
+          id: 'm1',
+          type: 'fact',
+          strength: 50,
+          ageDays: 0,
+          createdAt: stamp(0),
+          actors: [],
+          locations: [],
+          relatedSystems: [],
+          tags: ['ale_complaint'],
+        },
+        {
+          id: 'm2',
+          type: 'fact',
+          strength: 50,
+          ageDays: 7,
+          createdAt: stamp(7),
+          actors: [],
+          locations: [],
+          relatedSystems: [],
+          tags: ['ale_complaint'],
+        },
+      ],
+    }
+    expect(
+      evalCondition(
+        { kind: 'repeatCount', subjectTag: 'ale_complaint', atLeast: 2 },
+        seed,
+        withMemories,
+      ),
+    ).toBe(true)
+    expect(
+      evalCondition(
+        { kind: 'repeatCount', subjectTag: 'ale_complaint', atLeast: 3 },
+        seed,
+        withMemories,
+      ),
+    ).toBe(false)
+  })
+})
+
+describe('evalCondition — forward-seam primitives (always false today)', () => {
+  const state = createInitialTavernState()
+  const seed = seedWith()
 
   it('actorTrait is always false until actors carry trait strings', () => {
     expect(

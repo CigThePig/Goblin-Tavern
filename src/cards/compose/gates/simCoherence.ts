@@ -25,8 +25,9 @@
 //
 // SIM_BACKED mode — every NON-fallback snippet must carry at least one
 // state-lookup condition (`pressureRising`, `memoryPresent`,
-// `repeatCount`, or `hasNamedEntity`). The unconditional fallback is
-// exempt — by definition it never asserts anything.
+// `repeatCount`, `hasNamedEntity`, or — added Phase 127 / ISSUE-096 —
+// `signalEquals`). The unconditional fallback is exempt — by
+// definition it never asserts anything.
 //
 // Phase D's drinkOrder pool ships entirely `claimMode: 'flavor'`. The
 // bad fixtures in the test suite plant each failure class. Phase E will
@@ -71,6 +72,8 @@ const STATE_LOOKUP_KINDS: readonly SnippetCondition['kind'][] = [
   'memoryPresent',
   'repeatCount',
   'hasNamedEntity',
+  // Phase 127 / ISSUE-096 — signal-surface query counts as a state lookup.
+  'signalEquals',
 ]
 
 export function checkSimCoherence(

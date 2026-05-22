@@ -49,6 +49,15 @@ const DIVERSITY_MIN_DISTINCT: Record<string, number> = {
 
 const DIVERSITY_SAMPLE_SIZE = 100
 
+// Phase 127 / ISSUE-096 — both `DISABLED_FOR_SPIKE` and `SIGNAL_AVAILABLE`
+// mark a slot as "no pool authored yet" and the pipeline skips both
+// identically. `SIGNAL_AVAILABLE` signals that Phase 1's signal surface
+// reaches the slot; a future spike or migration authors snippets and
+// drops the status field.
+function isSkippedStatus(status: string | undefined): boolean {
+  return status === 'DISABLED_FOR_SPIKE' || status === 'SIGNAL_AVAILABLE'
+}
+
 function specSlotToSlotSpec(
   slot: SpecSlotSpec,
   snippets: Snippet[],
@@ -71,9 +80,7 @@ export function buildTemplateFromCandidates(
   spec: GenerationSpec,
   candidatesBySlot: ReadonlyMap<string, Snippet[]>,
 ): CompositionalCardTemplate {
-  const activeSlots = spec.slots.filter(
-    (s) => s.status !== 'DISABLED_FOR_SPIKE',
-  )
+  const activeSlots = spec.slots.filter((s) => !isSkippedStatus(s.status))
   const slots: SlotSpec[] = activeSlots.map((slot) =>
     specSlotToSlotSpec(slot, candidatesBySlot.get(slot.id) ?? []),
   )
@@ -103,7 +110,7 @@ export function buildGatesConfig(spec: GenerationSpec): AllGatesConfig {
   const baseState = createInitialTavernState()
   const determinism: DeterminismSample[] = buildDeterminismSamples()
   const diversity = spec.slots
-    .filter((s) => s.status !== 'DISABLED_FOR_SPIKE')
+    .filter((s) => !isSkippedStatus(s.status))
     .map((slot) => {
       const sampler: DiversitySampler = buildDiversitySampler({
         rngSeed: `phase-125-diversity-${slot.id}`,

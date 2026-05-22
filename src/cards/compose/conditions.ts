@@ -13,6 +13,7 @@ import type {
   TavernState,
 } from '../../sim/state/TavernState'
 import type { CastAttributes } from '../../sim/content/cast'
+import { querySignal, repeatCountByTag } from '../../sim/signals'
 import type { SnippetCondition } from './types'
 
 /** Resolve the actor referenced by a role string against the seed. v1
@@ -117,11 +118,12 @@ export function evalCondition(
     }
 
     case 'repeatCount': {
-      // The sim does not yet emit per-subject repeat tracking (Phase B
-      // §"Reality check"). Until it does, this condition is structurally
-      // declared but always false. Phase D / E will revisit once the
-      // sim signal exists.
-      return false
+      // Phase 127 / ISSUE-096 — wired to the signal surface. Counts
+      // memories tagged with `subjectTag` inside the rolling window
+      // (default 28 days). No schema migration — memories already carry
+      // `tags` + `createdAt.absoluteDay`. Returns false if the count is
+      // below threshold so a less-specific snippet still wins.
+      return repeatCountByTag(state, condition.subjectTag) >= condition.atLeast
     }
 
     case 'actorTrait': {
@@ -145,6 +147,18 @@ export function evalCondition(
       const cast = resolveActorCastAttributes(condition.role, seed, state)
       if (!cast) return false
       return cast.voice.verbalTic === condition.tic
+    }
+
+    case 'signalEquals': {
+      // Phase 127 / ISSUE-096 — read-only query against the signal
+      // surface. The dispatcher returns `{ missing: true }` for an
+      // unresolvable actor, a kind mismatch, or an absent field; we
+      // treat all of those as no-match so a less-specific snippet wins.
+      const ref = resolveActorRef(condition.role, seed)
+      if (!ref) return false
+      const result = querySignal(state, condition.signal, ref)
+      if ('missing' in result) return false
+      return result.band === condition.equals
     }
   }
 }

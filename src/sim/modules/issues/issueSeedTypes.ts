@@ -208,6 +208,26 @@ export const TEXT_INGREDIENT_LIMITS = {
   arcContext: { maxEntries: 2, maxWordsPerEntry: 10 },
 } as const
 
+/** Phase 127 / ISSUE-096 — Voiced Surface arc, Phase 1. The contract
+ *  split between "facts the snippet layer must reach for via signals"
+ *  and "sensory seeds a flavor snippet may borrow as decoration."
+ *
+ *  `signal-backed` fields hold numbers, relations, or classifications
+ *  whose underlying truth lives on `TavernState`. A `sim_backed` slot
+ *  must NOT read these as truth — it must query the signal surface at
+ *  `src/sim/signals/` so the gate can validate the claim. The fields
+ *  remain on `TextIngredients` for non-card consumers (validation,
+ *  legacy templates, debugging).
+ *
+ *  `flavor-seed` fields are short sensory or structural fragments. A
+ *  `flavor` slot may read them as decoration (the gates allow it). They
+ *  carry no checkable sim claim.
+ *
+ *  See `docs/plans/cards-contract.md §3.3` for the contract paragraph
+ *  this constant backs. The Phase 1 test asserts the map is exhaustive
+ *  over `keyof TextIngredients`. */
+export type TextIngredientRole = 'signal-backed' | 'flavor-seed'
+
 /** Phase 39 §39.3 — named-entity text ingredient entry. */
 export type NamedEntityIngredient = {
   role: string
@@ -233,6 +253,43 @@ export type TextIngredients = {
   calendarContext?: string[]
   marketContext?: string[]
   arcContext?: string[]
+}
+
+/** Phase 127 / ISSUE-096 — see `TextIngredientRole` above. Exhaustive
+ *  over `keyof TextIngredients`. The Phase 127 contract test asserts
+ *  every key is present and asserts the role assignments below.
+ *
+ *  Field-by-field rationale:
+ *  - `recentContext`, `pressureContext`, `marketContext`,
+ *    `perceivedBlame` carry numbers / classifications today (e.g.
+ *    `["reliability 82"]`, `["distrust 35"]`) — these are facts and
+ *    must be queried through `src/sim/signals/`, not read as strings.
+ *  - `sensoryDetails`, `actorOpinions`, `socialContext`,
+ *    `relevantMemories`, `calendarContext`, `arcContext` are sensory
+ *    or narrative fragments that decorate without claiming.
+ *  - `subject`, `problemNoun`, `stakesReadable`, `namedEntities` are
+ *    structural / referential labels. Snippets read them as names, not
+ *    truth claims; the gates check `namedEntities` separately via
+ *    `hasNamedEntity`.
+ */
+export const TEXT_INGREDIENT_ROLE: Record<
+  keyof TextIngredients,
+  TextIngredientRole
+> = {
+  subject: 'flavor-seed',
+  problemNoun: 'flavor-seed',
+  sensoryDetails: 'flavor-seed',
+  actorOpinions: 'flavor-seed',
+  recentContext: 'signal-backed',
+  stakesReadable: 'flavor-seed',
+  namedEntities: 'flavor-seed',
+  socialContext: 'flavor-seed',
+  relevantMemories: 'flavor-seed',
+  perceivedBlame: 'signal-backed',
+  pressureContext: 'signal-backed',
+  calendarContext: 'flavor-seed',
+  marketContext: 'signal-backed',
+  arcContext: 'flavor-seed',
 }
 
 /** Phase 19 §19.5 — validation result attached to a seed. Invalid seeds

@@ -1,0 +1,587 @@
+# Phase 129 / ISSUE-098 — Voiced Surface arc, Phase 3 (the Establishing-
+# Line Spike).
+#
+# Generation spec for the supplier_reliability template — the first
+# Voiced Surface compositional template that puts a sim-backed claim on
+# a card. Living Cast Phase B converged the flavor-only `drink_order`
+# spec; this is the analog for a fact-bearing situation. The slot split
+# the framework's §4 sim-coherence gate enforces — `claims: sim-backed`
+# vs `claims: flavor` — is the centerpiece of Phase 3.
+#
+# This file is the design record and the build-time input the eventual
+# Phase 4 Claude-Code authoring loop (or a future regeneration pass)
+# consumes; Phase 9 / ISSUE-104 will build the matching template at
+# `src/cards/compose/templates/supplierReliability.ts` and the pools at
+# `src/cards/compose/pools/supplierReliability/*.ts`, replacing the
+# legacy `src/cards/templates/supplierOffer.ts`.
+#
+# Phase 3 is authoring, not implementation. No TS code lands with this
+# spec; the inline `snippetPools` below are the convergence proof.
+
+templateId: supplier_reliability
+voiceRegister: trade_floor
+status: phase_3_voiced_surface_arc_complete
+purpose: >
+  Generate short cards for a supplier-relationship moment (morning_prep,
+  family `supplier_relationship`, type `supplier_offer` / `opportunity`)
+  whose body STATES the actual sim situation and whose voice carries
+  the supplier's bounded `castAttributes.voice`. The establishing line
+  is sim-backed against the Phase 127 signal surface; the reaction line
+  and manner note are flavor-only, gated by voice axes and verbal tics.
+
+# Eventual appliesTo at the template layer (Phase 9). Recorded here so
+# the spec carries the situation contract end-to-end.
+appliesTo:
+  seedFamilies: ['supplier_relationship']
+  seedTypes: ['supplier_offer', 'opportunity']
+  timings: ['morning_prep']
+
+slots:
+  - id: establishing_line
+    required: true
+    claims: sim-backed
+    maxWords: 14
+    description: >
+      Third-person narration of the actual situation. Names what
+      happened — reliability tier, relationship tier, rising distrust,
+      market wobble, repeat visit — pinned by a state-lookup condition
+      (`signalEquals`, `pressureRising`, `repeatCount`, `memoryPresent`,
+      or `hasNamedEntity`). The unconditional fallback claims nothing
+      checkable beyond "a supplier is at the counter," which the seed
+      firing already guarantees.
+
+  - id: reaction_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      The supplier (primaryActor) speaking in character. First-person
+      voice driven by `voiceAxis` and `verbalTic` only. May show mood,
+      manner, attitude, professionalism. Must not assert a specific
+      past event, named NPC, faction, or debt history.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      A small third-person sensory beat — boots, ledger, hands, the
+      road. Omitted rather than weak. Voice-axis-gated only. No
+      checkable claim.
+
+voiceAxesInPlay:
+  terseness:
+    0: full clause
+    1: compact
+    2: clipped, business-first
+  warmth:
+    0: prickly/distant
+    1: neutral
+    2: familiar/inviting
+  formality:
+    0: casual/blunt
+    1: plain
+    2: ceremonious/titled
+  floridity:
+    0: literal
+    1: one image allowed
+    2: vivid but short, no lore
+
+verbalTicsCovered:
+  - trails_off
+  - interrupts_self
+  - understates
+  - repeats_for_emphasis
+  - qualifies_everything
+  - italicises_stakes
+  - quotes_someone_else
+
+# Sim signals the establishing_line pool reaches for. Every entry
+# here resolves through the read-only signal surface at
+# `src/sim/signals/` (Phase 127 / ISSUE-096) or the framework primitives
+# at `src/cards/compose/conditions.ts`. Bands are the three-tier scheme
+# `low` / `mid` / `high` declared in `src/sim/signals/types.ts`.
+simSignalsInUse:
+  - { signal: supplier.reliability, bands: [low, mid, high] }
+  - { signal: supplier.relationship, bands: [low, mid, high] }
+  - { kind: pressureRising, pressureIds: [supplier_distrust, market_instability] }
+  - { kind: repeatCount, subjectTag: supplier }
+  - { kind: memoryPresent, tag: supplier }
+  - { kind: hasNamedEntity, role: primaryActor, entityKind: supplier }
+
+# Subjects the supplier may speak to or about. Listing them keeps
+# reaction_line authoring anchored without inventing the world.
+allowedTargets:
+  - the morning's terms
+  - the wagon and what it carries
+  - the road just travelled
+  - the house and its trade
+  - the owner directly
+  - the silence between offers
+
+mustNotInvent:
+  - named NPCs (other than the supplier as primaryActor, which the seed names)
+  - named factions
+  - specific past tavern incidents
+  - specific debt amounts
+  - named markets, ports, or routes
+  - claims about which staff did what
+  - earth idioms, modern slang, real-world brand or place language
+
+hardBounds:
+  perSlotWords:
+    establishing_line: 14
+    reaction_line: 12
+    manner_note: 10
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+  noDirectMechanicalLanguage: true
+
+gradientPolicy:
+  base: one unconditional fallback per required slot (always fires)
+  middle: single-condition snippets — a voice axis, a single signal band, a single pressure, a single tic
+  top: two-condition snippets — voice + signal, voice + voice, signal + repeat
+  tic: single verbalTic snippets — independent of the axis/signal rungs
+  rule: |
+    the single-condition middle rung is mandatory. Two-condition top-rung
+    snippets are rare in play (Phase A's [-1,0,0,1] cast perturbation makes
+    pure-axis extremes uncommon), so without a populated middle rung the
+    pool collapses onto the fallback.
+
+positiveExemplars:
+  - id: terse_cold_low_reliability
+    claims: mixed
+    voice: { terseness: 2, warmth: 0 }
+    sim: { reliability: low }
+    slotLines:
+      establishing_line: "The goods come up short most weeks."
+      reaction_line: "Speak plain. I've a route to make."
+      manner_note: "They lay the ledger down without a word."
+    why_it_works: >
+      Reliability band carries the fact; terse+cold voice carries the
+      reaction. Both halves are grounded — no invented incident, no
+      named NPC.
+
+  - id: warm_high_relationship
+    claims: mixed
+    voice: { warmth: 2, formality: 0 }
+    sim: { relationship: high }
+    slotLines:
+      establishing_line: "They sit at this counter like family does."
+      reaction_line: "Look — we'll work something out, you and me."
+      manner_note: "They sit with the ease of an old visitor."
+    why_it_works: >
+      Relationship band reads as familiarity; warm+informal voice
+      sells the partnership. No specific past event claimed.
+
+  - id: formal_market_wobble
+    claims: mixed
+    voice: { formality: 2, floridity: 0 }
+    sim: { pressureRising: market_instability }
+    slotLines:
+      establishing_line: "The market's been wobbling, and it shows here too."
+      reaction_line: "At your service. Speak as the house requires."
+    why_it_works: >
+      Pressure rising on `market_instability` pins the wider-world
+      observation; ceremonious voice carries the manner. No invented
+      lore or authority.
+
+  - id: florid_no_specific_signal
+    claims: flavor
+    voice: { floridity: 2, terseness: 0 }
+    slotLines:
+      establishing_line: "A merchant stands at the counter, ledger in hand."
+      reaction_line: "I've come with the morning still in my coat."
+      manner_note: "The road is still on their boots."
+    why_it_works: >
+      Falls back on the unconditional establishing line (the seed
+      firing guarantees a merchant at the counter). Florid voice
+      delivers one image per slot without inventing lore.
+
+  - id: distrust_pressure_with_interrupt
+    claims: mixed
+    voice: { verbalTic: interrupts_self }
+    sim: { pressureRising: supplier_distrust }
+    slotLines:
+      establishing_line: "Talk's been turning sour about this trade all month."
+      reaction_line: "I came to — well, to see where we stand."
+    why_it_works: >
+      `supplier_distrust` rising backs the unease in the establishing
+      line; the interrupts-self tic carries the supplier's own unease
+      in the reaction. Tic is the voice; pressure is the fact.
+
+  - id: low_reliability_repeat
+    claims: sim-backed
+    voice: { terseness: 1 }
+    sim: { reliability: low, repeatCount_supplier: 3 }
+    slotLines:
+      establishing_line: "Light loads again; we've been around this counter all month."
+    why_it_works: >
+      Two-signal top-rung — band + repeat. The line claims pattern
+      without naming the supplier. Note: `repeatCount: supplier` counts
+      memories tagged 'supplier' in the rolling window, which the
+      seed's `memoriesCreated` populates over time.
+
+  - id: just_terse
+    claims: flavor
+    voice: { terseness: 2 }
+    slotLines:
+      reaction_line: "Tell me what the house needs."
+    why_it_works: >
+      Single-axis middle-rung anchor. Terseness alone reads brisk and
+      business-first.
+
+  - id: just_warm
+    claims: flavor
+    voice: { warmth: 2 }
+    slotLines:
+      reaction_line: "Good to see you again. We'll find common ground."
+    why_it_works: >
+      Warmth alone carries solidarity without inventing prior detail.
+
+  - id: just_formal
+    claims: flavor
+    voice: { formality: 2 }
+    slotLines:
+      reaction_line: "At your service. Speak as the house requires."
+    why_it_works: >
+      Ceremony from phrasing alone — no titled object, no lore.
+
+  - id: just_florid
+    claims: flavor
+    voice: { floridity: 2 }
+    slotLines:
+      reaction_line: "I've come with the morning still in my coat."
+    why_it_works: >
+      One inward image; nothing specific claimed about the morning's
+      journey.
+
+  - id: tic_understates
+    claims: flavor
+    voice: { verbalTic: understates }
+    slotLines:
+      reaction_line: "A small matter. Nothing the morning won't sort."
+    why_it_works: >
+      The understatement IS the tic; stakes downgraded without
+      naming an incident.
+
+  - id: tic_quotes_borderline
+    claims: flavor
+    voice: { verbalTic: quotes_someone_else }
+    slotLines:
+      reaction_line: "My father always said — never short the house twice."
+    why_it_works: >
+      Borderline-safe quoting: 'my father' is generic attribution,
+      not a checkable named NPC. Mirrors `drink_order`'s "old captain"
+      and `staff_aside`'s "old master".
+
+negativeExamples:
+  - id: mechanical_readout
+    line: "Reliability is currently rated at 45 out of 100."
+    fails: [voice-bounds]
+    reason: >
+      Direct stat readout. Violates `noDirectMechanicalLanguage` and
+      breaks register. The reliability band is for snippets to imply,
+      not to quote.
+
+  - id: unsupported_backstory
+    line: "Brakka swore on his father's axe last spring."
+    fails: [sim-coherence]
+    reason: >
+      Names a specific NPC ('Brakka', 'father') and a specific past
+      event with no condition backing it. Sim-coherence rejects both
+      in `flavor` mode (no allowed history claim) and in `sim-backed`
+      mode (no state-lookup condition pins this oath).
+
+  - id: invented_authority
+    line: "The Sapphire Baron's trade office disapproves of this."
+    fails: [sim-coherence, voice-bounds]
+    reason: >
+      Invents an authority figure and an institution not on the seed.
+      Lore overreach. Formality is not licence to invent titles.
+
+  - id: modern_register_break
+    line: "Honestly, the supply chain is sketchy these days."
+    fails: [voice-bounds]
+    reason: >
+      Modern register; 'supply chain', 'sketchy' break tavern-fantasy
+      voice. Same lesson as `drink_order`'s modern-slang negative.
+
+  - id: overlong_florid
+    line: "Allow me to unfurl a tapestry of these long-suffering wagons before you."
+    fails: [length, voice-bounds]
+    reason: >
+      Florid voice is not licence to monologue. Over the 12-word
+      reaction_line budget by 2 and pushing into mock-cathedral
+      register.
+
+  - id: sim_backed_without_condition
+    line: "We've sat across this counter three times this season already."
+    fails: [sim-coherence]
+    reason: >
+      Sim-backed claim ('three times this season') with no
+      `repeatCount` or `memoryPresent` condition on the snippet.
+      Either add `repeatCount subjectTag: supplier atLeast: 3` and a
+      seasonal pin (which doesn't exist), or move the line to the
+      negatives. Fixed in pool as `est_low_repeat` with a tighter
+      claim.
+
+  - id: title_truncation_forward_flag
+    line: "The wagon came light, and a word before…"
+    fails: [voice-bounds]
+    forward: phase_5
+    reason: >
+      Mid-phrase ellipsis. Phase 5 (title & frame discipline) will add
+      a gate that fails trailing '…' and immediate token duplication
+      on composed titles. Documented now so Phase 9's title slot
+      inherits the rule.
+
+  - id: title_label_duplication_forward_flag
+    line: "Supplier: Supplier"
+    fails: [voice-bounds]
+    forward: phase_5
+    reason: >
+      Label/subject duplication. Same Phase 5 gate as above. Phase 9's
+      title slot will collapse subject==label to a single mention.
+
+# ----------------------------------------------------------------------
+# snippetPools — the inline convergence proof. Phase 9 / ISSUE-104 will
+# emit these as TS files at `src/cards/compose/pools/supplierReliability/`.
+# Until then this YAML IS the converged pool.
+# ----------------------------------------------------------------------
+
+snippetPools:
+  - slotId: establishing_line
+    required: true
+    snippets:
+      - id: est_fallback
+        text: "A merchant stands at the counter, ledger in hand."
+        conditions: []
+
+      - id: est_low_reliability
+        text: "The goods come up short most weeks."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: supplier.reliability, equals: low }
+      - id: est_high_reliability
+        text: "Their wagons run steady; the loads always arrive whole."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: supplier.reliability, equals: high }
+      - id: est_low_relationship
+        text: "There's old cold between this house and theirs."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: supplier.relationship, equals: low }
+      - id: est_high_relationship
+        text: "They sit at this counter like family does."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: supplier.relationship, equals: high }
+
+      - id: est_distrust_rising
+        text: "Talk's been turning sour about this trade all month."
+        conditions:
+          - { kind: pressureRising, pressureId: supplier_distrust }
+      - id: est_market_rising
+        text: "The market's been wobbling, and it shows here too."
+        conditions:
+          - { kind: pressureRising, pressureId: market_instability }
+
+      - id: est_low_repeat
+        text: "Light loads again; we've been around this counter all month."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: supplier.reliability, equals: low }
+          - { kind: repeatCount, subjectTag: supplier, atLeast: 3 }
+      - id: est_returning_visitor
+        text: "They've come through this door before; the ledger remembers."
+        conditions:
+          - { kind: memoryPresent, tag: supplier }
+
+  - slotId: reaction_line
+    required: true
+    snippets:
+      - id: rxn_fallback
+        text: "Let's see what terms we can land."
+        conditions: []
+
+      - id: rxn_terse
+        text: "Tell me what the house needs."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+      - id: rxn_warm
+        text: "Good to see you again. We'll find common ground."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: rxn_cold
+        text: "Say what you want. Don't waste the daylight."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: rxn_formal
+        text: "At your service. Speak as the house requires."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+      - id: rxn_florid
+        text: "I've come with the morning still in my coat."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+
+      - id: rxn_terse_cold
+        text: "Speak plain. I've a route to make."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: rxn_warm_informal
+        text: "Look — we'll work something out, you and me."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atMost: 0 }
+      - id: rxn_formal_restrained
+        text: "I trust we may settle this as the house permits."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atMost: 0 }
+
+      - id: rxn_tic_understates
+        text: "A small matter. Nothing the morning won't sort."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: understates }
+      - id: rxn_tic_qualifies
+        text: "I think — probably — we can find a way through."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: qualifies_everything }
+      - id: rxn_tic_interrupts
+        text: "I came to — well, to see where we stand."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: interrupts_self }
+      - id: rxn_tic_trails_off
+        text: "About the last shipment — you understand…"
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: trails_off }
+      - id: rxn_tic_italicises
+        text: "This matters. To both houses."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: italicises_stakes }
+      - id: rxn_tic_repeats
+        text: "Steady. Steady is what I bring."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: repeats_for_emphasis }
+      - id: rxn_tic_quotes
+        text: "My father always said — never short the house twice."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: quotes_someone_else }
+
+  - slotId: manner_note
+    required: false
+    snippets:
+      - id: mnr_warm
+        text: "They sit with the ease of an old visitor."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: mnr_cold
+        text: "They keep their cloak on while we talk."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: mnr_formal
+        text: "They bow before settling at the counter."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+      - id: mnr_florid
+        text: "The road is still on their boots."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+      - id: mnr_terse_cold
+        text: "They lay the ledger down without a word."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: mnr_tic_qualifies
+        text: "They straighten the ledger twice, then once more."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: qualifies_everything }
+
+diversityCases:
+  - reliability=low alone -> blunt fact about the goods coming up short
+  - reliability=high alone -> confident fact about steady wagons
+  - relationship=low alone -> cold history acknowledged
+  - relationship=high alone -> family-at-counter familiarity
+  - supplier_distrust rising -> wider unease across the trade
+  - market_instability rising -> wider market wobble
+  - reliability=low AND repeatCount supplier>=3 -> pattern claim, sharper
+  - memoryPresent supplier -> returning-visitor neutral framing
+  - terseness>=2 alone -> brisk supplier voice
+  - warmth>=2 alone -> familiar supplier voice
+  - warmth<=0 alone -> blunt supplier voice
+  - formality>=2 alone -> ceremonious supplier voice
+  - floridity>=2 alone -> one-image supplier voice
+  - terseness>=2 AND warmth<=0 -> sharpened cold competence (top rung)
+  - warmth>=2 AND formality<=0 -> open partner (top rung)
+  - formality>=2 AND floridity<=0 -> formal restrained (top rung)
+  - any verbalTic present -> sentence-motion variant
+  - no matching condition -> plain fallback (allowed plain, never dead)
+
+mustPass:
+  coverage:
+    rule: required slots establishing_line and reaction_line each have an unconditional fallback
+    current: est_fallback, rxn_fallback
+  specificityGradient:
+    rule: >
+      pools contain (a) fallback, (b) single-axis OR single-signal
+      middle-rung snippets, (c) two-condition top-rung snippets, and
+      (d) tic snippets. The single-condition middle rung is mandatory.
+    current: true
+  voiceBounds:
+    rule: every establishing_line <= 14 words; every reaction_line <= 12 words; every manner_note <= 10 words
+    current: true
+  simCoherence:
+    rule: >
+      establishing_line is claims: sim-backed — every non-fallback
+      snippet carries >=1 state-lookup condition (signalEquals,
+      pressureRising, repeatCount, memoryPresent, hasNamedEntity).
+      reaction_line and manner_note are claims: flavor — no checkable
+      history, no named entities, no event-claim language unbacked by
+      a condition. The unconditional establishing_line fallback claims
+      only what the seed firing guarantees (a merchant at the counter
+      with a ledger).
+    current: true
+  determinism:
+    rule: same seed + same state + same slot returns same snippet after FNV tie-break
+    current: deferred to Phase 9 (proven by the Phase D harness when the template ships)
+  diversity:
+    rule: >
+      sample across the real perturbed supplier cast distribution yields
+      >=6 distinct reaction_line outputs and >=3 distinct
+      establishing_line outputs across reachable signal bands.
+    current: deferred to Phase 9 (Phase D diversity harness extended for supplier cohort)
+
+# ----------------------------------------------------------------------
+# loopback — Phase 3 is the first sim-backed convergence pass against
+# the Phase 1 signal surface. The arc doc anticipates "one loop back
+# from Phase 3 to Phases 1–2 (the spike will name a missing signal or a
+# missing axis) — that is the system working." Recording the result of
+# this pass:
+# ----------------------------------------------------------------------
+
+loopback:
+  surfaced:
+    - none
+
+  notes:
+    - >
+      The supplier-offer seed (expandedSeedGenerators.ts:1869) writes
+      memories tagged ['supplier', 'warning']. The pool uses
+      `repeatCount subjectTag: supplier` for "we've been around this
+      counter all month" claims. A finer-grained tag (e.g.
+      'light_delivery' / 'late_delivery') would let a snippet say
+      "three light loads running" with sim backing directly — but
+      `signalEquals supplier.reliability equals: low` already carries
+      that truth less specifically. Decision: ship without the finer
+      tag; revisit only if Phase 9's diversity numbers force it.
+    - >
+      The three-band signal scheme (low / mid / high) is enough to
+      drive the establishing-line pool. `mid` is not authored against
+      because it has no dramatic content — the fallback covers neutral
+      situations cleanly. Authoring against `mid` would just produce a
+      flatter establishing line; the existing rung handles it.
+    - >
+      No new voice axis was needed. Suppliers exercise the full four-
+      axis space; the seven-tic registry covers the dramatic range.

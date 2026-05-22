@@ -162,6 +162,7 @@ phase-number arithmetic when deciding what's next.
 | ISSUE-095 | Living Cast Phase F (first situation) — staff_aside template | thin | done | 126 |
 | ISSUE-096 | Voiced Surface Phase 1 — signal surface; DSL `signalEquals` + wired `repeatCount` | thin | done | 127 |
 | ISSUE-097 | Voiced Surface Phase 2 — universal cast: castAttributes on supplier/faction/customer-group/notable-NPC | thin | done | 128 |
+| ISSUE-098 | Voiced Surface Phase 3 — establishing-line spike: `supplier_reliability` spec | thin | done | 129 |
 
 ---
 
@@ -3171,6 +3172,102 @@ scale-out) will select against. Locked roadmap:
   tests (which were the regression guard — pre-Phase-A starter
   regulars needed the new factory too, caught and fixed during
   implementation).
+
+### ISSUE-098 — Voiced Surface Phase 3: establishing-line spike (supplier_reliability spec)
+
+- **Grade:** thin
+- **Status:** done
+- **Phase:** 129
+- **Implementation record:** `specs/cards/supplier_reliability.spec.yaml`
+  (the converged spec is itself the artifact; Phase 3 is authoring, not
+  code).
+- **Evidence:** `docs/plans/voiced-surface-arc.md` Phase 3 names this as
+  "the Establishing-Line Spike" — converge one sim-backed situation
+  (supplier reliability is named as the cleanest) the way Living Cast
+  Phase B converged the flavor-only `drink_order` slot. The arc doc
+  explicitly framed Phase 3 as authorial hand-iteration "with me, like
+  Living Cast Phase B"; the user chose to have it written instead. The
+  deliverable shape is unchanged — one YAML spec at
+  `specs/cards/supplier_reliability.spec.yaml` matching the format of
+  `specs/cards/drink_order.spec.yaml` and `specs/cards/staff_aside.spec.yaml`.
+- **Impact:** Phase 3 settles the open questions Phases 1–2 left for the
+  arc to discover: which Phase-1 signals a sim-backed slot actually
+  reaches for, and which Phase-2 voice axes a supplier exercises. The
+  arc doc anticipated "one loop back from Phase 3 to Phases 1–2 (the
+  spike will name a missing signal or a missing axis)" — the
+  convergence pass surfaced **no missing signal or axis**; the 8
+  shipped band signals + 11 framework condition primitives + 4 voice
+  axes + 7 verbal tics are sufficient. Decision recorded in the spec's
+  `loopback` section. Phase 9 / ISSUE-104 (Suppliers, Stock & Debt
+  cluster) inherits this spec unchanged.
+- **Scope (delivered):**
+  - **New file:** `specs/cards/supplier_reliability.spec.yaml` — the
+    converged spec. ~430 lines mirroring the structure of the two
+    shipped specs.
+    - Three slots: `establishing_line` (sim-backed, 14-word budget),
+      `reaction_line` (flavor, 12-word budget), `manner_note` (flavor,
+      optional, 10-word budget). The 14-word establishing budget vs.
+      the framework's default 12 is explicit in the slot's `maxWords`;
+      `SlotSpec.wordBudget` already supports per-slot overrides.
+    - New voice register `trade_floor` — supplier-led, owner-facing,
+      distinct from `tavern_floor` (customer) and `staff_quarters`
+      (back-of-house). Registers are content discovered by authoring
+      per framework §9.
+    - Sim signals declared in `simSignalsInUse`: both supplier bands
+      (`supplier.reliability`, `supplier.relationship` with the
+      `low`/`mid`/`high` three-tier scheme from Phase 1), both
+      supplier-domain pressures (`supplier_distrust`,
+      `market_instability` — confirmed real in
+      `pressureRegistry.ts:122,171`), `repeatCount subjectTag: supplier`
+      (counts memories tagged `'supplier'` in the rolling window;
+      memory tag wired through `expandedSeedGenerators.ts`),
+      `memoryPresent tag: supplier`, and `hasNamedEntity` for supplier
+      identity.
+    - 12 positive exemplars covering the flavor-only voice gradient
+      (single-axis anchors, two-axis top-rung, every verbal tic) AND
+      the sim-backed signal space (reliability=low, reliability=high,
+      relationship=high, market wobble rising, distrust rising,
+      reliability=low + repeatCount top-rung, returning visitor via
+      `memoryPresent`).
+    - 8 negative examples covering the boundary: mechanical readout,
+      unsupported backstory, invented authority, modern register,
+      overlong florid, sim-backed claim without condition, plus two
+      forward flags for Phase 5 (truncation ellipsis, label/subject
+      duplication on titles).
+    - 31 inline `snippetPools` snippets (9 establishing_line + 16
+      reaction_line + 6 manner_note) — the convergence proof. Each
+      required slot has an unconditional fallback. The
+      single-condition middle rung is populated; the two-condition
+      top rung covers six voice/voice and voice/signal pairs.
+  - **New tracker row** in the index table (ISSUE-098, phase 129,
+    status `done`).
+- **Depends on:** ISSUE-096 (Phase 1 signal surface — done; the
+  `signalEquals` condition + the `supplier.reliability` /
+  `supplier.relationship` band signals are the entire premise of the
+  sim-backed slot), ISSUE-097 (Phase 2 universal cast — done;
+  `SupplierWorldState.castAttributes` is what `voiceAxis` /
+  `verbalTic` conditions resolve against for the reaction line).
+- **Loopback recorded:** None. The Phase 3 pass did not need a new
+  signal, a new axis, or a new condition primitive. A possible future
+  granular memory tag (e.g. `'light_delivery'`) is flagged as a
+  Phase 9 / Phase 1-extension follow-up only if diversity numbers
+  force it; `signalEquals supplier.reliability equals: low` carries
+  the same truth at coarser grain today.
+- **Test approach (delivered):** Phase 3 ships no TypeScript and runs
+  no automated test — that is correct per the arc doc ("Don't build
+  tooling, harness, or pipeline. Don't generate at volume. The output
+  is throwaway — the **spec** is what you keep."). Convergence was
+  verified by a Python-driven manual gate trace against the inline
+  pools: YAML parse + per-snippet word-budget enforcement
+  (zero violations across 31 snippets against `[14, 12, 10]` per-slot
+  budgets) + sim-coherence trace (every non-fallback snippet in the
+  sim-backed slot carries `>=1` of `signalEquals` / `pressureRising` /
+  `repeatCount` / `memoryPresent` / `hasNamedEntity`) + coverage
+  trace (both required slots have a `conditions: []` fallback).
+  Determinism and diversity assertions are deferred to Phase 9 /
+  ISSUE-104, where the template lands and the Phase-D harness extends
+  to the supplier cohort. `npm test` and `npm run typecheck` remain
+  green (no source code changes; YAML and Markdown only).
 
 ### ISSUE-097 — Voiced Surface Phase 2: universal cast on supplier/faction/customer-group/notable-NPC
 

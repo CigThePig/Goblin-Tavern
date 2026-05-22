@@ -164,6 +164,7 @@ phase-number arithmetic when deciding what's next.
 | ISSUE-097 | Voiced Surface Phase 2 — universal cast: castAttributes on supplier/faction/customer-group/notable-NPC | thin | done | 128 |
 | ISSUE-098 | Voiced Surface Phase 3 — establishing-line spike: `supplier_reliability` spec | thin | done | 129 |
 | ISSUE-099 | Voiced Surface Phase 4 — retire build-time API pipeline; document Claude Code authoring loop | tech-debt | done | 130 |
+| ISSUE-100 | Voiced Surface Phase 5 — title & frame discipline: title becomes a composed slot; voice-bounds gate forbids trailing "…" / immediate duplicate token | thin | done | 131 |
 
 ---
 
@@ -3173,6 +3174,127 @@ scale-out) will select against. Locked roadmap:
   tests (which were the regression guard — pre-Phase-A starter
   regulars needed the new factory too, caught and fixed during
   implementation).
+
+### ISSUE-100 — Voiced Surface Phase 5: title & frame discipline (title becomes a composed slot)
+
+- **Grade:** thin
+- **Status:** done
+- **Phase:** 131
+- **Implementation record:** The two compositional templates now carry
+  a composed `title` `SlotSpec` with `wordBudget: 6` and
+  `claimMode: 'flavor'`. New per-template title pools at
+  `src/cards/compose/pools/drinkOrder/title.ts` and
+  `src/cards/compose/pools/staffAside/title.ts` each ship one
+  unconditional fallback plus four voice-axis-conditioned rungs (terse,
+  warm, formal, florid), all ≤ 6 words. Template glue
+  (`buildDrinkOrderTitle`, `buildStaffAsideTitle`) reads `filled['title']`
+  and prepends the actor display as `${display}: ${snippet}` — no
+  clamping, no trailing "…", no length cap on the assembled title.
+  Imports of `formatTitle` were dropped from the two templates;
+  `formatTitle` / `composeTitle` themselves remain alive (and
+  unreferenced by these templates) for the nine still-legacy templates
+  until each is migrated in Movement II.
+  `src/cards/compose/gates/voiceBounds.ts` extended with two new
+  failure reasons (`trailing_ellipsis`, `duplicate_token`) scoped to
+  slots whose advisory role is `'title'` — body-slot snippets like the
+  `trails_off` verbal-tic line on `aside_line` ("…well, you know…")
+  keep their authored ellipsis untouched. New
+  `VOICE_BOUNDS_REASONS` frozen tuple exported through
+  `src/cards/compose/gates/index.ts` so tests match by name not by
+  literal. `tests/cards/compose/gates/runAllGates.test.ts` extended to
+  include the new `title` slot in the per-template diversity config
+  (sampleSize 100, minDistinct 3 against the real
+  `[-1,0,0,1]`-perturbed distribution). Per-template integration tests
+  in `tests/cards/templates.drinkOrder.test.ts` and
+  `tests/cards/templates.staffAside.test.ts` now assert the rendered
+  title contains the actor's first display word, contains no `"…"` /
+  `"..."`, and is deterministic per seed.
+- **Evidence:** `docs/plans/voiced-surface-arc.md` Phase 5. Today
+  `src/cards/voice/composer.ts` (`composeTitle`) and
+  `src/cards/cardHelpers.ts` (`formatTitle`) both call
+  `clampWords(s, 6)` which appends `"…"` whenever the join overshoots
+  six words. The Voiced Surface arc names the two visible symptoms:
+  titles truncating mid-phrase (`…a word before…`) and label/subject
+  duplication (`Main Room: Main Room`). The doc prescribes a composed
+  title slot per template and a voice-bounds gate check that fails on
+  a trailing `"…"` or an immediate duplicated token in a title.
+- **Impact:** (1) The two compositional templates' titles are no
+  longer subject to ellipsis-clamping — actor identification survives
+  in full even for long display names, and the situational phrase is
+  authored to fit rather than truncated. (2) The voice-bounds gate
+  now structurally rejects the two title symptoms before a pool ships;
+  Movement II migration phases inherit the gate unchanged. (3) The
+  Phase-A `trails_off` verbal-tic snippet on `aside_line` keeps its
+  authored "…" because the new checks are title-slot-scoped — body
+  prose retains its character flourishes. (4) The new title pools
+  introduce voice-axis-conditioned variants alongside the fallback,
+  so titles read differently for terse/warm/formal/florid actors
+  rather than identically across the cast.
+- **Scope (delivered):**
+  - **Edited** `src/cards/compose/gates/voiceBounds.ts`: added
+    `VOICE_BOUNDS_REASONS` frozen tuple
+    (`overBudget`/`trailingEllipsis`/`duplicateToken`); extended
+    `checkVoiceBounds` with title-slot-scoped checks against
+    `/(?:…|\.{3,})\s*$/` and `/\b(\w+)\s+\1\b/i` (case-insensitive).
+    Scope condition is `slot.role === 'title'` so body slots keep
+    their existing latitude.
+  - **Edited** `src/cards/compose/gates/index.ts`: exports the new
+    `VOICE_BOUNDS_REASONS` constant.
+  - **New** `src/cards/compose/pools/drinkOrder/title.ts`:
+    `titlePool` with 5 snippets — fallback `'orders a drink'` plus
+    terse / warm / formal / florid voice-axis variants, all ≤ 6 words.
+  - **New** `src/cards/compose/pools/staffAside/title.ts`: same
+    shape, fallback `'a word before opening'` plus 4 voice-axis
+    variants, all ≤ 6 words; voice register `staff_quarters`.
+  - **Edited** `src/cards/compose/pools/drinkOrder/index.ts` and
+    `src/cards/compose/pools/staffAside/index.ts`: re-export the
+    new title pools as `drinkOrderTitlePool` /
+    `staffAsideTitlePool`.
+  - **Edited** `src/cards/templates/drinkOrder.ts` and
+    `src/cards/templates/staffAside.ts`: dropped the `formatTitle`
+    import; added a `title` slot to `slots[]` (id `'title'`, role
+    `'title'`, `wordBudget: 6`, `claimMode: 'flavor'`); rewrote the
+    title-builder to take `filled` and return
+    `${display}: ${filled['title'] ?? <pool fallback>}` with no
+    clamping.
+  - **Edited** `tests/cards/compose/gates/voiceBounds.test.ts`: 5 new
+    cases — trailing `"…"` rejection, trailing `"..."` (three ASCII
+    dots) rejection, immediate duplicate token rejection,
+    case-insensitive duplicate detection ("Main Main Room"), and a
+    real-template clean-text assertion confirming the two existing
+    templates carry no offenders.
+  - **Edited** `tests/cards/compose/gates/runAllGates.test.ts`: added
+    the new `title` slot to both per-template diversity configs
+    (sampleSize 100, minDistinct 3 against the same actor populations
+    that drive `order_line` / `aside_line`).
+  - **Edited** `tests/cards/templates.drinkOrder.test.ts` and
+    `tests/cards/templates.staffAside.test.ts`: the "title centres on
+    the named X" cases now assert the title contains no `"…"` /
+    `"..."` in place of the old `wordCount(title.replace('…',
+    '')) <= 6` check (long display names are allowed to extend the
+    title rather than truncate). Added a compositional determinism
+    check.
+- **Depends on:** None hard within the Voiced Surface arc; Movement I
+  Phases 1–4 (ISSUE-096…099) supply the signal surface, universal
+  cast, supplier-reliability spec, and authoring-loop machinery that
+  every following migration relies on. Phase 5 is cross-cutting
+  setup that lands before Movement II.
+- **Test approach (delivered):**
+  - `npm test -- --run tests/cards/compose/gates/voiceBounds.test.ts`
+    — 11 tests, all pass. Covers the original budget checks and the
+    five new title-symptom cases.
+  - `npm test -- --run tests/cards/compose/gates/` — 8 test files,
+    51 tests pass. The composite `runAllGates` clears both
+    `drinkOrderTemplate` and `staffAsideTemplate` against all seven
+    gates with the new `title` slot diversity check in place.
+  - `npm test -- --run tests/cards/templates.drinkOrder.test.ts
+    tests/cards/templates.staffAside.test.ts
+    tests/cards/templates.voice.test.ts
+    tests/cards/voice/composer.test.ts` — 66 tests pass. The legacy
+    composer's title path remains exactly as before for the nine
+    unmigrated templates.
+  - `npm run typecheck` — clean.
+  - `npm test -- --run` — full suite 1942/1942 across 160 files.
 
 ### ISSUE-099 — Voiced Surface Phase 4: retire the build-time API pipeline; document the Claude Code authoring loop
 

@@ -197,16 +197,28 @@ describe('drinkOrderCard — render output', () => {
     expect(wordCount(view.body[0]!)).toBeLessThanOrEqual(12)
   })
 
-  it('title centres on the named regular', () => {
+  it('title centres on the named regular and never truncates with "…"', () => {
     const state = createInitialTavernState()
     const regularId = firstRegularId(state)
     const seed = drinkOrderSeed(regularId)
     const view = drinkOrderCard.render(seed, state)
     const display = state.world.regulars[regularId]!.name.display
-    // The display name's first word should appear (clamping may chop
-    // later words, but the first word + colon survives the 6-word cap).
+    // Phase 131 / ISSUE-100 — title is a composed slot with the
+    // display name prepended by template glue, no clamping. The actor
+    // identification survives in full; total length may run past six
+    // words for long display names but never carries "…" / "...".
     expect(view.title.toLowerCase()).toContain(display.split(' ')[0]!.toLowerCase())
-    expect(wordCount(view.title.replace('…', ''))).toBeLessThanOrEqual(6)
+    expect(view.title).not.toContain('…')
+    expect(view.title).not.toContain('...')
+  })
+
+  it('renders the same title for the same seed (compositional determinism)', () => {
+    const state = createInitialTavernState()
+    const regularId = firstRegularId(state)
+    const seed = drinkOrderSeed(regularId)
+    const a = drinkOrderCard.render(seed, state)
+    const b = drinkOrderCard.render(seed, state)
+    expect(a.title).toBe(b.title)
   })
 
   it('falls back to the unconditional snippet when no axes match', () => {

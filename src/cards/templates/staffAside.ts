@@ -35,7 +35,6 @@ import {
   buildChoicesFromSeed,
   buildStakes,
   familyTag,
-  formatTitle,
   makeCardView,
 } from '../cardHelpers'
 import type { CardDefinition } from '../types'
@@ -49,6 +48,7 @@ import type { TavernState } from '../../sim/state/TavernState'
 import {
   asideLinePool,
   mannerNotePool,
+  staffAsideTitlePool,
 } from '../compose/pools/staffAside'
 
 // Exported so the Phase D gate harness (and a future Phase E run against
@@ -74,6 +74,17 @@ export const staffAsideTemplate: CompositionalCardTemplate = {
   priority: 60,
   voiceRegister: 'staff_quarters',
   slots: [
+    // Phase 131 / ISSUE-100 — Voiced Surface arc, Phase 5. Title is a
+    // composed slot with its own pool + 6-word budget. Template glue
+    // prepends the staff display name without clamping; the
+    // voice-bounds gate forbids trailing "…" so titles never truncate.
+    {
+      id: 'title',
+      role: 'title',
+      pool: staffAsideTitlePool,
+      wordBudget: 6,
+      claimMode: 'flavor',
+    },
     // Per-slot budgets are the source of truth; the Phase D voice-bounds
     // gate enforces them from this data, not from prose comments.
     {
@@ -94,7 +105,7 @@ export const staffAsideTemplate: CompositionalCardTemplate = {
   ],
   toCardView: (filled, seed, state) => {
     return makeCardView({
-      title: buildStaffAsideTitle(seed, state),
+      title: buildStaffAsideTitle(filled, seed, state),
       body: buildStaffAsideBody(filled, seed),
       stakes: buildStakes(seed, 2),
       choices: buildChoicesFromSeed(seed, {
@@ -106,12 +117,17 @@ export const staffAsideTemplate: CompositionalCardTemplate = {
   },
 }
 
-function buildStaffAsideTitle(seed: IssueSeed, state: TavernState): string {
+function buildStaffAsideTitle(
+  filled: FilledSlots,
+  seed: IssueSeed,
+  state: TavernState,
+): string {
   const ref = seed.primaryActor
   const staff =
     ref && ref.kind === 'staff' ? state.staff[ref.id] : undefined
   const display = staff?.name.display ?? seed.textIngredients.subject ?? 'A staff member'
-  return formatTitle([`${display}:`, 'a word before opening'])
+  const snippet = filled['title'] ?? 'a word before opening'
+  return `${display}: ${snippet}`
 }
 
 function buildStaffAsideBody(filled: FilledSlots, seed: IssueSeed): string[] {

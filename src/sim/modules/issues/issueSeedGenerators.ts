@@ -3512,7 +3512,11 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
       family: 'reputation_shift',
       type: 'reputation_shift',
       timing: 'closing',
-      domain: ['reputation', 'customers'],
+      // Phase 139 / ISSUE-108 — Voiced Surface arc, Phase 13. Additive
+      // `reputation.${axisId}` tag so the compositional template's
+      // establishing line can branch on the actual axis shifting via
+      // `hasTag reputation.<axis>` without inventing a per-axis signal.
+      domain: ['reputation', 'customers', `reputation.${axisId}`],
       severity: Math.max(30, Math.abs(axisValue - 50)),
       urgency: Math.max(25, snap.urgency),
       // Audit fixes pass 1 §5.3 — Reputation is tavern-wide; omit

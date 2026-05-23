@@ -1,0 +1,154 @@
+# Phase 139 / ISSUE-108 — Voiced Surface arc, Phase 13 (Reputation, Rumour & Rivals).
+#
+# Generation spec for the rival_tavern compositional template. First
+# dedicated card for the family — pre-Phase-13 these seeds routed to
+# `fallbackCard`.
+#
+# The seed's `primaryActor` is `localArcRef(rivalArc.id)` when a
+# rival-themed local arc is active (kind `'local_event'`), else
+# `systemRef('rival_tavern')` (kind `'system'`). Neither carries
+# `castAttributes` — local arcs are world-events, systemRef is a sim
+# placeholder. Narrator-voiced; no `voiceAxis` / `verbalTic` conditions.
+# The seed carries no `seed.location` (no `pickCustomerFacingArea`,
+# no `seed.location` set at all at `expandedSeedGenerators.ts:6003-6040`),
+# so the Phase-11 `'location'` role does not apply.
+#
+# Movement I loopback (Phase 13): `seed.domain` carries
+# `rival.arc` when a rival local arc is active, else `rival.system`,
+# so the establishing line can branch on whether the rival is fleshed
+# out (the arc has a name, label, momentum) or an unnamed competitor
+# bleeding patronage.
+#
+# Voice register `office_quarters` — closing-time strategic thinking
+# from the owner's books, matching `debtRentCard`'s precedent. Rivals
+# are a strategic concern reviewed at end-of-day, not a floor moment.
+
+templateId: rival_tavern
+voiceRegister: office_quarters
+status: phase_13_voiced_surface_arc_shipped
+purpose: >
+  Generate voiced cards for the closing-time rival_tavern situation.
+  The body states the actual sim situation (rival_tavern_pressure
+  rising, regular_customer_loss pressure rising, prior owner choice
+  surfaced from memory tags, repeat count, severity tier) and carries
+  a narrator's read of the rival's pull on the market. The legacy
+  fallback rendering had no voice; this is the first rendering that
+  voices the family.
+
+appliesTo:
+  seedFamilies: ['rival_tavern']
+  seedTypes: ['social_conflict']
+  timings: ['closing']
+
+slots:
+  - id: title
+    required: true
+    claims: flavor
+    maxWords: 6
+    description: >
+      Short situational title; template glue prepends the rival arc's
+      label when one is active, else `'Rival tavern'`. Arc labels run
+      2–4 words ("The Black Lantern", "The Crooked Pint"); snippet
+      text stays ≤ 2 words so a 4-word arc label keeps the final
+      composed title within the legacy 6-word total budget. Voice-
+      bounds gate forbids trailing "…" and immediate token duplication.
+
+  - id: establishing_line
+    required: true
+    claims: sim-backed
+    maxWords: 14
+    description: >
+      Third-person narration of the rival situation. Names what
+      happened — rival.arc vs rival.system (`hasTag`), rival pressure
+      rising, regular_customer_loss pressure rising, prior memory
+      (priced / counter-event / quality / counter-rumour / negotiated
+      / ignored), repeat count, severity tier. Unconditional fallback
+      claims only that the rival is pulling at the market.
+
+  - id: reaction_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      Narrator's read of how the rival is landing — patronage shifts
+      readable from the books, the regulars' chatter, the empty
+      seats. Varies on memory tags, severity ceilings, and pressure
+      trend. No first-person voice — no actor with castAttributes
+      resolves.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      Optional third-person sensory beat — a quieter night, a coin
+      tally short, the ledger column thinner than expected.
+      Narrator-voiced; no checkable claim.
+
+voiceAxesInPlay: []
+verbalTicsCovered: []
+
+simSignalsInUse:
+  - { kind: pressureRising, pressureIds: [rival_tavern_pressure, regular_customer_loss] }
+  - { kind: memoryPresent, tags: [rival, compete, price, event, investment, quality, deception, rumour, compromise, ignored] }
+  - { kind: repeatCount, subjectTag: rival }
+  - { kind: hasTag, tags: [rival.arc, rival.system, rival, market] }
+  - { kind: severityAtLeast, value: 50 }
+  - { kind: severityAtLeast, value: 70 }
+
+mustNotInvent:
+  - named rival owners or rival staff beyond the seeded display
+  - specific past rival incidents beyond the seeded memory tags
+  - specific rival pressure numeric values
+  - earth idioms, modern slang, real-world brand or place language
+  - the legacy fallbackCard glued bullet list
+
+positiveExemplars:
+  title:
+    - "Rival tavern: pulling crowds"
+    - "The Crooked Pint: making noise"
+    - "Rival tavern: a name on lips"
+  establishing_line:
+    - "The rival's pull on the market has climbed past where it sat."
+    - "Rival_tavern_pressure has been climbing onto the books for days."
+    - "The counter-event from last time still has the merchants talking."
+    - "Third closing running, the rival writes itself onto the ledger again."
+
+negativeExamples:
+  - "Rival tavern: …" (mid-phrase clamp)
+  - "The rival pressure is 60." (mechanical readout)
+  - "Last month the rival burned." (unbacked history)
+  - "Rival tavern: rival" (duplicate token)
+
+hardBounds:
+  perSlotWords:
+    title: 6
+    establishing_line: 14
+    reaction_line: 12
+    manner_note: 10
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+  noDirectMechanicalLanguage: true
+
+gradientPolicy:
+  base: one unconditional fallback per required slot (always fires)
+  middle: single-condition snippets — rival.arc vs rival.system, a pressure, a memory, a severity band
+  top: two-condition snippets — pressure + memory, severity + repeat, arc + pressure
+  rule: |
+    narrator-voiced. The body line states the rival's presence and
+    market pull via `hasTag rival.arc|rival.system`, `pressureRising`
+    on rival + regulars-loss pressures, prior-choice memories, and
+    severity / repeat ceilings. No actor resolves; no voiceAxis /
+    verbalTic conditions anywhere in the pools.
+
+mustPass:
+  coverage: required slots title, establishing_line, reaction_line each have an unconditional fallback
+  specificityGradient: pools contain fallback + single-condition middle rung + two-condition top rung
+  voiceBounds: every snippet within slot.maxWords; no trailing "…" or immediate duplicate token in title-role slots
+  simCoherence: establishing_line is claims sim-backed; every non-fallback carries ≥1 state-lookup condition
+  determinism: same seed + same state + same slot returns same snippet after FNV tie-break
+  diversity: state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
+  dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots

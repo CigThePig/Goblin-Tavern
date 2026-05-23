@@ -18,7 +18,9 @@ import {
   staffBurnoutCard,
   factionRequestCard,
   cultureConflictCard,
-  reputationShiftWeeklyCard,
+  reputationShiftCard,
+  rumourCrisisCard,
+  rivalTavernCard,
   monthlyReviewCard,
   fallbackCard,
 } from '../../src/cards/index'
@@ -499,22 +501,90 @@ describe('cultureConflictCard voice', () => {
   })
 })
 
-describe('reputationShiftWeeklyCard voice', () => {
-  it('honours the budget', () => {
+// Phase 139 / ISSUE-108 — Voiced Surface arc, Phase 13. The legacy
+// `reputationShiftWeeklyCard voice` block split into three blocks (one
+// per new compositional template). Each block uses the body-budget-only
+// helper because the title-prefix lifts the count above the legacy
+// 6-word total budget; the composed title slot itself is still capped
+// at 6 words by the voice-bounds gate.
+
+describe('reputationShiftCard voice', () => {
+  it('honours the body budget and never clamps the title with "…"', () => {
     const seed = makeSeed({
       family: 'reputation_shift',
       type: 'reputation_shift',
-      timing: 'end_week',
+      timing: 'closing',
+      domain: ['reputation', 'customers', 'reputation.cozy'],
     })
-    const view = reputationShiftWeeklyCard.render(seed, createInitialTavernState())
-    assertBudget(view)
+    const view = reputationShiftCard.render(seed, createInitialTavernState())
+    assertBodyBudgetOnly(view)
   })
 
   it('is deterministic per seed id', () => {
-    assertDeterministic(reputationShiftWeeklyCard, {
+    assertDeterministic(reputationShiftCard, {
+      id: 'reputation-shift-voice-A',
       family: 'reputation_shift',
       type: 'reputation_shift',
-      timing: 'end_week',
+      timing: 'closing',
+      domain: ['reputation', 'customers', 'reputation.cozy'],
+    })
+  })
+})
+
+describe('rumourCrisisCard voice', () => {
+  it('honours the body budget and never clamps the title with "…"', () => {
+    const state = createInitialTavernState()
+    const supplierId = Object.keys(state.world.suppliers)[0]!
+    const seed = makeSeed({
+      family: 'rumour_crisis',
+      type: 'rumour',
+      timing: 'closing',
+      domain: ['rumours', 'reputation', 'social', 'rumour.false', 'rumour.target.supplier'],
+      primaryActor: { kind: 'supplier', id: supplierId },
+    })
+    const view = rumourCrisisCard.render(seed, state)
+    assertBodyBudgetOnly(view)
+  })
+
+  it('is deterministic per seed id', () => {
+    const state = createInitialTavernState()
+    const supplierId = Object.keys(state.world.suppliers)[0]!
+    const seed = makeSeed({
+      id: 'rumour-crisis-voice-A',
+      family: 'rumour_crisis',
+      type: 'rumour',
+      timing: 'closing',
+      domain: ['rumours', 'reputation', 'social', 'rumour.false', 'rumour.target.supplier'],
+      primaryActor: { kind: 'supplier', id: supplierId },
+    })
+    const a = rumourCrisisCard.render(seed, state)
+    const b = rumourCrisisCard.render(seed, state)
+    expect(a.title).toBe(b.title)
+    expect(a.body).toEqual(b.body)
+  })
+})
+
+describe('rivalTavernCard voice', () => {
+  it('honours the body budget and never clamps the title with "…"', () => {
+    const seed = makeSeed({
+      family: 'rival_tavern',
+      type: 'social_conflict',
+      timing: 'closing',
+      domain: ['rival', 'market', 'customers', 'rival.system'],
+      primaryActor: { kind: 'system', id: 'rival_tavern' },
+    })
+    const view = rivalTavernCard.render(seed, createInitialTavernState())
+    assertBodyBudgetOnly(view)
+  })
+
+  it('is deterministic per seed id', () => {
+    assertDeterministic(rivalTavernCard, {
+      id: 'rival-tavern-voice-A',
+      family: 'rival_tavern',
+      type: 'social_conflict',
+      timing: 'closing',
+      domain: ['rival', 'market', 'customers', 'rival.system'],
+      primaryActor: { kind: 'system', id: 'rival_tavern' },
     })
   })
 })

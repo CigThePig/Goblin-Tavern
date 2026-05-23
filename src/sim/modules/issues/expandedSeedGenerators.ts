@@ -5516,7 +5516,18 @@ function generateRumourCrisis(ctx: SimContext): IssueSeed[] {
       family: 'rumour_crisis',
       type: 'rumour',
       timing: 'closing',
-      domain: ['rumours', 'reputation', 'social'],
+      // Phase 139 / ISSUE-108 — Voiced Surface arc, Phase 13. Additive
+      // `rumour.${accuracy}` + `rumour.target.${kind}` tags so the
+      // compositional template can branch on the attribution's accuracy
+      // (false/partial/true) and the target's actor kind via `hasTag`
+      // without inventing new condition primitives.
+      domain: [
+        'rumours',
+        'reputation',
+        'social',
+        `rumour.${dramatic.accuracy}`,
+        `rumour.target.${target.kind}`,
+      ],
       severity: Math.max(35, rumourPressure.severity),
       urgency: Math.max(30, rumourPressure.urgency),
       // Audit fixes pass 1 §5.3 — Only attach a primaryActor when the
@@ -5724,7 +5735,16 @@ function rumourSeedFromRumour(
       family: 'rumour_crisis',
       type: 'rumour',
       timing: 'closing',
-      domain: ['rumours', 'reputation'],
+      // Phase 139 / ISSUE-108 — Voiced Surface arc, Phase 13. Additive
+      // `rumour.${accuracy}` + `rumour.target.${kind}` tags so the
+      // compositional template can branch on the rumour's accuracy and
+      // the rumour-subject kind via `hasTag`.
+      domain: [
+        'rumours',
+        'reputation',
+        `rumour.${rumour.accuracy}`,
+        `rumour.target.${ref.kind}`,
+      ],
       severity: Math.max(35, rumour.strength),
       urgency: Math.max(30, rumourPressure.urgency),
       // Audit fixes pass 1 §5.3 — Only attach a primaryActor when the
@@ -6006,7 +6026,17 @@ function generateRivalTavern(ctx: SimContext): IssueSeed[] {
       family: 'rival_tavern',
       type: 'social_conflict',
       timing: 'closing',
-      domain: ['rival', 'market', 'customers'],
+      // Phase 139 / ISSUE-108 — Voiced Surface arc, Phase 13. Additive
+      // `rival.arc` / `rival.system` tag so the compositional template
+      // can branch on whether a rival-themed local arc is active (arc =
+      // the rival has a name and momentum; system = an unnamed rival
+      // bleeding patronage).
+      domain: [
+        'rival',
+        'market',
+        'customers',
+        rivalArc ? 'rival.arc' : 'rival.system',
+      ],
       severity: Math.max(35, rival.severity),
       urgency: Math.max(30, rival.urgency),
       primaryActor: rivalRef,

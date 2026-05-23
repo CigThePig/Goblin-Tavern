@@ -1,0 +1,152 @@
+# Phase 137 / ISSUE-106 — Voiced Surface arc, Phase 11 (Premises & Atmosphere).
+#
+# Generation spec for the maintenance compositional template. Replaces the
+# legacy hand-written `maintenanceWarning` template, which composed the body
+# by gluing `ti.sensoryDetails[0]`, `ti.pressureContext[0]`, and
+# `ti.stakesReadable[0]` through `composeBody`, and built the title by
+# prepending a deterministic adjective from `pickAreaStateAdjective` to
+# the area label — the raw-fragment-dump-with-adjective-glue pattern the
+# arc was built to retire.
+#
+# The seed has no primaryActor (the area is referenced via `seed.location`).
+# Areas have no `castAttributes` — they are settings, not actors — so the
+# template renders in a NARRATOR-VOICED register: voice axes / verbal tics
+# never fire because no actor resolves; variety in the flavor slots
+# (reaction_line, manner_note) comes from state perturbation — area meters
+# via the Phase-1 signal surface (`area.condition`, `area.damage`),
+# pressure-rising, prior-choice memories, calendar tone hints, severity.
+#
+# The Phase-11 additive extension to `resolveActorRef` recognises the
+# `'location'` role string as a fallback to `seed.location`, so the
+# narrator-voiced establishing_line can read area band signals through
+# the snippet condition DSL without requiring `seed.primaryActor` to be
+# set or a `namedEntities` entry to be added to the seed generator.
+
+templateId: maintenance
+voiceRegister: back_of_house
+status: phase_11_voiced_surface_arc_shipped
+purpose: >
+  Generate voiced cards for the morning_prep maintenance situation.
+  The body states the actual sim situation (visible damage band, area
+  condition, maintenance pressure rising, prior warning / patch / ignored
+  choices, severity) and frames the owner's back-of-house walk-through.
+  The legacy template's body was a raw textIngredients dump; this one
+  speaks.
+
+appliesTo:
+  seedFamilies: ['maintenance']
+  seedTypes: ['maintenance_problem']
+  timings: ['morning_prep']
+
+slots:
+  - id: title
+    required: true
+    claims: flavor
+    maxWords: 6
+    description: >
+      Short situational title; template glue prepends the area label as
+      `${area.label}: ${snippet}`. Snippet text stays ≤ 4 words so a
+      2-word area label ("Main Room", "Herb Garden", "Cold Cellar")
+      keeps the final composed title within the legacy 6-word total
+      budget. Voice-bounds gate forbids trailing "…" and immediate token
+      duplication.
+
+  - id: establishing_line
+    required: true
+    claims: sim-backed
+    maxWords: 14
+    description: >
+      Third-person narration of the maintenance situation. Names what
+      happened — area damage band high, area condition band low,
+      maintenance pressure rising, prior owner choice surfaced from
+      memory tags (warning / ignored / patch / area-tagged), repeat
+      occurrence tagged 'maintenance', severity tier. Unconditional
+      fallback claims only that a walk-through turned up wear that
+      wants a decision.
+
+  - id: reaction_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      The owner's morning read of the wear, third-person narrator
+      voice. No first-person address; no specific NPC name. Gated on
+      tone tag (`hasTag risk|inspection_relevant|fire_risk|urgent`),
+      severity band, prior-choice memories, and rising pressure.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      Optional sensory beat — boards groaning, dust drifting, old
+      splinters where the wear keeps coming back. Omitted rather than
+      weak.
+
+voiceAxesInPlay: (none — see voiceRegister)
+verbalTicsCovered: (none — ownerless)
+
+# Sim signals / primitives the establishing_line pool reaches for.
+simSignalsInUse:
+  - { kind: signalEquals, signals: [area.condition, area.damage], roles: [location], bands: [low, mid, high] }
+  - { kind: pressureRising, pressureIds: [maintenance] }
+  - { kind: memoryPresent, tags: [maintenance_warning_seen, habitual_roof_neglect, area_patched_recently, ignored, warning, patch] }
+  - { kind: repeatCount, subjectTag: maintenance }
+  - { kind: hasTag, tags: [risk, inspection_relevant, fire_risk, urgent] }
+  - { kind: severityAtLeast, value: 70 }
+
+mustNotInvent:
+  - named NPCs (the seed has no primaryActor; no character to name)
+  - specific damage amounts ("damage 75", "condition 30")
+  - specific past tavern incidents beyond the seeded memory tags
+  - earth idioms, modern slang, real-world brand or place language
+  - the legacy `pickAreaStateAdjective` title prefix (`Dirty Main Room: main room`)
+
+positiveExemplars:
+  title:
+    - "Main Room: damage worth watching"
+    - "Cellar: planks giving way"
+    - "Roof: something near to breaking"
+  establishing_line:
+    - "The damage has crept past anything a wipe-down can hide."
+    - "Maintenance has been climbing on the board for days."
+    - "The same warning has come round again from the last pass."
+    - "Third morning running, this same wear writes itself onto the list."
+
+negativeExamples:
+  - "Cracked plank. maintenance pressure. main room may collapse." (legacy composeBody glue)
+  - "Dirty Main Room: main room" (legacy `pickAreaStateAdjective` + duplicate subject)
+  - "The damage is 75 and the condition is 30." (mechanical readout)
+  - "Last week was rough." (unbacked history claim)
+
+hardBounds:
+  perSlotWords:
+    title: 6
+    establishing_line: 14
+    reaction_line: 12
+    manner_note: 10
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+  noDirectMechanicalLanguage: true
+
+gradientPolicy:
+  base: one unconditional fallback per required slot (always fires)
+  middle: single-condition snippets — a band, a pressure, a memory tag, a tone tag, a severity band
+  top: two-condition snippets — band + pressure, severity + repeat, pressure + memory
+  rule: |
+    no voiceAxis or verbalTic conditions in any pool. The actor
+    resolution rules return undefined for the maintenance seed's
+    castAttributes lookup (areas have none), so those primitives could
+    never fire — keeping them out makes the spec honest.
+
+mustPass:
+  coverage: required slots title, establishing_line, reaction_line each have an unconditional fallback
+  specificityGradient: pools contain fallback + single-condition middle rung + two-condition top rung
+  voiceBounds: every snippet within slot.maxWords; no trailing "…" or immediate duplicate token in title-role slots
+  simCoherence: establishing_line is claims sim-backed; every non-fallback carries ≥1 state-lookup condition
+  determinism: same seed + same state + same slot returns same snippet after FNV tie-break
+  diversity: state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
+  dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots

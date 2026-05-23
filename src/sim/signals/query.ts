@@ -10,6 +10,7 @@ import type { EntityRef, TavernState } from '../state/TavernState'
 import {
   areaCleanlinessBand,
   areaConditionBand,
+  areaDamageBand,
   cultureComfortBand,
   cultureFamiliarityBand,
   cultureTensionBand,
@@ -73,5 +74,7 @@ function readBand(
       return cultureComfortBand(state, id)
     case 'culture.familiarity':
       return cultureFamiliarityBand(state, id)
+    case 'area.damage':
+      return areaDamageBand(state, id)
   }
 }

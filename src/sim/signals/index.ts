@@ -16,6 +16,7 @@ export { BAND_THRESHOLDS, bandOf } from './bands'
 export {
   areaCleanlinessBand,
   areaConditionBand,
+  areaDamageBand,
   cultureComfortBand,
   cultureFamiliarityBand,
   cultureTensionBand,

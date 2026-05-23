@@ -4,12 +4,14 @@
 // regardless of registration order. The fallback is registered last by
 // convention but the registry treats it identically to any other card.
 //
-// Phase 136 / ISSUE-105 — Voiced Surface arc, Phase 10. Replaces the
-// legacy hand-written `factionRequestCard` with a compositional template
-// that voices the faction via its `castAttributes`, and adds a first
-// dedicated `cultureConflictCard` (the legacy template nominally
-// matched `culture_conflict` seeds but its name resolver dropped culture
-// refs).
+// Phase 137 / ISSUE-106 — Voiced Surface arc, Phase 11 (Premises &
+// Atmosphere). Replaces the legacy hand-written `maintenanceWarningCard`
+// with two compositional templates: `maintenanceCard` (handles the
+// `maintenance` family's `maintenance_problem` seeds) and
+// `areaAtmosphereCard` (first dedicated card for `area_atmosphere` —
+// pre-Phase 11 these seeds were nominally claimed by the legacy
+// template but rendered through `maintenance_problem`-shaped body code).
+// Both are narrator-voiced (areas have no `castAttributes`).
 
 import { foodSafetyCrisisCard } from './foodSafetyCrisis'
 import { customerComplaintCard } from './customerComplaint'
@@ -17,7 +19,8 @@ import { regularComplaintCard } from './regularComplaint'
 import { supplierReliabilityCard } from './supplierReliability'
 import { stockShortageCard } from './stockShortage'
 import { debtRentCard } from './debtRent'
-import { maintenanceWarningCard } from './maintenanceWarning'
+import { maintenanceCard } from './maintenance'
+import { areaAtmosphereCard } from './areaAtmosphere'
 import { staffBurnoutCard } from './staffBurnout'
 import { factionRequestCard } from './factionRequest'
 import { cultureConflictCard } from './cultureConflict'
@@ -35,7 +38,8 @@ export const REQUIRED_CARDS: ReadonlyArray<CardDefinition> = [
   supplierReliabilityCard,
   stockShortageCard,
   debtRentCard,
-  maintenanceWarningCard,
+  maintenanceCard,
+  areaAtmosphereCard,
   staffBurnoutCard,
   factionRequestCard,
   cultureConflictCard,
@@ -54,7 +58,8 @@ export {
   supplierReliabilityCard,
   stockShortageCard,
   debtRentCard,
-  maintenanceWarningCard,
+  maintenanceCard,
+  areaAtmosphereCard,
   staffBurnoutCard,
   factionRequestCard,
   cultureConflictCard,

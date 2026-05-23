@@ -159,3 +159,19 @@ export function cultureFamiliarityBand(
   if (!culture) return undefined
   return bandOf(culture.familiarity, BAND_THRESHOLDS['culture.familiarity'])
 }
+
+// Phase 137 / ISSUE-106 — Voiced Surface Phase 11 (Premises & Atmosphere).
+// `area.damage` is the maintenance card's primary mechanical anchor —
+// the meter the seed generator picks the worst area by. `area.condition`
+// already exposes the inverse of the same seed score; surfacing damage
+// directly lets the establishing line state visibly-failing planks vs a
+// dimly-lit corner without restating raw numbers.
+
+export function areaDamageBand(
+  state: TavernState,
+  areaId: string,
+): BandId | undefined {
+  const area = state.areas[areaId]
+  if (!area) return undefined
+  return bandOf(area.damage, BAND_THRESHOLDS['area.damage'])
+}

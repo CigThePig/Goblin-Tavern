@@ -16,7 +16,8 @@ import {
   supplierReliabilityCard,
   stockShortageCard,
   debtRentCard,
-  maintenanceWarningCard,
+  maintenanceCard,
+  areaAtmosphereCard,
   staffBurnoutCard,
   factionRequestCard,
   cultureConflictCard,
@@ -415,12 +416,17 @@ describe('Template 3c — debtRentCard', () => {
   })
 })
 
-describe('Template 4 — maintenanceWarningCard', () => {
+describe('Template 4a — maintenanceCard', () => {
+  // Phase 137 / ISSUE-106 — Voiced Surface arc, Phase 11 (Premises &
+  // Atmosphere). Replaces the legacy `maintenanceWarningCard` block.
+  // The compositional template carries its own integration coverage in
+  // tests/cards/templates.maintenance.test.ts; this slot is here for
+  // the registry-shape parity with the other numbered templates.
   const state = createInitialTavernState()
   const firstAreaId = Object.keys(state.areas)[0]!
   const seed = makeSeed({
     family: 'maintenance',
-    type: 'warning',
+    type: 'maintenance_problem',
     timing: 'morning_prep',
     location: { kind: 'area', id: firstAreaId },
     textIngredients: {
@@ -432,19 +438,56 @@ describe('Template 4 — maintenanceWarningCard', () => {
   })
 
   it('applies', () => {
-    expect(appliesToMatches(maintenanceWarningCard.appliesTo, seed, state)).toBe(true)
+    expect(appliesToMatches(maintenanceCard.appliesTo, seed, state)).toBe(true)
   })
-  it('renders within budgets and surfaces a delayed effect', () => {
-    const view = maintenanceWarningCard.render(seed, state)
-    assertTitleBudget(view)
+  it('renders body lines through the compositional pools (no raw textIngredients leak)', () => {
+    const view = maintenanceCard.render(seed, state)
     assertBodyBudget(view)
-    // Template 4's contract: include at least one delayed line in the
-    // first choice's preview. The factory's default profile carries one.
-    const previews = view.choices[0]?.previewEffects ?? []
-    expect(previews.some((p) => p.startsWith('later:'))).toBe(true)
+    for (const line of view.body) {
+      expect(line).not.toBe('plaster dust in the cracks')
+      expect(line).not.toBe('maintenance climbing')
+      expect(line).not.toBe('could collapse during service')
+    }
   })
   it('does not mutate state', () => {
-    assertNonMutation(maintenanceWarningCard, seed, state)
+    assertNonMutation(maintenanceCard, seed, state)
+  })
+})
+
+describe('Template 4b — areaAtmosphereCard', () => {
+  // Phase 137 / ISSUE-106 — Voiced Surface arc, Phase 11. First
+  // dedicated card for the area_atmosphere family. Narrator-voiced.
+  const state = createInitialTavernState()
+  const firstAreaId = Object.keys(state.areas)[0]!
+  const seed = makeSeed({
+    family: 'area_atmosphere',
+    type: 'warning',
+    timing: 'morning_prep',
+    location: { kind: 'area', id: firstAreaId },
+    affectedActors: [{ kind: 'area', id: firstAreaId }],
+    textIngredients: {
+      subject: 'sour atmosphere',
+      sensoryDetails: ['dim light', 'dust haze'],
+      recentContext: ['cleanliness 25'],
+      stakesReadable: ['atmosphere may rot'],
+    },
+  })
+
+  it('applies', () => {
+    expect(appliesToMatches(areaAtmosphereCard.appliesTo, seed, state)).toBe(true)
+  })
+  it('renders body lines through the compositional pools (no raw textIngredients leak)', () => {
+    const view = areaAtmosphereCard.render(seed, state)
+    assertBodyBudget(view)
+    for (const line of view.body) {
+      expect(line).not.toBe('dim light')
+      expect(line).not.toBe('dust haze')
+      expect(line).not.toBe('cleanliness 25')
+      expect(line).not.toMatch(/cleanliness \d+/)
+    }
+  })
+  it('does not mutate state', () => {
+    assertNonMutation(areaAtmosphereCard, seed, state)
   })
 })
 

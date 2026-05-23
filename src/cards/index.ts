@@ -20,6 +20,7 @@ export {
   FALLBACK_CARD_ID,
   foodSafetyCrisisCard,
   customerComplaintCard,
+  regularComplaintCard,
   supplierOfferCard,
   maintenanceWarningCard,
   staffBurnoutCard,

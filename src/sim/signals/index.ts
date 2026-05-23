@@ -16,8 +16,12 @@ export { BAND_THRESHOLDS, bandOf } from './bands'
 export {
   areaCleanlinessBand,
   areaConditionBand,
+  customerGroupLoyaltyBand,
+  customerGroupSatisfactionBand,
   factionInfluenceBand,
   factionRelationshipBand,
+  regularIrritationBand,
+  regularLoyaltyBand,
   staffFatigueBand,
   staffStressBand,
   supplierRelationshipBand,

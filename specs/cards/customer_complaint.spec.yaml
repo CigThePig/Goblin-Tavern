@@ -1,0 +1,627 @@
+# Phase 134 / ISSUE-103 — Voiced Surface arc, Phase 8 (Regulars & Complaints).
+#
+# Generation spec for the customer_complaint template — the cohort half
+# of the Phase 8 cluster (the named-regular case is at
+# regular_complaint.spec.yaml). The card centres on a customer-group
+# (e.g. "the merchants", "the miners") speaking when their group
+# satisfaction has crossed the seed-firing threshold (≤ 60).
+#
+# Supersedes (with `regular_complaint.spec.yaml`) the legacy
+# src/cards/templates/customerComplaint.ts, which hand-handled both
+# families through a single template. The legacy template's name-resolver
+# always looked for a regular in `namedEntities`, and so produced
+# "A patron" for the cohort case — the card could not even centre on
+# its own subject. Two templates partition the surface cleanly.
+
+templateId: customer_complaint
+voiceRegister: tavern_floor
+status: phase_8_voiced_surface_arc_complete
+purpose: >
+  Generate short cards for a customer-group cohort voicing a collective
+  complaint (family `customer_complaint`, type `complaint`, timing
+  `during_service`). The body STATES the actual sim situation — group
+  satisfaction band, group loyalty band, rising reputation_drift /
+  staff_loyalty_risk / regular_customer_loss / rumour_pressure /
+  cultural_tension pressure, prior memory tag (customer, complaint),
+  repeated customer seeds in the rolling window, area condition /
+  cleanliness when the complaint references an area — and the reaction
+  carries the cohort's bounded `castAttributes.voice`. Establishing line
+  is sim-backed against the Phase 127 signal surface extended in Phase
+  134 with customer_group.satisfaction / customer_group.loyalty;
+  reaction line and manner note are flavor-only.
+
+appliesTo:
+  seedFamilies: ['customer_complaint']
+  seedTypes: ['complaint']
+  timings: ['during_service']
+
+slots:
+  - id: title
+    required: true
+    claims: flavor
+    maxWords: 6
+    description: >
+      Composed snippet prepended with the group's display label as
+      `${label}: ${snippet}` (label = `state.customerGroups[ref.id].label`
+      e.g. "the merchants"). No clamping, no trailing "…", no
+      label/subject duplication. Voice-axis-conditioned variants plus a
+      plain fallback.
+
+  - id: establishing_line
+    required: true
+    claims: sim-backed
+    maxWords: 14
+    description: >
+      Third-person narration of the cohort situation. Names what the sim
+      says — satisfaction band, loyalty band, rising pressure, prior
+      memory tags, repeated customer seed appearance, area condition /
+      cleanliness — pinned by a state-lookup condition (`signalEquals`,
+      `pressureRising`, `memoryPresent`, `repeatCount`, `hasNamedEntity`).
+      The unconditional fallback claims only what the seed firing
+      guarantees: a cohort surfacing collective discontent.
+
+  - id: reaction_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      A representative voice from the cohort speaking to the owner.
+      First-person or first-person-plural; voice driven by `voiceAxis`
+      and `verbalTic` only. May show collective mood (we, this lot, the
+      table). Must not name a specific individual, faction, or past
+      incident.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      An optional third-person sensory beat — the body of the cohort,
+      their table, their hands. Omitted rather than weak.
+
+  - id: choice_label
+    required: false
+    claims: flavor
+    maxWords: 6
+    status: SIGNAL_AVAILABLE
+    description: >
+      Voiced rendering of a response slot's `labelHint`. Keyed on
+      (responseVerb, voiceAxis). Mechanical fields unchanged.
+
+  - id: effect_preview
+    required: false
+    claims: flavor
+    maxWords: 10
+    status: SIGNAL_AVAILABLE
+    description: >
+      Voiced rendering of one `ConsequenceProfile.immediateEffects[i]`.
+      Each composed line corresponds 1-to-1 to a real EffectPreview.
+
+voiceAxesInPlay:
+  terseness:
+    0: full sentence
+    1: compact
+    2: clipped imperative
+  warmth:
+    0: cold / hostile cohort
+    1: neutral
+    2: still-friendly cohort
+  formality:
+    0: rough / vulgar cohort
+    1: plain
+    2: ceremonious cohort
+  floridity:
+    0: literal
+    1: one image allowed
+    2: vivid but short, no lore
+
+verbalTicsCovered:
+  - trails_off
+  - interrupts_self
+  - understates
+  - repeats_for_emphasis
+  - qualifies_everything
+  - italicises_stakes
+  - quotes_someone_else
+
+simSignalsInUse:
+  - { signal: customer_group.satisfaction, bands: [low, mid] }
+  - { signal: customer_group.loyalty, bands: [low] }
+  - { kind: pressureRising, pressureIds: [reputation_drift, staff_loyalty_risk, regular_customer_loss, rumour_pressure, cultural_tension] }
+  - { kind: memoryPresent, tags: [customer, complaint] }
+  - { kind: repeatCount, subjectTag: customer }
+  - { kind: hasNamedEntity, role: primaryActor, entityKind: customer_group }
+
+allowedTargets:
+  - the owner directly
+  - the table
+  - the floor
+  - the silence afterward
+  - the unspoken bill
+
+mustNotInvent:
+  - named NPCs (the seed names the cohort, not individuals)
+  - named factions
+  - specific past tavern incidents
+  - claims about which staff member did what
+  - modern slang / earth idioms / real-world brand or place language
+  - direct mechanical readouts ("satisfaction 30", "loyalty 25")
+
+hardBounds:
+  perSlotWords:
+    title: 6
+    establishing_line: 14
+    reaction_line: 12
+    manner_note: 10
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+  noDirectMechanicalLanguage: true
+
+gradientPolicy:
+  base: one unconditional fallback per required slot (always fires)
+  middle: single-condition snippets — a voice axis, a single signal band, a single pressure, a single memory tag, a single tic
+  top: two-condition snippets — voice + signal, signal + repeat, pressure + memory
+  tic: single verbalTic snippets — independent of the axis/signal rungs
+  rule: |
+    the single-condition middle rung is mandatory.
+
+positiveExemplars:
+  - id: terse_cold_low_satisfaction
+    claims: mixed
+    voice: { terseness: 2, warmth: 0 }
+    sim: { satisfaction: low }
+    slotLines:
+      title: "Enough."
+      establishing_line: "Their satisfaction's been bottoming out all evening."
+      reaction_line: "We've waited long enough. Settle it."
+
+  - id: warm_loyalty_slipping
+    claims: mixed
+    voice: { warmth: 2 }
+    sim: { loyalty: low }
+    slotLines:
+      title: "We have words"
+      establishing_line: "The group's loyalty has been slipping for weeks now."
+      reaction_line: "We've always come here, owner. That can change."
+
+  - id: formal_reputation_rising
+    claims: mixed
+    voice: { formality: 2 }
+    sim: { pressureRising: reputation_drift }
+    slotLines:
+      title: "A formal complaint"
+      establishing_line: "Talk of this house has been drifting in the wrong direction."
+      reaction_line: "We would speak to the management on a matter."
+
+  - id: florid_fallback_only
+    claims: flavor
+    voice: { floridity: 2 }
+    slotLines:
+      title: "Words at the table"
+      establishing_line: "A table of patrons gathers tighter, voices low."
+      reaction_line: "The mugs grow cold while the silence grows louder."
+      manner_note: "Their faces close like shutters at dusk."
+
+  - id: customer_memory_repeat
+    claims: sim-backed
+    voice: { terseness: 1 }
+    sim: { memoryPresent: complaint, repeatCount_customer: 3 }
+    slotLines:
+      establishing_line: "Same lot, third complaint this week running."
+
+  - id: just_terse
+    claims: flavor
+    voice: { terseness: 2 }
+    slotLines:
+      reaction_line: "Make it right. Now."
+
+  - id: just_warm
+    claims: flavor
+    voice: { warmth: 2 }
+    slotLines:
+      reaction_line: "We come here for a reason, owner. Help us keep doing it."
+
+  - id: just_formal
+    claims: flavor
+    voice: { formality: 2 }
+    slotLines:
+      reaction_line: "We would speak to the management on a matter."
+
+  - id: just_florid
+    claims: flavor
+    voice: { floridity: 2 }
+    slotLines:
+      reaction_line: "The mugs grow cold while the silence grows louder."
+
+  - id: tic_qualifies
+    claims: flavor
+    voice: { verbalTic: qualifies_everything }
+    slotLines:
+      reaction_line: "Some of us, mostly, would like an answer. Maybe."
+
+  - id: tic_quotes_borderline
+    claims: flavor
+    voice: { verbalTic: quotes_someone_else }
+    slotLines:
+      reaction_line: "My grandmother used to say — silence is the longest reply."
+
+negativeExamples:
+  - id: mechanical_readout
+    line: "Satisfaction 35, loyalty 25 — we're walking."
+    fails: [voice-bounds]
+    reason: Direct stat readout.
+
+  - id: dangling_textIngredients_fragment
+    line: "eye the filthy floor"
+    fails: [coverage, specificity-gradient]
+    reason: >
+      A raw `actorOpinions` string lifted verbatim from the legacy
+      template's fragment-dump body.
+
+  - id: named_individual
+    line: "Old Brakka here says it's never been worse."
+    fails: [sim-coherence]
+    reason: >
+      Names a specific individual within the cohort. The cohort speaks
+      collectively; named individuals belong on the regular_complaint
+      template's surface.
+
+  - id: invented_authority
+    line: "By the river god's grace, this is unbearable."
+    fails: [sim-coherence, voice-bounds]
+    reason: Invented authority.
+
+  - id: modern_register_break
+    line: "Honestly, this place is giving bad vibes today."
+    fails: [voice-bounds]
+    reason: Modern register.
+
+  - id: overlong_florid
+    line: "Allow us to lay before you a cathedral of communal disappointment we have constructed this very evening."
+    fails: [length, voice-bounds]
+    reason: Over the reaction_line budget.
+
+  - id: sim_backed_without_condition
+    line: "Same complaint, third time running."
+    fails: [sim-coherence]
+    reason: >
+      Sim-backed claim ('third time') with no repeatCount condition.
+      Fixed as `est_satisfaction_repeat` with the matching condition.
+
+  - id: title_truncation_forward_flag
+    line: "We have words for the…"
+    fails: [voice-bounds]
+    reason: Mid-phrase ellipsis on a title slot.
+
+  - id: title_label_duplication_forward_flag
+    line: "The Merchants: the merchants"
+    fails: [voice-bounds]
+    reason: Label/subject duplication.
+
+snippetPools:
+  - slotId: title
+    required: true
+    snippets:
+      - id: title_fallback
+        text: "words at the table"
+        conditions: []
+      - id: title_terse
+        text: "enough"
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+      - id: title_warm
+        text: "we have words"
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: title_formal
+        text: "a formal complaint"
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+      - id: title_florid
+        text: "voices low at the table"
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+
+  - slotId: establishing_line
+    required: true
+    snippets:
+      - id: est_fallback
+        text: "A table of patrons gathers tighter, voices low."
+        conditions: []
+      - id: est_low_satisfaction
+        text: "Their satisfaction's been bottoming out all evening."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: customer_group.satisfaction, equals: low }
+      - id: est_mid_satisfaction
+        text: "The room's mood has been off since they sat down."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: customer_group.satisfaction, equals: mid }
+      - id: est_low_loyalty
+        text: "The group's loyalty has been slipping for weeks now."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: customer_group.loyalty, equals: low }
+      - id: est_reputation_rising
+        text: "Talk of this house has been drifting in the wrong direction."
+        conditions:
+          - { kind: pressureRising, pressureId: reputation_drift }
+      - id: est_staff_loyalty_rising
+        text: "Word at this table reaches the kitchen by morning."
+        conditions:
+          - { kind: pressureRising, pressureId: staff_loyalty_risk }
+      - id: est_loss_rising
+        text: "Regulars have been quietly thinning these last weeks."
+        conditions:
+          - { kind: pressureRising, pressureId: regular_customer_loss }
+      - id: est_rumour_rising
+        text: "Whispers about this room have started running ahead of the truth."
+        conditions:
+          - { kind: pressureRising, pressureId: rumour_pressure }
+      - id: est_cultural_rising
+        text: "Old grievances between groups have been sharpening lately."
+        conditions:
+          - { kind: pressureRising, pressureId: cultural_tension }
+      - id: est_complaint_memory
+        text: "The last complaint they raised is still unanswered."
+        conditions:
+          - { kind: memoryPresent, tag: complaint }
+      - id: est_customer_memory
+        text: "They remember a slight that never got smoothed over."
+        conditions:
+          - { kind: memoryPresent, tag: customer }
+      - id: est_repeat_visit
+        text: "Same lot, same table, same trouble all week."
+        conditions:
+          - { kind: repeatCount, subjectTag: customer, atLeast: 3 }
+      - id: est_satisfaction_repeat
+        text: "Same lot, third complaint this week running."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: customer_group.satisfaction, equals: low }
+          - { kind: repeatCount, subjectTag: customer, atLeast: 3 }
+      - id: est_loyalty_complaint
+        text: "Loyalty thin and an unanswered complaint — bad pairing."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: customer_group.loyalty, equals: low }
+          - { kind: memoryPresent, tag: complaint }
+
+  - slotId: reaction_line
+    required: true
+    snippets:
+      - id: rxn_fallback
+        text: "The mugs grow cold while the silence grows louder."
+        conditions: []
+      - id: rxn_terse
+        text: "Make it right. Now."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+      - id: rxn_warm
+        text: "We come here for a reason. Help us keep doing it."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: rxn_cold
+        text: "Don't dress it up, owner. Just fix it."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: rxn_formal
+        text: "We would speak to the management on a matter."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+      - id: rxn_florid
+        text: "The ale here used to taste like welcome."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+      - id: rxn_terse_cold
+        text: "We've waited long enough. Settle it."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: rxn_warm_informal
+        text: "Look, we like this place. Don't make us walk."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atMost: 0 }
+      - id: rxn_formal_restrained
+        text: "We raise this without ornament, owner; the matter is plain."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atMost: 0 }
+      - id: rxn_tic_qualifies
+        text: "Some of us, mostly, would like an answer. Maybe."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: qualifies_everything }
+      - id: rxn_tic_interrupts
+        text: "We came to drink — never mind, just listen a minute."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: interrupts_self }
+      - id: rxn_tic_understates
+        text: "A small thing, all things considered, but worth a word."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: understates }
+      - id: rxn_tic_repeats
+        text: "We're saying it. We're saying it, owner, plainly."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: repeats_for_emphasis }
+      - id: rxn_tic_trails_off
+        text: "We came in for the usual, but…"
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: trails_off }
+      - id: rxn_tic_italicises
+        text: "This matters to us. That part should count."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: italicises_stakes }
+      - id: rxn_tic_quotes
+        text: "My grandmother said — silence is the longest reply."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: quotes_someone_else }
+
+  - slotId: manner_note
+    required: false
+    snippets:
+      - id: mnr_warm
+        text: "They huddle closer like they used to."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: mnr_cold
+        text: "Their faces close like shutters at dusk."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: mnr_formal
+        text: "They sit upright as if pleading before a court."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+      - id: mnr_florid
+        text: "Their mugs catch the lamplight unevenly."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+      - id: mnr_terse_cold
+        text: "They cross their arms and wait."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: mnr_tic_qualifies
+        text: "One of them turns a coaster over twice."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: qualifies_everything }
+
+  - slotId: choice_label
+    required: false
+    snippets:
+      - id: label_discount_warm
+        text: "Comp the round"
+        conditions:
+          - { kind: responseVerb, anyOf: [discount] }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: label_discount_terse
+        text: "Drop the price"
+        conditions:
+          - { kind: responseVerb, anyOf: [discount] }
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+      - id: label_appease_formal
+        text: "Apologise in full"
+        conditions:
+          - { kind: responseVerb, anyOf: [appease] }
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+      - id: label_blame_cold
+        text: "Side with the house"
+        conditions:
+          - { kind: responseVerb, anyOf: [blame] }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: label_rebrand_florid
+        text: "Reframe the night"
+        conditions:
+          - { kind: responseVerb, anyOf: [rebrand] }
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+      - id: label_clean_terse
+        text: "Sort the room"
+        conditions:
+          - { kind: responseVerb, anyOf: [clean] }
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+
+  - slotId: effect_preview
+    required: false
+    snippets:
+      - id: pre_state_warm
+        text: "They'd settle back into the room"
+        conditions:
+          - { kind: effectKind, anyOf: [state_change] }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: pre_state_cold
+        text: "They'd walk before the next pour"
+        conditions:
+          - { kind: effectKind, anyOf: [state_change] }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: pre_coin_terse
+        text: "Coin out, group kept"
+        conditions:
+          - { kind: effectTag, tag: coin }
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+      - id: pre_customer_warm
+        text: "They'd carry the goodwill for weeks"
+        conditions:
+          - { kind: effectTag, tag: customer }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: pre_pressure_formal
+        text: "The reputation meter would still ride"
+        conditions:
+          - { kind: effectKind, anyOf: [pressure] }
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+      - id: pre_cause_florid
+        text: "The room's mood would tilt either way"
+        conditions:
+          - { kind: effectKind, anyOf: [cause] }
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+
+diversityCases:
+  - satisfaction=low alone -> bottoming-out fact
+  - satisfaction=mid alone -> off-mood fact
+  - loyalty=low alone -> slipping-loyalty fact
+  - reputation_drift rising -> talk-drifting observation
+  - staff_loyalty_risk rising -> kitchen-hears beat
+  - regular_customer_loss rising -> thinning-regulars beat
+  - rumour_pressure rising -> whispers beat
+  - cultural_tension rising -> sharpening-grievance beat
+  - memoryPresent complaint -> unanswered-complaint beat
+  - memoryPresent customer -> unsmoothed-slight beat
+  - repeatCount customer>=3 -> same-lot pattern
+  - satisfaction=low AND repeatCount customer>=3 -> sharpened pattern (top rung)
+  - loyalty=low AND memoryPresent complaint -> compounding-loss (top rung)
+  - terseness>=2 alone -> blunt cohort voice
+  - warmth>=2 alone -> still-friendly cohort voice
+  - warmth<=0 alone -> hostile cohort voice
+  - formality>=2 alone -> ceremonious cohort voice
+  - floridity>=2 alone -> one-image cohort voice
+  - terseness>=2 AND warmth<=0 -> sharpened blunt hostility (top rung)
+  - warmth>=2 AND formality<=0 -> open candour (top rung)
+  - formality>=2 AND floridity<=0 -> formal restrained (top rung)
+  - any verbalTic present -> sentence-motion variant
+  - no matching condition -> plain fallback
+
+mustPass:
+  coverage:
+    rule: required slots have unconditional fallbacks
+    current: title_fallback, est_fallback, rxn_fallback
+  specificityGradient:
+    rule: fallback + middle rung + top rung
+    current: true
+  voiceBounds:
+    rule: budgets respected, no trailing "…", no title duplication
+    current: true
+  simCoherence:
+    rule: >
+      establishing_line is sim-backed — every non-fallback snippet
+      carries ≥1 state-lookup condition. reaction_line, manner_note,
+      title are flavor — no checkable history.
+    current: true
+  determinism:
+    rule: same seed + state + slot returns same snippet
+    current: proven by harness
+  diversity:
+    rule: >
+      sample across the perturbed customer-group cast distribution
+      yields ≥6 distinct reaction_line outputs and ≥1 distinct
+      establishing_line outputs across reachable signal bands.
+    current: proven by the Phase F customerComplaint samplers added in this phase
+  dedupe:
+    rule: no within-slot pair ≥ 0.85; no cross-slot canonical equality
+    current: true
+
+loopback:
+  surfaced:
+    - >
+      Movement I additive band signals: customer_group.satisfaction,
+      customer_group.loyalty (added by ISSUE-103 / Phase 134). The
+      establishing_line pool's single-signal middle rung depends on
+      both.
+
+  notes:
+    - >
+      Phase 1's signal surface carried no bands for customer groups.
+      Phase 8 adds the two used here. The pressureRising arms cover the
+      five reputation/loss/rumour/cultural pressures the seed itself
+      references.
+    - >
+      No new voice axis or verbal tic was needed. The cohort exercises
+      the full four-axis space (a miner crew reads terse-cold; road
+      merchants read florid-formal under the existing CULTURE_VOICE_DEFAULTS).

@@ -1,0 +1,692 @@
+# Phase 134 / ISSUE-103 — Voiced Surface arc, Phase 8 (Regulars & Complaints).
+#
+# Generation spec for the regular_complaint template — the first half
+# of the Phase 8 cluster (the cohort case is at customer_complaint.spec.yaml).
+# Mirrors the staff_burnout spec shape (phase 133 / ISSUE-102) but
+# centres on a named regular speaking when their irritation has crossed
+# the seed-firing threshold.
+#
+# Supersedes (with `customer_complaint.spec.yaml`) the legacy
+# src/cards/templates/customerComplaint.ts, which hand-handled both
+# the regular_customer and customer_complaint families through one
+# template. The legacy template lifted raw textIngredients into the
+# body — actorOpinions / sensoryDetails / recentContext concatenated
+# verbatim, with no voice and no sim-backed claims. That fragment-dump
+# pattern is exactly what this migration kills.
+#
+# Cluster partition (same family, different type):
+#   regular_customer / relationship_test / during_service → drinkOrderCard
+#       (Phase 123 / ISSUE-092; mild branch, irritation ≤ 60)
+#   regular_customer / complaint          / during_service → THIS TEMPLATE
+#       (loud branch, irritation > 60)
+
+templateId: regular_complaint
+voiceRegister: tavern_floor
+status: phase_8_voiced_surface_arc_complete
+purpose: >
+  Generate short cards for a regular customer voicing a complaint
+  (family `regular_customer`, type `complaint`, timing `during_service`).
+  The body STATES the actual sim situation — irritation band, loyalty
+  band, rising regular_customer_loss pressure, prior grudge / refusal /
+  comp memory, repeated regular seed appearance in the rolling window —
+  and the reaction carries the regular's bounded `castAttributes.voice`.
+  Establishing line is sim-backed against the Phase 127 signal surface
+  extended in Phase 134 with regular.irritation / regular.loyalty;
+  reaction line and manner note are flavor-only, gated by voice axes
+  and verbal tics.
+
+appliesTo:
+  seedFamilies: ['regular_customer']
+  seedTypes: ['complaint']
+  timings: ['during_service']
+
+# NOTE on cluster coverage: the milder relationship_test branch of
+# regular_customer goes to drinkOrderCard (Phase 123). These two
+# templates partition the regular_customer family cleanly by type —
+# no overlap, no priority race.
+
+slots:
+  - id: title
+    required: true
+    claims: flavor
+    maxWords: 6
+    description: >
+      Composed snippet prepended with the regular's display name as
+      `${display}: ${snippet}`. No clamping, no trailing "…", no
+      label/subject duplication (Phase 5 voice-bounds gate enforces).
+      Voice-axis-conditioned variants plus a plain fallback.
+
+  - id: establishing_line
+    required: true
+    claims: sim-backed
+    maxWords: 14
+    description: >
+      Third-person narration of the actual regular's situation. Names
+      what the sim says — irritation band, loyalty band, rising
+      regular_customer_loss pressure, prior memory tags (grudge,
+      ignored_complaint, customer, warning, regular), repeated
+      regular seeds in the rolling window — pinned by a state-lookup
+      condition (`signalEquals`, `pressureRising`, `memoryPresent`,
+      `repeatCount`, `hasNamedEntity`). The unconditional fallback
+      claims only what the seed firing guarantees: a regular surfacing
+      themselves mid-service.
+
+  - id: reaction_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      The regular (primaryActor) speaking in character to the owner.
+      First-person voice driven by `voiceAxis` and `verbalTic` only.
+      May show mood, weariness, disappointment, scorn. Must not assert
+      a specific past event, named NPC, faction, or debt history.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      An optional third-person sensory beat — posture, hands, the mug,
+      the chair. Omitted rather than weak. Voice-axis-gated only. No
+      checkable claim.
+
+  - id: choice_label
+    required: false
+    claims: flavor
+    maxWords: 6
+    status: SIGNAL_AVAILABLE
+    description: >
+      Voiced rendering of a response slot's `labelHint`. Keyed on
+      (responseVerb, voiceAxis). Composed through the Phase 132 /
+      ISSUE-101 `composeChoicesFromSeed` helper; unmatched seeds fall
+      back to the sim's verbatim labelHint. Mechanical fields
+      (verb / targetId / shape) unchanged.
+
+  - id: effect_preview
+    required: false
+    claims: flavor
+    maxWords: 10
+    status: SIGNAL_AVAILABLE
+    description: >
+      Voiced rendering of one `ConsequenceProfile.immediateEffects[i]`.
+      Each composed line corresponds 1-to-1 to a real EffectPreview by
+      construction — the snippet replaces only the readable string,
+      never the kind / target / amount / tags.
+
+voiceAxesInPlay:
+  terseness:
+    0: full clause
+    1: compact
+    2: clipped/blunt
+  warmth:
+    0: prickly/scornful
+    1: neutral
+    2: still familiar despite the gripe
+  formality:
+    0: casual/coarse
+    1: plain
+    2: pointed politeness
+  floridity:
+    0: literal
+    1: one image allowed
+    2: vivid but short, no lore
+
+verbalTicsCovered:
+  - trails_off
+  - interrupts_self
+  - understates
+  - repeats_for_emphasis
+  - qualifies_everything
+  - italicises_stakes
+  - quotes_someone_else
+
+# Sim signals the establishing_line pool reaches for. Every entry
+# resolves through the read-only signal surface at src/sim/signals/
+# (Phase 127 / ISSUE-096) and the Phase 134 / ISSUE-103 additions for
+# regulars. Bands are the three-tier `low` / `mid` / `high` scheme.
+simSignalsInUse:
+  - { signal: regular.irritation, bands: [mid, high] }
+  - { signal: regular.loyalty, bands: [low] }
+  - { kind: pressureRising, pressureIds: [regular_customer_loss] }
+  - { kind: memoryPresent, tags: [grudge, ignored_complaint, customer, regular, warning] }
+  - { kind: repeatCount, subjectTag: regular }
+  - { kind: hasNamedEntity, role: primaryActor, entityKind: regular }
+
+allowedTargets:
+  - the owner directly
+  - the table
+  - the mug
+  - the bar
+  - the regular's own seat
+  - silence held
+  - the unspoken complaint
+
+mustNotInvent:
+  - named NPCs other than the regular themselves (the seed names them)
+  - named factions
+  - specific past tavern incidents
+  - specific debt amounts
+  - claims about which staff member did what
+  - modern slang / earth idioms / brand or place language
+  - direct mechanical readouts ("irritation 75", "loyalty 30")
+
+hardBounds:
+  perSlotWords:
+    title: 6
+    establishing_line: 14
+    reaction_line: 12
+    manner_note: 10
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+  noDirectMechanicalLanguage: true
+
+gradientPolicy:
+  base: one unconditional fallback per required slot (always fires)
+  middle: single-condition snippets — a voice axis, a single signal band, a single pressure, a single memory tag, a single tic
+  top: two-condition snippets — voice + signal, signal + repeat, pressure + memory
+  tic: single verbalTic snippets — independent of the axis/signal rungs
+  rule: |
+    the single-condition middle rung is mandatory. Two-condition top-rung
+    snippets are rare in play (cast perturbation makes pure-axis extremes
+    uncommon and signal-band extremes are state-dependent), so without a
+    populated middle rung the pool collapses onto the fallback.
+
+# A representative cross-section of valid lines, separated into the
+# Phase B flavor/sim-backed buckets.
+positiveExemplars:
+  - id: terse_cold_high_irritation
+    claims: mixed
+    voice: { terseness: 2, warmth: 0 }
+    sim: { irritation: high }
+    slotLines:
+      title: "Quick word."
+      establishing_line: "Their patience snapped a quarter-hour back."
+      reaction_line: "Fix it or I'm done here."
+      manner_note: "They push the mug away without looking."
+
+  - id: warm_loyalty_slipping
+    claims: mixed
+    voice: { warmth: 2, formality: 0 }
+    sim: { loyalty: low }
+    slotLines:
+      title: "Owner — a word."
+      establishing_line: "Their loyalty's been thinning all month, and it shows."
+      reaction_line: "Look, I want to keep coming, but…"
+      manner_note: "They lean across the bar like an old friend."
+
+  - id: formal_pressure_rising
+    claims: mixed
+    voice: { formality: 2, floridity: 0 }
+    sim: { pressureRising: regular_customer_loss }
+    slotLines:
+      title: "A word, owner."
+      establishing_line: "The regulars have been quietly drifting these last weeks."
+      reaction_line: "I must speak plainly, before others follow."
+
+  - id: florid_fallback_only
+    claims: flavor
+    voice: { floridity: 2, terseness: 0 }
+    slotLines:
+      title: "Before I forget."
+      establishing_line: "A regular leans forward at their usual table."
+      reaction_line: "I came in for warmth. The bench is cold today."
+      manner_note: "Their fingers tap the table like a slow drum."
+
+  - id: grudge_memory_with_understate
+    claims: mixed
+    voice: { verbalTic: understates }
+    sim: { memoryPresent: grudge }
+    slotLines:
+      establishing_line: "They've been holding onto the last refusal."
+      reaction_line: "A small thing, maybe, but it's been on my mind."
+
+  - id: irritation_repeat
+    claims: sim-backed
+    voice: { terseness: 1 }
+    sim: { irritation: high, repeatCount_regular: 3 }
+    slotLines:
+      establishing_line: "Same complaint, third time this week."
+
+  - id: comp_memory_warm
+    claims: mixed
+    voice: { warmth: 2 }
+    sim: { memoryPresent: customer }
+    slotLines:
+      establishing_line: "They still remember the meal you comped them once."
+      reaction_line: "I haven't forgotten the kindness, but this stings."
+
+  - id: just_terse
+    claims: flavor
+    voice: { terseness: 2 }
+    slotLines:
+      reaction_line: "Say something. I'm waiting."
+
+  - id: just_warm
+    claims: flavor
+    voice: { warmth: 2 }
+    slotLines:
+      reaction_line: "You know me, owner. I wouldn't say it if it didn't matter."
+
+  - id: just_formal
+    claims: flavor
+    voice: { formality: 2 }
+    slotLines:
+      reaction_line: "I would not raise this lightly, owner."
+
+  - id: just_florid
+    claims: flavor
+    voice: { floridity: 2 }
+    slotLines:
+      reaction_line: "The ale tastes like a winter I don't remember."
+
+  - id: tic_qualifies
+    claims: flavor
+    voice: { verbalTic: qualifies_everything }
+    slotLines:
+      reaction_line: "It's fine. Mostly. Except for, well, today."
+
+  - id: tic_quotes_borderline
+    claims: flavor
+    voice: { verbalTic: quotes_someone_else }
+    slotLines:
+      reaction_line: "My old uncle used to say — silence is the worst review."
+
+negativeExamples:
+  - id: mechanical_readout
+    line: "Irritation 75, loyalty 30 — they're about to walk."
+    fails: [voice-bounds]
+    reason: >
+      Direct stat readout. Bands imply, they do not quote numbers.
+
+  - id: dangling_textIngredients_fragment
+    line: "looks ready to leave"
+    fails: [coverage, specificity-gradient]
+    reason: >
+      A raw actorOpinions string lifted verbatim from the legacy
+      template's fragment-dump body. This is the symptom the migration
+      kills — body lines must come from the snippet pool, not the
+      seed's textIngredients.
+
+  - id: unsupported_backstory
+    line: "Yesterday they fought a guard outside."
+    fails: [sim-coherence]
+    reason: >
+      Names a specific past event with no memoryPresent / repeatCount
+      condition backing it.
+
+  - id: invented_authority
+    line: "By the river god's witness, this is unbearable."
+    fails: [sim-coherence, voice-bounds]
+    reason: >
+      Invents a deity / authority. Floridity is not licence to invent
+      institutions.
+
+  - id: modern_register_break
+    line: "Honestly, the vibes here are off today."
+    fails: [voice-bounds]
+    reason: >
+      Modern register. 'Vibes' and 'honestly' break tavern-fantasy
+      voice.
+
+  - id: overlong_florid
+    line: "Allow me to lay before you a cathedral of disappointment that I have constructed in your tavern this evening."
+    fails: [length, voice-bounds]
+    reason: >
+      Over the reaction_line budget by a wide margin.
+
+  - id: sim_backed_without_condition
+    line: "Third complaint they've made this week."
+    fails: [sim-coherence]
+    reason: >
+      Sim-backed claim ('third complaint this week') with no
+      repeatCount condition. Either add `repeatCount subjectTag: regular
+      atLeast: 3` or move to negatives.
+
+  - id: title_truncation_forward_flag
+    line: "Owner, just a word before…"
+    fails: [voice-bounds]
+    reason: >
+      Mid-phrase ellipsis on a title slot. Phase 5 voice-bounds gate
+      fails trailing '…' on title-role slots.
+
+  - id: title_label_duplication_forward_flag
+    line: "Regular: Regular"
+    fails: [voice-bounds]
+    reason: >
+      Label/subject duplication.
+
+# ----------------------------------------------------------------------
+# snippetPools — the inline convergence record. The committed pools at
+# src/cards/compose/pools/regularComplaint/<slot>.ts carry the same
+# content in TS form.
+# ----------------------------------------------------------------------
+
+snippetPools:
+  - slotId: title
+    required: true
+    snippets:
+      - id: title_fallback
+        text: "a word at the table"
+        conditions: []
+      - id: title_terse
+        text: "quick word"
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+      - id: title_warm
+        text: "owner, a moment"
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: title_formal
+        text: "a word, owner"
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+      - id: title_florid
+        text: "before I forget"
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+
+  - slotId: establishing_line
+    required: true
+    snippets:
+      - id: est_fallback
+        text: "A regular leans forward at their usual table."
+        conditions: []
+      - id: est_high_irritation
+        text: "Their patience snapped a quarter-hour back."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: regular.irritation, equals: high }
+      - id: est_mid_irritation
+        text: "They've been stewing since they walked in."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: regular.irritation, equals: mid }
+      - id: est_low_loyalty
+        text: "Their loyalty's been thinning all month, and it shows."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: regular.loyalty, equals: low }
+      - id: est_loss_rising
+        text: "The regulars have been quietly drifting these last weeks."
+        conditions:
+          - { kind: pressureRising, pressureId: regular_customer_loss }
+      - id: est_grudge_memory
+        text: "They've been holding onto the last refusal."
+        conditions:
+          - { kind: memoryPresent, tag: grudge }
+      - id: est_ignored_memory
+        text: "The last complaint they raised never got an answer."
+        conditions:
+          - { kind: memoryPresent, tag: ignored_complaint }
+      - id: est_customer_memory
+        text: "They still remember the meal you comped them once."
+        conditions:
+          - { kind: memoryPresent, tag: customer }
+      - id: est_warning_memory
+        text: "You were warned this could come back; here it is."
+        conditions:
+          - { kind: memoryPresent, tag: warning }
+      - id: est_repeat_visit
+        text: "Same regular at the same table, same trouble."
+        conditions:
+          - { kind: repeatCount, subjectTag: regular, atLeast: 3 }
+      - id: est_irritation_repeat
+        text: "Same complaint, third time this week."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: regular.irritation, equals: high }
+          - { kind: repeatCount, subjectTag: regular, atLeast: 3 }
+      - id: est_loyalty_grudge
+        text: "Loyalty thin and a grudge to match — bad pairing."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: regular.loyalty, equals: low }
+          - { kind: memoryPresent, tag: grudge }
+
+  - slotId: reaction_line
+    required: true
+    snippets:
+      - id: rxn_fallback
+        text: "I came in for warmth. The bench is cold today."
+        conditions: []
+      - id: rxn_terse
+        text: "Say something. I'm waiting."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+      - id: rxn_warm
+        text: "You know me, owner. I wouldn't say it lightly."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: rxn_cold
+        text: "Don't waste my time, owner. Just answer me."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: rxn_formal
+        text: "I would not raise this lightly, owner."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+      - id: rxn_florid
+        text: "The ale tastes like a winter I don't remember."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+      - id: rxn_terse_cold
+        text: "Fix it or I'm done here."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: rxn_warm_informal
+        text: "Look, I want to keep coming, but something's slipping."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atMost: 0 }
+      - id: rxn_formal_restrained
+        text: "I must speak plainly, before others follow."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atMost: 0 }
+      - id: rxn_tic_qualifies
+        text: "It's fine. Mostly. Except for, well, today."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: qualifies_everything }
+      - id: rxn_tic_interrupts
+        text: "I came in — never mind, it doesn't matter."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: interrupts_self }
+      - id: rxn_tic_understates
+        text: "A small thing, maybe, but it's been on my mind."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: understates }
+      - id: rxn_tic_repeats
+        text: "I'm saying it. I'm saying it, and I mean it."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: repeats_for_emphasis }
+      - id: rxn_tic_trails_off
+        text: "I came in for the usual, but…"
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: trails_off }
+      - id: rxn_tic_italicises
+        text: "I am still here. That should count for something."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: italicises_stakes }
+      - id: rxn_tic_quotes
+        text: "My old uncle said — silence is the worst review."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: quotes_someone_else }
+
+  - slotId: manner_note
+    required: false
+    snippets:
+      - id: mnr_warm
+        text: "They lean across the bar like an old friend."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: mnr_cold
+        text: "They push the mug away without looking up."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: mnr_formal
+        text: "They sit straighter than the bench asks."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+      - id: mnr_florid
+        text: "Their fingers tap the table like a slow drum."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+      - id: mnr_terse_cold
+        text: "They fold their arms and wait."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: mnr_tic_qualifies
+        text: "They smooth the same edge of the cloth twice."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: qualifies_everything }
+
+  - slotId: choice_label
+    required: false
+    snippets:
+      - id: lbl_appease_warm
+        text: "Sit with them a moment"
+        conditions:
+          - { kind: responseVerb, anyOf: [appease] }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: lbl_appease_terse
+        text: "Hear them out"
+        conditions:
+          - { kind: responseVerb, anyOf: [appease] }
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+      - id: lbl_discount_warm
+        text: "Comp their next round"
+        conditions:
+          - { kind: responseVerb, anyOf: [discount] }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: lbl_ignore_cold
+        text: "Let them stew"
+        conditions:
+          - { kind: responseVerb, anyOf: [ignore] }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: lbl_ban_cold
+        text: "Show them the door"
+        conditions:
+          - { kind: responseVerb, anyOf: [ban] }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: lbl_blame_terse
+        text: "Refuse the request"
+        conditions:
+          - { kind: responseVerb, anyOf: [blame] }
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+
+  - slotId: effect_preview
+    required: false
+    snippets:
+      - id: pre_state_warm
+        text: "They'd warm back up by closing"
+        conditions:
+          - { kind: effectKind, anyOf: [state_change] }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: pre_state_cold
+        text: "They'd walk before the next round"
+        conditions:
+          - { kind: effectKind, anyOf: [state_change] }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: pre_coin_terse
+        text: "Coin out, regular kept"
+        conditions:
+          - { kind: effectTag, tag: coin }
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+      - id: pre_regular_warm
+        text: "They'd carry that kindness for weeks"
+        conditions:
+          - { kind: effectTag, tag: regular }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: pre_future_florid
+        text: "A grudge would ripple back round"
+        conditions:
+          - { kind: effectKind, anyOf: [future_hook] }
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+      - id: pre_cause_formal
+        text: "Their loyalty would shift accordingly"
+        conditions:
+          - { kind: effectKind, anyOf: [cause] }
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+
+diversityCases:
+  - irritation=high alone -> patience-snapped fact
+  - irritation=mid alone -> stewing fact
+  - loyalty=low alone -> loyalty-thinning fact
+  - regular_customer_loss rising -> wider drifting observation
+  - memoryPresent grudge -> holding-onto-refusal beat
+  - memoryPresent ignored_complaint -> unanswered-complaint beat
+  - memoryPresent customer -> remembered-comp beat
+  - memoryPresent warning -> warned-this-could-come beat
+  - repeatCount regular>=3 -> same-table pattern
+  - irritation=high AND repeatCount regular>=3 -> sharpened pattern (top rung)
+  - loyalty=low AND memoryPresent grudge -> compounded-loss claim (top rung)
+  - terseness>=2 alone -> blunt regular voice
+  - warmth>=2 alone -> familiar-despite-gripe voice
+  - warmth<=0 alone -> scornful regular voice
+  - formality>=2 alone -> pointed-polite regular voice
+  - floridity>=2 alone -> one-image regular voice
+  - terseness>=2 AND warmth<=0 -> sharpened blunt scorn (top rung)
+  - warmth>=2 AND formality<=0 -> candid regular (top rung)
+  - formality>=2 AND floridity<=0 -> formal restrained (top rung)
+  - any verbalTic present -> sentence-motion variant
+  - no matching condition -> plain fallback (allowed plain, never dead)
+
+mustPass:
+  coverage:
+    rule: required slots title, establishing_line, reaction_line each have an unconditional fallback
+    current: title_fallback, est_fallback, rxn_fallback
+  specificityGradient:
+    rule: pools contain (a) fallback, (b) single-condition middle-rung, (c) two-condition top-rung
+    current: true
+  voiceBounds:
+    rule: title ≤ 6 words (no trailing "…", no immediate duplicate token); establishing_line ≤ 14; reaction_line ≤ 12; manner_note ≤ 10
+    current: true
+  simCoherence:
+    rule: >
+      establishing_line is claims: sim-backed — every non-fallback
+      snippet carries ≥1 state-lookup condition. reaction_line,
+      manner_note, title are claims: flavor — no checkable history,
+      no named entities, no event-claim language unbacked.
+    current: true
+  determinism:
+    rule: same seed + state + slot returns same snippet after FNV tie-break
+    current: proven by the Phase D harness and the per-template test
+  diversity:
+    rule: >
+      sample across the perturbed regular cast distribution yields ≥6
+      distinct reaction_line outputs and ≥1 distinct establishing_line
+      outputs across reachable signal bands.
+    current: proven by the Phase F regularComplaint samplers added in this phase
+  dedupe:
+    rule: >
+      no within-slot pair ≥ 0.85 canonical Levenshtein; no cross-slot
+      canonical equality.
+    current: true
+
+# ----------------------------------------------------------------------
+# loopback — recorded result of Phase 8's authoring pass for this spec.
+# ----------------------------------------------------------------------
+
+loopback:
+  surfaced:
+    - >
+      Movement I additive band signals: regular.irritation,
+      regular.loyalty (added by ISSUE-103 / Phase 134). The
+      establishing_line pool's single-signal middle rung depends on
+      both; without them this template would have collapsed onto
+      pressure / memory anchors only.
+
+  notes:
+    - >
+      The Phase 1 signal surface as shipped (Phase 127 / ISSUE-096)
+      carried no bands for regulars or customer groups. Phase 8 adds
+      four: regular.irritation, regular.loyalty,
+      customer_group.satisfaction, customer_group.loyalty — all behind
+      the same three-tier `low` / `mid` / `high` scheme used for staff,
+      faction, supplier, area.
+    - >
+      pressureRising on regular_customer_loss covers the wider
+      trajectory case. memoryPresent on the five regular_customer seed
+      memory tags covers prior-history anchors.
+    - >
+      No new voice axis or verbal tic was needed.

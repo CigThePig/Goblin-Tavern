@@ -14,9 +14,13 @@ import {
   areaCleanlinessBand,
   areaConditionBand,
   bandOf,
+  customerGroupLoyaltyBand,
+  customerGroupSatisfactionBand,
   factionInfluenceBand,
   factionRelationshipBand,
   querySignal,
+  regularIrritationBand,
+  regularLoyaltyBand,
   staffFatigueBand,
   staffStressBand,
   supplierRelationshipBand,
@@ -47,6 +51,10 @@ describe('bandOf — pure bander', () => {
       'faction.influence',
       'area.condition',
       'area.cleanliness',
+      'regular.irritation',
+      'regular.loyalty',
+      'customer_group.satisfaction',
+      'customer_group.loyalty',
     ]
     for (const id of ids) {
       expect(BAND_THRESHOLDS[id]).toBeDefined()
@@ -207,6 +215,83 @@ describe('area signals', () => {
   })
 })
 
+// Phase 134 / ISSUE-103 — Voiced Surface Phase 8 (Regulars & Complaints).
+describe('regular signals', () => {
+  const base = createInitialTavernState()
+  const regularIds = Object.keys(base.world.regulars)
+
+  it('returns undefined when no regular is registered', () => {
+    expect(regularIrritationBand(base, 'no_such_regular')).toBeUndefined()
+    expect(regularLoyaltyBand(base, 'no_such_regular')).toBeUndefined()
+  })
+
+  if (regularIds[0]) {
+    const regularId = regularIds[0]
+    function withRegular(
+      overrides: Partial<{ irritation: number; loyalty: number }>,
+    ): TavernState {
+      const existing = base.world.regulars[regularId]!
+      return {
+        ...base,
+        world: {
+          ...base.world,
+          regulars: {
+            ...base.world.regulars,
+            [regularId]: { ...existing, ...overrides },
+          },
+        },
+      }
+    }
+
+    it('irritationBand at the cut-points', () => {
+      expect(regularIrritationBand(withRegular({ irritation: 39 }), regularId)).toBe('low')
+      expect(regularIrritationBand(withRegular({ irritation: 40 }), regularId)).toBe('mid')
+      expect(regularIrritationBand(withRegular({ irritation: 69 }), regularId)).toBe('mid')
+      expect(regularIrritationBand(withRegular({ irritation: 70 }), regularId)).toBe('high')
+    })
+
+    it('loyaltyBand at the cut-points', () => {
+      expect(regularLoyaltyBand(withRegular({ loyalty: 39 }), regularId)).toBe('low')
+      expect(regularLoyaltyBand(withRegular({ loyalty: 40 }), regularId)).toBe('mid')
+      expect(regularLoyaltyBand(withRegular({ loyalty: 70 }), regularId)).toBe('high')
+    })
+  }
+})
+
+describe('customer_group signals', () => {
+  const base = createInitialTavernState()
+  const groupId = Object.keys(base.customerGroups)[0]!
+
+  function withGroup(
+    overrides: Partial<{ satisfaction: number; loyalty: number }>,
+  ): TavernState {
+    const existing = base.customerGroups[groupId]!
+    return {
+      ...base,
+      customerGroups: {
+        ...base.customerGroups,
+        [groupId]: { ...existing, ...overrides },
+      },
+    }
+  }
+
+  it('satisfactionBand at the cut-points', () => {
+    expect(customerGroupSatisfactionBand(withGroup({ satisfaction: 39 }), groupId)).toBe('low')
+    expect(customerGroupSatisfactionBand(withGroup({ satisfaction: 40 }), groupId)).toBe('mid')
+    expect(customerGroupSatisfactionBand(withGroup({ satisfaction: 70 }), groupId)).toBe('high')
+  })
+
+  it('loyaltyBand at the cut-points', () => {
+    expect(customerGroupLoyaltyBand(withGroup({ loyalty: 39 }), groupId)).toBe('low')
+    expect(customerGroupLoyaltyBand(withGroup({ loyalty: 70 }), groupId)).toBe('high')
+  })
+
+  it('returns undefined for unknown group id', () => {
+    expect(customerGroupSatisfactionBand(base, 'no_such_group')).toBeUndefined()
+    expect(customerGroupLoyaltyBand(base, 'no_such_group')).toBeUndefined()
+  })
+})
+
 describe('querySignal — dispatcher', () => {
   const base = createInitialTavernState()
   const supplierId = Object.keys(base.world.suppliers)[0]!
@@ -256,5 +341,61 @@ describe('querySignal — dispatcher', () => {
       id: supplierId,
     })
     expect(a).toEqual(b)
+  })
+
+  // Phase 134 / ISSUE-103 — Voiced Surface Phase 8.
+  it('dispatches regular signals and rejects wrong kinds', () => {
+    const regularIds = Object.keys(base.world.regulars)
+    if (regularIds[0]) {
+      const regularId = regularIds[0]
+      const adjusted: TavernState = {
+        ...base,
+        world: {
+          ...base.world,
+          regulars: {
+            ...base.world.regulars,
+            [regularId]: { ...base.world.regulars[regularId]!, irritation: 85 },
+          },
+        },
+      }
+      expect(
+        querySignal(adjusted, 'regular.irritation', { kind: 'regular', id: regularId }),
+      ).toEqual({ band: 'high' })
+      expect(
+        querySignal(adjusted, 'regular.irritation', { kind: 'staff', id: regularId }),
+      ).toEqual({ missing: true })
+      expect(
+        querySignal(adjusted, 'regular.loyalty', { kind: 'regular', id: 'nope' }),
+      ).toEqual({ missing: true })
+    }
+  })
+
+  it('dispatches customer_group signals and rejects wrong kinds', () => {
+    const groupId = Object.keys(base.customerGroups)[0]!
+    const adjusted: TavernState = {
+      ...base,
+      customerGroups: {
+        ...base.customerGroups,
+        [groupId]: { ...base.customerGroups[groupId]!, satisfaction: 25 },
+      },
+    }
+    expect(
+      querySignal(adjusted, 'customer_group.satisfaction', {
+        kind: 'customer_group',
+        id: groupId,
+      }),
+    ).toEqual({ band: 'low' })
+    expect(
+      querySignal(adjusted, 'customer_group.satisfaction', {
+        kind: 'regular',
+        id: groupId,
+      }),
+    ).toEqual({ missing: true })
+    expect(
+      querySignal(adjusted, 'customer_group.loyalty', {
+        kind: 'customer_group',
+        id: 'no_such_group',
+      }),
+    ).toEqual({ missing: true })
   })
 })

@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   drinkOrderCard,
-  customerComplaintCard,
+  regularComplaintCard,
   fallbackCard,
 } from '../../src/cards/index'
 import { pickCardForSeed } from '../../src/cards/selection'
@@ -150,7 +150,11 @@ describe('drinkOrderCard — appliesTo', () => {
     expect(chosen?.id).toBe(drinkOrderCard.id)
   })
 
-  it('does not steal the complaint variant from customerComplaintCard', () => {
+  // Phase 134 / ISSUE-103 — Voiced Surface arc, Phase 8.
+  // regular_customer / complaint now routes to regularComplaintCard
+  // (the new compositional template); previously it went to the legacy
+  // customerComplaintCard, which Phase 8 split by family.
+  it('does not steal the complaint variant from regularComplaintCard', () => {
     const seed = makeSeed({
       id: 'complaint-seed',
       family: 'regular_customer' as IssueSeedFamilyId,
@@ -159,7 +163,7 @@ describe('drinkOrderCard — appliesTo', () => {
       primaryActor: regularRef(regularId),
     })
     const chosen = pickCardForSeed(seed, state, REQUIRED_CARDS)
-    expect(chosen?.id).toBe(customerComplaintCard.id)
+    expect(chosen?.id).toBe(regularComplaintCard.id)
   })
 
   it('declines a seed whose actor has no cast attributes — fallback handles it', () => {

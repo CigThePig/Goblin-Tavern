@@ -81,3 +81,47 @@ export function areaCleanlinessBand(
   if (!area) return undefined
   return bandOf(area.cleanliness, BAND_THRESHOLDS['area.cleanliness'])
 }
+
+// Phase 134 / ISSUE-103 — Voiced Surface Phase 8 (Regulars & Complaints).
+// Bands for the meters that trigger regular_customer and customer_complaint
+// seeds, so the establishing line can state the triggering condition
+// directly instead of relying on pressure / memory proxies.
+
+export function regularIrritationBand(
+  state: TavernState,
+  regularId: string,
+): BandId | undefined {
+  const regular = state.world.regulars[regularId]
+  if (!regular) return undefined
+  return bandOf(regular.irritation, BAND_THRESHOLDS['regular.irritation'])
+}
+
+export function regularLoyaltyBand(
+  state: TavernState,
+  regularId: string,
+): BandId | undefined {
+  const regular = state.world.regulars[regularId]
+  if (!regular) return undefined
+  return bandOf(regular.loyalty, BAND_THRESHOLDS['regular.loyalty'])
+}
+
+export function customerGroupSatisfactionBand(
+  state: TavernState,
+  groupId: string,
+): BandId | undefined {
+  const group = state.customerGroups[groupId]
+  if (!group) return undefined
+  return bandOf(
+    group.satisfaction,
+    BAND_THRESHOLDS['customer_group.satisfaction'],
+  )
+}
+
+export function customerGroupLoyaltyBand(
+  state: TavernState,
+  groupId: string,
+): BandId | undefined {
+  const group = state.customerGroups[groupId]
+  if (!group) return undefined
+  return bandOf(group.loyalty, BAND_THRESHOLDS['customer_group.loyalty'])
+}

@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest'
 import {
   foodSafetyCrisisCard,
   customerComplaintCard,
+  regularComplaintCard,
   supplierOfferCard,
   maintenanceWarningCard,
   staffBurnoutCard,
@@ -94,7 +95,11 @@ describe('foodSafetyCrisisCard voice', () => {
   })
 })
 
-describe('customerComplaintCard voice', () => {
+// Phase 134 / ISSUE-103 — Voiced Surface arc, Phase 8 (Regulars & Complaints).
+// Replaces the legacy `customerComplaintCard voice` block; the legacy
+// template covered two seed families through one entry, the new
+// compositional split has one block per template.
+describe('customerComplaintCard voice (cohort case)', () => {
   it('honours the budget', () => {
     const seed = makeSeed({
       family: 'customer_complaint',
@@ -108,6 +113,26 @@ describe('customerComplaintCard voice', () => {
   it('is deterministic per seed id', () => {
     assertDeterministic(customerComplaintCard, {
       family: 'customer_complaint',
+      type: 'complaint',
+      timing: 'during_service',
+    })
+  })
+})
+
+describe('regularComplaintCard voice (named-regular case)', () => {
+  it('honours the budget', () => {
+    const seed = makeSeed({
+      family: 'regular_customer',
+      type: 'complaint',
+      timing: 'during_service',
+    })
+    const view = regularComplaintCard.render(seed, createInitialTavernState())
+    assertBudget(view)
+  })
+
+  it('is deterministic per seed id', () => {
+    assertDeterministic(regularComplaintCard, {
+      family: 'regular_customer',
       type: 'complaint',
       timing: 'during_service',
     })

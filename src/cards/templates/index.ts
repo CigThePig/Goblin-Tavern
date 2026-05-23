@@ -6,6 +6,7 @@
 
 import { foodSafetyCrisisCard } from './foodSafetyCrisis'
 import { customerComplaintCard } from './customerComplaint'
+import { regularComplaintCard } from './regularComplaint'
 import { supplierOfferCard } from './supplierOffer'
 import { maintenanceWarningCard } from './maintenanceWarning'
 import { staffBurnoutCard } from './staffBurnout'
@@ -20,6 +21,7 @@ import type { CardDefinition } from '../types'
 export const REQUIRED_CARDS: ReadonlyArray<CardDefinition> = [
   foodSafetyCrisisCard,
   customerComplaintCard,
+  regularComplaintCard,
   supplierOfferCard,
   maintenanceWarningCard,
   staffBurnoutCard,
@@ -35,6 +37,7 @@ export { FALLBACK_CARD_ID }
 export {
   foodSafetyCrisisCard,
   customerComplaintCard,
+  regularComplaintCard,
   supplierOfferCard,
   maintenanceWarningCard,
   staffBurnoutCard,

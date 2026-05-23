@@ -16,11 +16,13 @@
 
 import { createRng } from '../../../../src/sim/core/rng'
 import {
+  createCustomerGroupCastAttributes,
   createRegularCastAttributes,
   createStaffCastAttributes,
 } from '../../../../src/sim/content/cast'
 import type {
   CastAttributes,
+  CustomerGroupCastAttributes,
   VerbalTicId,
 } from '../../../../src/sim/content/cast'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
@@ -591,6 +593,359 @@ export function buildStaffAsideEffectPreviewContext(
   return { currentResponseSlot: slot, currentEffect: effect }
 }
 
+// ---- Phase 134 / ISSUE-103 — Voiced Surface arc, Phase 8 ----
+//
+// Samplers for the regular_complaint and customer_complaint templates.
+// regular_complaint shares the regular actor shape with drinkOrder but
+// targets the `complaint` type (irritation > 60 branch). customer_complaint
+// centres on a customer-group cohort — a new actor kind for the gate
+// harness, so it needs its own install/seed helpers and its own
+// CustomerGroupCastAttributes factory.
+
+function customerGroupRef(id: string): EntityRef {
+  return { kind: 'customer_group', id }
+}
+
+function firstCustomerGroupId(state: TavernState): string {
+  const id = Object.keys(state.customerGroups)[0]
+  if (!id) {
+    throw new Error('samplers: createInitialTavernState() must have a customer group')
+  }
+  return id
+}
+
+function installGroupCast(
+  state: TavernState,
+  groupId: string,
+  cast: CustomerGroupCastAttributes,
+): TavernState {
+  return {
+    ...state,
+    customerGroups: {
+      ...state.customerGroups,
+      [groupId]: {
+        ...state.customerGroups[groupId]!,
+        castAttributes: cast,
+      },
+    },
+  }
+}
+
+function regularComplaintSeedFor(regularId: string, id: string): IssueSeed {
+  return makeSeed({
+    id,
+    family: 'regular_customer',
+    type: 'complaint',
+    timing: 'during_service',
+    severity: 60,
+    domain: ['regulars', 'customers', 'social'],
+    primaryActor: regularRef(regularId),
+    textIngredients: {
+      subject: 'a sour mood',
+      sensoryDetails: ['half-empty mug', 'cold stare'],
+      recentContext: ['irritation 75'],
+    },
+  })
+}
+
+function customerComplaintSeedFor(groupId: string, id: string): IssueSeed {
+  return makeSeed({
+    id,
+    family: 'customer_complaint',
+    type: 'complaint',
+    timing: 'during_service',
+    severity: 55,
+    domain: ['customers', 'reputation', 'service'],
+    primaryActor: customerGroupRef(groupId),
+    textIngredients: {
+      subject: 'a cold welcome',
+      sensoryDetails: ['pursed lips', 'half-finished mugs'],
+      recentContext: ['main room dirty all week'],
+    },
+  })
+}
+
+export function buildRegularComplaintDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  const regularId = firstRegularId(baseState)
+  const profiles: CastAttributes[] = [
+    neutralCast(),
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 2, warmth: 1, formality: 1, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 1, warmth: 2, formality: 1, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 1, warmth: 0, formality: 1, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 1, warmth: 1, formality: 2, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 1, warmth: 1, formality: 1, floridity: 2 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 2, warmth: 0, formality: 1, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 1, warmth: 2, formality: 0, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 1, warmth: 1, formality: 2, floridity: 0 } },
+    },
+    ...VERBAL_TIC_IDS.map<CastAttributes>((tic) => ({
+      ...neutralCast(),
+      voice: {
+        axes: { terseness: 1, warmth: 1, formality: 1, floridity: 1 },
+        verbalTic: tic,
+      },
+    })),
+  ]
+  return profiles.map((cast, i) => ({
+    seed: regularComplaintSeedFor(regularId, `regular-complaint-determinism-${i}`),
+    state: installCast(baseState, regularId, cast),
+  }))
+}
+
+export function buildRegularComplaintDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  const seed = options.rngSeed ?? 'phase-134-regular-complaint-diversity'
+  const rng = createRng(`${seed}:regular_complaint`)
+  const baseState = createInitialTavernState()
+  const regularId = firstRegularId(baseState)
+  return (i: number) => {
+    const cast = createRegularCastAttributes({ rng })
+    const state = installCast(baseState, regularId, cast)
+    return {
+      seed: regularComplaintSeedFor(regularId, `regular-complaint-diversity-${i}`),
+      state,
+    }
+  }
+}
+
+export function buildCustomerComplaintDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  const groupId = firstCustomerGroupId(baseState)
+  // Customer-group cast carries only the voice axes (no specialty /
+  // blindspot / affinities) so we don't reuse `neutralCast()`. The
+  // profiles still cover the full one-axis, two-axis, and tic space.
+  const profiles: CustomerGroupCastAttributes[] = [
+    { voice: { axes: { terseness: 1, warmth: 1, formality: 1, floridity: 1 } } },
+    { voice: { axes: { terseness: 2, warmth: 1, formality: 1, floridity: 1 } } },
+    { voice: { axes: { terseness: 1, warmth: 2, formality: 1, floridity: 1 } } },
+    { voice: { axes: { terseness: 1, warmth: 0, formality: 1, floridity: 1 } } },
+    { voice: { axes: { terseness: 1, warmth: 1, formality: 2, floridity: 1 } } },
+    { voice: { axes: { terseness: 1, warmth: 1, formality: 1, floridity: 2 } } },
+    { voice: { axes: { terseness: 2, warmth: 0, formality: 1, floridity: 1 } } },
+    { voice: { axes: { terseness: 1, warmth: 2, formality: 0, floridity: 1 } } },
+    { voice: { axes: { terseness: 1, warmth: 1, formality: 2, floridity: 0 } } },
+    ...VERBAL_TIC_IDS.map<CustomerGroupCastAttributes>((tic) => ({
+      voice: {
+        axes: { terseness: 1, warmth: 1, formality: 1, floridity: 1 },
+        verbalTic: tic,
+      },
+    })),
+  ]
+  return profiles.map((cast, i) => ({
+    seed: customerComplaintSeedFor(groupId, `customer-complaint-determinism-${i}`),
+    state: installGroupCast(baseState, groupId, cast),
+  }))
+}
+
+export function buildCustomerComplaintDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  const seed = options.rngSeed ?? 'phase-134-customer-complaint-diversity'
+  const rng = createRng(`${seed}:customer_complaint`)
+  const baseState = createInitialTavernState()
+  const groupId = firstCustomerGroupId(baseState)
+  const cultureId = baseState.customerGroups[groupId]!.cultureId
+  return (i: number) => {
+    const cast = createCustomerGroupCastAttributes({ rng, cultureId })
+    const state = installGroupCast(baseState, groupId, cast)
+    return {
+      seed: customerComplaintSeedFor(groupId, `customer-complaint-diversity-${i}`),
+      state,
+    }
+  }
+}
+
+// Phase 6 context builders for the two new templates' choice-label and
+// effect-preview pools. Mirror the drinkOrder / staffAside helpers; the
+// representative response slots cover the verb-gated rungs in each pool.
+
+// Five slots, one per verb the regularComplaint choice-label pool gates
+// on. Rotated by index so the diversity gate can sample every rung.
+const REGULAR_COMPLAINT_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'phase134-regular-appease',
+    labelHint: 'Apologise',
+    allowedVerbs: ['appease'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise loyalty'],
+  },
+  {
+    id: 'phase134-regular-discount',
+    labelHint: 'Comp a meal',
+    allowedVerbs: ['discount'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise loyalty'],
+  },
+  {
+    id: 'phase134-regular-ignore',
+    labelHint: 'Ignore the regular',
+    allowedVerbs: ['ignore'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'ignore' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise regular loss pressure'],
+  },
+  {
+    id: 'phase134-regular-ban',
+    labelHint: 'Ban the regular',
+    allowedVerbs: ['ban'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'escalation' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['lose regular'],
+  },
+  {
+    id: 'phase134-regular-blame',
+    labelHint: 'Refuse the request',
+    allowedVerbs: ['blame'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'relationship_sacrifice' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['hold the line'],
+  },
+]
+
+const REGULAR_COMPLAINT_EFFECTS: readonly EffectPreview[] = [
+  {
+    kind: 'cause',
+    target: 'regular.example',
+    amount: 8,
+    readable: 'loyalty rises',
+    tags: ['regular'],
+  },
+  {
+    kind: 'state_change',
+    target: 'noop',
+    amount: 0,
+    readable: 'nothing changes',
+    tags: [],
+  },
+]
+
+// Five slots, one per verb the customerComplaint choice-label pool gates
+// on. The starter Adventurers culture biases voice axes (high floridity,
+// low terseness/formality) so the verbs paired with the axis-bound rungs
+// must include rebrand (paired with floridity ≥ 2) and clean (paired with
+// terseness ≥ 2 — fires rarely under this culture, lifted by the other
+// rungs).
+const CUSTOMER_COMPLAINT_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'phase134-cohort-discount',
+    labelHint: 'Offer a discount',
+    allowedVerbs: ['discount'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise satisfaction'],
+  },
+  {
+    id: 'phase134-cohort-appease',
+    labelHint: 'Public apology',
+    allowedVerbs: ['appease'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'relationship_sacrifice' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise satisfaction'],
+  },
+  {
+    id: 'phase134-cohort-blame',
+    labelHint: 'Side with the house',
+    allowedVerbs: ['blame'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'relationship_sacrifice' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['lose group trust'],
+  },
+  {
+    id: 'phase134-cohort-rebrand',
+    labelHint: 'Rebrand the issue',
+    allowedVerbs: ['rebrand'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'reputation_play' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['shift reputation'],
+  },
+  {
+    id: 'phase134-cohort-clean',
+    labelHint: 'Fix the root cause',
+    allowedVerbs: ['clean'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'long_term_investment' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise cleanliness'],
+  },
+]
+
+const CUSTOMER_COMPLAINT_EFFECTS: readonly EffectPreview[] = [
+  {
+    kind: 'state_change',
+    target: 'customer.satisfaction',
+    amount: 10,
+    readable: 'satisfaction climbs',
+    tags: ['customer'],
+  },
+  {
+    kind: 'state_change',
+    target: 'coin',
+    amount: -10,
+    readable: 'coin cost',
+    tags: ['coin'],
+  },
+]
+
+export function buildRegularComplaintChoiceLabelContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = REGULAR_COMPLAINT_RESPONSE_SLOTS[i % REGULAR_COMPLAINT_RESPONSE_SLOTS.length]!
+  return { currentResponseSlot: slot }
+}
+
+export function buildRegularComplaintEffectPreviewContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = REGULAR_COMPLAINT_RESPONSE_SLOTS[i % REGULAR_COMPLAINT_RESPONSE_SLOTS.length]!
+  const effect = REGULAR_COMPLAINT_EFFECTS[i % REGULAR_COMPLAINT_EFFECTS.length]!
+  return { currentResponseSlot: slot, currentEffect: effect }
+}
+
+export function buildCustomerComplaintChoiceLabelContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = CUSTOMER_COMPLAINT_RESPONSE_SLOTS[i % CUSTOMER_COMPLAINT_RESPONSE_SLOTS.length]!
+  return { currentResponseSlot: slot }
+}
+
+export function buildCustomerComplaintEffectPreviewContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = CUSTOMER_COMPLAINT_RESPONSE_SLOTS[i % CUSTOMER_COMPLAINT_RESPONSE_SLOTS.length]!
+  const effect = CUSTOMER_COMPLAINT_EFFECTS[i % CUSTOMER_COMPLAINT_EFFECTS.length]!
+  return { currentResponseSlot: slot, currentEffect: effect }
+}
+
 export const __testing = {
   firstRegularId,
   installCast,
@@ -605,4 +960,9 @@ export const __testing = {
   STAFF_ASIDE_RESPONSE_SLOTS,
   DRINK_ORDER_EFFECTS,
   STAFF_ASIDE_EFFECTS,
+  firstCustomerGroupId,
+  installGroupCast,
+  customerGroupRef,
+  REGULAR_COMPLAINT_RESPONSE_SLOTS,
+  CUSTOMER_COMPLAINT_RESPONSE_SLOTS,
 }

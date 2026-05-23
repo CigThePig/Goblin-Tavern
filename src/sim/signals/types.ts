@@ -20,6 +20,14 @@ export type SignalId =
   | 'faction.influence'
   | 'area.condition'
   | 'area.cleanliness'
+  // Phase 134 / ISSUE-103 — Voiced Surface Phase 8 (Regulars & Complaints)
+  // additive loopback. Regulars and customer-group cohorts carry the
+  // meters that trigger their respective complaint seeds; the snippet
+  // DSL needs bands on them to anchor sim-backed establishing lines.
+  | 'regular.irritation'
+  | 'regular.loyalty'
+  | 'customer_group.satisfaction'
+  | 'customer_group.loyalty'
 
 /** Three-band tiering. Boundaries live in `bands.ts` as data so gates
  *  can enumerate them. Snippets decide what `low` / `high` *means* per
@@ -43,6 +51,10 @@ export const SIGNAL_ENTITY_KIND: Record<SignalId, EntityRef['kind']> = {
   'faction.influence': 'faction',
   'area.condition': 'area',
   'area.cleanliness': 'area',
+  'regular.irritation': 'regular',
+  'regular.loyalty': 'regular',
+  'customer_group.satisfaction': 'customer_group',
+  'customer_group.loyalty': 'customer_group',
 }
 
 /** All band ids enumerated. The gates use this to walk every reachable

@@ -10,8 +10,12 @@ import type { EntityRef, TavernState } from '../state/TavernState'
 import {
   areaCleanlinessBand,
   areaConditionBand,
+  customerGroupLoyaltyBand,
+  customerGroupSatisfactionBand,
   factionInfluenceBand,
   factionRelationshipBand,
+  regularIrritationBand,
+  regularLoyaltyBand,
   staffFatigueBand,
   staffStressBand,
   supplierRelationshipBand,
@@ -52,5 +56,13 @@ function readBand(
       return areaConditionBand(state, id)
     case 'area.cleanliness':
       return areaCleanlinessBand(state, id)
+    case 'regular.irritation':
+      return regularIrritationBand(state, id)
+    case 'regular.loyalty':
+      return regularLoyaltyBand(state, id)
+    case 'customer_group.satisfaction':
+      return customerGroupSatisfactionBand(state, id)
+    case 'customer_group.loyalty':
+      return customerGroupLoyaltyBand(state, id)
   }
 }

@@ -26,6 +26,16 @@ export const BAND_THRESHOLDS: Record<SignalId, [number, number]> = {
   'faction.influence': [40, 70],
   'area.condition': [40, 70],
   'area.cleanliness': [40, 70],
+  // Phase 134 / ISSUE-103 — Voiced Surface Phase 8. Default-thirds
+  // matches the seed generators' threshold semantics: a regular_customer
+  // complaint fires at `irritation > 60` (lands in `mid` until 70, then
+  // `high`), and a customer_complaint fires at `satisfaction <= 60`
+  // (`mid` band). Snippets gate on `low`/`high` for the dramatic
+  // extremes and fall back through `mid` for the neutral cases.
+  'regular.irritation': [40, 70],
+  'regular.loyalty': [40, 70],
+  'customer_group.satisfaction': [40, 70],
+  'customer_group.loyalty': [40, 70],
 }
 
 /** Pure bander. Returns `low` for `value < thresholds[0]`, `high` for

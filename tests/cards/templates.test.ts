@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest'
 import {
   foodSafetyCrisisCard,
   customerComplaintCard,
+  regularComplaintCard,
   supplierOfferCard,
   maintenanceWarningCard,
   staffBurnoutCard,
@@ -155,19 +156,26 @@ describe('Template 1 — foodSafetyCrisisCard', () => {
   })
 })
 
-describe('Template 2 — customerComplaintCard', () => {
+// Phase 134 / ISSUE-103 — Voiced Surface arc, Phase 8 (Regulars & Complaints).
+// The legacy `customerComplaintCard` covered both customer_complaint and
+// regular_customer / complaint seeds via a single template. The Phase 8
+// migration splits it into two compositional templates partitioned by
+// family. The two blocks below replace the legacy Template 2.
+describe('Template 2a — customerComplaintCard (cohort case)', () => {
   const state = createInitialTavernState()
+  const groupId = Object.keys(state.customerGroups)[0]!
   const seed = makeSeed({
     family: 'customer_complaint',
     type: 'complaint',
     timing: 'during_service',
+    primaryActor: { kind: 'customer_group', id: groupId },
     responseSlots: [
       {
         id: 'complain-slot-a',
         labelHint: 'Smooth it over',
         allowedVerbs: ['appease'],
         shape: 'safe_costly',
-        targetOptions: [{ kind: 'customer_group', id: 'local_goblins' }],
+        targetOptions: [{ kind: 'customer_group', id: groupId }],
         expectedEffects: ['satisfaction +5'],
       },
     ],
@@ -178,7 +186,7 @@ describe('Template 2 — customerComplaintCard', () => {
         immediateEffects: [
           {
             kind: 'state_change',
-            target: 'customerGroups.local_goblins.satisfaction',
+            target: `customerGroups.${groupId}.satisfaction`,
             amount: 5,
             readable: 'patrons soften a little',
             tags: [],
@@ -194,7 +202,7 @@ describe('Template 2 — customerComplaintCard', () => {
       subject: 'complains loudly',
       problemNoun: 'sour ale',
       sensoryDetails: ['banging mug'],
-      actorOpinions: { local_goblins: 'this is unacceptable, boss' },
+      actorOpinions: { [groupId]: 'this is unacceptable, boss' },
     },
   })
 
@@ -212,6 +220,76 @@ describe('Template 2 — customerComplaintCard', () => {
   })
   it('does not mutate state', () => {
     assertNonMutation(customerComplaintCard, seed, state)
+  })
+})
+
+describe('Template 2b — regularComplaintCard (named-regular case)', () => {
+  const state = createInitialTavernState()
+  // Pick a regular whose display name is one word so the assembled
+  // title `${display}: ${snippet}` stays within the legacy 6-word
+  // budget the shared `assertTitleBudget` helper enforces. Mirrors
+  // the Phase-7 staffBurnoutCard block, which depends on the
+  // first-starter staff happening to be `Nash` (one word).
+  const regularId =
+    Object.entries(state.world.regulars).find(
+      ([, r]) => r.name.display.split(/\s+/).length === 1,
+    )?.[0] ?? Object.keys(state.world.regulars)[0]!
+  const seed = makeSeed({
+    family: 'regular_customer',
+    type: 'complaint',
+    timing: 'during_service',
+    primaryActor: { kind: 'regular', id: regularId },
+    responseSlots: [
+      {
+        id: 'regular-complaint-slot-a',
+        labelHint: 'Apologise',
+        allowedVerbs: ['appease'],
+        shape: 'safe_costly',
+        targetOptions: [{ kind: 'regular', id: regularId }],
+        expectedEffects: ['loyalty +5'],
+      },
+    ],
+    consequenceProfiles: [
+      {
+        id: 'regular-complaint-profile-a',
+        responseSlotId: 'regular-complaint-slot-a',
+        immediateEffects: [
+          {
+            kind: 'cause',
+            target: `regular:${regularId}`,
+            amount: 5,
+            readable: 'loyalty climbs',
+            tags: ['regular'],
+          },
+        ],
+        delayedEffects: [],
+        memories: [],
+        futureHooks: [],
+        impactScore: 3,
+      },
+    ],
+    textIngredients: {
+      subject: 'a sour mood',
+      problemNoun: 'sour mood',
+      sensoryDetails: ['half-empty mug'],
+      actorOpinions: { [regularId]: 'looks ready to leave' },
+    },
+  })
+
+  it('applies', () => {
+    expect(appliesToMatches(regularComplaintCard.appliesTo, seed, state)).toBe(true)
+  })
+  it('renders within budgets', () => {
+    const view = regularComplaintCard.render(seed, state)
+    assertTitleBudget(view)
+    assertBodyBudget(view)
+    expect(view.choices.length).toBeGreaterThan(0)
+  })
+  it('emits valid choices', () => {
+    assertChoiceValidity(regularComplaintCard.render(seed, state), seed)
+  })
+  it('does not mutate state', () => {
+    assertNonMutation(regularComplaintCard, seed, state)
   })
 })
 

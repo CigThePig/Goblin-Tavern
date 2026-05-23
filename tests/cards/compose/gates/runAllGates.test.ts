@@ -12,6 +12,8 @@ import { runAllGates } from '../../../../src/cards/compose/gates'
 import { drinkOrderTemplate } from '../../../../src/cards/templates/drinkOrder'
 import { staffAsideTemplate } from '../../../../src/cards/templates/staffAside'
 import { staffBurnoutTemplate } from '../../../../src/cards/templates/staffBurnout'
+import { regularComplaintTemplate } from '../../../../src/cards/templates/regularComplaint'
+import { customerComplaintTemplate } from '../../../../src/cards/templates/customerComplaint'
 import {
   drinkOrderChoiceLabelPool,
   drinkOrderEffectPreviewPool,
@@ -20,14 +22,30 @@ import {
   staffAsideChoiceLabelPool,
   staffAsideEffectPreviewPool,
 } from '../../../../src/cards/compose/pools/staffAside'
+import {
+  regularComplaintChoiceLabelPool,
+  regularComplaintEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/regularComplaint'
+import {
+  customerComplaintChoiceLabelPool,
+  customerComplaintEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/customerComplaint'
 import type { CompositionalCardTemplate } from '../../../../src/cards/compose/types'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
 import { buildTemplate } from './fixtures'
 import {
+  buildCustomerComplaintChoiceLabelContext,
+  buildCustomerComplaintDeterminismSamples,
+  buildCustomerComplaintDiversitySampler,
+  buildCustomerComplaintEffectPreviewContext,
   buildDeterminismSamples,
   buildDiversitySampler,
   buildDrinkOrderChoiceLabelContext,
   buildDrinkOrderEffectPreviewContext,
+  buildRegularComplaintChoiceLabelContext,
+  buildRegularComplaintDeterminismSamples,
+  buildRegularComplaintDiversitySampler,
+  buildRegularComplaintEffectPreviewContext,
   buildStaffAsideChoiceLabelContext,
   buildStaffAsideEffectPreviewContext,
   buildStaffBurnoutDeterminismSamples,
@@ -176,6 +194,104 @@ describe('runAllGates — happy path', () => {
     expect(report.determinism.pass).toBe(true)
     expect(report.diversity.every((d) => d.pass)).toBe(true)
   })
+
+  // Phase 134 / ISSUE-103 — Voiced Surface arc, Phase 8 (Regulars & Complaints).
+  // Two new compositional templates partition the legacy customerComplaint
+  // surface by family. Each clears every gate against the perturbed regular
+  // / customer-group cast distribution, the same shape staffBurnout uses.
+  it('the real regularComplaint template passes all seven gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(regularComplaintTemplate, {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: buildRegularComplaintDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'title',
+          sampler: buildRegularComplaintDiversitySampler({
+            rngSeed: 'run-all-regular-complaint-title',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'establishing_line',
+          sampler: buildRegularComplaintDiversitySampler({
+            rngSeed: 'run-all-regular-complaint-establishing',
+          }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
+        {
+          slotId: 'reaction_line',
+          sampler: buildRegularComplaintDiversitySampler({
+            rngSeed: 'run-all-regular-complaint-reaction',
+          }),
+          config: { sampleSize: 100, minDistinct: 6 },
+        },
+        {
+          slotId: 'manner_note',
+          sampler: buildRegularComplaintDiversitySampler({
+            rngSeed: 'run-all-regular-complaint-manner',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  it('the real customerComplaint template passes all seven gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(customerComplaintTemplate, {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: buildCustomerComplaintDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'title',
+          sampler: buildCustomerComplaintDiversitySampler({
+            rngSeed: 'run-all-customer-complaint-title',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'establishing_line',
+          sampler: buildCustomerComplaintDiversitySampler({
+            rngSeed: 'run-all-customer-complaint-establishing',
+          }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
+        {
+          slotId: 'reaction_line',
+          sampler: buildCustomerComplaintDiversitySampler({
+            rngSeed: 'run-all-customer-complaint-reaction',
+          }),
+          config: { sampleSize: 100, minDistinct: 6 },
+        },
+        {
+          slotId: 'manner_note',
+          sampler: buildCustomerComplaintDiversitySampler({
+            rngSeed: 'run-all-customer-complaint-manner',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
 })
 
 // ---- Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6 ----
@@ -230,6 +346,57 @@ function buildStaffAsideChoicesGateTemplate(): CompositionalCardTemplate {
         id: 'effect_preview',
         role: 'effect_preview',
         pool: staffAsideEffectPreviewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      },
+    ],
+  }
+}
+
+// Phase 134 / ISSUE-103 — Voiced Surface arc, Phase 8.
+function buildRegularComplaintChoicesGateTemplate(): CompositionalCardTemplate {
+  return {
+    ...regularComplaintTemplate,
+    id: 'phase134-regularComplaint-choices-gate',
+    slots: [
+      {
+        id: 'choice_label',
+        role: 'choice_label',
+        pool: regularComplaintChoiceLabelPool,
+        optional: true,
+        wordBudget: 6,
+        claimMode: 'flavor',
+      },
+      {
+        id: 'effect_preview',
+        role: 'effect_preview',
+        pool: regularComplaintEffectPreviewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      },
+    ],
+  }
+}
+
+function buildCustomerComplaintChoicesGateTemplate(): CompositionalCardTemplate {
+  return {
+    ...customerComplaintTemplate,
+    id: 'phase134-customerComplaint-choices-gate',
+    slots: [
+      {
+        id: 'choice_label',
+        role: 'choice_label',
+        pool: customerComplaintChoiceLabelPool,
+        optional: true,
+        wordBudget: 6,
+        claimMode: 'flavor',
+      },
+      {
+        id: 'effect_preview',
+        role: 'effect_preview',
+        pool: customerComplaintEffectPreviewPool,
         optional: true,
         wordBudget: 10,
         claimMode: 'flavor',
@@ -308,6 +475,89 @@ describe('runAllGates — Phase 6 choice / consequence pools', () => {
             sampleSize: 100,
             minDistinct: 3,
             pickContext: buildStaffAsideEffectPreviewContext,
+          },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  // Phase 134 / ISSUE-103 — Voiced Surface arc, Phase 8.
+  it('the regularComplaint choice-label and effect-preview pools pass all gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(buildRegularComplaintChoicesGateTemplate(), {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: [] },
+      diversity: [
+        {
+          slotId: 'choice_label',
+          sampler: buildRegularComplaintDiversitySampler({
+            rngSeed: 'phase134-regular-choice-label',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildRegularComplaintChoiceLabelContext,
+          },
+        },
+        {
+          slotId: 'effect_preview',
+          sampler: buildRegularComplaintDiversitySampler({
+            rngSeed: 'phase134-regular-effect-preview',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildRegularComplaintEffectPreviewContext,
+          },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  it('the customerComplaint choice-label and effect-preview pools pass all gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(buildCustomerComplaintChoicesGateTemplate(), {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: [] },
+      diversity: [
+        {
+          slotId: 'choice_label',
+          sampler: buildCustomerComplaintDiversitySampler({
+            rngSeed: 'phase134-customer-choice-label',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildCustomerComplaintChoiceLabelContext,
+          },
+        },
+        {
+          slotId: 'effect_preview',
+          sampler: buildCustomerComplaintDiversitySampler({
+            rngSeed: 'phase134-customer-effect-preview',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildCustomerComplaintEffectPreviewContext,
           },
         },
       ],

@@ -13,7 +13,9 @@ import {
   foodSafetyCrisisCard,
   customerComplaintCard,
   regularComplaintCard,
-  supplierOfferCard,
+  supplierReliabilityCard,
+  stockShortageCard,
+  debtRentCard,
   maintenanceWarningCard,
   staffBurnoutCard,
   factionRequestCard,
@@ -293,32 +295,122 @@ describe('Template 2b — regularComplaintCard (named-regular case)', () => {
   })
 })
 
-describe('Template 3 — supplierOfferCard', () => {
+// Phase 135 / ISSUE-104 — Voiced Surface arc, Phase 9 (Suppliers, Stock & Debt).
+// The legacy `supplierOfferCard` block is replaced by three new
+// compositional templates: supplierReliability (actor-voiced, replaces
+// the legacy template), stockShortage and debtRent (narrator-voiced,
+// first dedicated cards for those families).
+describe('Template 3a — supplierReliabilityCard', () => {
   const state = createInitialTavernState()
-  // The starter state has no suppliers yet — supplier cards should
-  // gracefully degrade to "A supplier" rather than crashing.
+  const supplierId = Object.keys(state.world.suppliers)[0]!
   const seed = makeSeed({
     family: 'supplier_relationship',
     type: 'supplier_offer',
     timing: 'morning_prep',
-    primaryActor: { kind: 'supplier', id: 'phantom_supplier' },
+    primaryActor: { kind: 'supplier', id: supplierId },
     textIngredients: {
-      subject: 'offers stale bread',
+      subject: state.world.suppliers[supplierId]!.name?.display ?? 'A supplier',
       marketContext: ['bread prices ticking up'],
     },
   })
 
-  it('applies', () => {
-    expect(appliesToMatches(supplierOfferCard.appliesTo, seed, state)).toBe(true)
+  it('applies when the supplier carries Phase-2 castAttributes', () => {
+    expect(appliesToMatches(supplierReliabilityCard.appliesTo, seed, state)).toBe(true)
   })
-  it('renders within budgets and degrades when supplier is missing', () => {
-    const view = supplierOfferCard.render(seed, state)
+  it('renders within budgets and centres the title on the supplier', () => {
+    const view = supplierReliabilityCard.render(seed, state)
     assertTitleBudget(view)
     assertBodyBudget(view)
-    expect(view.title.toLowerCase()).toContain('supplier')
+    const display = state.world.suppliers[supplierId]!.name?.display ?? ''
+    expect(view.title.toLowerCase()).toContain(display.toLowerCase().split(' ')[0]!)
   })
   it('does not mutate state', () => {
-    assertNonMutation(supplierOfferCard, seed, state)
+    assertNonMutation(supplierReliabilityCard, seed, state)
+  })
+})
+
+describe('Template 3b — stockShortageCard', () => {
+  const state = createInitialTavernState()
+  const seed = makeSeed({
+    family: 'stock_shortage',
+    type: 'warning',
+    timing: 'morning_prep',
+    domain: ['stock', 'customers'],
+    severity: 55,
+    toneHints: ['warning'],
+    textIngredients: {
+      subject: 'ale stock',
+      problemNoun: 'low stock',
+      sensoryDetails: ['empty kegs', 'thirsty regulars'],
+      recentContext: ['ale sales heavy this week'],
+    },
+  })
+
+  it('applies to a stock_shortage / warning / morning_prep seed', () => {
+    expect(appliesToMatches(stockShortageCard.appliesTo, seed, state)).toBe(true)
+  })
+  it('renders within budgets and narrates the situation (no actor prefix)', () => {
+    const view = stockShortageCard.render(seed, state)
+    assertTitleBudget(view)
+    assertBodyBudget(view)
+    expect(view.title).not.toContain(':')
+    expect(view.body.length).toBeGreaterThan(0)
+  })
+  it('body never surfaces raw textIngredients fragments', () => {
+    const view = stockShortageCard.render(seed, state)
+    for (const line of view.body) {
+      expect(line).not.toBe('empty kegs')
+      expect(line).not.toBe('thirsty regulars')
+      expect(line).not.toBe('ale sales heavy this week')
+      expect(line).not.toMatch(/quantity \d+/)
+      expect(line.toLowerCase()).not.toBe('low stock')
+    }
+  })
+  it('does not mutate state', () => {
+    assertNonMutation(stockShortageCard, seed, state)
+  })
+})
+
+describe('Template 3c — debtRentCard', () => {
+  const state = createInitialTavernState()
+  const seed = makeSeed({
+    family: 'debt_rent',
+    type: 'debt_pressure',
+    timing: 'end_month',
+    domain: ['economy', 'monthly', 'landlord'],
+    severity: 55,
+    toneHints: ['debt', 'pressure'],
+    textIngredients: {
+      subject: 'rent due',
+      problemNoun: 'shrinking coin pile',
+      sensoryDetails: ['scratched ledger', 'thin coin stack'],
+      recentContext: ['coin tight for weeks'],
+    },
+  })
+
+  it('applies to a debt_rent / debt_pressure / end_month seed', () => {
+    expect(appliesToMatches(debtRentCard.appliesTo, seed, state)).toBe(true)
+  })
+  it('renders within budgets and narrates the situation (no actor prefix)', () => {
+    const view = debtRentCard.render(seed, state)
+    assertTitleBudget(view)
+    assertBodyBudget(view)
+    expect(view.title).not.toContain(':')
+    expect(view.body.length).toBeGreaterThan(0)
+  })
+  it('body never surfaces raw textIngredients fragments', () => {
+    const view = debtRentCard.render(seed, state)
+    for (const line of view.body) {
+      expect(line).not.toBe('scratched ledger')
+      expect(line).not.toBe('thin coin stack')
+      expect(line).not.toBe('coin tight for weeks')
+      expect(line).not.toMatch(/debt \d+/)
+      expect(line).not.toMatch(/landlord \d+/)
+      expect(line.toLowerCase()).not.toBe('shrinking coin pile')
+    }
+  })
+  it('does not mutate state', () => {
+    assertNonMutation(debtRentCard, seed, state)
   })
 })
 

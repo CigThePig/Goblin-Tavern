@@ -10,7 +10,9 @@ import {
   foodSafetyCrisisCard,
   customerComplaintCard,
   regularComplaintCard,
-  supplierOfferCard,
+  supplierReliabilityCard,
+  stockShortageCard,
+  debtRentCard,
   maintenanceWarningCard,
   staffBurnoutCard,
   factionRequestCard,
@@ -33,6 +35,22 @@ function assertBudget(view: CardView): void {
   expect(wordCount(view.title.replace('…', ''))).toBeLessThanOrEqual(6)
   for (const line of view.body) {
     expect(wordCount(line.replace('…', ''))).toBeLessThanOrEqual(12)
+  }
+  expect(view.body.length).toBeLessThanOrEqual(3)
+}
+
+// Phase 135 / ISSUE-104 — compositional templates whose title prefixes
+// an actor display name (`${display}: ${snippet}`) cannot honour the
+// 6-word title cap of the legacy `assertBudget` because the display
+// name lifts the count. The composed `title` SLOT itself is still
+// capped at 6 words (gated by the voice-bounds gate); this helper
+// checks only the body budgets + non-empty title.
+function assertBodyBudgetOnly(view: CardView): void {
+  expect(view.title.length).toBeGreaterThan(0)
+  expect(view.title).not.toContain('…')
+  expect(view.title).not.toContain('...')
+  for (const line of view.body) {
+    expect(wordCount(line.replace('…', ''))).toBeLessThanOrEqual(14)
   }
   expect(view.body.length).toBeLessThanOrEqual(3)
 }
@@ -139,22 +157,123 @@ describe('regularComplaintCard voice (named-regular case)', () => {
   })
 })
 
-describe('supplierOfferCard voice', () => {
-  it('honours the budget', () => {
+// Phase 135 / ISSUE-104 — Voiced Surface arc, Phase 9. The legacy
+// supplierOfferCard voice block is replaced by three new blocks: the
+// supplierReliability (actor-voiced) plus the two narrator-voiced
+// templates stockShortage and debtRent. The shared assertion is that
+// the body never surfaces raw mechanical readouts (the symptom this
+// migration is killing — `"reliability 45"`, `"low stock"`,
+// `"debt 30"`).
+describe('supplierReliabilityCard voice', () => {
+  it('honours the body budget (composed display prefix lifts title past the legacy 6-word cap)', () => {
+    const state = createInitialTavernState()
+    const supplierId = Object.keys(state.world.suppliers)[0]!
     const seed = makeSeed({
       family: 'supplier_relationship',
       type: 'supplier_offer',
       timing: 'morning_prep',
+      primaryActor: { kind: 'supplier', id: supplierId },
     })
-    const view = supplierOfferCard.render(seed, createInitialTavernState())
-    assertBudget(view)
+    const view = supplierReliabilityCard.render(seed, state)
+    assertBodyBudgetOnly(view)
   })
 
-  it('is deterministic per seed id', () => {
-    assertDeterministic(supplierOfferCard, {
+  it('body never contains a raw reliability readout', () => {
+    const state = createInitialTavernState()
+    const supplierId = Object.keys(state.world.suppliers)[0]!
+    const seed = makeSeed({
       family: 'supplier_relationship',
       type: 'supplier_offer',
       timing: 'morning_prep',
+      primaryActor: { kind: 'supplier', id: supplierId },
+    })
+    const view = supplierReliabilityCard.render(seed, state)
+    for (const line of view.body) {
+      expect(line).not.toMatch(/reliability \d+/i)
+    }
+  })
+
+  it('is deterministic per seed id', () => {
+    const state = createInitialTavernState()
+    const supplierId = Object.keys(state.world.suppliers)[0]!
+    assertDeterministic(supplierReliabilityCard, {
+      family: 'supplier_relationship',
+      type: 'supplier_offer',
+      timing: 'morning_prep',
+      primaryActor: { kind: 'supplier', id: supplierId },
+    })
+    void state
+  })
+})
+
+describe('stockShortageCard voice', () => {
+  it('honours the budget', () => {
+    const seed = makeSeed({
+      family: 'stock_shortage',
+      type: 'warning',
+      timing: 'morning_prep',
+      domain: ['stock'],
+    })
+    const view = stockShortageCard.render(seed, createInitialTavernState())
+    assertBudget(view)
+  })
+
+  it('body never contains a raw stock readout', () => {
+    const seed = makeSeed({
+      family: 'stock_shortage',
+      type: 'warning',
+      timing: 'morning_prep',
+      domain: ['stock'],
+    })
+    const view = stockShortageCard.render(seed, createInitialTavernState())
+    for (const line of view.body) {
+      expect(line).not.toMatch(/quantity \d+/)
+      expect(line.toLowerCase()).not.toBe('low stock')
+    }
+  })
+
+  it('is deterministic per seed id', () => {
+    assertDeterministic(stockShortageCard, {
+      family: 'stock_shortage',
+      type: 'warning',
+      timing: 'morning_prep',
+      domain: ['stock'],
+    })
+  })
+})
+
+describe('debtRentCard voice', () => {
+  it('honours the budget', () => {
+    const seed = makeSeed({
+      family: 'debt_rent',
+      type: 'debt_pressure',
+      timing: 'end_month',
+      domain: ['economy', 'monthly', 'landlord'],
+    })
+    const view = debtRentCard.render(seed, createInitialTavernState())
+    assertBudget(view)
+  })
+
+  it('body never contains a raw debt or landlord readout', () => {
+    const seed = makeSeed({
+      family: 'debt_rent',
+      type: 'debt_pressure',
+      timing: 'end_month',
+      domain: ['economy', 'monthly', 'landlord'],
+    })
+    const view = debtRentCard.render(seed, createInitialTavernState())
+    for (const line of view.body) {
+      expect(line).not.toMatch(/debt \d+/i)
+      expect(line).not.toMatch(/landlord \d+/i)
+    }
+  })
+
+  it('is deterministic per seed id', () => {
+    assertDeterministic(debtRentCard, {
+      family: 'debt_rent',
+      type: 'debt_pressure',
+      timing: 'end_month',
+      domain: ['economy', 'monthly', 'landlord'],
     })
   })
 })

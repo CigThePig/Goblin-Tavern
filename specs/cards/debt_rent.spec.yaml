@@ -1,0 +1,120 @@
+# Phase 135 / ISSUE-104 — Voiced Surface arc, Phase 9 (Suppliers, Stock & Debt).
+#
+# Generation spec for the debt_rent compositional template. First card the
+# family has had — the legacy surface routed every debt_rent seed through
+# the fallback card. The seed has no primaryActor by design (audit pass 1
+# §5.3 — the landlord is a `systemRef`, not a real entity) and an empty
+# `affectedActors` list, so the template renders in a NARRATOR-VOICED
+# register: voice axes / verbal tics never fire because no actor resolves;
+# variety comes from rising pressures, prior-payment memories, the
+# `rent_due_soon` calendar tag, and severity bands.
+#
+# The voice register is the owner-at-the-ledger view of an end_month
+# moment — sober, monthly, ledger-shaped. Distinct from `back_of_house`
+# (stock_shortage; cellar at sunrise) and `trade_floor` (supplier; the
+# counter).
+
+templateId: debt_rent
+voiceRegister: office_quarters
+status: phase_9_voiced_surface_arc_shipped
+purpose: >
+  Generate voiced cards for the end_month debt_rent situation. The body
+  states the actual sim situation (debt pressure rising, landlord
+  pressure rising, recent payment / borrow / delay memories, the
+  rent_due_soon calendar tag, severity) and frames the owner's quiet
+  read of the ledger.
+
+appliesTo:
+  seedFamilies: ['debt_rent']
+  seedTypes: ['debt_pressure']
+  timings: ['end_month']
+
+slots:
+  - id: title
+    required: true
+    claims: flavor
+    maxWords: 6
+    description: >
+      Short situational title. No actor display prefix (no character
+      centres the card; the situation does).
+
+  - id: establishing_line
+    required: true
+    claims: sim-backed
+    maxWords: 14
+    description: >
+      Third-person narration of the rent situation. Names what happened
+      — debt pressure rising, landlord pressure rising, prior owner
+      choice surfaced from memory tags (rent_paid_recently /
+      rent_delayed_recently / borrowed_coin_recently /
+      eviction_threat_possible), the rent_due_soon calendar tag,
+      severity tier. Unconditional fallback claims only that the ledger
+      sits open.
+
+  - id: reaction_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      The owner's quiet read of the month, third-person narrator voice.
+      No first-person address; no named NPC (the landlord is system,
+      not character). Gated on severity, calendar tag, and
+      prior-choice memories.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      Optional sensory beat — the thin coin stack, the scratched ledger,
+      the door waiting for a visitor. Omitted rather than weak.
+
+voiceAxesInPlay: (none — see voiceRegister)
+verbalTicsCovered: (none — ownerless)
+
+# Sim signals / primitives the establishing_line pool reaches for.
+simSignalsInUse:
+  - { kind: pressureRising, pressureIds: [debt, landlord] }
+  - { kind: memoryPresent, tags: [rent, landlord, debt, risk] }
+  - { kind: repeatCount, subjectTag: debt }
+  - { kind: hasTag, tags: [rent_due_soon, debt, pressure, monthly, landlord] }
+  - { kind: severityAtLeast, value: 70 }
+
+mustNotInvent:
+  - named NPCs (no character is on the seed — the landlord is system-only)
+  - specific creditor names beyond the abstract "landlord"
+  - specific coin amounts ("30 silver", "the 12-gold note")
+  - earth idioms, modern slang, real-world brand language
+  - direct mechanical readouts ("debt 35", "landlord pressure 40")
+
+hardBounds:
+  perSlotWords:
+    title: 6
+    establishing_line: 14
+    reaction_line: 12
+    manner_note: 10
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+  noDirectMechanicalLanguage: true
+
+gradientPolicy:
+  base: one unconditional fallback per required slot (always fires)
+  middle: single-condition snippets — a pressure, a memory tag, a tone tag, a severity band
+  top: two-condition snippets — pressure + memory, memory + tag, severity + tag
+  rule: |
+    no voiceAxis or verbalTic conditions in any pool. Same reason as
+    stock_shortage: the seed carries no primaryActor, so actor
+    resolution returns undefined and the framework primitives would
+    always evaluate to false.
+
+mustPass:
+  coverage: required slots title, establishing_line, reaction_line each have an unconditional fallback
+  specificityGradient: pools contain fallback + single-condition middle rung + two-condition top rung
+  voiceBounds: every snippet within slot.maxWords
+  simCoherence: establishing_line is claims sim-backed; every non-fallback carries ≥1 state-lookup condition
+  determinism: same seed + same state + same slot returns same snippet after FNV tie-break
+  diversity: state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
+  dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots

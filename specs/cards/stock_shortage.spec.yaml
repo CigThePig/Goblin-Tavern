@@ -1,0 +1,123 @@
+# Phase 135 / ISSUE-104 — Voiced Surface arc, Phase 9 (Suppliers, Stock & Debt).
+#
+# Generation spec for the stock_shortage compositional template. This is
+# the first card the family has had — the legacy surface routed every
+# stock_shortage seed through the fallback card. The seed has no
+# primaryActor (the subject is a stock item; affectedActors is a customer
+# cohort), so the template renders in a NARRATOR-VOICED register: voice
+# axes / verbal tics never fire because no actor resolves; variety in the
+# flavor slots (reaction_line, manner_note) comes from state perturbation
+# — pressures rising, memories of prior choices, calendar tone hints,
+# severity bands.
+#
+# Cohort routing for the miners (or whichever customer group affectedActors
+# names) is deferred as design-intent. A future phase that wants the
+# cohort to voice the line will add `textIngredients.namedEntities:
+# [{role: 'affectedCohort', ref: customerRef(...)}]` to the seed and the
+# snippet author swaps in `voiceAxis role: 'affectedCohort'`.
+
+templateId: stock_shortage
+voiceRegister: back_of_house
+status: phase_9_voiced_surface_arc_shipped
+purpose: >
+  Generate voiced cards for the morning_prep stock_shortage situation.
+  The body states the actual sim situation (stock running low, the
+  shortage pressure rising, day-of-week pressure on demand, memory of
+  prior watering / price-raising / ignoring) and frames the owner's
+  back-of-house view of it. No character speaks; the register is the
+  cellar door at sunrise.
+
+appliesTo:
+  seedFamilies: ['stock_shortage']
+  seedTypes: ['warning']
+  timings: ['morning_prep']
+
+slots:
+  - id: title
+    required: true
+    claims: flavor
+    maxWords: 6
+    description: >
+      Short situational title. No actor display prefix (the template
+      renders the snippet verbatim because the situation, not a person,
+      centres the card). Voice-bounds gate forbids trailing "…" and
+      immediate token duplication.
+
+  - id: establishing_line
+    required: true
+    claims: sim-backed
+    maxWords: 14
+    description: >
+      Third-person narration of the stock situation. Names what happened
+      — stock pressure rising, repeated shortage memory, prior owner
+      choice surfaced from memory tags, severity tier, repeat occurrence
+      tagged 'stock'. Unconditional fallback claims only that the cellar
+      door opened on something missing.
+
+  - id: reaction_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      The owner's quiet read of the morning, third-person narrator
+      voice. No first-person address; no specific NPC name. Gated on
+      day type (`hasTag payday|brawl_night|market_day|local_night`),
+      severity band, and prior-choice memories.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      Optional sensory beat — empty kegs, thirsty regulars at the door,
+      the slate that needs to come down. Omitted rather than weak.
+
+voiceAxesInPlay: (none — see voiceRegister)
+verbalTicsCovered: (none — ownerless)
+
+# Sim signals / primitives the establishing_line pool reaches for.
+simSignalsInUse:
+  - { kind: pressureRising, pressureIds: [stock_shortage, reputation_drift] }
+  - { kind: memoryPresent, tags: [watered_ale_recently, raised_prices_recently, ignored_shortage_recently, restocked_ale_recently, limited_sales_recently] }
+  - { kind: repeatCount, subjectTag: stock }
+  - { kind: hasTag, tags: [urgent, high_demand, payday, brawl_night, market_day, local_night] }
+  - { kind: severityAtLeast, value: 70 }
+
+mustNotInvent:
+  - named NPCs (the seed has no primaryActor; no character to name)
+  - specific debt amounts
+  - specific past tavern incidents beyond the seeded memory tags
+  - earth idioms, modern slang, real-world brand or place language
+  - direct mechanical readouts ("quantity 5", "low stock 35")
+
+hardBounds:
+  perSlotWords:
+    title: 6
+    establishing_line: 14
+    reaction_line: 12
+    manner_note: 10
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+  noDirectMechanicalLanguage: true
+
+gradientPolicy:
+  base: one unconditional fallback per required slot (always fires)
+  middle: single-condition snippets — a pressure, a memory tag, a tone tag, a severity band
+  top: two-condition snippets — pressure + memory, memory + tag, severity + tag
+  rule: |
+    no voiceAxis or verbalTic conditions in any pool. The actor
+    resolution rules (`resolveActorRef('primaryActor', seed)`) return
+    undefined for stock_shortage seeds, so those primitives could never
+    fire anyway — keeping them out makes the spec honest.
+
+mustPass:
+  coverage: required slots title, establishing_line, reaction_line each have an unconditional fallback
+  specificityGradient: pools contain fallback + single-condition middle rung + two-condition top rung
+  voiceBounds: every snippet within slot.maxWords
+  simCoherence: establishing_line is claims sim-backed; every non-fallback carries ≥1 state-lookup condition
+  determinism: same seed + same state + same slot returns same snippet after FNV tie-break
+  diversity: state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
+  dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots

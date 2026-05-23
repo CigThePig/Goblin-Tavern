@@ -19,10 +19,12 @@ import {
   createCustomerGroupCastAttributes,
   createRegularCastAttributes,
   createStaffCastAttributes,
+  createSupplierCastAttributes,
 } from '../../../../src/sim/content/cast'
 import type {
   CastAttributes,
   CustomerGroupCastAttributes,
+  SupplierCastAttributes,
   VerbalTicId,
 } from '../../../../src/sim/content/cast'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
@@ -946,6 +948,789 @@ export function buildCustomerComplaintEffectPreviewContext(
   return { currentResponseSlot: slot, currentEffect: effect }
 }
 
+// ---- Phase 135 / ISSUE-104 — Voiced Surface arc, Phase 9 ----
+//
+// Samplers for the three new templates in the Suppliers/Stock/Debt
+// cluster. Three patterns:
+//
+//   - supplierReliability: actor-perturbation, mirroring regularComplaint
+//     and staffBurnout. A supplier actor carries `castAttributes`; the
+//     determinism sampler hand-picks profiles; the diversity sampler
+//     rolls per-sample via `createSupplierCastAttributes`.
+//
+//   - stockShortage / debtRent: STATE-perturbation. These seeds have no
+//     primaryActor (stock_shortage's subject is a stock item, debt_rent's
+//     landlord is `systemRef`), so the snippet pools gate on
+//     `pressureRising` / `memoryPresent` / `hasTag` / `severityAtLeast` /
+//     `repeatCount` rather than voice axes. Both samplers vary the
+//     STATE the conditions read, not the cast attributes.
+
+function firstSupplierId(state: TavernState): string {
+  const id = Object.keys(state.world.suppliers)[0]
+  if (!id) {
+    throw new Error('samplers: createInitialTavernState() must have a supplier')
+  }
+  return id
+}
+
+function supplierRef(id: string): EntityRef {
+  return { kind: 'supplier', id }
+}
+
+function installSupplierCast(
+  state: TavernState,
+  supplierId: string,
+  cast: SupplierCastAttributes,
+): TavernState {
+  return {
+    ...state,
+    world: {
+      ...state.world,
+      suppliers: {
+        ...state.world.suppliers,
+        [supplierId]: {
+          ...state.world.suppliers[supplierId]!,
+          castAttributes: cast,
+        },
+      },
+    },
+  }
+}
+
+function supplierOfferSeedFor(supplierId: string, id: string): IssueSeed {
+  return makeSeed({
+    id,
+    family: 'supplier_relationship',
+    type: 'supplier_offer',
+    timing: 'morning_prep',
+    severity: 45,
+    domain: ['suppliers', 'market', 'stock'],
+    primaryActor: supplierRef(supplierId),
+    textIngredients: {
+      subject: 'a supply matter',
+      sensoryDetails: ['stacked crates', 'tight handshake'],
+      recentContext: ['reliability questions'],
+    },
+  })
+}
+
+function neutralSupplierCast(): SupplierCastAttributes {
+  return {
+    specialty: 'goods',
+    blindspot: 'late_payment',
+    affinities: [],
+    voice: { axes: { terseness: 1, warmth: 1, formality: 1, floridity: 1 } },
+  }
+}
+
+export function buildSupplierReliabilityDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  const supplierId = firstSupplierId(baseState)
+  // Suppliers carry the full four-axis voice + optional verbalTic surface
+  // (same as staff / regulars). Profiles cover one-axis extremes,
+  // two-axis combos, and one snippet per verbal tic.
+  const profiles: SupplierCastAttributes[] = [
+    neutralSupplierCast(),
+    { ...neutralSupplierCast(), voice: { axes: { terseness: 2, warmth: 1, formality: 1, floridity: 1 } } },
+    { ...neutralSupplierCast(), voice: { axes: { terseness: 1, warmth: 2, formality: 1, floridity: 1 } } },
+    { ...neutralSupplierCast(), voice: { axes: { terseness: 1, warmth: 0, formality: 1, floridity: 1 } } },
+    { ...neutralSupplierCast(), voice: { axes: { terseness: 1, warmth: 1, formality: 2, floridity: 1 } } },
+    { ...neutralSupplierCast(), voice: { axes: { terseness: 1, warmth: 1, formality: 1, floridity: 2 } } },
+    { ...neutralSupplierCast(), voice: { axes: { terseness: 2, warmth: 0, formality: 1, floridity: 1 } } },
+    { ...neutralSupplierCast(), voice: { axes: { terseness: 1, warmth: 2, formality: 0, floridity: 1 } } },
+    { ...neutralSupplierCast(), voice: { axes: { terseness: 1, warmth: 1, formality: 2, floridity: 0 } } },
+    ...VERBAL_TIC_IDS.map<SupplierCastAttributes>((tic) => ({
+      ...neutralSupplierCast(),
+      voice: {
+        axes: { terseness: 1, warmth: 1, formality: 1, floridity: 1 },
+        verbalTic: tic,
+      },
+    })),
+  ]
+  return profiles.map((cast, i) => ({
+    seed: supplierOfferSeedFor(supplierId, `supplier-reliability-determinism-${i}`),
+    state: installSupplierCast(baseState, supplierId, cast),
+  }))
+}
+
+export function buildSupplierReliabilityDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  const seed = options.rngSeed ?? 'phase-135-supplier-reliability-diversity'
+  const rng = createRng(`${seed}:supplier_identity`)
+  const baseState = createInitialTavernState()
+  const supplierId = firstSupplierId(baseState)
+  const supplier = baseState.world.suppliers[supplierId]!
+  return (i: number) => {
+    const cast = createSupplierCastAttributes({
+      supplierType: supplier.supplierType,
+      ...(supplier.cultureId !== undefined ? { cultureId: supplier.cultureId } : {}),
+      rng,
+    })
+    const state = installSupplierCast(baseState, supplierId, cast)
+    return {
+      seed: supplierOfferSeedFor(
+        supplierId,
+        `supplier-reliability-diversity-${i}`,
+      ),
+      state,
+    }
+  }
+}
+
+// ---- stockShortage state-perturbation sampler ----
+//
+// stock_shortage seeds have no primaryActor; the snippet pools gate on
+// state (pressures rising, prior-choice memories, calendar tone tags,
+// severity) and seed shape (timing, tags). The sampler perturbs those
+// across the sample loop. Each `i` rolls a deterministic combination
+// from the seeded RNG.
+
+function stockShortageBaseSeed(
+  id: string,
+  toneHints: readonly string[],
+  severity: number,
+): IssueSeed {
+  return makeSeed({
+    id,
+    family: 'stock_shortage',
+    type: 'warning',
+    timing: 'morning_prep',
+    severity,
+    domain: ['stock', 'customers'],
+    toneHints: [...toneHints],
+    textIngredients: {
+      subject: 'ale stock',
+      sensoryDetails: ['empty kegs'],
+      recentContext: ['heavy week'],
+    },
+  })
+}
+
+function withPressure(
+  state: TavernState,
+  pressureId: string,
+  value: number,
+  trend: number,
+): TavernState {
+  return {
+    ...state,
+    pressures: {
+      ...state.pressures,
+      [pressureId]: {
+        id: pressureId,
+        label: pressureId,
+        value,
+        trend,
+        tags: state.pressures[pressureId]?.tags ?? [],
+        topCauses: state.pressures[pressureId]?.topCauses ?? [],
+      },
+    },
+  }
+}
+
+function withMemoryEntry(
+  state: TavernState,
+  memoryId: string,
+  tags: readonly string[],
+): TavernState {
+  return {
+    ...state,
+    memories: [
+      ...state.memories,
+      {
+        id: memoryId,
+        type: 'fact' as const,
+        label: memoryId,
+        strength: 50,
+        ageDays: 1,
+        createdAt: {
+          year: 1,
+          month: 1,
+          week: 1,
+          day: 1,
+          absoluteDay: 0,
+        },
+        actors: [] as EntityRef[],
+        locations: [] as EntityRef[],
+        relatedSystems: [] as string[],
+        tags: [...tags],
+      },
+    ],
+  }
+}
+
+// Pre-computed perturbation slots — index `i mod N` picks one.
+// Each entry names the (rising-pressure, memory-tags, tone-hint,
+// severity) combination so the gate sees the whole condition space.
+const STOCK_PERTURBATIONS: ReadonlyArray<{
+  pressure?: { id: string; value: number; trend: number }
+  memory?: { id: string; tags: readonly string[] }
+  toneHints: readonly string[]
+  severity: number
+}> = [
+  // Fallback baseline — no rising pressure, no memories, neutral tone.
+  { toneHints: ['warning'], severity: 50 },
+  // Rising stock_shortage alone.
+  {
+    pressure: { id: 'stock_shortage', value: 60, trend: 1 },
+    toneHints: ['warning'],
+    severity: 50,
+  },
+  // Rising reputation_drift.
+  {
+    pressure: { id: 'reputation_drift', value: 40, trend: 1 },
+    toneHints: ['warning'],
+    severity: 50,
+  },
+  // Memory of deception (watered batch).
+  {
+    memory: { id: 'watered_ale_recently', tags: ['ale', 'deception'] },
+    toneHints: ['warning'],
+    severity: 50,
+  },
+  // Memory of price hike.
+  {
+    memory: { id: 'raised_prices_recently', tags: ['price', 'reputation'] },
+    toneHints: ['warning'],
+    severity: 50,
+  },
+  // Memory of ignoring the shortage.
+  {
+    memory: { id: 'ignored_shortage_recently', tags: ['stock', 'ignored'] },
+    toneHints: ['warning'],
+    severity: 50,
+  },
+  // High demand day type.
+  { toneHints: ['urgent', 'high_demand', 'payday'], severity: 50 },
+  // Brawl night.
+  { toneHints: ['urgent', 'high_demand', 'brawl_night'], severity: 60 },
+  // Market day.
+  { toneHints: ['urgent', 'high_demand', 'market_day'], severity: 55 },
+  // Local night.
+  { toneHints: ['urgent', 'high_demand', 'local_night'], severity: 55 },
+  // High severity.
+  { toneHints: ['warning', 'urgent'], severity: 75 },
+  // Rising stock + repeat (three stock memories tagged 'stock').
+  {
+    pressure: { id: 'stock_shortage', value: 70, trend: 1 },
+    memory: { id: 'stock_repeat_marker', tags: ['stock'] },
+    toneHints: ['urgent'],
+    severity: 72,
+  },
+]
+
+function buildStockShortageState(
+  baseState: TavernState,
+  perturbation: (typeof STOCK_PERTURBATIONS)[number],
+): TavernState {
+  let s = baseState
+  if (perturbation.pressure) {
+    s = withPressure(
+      s,
+      perturbation.pressure.id,
+      perturbation.pressure.value,
+      perturbation.pressure.trend,
+    )
+  }
+  if (perturbation.memory) {
+    s = withMemoryEntry(s, perturbation.memory.id, perturbation.memory.tags)
+    // Mirror entries with the same tags to push `repeatCount stock` to 3+
+    // when the perturbation is the dedicated "repeat" slot.
+    if (perturbation.memory.id === 'stock_repeat_marker') {
+      s = withMemoryEntry(s, 'stock_repeat_marker_b', ['stock'])
+      s = withMemoryEntry(s, 'stock_repeat_marker_c', ['stock'])
+    }
+  }
+  return s
+}
+
+export function buildStockShortageDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  return STOCK_PERTURBATIONS.map((perturbation, i) => ({
+    seed: stockShortageBaseSeed(
+      `stock-shortage-determinism-${i}`,
+      perturbation.toneHints,
+      perturbation.severity,
+    ),
+    state: buildStockShortageState(baseState, perturbation),
+  }))
+}
+
+export function buildStockShortageDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  // Phase 135 — deterministic state-perturbation. Use `i` modulo the
+  // pre-computed perturbation table; rngSeed only namespaces the cache
+  // string, since the sampler reads no rng directly (state is data, not
+  // RNG output).
+  void options.rngSeed
+  const baseState = createInitialTavernState()
+  return (i: number) => {
+    const perturbation = STOCK_PERTURBATIONS[i % STOCK_PERTURBATIONS.length]!
+    return {
+      seed: stockShortageBaseSeed(
+        `stock-shortage-diversity-${i}`,
+        perturbation.toneHints,
+        perturbation.severity,
+      ),
+      state: buildStockShortageState(baseState, perturbation),
+    }
+  }
+}
+
+// ---- debtRent state-perturbation sampler ----
+
+function debtRentBaseSeed(
+  id: string,
+  toneHints: readonly string[],
+  severity: number,
+): IssueSeed {
+  return makeSeed({
+    id,
+    family: 'debt_rent',
+    type: 'debt_pressure',
+    timing: 'end_month',
+    severity,
+    domain: ['economy', 'monthly', 'landlord'],
+    toneHints: [...toneHints],
+    textIngredients: {
+      subject: 'rent due',
+      sensoryDetails: ['scratched ledger'],
+      recentContext: ['coin tight for weeks'],
+    },
+  })
+}
+
+const DEBT_PERTURBATIONS: ReadonlyArray<{
+  pressure?: { id: string; value: number; trend: number }
+  memory?: { id: string; tags: readonly string[] }
+  toneHints: readonly string[]
+  severity: number
+}> = [
+  // Fallback baseline.
+  { toneHints: ['debt', 'pressure'], severity: 50 },
+  // Rising debt.
+  {
+    pressure: { id: 'debt', value: 45, trend: 1 },
+    toneHints: ['debt', 'pressure'],
+    severity: 50,
+  },
+  // Rising landlord.
+  {
+    pressure: { id: 'landlord', value: 45, trend: 1 },
+    toneHints: ['debt', 'pressure'],
+    severity: 50,
+  },
+  // rent_paid_recently memory.
+  {
+    memory: { id: 'rent_paid_recently', tags: ['rent', 'landlord'] },
+    toneHints: ['debt', 'pressure'],
+    severity: 50,
+  },
+  // rent_delayed_recently memory.
+  {
+    memory: { id: 'rent_delayed_recently', tags: ['rent', 'delay'] },
+    toneHints: ['debt', 'pressure'],
+    severity: 50,
+  },
+  // borrowed_coin_recently memory.
+  {
+    memory: { id: 'borrowed_coin_recently', tags: ['coin', 'debt'] },
+    toneHints: ['debt', 'pressure'],
+    severity: 55,
+  },
+  // eviction_threat_possible (landlord/risk memory).
+  {
+    memory: { id: 'eviction_threat_possible', tags: ['landlord', 'risk'] },
+    toneHints: ['debt', 'pressure'],
+    severity: 60,
+  },
+  // rent_due_soon calendar tag (flows through toneHints in the test seed).
+  { toneHints: ['debt', 'pressure', 'rent_due_soon'], severity: 55 },
+  // High severity.
+  { toneHints: ['debt', 'pressure', 'urgent'], severity: 75 },
+  // Rising debt + repeat (three debt-tagged memories).
+  {
+    pressure: { id: 'debt', value: 70, trend: 1 },
+    memory: { id: 'debt_repeat_marker', tags: ['debt'] },
+    toneHints: ['debt', 'pressure'],
+    severity: 72,
+  },
+  // Rising debt + rent_due_soon.
+  {
+    pressure: { id: 'debt', value: 60, trend: 1 },
+    toneHints: ['debt', 'pressure', 'rent_due_soon'],
+    severity: 70,
+  },
+  // High severity + rent_due_soon (top rung).
+  { toneHints: ['debt', 'pressure', 'rent_due_soon', 'urgent'], severity: 80 },
+]
+
+function buildDebtRentState(
+  baseState: TavernState,
+  perturbation: (typeof DEBT_PERTURBATIONS)[number],
+): TavernState {
+  let s = baseState
+  if (perturbation.pressure) {
+    s = withPressure(
+      s,
+      perturbation.pressure.id,
+      perturbation.pressure.value,
+      perturbation.pressure.trend,
+    )
+  }
+  if (perturbation.memory) {
+    s = withMemoryEntry(s, perturbation.memory.id, perturbation.memory.tags)
+    if (perturbation.memory.id === 'debt_repeat_marker') {
+      s = withMemoryEntry(s, 'debt_repeat_marker_b', ['debt'])
+      s = withMemoryEntry(s, 'debt_repeat_marker_c', ['debt'])
+    }
+  }
+  return s
+}
+
+export function buildDebtRentDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  return DEBT_PERTURBATIONS.map((perturbation, i) => ({
+    seed: debtRentBaseSeed(
+      `debt-rent-determinism-${i}`,
+      perturbation.toneHints,
+      perturbation.severity,
+    ),
+    state: buildDebtRentState(baseState, perturbation),
+  }))
+}
+
+export function buildDebtRentDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  void options.rngSeed
+  const baseState = createInitialTavernState()
+  return (i: number) => {
+    const perturbation = DEBT_PERTURBATIONS[i % DEBT_PERTURBATIONS.length]!
+    return {
+      seed: debtRentBaseSeed(
+        `debt-rent-diversity-${i}`,
+        perturbation.toneHints,
+        perturbation.severity,
+      ),
+      state: buildDebtRentState(baseState, perturbation),
+    }
+  }
+}
+
+// ---- Phase 6 context builders for the three new templates ----
+
+// Supplier verb set surfaces at `expandedSeedGenerators.ts:1189-1255` —
+// pay / negotiate / blame / fire / buy / ignore / inspect. Six rungs
+// rotated by index so the diversity gate samples every verb at least once.
+const SUPPLIER_RELIABILITY_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'phase135-supplier-pay',
+    labelHint: 'Pay the supplier',
+    allowedVerbs: ['pay'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['clear debt'],
+  },
+  {
+    id: 'phase135-supplier-negotiate',
+    labelHint: 'Negotiate',
+    allowedVerbs: ['negotiate'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'compromise' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['shift price'],
+  },
+  {
+    id: 'phase135-supplier-blame',
+    labelHint: 'Blame supplier',
+    allowedVerbs: ['blame'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'relationship_sacrifice' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['shed blame'],
+  },
+  {
+    id: 'phase135-supplier-fire',
+    labelHint: 'Switch supplier',
+    allowedVerbs: ['fire'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'long_term_investment' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['change goods quality'],
+  },
+  {
+    id: 'phase135-supplier-ignore',
+    labelHint: 'Refuse the offer',
+    allowedVerbs: ['ignore'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['no risk'],
+  },
+  {
+    id: 'phase135-supplier-buy',
+    labelHint: 'Accept suspicious goods',
+    allowedVerbs: ['buy'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'risky_profitable' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['cheap stock'],
+  },
+]
+
+const SUPPLIER_RELIABILITY_EFFECTS: readonly EffectPreview[] = [
+  {
+    kind: 'state_change',
+    target: 'coin',
+    amount: -20,
+    readable: 'coin out',
+    tags: ['coin'],
+  },
+  {
+    kind: 'state_change',
+    target: 'supplier.relationship',
+    amount: 5,
+    readable: 'relationship steadies',
+    tags: ['supplier'],
+  },
+  {
+    kind: 'pressure',
+    target: 'pressure:market_instability',
+    amount: -5,
+    readable: 'market pressure eases',
+    tags: ['pressure'],
+  },
+  {
+    kind: 'cause',
+    target: 'supplier.trust',
+    amount: 3,
+    readable: 'trust shifts',
+    tags: ['supplier'],
+  },
+]
+
+export function buildSupplierReliabilityChoiceLabelContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot =
+    SUPPLIER_RELIABILITY_RESPONSE_SLOTS[
+      i % SUPPLIER_RELIABILITY_RESPONSE_SLOTS.length
+    ]!
+  return { currentResponseSlot: slot }
+}
+
+export function buildSupplierReliabilityEffectPreviewContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot =
+    SUPPLIER_RELIABILITY_RESPONSE_SLOTS[
+      i % SUPPLIER_RELIABILITY_RESPONSE_SLOTS.length
+    ]!
+  const effect = SUPPLIER_RELIABILITY_EFFECTS[i % SUPPLIER_RELIABILITY_EFFECTS.length]!
+  return { currentResponseSlot: slot, currentEffect: effect }
+}
+
+// stockShortage verbs at `issueSeedGenerators.ts:443-484` —
+// buy / raise_price / serve / delay / ignore.
+const STOCK_SHORTAGE_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'phase135-stock-buy',
+    labelHint: 'Restock ale',
+    allowedVerbs: ['buy'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise ale quantity'],
+  },
+  {
+    id: 'phase135-stock-raise-price',
+    labelHint: 'Raise prices',
+    allowedVerbs: ['raise_price'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'risky_profitable' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise margin'],
+  },
+  {
+    id: 'phase135-stock-serve',
+    labelHint: 'Stretch the ale',
+    allowedVerbs: ['serve'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'deception' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['lower quality'],
+  },
+  {
+    id: 'phase135-stock-delay',
+    labelHint: 'Limit sales',
+    allowedVerbs: ['delay'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'compromise' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['conserve stock'],
+  },
+  {
+    id: 'phase135-stock-ignore',
+    labelHint: 'Ignore the shortage',
+    allowedVerbs: ['ignore'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'ignore' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['no change'],
+  },
+]
+
+const STOCK_SHORTAGE_EFFECTS: readonly EffectPreview[] = [
+  {
+    kind: 'state_change',
+    target: 'stock.ale.quantity',
+    amount: 60,
+    readable: 'add ale to stock',
+    tags: ['stock'],
+  },
+  {
+    kind: 'state_change',
+    target: 'coin',
+    amount: -30,
+    readable: 'spend coin restocking',
+    tags: ['coin'],
+  },
+  {
+    kind: 'state_change',
+    target: 'stock.ale.quality',
+    amount: -15,
+    readable: 'lower ale quality',
+    tags: ['stock', 'quality'],
+  },
+  {
+    kind: 'pressure',
+    target: 'pressure:stock_shortage',
+    amount: -15,
+    readable: 'lower shortage pressure',
+    tags: ['pressure'],
+  },
+  {
+    kind: 'state_change',
+    target: 'customers.miners.satisfaction',
+    amount: -8,
+    readable: 'miners grumble',
+    tags: ['customer'],
+  },
+  {
+    kind: 'future_hook',
+    target: 'ale_watering_rumor_possible',
+    amount: 0,
+    readable: 'watered ale rumor may emerge',
+    tags: ['future_hook'],
+  },
+]
+
+export function buildStockShortageChoiceLabelContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot =
+    STOCK_SHORTAGE_RESPONSE_SLOTS[i % STOCK_SHORTAGE_RESPONSE_SLOTS.length]!
+  return { currentResponseSlot: slot }
+}
+
+export function buildStockShortageEffectPreviewContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot =
+    STOCK_SHORTAGE_RESPONSE_SLOTS[i % STOCK_SHORTAGE_RESPONSE_SLOTS.length]!
+  const effect = STOCK_SHORTAGE_EFFECTS[i % STOCK_SHORTAGE_EFFECTS.length]!
+  return { currentResponseSlot: slot, currentEffect: effect }
+}
+
+// debtRent verbs at `issueSeedGenerators.ts:2406-2439` —
+// pay / borrow / delay / raise_price.
+const DEBT_RENT_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'phase135-debt-pay',
+    labelHint: 'Pay what we owe',
+    allowedVerbs: ['pay'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['clear arrears'],
+  },
+  {
+    id: 'phase135-debt-borrow',
+    labelHint: 'Borrow coin',
+    allowedVerbs: ['borrow'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'risky_profitable' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['gain coin'],
+  },
+  {
+    id: 'phase135-debt-delay',
+    labelHint: 'Delay payment',
+    allowedVerbs: ['delay'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'delay_problem' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['no immediate cost'],
+  },
+  {
+    id: 'phase135-debt-raise-price',
+    labelHint: 'Raise prices',
+    allowedVerbs: ['raise_price'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'compromise' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise margin'],
+  },
+]
+
+const DEBT_RENT_EFFECTS: readonly EffectPreview[] = [
+  {
+    kind: 'state_change',
+    target: 'coin',
+    amount: -30,
+    readable: 'pay rent',
+    tags: ['coin', 'rent'],
+  },
+  {
+    kind: 'pressure',
+    target: 'pressure:landlord',
+    amount: -15,
+    readable: 'lower landlord pressure',
+    tags: ['pressure', 'landlord'],
+  },
+  {
+    kind: 'state_change',
+    target: 'coin',
+    amount: 40,
+    readable: 'borrowed coin',
+    tags: ['coin'],
+  },
+  {
+    kind: 'pressure',
+    target: 'pressure:debt',
+    amount: 12,
+    readable: 'future debt builds',
+    tags: ['pressure', 'debt'],
+  },
+  {
+    kind: 'future_hook',
+    target: 'loan_due_soon',
+    amount: 0,
+    readable: 'loan will come due',
+    tags: ['debt'],
+  },
+]
+
+export function buildDebtRentChoiceLabelContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = DEBT_RENT_RESPONSE_SLOTS[i % DEBT_RENT_RESPONSE_SLOTS.length]!
+  return { currentResponseSlot: slot }
+}
+
+export function buildDebtRentEffectPreviewContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = DEBT_RENT_RESPONSE_SLOTS[i % DEBT_RENT_RESPONSE_SLOTS.length]!
+  const effect = DEBT_RENT_EFFECTS[i % DEBT_RENT_EFFECTS.length]!
+  return { currentResponseSlot: slot, currentEffect: effect }
+}
+
 export const __testing = {
   firstRegularId,
   installCast,
@@ -965,4 +1750,13 @@ export const __testing = {
   customerGroupRef,
   REGULAR_COMPLAINT_RESPONSE_SLOTS,
   CUSTOMER_COMPLAINT_RESPONSE_SLOTS,
+  firstSupplierId,
+  installSupplierCast,
+  supplierOfferSeedFor,
+  supplierRef,
+  SUPPLIER_RELIABILITY_RESPONSE_SLOTS,
+  STOCK_SHORTAGE_RESPONSE_SLOTS,
+  DEBT_RENT_RESPONSE_SLOTS,
+  STOCK_PERTURBATIONS,
+  DEBT_PERTURBATIONS,
 }

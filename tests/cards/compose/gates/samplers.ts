@@ -4225,6 +4225,731 @@ export function buildRivalTavernEffectPreviewContext(
   return { currentResponseSlot: slot, currentEffect: effect }
 }
 
+// ============================================================
+// Phase 140 / ISSUE-109 — Voiced Surface arc, Phase 14
+// (Periodic & Narrative Beats).
+//
+// Sampler families for the two new templates in the cluster:
+//
+//   - monthlyReview: STATE-perturbation. The seed's primaryActor is a
+//     month ref (`{ kind: 'other', id: 'month:${monthKey}' }`) with no
+//     castAttributes — variety is in pressure trends, prior-monthly
+//     memories, calendar tags, severity, repeat count.
+//
+//   - seasonalArc: STATE-perturbation. The seed's primaryActor is a
+//     `local_event` ref (Path A) or undefined (Path B anticipation);
+//     local_events carry no castAttributes — variety is in arc
+//     pressures, theme tags (5 themes), prior-arc memories, severity.
+// ============================================================
+
+// ---- monthlyReview state-perturbation sampler ----
+
+function monthlyReviewBaseSeed(
+  id: string,
+  toneHints: readonly string[],
+  severity: number,
+): IssueSeed {
+  return makeSeed({
+    id,
+    family: 'monthly_review',
+    type: 'monthly_review',
+    timing: 'end_month',
+    severity,
+    domain: ['monthly', 'economy', 'reputation'],
+    toneHints: [...toneHints],
+    primaryActor: { kind: 'other', id: 'month:1' },
+    textIngredients: {
+      subject: 'month 1',
+      sensoryDetails: ['ledger closed'],
+      recentContext: ['net coin change -10'],
+    },
+  })
+}
+
+const MONTHLY_REVIEW_PERTURBATIONS: ReadonlyArray<{
+  pressure?: { id: string; value: number; trend: number }
+  memory?: { id: string; tags: readonly string[] }
+  toneHints: readonly string[]
+  severity: number
+}> = [
+  // Fallback baseline.
+  { toneHints: ['summary', 'monthly'], severity: 40 },
+  // Rising landlord.
+  {
+    pressure: { id: 'landlord', value: 45, trend: 1 },
+    toneHints: ['summary', 'monthly'],
+    severity: 45,
+  },
+  // Rising debt.
+  {
+    pressure: { id: 'debt', value: 45, trend: 1 },
+    toneHints: ['summary', 'monthly'],
+    severity: 45,
+  },
+  // Rising reputation_drift.
+  {
+    pressure: { id: 'reputation_drift', value: 40, trend: 1 },
+    toneHints: ['summary', 'monthly'],
+    severity: 45,
+  },
+  // Rising staff_burnout.
+  {
+    pressure: { id: 'staff_burnout', value: 50, trend: 1 },
+    toneHints: ['summary', 'monthly'],
+    severity: 50,
+  },
+  // Rising customer_complaint.
+  {
+    pressure: { id: 'customer_complaint', value: 45, trend: 1 },
+    toneHints: ['summary', 'monthly'],
+    severity: 50,
+  },
+  // Rising rival_tavern_pressure.
+  {
+    pressure: { id: 'rival_tavern_pressure', value: 50, trend: 1 },
+    toneHints: ['summary', 'monthly'],
+    severity: 50,
+  },
+  // rent_paid memory.
+  {
+    memory: { id: 'rent_paid_recently', tags: ['rent', 'paid', 'monthly'] },
+    toneHints: ['summary', 'monthly'],
+    severity: 45,
+  },
+  // reserves_held memory.
+  {
+    memory: { id: 'reserves_held_recently', tags: ['reserves', 'monthly'] },
+    toneHints: ['summary', 'monthly'],
+    severity: 45,
+  },
+  // landlord memory.
+  {
+    memory: { id: 'landlord_visited_recently', tags: ['landlord'] },
+    toneHints: ['summary', 'monthly'],
+    severity: 45,
+  },
+  // cellar memory.
+  {
+    memory: { id: 'cellar_invested_recently', tags: ['cellar', 'investment', 'monthly'] },
+    toneHints: ['summary', 'monthly'],
+    severity: 45,
+  },
+  // rival memory.
+  {
+    memory: { id: 'rival_settled_recently', tags: ['rival', 'settle', 'monthly'] },
+    toneHints: ['summary', 'monthly'],
+    severity: 45,
+  },
+  // review memory.
+  {
+    memory: { id: 'monthly_review_prior', tags: ['monthly', 'review'] },
+    toneHints: ['summary', 'monthly'],
+    severity: 45,
+  },
+  // risk memory.
+  {
+    memory: { id: 'eviction_threat_possible', tags: ['landlord', 'risk'] },
+    toneHints: ['summary', 'monthly'],
+    severity: 55,
+  },
+  // rent_due_soon calendar tag (flows through toneHints).
+  { toneHints: ['summary', 'monthly', 'rent_due_soon'], severity: 50 },
+  // High severity.
+  { toneHints: ['summary', 'monthly', 'urgent'], severity: 75 },
+  // Rising debt + monthly repeat (three monthly-tagged memories).
+  {
+    pressure: { id: 'debt', value: 70, trend: 1 },
+    memory: { id: 'monthly_repeat_marker', tags: ['monthly'] },
+    toneHints: ['summary', 'monthly'],
+    severity: 70,
+  },
+  // Rising landlord + rent_due_soon.
+  {
+    pressure: { id: 'landlord', value: 60, trend: 1 },
+    toneHints: ['summary', 'monthly', 'rent_due_soon'],
+    severity: 65,
+  },
+  // High severity + rising debt (top rung).
+  {
+    pressure: { id: 'debt', value: 75, trend: 1 },
+    toneHints: ['summary', 'monthly', 'urgent'],
+    severity: 75,
+  },
+]
+
+function buildMonthlyReviewState(
+  baseState: TavernState,
+  perturbation: (typeof MONTHLY_REVIEW_PERTURBATIONS)[number],
+): TavernState {
+  let s = baseState
+  if (perturbation.pressure) {
+    s = withPressure(
+      s,
+      perturbation.pressure.id,
+      perturbation.pressure.value,
+      perturbation.pressure.trend,
+    )
+  }
+  if (perturbation.memory) {
+    s = withMemoryEntry(s, perturbation.memory.id, perturbation.memory.tags)
+    if (perturbation.memory.id === 'monthly_repeat_marker') {
+      s = withMemoryEntry(s, 'monthly_repeat_marker_b', ['monthly'])
+      s = withMemoryEntry(s, 'monthly_repeat_marker_c', ['monthly'])
+    }
+  }
+  return s
+}
+
+export function buildMonthlyReviewDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  return MONTHLY_REVIEW_PERTURBATIONS.map((perturbation, i) => ({
+    seed: monthlyReviewBaseSeed(
+      `monthly-review-determinism-${i}`,
+      perturbation.toneHints,
+      perturbation.severity,
+    ),
+    state: buildMonthlyReviewState(baseState, perturbation),
+  }))
+}
+
+export function buildMonthlyReviewDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  void options.rngSeed
+  const baseState = createInitialTavernState()
+  return (i: number) => {
+    const perturbation =
+      MONTHLY_REVIEW_PERTURBATIONS[i % MONTHLY_REVIEW_PERTURBATIONS.length]!
+    return {
+      seed: monthlyReviewBaseSeed(
+        `monthly-review-diversity-${i}`,
+        perturbation.toneHints,
+        perturbation.severity,
+      ),
+      state: buildMonthlyReviewState(baseState, perturbation),
+    }
+  }
+}
+
+// ---- seasonalArc state-perturbation sampler ----
+
+const SEASONAL_ARC_THEMES: readonly string[] = [
+  'mushroom_blight',
+  'miner_payday_boom',
+  'inspection_campaign',
+  'rival_tavern_expansion',
+  'festival_approaching',
+]
+
+function seasonalArcRef(): EntityRef {
+  return { kind: 'local_event', id: 'phase140_seasonal_arc' }
+}
+
+function seasonalArcBaseSeed(
+  id: string,
+  type: 'arc_milestone' | 'festival_preparation',
+  theme: string,
+  primaryActor: EntityRef | undefined,
+  severity: number,
+  extraToneHints: readonly string[] = [],
+): IssueSeed {
+  return makeSeed({
+    id,
+    family: 'seasonal_arc',
+    type,
+    timing: 'morning_prep',
+    severity,
+    domain: ['arcs', 'calendar'],
+    toneHints: ['arc', 'calendar', theme, ...extraToneHints],
+    ...(primaryActor ? { primaryActor } : {}),
+    textIngredients: {
+      subject: 'the arc',
+      sensoryDetails: ['flags rising'],
+      recentContext: ['intensity 25'],
+    },
+  })
+}
+
+const SEASONAL_ARC_PERTURBATIONS: ReadonlyArray<{
+  type: 'arc_milestone' | 'festival_preparation'
+  activation: 'arc' | 'anticipation'
+  theme: string
+  pressure?: { id: string; value: number; trend: number }
+  memory?: { id: string; tags: readonly string[] }
+  extraToneHints?: readonly string[]
+  severity: number
+}> = [
+  // Fallback baseline — anticipation festival_preparation, no rising pressure.
+  {
+    type: 'festival_preparation',
+    activation: 'anticipation',
+    theme: 'festival_approaching',
+    severity: 45,
+  },
+  // Active arc with rising arc_escalation.
+  {
+    type: 'festival_preparation',
+    activation: 'arc',
+    theme: 'festival_approaching',
+    pressure: { id: 'arc_escalation', value: 50, trend: 1 },
+    severity: 50,
+  },
+  // Active arc with rising festival_readiness.
+  {
+    type: 'festival_preparation',
+    activation: 'arc',
+    theme: 'festival_approaching',
+    pressure: { id: 'festival_readiness', value: 60, trend: 1 },
+    severity: 50,
+  },
+  // Climax (arc_milestone) + arc_escalation rising.
+  {
+    type: 'arc_milestone',
+    activation: 'arc',
+    theme: 'festival_approaching',
+    pressure: { id: 'arc_escalation', value: 70, trend: 1 },
+    severity: 65,
+  },
+  // mushroom_blight theme + arc_escalation rising.
+  {
+    type: 'festival_preparation',
+    activation: 'arc',
+    theme: 'mushroom_blight',
+    pressure: { id: 'arc_escalation', value: 55, trend: 1 },
+    severity: 55,
+  },
+  // miner_payday_boom theme + arc_escalation rising.
+  {
+    type: 'festival_preparation',
+    activation: 'arc',
+    theme: 'miner_payday_boom',
+    pressure: { id: 'arc_escalation', value: 55, trend: 1 },
+    severity: 55,
+  },
+  // inspection_campaign theme + arc_escalation rising.
+  {
+    type: 'festival_preparation',
+    activation: 'arc',
+    theme: 'inspection_campaign',
+    pressure: { id: 'arc_escalation', value: 55, trend: 1 },
+    severity: 55,
+  },
+  // rival_tavern_expansion theme + arc_escalation rising.
+  {
+    type: 'festival_preparation',
+    activation: 'arc',
+    theme: 'rival_tavern_expansion',
+    pressure: { id: 'arc_escalation', value: 55, trend: 1 },
+    severity: 55,
+  },
+  // arc memory present.
+  {
+    type: 'festival_preparation',
+    activation: 'arc',
+    theme: 'festival_approaching',
+    memory: { id: 'arc_seed_prior', tags: ['arc', 'warning'] },
+    severity: 50,
+  },
+  // festival memory present.
+  {
+    type: 'festival_preparation',
+    activation: 'arc',
+    theme: 'festival_approaching',
+    memory: { id: 'festival_prep_prior', tags: ['festival', 'prepare'] },
+    severity: 50,
+  },
+  // Anticipation tone hint.
+  {
+    type: 'festival_preparation',
+    activation: 'anticipation',
+    theme: 'festival_approaching',
+    extraToneHints: ['anticipation'],
+    severity: 45,
+  },
+  // High severity.
+  {
+    type: 'arc_milestone',
+    activation: 'arc',
+    theme: 'mushroom_blight',
+    pressure: { id: 'arc_escalation', value: 75, trend: 1 },
+    severity: 75,
+  },
+  // High severity + memory (top rung).
+  {
+    type: 'arc_milestone',
+    activation: 'arc',
+    theme: 'festival_approaching',
+    pressure: { id: 'arc_escalation', value: 80, trend: 1 },
+    memory: { id: 'arc_prior_climax', tags: ['arc'] },
+    severity: 80,
+  },
+  // Inspection theme.
+  {
+    type: 'festival_preparation',
+    activation: 'arc',
+    theme: 'inspection_campaign',
+    memory: { id: 'arc_inspection_prior', tags: ['arc'] },
+    severity: 55,
+  },
+  // Festival theme with festival_readiness rising.
+  {
+    type: 'festival_preparation',
+    activation: 'arc',
+    theme: 'festival_approaching',
+    pressure: { id: 'festival_readiness', value: 65, trend: 1 },
+    memory: { id: 'festival_memory_prior', tags: ['festival'] },
+    severity: 55,
+  },
+]
+
+function buildSeasonalArcState(
+  baseState: TavernState,
+  perturbation: (typeof SEASONAL_ARC_PERTURBATIONS)[number],
+): TavernState {
+  let s = baseState
+  if (perturbation.activation === 'arc') {
+    s = {
+      ...s,
+      world: {
+        ...s.world,
+        localEvents: {
+          ...s.world.localEvents,
+          phase140_seasonal_arc: {
+            ...(s.world.localEvents['phase140_seasonal_arc'] ?? {
+              id: 'phase140_seasonal_arc',
+              tags: ['arc'],
+              severity: 50,
+            }),
+            id: 'phase140_seasonal_arc',
+            label: 'The Arc',
+          },
+        } as TavernState['world']['localEvents'],
+      },
+    }
+  }
+  if (perturbation.pressure) {
+    s = withPressure(
+      s,
+      perturbation.pressure.id,
+      perturbation.pressure.value,
+      perturbation.pressure.trend,
+    )
+  }
+  if (perturbation.memory) {
+    s = withMemoryEntry(s, perturbation.memory.id, perturbation.memory.tags)
+  }
+  return s
+}
+
+function seasonalArcSeedFor(
+  id: string,
+  perturbation: (typeof SEASONAL_ARC_PERTURBATIONS)[number],
+): IssueSeed {
+  const primaryActor =
+    perturbation.activation === 'arc' ? seasonalArcRef() : undefined
+  return seasonalArcBaseSeed(
+    id,
+    perturbation.type,
+    perturbation.theme,
+    primaryActor,
+    perturbation.severity,
+    perturbation.extraToneHints,
+  )
+}
+
+export function buildSeasonalArcDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  return SEASONAL_ARC_PERTURBATIONS.map((perturbation, i) => ({
+    seed: seasonalArcSeedFor(`seasonal-arc-determinism-${i}`, perturbation),
+    state: buildSeasonalArcState(baseState, perturbation),
+  }))
+}
+
+export function buildSeasonalArcDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  void options.rngSeed
+  const baseState = createInitialTavernState()
+  return (i: number) => {
+    const perturbation =
+      SEASONAL_ARC_PERTURBATIONS[i % SEASONAL_ARC_PERTURBATIONS.length]!
+    return {
+      seed: seasonalArcSeedFor(`seasonal-arc-diversity-${i}`, perturbation),
+      state: buildSeasonalArcState(baseState, perturbation),
+    }
+  }
+}
+
+// ---- Phase 6 context builders for the two Phase-14 templates ----
+
+// monthly_review verbs: pay / upgrade / delay / negotiate
+// (`issueSeedGenerators.ts:3628-3664`).
+const MONTHLY_REVIEW_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'phase140-monthly-pay',
+    labelHint: 'Pay the landlord on time',
+    allowedVerbs: ['pay'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['lower landlord pressure'],
+  },
+  {
+    id: 'phase140-monthly-upgrade',
+    labelHint: 'Invest in the cellar',
+    allowedVerbs: ['upgrade'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'long_term_investment' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['improve cellar'],
+  },
+  {
+    id: 'phase140-monthly-delay',
+    labelHint: 'Hold reserves through next month',
+    allowedVerbs: ['delay'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'compromise' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['lower debt'],
+  },
+  {
+    id: 'phase140-monthly-negotiate',
+    labelHint: 'Settle with the rival tavern',
+    allowedVerbs: ['negotiate'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'compromise' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['lower rival pressure'],
+  },
+]
+
+const MONTHLY_REVIEW_EFFECTS: readonly EffectPreview[] = [
+  {
+    kind: 'state_change',
+    target: 'coin',
+    amount: -30,
+    readable: 'pay rent',
+    tags: ['coin', 'rent'],
+  },
+  {
+    kind: 'pressure',
+    target: 'pressure:landlord',
+    amount: -25,
+    readable: 'landlord eased',
+    tags: ['pressure', 'landlord'],
+  },
+  {
+    kind: 'state_change',
+    target: 'areas.cellar.condition',
+    amount: 12,
+    readable: 'cellar improves',
+    tags: ['area', 'cellar'],
+  },
+  {
+    kind: 'pressure',
+    target: 'pressure:debt',
+    amount: -4,
+    readable: 'reserves held',
+    tags: ['pressure', 'debt'],
+  },
+  {
+    kind: 'pressure',
+    target: 'pressure:rival_tavern_pressure',
+    amount: -12,
+    readable: 'rival pressure cools',
+    tags: ['pressure', 'rival'],
+  },
+  {
+    kind: 'future_hook',
+    target: 'landlord_goodwill_window',
+    amount: 30,
+    readable: 'goodwill window opens',
+    tags: ['future_hook', 'landlord'],
+  },
+]
+
+export function buildMonthlyReviewChoiceLabelContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot =
+    MONTHLY_REVIEW_RESPONSE_SLOTS[i % MONTHLY_REVIEW_RESPONSE_SLOTS.length]!
+  return { currentResponseSlot: slot }
+}
+
+export function buildMonthlyReviewEffectPreviewContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot =
+    MONTHLY_REVIEW_RESPONSE_SLOTS[i % MONTHLY_REVIEW_RESPONSE_SLOTS.length]!
+  const effect = MONTHLY_REVIEW_EFFECTS[i % MONTHLY_REVIEW_EFFECTS.length]!
+  return { currentResponseSlot: slot, currentEffect: effect }
+}
+
+// seasonal_arc verbs vary by theme; the cross-theme verb surface from
+// `buildSeasonalArcContent` (expandedSeedGenerators.ts:2849-4245) is
+// wide. Five representative verbs cover the choice-label pool's gating
+// (`pools/seasonalArc/choiceLabel.ts`).
+const SEASONAL_ARC_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'phase140-arc-upgrade',
+    labelHint: 'Prepare for the arc',
+    allowedVerbs: ['upgrade'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'long_term_investment' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise readiness'],
+  },
+  {
+    id: 'phase140-arc-buy',
+    labelHint: 'Stock up for the rush',
+    allowedVerbs: ['buy'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['lay in supply'],
+  },
+  {
+    id: 'phase140-arc-invite',
+    labelHint: 'Host the moment',
+    allowedVerbs: ['invite'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'risky_profitable' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['gain reputation'],
+  },
+  {
+    id: 'phase140-arc-clean',
+    labelHint: 'Scrub the back rooms',
+    allowedVerbs: ['clean'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'long_term_investment' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise cleanliness'],
+  },
+  {
+    id: 'phase140-arc-raise-price',
+    labelHint: 'Lift prices for the day',
+    allowedVerbs: ['raise_price'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'risky_profitable' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise margin'],
+  },
+  {
+    id: 'phase140-arc-bribe',
+    labelHint: 'Slide coin under the table',
+    allowedVerbs: ['bribe'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'deception' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['quiet trouble'],
+  },
+  {
+    id: 'phase140-arc-rebrand',
+    labelHint: 'Lean into the moment',
+    allowedVerbs: ['rebrand'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'reputation_play' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['shift reputation'],
+  },
+  {
+    id: 'phase140-arc-negotiate',
+    labelHint: 'Cut a deal',
+    allowedVerbs: ['negotiate'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'compromise' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['share the moment'],
+  },
+  {
+    id: 'phase140-arc-pay',
+    labelHint: 'Pay to keep it quiet',
+    allowedVerbs: ['pay'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['quiet a problem'],
+  },
+  {
+    id: 'phase140-arc-delay',
+    labelHint: 'Wait it out',
+    allowedVerbs: ['delay'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'delay_problem' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['hold the line'],
+  },
+  {
+    id: 'phase140-arc-discard',
+    labelHint: 'Throw the bad stock out',
+    allowedVerbs: ['discard'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['cut losses'],
+  },
+  {
+    id: 'phase140-arc-ignore',
+    labelHint: 'Ignore the warning',
+    allowedVerbs: ['ignore'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'ignore' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['arc deepens'],
+  },
+]
+
+const SEASONAL_ARC_EFFECTS: readonly EffectPreview[] = [
+  {
+    kind: 'pressure',
+    target: 'pressure:festival_readiness',
+    amount: -10,
+    readable: 'readiness lifts',
+    tags: ['pressure', 'arc'],
+  },
+  {
+    kind: 'state_change',
+    target: 'coin',
+    amount: -20,
+    readable: 'invest coin',
+    tags: ['coin'],
+  },
+  {
+    kind: 'state_change',
+    target: 'reputation.tasty',
+    amount: 8,
+    readable: 'reputation rises',
+    tags: ['reputation'],
+  },
+  {
+    kind: 'pressure',
+    target: 'pressure:arc_escalation',
+    amount: -8,
+    readable: 'arc settles',
+    tags: ['pressure', 'arc'],
+  },
+  {
+    kind: 'state_change',
+    target: 'stock.ale.amount',
+    amount: 20,
+    readable: 'stock rises',
+    tags: ['stock'],
+  },
+  {
+    kind: 'future_hook',
+    target: 'arc_aftermath',
+    amount: 14,
+    readable: 'an aftermath surfaces',
+    tags: ['future_hook'],
+  },
+]
+
+export function buildSeasonalArcChoiceLabelContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot =
+    SEASONAL_ARC_RESPONSE_SLOTS[i % SEASONAL_ARC_RESPONSE_SLOTS.length]!
+  return { currentResponseSlot: slot }
+}
+
+export function buildSeasonalArcEffectPreviewContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot =
+    SEASONAL_ARC_RESPONSE_SLOTS[i % SEASONAL_ARC_RESPONSE_SLOTS.length]!
+  const effect = SEASONAL_ARC_EFFECTS[i % SEASONAL_ARC_EFFECTS.length]!
+  return { currentResponseSlot: slot, currentEffect: effect }
+}
+
 export const __testing = {
   firstRegularId,
   installCast,
@@ -4276,4 +5001,9 @@ export const __testing = {
   REPUTATION_SHIFT_RESPONSE_SLOTS,
   RUMOUR_CRISIS_RESPONSE_SLOTS,
   RIVAL_TAVERN_RESPONSE_SLOTS,
+  MONTHLY_REVIEW_PERTURBATIONS,
+  MONTHLY_REVIEW_RESPONSE_SLOTS,
+  SEASONAL_ARC_PERTURBATIONS,
+  SEASONAL_ARC_RESPONSE_SLOTS,
+  SEASONAL_ARC_THEMES,
 }

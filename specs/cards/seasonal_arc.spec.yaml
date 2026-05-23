@@ -1,0 +1,140 @@
+# Phase 140 / ISSUE-109 — Voiced Surface arc, Phase 14 (Periodic & Narrative Beats).
+#
+# Generation spec for the seasonal_arc compositional template. First
+# dedicated card for the family — pre-Phase 14, every seasonal_arc seed
+# (both `arc_milestone` and `festival_preparation` types, both
+# active-arc Path A and anticipation Path B at
+# `expandedSeedGenerators.ts:4285`) routed to `fallbackCard`.
+#
+# One template covers BOTH paths and BOTH types. The seed's primaryActor
+# is either a `local_event` ref (Path A, active arc) or `undefined`
+# (Path B, anticipation). `local_event` refs carry no `castAttributes`,
+# so the template renders in a NARRATOR-VOICED register: every snippet
+# pool is free of voiceAxis / verbalTic conditions, and variety comes
+# from theme tags (5 themes already in `seed.toneHints[2]` — read by
+# `hasTag` via `collectSeedTags`), the two arc pressures, prior-arc
+# memories, and severity bands. The five themes are mushroom_blight,
+# miner_payday_boom, inspection_campaign, rival_tavern_expansion,
+# festival_approaching.
+#
+# The voice register is the populace / world-event view of a
+# morning_prep moment — civic-floor framing matching cultureConflict's
+# register for population-wide beats.
+
+templateId: seasonal_arc
+voiceRegister: civic_floor
+status: phase_14_voiced_surface_arc_shipped
+purpose: >
+  Generate voiced cards for the morning_prep seasonal_arc situation
+  (both active-arc and anticipation paths, both arc_milestone climax
+  and festival_preparation default types). The body states the actual
+  sim situation (theme + arc pressure trending, prior arc choice memory
+  surfaced, climax type tag, severity) and frames the town's collective
+  read of the arc beat.
+
+appliesTo:
+  seedFamilies: ['seasonal_arc']
+  seedTypes: ['arc_milestone', 'festival_preparation']
+  timings: ['morning_prep']
+
+slots:
+  - id: title
+    required: true
+    claims: flavor
+    maxWords: 6
+    description: >
+      Short situational title. Rendered with a dynamic prefix
+      `${arcLabel ?? themeLabel ?? 'Seasonal event'}: ${snippet}` at the
+      template layer — for Path A the prefix is
+      `state.world.localEvents[ref.id]?.label`; for Path B the prefix
+      derives from the theme name in `seed.toneHints[2]` capitalised.
+      The snippet supplies the arc's character within its 6-word budget.
+
+  - id: establishing_line
+    required: true
+    claims: sim-backed
+    maxWords: 14
+    description: >
+      Third-person narration of the arc situation. Names what happened
+      — arc_escalation or festival_readiness pressure rising, the
+      specific theme (mushroom_blight / miner_payday_boom /
+      inspection_campaign / rival_tavern_expansion / festival_approaching)
+      paired with an arc-pressure co-condition (themes are seed-shape,
+      not state-lookup, so cluster gates by themes need a state-lookup
+      co-condition for sim-coherence), the arc_milestone climax type
+      (paired with arc_escalation co-condition), prior arc / festival
+      memories, severity tier. Unconditional fallback claims only that
+      a shape gathers on the calendar that the room is starting to
+      feel.
+
+  - id: reaction_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      The town's collective read of the arc, third-person narrator
+      voice. No first-person address; no named NPC (the arc is an event
+      or absent ref). Gated on theme tags, severity, anticipation tone,
+      and prior-arc memories.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      Optional sensory beat — flags on the row, crowd-edge noise from
+      the miner road, pail handles from back doors, faded earlier-arc
+      notices. Omitted rather than weak.
+
+voiceAxesInPlay: (none — see voiceRegister)
+verbalTicsCovered: (none — ownerless / event-centred)
+
+# Sim signals / primitives the establishing_line pool reaches for.
+simSignalsInUse:
+  - { kind: pressureRising, pressureIds: [arc_escalation, festival_readiness] }
+  - { kind: memoryPresent, tags: [arc, festival, warning, prepare] }
+  - { kind: hasTag, tags: [mushroom_blight, miner_payday_boom, inspection_campaign, rival_tavern_expansion, festival_approaching, arc, calendar, anticipation] }
+  - { kind: seedType, anyOf: [arc_milestone] }
+  - { kind: severityAtLeast, value: 70 }
+
+mustNotInvent:
+  - named festival NPCs (no character is on the seed — the arc is a
+    local_event or absent ref; the festival organisers, miner leaders,
+    blight researchers are not characters in the cast layer)
+  - specific arc-effect numbers ("intensity 35", "readiness 22")
+  - direct mechanical readouts ("arc_escalation 40", "festival_readiness 60")
+  - earth idioms, modern slang, real-world brand language
+  - real-world festival, blight, or campaign names
+
+hardBounds:
+  perSlotWords:
+    title: 6
+    establishing_line: 14
+    reaction_line: 12
+    manner_note: 10
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+  noDirectMechanicalLanguage: true
+
+gradientPolicy:
+  base: one unconditional fallback per required slot (always fires)
+  middle: single-condition snippets — a pressure, a memory tag, a theme tag (+ arc-pressure co-condition for sim-coherence), a severity band
+  top: two-condition snippets — climax type + arc pressure, theme + pressure, severity + pressure
+  rule: |
+    no voiceAxis or verbalTic conditions in any pool. The seed's
+    primaryActor is a local_event ref (Path A) or undefined (Path B),
+    neither carrying castAttributes, so actor resolution returns
+    undefined and the framework primitives would always evaluate to
+    false.
+
+mustPass:
+  coverage: required slots title, establishing_line, reaction_line each have an unconditional fallback
+  specificityGradient: pools contain fallback + single-condition middle rung + two-condition top rung
+  voiceBounds: every snippet within slot.maxWords; title rendered with a dynamic colon-separated prefix at template layer (arcLabel | themeLabel | "Seasonal event")
+  simCoherence: establishing_line is claims sim-backed; every non-fallback carries ≥1 state-lookup condition (pressureRising / memoryPresent / signalEquals); theme tags (hasTag) and climax (seedType) are paired with pressureRising co-conditions
+  determinism: same seed + same state + same slot returns same snippet after FNV tie-break
+  diversity: state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
+  dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots

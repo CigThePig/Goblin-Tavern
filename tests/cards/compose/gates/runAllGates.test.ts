@@ -27,6 +27,8 @@ import { inspectionTemplate } from '../../../../src/cards/templates/inspection'
 import { reputationShiftTemplate } from '../../../../src/cards/templates/reputationShift'
 import { rumourCrisisTemplate } from '../../../../src/cards/templates/rumourCrisis'
 import { rivalTavernTemplate } from '../../../../src/cards/templates/rivalTavern'
+import { monthlyReviewTemplate } from '../../../../src/cards/templates/monthlyReview'
+import { seasonalArcTemplate } from '../../../../src/cards/templates/seasonalArc'
 import {
   drinkOrderChoiceLabelPool,
   drinkOrderEffectPreviewPool,
@@ -95,6 +97,14 @@ import {
   rivalTavernChoiceLabelPool,
   rivalTavernEffectPreviewPool,
 } from '../../../../src/cards/compose/pools/rivalTavern'
+import {
+  monthlyReviewChoiceLabelPool,
+  monthlyReviewEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/monthlyReview'
+import {
+  seasonalArcChoiceLabelPool,
+  seasonalArcEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/seasonalArc'
 import type { CompositionalCardTemplate } from '../../../../src/cards/compose/types'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
 import { buildTemplate } from './fixtures'
@@ -169,6 +179,14 @@ import {
   buildRivalTavernDeterminismSamples,
   buildRivalTavernDiversitySampler,
   buildRivalTavernEffectPreviewContext,
+  buildMonthlyReviewChoiceLabelContext,
+  buildMonthlyReviewDeterminismSamples,
+  buildMonthlyReviewDiversitySampler,
+  buildMonthlyReviewEffectPreviewContext,
+  buildSeasonalArcChoiceLabelContext,
+  buildSeasonalArcDeterminismSamples,
+  buildSeasonalArcDiversitySampler,
+  buildSeasonalArcEffectPreviewContext,
   representativeBannedNames,
 } from './samplers'
 
@@ -1079,6 +1097,107 @@ describe('runAllGates — happy path', () => {
     expect(report.determinism.pass).toBe(true)
     expect(report.diversity.every((d) => d.pass)).toBe(true)
   })
+
+  // Phase 140 / ISSUE-109 — Voiced Surface arc, Phase 14 (Periodic & Narrative).
+  // Two narrator-voiced templates land in this cluster:
+  //   - monthlyReview: rewritten in place; state perturbation across
+  //     pressure trends + monthly memories + rent_due_soon tag + severity.
+  //   - seasonalArc: first dedicated card for the family; state
+  //     perturbation across both seed types × five themes × active-arc /
+  //     anticipation × pressures + memories + severity.
+  it('the real monthlyReview template passes all seven gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(monthlyReviewTemplate, {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: buildMonthlyReviewDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'title',
+          sampler: buildMonthlyReviewDiversitySampler({
+            rngSeed: 'run-all-monthly-review-title',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'establishing_line',
+          sampler: buildMonthlyReviewDiversitySampler({
+            rngSeed: 'run-all-monthly-review-establishing',
+          }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
+        {
+          slotId: 'reaction_line',
+          sampler: buildMonthlyReviewDiversitySampler({
+            rngSeed: 'run-all-monthly-review-reaction',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'manner_note',
+          sampler: buildMonthlyReviewDiversitySampler({
+            rngSeed: 'run-all-monthly-review-manner',
+          }),
+          config: { sampleSize: 100, minDistinct: 2 },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  it('the real seasonalArc template passes all seven gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(seasonalArcTemplate, {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: buildSeasonalArcDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'title',
+          sampler: buildSeasonalArcDiversitySampler({
+            rngSeed: 'run-all-seasonal-arc-title',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'establishing_line',
+          sampler: buildSeasonalArcDiversitySampler({
+            rngSeed: 'run-all-seasonal-arc-establishing',
+          }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
+        {
+          slotId: 'reaction_line',
+          sampler: buildSeasonalArcDiversitySampler({
+            rngSeed: 'run-all-seasonal-arc-reaction',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'manner_note',
+          sampler: buildSeasonalArcDiversitySampler({
+            rngSeed: 'run-all-seasonal-arc-manner',
+          }),
+          config: { sampleSize: 100, minDistinct: 2 },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
 })
 
 // ---- Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6 ----
@@ -1514,6 +1633,57 @@ function buildRivalTavernChoicesGateTemplate(): CompositionalCardTemplate {
         id: 'effect_preview',
         role: 'effect_preview',
         pool: rivalTavernEffectPreviewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      },
+    ],
+  }
+}
+
+// Phase 140 / ISSUE-109 — Voiced Surface arc, Phase 14.
+function buildMonthlyReviewChoicesGateTemplate(): CompositionalCardTemplate {
+  return {
+    ...monthlyReviewTemplate,
+    id: 'phase140-monthlyReview-choices-gate',
+    slots: [
+      {
+        id: 'choice_label',
+        role: 'choice_label',
+        pool: monthlyReviewChoiceLabelPool,
+        optional: true,
+        wordBudget: 6,
+        claimMode: 'flavor',
+      },
+      {
+        id: 'effect_preview',
+        role: 'effect_preview',
+        pool: monthlyReviewEffectPreviewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      },
+    ],
+  }
+}
+
+function buildSeasonalArcChoicesGateTemplate(): CompositionalCardTemplate {
+  return {
+    ...seasonalArcTemplate,
+    id: 'phase140-seasonalArc-choices-gate',
+    slots: [
+      {
+        id: 'choice_label',
+        role: 'choice_label',
+        pool: seasonalArcChoiceLabelPool,
+        optional: true,
+        wordBudget: 6,
+        claimMode: 'flavor',
+      },
+      {
+        id: 'effect_preview',
+        role: 'effect_preview',
+        pool: seasonalArcEffectPreviewPool,
         optional: true,
         wordBudget: 10,
         claimMode: 'flavor',
@@ -2213,6 +2383,89 @@ describe('runAllGates — Phase 6 choice / consequence pools', () => {
             sampleSize: 100,
             minDistinct: 3,
             pickContext: buildAreaAtmosphereEffectPreviewContext,
+          },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  // Phase 140 / ISSUE-109 — Voiced Surface arc, Phase 14.
+  it('the monthlyReview choice-label and effect-preview pools pass all gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(buildMonthlyReviewChoicesGateTemplate(), {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: [] },
+      diversity: [
+        {
+          slotId: 'choice_label',
+          sampler: buildMonthlyReviewDiversitySampler({
+            rngSeed: 'phase140-monthly-choice-label',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildMonthlyReviewChoiceLabelContext,
+          },
+        },
+        {
+          slotId: 'effect_preview',
+          sampler: buildMonthlyReviewDiversitySampler({
+            rngSeed: 'phase140-monthly-effect-preview',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildMonthlyReviewEffectPreviewContext,
+          },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  it('the seasonalArc choice-label and effect-preview pools pass all gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(buildSeasonalArcChoicesGateTemplate(), {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: [] },
+      diversity: [
+        {
+          slotId: 'choice_label',
+          sampler: buildSeasonalArcDiversitySampler({
+            rngSeed: 'phase140-arc-choice-label',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildSeasonalArcChoiceLabelContext,
+          },
+        },
+        {
+          slotId: 'effect_preview',
+          sampler: buildSeasonalArcDiversitySampler({
+            rngSeed: 'phase140-arc-effect-preview',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildSeasonalArcEffectPreviewContext,
           },
         },
       ],

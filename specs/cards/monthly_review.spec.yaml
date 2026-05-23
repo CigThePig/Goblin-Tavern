@@ -1,0 +1,128 @@
+# Phase 140 / ISSUE-109 — Voiced Surface arc, Phase 14 (Periodic & Narrative Beats).
+#
+# Generation spec for the monthly_review compositional template.
+# Rewritten in place from the legacy hand-written template (`composeBody`
+# + raw `${label} ${value} (${trend})` pressure dumps that lifted top-3
+# pressure readouts into the body). The seed's primaryActor is a
+# `{ kind: 'other', id: 'month:${monthKey}' }` ref (audit pass 1 §5.3 —
+# periods are not characters) with no `castAttributes`, so the template
+# renders in a NARRATOR-VOICED register: voice axes / verbal tics never
+# fire because no actor resolves; variety comes from rising pressures,
+# prior-monthly memories (rent_paid / cellar_invested / reserves_held /
+# rival_settled), the rent_due_soon calendar tag, severity bands, and
+# the monthly repeat count.
+#
+# The voice register is the owner-at-the-ledger view of an end_month
+# moment — sober, monthly, ledger-shaped. Shares the office_quarters
+# register with debtRent (both end_month) and rivalTavern (closing-time
+# strategic thinking).
+
+templateId: monthly_review
+voiceRegister: office_quarters
+status: phase_14_voiced_surface_arc_shipped
+purpose: >
+  Generate voiced cards for the end_month monthly_review situation. The
+  body states the actual sim situation (top pressure trending, prior
+  monthly choice memory surfaced, rent_due_soon calendar tag, severity)
+  and frames the owner's quiet read of the closing. Replaces the legacy
+  template that listed raw pressure readouts like "debt 42 (+3)" in the
+  body.
+
+appliesTo:
+  seedFamilies: ['monthly_review']
+  seedTypes: ['monthly_review']
+  timings: ['end_month']
+
+slots:
+  - id: title
+    required: true
+    claims: flavor
+    maxWords: 6
+    description: >
+      Short situational title. Rendered with a fixed prefix
+      `Month in review: ${snippet}` at the template layer — the prefix
+      is not in the slot pool. The snippet supplies the month's
+      character within its 6-word budget.
+
+  - id: establishing_line
+    required: true
+    claims: sim-backed
+    maxWords: 14
+    description: >
+      Third-person narration of the month's dominant condition. Names
+      what happened — top pressure rising (landlord / debt /
+      reputation_drift / staff_burnout / customer_complaint /
+      rival_tavern_pressure), prior monthly choice surfaced from memory
+      tags (rent_paid / reserves / risk), the rent_due_soon calendar
+      tag, severity tier, monthly repeat count. Unconditional fallback
+      claims only that the month closes on lamps trimmed and the
+      ledger open.
+
+  - id: reaction_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      The owner's quiet read of the month, third-person narrator voice.
+      No first-person address; no named NPC (the landlord is system,
+      not character). Gated on severity, calendar tag, and
+      prior-monthly memories.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      Optional sensory beat — the lamp, the coin stack at month's end,
+      the ledger margin notes, the landlord note. Omitted rather than
+      weak.
+
+voiceAxesInPlay: (none — see voiceRegister)
+verbalTicsCovered: (none — ownerless)
+
+# Sim signals / primitives the establishing_line pool reaches for.
+simSignalsInUse:
+  - { kind: pressureRising, pressureIds: [landlord, debt, reputation_drift, staff_burnout, customer_complaint, rival_tavern_pressure] }
+  - { kind: memoryPresent, tags: [rent, reserves, risk, landlord, cellar, rival, review] }
+  - { kind: repeatCount, subjectTag: monthly }
+  - { kind: hasTag, tags: [rent_due_soon, monthly, summary, economy, reputation] }
+  - { kind: severityAtLeast, value: 70 }
+
+mustNotInvent:
+  - named NPCs (no character is on the seed — the landlord is system-only)
+  - specific creditor or banker names beyond the abstract "landlord"
+  - specific coin amounts ("net coin change -42", "the 12-gold note")
+  - direct mechanical readouts ("debt 42", "landlord 35", "(+3)", "(-2)")
+  - earth idioms, modern slang, real-world brand language
+
+hardBounds:
+  perSlotWords:
+    title: 6
+    establishing_line: 14
+    reaction_line: 12
+    manner_note: 10
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+  noDirectMechanicalLanguage: true
+
+gradientPolicy:
+  base: one unconditional fallback per required slot (always fires)
+  middle: single-condition snippets — a pressure, a memory tag, a tone tag, a severity band
+  top: two-condition snippets — pressure + memory, severity + pressure, repeat + pressure
+  rule: |
+    no voiceAxis or verbalTic conditions in any pool. The seed's
+    primaryActor is a month ref with no castAttributes, so actor
+    resolution returns undefined and the framework primitives would
+    always evaluate to false.
+
+mustPass:
+  coverage: required slots title, establishing_line, reaction_line each have an unconditional fallback
+  specificityGradient: pools contain fallback + single-condition middle rung + two-condition top rung
+  voiceBounds: every snippet within slot.maxWords; title rendered with a fixed colon-separated prefix at template layer
+  simCoherence: establishing_line is claims sim-backed; every non-fallback carries ≥1 state-lookup condition (pressureRising / memoryPresent / repeatCount / signalEquals)
+  determinism: same seed + same state + same slot returns same snippet after FNV tie-break
+  diversity: state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
+  dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots

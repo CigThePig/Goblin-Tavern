@@ -25,6 +25,7 @@ import {
   rumourCrisisCard,
   rivalTavernCard,
   monthlyReviewCard,
+  seasonalArcCard,
   fallbackCard,
 } from '../../src/cards/index'
 import { appliesToMatches } from '../../src/cards/selection'
@@ -806,6 +807,15 @@ describe('Template 7c — rivalTavernCard', () => {
   })
 })
 
+// Phase 140 / ISSUE-109 — Voiced Surface arc, Phase 14 (Periodic &
+// Narrative Beats). The legacy hand-written `monthlyReviewCard`
+// (composeBody + raw `${label} ${value} (${trend})` pressure dumps) is
+// rewritten in place as a compositional template. Title is now
+// `Month in review: ${snippet}` — the fixed legacy header is preserved
+// as a colon-separated prefix (rivalTavern title pattern), so the
+// 6-word title cap is not honoured by this template. The composed
+// `title` SLOT is still capped at 6 words (voice-bounds gate); the
+// `assertBodyBudget` helper checks the body lines + non-empty title.
 describe('Template 8 — monthlyReviewCard', () => {
   const state = createInitialTavernState()
   const seed = makeSeed({
@@ -821,15 +831,46 @@ describe('Template 8 — monthlyReviewCard', () => {
   it('applies', () => {
     expect(appliesToMatches(monthlyReviewCard.appliesTo, seed, state)).toBe(true)
   })
-  it('renders within budgets and includes a delayed preview', () => {
+  it('renders a composed body with no raw textIngredients fragments', () => {
     const view = monthlyReviewCard.render(seed, state)
-    assertTitleBudget(view)
     assertBodyBudget(view)
-    const previews = view.choices[0]?.previewEffects ?? []
-    expect(previews.some((p) => p.startsWith('later:'))).toBe(true)
+    expect(view.body.length).toBeGreaterThan(0)
+    expect(view.title.startsWith('Month in review:')).toBe(true)
+    expect(view.title).not.toContain('…')
+    expect(view.title).not.toContain('...')
   })
   it('does not mutate state', () => {
     assertNonMutation(monthlyReviewCard, seed, state)
+  })
+})
+
+describe('Template 9 — seasonalArcCard', () => {
+  const state = createInitialTavernState()
+  const seed = makeSeed({
+    family: 'seasonal_arc',
+    type: 'festival_preparation',
+    timing: 'morning_prep',
+    domain: ['arcs', 'calendar'],
+    toneHints: ['arc', 'calendar', 'festival_approaching'],
+    textIngredients: {
+      subject: 'the festival ahead',
+    },
+  })
+
+  it('applies', () => {
+    expect(appliesToMatches(seasonalArcCard.appliesTo, seed, state)).toBe(true)
+  })
+  it('renders a composed body with no raw textIngredients fragments', () => {
+    const view = seasonalArcCard.render(seed, state)
+    assertBodyBudget(view)
+    expect(view.body.length).toBeGreaterThan(0)
+    // No arcLabel resolves (no primaryActor); theme label takes over.
+    expect(view.title.startsWith('Festival approaching:')).toBe(true)
+    expect(view.title).not.toContain('…')
+    expect(view.title).not.toContain('...')
+  })
+  it('does not mutate state', () => {
+    assertNonMutation(seasonalArcCard, seed, state)
   })
 })
 

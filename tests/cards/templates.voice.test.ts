@@ -22,6 +22,7 @@ import {
   rumourCrisisCard,
   rivalTavernCard,
   monthlyReviewCard,
+  seasonalArcCard,
   fallbackCard,
 } from '../../src/cards/index'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
@@ -589,23 +590,96 @@ describe('rivalTavernCard voice', () => {
   })
 })
 
+// Phase 140 / ISSUE-109 — Voiced Surface arc, Phase 14 (Periodic &
+// Narrative Beats). Rewrites in place the legacy block that asserted
+// `composeBody` glue + raw `${label} ${value}` pressure dumps landed in
+// the rendered body. The compositional template is narrator-voiced —
+// no actor with castAttributes resolves for a month ref — so variety
+// comes from the snippet pools' state-perturbation gating, not from
+// the retired voice composer.
 describe('monthlyReviewCard voice', () => {
-  it('honours the budget', () => {
+  it('honours the body budget and never clamps the title with "…"', () => {
     const seed = makeSeed({
       family: 'monthly_review',
       type: 'monthly_review',
       timing: 'end_month',
     })
     const view = monthlyReviewCard.render(seed, createInitialTavernState())
-    assertBudget(view)
+    assertBodyBudgetOnly(view)
   })
 
   it('is deterministic per seed id', () => {
     assertDeterministic(monthlyReviewCard, {
+      id: 'monthly-review-voice-A',
       family: 'monthly_review',
       type: 'monthly_review',
       timing: 'end_month',
     })
+  })
+
+  it('emits no raw "label value (trend)" mechanical pressure readouts in body', () => {
+    const seed = makeSeed({
+      id: 'monthly-review-voice-B',
+      family: 'monthly_review',
+      type: 'monthly_review',
+      timing: 'end_month',
+    })
+    const view = monthlyReviewCard.render(seed, createInitialTavernState())
+    for (const line of view.body) {
+      expect(line).not.toMatch(/debt \d+/i)
+      expect(line).not.toMatch(/landlord \d+/i)
+      expect(line).not.toMatch(/\(\+\d+\)/)
+      expect(line).not.toMatch(/\(-\d+\)/)
+    }
+  })
+})
+
+describe('seasonalArcCard voice', () => {
+  it('honours the body budget and never clamps the title with "…"', () => {
+    const seed = makeSeed({
+      family: 'seasonal_arc',
+      type: 'festival_preparation',
+      timing: 'morning_prep',
+      domain: ['arcs', 'calendar'],
+      toneHints: ['arc', 'calendar', 'festival_approaching'],
+    })
+    const view = seasonalArcCard.render(seed, createInitialTavernState())
+    assertBodyBudgetOnly(view)
+  })
+
+  it('is deterministic per seed id', () => {
+    assertDeterministic(seasonalArcCard, {
+      id: 'seasonal-arc-voice-A',
+      family: 'seasonal_arc',
+      type: 'festival_preparation',
+      timing: 'morning_prep',
+      domain: ['arcs', 'calendar'],
+      toneHints: ['arc', 'calendar', 'festival_approaching'],
+    })
+  })
+
+  it('emits no legacy adjective-glue prefix and no fragment-dump body', () => {
+    const seed = makeSeed({
+      id: 'seasonal-arc-voice-B',
+      family: 'seasonal_arc',
+      type: 'arc_milestone',
+      timing: 'morning_prep',
+      domain: ['arcs', 'calendar'],
+      toneHints: ['arc', 'calendar', 'mushroom_blight'],
+      textIngredients: {
+        subject: 'the blight',
+        sensoryDetails: ['flags rising', 'crowds gathering'],
+      },
+    })
+    const view = seasonalArcCard.render(seed, createInitialTavernState())
+    // The theme label anchors the title; the raw textIngredients fragments
+    // ("flags rising") must not appear in any body line.
+    expect(view.title.startsWith('Mushroom blight:')).toBe(true)
+    expect(view.title).not.toContain('…')
+    for (const line of view.body) {
+      expect(line).not.toBe('flags rising')
+      expect(line).not.toBe('crowds gathering')
+    }
   })
 })
 

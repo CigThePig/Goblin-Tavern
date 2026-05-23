@@ -4,6 +4,16 @@
 // regardless of registration order. The fallback is registered last by
 // convention but the registry treats it identically to any other card.
 //
+// Phase 140 / ISSUE-109 — Voiced Surface arc, Phase 14 (Periodic &
+// Narrative Beats). Rewrites the legacy hand-written `monthlyReviewCard`
+// in place as a compositional template (replaces raw `${label} ${value}
+// (${trend})` pressure dumps with sim-backed establishing-line +
+// narrator-voiced reaction). Adds `seasonalArcCard`
+// (`seasonal_arc.arc_milestone`) — first dedicated card for the
+// seasonal_arc family; pre-Phase 14 every seasonal_arc seed routed
+// through `fallbackCard`. Both narrator-voiced (no actor with
+// castAttributes — `month:{key}` and `local_event` refs respectively).
+//
 // Phase 139 / ISSUE-108 — Voiced Surface arc, Phase 13 (Reputation,
 // Rumour & Rivals). Replaces the legacy `reputationShiftWeeklyCard`
 // (whose `timings: ['end_week']` filter never matched the generator's
@@ -31,6 +41,7 @@ import { reputationShiftCard } from './reputationShift'
 import { rumourCrisisCard } from './rumourCrisis'
 import { rivalTavernCard } from './rivalTavern'
 import { monthlyReviewCard } from './monthlyReview'
+import { seasonalArcCard } from './seasonalArc'
 import { drinkOrderCard } from './drinkOrder'
 import { staffAsideCard } from './staffAside'
 import { fallbackCard, FALLBACK_CARD_ID } from './fallback'
@@ -54,6 +65,7 @@ export const REQUIRED_CARDS: ReadonlyArray<CardDefinition> = [
   rumourCrisisCard,
   rivalTavernCard,
   monthlyReviewCard,
+  seasonalArcCard,
   drinkOrderCard,
   staffAsideCard,
   fallbackCard,
@@ -78,6 +90,7 @@ export {
   rumourCrisisCard,
   rivalTavernCard,
   monthlyReviewCard,
+  seasonalArcCard,
   drinkOrderCard,
   staffAsideCard,
   fallbackCard,

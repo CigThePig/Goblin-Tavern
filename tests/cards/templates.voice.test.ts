@@ -22,7 +22,6 @@ import {
   monthlyReviewCard,
   fallbackCard,
 } from '../../src/cards/index'
-import { TONE_POOLS } from '../../src/cards/voice/index'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import type { CardDefinition, CardView } from '../../src/cards/types'
 
@@ -72,46 +71,64 @@ function assertDeterministic(
 // ---------- Per-template budget + determinism ----------
 
 describe('foodSafetyCrisisCard voice', () => {
+  // Phase 138 / ISSUE-107 — Voiced Surface arc, Phase 12 (Crises &
+  // Safety). Rewrites in place the legacy block that asserted
+  // pickSeverityAdjective fragments landed in the rendered title /
+  // body. The compositional template is actor-voiced via the cook's
+  // castAttributes; voice comes from the snippet pools, not the
+  // retired voice composer.
   it('honours the budget', () => {
+    const state = createInitialTavernState()
     const seed = makeSeed({
       family: 'food_safety',
       type: 'crisis',
-      timing: 'during_service',
+      timing: 'morning_prep',
       severity: 80,
+      primaryActor: { kind: 'staff', id: 'cook' },
+      location: { kind: 'area', id: 'kitchen' },
     })
-    const view = foodSafetyCrisisCard.render(seed, createInitialTavernState())
+    const view = foodSafetyCrisisCard.render(seed, state)
     assertBudget(view)
   })
 
   it('is deterministic per seed id', () => {
-    assertDeterministic(foodSafetyCrisisCard, {
+    const state = createInitialTavernState()
+    const seed = makeSeed({
+      id: 'food-safety-voice-A',
       family: 'food_safety',
       type: 'crisis',
-      timing: 'during_service',
+      timing: 'morning_prep',
       severity: 80,
+      primaryActor: { kind: 'staff', id: 'cook' },
+      location: { kind: 'area', id: 'kitchen' },
     })
+    const a = foodSafetyCrisisCard.render(seed, state)
+    const b = foodSafetyCrisisCard.render(seed, state)
+    expect(a.title).toBe(b.title)
+    expect(a.body).toEqual(b.body)
   })
 
-  it('lands an urgent or visceral fragment somewhere in the view', () => {
+  it('emits no legacy pickSeverityAdjective glue in the title', () => {
+    const state = createInitialTavernState()
     const seed = makeSeed({
-      id: 'food-safety-voice-1',
+      id: 'food-safety-voice-B',
       family: 'food_safety',
       type: 'crisis',
-      timing: 'during_service',
+      timing: 'morning_prep',
       severity: 80,
+      primaryActor: { kind: 'staff', id: 'cook' },
+      location: { kind: 'area', id: 'kitchen' },
+      textIngredients: {
+        subject: 'the kitchen',
+        sensoryDetails: ['greasy floor'],
+      },
     })
-    const view = foodSafetyCrisisCard.render(seed, createInitialTavernState())
-    const text = [view.title, ...view.body].join(' ').toLowerCase()
-    const urgent = TONE_POOLS['urgent']!
-    const visceral = TONE_POOLS['visceral']!
-    const fragments = [
-      ...urgent.prefixAdjectives,
-      ...urgent.bodyConnectors,
-      ...visceral.prefixAdjectives,
-      ...visceral.bodyConnectors,
-    ].map((s) => s.toLowerCase())
-    const found = fragments.some((f) => text.includes(f))
-    expect(found).toBe(true)
+    const view = foodSafetyCrisisCard.render(seed, state)
+    // Phase 5 frame discipline — no trailing "…" / "..." and no
+    // duplicated subject pattern like "Acrid the kitchen: the kitchen".
+    expect(view.title.endsWith('…')).toBe(false)
+    expect(view.title.endsWith('...')).toBe(false)
+    expect(view.title).not.toMatch(/(the kitchen): \1/i)
   })
 })
 

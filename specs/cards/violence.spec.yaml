@@ -1,0 +1,147 @@
+# Phase 138 / ISSUE-107 — Voiced Surface arc, Phase 12 (Crises & Safety).
+#
+# Generation spec for the violence compositional template. Pre-Phase-12
+# violence seeds (`violence` / `customer_incident` / `during_service`)
+# had no dedicated template and routed through `fallbackCard`. This
+# spec is the first dedicated card for the family.
+#
+# The seed's primaryActor is a customer-group ref — picker-rotated
+# across groups whose tags include `rowdy` / `dangerous` /
+# `incident_prone` (`issueSeedGenerators.ts:2117-2144`). Customer
+# groups carry Phase-128 cohort `castAttributes` (the four voice axes
+# + optional verbal tic; no specialty/blindspot/affinity surface), so
+# the group's voice can drive the reaction line.
+#
+# Voice register `tavern_floor` — the brawl is on the floor, the owner
+# is reading the room out loud.
+
+templateId: violence
+voiceRegister: tavern_floor
+status: phase_12_voiced_surface_arc_shipped
+purpose: >
+  Generate voiced cards for the during_service violence situation.
+  The body states the actual sim situation (customer-group rowdiness
+  band, customer-group satisfaction band, area damage band, violence
+  pressure rising, prior owner choice surfaced from memory tags,
+  repeat count, severity tier) and carries the rowdy group's voice in
+  their first-person reply. The legacy seed routed to the fallback
+  card; this is the first dedicated rendering.
+
+appliesTo:
+  seedFamilies: ['violence']
+  seedTypes: ['customer_incident']
+  timings: ['during_service']
+
+slots:
+  - id: title
+    required: true
+    claims: flavor
+    maxWords: 6
+    description: >
+      Short situational title; template glue prepends the customer
+      group's label as `${group.label}: ${snippet}`. Snippet text stays
+      ≤ 4 words so a 2-word group label keeps the final composed title
+      within the legacy 6-word total budget. Voice-bounds gate forbids
+      trailing "…" and immediate token duplication.
+
+  - id: establishing_line
+    required: true
+    claims: sim-backed
+    maxWords: 14
+    description: >
+      Third-person narration of the violence situation. Names what
+      happened — customer_group rowdiness band high (Phase-12 new
+      band), customer_group satisfaction band low, area damage band,
+      violence pressure rising, prior memory (warning, brawl, banned,
+      hired security), repeat count, severity tier. Unconditional
+      fallback claims only that tension on the floor has slipped its
+      ordinary leash.
+
+  - id: reaction_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      The group's first-person reply, voice-axis driven (terseness,
+      warmth, formality, floridity) plus verbal tic. May show
+      defiance, swagger, threat, cold contempt, ironic complaint.
+      Must not assert specific past incidents or invent named NPCs.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      Optional third-person sensory beat — a shoulder dropped, a tankard
+      slammed, the bench creaking. Voice-axis gated only; no checkable
+      claim.
+
+voiceAxesInPlay: [terseness, warmth, formality, floridity]
+verbalTicsCovered: [understates, qualifies_everything, interrupts_self, italicises_stakes, repeats_for_emphasis, quotes_someone_else]
+
+simSignalsInUse:
+  - { kind: signalEquals, signals: [customer_group.rowdiness, customer_group.satisfaction, customer_group.loyalty], roles: [primaryActor], bands: [low, mid, high] }
+  - { kind: signalEquals, signals: [area.damage], roles: [location], bands: [low, mid, high] }
+  - { kind: pressureRising, pressureIds: [violence] }
+  - { kind: memoryPresent, tags: [violence_warning_seen, security_hired_recently, brawl, warning, dangerous] }
+  - { kind: repeatCount, subjectTag: violence }
+  - { kind: hasTag, tags: [violence, rowdy, dangerous, urgent] }
+  - { kind: severityAtLeast, value: 70 }
+  - { kind: voiceAxis, role: primaryActor }
+  - { kind: verbalTic, role: primaryActor }
+
+mustNotInvent:
+  - named individuals from the rowdy group beyond the seed
+  - specific past fights or brawls beyond the seeded memory tags
+  - specific damage / rowdiness numbers ("rowdiness 80")
+  - earth idioms, modern slang, real-world brand or place language
+  - the legacy `pickAreaStateAdjective` title prefix (`Damaged main room: main room`)
+
+positiveExemplars:
+  title:
+    - "Ogres: tempers fraying"
+    - "Adventurers: spoiling for trouble"
+    - "Miners: blood up"
+  establishing_line:
+    - "The rowdiest table has slipped past anything a glance can settle."
+    - "Violence pressure has been climbing onto the floor for days."
+    - "A brawl from last week is still riding their breath tonight."
+    - "Third visit running, the same group brings the same tension back."
+
+negativeExamples:
+  - "Shouting voices. violence pressure. main room may break." (legacy composeBody glue)
+  - "Damaged main room: main room" (legacy `pickAreaStateAdjective` + duplicate subject)
+  - "Their rowdiness is 80 and the damage is 60." (mechanical readout)
+  - "Last week was rough." (unbacked history claim)
+
+hardBounds:
+  perSlotWords:
+    title: 6
+    establishing_line: 14
+    reaction_line: 12
+    manner_note: 10
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+  noDirectMechanicalLanguage: true
+
+gradientPolicy:
+  base: one unconditional fallback per required slot (always fires)
+  middle: single-condition snippets — a band, a pressure, a memory tag, a tone tag, a severity band, a voice axis, a verbal tic
+  top: two-condition snippets — band + pressure, severity + repeat, axis + axis, band + memory
+  rule: |
+    customer_group.rowdiness is the band the violence picker fires on,
+    so its low/high rungs are the dramatic anchors for the establishing
+    line. Voice axes drive the reaction line; verbal tics surface the
+    group's signature beat.
+
+mustPass:
+  coverage: required slots title, establishing_line, reaction_line each have an unconditional fallback
+  specificityGradient: pools contain fallback + single-condition middle rung + two-condition top rung
+  voiceBounds: every snippet within slot.maxWords; no trailing "…" or immediate duplicate token in title-role slots
+  simCoherence: establishing_line is claims sim-backed; every non-fallback carries ≥1 state-lookup condition
+  determinism: same seed + same state + same slot returns same snippet after FNV tie-break
+  diversity: actor + state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
+  dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots

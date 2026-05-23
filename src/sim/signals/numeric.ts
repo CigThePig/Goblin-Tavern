@@ -175,3 +175,18 @@ export function areaDamageBand(
   if (!area) return undefined
   return bandOf(area.damage, BAND_THRESHOLDS['area.damage'])
 }
+
+// Phase 138 / ISSUE-107 — Voiced Surface Phase 12 (Crises & Safety).
+// Band on `customerGroup.rowdiness`, the meter that drives the violence
+// picker. Snippets gate the violence card's establishing line on this
+// rather than on satisfaction (which fires a different family) or on
+// the pressure proxy.
+
+export function customerGroupRowdinessBand(
+  state: TavernState,
+  groupId: string,
+): BandId | undefined {
+  const group = state.customerGroups[groupId]
+  if (!group) return undefined
+  return bandOf(group.rowdiness, BAND_THRESHOLDS['customer_group.rowdiness'])
+}

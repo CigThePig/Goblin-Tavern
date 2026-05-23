@@ -1,0 +1,152 @@
+# Phase 138 / ISSUE-107 — Voiced Surface arc, Phase 12 (Crises & Safety).
+#
+# Generation spec for the food_safety compositional template. Rewrites
+# the legacy hand-written `foodSafetyCrisis` template, which composed
+# the body by gluing `ti.sensoryDetails[0]`, `ti.recentContext[0]`, and
+# `ti.stakesReadable[0]` through `composeBody`, and built the title by
+# prepending a deterministic adjective from `pickSeverityAdjective` to
+# `ti.subject` — the high-severity fragment-dump-with-adjective-glue
+# pattern the arc was built to retire.
+#
+# The seed's primaryActor is the cook (`cook ? staffRef(cook.id) : undefined`)
+# at `issueSeedGenerators.ts:331`. Staff carry Phase-A castAttributes —
+# the four voice axes + optional verbal tic — so the cook can speak the
+# reaction line. The Phase-11 `'location'` role extension lets the
+# establishing line read `area.cleanliness` / `area.damage` on the
+# kitchen area via the seed's `seed.location: areaRef('kitchen')`.
+#
+# Voice register `back_of_house` — same register as stockShortage,
+# maintenance, areaAtmosphere; the cook is voicing a kitchen problem
+# to the owner, not addressing the floor.
+
+templateId: food_safety
+voiceRegister: back_of_house
+status: phase_12_voiced_surface_arc_shipped
+purpose: >
+  Generate voiced cards for the morning_prep food_safety crisis. The
+  body states the actual sim situation (kitchen cleanliness band,
+  kitchen damage band, cook stress band, food_safety pressure rising,
+  prior owner choice surfaced from memory tags, repeat count, severity
+  ceiling) and carries the cook's reaction in her voice. The legacy
+  template's body was a raw textIngredients dump; this one speaks.
+
+appliesTo:
+  seedFamilies: ['food_safety']
+  seedTypes: ['crisis']
+  timings: ['morning_prep']
+  minSeverity: 60
+
+slots:
+  - id: title
+    required: true
+    claims: flavor
+    maxWords: 6
+    description: >
+      Short situational title; template glue prepends the cook's
+      display name as `${cook.display}: ${snippet}`. Snippet text stays
+      ≤ 4 words so a 2-word display name keeps the final composed
+      title within the legacy 6-word total budget. Voice-bounds gate
+      forbids trailing "…" and immediate token duplication.
+
+  - id: establishing_line
+    required: true
+    claims: sim-backed
+    maxWords: 14
+    description: >
+      Third-person narration of the kitchen-state situation. Names
+      what happened — kitchen cleanliness low, kitchen damage high,
+      cook stress / fatigue band, food_safety pressure rising, prior
+      memory (warning, discarded stock, kitchen cleaned, served
+      questionable), repeat count, severity tier. Unconditional
+      fallback claims only that the morning's kitchen check turned up
+      something that wants a decision.
+
+  - id: reaction_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      The cook's first-person reply, voice-axis driven (terseness,
+      warmth, formality) plus verbal tic. May show worry, denial,
+      bargaining, exasperation, deference. Must not assert specific
+      past tavern incidents or invent named NPCs.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      Optional sensory beat — a wiped hand, a tasting spoon set down,
+      the apron knotted twice. Voice-axis gated only; no checkable
+      claim.
+
+voiceAxesInPlay: [terseness, warmth, formality]
+verbalTicsCovered: [understates, qualifies_everything, interrupts_self, trails_off, italicises_stakes, repeats_for_emphasis]
+
+simSignalsInUse:
+  - { kind: signalEquals, signals: [area.cleanliness, area.damage], roles: [location], bands: [low, mid, high] }
+  - { kind: signalEquals, signals: [staff.stress, staff.fatigue], roles: [primaryActor], bands: [low, mid, high] }
+  - { kind: pressureRising, pressureIds: [food_safety] }
+  - { kind: memoryPresent, tags: [food_safety_warning_seen, discarded_unsafe_stock_recently, kitchen_cleaned_recently, served_questionable_stew, warning] }
+  - { kind: repeatCount, subjectTag: food_safety }
+  - { kind: hasTag, tags: [kitchen, food, urgent, inspection_relevant] }
+  - { kind: severityAtLeast, value: 70 }
+  - { kind: severityAtLeast, value: 85 }  # crisis ceiling — "unsafe to serve from"
+  - { kind: voiceAxis, role: primaryActor }
+  - { kind: verbalTic, role: primaryActor }
+
+mustNotInvent:
+  - named customers, inspectors, or fellow staff beyond the seed
+  - specific past tavern incidents beyond the seeded memory tags
+  - specific cleanliness / spoilage numbers ("cleanliness 25", "spoilage 60")
+  - earth idioms, modern slang, real-world brand or place language
+  - the legacy `pickSeverityAdjective` title prefix (`Acrid the kitchen: the kitchen`)
+
+positiveExemplars:
+  title:
+    - "Marra: the kitchen is bad"
+    - "Marra: a word about the stew"
+    - "Bram: this morning's tasting"
+  establishing_line:
+    - "The kitchen is filthier than I can paper over."
+    - "Food_safety pressure has been climbing onto the board for days."
+    - "The warning from the last walk-through has come due."
+    - "Third morning running, this same risk writes itself onto the list."
+
+negativeExamples:
+  - "The kitchen is dirty. food_safety pressure. customers may get sick." (legacy composeBody glue)
+  - "Acrid the kitchen: the kitchen" (legacy `pickSeverityAdjective` + duplicate subject)
+  - "The cleanliness is 25 and the spoilage is 60." (mechanical readout)
+  - "Last week the inspector came." (unbacked history claim)
+
+hardBounds:
+  perSlotWords:
+    title: 6
+    establishing_line: 14
+    reaction_line: 12
+    manner_note: 10
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+  noDirectMechanicalLanguage: true
+
+gradientPolicy:
+  base: one unconditional fallback per required slot (always fires)
+  middle: single-condition snippets — a band, a pressure, a memory, a tone tag, a severity band, a voice axis, a verbal tic
+  top: two-condition snippets — band + pressure, severity + repeat, axis + axis, severity ceiling + memory
+  rule: |
+    severity-gated gradient. Phase 12 introduces a second severity
+    ceiling at 85 (the "unsafe to serve from" rung). The 70 rung is
+    the established "no soft answer left" threshold; the 85 rung is
+    the kitchen-must-shut variant.
+
+mustPass:
+  coverage: required slots title, establishing_line, reaction_line each have an unconditional fallback
+  specificityGradient: pools contain fallback + single-condition middle rung + two-condition top rung (incl. severity 85 ceiling)
+  voiceBounds: every snippet within slot.maxWords; no trailing "…" or immediate duplicate token in title-role slots
+  simCoherence: establishing_line is claims sim-backed; every non-fallback carries ≥1 state-lookup condition
+  determinism: same seed + same state + same slot returns same snippet after FNV tie-break
+  diversity: actor + state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
+  dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots

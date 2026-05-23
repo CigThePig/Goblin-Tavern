@@ -26,6 +26,8 @@ export {
   debtRentCard,
   maintenanceCard,
   areaAtmosphereCard,
+  violenceCard,
+  inspectionCard,
   staffBurnoutCard,
   factionRequestCard,
   cultureConflictCard,

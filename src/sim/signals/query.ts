@@ -15,6 +15,7 @@ import {
   cultureFamiliarityBand,
   cultureTensionBand,
   customerGroupLoyaltyBand,
+  customerGroupRowdinessBand,
   customerGroupSatisfactionBand,
   factionInfluenceBand,
   factionRelationshipBand,
@@ -76,5 +77,7 @@ function readBand(
       return cultureFamiliarityBand(state, id)
     case 'area.damage':
       return areaDamageBand(state, id)
+    case 'customer_group.rowdiness':
+      return customerGroupRowdinessBand(state, id)
   }
 }

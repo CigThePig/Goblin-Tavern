@@ -19,6 +19,7 @@ import {
   cultureFamiliarityBand,
   cultureTensionBand,
   customerGroupLoyaltyBand,
+  customerGroupRowdinessBand,
   customerGroupSatisfactionBand,
   factionInfluenceBand,
   factionRelationshipBand,
@@ -62,6 +63,8 @@ describe('bandOf — pure bander', () => {
       'culture.tension',
       'culture.comfort',
       'culture.familiarity',
+      'area.damage',
+      'customer_group.rowdiness',
     ]
     for (const id of ids) {
       expect(BAND_THRESHOLDS[id]).toBeDefined()
@@ -303,7 +306,11 @@ describe('customer_group signals', () => {
   const groupId = Object.keys(base.customerGroups)[0]!
 
   function withGroup(
-    overrides: Partial<{ satisfaction: number; loyalty: number }>,
+    overrides: Partial<{
+      satisfaction: number
+      loyalty: number
+      rowdiness: number
+    }>,
   ): TavernState {
     const existing = base.customerGroups[groupId]!
     return {
@@ -326,9 +333,20 @@ describe('customer_group signals', () => {
     expect(customerGroupLoyaltyBand(withGroup({ loyalty: 70 }), groupId)).toBe('high')
   })
 
+  // Phase 138 / ISSUE-107 — Voiced Surface Phase 12 (Crises & Safety).
+  it('rowdinessBand at the cut-points', () => {
+    expect(customerGroupRowdinessBand(withGroup({ rowdiness: 0 }), groupId)).toBe('low')
+    expect(customerGroupRowdinessBand(withGroup({ rowdiness: 39 }), groupId)).toBe('low')
+    expect(customerGroupRowdinessBand(withGroup({ rowdiness: 40 }), groupId)).toBe('mid')
+    expect(customerGroupRowdinessBand(withGroup({ rowdiness: 69 }), groupId)).toBe('mid')
+    expect(customerGroupRowdinessBand(withGroup({ rowdiness: 70 }), groupId)).toBe('high')
+    expect(customerGroupRowdinessBand(withGroup({ rowdiness: 100 }), groupId)).toBe('high')
+  })
+
   it('returns undefined for unknown group id', () => {
     expect(customerGroupSatisfactionBand(base, 'no_such_group')).toBeUndefined()
     expect(customerGroupLoyaltyBand(base, 'no_such_group')).toBeUndefined()
+    expect(customerGroupRowdinessBand(base, 'no_such_group')).toBeUndefined()
   })
 })
 
@@ -463,7 +481,12 @@ describe('querySignal — dispatcher', () => {
       ...base,
       customerGroups: {
         ...base.customerGroups,
-        [groupId]: { ...base.customerGroups[groupId]!, satisfaction: 25 },
+        [groupId]: {
+          ...base.customerGroups[groupId]!,
+          satisfaction: 25,
+          // Phase 138 / ISSUE-107 — exercise the new rowdiness band.
+          rowdiness: 82,
+        },
       },
     }
     expect(
@@ -480,6 +503,25 @@ describe('querySignal — dispatcher', () => {
     ).toEqual({ missing: true })
     expect(
       querySignal(adjusted, 'customer_group.loyalty', {
+        kind: 'customer_group',
+        id: 'no_such_group',
+      }),
+    ).toEqual({ missing: true })
+    // Phase 138 / ISSUE-107 — Voiced Surface Phase 12.
+    expect(
+      querySignal(adjusted, 'customer_group.rowdiness', {
+        kind: 'customer_group',
+        id: groupId,
+      }),
+    ).toEqual({ band: 'high' })
+    expect(
+      querySignal(adjusted, 'customer_group.rowdiness', {
+        kind: 'regular',
+        id: groupId,
+      }),
+    ).toEqual({ missing: true })
+    expect(
+      querySignal(adjusted, 'customer_group.rowdiness', {
         kind: 'customer_group',
         id: 'no_such_group',
       }),

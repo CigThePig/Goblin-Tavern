@@ -21,6 +21,9 @@ import { factionRequestTemplate } from '../../../../src/cards/templates/factionR
 import { cultureConflictTemplate } from '../../../../src/cards/templates/cultureConflict'
 import { maintenanceTemplate } from '../../../../src/cards/templates/maintenance'
 import { areaAtmosphereTemplate } from '../../../../src/cards/templates/areaAtmosphere'
+import { foodSafetyCrisisTemplate } from '../../../../src/cards/templates/foodSafetyCrisis'
+import { violenceTemplate } from '../../../../src/cards/templates/violence'
+import { inspectionTemplate } from '../../../../src/cards/templates/inspection'
 import {
   drinkOrderChoiceLabelPool,
   drinkOrderEffectPreviewPool,
@@ -65,6 +68,18 @@ import {
   areaAtmosphereChoiceLabelPool,
   areaAtmosphereEffectPreviewPool,
 } from '../../../../src/cards/compose/pools/areaAtmosphere'
+import {
+  foodSafetyChoiceLabelPool,
+  foodSafetyEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/foodSafety'
+import {
+  violenceChoiceLabelPool,
+  violenceEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/violence'
+import {
+  inspectionChoiceLabelPool,
+  inspectionEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/inspection'
 import type { CompositionalCardTemplate } from '../../../../src/cards/compose/types'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
 import { buildTemplate } from './fixtures'
@@ -115,6 +130,18 @@ import {
   buildSupplierReliabilityDeterminismSamples,
   buildSupplierReliabilityDiversitySampler,
   buildSupplierReliabilityEffectPreviewContext,
+  buildFoodSafetyChoiceLabelContext,
+  buildFoodSafetyDeterminismSamples,
+  buildFoodSafetyDiversitySampler,
+  buildFoodSafetyEffectPreviewContext,
+  buildViolenceChoiceLabelContext,
+  buildViolenceDeterminismSamples,
+  buildViolenceDiversitySampler,
+  buildViolenceEffectPreviewContext,
+  buildInspectionChoiceLabelContext,
+  buildInspectionDeterminismSamples,
+  buildInspectionDiversitySampler,
+  buildInspectionEffectPreviewContext,
   representativeBannedNames,
 } from './samplers'
 
@@ -625,6 +652,158 @@ describe('runAllGates — happy path', () => {
     expect(report.diversity.every((d) => d.pass)).toBe(true)
   })
 
+  // Phase 138 / ISSUE-107 — Voiced Surface arc, Phase 12 (Crises & Safety).
+  // foodSafety: actor-voiced via the cook's staff castAttributes. The
+  // diversity sampler perturbs CAST (the four voice axes × verbal tics)
+  // rather than state — the establishing_line floor is 1 because the
+  // sampler doesn't move signals; the fallback covers it.
+  it('the real foodSafetyCrisis template passes all seven gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(foodSafetyCrisisTemplate, {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: buildFoodSafetyDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'title',
+          sampler: buildFoodSafetyDiversitySampler({
+            rngSeed: 'run-all-food-safety-title',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'establishing_line',
+          sampler: buildFoodSafetyDiversitySampler({
+            rngSeed: 'run-all-food-safety-establishing',
+          }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
+        {
+          slotId: 'reaction_line',
+          sampler: buildFoodSafetyDiversitySampler({
+            rngSeed: 'run-all-food-safety-reaction',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'manner_note',
+          sampler: buildFoodSafetyDiversitySampler({
+            rngSeed: 'run-all-food-safety-manner',
+          }),
+          config: { sampleSize: 100, minDistinct: 2 },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  // Phase 138 / ISSUE-107 — Voiced Surface arc, Phase 12.
+  // violence: actor-voiced via customer-group cohort castAttributes
+  // (Phase 128). First dedicated card for the family.
+  it('the real violence template passes all seven gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(violenceTemplate, {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: buildViolenceDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'title',
+          sampler: buildViolenceDiversitySampler({
+            rngSeed: 'run-all-violence-title',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'establishing_line',
+          sampler: buildViolenceDiversitySampler({
+            rngSeed: 'run-all-violence-establishing',
+          }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
+        {
+          slotId: 'reaction_line',
+          sampler: buildViolenceDiversitySampler({
+            rngSeed: 'run-all-violence-reaction',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'manner_note',
+          sampler: buildViolenceDiversitySampler({
+            rngSeed: 'run-all-violence-manner',
+          }),
+          config: { sampleSize: 100, minDistinct: 2 },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  // Phase 138 / ISSUE-107 — Voiced Surface arc, Phase 12.
+  // inspection: actor-voiced via faction castAttributes (Phase 128).
+  // First dedicated card for the family.
+  it('the real inspection template passes all seven gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(inspectionTemplate, {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: buildInspectionDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'title',
+          sampler: buildInspectionDiversitySampler({
+            rngSeed: 'run-all-inspection-title',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'establishing_line',
+          sampler: buildInspectionDiversitySampler({
+            rngSeed: 'run-all-inspection-establishing',
+          }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
+        {
+          slotId: 'reaction_line',
+          sampler: buildInspectionDiversitySampler({
+            rngSeed: 'run-all-inspection-reaction',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'manner_note',
+          sampler: buildInspectionDiversitySampler({
+            rngSeed: 'run-all-inspection-manner',
+          }),
+          config: { sampleSize: 100, minDistinct: 2 },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
   it('the real areaAtmosphere template passes all seven gates with one call', () => {
     const state = createInitialTavernState()
     const report = runAllGates(areaAtmosphereTemplate, {
@@ -1003,6 +1182,82 @@ function buildAreaAtmosphereChoicesGateTemplate(): CompositionalCardTemplate {
         id: 'effect_preview',
         role: 'effect_preview',
         pool: areaAtmosphereEffectPreviewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      },
+    ],
+  }
+}
+
+// Phase 138 / ISSUE-107 — Voiced Surface arc, Phase 12.
+function buildFoodSafetyChoicesGateTemplate(): CompositionalCardTemplate {
+  return {
+    ...foodSafetyCrisisTemplate,
+    id: 'phase138-foodSafety-choices-gate',
+    slots: [
+      {
+        id: 'choice_label',
+        role: 'choice_label',
+        pool: foodSafetyChoiceLabelPool,
+        optional: true,
+        wordBudget: 6,
+        claimMode: 'flavor',
+      },
+      {
+        id: 'effect_preview',
+        role: 'effect_preview',
+        pool: foodSafetyEffectPreviewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      },
+    ],
+  }
+}
+
+function buildViolenceChoicesGateTemplate(): CompositionalCardTemplate {
+  return {
+    ...violenceTemplate,
+    id: 'phase138-violence-choices-gate',
+    slots: [
+      {
+        id: 'choice_label',
+        role: 'choice_label',
+        pool: violenceChoiceLabelPool,
+        optional: true,
+        wordBudget: 6,
+        claimMode: 'flavor',
+      },
+      {
+        id: 'effect_preview',
+        role: 'effect_preview',
+        pool: violenceEffectPreviewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      },
+    ],
+  }
+}
+
+function buildInspectionChoicesGateTemplate(): CompositionalCardTemplate {
+  return {
+    ...inspectionTemplate,
+    id: 'phase138-inspection-choices-gate',
+    slots: [
+      {
+        id: 'choice_label',
+        role: 'choice_label',
+        pool: inspectionChoiceLabelPool,
+        optional: true,
+        wordBudget: 6,
+        claimMode: 'flavor',
+      },
+      {
+        id: 'effect_preview',
+        role: 'effect_preview',
+        pool: inspectionEffectPreviewPool,
         optional: true,
         wordBudget: 10,
         claimMode: 'flavor',
@@ -1413,6 +1668,130 @@ describe('runAllGates — Phase 6 choice / consequence pools', () => {
             sampleSize: 100,
             minDistinct: 3,
             pickContext: buildMaintenanceEffectPreviewContext,
+          },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  // Phase 138 / ISSUE-107 — Voiced Surface arc, Phase 12.
+  it('the foodSafety choice-label and effect-preview pools pass all gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(buildFoodSafetyChoicesGateTemplate(), {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: [] },
+      diversity: [
+        {
+          slotId: 'choice_label',
+          sampler: buildFoodSafetyDiversitySampler({
+            rngSeed: 'phase138-food-safety-choice-label',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildFoodSafetyChoiceLabelContext,
+          },
+        },
+        {
+          slotId: 'effect_preview',
+          sampler: buildFoodSafetyDiversitySampler({
+            rngSeed: 'phase138-food-safety-effect-preview',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildFoodSafetyEffectPreviewContext,
+          },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  it('the violence choice-label and effect-preview pools pass all gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(buildViolenceChoicesGateTemplate(), {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: [] },
+      diversity: [
+        {
+          slotId: 'choice_label',
+          sampler: buildViolenceDiversitySampler({
+            rngSeed: 'phase138-violence-choice-label',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildViolenceChoiceLabelContext,
+          },
+        },
+        {
+          slotId: 'effect_preview',
+          sampler: buildViolenceDiversitySampler({
+            rngSeed: 'phase138-violence-effect-preview',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildViolenceEffectPreviewContext,
+          },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  it('the inspection choice-label and effect-preview pools pass all gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(buildInspectionChoicesGateTemplate(), {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: [] },
+      diversity: [
+        {
+          slotId: 'choice_label',
+          sampler: buildInspectionDiversitySampler({
+            rngSeed: 'phase138-inspection-choice-label',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildInspectionChoiceLabelContext,
+          },
+        },
+        {
+          slotId: 'effect_preview',
+          sampler: buildInspectionDiversitySampler({
+            rngSeed: 'phase138-inspection-effect-preview',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildInspectionEffectPreviewContext,
           },
         },
       ],

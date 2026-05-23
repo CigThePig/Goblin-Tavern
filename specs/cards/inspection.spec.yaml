@@ -1,0 +1,150 @@
+# Phase 138 / ISSUE-107 — Voiced Surface arc, Phase 12 (Crises & Safety).
+#
+# Generation spec for the inspection compositional template. Pre-Phase-12
+# inspection seeds (`inspection` / `inspection_threat` / `morning_prep`)
+# had no dedicated template and routed through `fallbackCard`. This
+# spec is the first dedicated card for the family.
+#
+# The seed's primaryActor is the inspector (`inspectorActor` at
+# `issueSeedGenerators.ts:2708-2711`) — a notable NPC if one is seeded
+# for the picked faction, else the faction ref, else
+# `systemRef('inspector')`. Notable NPCs and factions carry Phase-128
+# `castAttributes`; the system-ref fallback does not. The custom
+# predicate rejects `system` so the system-ref seed falls through to
+# the fallback card (matching the actor-voiced pattern across the
+# arc).
+#
+# Voice register `civic_floor` — the inspector is a civic-authority
+# figure standing at the door. Same register as cultureConflict.
+
+templateId: inspection
+voiceRegister: civic_floor
+status: phase_12_voiced_surface_arc_shipped
+purpose: >
+  Generate voiced cards for the morning_prep inspection situation.
+  The body states the actual sim situation (faction relationship band,
+  faction influence band, area cleanliness / condition bands on the
+  inspected area, inspection pressure rising, prior owner choice
+  surfaced from memory tags, repeat count, severity tier) and carries
+  the inspector's voice in their reply. The legacy seed routed to the
+  fallback card; this is the first dedicated rendering.
+
+appliesTo:
+  seedFamilies: ['inspection']
+  seedTypes: ['inspection_threat']
+  timings: ['morning_prep']
+
+slots:
+  - id: title
+    required: true
+    claims: flavor
+    maxWords: 6
+    description: >
+      Short situational title; template glue prepends the inspector's
+      display name (faction label or NPC name) as `${display}: ${snippet}`.
+      Faction labels run 1–3 words; NPC names 1–2 words. Snippet text
+      stays ≤ 3 words so a 3-word faction label keeps the final
+      composed title within the legacy 6-word total budget. Voice-bounds
+      gate forbids trailing "…" and immediate token duplication.
+
+  - id: establishing_line
+    required: true
+    claims: sim-backed
+    maxWords: 14
+    description: >
+      Third-person narration of the inspection situation. Names what
+      happened — faction relationship low (cold authority), faction
+      influence high (heavy weight), area cleanliness low on the
+      inspected area, inspection pressure rising, prior memory
+      (warning / bribed / hid / cleaned / walkthrough), repeat count,
+      severity tier. Unconditional fallback claims only that the
+      inspector has come to call.
+
+  - id: reaction_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      The inspector's first-person reply, voice-axis driven (terseness,
+      formality, floridity) plus verbal tic. May show authority,
+      cold professionalism, courtesy, dryness. Must not assert
+      specific past incidents or invent named NPCs.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      Optional third-person sensory beat — a clipboard tapped, a
+      glance to the kitchen door, a slow walk along the bar.
+      Voice-axis gated only; no checkable claim.
+
+voiceAxesInPlay: [terseness, formality, floridity]
+verbalTicsCovered: [understates, qualifies_everything, italicises_stakes, repeats_for_emphasis, quotes_someone_else]
+
+simSignalsInUse:
+  - { kind: signalEquals, signals: [faction.relationship, faction.influence], roles: [primaryActor], bands: [low, mid, high] }
+  - { kind: signalEquals, signals: [area.cleanliness, area.condition], roles: [location], bands: [low, mid, high] }
+  - { kind: pressureRising, pressureIds: [inspection] }
+  - { kind: memoryPresent, tags: [inspection_warning_seen, bribed_inspector, hid_evidence, inspection_prep_recently, town_watch_walkthrough, warning, inspection] }
+  - { kind: repeatCount, subjectTag: inspection }
+  - { kind: hasTag, tags: [inspection, urgent, food_safety, reputation] }
+  - { kind: severityAtLeast, value: 70 }
+  - { kind: voiceAxis, role: primaryActor }
+  - { kind: verbalTic, role: primaryActor }
+
+mustNotInvent:
+  - named inspectors beyond the seeded primaryActor display
+  - specific past inspections beyond the seeded memory tags
+  - specific cleanliness / condition numbers ("cleanliness 25")
+  - earth idioms, modern slang, real-world brand or place language
+  - the legacy raw-fragment dump pattern (`Privy stench. inspection pressure. inspector may visit.`)
+
+positiveExemplars:
+  title:
+    - "Town Watch: a word at the door"
+    - "Town Watch: by the book"
+    - "Town Watch: a formal call"
+  establishing_line:
+    - "Their reach is heavier than they would admit, and they have come anyway."
+    - "Inspection pressure has been climbing onto the slate for days."
+    - "The warning from the last visit has been waiting to come due."
+    - "Third call running, the inspector finds reason to walk the room."
+
+negativeExamples:
+  - "Privy stench. inspection pressure. inspector may visit." (legacy composeBody glue)
+  - "Town Watch town watch" (duplicate subject)
+  - "The inspector arrived again last week." (unbacked history)
+  - "We are at 25 cleanliness." (mechanical readout)
+
+hardBounds:
+  perSlotWords:
+    title: 6
+    establishing_line: 14
+    reaction_line: 12
+    manner_note: 10
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+  noDirectMechanicalLanguage: true
+
+gradientPolicy:
+  base: one unconditional fallback per required slot (always fires)
+  middle: single-condition snippets — a band, a pressure, a memory tag, a tone tag, a severity band, a voice axis, a verbal tic
+  top: two-condition snippets — band + pressure, severity + repeat, axis + axis, memory + band
+  rule: |
+    voice axes and verbal tics drive the reaction line and manner_note;
+    sim signals drive the establishing line. The custom predicate
+    rejects systemRef so the actor always has castAttributes when this
+    template matches.
+
+mustPass:
+  coverage: required slots title, establishing_line, reaction_line each have an unconditional fallback
+  specificityGradient: pools contain fallback + single-condition middle rung + two-condition top rung
+  voiceBounds: every snippet within slot.maxWords; no trailing "…" or immediate duplicate token in title-role slots
+  simCoherence: establishing_line is claims sim-backed; every non-fallback carries ≥1 state-lookup condition
+  determinism: same seed + same state + same slot returns same snippet after FNV tie-break
+  diversity: actor + state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
+  dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots

@@ -45,6 +45,15 @@ export type SignalId =
   // already covers the atmosphere card's primary meter; smell / risk /
   // mess fold into reaction-line flavor and severityAtLeast.
   | 'area.damage'
+  // Phase 138 / ISSUE-107 — Voiced Surface Phase 12 (Crises & Safety)
+  // additive loopback. The violence seed picker scores each customer
+  // group by `patronage + rowdiness`, so rowdiness is the meter that
+  // *triggers* a violence seed. Phase 134 banded satisfaction + loyalty,
+  // but neither is what fires the brawl; without a band on rowdiness the
+  // violence establishing line can only state pressure or satisfaction
+  // proxies. With the band the line can name the room's actual
+  // temperature ("the dwarves are seething tonight").
+  | 'customer_group.rowdiness'
 
 /** Three-band tiering. Boundaries live in `bands.ts` as data so gates
  *  can enumerate them. Snippets decide what `low` / `high` *means* per
@@ -76,6 +85,7 @@ export const SIGNAL_ENTITY_KIND: Record<SignalId, EntityRef['kind']> = {
   'culture.comfort': 'culture',
   'culture.familiarity': 'culture',
   'area.damage': 'area',
+  'customer_group.rowdiness': 'customer_group',
 }
 
 /** All band ids enumerated. The gates use this to walk every reachable

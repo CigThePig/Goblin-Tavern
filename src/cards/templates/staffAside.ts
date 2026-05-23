@@ -32,8 +32,8 @@
 // — graceful degradation per framework §5, identical to `drink_order`.
 
 import {
-  buildChoicesFromSeed,
   buildStakes,
+  composeChoicesFromSeed,
   familyTag,
   makeCardView,
 } from '../cardHelpers'
@@ -48,6 +48,8 @@ import type { TavernState } from '../../sim/state/TavernState'
 import {
   asideLinePool,
   mannerNotePool,
+  staffAsideChoiceLabelPool,
+  staffAsideEffectPreviewPool,
   staffAsideTitlePool,
 } from '../compose/pools/staffAside'
 
@@ -108,8 +110,14 @@ export const staffAsideTemplate: CompositionalCardTemplate = {
       title: buildStaffAsideTitle(filled, seed, state),
       body: buildStaffAsideBody(filled, seed),
       stakes: buildStakes(seed, 2),
-      choices: buildChoicesFromSeed(seed, {
-        overrides: () => ({ maxPreview: 2 }),
+      // Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6. Choice
+      // labels and effect-preview lines are composed through the
+      // snippet pipeline. Mechanical fields (verb/targetId/shape and
+      // per-effect kind/target/amount/tags) stay sourced from the seed.
+      choices: composeChoicesFromSeed(seed, state, {
+        labelPool: staffAsideChoiceLabelPool,
+        previewPool: staffAsideEffectPreviewPool,
+        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

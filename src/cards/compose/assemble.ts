@@ -21,7 +21,12 @@ import { fnvIndex } from '../../sim/utils/fnv'
 import type { IssueSeed } from '../../sim/modules/issues/issueSeedTypes'
 import type { TavernState } from '../../sim/state/TavernState'
 import { evalCondition } from './conditions'
-import type { FilledSlots, SlotSpec, Snippet } from './types'
+import type {
+  ConditionContext,
+  FilledSlots,
+  SlotSpec,
+  Snippet,
+} from './types'
 
 export function specificityOf(snippet: Snippet): number {
   return snippet.specificity ?? snippet.conditions.length
@@ -31,9 +36,10 @@ export function pickSnippet(
   slot: SlotSpec,
   seed: IssueSeed,
   state: TavernState,
+  ctx: ConditionContext = {},
 ): string | undefined {
   const matches = slot.pool.snippets.filter((s) =>
-    s.conditions.every((c) => evalCondition(c, seed, state)),
+    s.conditions.every((c) => evalCondition(c, seed, state, ctx)),
   )
   if (matches.length === 0) return undefined
   let maxSpec = -1
@@ -45,7 +51,9 @@ export function pickSnippet(
   if (top.length === 1) return top[0]!.text
   // Deterministic tie-break: same seed + same slot ⇒ same pick across
   // every re-render. Matches the FNV precedent in `descriptors.ts` and
-  // `voice/composer.ts`, now via the shared helper.
+  // `voice/composer.ts`, now via the shared helper. Slot id namespacing
+  // (Phase 132 / ISSUE-101) ensures choice-label / effect-preview synthetic
+  // slots discriminate between response slots in the helper.
   const idx = fnvIndex(`${seed.id}::${slot.id}`, top.length)
   return top[idx]!.text
 }

@@ -26,8 +26,8 @@
 // renders — graceful degradation per framework §5.
 
 import {
-  buildChoicesFromSeed,
   buildStakes,
+  composeChoicesFromSeed,
   familyTag,
   makeCardView,
 } from '../cardHelpers'
@@ -40,6 +40,8 @@ import type {
 import type { IssueSeed } from '../../sim/modules/issues/issueSeedTypes'
 import type { TavernState } from '../../sim/state/TavernState'
 import {
+  drinkOrderChoiceLabelPool,
+  drinkOrderEffectPreviewPool,
   drinkOrderTitlePool,
   mannerNotePool,
   orderLinePool,
@@ -109,8 +111,16 @@ export const drinkOrderTemplate: CompositionalCardTemplate = {
       // ingredients ground the moment after.
       body: buildDrinkOrderBody(filled, seed),
       stakes: buildStakes(seed, 2),
-      choices: buildChoicesFromSeed(seed, {
-        overrides: () => ({ maxPreview: 2 }),
+      // Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6. Choice
+      // labels and effect-preview lines are composed through the
+      // snippet pipeline. The sim's verb / targetId / shape / per-effect
+      // (kind, target, amount, tags) are unchanged — only wording is
+      // composed. Pool misses pass `slot.labelHint` / `effect.readable`
+      // through verbatim.
+      choices: composeChoicesFromSeed(seed, state, {
+        labelPool: drinkOrderChoiceLabelPool,
+        previewPool: drinkOrderEffectPreviewPool,
+        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

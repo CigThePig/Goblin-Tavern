@@ -13,3 +13,6 @@
 export { titlePool as staffAsideTitlePool } from './title'
 export { asideLinePool } from './asideLine'
 export { mannerNotePool } from './mannerNote'
+// Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6.
+export { choiceLabelPool as staffAsideChoiceLabelPool } from './choiceLabel'
+export { effectPreviewPool as staffAsideEffectPreviewPool } from './effectPreview'

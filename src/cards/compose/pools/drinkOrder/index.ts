@@ -13,3 +13,6 @@
 export { titlePool as drinkOrderTitlePool } from './title'
 export { orderLinePool } from './orderLine'
 export { mannerNotePool } from './mannerNote'
+// Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6.
+export { choiceLabelPool as drinkOrderChoiceLabelPool } from './choiceLabel'
+export { effectPreviewPool as drinkOrderEffectPreviewPool } from './effectPreview'

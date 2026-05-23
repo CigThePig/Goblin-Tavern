@@ -15,6 +15,9 @@ import type {
   ConsequenceProfile,
   ResponseIntentVerb,
 } from '../sim/modules/issues/issueSeedTypes'
+import type { TavernState } from '../sim/state/TavernState'
+import { pickSnippet } from './compose/assemble'
+import type { SlotSpec, SnippetPool } from './compose/types'
 
 const MAX_TITLE_WORDS = 6
 const MAX_STAKES = 3
@@ -74,6 +77,22 @@ export type ChoiceOverrides = {
    * renderer. Existing helpers pass it through unchanged.
    */
   disabledReason?: string
+  /**
+   * Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6. Voiced label
+   * composed from the choice-label snippet pool. When present, replaces
+   * `slot.labelHint` as the rendered label. The mechanical verb / target
+   * / shape stay sourced from the response slot — only the wording is
+   * composed.
+   */
+  label?: string
+  /**
+   * Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6. Voiced preview
+   * lines composed from the effect-preview snippet pool, one per
+   * `EffectPreview` in `profile.immediateEffects` (in order, capped at
+   * `maxPreview`). The backing `EffectPreview { kind, target, amount,
+   * tags }` is unchanged by Phase 6; only the readable text is rewritten.
+   */
+  previewEffects?: string[]
 }
 
 export function buildChoice(
@@ -92,10 +111,11 @@ export function buildChoice(
   const delayed = overrides.includeDelayed
     ? (profile?.delayedEffects ?? []).map((e) => `later: ${e.readable}`)
     : []
-  const previewEffects = [...immediate, ...delayed].slice(0, previewMax)
+  const defaultPreview = [...immediate, ...delayed].slice(0, previewMax)
+  const previewEffects = overrides.previewEffects ?? defaultPreview
   const choice: CardChoice = {
     slotId: slot.id,
-    label: slot.labelHint,
+    label: overrides.label ?? slot.labelHint,
     verb: verb as ResponseIntentVerb,
     shape: slot.shape,
     previewEffects,
@@ -120,6 +140,100 @@ export function buildChoicesFromSeed(
       (p) => p.responseSlotId === slot.id,
     )
     return buildChoice(slot, profile, options.overrides?.(slot) ?? {})
+  })
+}
+
+/**
+ * Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6.
+ *
+ * Compose voiced choice labels and effect-preview lines through the
+ * snippet pipeline while keeping the sim mechanically authoritative.
+ *
+ * Per response slot:
+ *   1. Pick a `choice_label` snippet using `pickSnippet` with
+ *      `currentResponseSlot = slot` as context. The synthetic SlotSpec
+ *      is marked `optional: true`, so a pool with no matching snippet
+ *      returns `undefined` and the helper falls through to the sim's
+ *      verbatim `slot.labelHint`.
+ *   2. For each `EffectPreview` in `profile.immediateEffects` (capped
+ *      at `maxPreview`), pick an `effect_preview` snippet with
+ *      `currentResponseSlot = slot, currentEffect = effect`. Falls
+ *      through to the sim's verbatim `effect.readable` when the pool
+ *      has no match.
+ *   3. Hand the composed `label` and `previewEffects` to `buildChoice`
+ *      via the Phase-6 `ChoiceOverrides` fields. `verb`, `targetId`,
+ *      `shape`, and the per-effect `(kind, target, amount, tags)` data
+ *      stay sourced from the seed — only strings are composed.
+ *
+ * The synthetic-slot id namespacing (`choice_label::${slot.id}`,
+ * `effect_preview::${slot.id}::${idx}`) ensures the FNV tie-break in
+ * `pickSnippet` discriminates between response slots and between effect
+ * indices on the same slot.
+ *
+ * Sim-coherence guarantee for previews holds structurally: each composed
+ * line is produced only when a backing `EffectPreview` exists, and the
+ * snippet replaces only the string — never the kind / target / amount /
+ * tags the effect carries to the simulation.
+ */
+export type ComposeChoicesOptions = {
+  labelPool: SnippetPool
+  previewPool: SnippetPool
+  maxPreview?: number
+  /** Optional extra producer-side overrides (e.g. `disabledReason`).
+   *  Mechanical fields (`verb`, `targetId`) remain settable here; the
+   *  helper sets `label` and `previewEffects` from the pools and any
+   *  caller-supplied values for those two are overridden. */
+  overrides?: (slot: ResponseSlot) => Omit<
+    ChoiceOverrides,
+    'maxPreview' | 'label' | 'previewEffects'
+  >
+}
+
+export function composeChoicesFromSeed(
+  seed: IssueSeed,
+  state: TavernState,
+  options: ComposeChoicesOptions,
+): CardChoice[] {
+  const previewMax = options.maxPreview ?? MAX_PREVIEW
+  return seed.responseSlots.map((slot) => {
+    const profile = seed.consequenceProfiles.find(
+      (p) => p.responseSlotId === slot.id,
+    )
+    const labelSlot: SlotSpec = {
+      id: `choice_label::${slot.id}`,
+      role: 'choice_label',
+      pool: options.labelPool,
+      optional: true,
+      wordBudget: 6,
+      claimMode: 'flavor',
+    }
+    const composedLabel = pickSnippet(labelSlot, seed, state, {
+      currentResponseSlot: slot,
+    })
+    const effects = (profile?.immediateEffects ?? []).slice(0, previewMax)
+    const composedPreview = effects.map((effect, idx) => {
+      const previewSlot: SlotSpec = {
+        id: `effect_preview::${slot.id}::${idx}`,
+        role: 'effect_preview',
+        pool: options.previewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      }
+      const composed = pickSnippet(previewSlot, seed, state, {
+        currentResponseSlot: slot,
+        currentEffect: effect,
+      })
+      return composed ?? effect.readable
+    })
+    const extra = options.overrides?.(slot) ?? {}
+    const overrides: ChoiceOverrides = {
+      ...extra,
+      maxPreview: previewMax,
+      previewEffects: composedPreview,
+    }
+    if (composedLabel !== undefined) overrides.label = composedLabel
+    return buildChoice(slot, profile, overrides)
   })
 }
 

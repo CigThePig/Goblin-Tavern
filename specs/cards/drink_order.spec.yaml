@@ -59,6 +59,44 @@ slots:
       line spike (or a later migration) authors a snippet against those
       signals.
 
+  # Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6.
+  # Choice & consequence voice. These two slots feed `composeChoicesFromSeed`
+  # in `src/cards/cardHelpers.ts`. At runtime the helper synthesises one
+  # SlotSpec per response slot for `choice_label` and one per
+  # `EffectPreview` for `effect_preview`, threading the iteration as
+  # ConditionContext into `pickSnippet`. Both slots are optional so an
+  # unmatched seed falls back to the sim's verbatim `slot.labelHint` /
+  # `effect.readable` — never an invented string. The mechanical fields
+  # (`verb`, `targetId`, `shape`, and the per-effect kind / target /
+  # amount / tags) are unchanged by composition; only wording moves.
+
+  - id: choice_label
+    required: false
+    claims: flavor
+    maxWords: 6
+    status: SIGNAL_AVAILABLE
+    description: >
+      Voiced rendering of a response slot's `labelHint`. Keyed on
+      (responseVerb, responseShape, voiceAxis, signalEquals). The verb,
+      targetId, and shape carried to `simulateDay` are unchanged — only
+      the displayed wording is composed. Pool authored in
+      `src/cards/compose/pools/drinkOrder/choiceLabel.ts`.
+
+  - id: effect_preview
+    required: false
+    claims: flavor
+    maxWords: 10
+    status: SIGNAL_AVAILABLE
+    description: >
+      Voiced rendering of one `ConsequenceProfile.immediateEffects[i]`.
+      The helper iterates per effect and threads the EffectPreview in as
+      `currentEffect`, so the new `effectKind` / `effectTag` primitives
+      can match. Each composed line corresponds 1-to-1 to a real
+      EffectPreview by construction — the snippet replaces only the
+      readable string, never the kind / target / amount / tags. That is
+      the structural sim-coherence guarantee for previews. Pool authored
+      in `src/cards/compose/pools/drinkOrder/effectPreview.ts`.
+
 voiceAxesInPlay:
   terseness:
     0: full clause

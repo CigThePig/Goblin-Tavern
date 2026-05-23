@@ -14,7 +14,7 @@ import type {
 } from '../../sim/state/TavernState'
 import type { CastAttributes } from '../../sim/content/cast'
 import { querySignal, repeatCountByTag } from '../../sim/signals'
-import type { SnippetCondition } from './types'
+import type { ConditionContext, SnippetCondition } from './types'
 
 /** Resolve the actor referenced by a role string against the seed. v1
  *  rules:
@@ -87,6 +87,7 @@ export function evalCondition(
   condition: SnippetCondition,
   seed: IssueSeed,
   state: TavernState,
+  ctx: ConditionContext = {},
 ): boolean {
   switch (condition.kind) {
     case 'seedFamily':
@@ -184,6 +185,38 @@ export function evalCondition(
       const result = querySignal(state, condition.signal, ref)
       if ('missing' in result) return false
       return result.band === condition.equals
+    }
+
+    case 'responseVerb': {
+      // Phase 132 / ISSUE-101 — reads `ctx.currentResponseSlot`, which the
+      // choice helper threads in per response slot. Body / title evaluation
+      // passes no context, so this returns false there (intended).
+      const slot = ctx.currentResponseSlot
+      if (!slot) return false
+      return slot.allowedVerbs.some((v) =>
+        (condition.anyOf as readonly string[]).includes(v),
+      )
+    }
+
+    case 'responseShape': {
+      const slot = ctx.currentResponseSlot
+      if (!slot) return false
+      return (condition.anyOf as readonly string[]).includes(slot.shape)
+    }
+
+    case 'effectKind': {
+      // Reads `ctx.currentEffect`, threaded in per immediate effect by
+      // the choice helper. Body / title slots evaluate with no context
+      // and the condition returns false.
+      const effect = ctx.currentEffect
+      if (!effect) return false
+      return (condition.anyOf as readonly string[]).includes(effect.kind)
+    }
+
+    case 'effectTag': {
+      const effect = ctx.currentEffect
+      if (!effect) return false
+      return effect.tags.includes(condition.tag)
     }
   }
 }

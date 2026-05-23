@@ -14,6 +14,9 @@ import {
   areaCleanlinessBand,
   areaConditionBand,
   bandOf,
+  cultureComfortBand,
+  cultureFamiliarityBand,
+  cultureTensionBand,
   customerGroupLoyaltyBand,
   customerGroupSatisfactionBand,
   factionInfluenceBand,
@@ -55,6 +58,9 @@ describe('bandOf — pure bander', () => {
       'regular.loyalty',
       'customer_group.satisfaction',
       'customer_group.loyalty',
+      'culture.tension',
+      'culture.comfort',
+      'culture.familiarity',
     ]
     for (const id of ids) {
       expect(BAND_THRESHOLDS[id]).toBeDefined()
@@ -292,6 +298,53 @@ describe('customer_group signals', () => {
   })
 })
 
+// Phase 136 / ISSUE-105 — Voiced Surface Phase 10 (Factions & Culture).
+describe('culture signals', () => {
+  const base = createInitialTavernState()
+  const cultureId = Object.keys(base.world.cultures)[0]!
+
+  function withCulture(
+    overrides: Partial<{ tension: number; comfort: number; familiarity: number }>,
+  ): TavernState {
+    const existing = base.world.cultures[cultureId]!
+    return {
+      ...base,
+      world: {
+        ...base.world,
+        cultures: {
+          ...base.world.cultures,
+          [cultureId]: { ...existing, ...overrides },
+        },
+      },
+    }
+  }
+
+  it('tensionBand at the cut-points', () => {
+    expect(cultureTensionBand(withCulture({ tension: 39 }), cultureId)).toBe('low')
+    expect(cultureTensionBand(withCulture({ tension: 40 }), cultureId)).toBe('mid')
+    expect(cultureTensionBand(withCulture({ tension: 69 }), cultureId)).toBe('mid')
+    expect(cultureTensionBand(withCulture({ tension: 70 }), cultureId)).toBe('high')
+  })
+
+  it('comfortBand at the cut-points', () => {
+    expect(cultureComfortBand(withCulture({ comfort: 39 }), cultureId)).toBe('low')
+    expect(cultureComfortBand(withCulture({ comfort: 40 }), cultureId)).toBe('mid')
+    expect(cultureComfortBand(withCulture({ comfort: 70 }), cultureId)).toBe('high')
+  })
+
+  it('familiarityBand at the cut-points', () => {
+    expect(cultureFamiliarityBand(withCulture({ familiarity: 39 }), cultureId)).toBe('low')
+    expect(cultureFamiliarityBand(withCulture({ familiarity: 40 }), cultureId)).toBe('mid')
+    expect(cultureFamiliarityBand(withCulture({ familiarity: 70 }), cultureId)).toBe('high')
+  })
+
+  it('returns undefined for unknown culture id', () => {
+    expect(cultureTensionBand(base, 'no_such_culture')).toBeUndefined()
+    expect(cultureComfortBand(base, 'no_such_culture')).toBeUndefined()
+    expect(cultureFamiliarityBand(base, 'no_such_culture')).toBeUndefined()
+  })
+})
+
 describe('querySignal — dispatcher', () => {
   const base = createInitialTavernState()
   const supplierId = Object.keys(base.world.suppliers)[0]!
@@ -396,6 +449,41 @@ describe('querySignal — dispatcher', () => {
         kind: 'customer_group',
         id: 'no_such_group',
       }),
+    ).toEqual({ missing: true })
+  })
+
+  // Phase 136 / ISSUE-105 — Voiced Surface Phase 10.
+  it('dispatches culture signals and rejects wrong kinds', () => {
+    const cultureId = Object.keys(base.world.cultures)[0]!
+    const adjusted: TavernState = {
+      ...base,
+      world: {
+        ...base.world,
+        cultures: {
+          ...base.world.cultures,
+          [cultureId]: {
+            ...base.world.cultures[cultureId]!,
+            tension: 80,
+            comfort: 25,
+            familiarity: 50,
+          },
+        },
+      },
+    }
+    expect(
+      querySignal(adjusted, 'culture.tension', { kind: 'culture', id: cultureId }),
+    ).toEqual({ band: 'high' })
+    expect(
+      querySignal(adjusted, 'culture.comfort', { kind: 'culture', id: cultureId }),
+    ).toEqual({ band: 'low' })
+    expect(
+      querySignal(adjusted, 'culture.familiarity', { kind: 'culture', id: cultureId }),
+    ).toEqual({ band: 'mid' })
+    expect(
+      querySignal(adjusted, 'culture.tension', { kind: 'faction', id: cultureId }),
+    ).toEqual({ missing: true })
+    expect(
+      querySignal(adjusted, 'culture.tension', { kind: 'culture', id: 'no_such_culture' }),
     ).toEqual({ missing: true })
   })
 })

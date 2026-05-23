@@ -16,6 +16,9 @@ export { BAND_THRESHOLDS, bandOf } from './bands'
 export {
   areaCleanlinessBand,
   areaConditionBand,
+  cultureComfortBand,
+  cultureFamiliarityBand,
+  cultureTensionBand,
   customerGroupLoyaltyBand,
   customerGroupSatisfactionBand,
   factionInfluenceBand,

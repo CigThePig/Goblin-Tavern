@@ -28,6 +28,14 @@ export type SignalId =
   | 'regular.loyalty'
   | 'customer_group.satisfaction'
   | 'customer_group.loyalty'
+  // Phase 136 / ISSUE-105 — Voiced Surface Phase 10 (Factions & Culture)
+  // additive loopback. Cultures carry tension / comfort / familiarity
+  // meters: tension fires the seed; the response profiles move all
+  // three. The narrator-voiced cultureConflict establishing line gates
+  // on these bands so it can state the culture's actual standing.
+  | 'culture.tension'
+  | 'culture.comfort'
+  | 'culture.familiarity'
 
 /** Three-band tiering. Boundaries live in `bands.ts` as data so gates
  *  can enumerate them. Snippets decide what `low` / `high` *means* per
@@ -55,6 +63,9 @@ export const SIGNAL_ENTITY_KIND: Record<SignalId, EntityRef['kind']> = {
   'regular.loyalty': 'regular',
   'customer_group.satisfaction': 'customer_group',
   'customer_group.loyalty': 'customer_group',
+  'culture.tension': 'culture',
+  'culture.comfort': 'culture',
+  'culture.familiarity': 'culture',
 }
 
 /** All band ids enumerated. The gates use this to walk every reachable

@@ -1,0 +1,145 @@
+# Phase 136 / ISSUE-105 — Voiced Surface arc, Phase 10 (Factions & Culture).
+#
+# Generation spec for the faction_request compositional template. Replaces
+# the legacy hand-written factionRequest which lifted raw textIngredients
+# (socialContext[0], perceivedBlame[0], relevantMemories[0]) through
+# composeBody and prefixed the title with a pickFactionRelationNoun lookup
+# ("Miners' Union: a feud"). The new template centres the card on the
+# faction's voiced response to the situation it triggers, with the
+# establishing line sim-backed against Phase-127's signal surface plus
+# Phase-1 condition primitives.
+#
+# This file is the design record. Pools live at
+# `src/cards/compose/pools/factionRequest/*.ts`.
+
+templateId: faction_request
+voiceRegister: tavern_floor
+status: phase_10_voiced_surface_arc_complete
+purpose: >
+  Generate short cards for a faction-relationship moment (during_service,
+  family `faction_request`, type `social_conflict`) whose body STATES the
+  actual situation (faction relationship band, rising faction_anger,
+  prior-choice memories, repeat visits) and whose reaction carries the
+  faction's bounded `castAttributes.voice`. The establishing line is
+  sim-backed; the reaction line and manner note are flavor-only.
+
+appliesTo:
+  seedFamilies: ['faction_request']
+  seedTypes: ['social_conflict']
+  timings: ['during_service']
+
+slots:
+  - id: title
+    required: true
+    claims: flavor
+    maxWords: 6
+    description: >
+      Composed title fragment. Template glue prepends the faction display
+      label, e.g. `${faction.label}: ${snippet}`. Voice-axis-gated; ≤ 6 words.
+
+  - id: establishing_line
+    required: true
+    claims: sim-backed
+    maxWords: 14
+    description: >
+      Third-person narration of the situation. Names the faction's actual
+      standing — relationship band, influence band, rising anger, repeat
+      visits, prior-choice memory — pinned by a state-lookup condition
+      (`signalEquals`, `pressureRising`, `repeatCount`, `memoryPresent`).
+      Unconditional fallback claims only what the seed firing guarantees
+      (a faction has come to call).
+
+  - id: reaction_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      The faction representative speaking in character. Voice axes +
+      verbal tics only. May show mood, manner, attitude. Must not assert
+      a specific past event, named NPC, or invented authority.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      A small third-person sensory beat — folded arms, glance to the
+      door, a hand at the hilt. Voice-axis-gated; no checkable claim.
+
+voiceAxesInPlay:
+  terseness:
+    0: full clause
+    1: compact
+    2: clipped, demand-first
+  warmth:
+    0: cold/distant
+    1: neutral
+    2: cordial/familiar
+  formality:
+    0: blunt/casual
+    1: plain
+    2: ceremonious/titled
+  floridity:
+    0: literal
+    1: one image allowed
+    2: vivid but short, no lore
+
+verbalTicsCovered:
+  - trails_off
+  - interrupts_self
+  - understates
+  - repeats_for_emphasis
+  - qualifies_everything
+  - italicises_stakes
+  - quotes_someone_else
+
+simSignalsInUse:
+  - { signal: faction.relationship, bands: [low, mid, high] }
+  - { signal: faction.influence, bands: [low, mid, high] }
+  - { kind: pressureRising, pressureIds: [faction_anger, cultural_tension] }
+  - { kind: repeatCount, subjectTag: faction }
+  - { kind: memoryPresent, tags: [faction, grudge, gratitude, refusal] }
+
+mustNotInvent:
+  - named NPCs (other than the faction itself, which the seed names)
+  - specific past tavern incidents not in seed memories
+  - invented authority figures or institutions
+  - earth idioms, modern slang, real-world brand or place language
+  - claims about which staff did what
+
+hardBounds:
+  perSlotWords:
+    title: 6
+    establishing_line: 14
+    reaction_line: 12
+    manner_note: 10
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+  noDirectMechanicalLanguage: true
+
+mustPass:
+  coverage:
+    rule: required slots (title, establishing_line, reaction_line) each carry an unconditional fallback
+  specificityGradient:
+    rule: >
+      pools contain (a) fallback, (b) single-axis or single-signal middle-rung
+      snippets, (c) two-condition top-rung snippets, and (d) tic snippets.
+  voiceBounds:
+    rule: every slot's snippets stay within hardBounds.perSlotWords; titles forbid trailing "…" and immediate duplicate tokens.
+  simCoherence:
+    rule: >
+      establishing_line is sim-backed — every non-fallback snippet has ≥ 1
+      state-lookup condition. reaction_line / manner_note are flavor —
+      no checkable history without backing.
+  determinism:
+    rule: same (seed, state) returns same snippet after FNV tie-break.
+  diversity:
+    rule: >
+      sample across the perturbed faction cast distribution yields ≥ 6
+      distinct reaction_line outputs, ≥ 3 distinct title and manner_note
+      outputs, ≥ 1 distinct establishing_line per reachable signal band.
+  dedupe:
+    rule: no near-duplicate within a slot (Levenshtein ≥ 0.85 on canonical); no canonical-equal across slots.

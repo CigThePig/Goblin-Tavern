@@ -16,6 +16,7 @@ import {
   maintenanceWarningCard,
   staffBurnoutCard,
   factionRequestCard,
+  cultureConflictCard,
   reputationShiftWeeklyCard,
   monthlyReviewCard,
   fallbackCard,
@@ -335,26 +336,107 @@ describe('staffBurnoutCard voice', () => {
   })
 })
 
+// Phase 136 / ISSUE-105 — Voiced Surface arc, Phase 10 (Factions & Culture).
+// Replaces the legacy factionRequestCard voice block. Timing changed
+// from `morning_prep` (legacy fiction that never matched a real seed)
+// to `during_service` (the generator's actual output). Type changed
+// from `relationship_test` (dead legacy admission) to `social_conflict`
+// (the only type the generator emits).
 describe('factionRequestCard voice', () => {
   it('honours the budget', () => {
     const state = createInitialTavernState()
     const factionId = Object.keys(state.world.factions)[0]
     const seed = makeSeed({
       family: 'faction_request',
-      type: 'relationship_test',
-      timing: 'morning_prep',
+      type: 'social_conflict',
+      timing: 'during_service',
       ...(factionId ? { primaryActor: { kind: 'faction', id: factionId } } : {}),
     })
     const view = factionRequestCard.render(seed, state)
-    assertBudget(view)
+    assertBodyBudgetOnly(view)
   })
 
   it('is deterministic per seed id', () => {
-    assertDeterministic(factionRequestCard, {
+    const state = createInitialTavernState()
+    const factionId = Object.keys(state.world.factions)[0]
+    const seed = makeSeed({
+      id: 'faction-voice-A',
       family: 'faction_request',
-      type: 'relationship_test',
-      timing: 'morning_prep',
+      type: 'social_conflict',
+      timing: 'during_service',
+      ...(factionId ? { primaryActor: { kind: 'faction', id: factionId } } : {}),
     })
+    const a = factionRequestCard.render(seed, state)
+    const b = factionRequestCard.render(seed, state)
+    expect(a.title).toBe(b.title)
+    expect(a.body).toEqual(b.body)
+  })
+
+  it('never surfaces a raw reliability / relationship / cultural-friction stat readout', () => {
+    const state = createInitialTavernState()
+    const factionId = Object.keys(state.world.factions)[0]!
+    const seed = makeSeed({
+      family: 'faction_request',
+      type: 'social_conflict',
+      timing: 'during_service',
+      primaryActor: { kind: 'faction', id: factionId },
+    })
+    const view = factionRequestCard.render(seed, state)
+    for (const line of [view.title, ...view.body]) {
+      expect(line).not.toMatch(/relationship \d+/i)
+      expect(line).not.toMatch(/influence \d+/i)
+      expect(line).not.toMatch(/faction anger \d+/i)
+      expect(line).not.toBe('cultural friction')
+    }
+  })
+})
+
+describe('cultureConflictCard voice', () => {
+  it('honours the budget', () => {
+    const state = createInitialTavernState()
+    const cultureId = Object.keys(state.world.cultures)[0]
+    const seed = makeSeed({
+      family: 'culture_conflict',
+      type: 'social_conflict',
+      timing: 'during_service',
+      ...(cultureId ? { primaryActor: { kind: 'culture', id: cultureId } } : {}),
+    })
+    const view = cultureConflictCard.render(seed, state)
+    assertBodyBudgetOnly(view)
+  })
+
+  it('is deterministic per seed id', () => {
+    const state = createInitialTavernState()
+    const cultureId = Object.keys(state.world.cultures)[0]
+    const seed = makeSeed({
+      id: 'culture-voice-A',
+      family: 'culture_conflict',
+      type: 'social_conflict',
+      timing: 'during_service',
+      ...(cultureId ? { primaryActor: { kind: 'culture', id: cultureId } } : {}),
+    })
+    const a = cultureConflictCard.render(seed, state)
+    const b = cultureConflictCard.render(seed, state)
+    expect(a.title).toBe(b.title)
+    expect(a.body).toEqual(b.body)
+  })
+
+  it('never surfaces a raw tension stat readout', () => {
+    const state = createInitialTavernState()
+    const cultureId = Object.keys(state.world.cultures)[0]!
+    const seed = makeSeed({
+      family: 'culture_conflict',
+      type: 'social_conflict',
+      timing: 'during_service',
+      primaryActor: { kind: 'culture', id: cultureId },
+    })
+    const view = cultureConflictCard.render(seed, state)
+    for (const line of [view.title, ...view.body]) {
+      expect(line).not.toMatch(/tension \d+/i)
+      expect(line).not.toMatch(/comfort \d+/i)
+      expect(line).not.toMatch(/familiarity \d+/i)
+      expect(line).not.toBe('cultural friction')
+    }
   })
 })
 

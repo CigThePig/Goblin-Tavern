@@ -1,69 +1,144 @@
-// Relationship-test template — faction or culture moment. Reads the
-// stored faction relationship to pick a relation noun (cooperation /
-// tension / rivalry / truce / feud). Mirrors cards-contract §7 Template 6.
+// Phase 136 / ISSUE-105 — Voiced Surface arc, Phase 10 (Factions & Culture).
 //
-// Phase 95 — Voice pass.
+// Compositional template for the faction_request family. Replaces the
+// legacy hand-written factionRequest template, which lifted raw
+// textIngredients (socialContext[0], perceivedBlame[0],
+// relevantMemories[0]) through `composeBody` and prefixed the title
+// with a `pickFactionRelationNoun` lookup — no voice, no sim-backed
+// claims, no specificity gradient.
+//
+// Cluster partition (Phase 10):
+//   faction_request / social_conflict / during_service → THIS TEMPLATE
+//   culture_conflict / social_conflict / during_service → cultureConflictCard
+//
+// Body shape: [establishing_line, reaction_line, manner_note?].
+//   - establishing_line (sim-backed, ≤14 words) states the situation
+//     via `faction.relationship` / `faction.influence` signal bands,
+//     rising `faction_anger` / `cultural_tension` pressure, prior-choice
+//     memories (grudge, gratitude, refusal), and a top-rung band+repeat
+//     combination.
+//   - reaction_line (flavor, ≤12 words) carries the faction's voiced
+//     reply via voice axes + verbal tics.
+//   - manner_note (flavor, ≤10 words, optional) is a sensory beat.
+//
+// appliesTo matches the actual seed shape — `faction_request` /
+// `social_conflict` / `during_service` per `expandedSeedGenerators.ts:2160`.
+// The legacy template's `seedTypes: ['relationship_test', 'social_conflict']`
+// admitted a dead type; the new contract drops it.
+//
+// The `custom` predicate insists the resolved faction has Phase-128
+// `castAttributes` populated. Graceful degradation per framework §5,
+// identical to drinkOrder / staffBurnout / supplierReliability.
 
 import {
-  pickFactionRelationNoun,
-  type FactionRelationKey,
-} from '../../sim/content/text/descriptors'
-import {
-  buildChoicesFromSeed,
   buildStakes,
+  composeChoicesFromSeed,
   familyTag,
   makeCardView,
 } from '../cardHelpers'
-import { composeBody, composeTitle, type ComposeOpts } from '../voice/index'
 import type { CardDefinition } from '../types'
+import { defineCompositionalCard } from '../compose/defineCompositionalCard'
+import type {
+  CompositionalCardTemplate,
+  FilledSlots,
+} from '../compose/types'
+import type { IssueSeed } from '../../sim/modules/issues/issueSeedTypes'
+import type { TavernState } from '../../sim/state/TavernState'
+import {
+  factionRequestChoiceLabelPool,
+  factionRequestEffectPreviewPool,
+  factionRequestEstablishingLinePool,
+  factionRequestMannerNotePool,
+  factionRequestReactionLinePool,
+  factionRequestTitlePool,
+} from '../compose/pools/factionRequest'
 
-const DEFINITION_TONES = ['social', 'relational', 'faction'] as const
-
-function pickFactionRelation(relationship: number): FactionRelationKey {
-  if (relationship <= 20) return 'feud'
-  if (relationship <= 40) return 'rivalry'
-  if (relationship <= 55) return 'tension'
-  if (relationship <= 70) return 'truce'
-  return 'cooperation'
-}
-
-export const factionRequestCard: CardDefinition = {
-  id: 'faction_request.relationship_test',
+export const factionRequestTemplate: CompositionalCardTemplate = {
+  id: 'faction_request.social_conflict',
   appliesTo: {
-    seedFamilies: ['faction_request', 'culture_conflict'],
-    seedTypes: ['relationship_test', 'social_conflict'],
+    seedFamilies: ['faction_request'],
+    seedTypes: ['social_conflict'],
+    timings: ['during_service'],
+    custom: (seed, state) => {
+      const ref = seed.primaryActor
+      if (!ref || ref.kind !== 'faction') return false
+      return state.world.factions[ref.id]?.castAttributes !== undefined
+    },
   },
-  priority: 75,
-  toneHints: [...DEFINITION_TONES],
-  render: (seed, state) => {
-    const ti = seed.textIngredients
-    const factionRef =
-      seed.primaryActor?.kind === 'faction' ? seed.primaryActor : undefined
-    const faction = factionRef ? state.world.factions[factionRef.id] : undefined
-    const relationNoun = faction
-      ? pickFactionRelationNoun(pickFactionRelation(faction.relationship), seed.id)
-      : undefined
-
-    const opts: ComposeOpts = {
-      toneHints: [...DEFINITION_TONES, ...seed.toneHints],
-      key: seed.id,
-    }
-
+  priority: 70,
+  voiceRegister: 'tavern_floor',
+  slots: [
+    {
+      id: 'title',
+      role: 'title',
+      pool: factionRequestTitlePool,
+      wordBudget: 6,
+      claimMode: 'flavor',
+    },
+    {
+      id: 'establishing_line',
+      role: 'utterance',
+      pool: factionRequestEstablishingLinePool,
+      wordBudget: 14,
+      claimMode: 'sim_backed',
+    },
+    {
+      id: 'reaction_line',
+      role: 'utterance',
+      pool: factionRequestReactionLinePool,
+      wordBudget: 12,
+      claimMode: 'flavor',
+    },
+    {
+      id: 'manner_note',
+      role: 'aside',
+      pool: factionRequestMannerNotePool,
+      optional: true,
+      wordBudget: 10,
+      claimMode: 'flavor',
+    },
+  ],
+  toCardView: (filled, seed, state) => {
     return makeCardView({
-      title: composeTitle(
-        faction ? [`${faction.label}:`, `a ${relationNoun}`] : [ti.subject],
-        opts,
-      ),
-      body: composeBody(
-        [ti.socialContext?.[0], ti.perceivedBlame?.[0], ti.relevantMemories?.[0]],
-        opts,
-      ),
-      stakes: buildStakes(seed),
-      choices: buildChoicesFromSeed(seed, {
-        overrides: () => (factionRef?.id ? { targetId: factionRef.id } : {}),
+      title: buildFactionRequestTitle(filled, seed, state),
+      body: buildFactionRequestBody(filled),
+      stakes: buildStakes(seed, 2),
+      choices: composeChoicesFromSeed(seed, state, {
+        labelPool: factionRequestChoiceLabelPool,
+        previewPool: factionRequestEffectPreviewPool,
+        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),
     })
   },
 }
+
+function buildFactionRequestTitle(
+  filled: FilledSlots,
+  seed: IssueSeed,
+  state: TavernState,
+): string {
+  const ref = seed.primaryActor
+  const faction =
+    ref && ref.kind === 'faction' ? state.world.factions[ref.id] : undefined
+  const display =
+    faction?.label ?? seed.textIngredients.subject ?? 'A faction'
+  const snippet = filled['title'] ?? 'a word about terms'
+  return `${display}: ${snippet}`
+}
+
+function buildFactionRequestBody(filled: FilledSlots): string[] {
+  const lines: string[] = []
+  const establishing = filled['establishing_line']
+  if (establishing) lines.push(establishing)
+  const reaction = filled['reaction_line']
+  if (reaction) lines.push(reaction)
+  const manner = filled['manner_note']
+  if (manner) lines.push(manner)
+  return lines.slice(0, 3)
+}
+
+export const factionRequestCard: CardDefinition = defineCompositionalCard(
+  factionRequestTemplate,
+)

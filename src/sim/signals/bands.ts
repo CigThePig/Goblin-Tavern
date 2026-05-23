@@ -44,6 +44,12 @@ export const BAND_THRESHOLDS: Record<SignalId, [number, number]> = {
   'culture.tension': [40, 70],
   'culture.comfort': [40, 70],
   'culture.familiarity': [40, 70],
+  // Phase 137 / ISSUE-106 — Voiced Surface Phase 11 (Premises & Atmosphere).
+  // Default-thirds matches the maintenance seed generator's threshold
+  // (`damage + (60 - condition) >= 60` to fire). Snippets gate the
+  // dramatic extremes (low: barely touched, high: visibly failing) on
+  // the band; the mid band is the unanchored fallback.
+  'area.damage': [40, 70],
 }
 
 /** Pure bander. Returns `low` for `value < thresholds[0]`, `high` for

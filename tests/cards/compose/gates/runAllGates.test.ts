@@ -19,6 +19,8 @@ import { stockShortageTemplate } from '../../../../src/cards/templates/stockShor
 import { debtRentTemplate } from '../../../../src/cards/templates/debtRent'
 import { factionRequestTemplate } from '../../../../src/cards/templates/factionRequest'
 import { cultureConflictTemplate } from '../../../../src/cards/templates/cultureConflict'
+import { maintenanceTemplate } from '../../../../src/cards/templates/maintenance'
+import { areaAtmosphereTemplate } from '../../../../src/cards/templates/areaAtmosphere'
 import {
   drinkOrderChoiceLabelPool,
   drinkOrderEffectPreviewPool,
@@ -55,14 +57,30 @@ import {
   cultureConflictChoiceLabelPool,
   cultureConflictEffectPreviewPool,
 } from '../../../../src/cards/compose/pools/cultureConflict'
+import {
+  maintenanceChoiceLabelPool,
+  maintenanceEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/maintenance'
+import {
+  areaAtmosphereChoiceLabelPool,
+  areaAtmosphereEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/areaAtmosphere'
 import type { CompositionalCardTemplate } from '../../../../src/cards/compose/types'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
 import { buildTemplate } from './fixtures'
 import {
+  buildAreaAtmosphereChoiceLabelContext,
+  buildAreaAtmosphereDeterminismSamples,
+  buildAreaAtmosphereDiversitySampler,
+  buildAreaAtmosphereEffectPreviewContext,
   buildCultureConflictChoiceLabelContext,
   buildCultureConflictDeterminismSamples,
   buildCultureConflictDiversitySampler,
   buildCultureConflictEffectPreviewContext,
+  buildMaintenanceChoiceLabelContext,
+  buildMaintenanceDeterminismSamples,
+  buildMaintenanceDiversitySampler,
+  buildMaintenanceEffectPreviewContext,
   buildCustomerComplaintChoiceLabelContext,
   buildCustomerComplaintDeterminismSamples,
   buildCustomerComplaintDiversitySampler,
@@ -549,6 +567,111 @@ describe('runAllGates — happy path', () => {
     expect(report.diversity.every((d) => d.pass)).toBe(true)
   })
 
+  // Phase 137 / ISSUE-106 — Voiced Surface arc, Phase 11 (Premises & Atmosphere).
+  // Two new compositional templates land in this cluster:
+  //   - maintenance: narrator-voiced (no primaryActor; area resolved via
+  //     `seed.location` and the Phase-11 `'location'` role extension).
+  //     The diversity sampler perturbs STATE (area meters, pressures,
+  //     memories, tone tags, severity). The reachable surface is
+  //     comparable to Phase 9's stock/debt; `minDistinct` on the flavor
+  //     slots is set to a tight floor of 3.
+  //   - areaAtmosphere: same shape — narrator-voiced, state-perturbed.
+  it('the real maintenance template passes all seven gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(maintenanceTemplate, {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: buildMaintenanceDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'title',
+          sampler: buildMaintenanceDiversitySampler({
+            rngSeed: 'run-all-maintenance-title',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'establishing_line',
+          sampler: buildMaintenanceDiversitySampler({
+            rngSeed: 'run-all-maintenance-establishing',
+          }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
+        {
+          slotId: 'reaction_line',
+          sampler: buildMaintenanceDiversitySampler({
+            rngSeed: 'run-all-maintenance-reaction',
+          }),
+          // Narrator-voiced. State perturbation reaches a smaller
+          // condition surface than cast perturbation; floor at 3.
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'manner_note',
+          sampler: buildMaintenanceDiversitySampler({
+            rngSeed: 'run-all-maintenance-manner',
+          }),
+          config: { sampleSize: 100, minDistinct: 2 },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  it('the real areaAtmosphere template passes all seven gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(areaAtmosphereTemplate, {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: buildAreaAtmosphereDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'title',
+          sampler: buildAreaAtmosphereDiversitySampler({
+            rngSeed: 'run-all-area-atmosphere-title',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'establishing_line',
+          sampler: buildAreaAtmosphereDiversitySampler({
+            rngSeed: 'run-all-area-atmosphere-establishing',
+          }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
+        {
+          slotId: 'reaction_line',
+          sampler: buildAreaAtmosphereDiversitySampler({
+            rngSeed: 'run-all-area-atmosphere-reaction',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'manner_note',
+          sampler: buildAreaAtmosphereDiversitySampler({
+            rngSeed: 'run-all-area-atmosphere-manner',
+          }),
+          config: { sampleSize: 100, minDistinct: 2 },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
   it('the real cultureConflict template passes all seven gates with one call', () => {
     const state = createInitialTavernState()
     const report = runAllGates(cultureConflictTemplate, {
@@ -829,6 +952,57 @@ function buildCultureConflictChoicesGateTemplate(): CompositionalCardTemplate {
         id: 'effect_preview',
         role: 'effect_preview',
         pool: cultureConflictEffectPreviewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      },
+    ],
+  }
+}
+
+// Phase 137 / ISSUE-106 — Voiced Surface arc, Phase 11.
+function buildMaintenanceChoicesGateTemplate(): CompositionalCardTemplate {
+  return {
+    ...maintenanceTemplate,
+    id: 'phase137-maintenance-choices-gate',
+    slots: [
+      {
+        id: 'choice_label',
+        role: 'choice_label',
+        pool: maintenanceChoiceLabelPool,
+        optional: true,
+        wordBudget: 6,
+        claimMode: 'flavor',
+      },
+      {
+        id: 'effect_preview',
+        role: 'effect_preview',
+        pool: maintenanceEffectPreviewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      },
+    ],
+  }
+}
+
+function buildAreaAtmosphereChoicesGateTemplate(): CompositionalCardTemplate {
+  return {
+    ...areaAtmosphereTemplate,
+    id: 'phase137-areaAtmosphere-choices-gate',
+    slots: [
+      {
+        id: 'choice_label',
+        role: 'choice_label',
+        pool: areaAtmosphereChoiceLabelPool,
+        optional: true,
+        wordBudget: 6,
+        claimMode: 'flavor',
+      },
+      {
+        id: 'effect_preview',
+        role: 'effect_preview',
+        pool: areaAtmosphereEffectPreviewPool,
         optional: true,
         wordBudget: 10,
         claimMode: 'flavor',
@@ -1197,6 +1371,89 @@ describe('runAllGates — Phase 6 choice / consequence pools', () => {
             sampleSize: 100,
             minDistinct: 3,
             pickContext: buildCultureConflictEffectPreviewContext,
+          },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  // Phase 137 / ISSUE-106 — Voiced Surface arc, Phase 11.
+  it('the maintenance choice-label and effect-preview pools pass all gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(buildMaintenanceChoicesGateTemplate(), {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: [] },
+      diversity: [
+        {
+          slotId: 'choice_label',
+          sampler: buildMaintenanceDiversitySampler({
+            rngSeed: 'phase137-maintenance-choice-label',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildMaintenanceChoiceLabelContext,
+          },
+        },
+        {
+          slotId: 'effect_preview',
+          sampler: buildMaintenanceDiversitySampler({
+            rngSeed: 'phase137-maintenance-effect-preview',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildMaintenanceEffectPreviewContext,
+          },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  it('the areaAtmosphere choice-label and effect-preview pools pass all gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(buildAreaAtmosphereChoicesGateTemplate(), {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: [] },
+      diversity: [
+        {
+          slotId: 'choice_label',
+          sampler: buildAreaAtmosphereDiversitySampler({
+            rngSeed: 'phase137-area-choice-label',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildAreaAtmosphereChoiceLabelContext,
+          },
+        },
+        {
+          slotId: 'effect_preview',
+          sampler: buildAreaAtmosphereDiversitySampler({
+            rngSeed: 'phase137-area-effect-preview',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildAreaAtmosphereEffectPreviewContext,
           },
         },
       ],

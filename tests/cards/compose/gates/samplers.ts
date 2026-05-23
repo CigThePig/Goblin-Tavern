@@ -2311,6 +2311,566 @@ export function buildCultureConflictEffectPreviewContext(
   return { currentResponseSlot: slot, currentEffect: effect }
 }
 
+// ---- Phase 137 / ISSUE-106 — Voiced Surface arc, Phase 11 ----
+//
+// Samplers for the two new templates in the Premises & Atmosphere cluster.
+// Both are narrator-voiced (areas have no `castAttributes`), so the
+// diversity sampler perturbs STATE — area meters via the Phase-1 signal
+// surface (including the Phase-11 `area.damage` loopback), pressures,
+// memories, calendar tone tags, and severity — never cast attributes.
+// The sampler resolves the area through `seed.location` (the Phase-11
+// `resolveActorRef` extension to the `'location'` role).
+
+function firstAreaId(state: TavernState): string {
+  const id = Object.keys(state.areas)[0]
+  if (!id) {
+    throw new Error('samplers: createInitialTavernState() must have an area')
+  }
+  return id
+}
+
+function withAreaMeters(
+  state: TavernState,
+  areaId: string,
+  overrides: Partial<{ damage: number; cleanliness: number; condition: number }>,
+): TavernState {
+  return {
+    ...state,
+    areas: {
+      ...state.areas,
+      [areaId]: {
+        ...state.areas[areaId]!,
+        ...overrides,
+      },
+    },
+  }
+}
+
+function maintenanceBaseSeed(
+  areaId: string,
+  id: string,
+  toneHints: readonly string[],
+  severity: number,
+): IssueSeed {
+  return makeSeed({
+    id,
+    family: 'maintenance',
+    type: 'maintenance_problem',
+    timing: 'morning_prep',
+    severity,
+    domain: ['areas', 'maintenance'],
+    location: { kind: 'area', id: areaId },
+    toneHints: [...toneHints],
+    textIngredients: {
+      subject: 'visible damage',
+      sensoryDetails: ['cracked plank'],
+      recentContext: ['damage worsening'],
+    },
+  })
+}
+
+const MAINTENANCE_PERTURBATIONS: ReadonlyArray<{
+  meters?: Partial<{ damage: number; condition: number; cleanliness: number }>
+  pressure?: { id: string; value: number; trend: number }
+  memory?: { id: string; tags: readonly string[] }
+  toneHints: readonly string[]
+  severity: number
+}> = [
+  // Fallback baseline.
+  { toneHints: ['maintenance'], severity: 50 },
+  // High damage (band: high).
+  { meters: { damage: 80 }, toneHints: ['maintenance', 'risk'], severity: 55 },
+  // Low condition (band: low).
+  { meters: { condition: 25 }, toneHints: ['maintenance'], severity: 55 },
+  // Rising maintenance pressure.
+  {
+    pressure: { id: 'maintenance', value: 60, trend: 1 },
+    toneHints: ['maintenance'],
+    severity: 50,
+  },
+  // Memory of warning.
+  {
+    memory: { id: 'maintenance_warning_seen', tags: ['maintenance', 'warning'] },
+    toneHints: ['maintenance'],
+    severity: 50,
+  },
+  // Memory of ignoring.
+  {
+    memory: { id: 'habitual_roof_neglect', tags: ['maintenance', 'ignored'] },
+    toneHints: ['maintenance'],
+    severity: 50,
+  },
+  // Memory of patch.
+  {
+    memory: { id: 'main_room_patched_recently', tags: ['maintenance', 'patch'] },
+    toneHints: ['maintenance'],
+    severity: 50,
+  },
+  // Inspection-relevant tone.
+  { toneHints: ['maintenance', 'inspection_relevant'], severity: 60 },
+  // Fire-risk tone.
+  { toneHints: ['maintenance', 'fire_risk'], severity: 55 },
+  // Urgent tone.
+  { toneHints: ['maintenance', 'urgent'], severity: 65 },
+  // High damage + rising pressure (top rung on establishing).
+  {
+    meters: { damage: 80 },
+    pressure: { id: 'maintenance', value: 70, trend: 1 },
+    toneHints: ['maintenance', 'urgent'],
+    severity: 75,
+  },
+  // High severity + repeat (three maintenance-tagged memories).
+  {
+    memory: { id: 'maintenance_repeat_marker', tags: ['maintenance'] },
+    toneHints: ['maintenance', 'urgent'],
+    severity: 80,
+  },
+  // Rising pressure + ignored memory (reaction's two-condition rung).
+  {
+    pressure: { id: 'maintenance', value: 65, trend: 1 },
+    memory: { id: 'ignored_maintenance', tags: ['maintenance', 'ignored'] },
+    toneHints: ['maintenance'],
+    severity: 60,
+  },
+  // High severity + inspection_relevant.
+  {
+    toneHints: ['maintenance', 'inspection_relevant', 'urgent'],
+    severity: 80,
+  },
+]
+
+function buildMaintenanceState(
+  baseState: TavernState,
+  areaId: string,
+  perturbation: (typeof MAINTENANCE_PERTURBATIONS)[number],
+): TavernState {
+  let s = baseState
+  if (perturbation.meters) {
+    s = withAreaMeters(s, areaId, perturbation.meters)
+  }
+  if (perturbation.pressure) {
+    s = withPressure(
+      s,
+      perturbation.pressure.id,
+      perturbation.pressure.value,
+      perturbation.pressure.trend,
+    )
+  }
+  if (perturbation.memory) {
+    s = withMemoryEntry(s, perturbation.memory.id, perturbation.memory.tags)
+    if (perturbation.memory.id === 'maintenance_repeat_marker') {
+      s = withMemoryEntry(s, 'maintenance_repeat_marker_b', ['maintenance'])
+      s = withMemoryEntry(s, 'maintenance_repeat_marker_c', ['maintenance'])
+    }
+  }
+  return s
+}
+
+export function buildMaintenanceDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  const areaId = firstAreaId(baseState)
+  return MAINTENANCE_PERTURBATIONS.map((perturbation, i) => ({
+    seed: maintenanceBaseSeed(
+      areaId,
+      `maintenance-determinism-${i}`,
+      perturbation.toneHints,
+      perturbation.severity,
+    ),
+    state: buildMaintenanceState(baseState, areaId, perturbation),
+  }))
+}
+
+export function buildMaintenanceDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  void options.rngSeed
+  const baseState = createInitialTavernState()
+  const areaId = firstAreaId(baseState)
+  return (i: number) => {
+    const perturbation = MAINTENANCE_PERTURBATIONS[i % MAINTENANCE_PERTURBATIONS.length]!
+    return {
+      seed: maintenanceBaseSeed(
+        areaId,
+        `maintenance-diversity-${i}`,
+        perturbation.toneHints,
+        perturbation.severity,
+      ),
+      state: buildMaintenanceState(baseState, areaId, perturbation),
+    }
+  }
+}
+
+// ---- areaAtmosphere state-perturbation sampler ----
+
+function areaAtmosphereBaseSeed(
+  areaId: string,
+  id: string,
+  toneHints: readonly string[],
+  severity: number,
+): IssueSeed {
+  return makeSeed({
+    id,
+    family: 'area_atmosphere',
+    type: 'warning',
+    timing: 'morning_prep',
+    severity,
+    domain: ['areas', 'atmosphere'],
+    location: { kind: 'area', id: areaId },
+    affectedActors: [{ kind: 'area', id: areaId }],
+    toneHints: [...toneHints],
+    textIngredients: {
+      subject: 'sour atmosphere',
+      sensoryDetails: ['dim light'],
+      recentContext: ['cleanliness slipping'],
+    },
+  })
+}
+
+const AREA_ATMOSPHERE_PERTURBATIONS: ReadonlyArray<{
+  meters?: Partial<{ damage: number; condition: number; cleanliness: number }>
+  pressure?: { id: string; value: number; trend: number }
+  memory?: { id: string; tags: readonly string[] }
+  toneHints: readonly string[]
+  severity: number
+}> = [
+  // Fallback baseline.
+  { toneHints: ['atmosphere'], severity: 50 },
+  // Low cleanliness (band: low).
+  { meters: { cleanliness: 25 }, toneHints: ['atmosphere'], severity: 50 },
+  // High damage feeding atmosphere (band: high).
+  { meters: { damage: 80 }, toneHints: ['atmosphere'], severity: 55 },
+  // Rising maintenance pressure.
+  {
+    pressure: { id: 'maintenance', value: 55, trend: 1 },
+    toneHints: ['atmosphere'],
+    severity: 50,
+  },
+  // Memory of the atmosphere seed firing before.
+  {
+    memory: { id: 'area_atmosphere_seed_main_room', tags: ['area', 'atmosphere', 'warning'] },
+    toneHints: ['atmosphere'],
+    severity: 50,
+  },
+  // Memory of neglect.
+  {
+    memory: { id: 'area_ignored_main_room', tags: ['area', 'neglected'] },
+    toneHints: ['atmosphere'],
+    severity: 50,
+  },
+  // Memory of cleaning.
+  {
+    memory: { id: 'area_cleaned_main_room', tags: ['area', 'cleaning'] },
+    toneHints: ['atmosphere'],
+    severity: 50,
+  },
+  // Memory of repair.
+  {
+    memory: { id: 'area_repaired_main_room', tags: ['area', 'repair'] },
+    toneHints: ['atmosphere'],
+    severity: 50,
+  },
+  // Reputation tone.
+  { toneHints: ['atmosphere', 'reputation'], severity: 55 },
+  // Inspection-negative tone.
+  { toneHints: ['atmosphere', 'inspection_negative'], severity: 60 },
+  // Merchant-sensitive tone.
+  { toneHints: ['atmosphere', 'merchant_sensitive'], severity: 55 },
+  // Urgent tone.
+  { toneHints: ['atmosphere', 'urgent'], severity: 65 },
+  // Low cleanliness + rising pressure (top rung on establishing).
+  {
+    meters: { cleanliness: 25 },
+    pressure: { id: 'maintenance', value: 65, trend: 1 },
+    toneHints: ['atmosphere', 'urgent'],
+    severity: 70,
+  },
+  // High severity + repeat (three atmosphere-tagged memories).
+  {
+    memory: { id: 'atmosphere_repeat_marker', tags: ['atmosphere'] },
+    toneHints: ['atmosphere', 'urgent'],
+    severity: 80,
+  },
+  // Reputation + high severity (reaction's top rung).
+  { toneHints: ['atmosphere', 'reputation', 'urgent'], severity: 80 },
+  // Neglected + rising pressure (reaction's two-condition rung).
+  {
+    pressure: { id: 'maintenance', value: 60, trend: 1 },
+    memory: { id: 'area_neglected_again', tags: ['area', 'neglected'] },
+    toneHints: ['atmosphere'],
+    severity: 60,
+  },
+]
+
+function buildAreaAtmosphereState(
+  baseState: TavernState,
+  areaId: string,
+  perturbation: (typeof AREA_ATMOSPHERE_PERTURBATIONS)[number],
+): TavernState {
+  let s = baseState
+  if (perturbation.meters) {
+    s = withAreaMeters(s, areaId, perturbation.meters)
+  }
+  if (perturbation.pressure) {
+    s = withPressure(
+      s,
+      perturbation.pressure.id,
+      perturbation.pressure.value,
+      perturbation.pressure.trend,
+    )
+  }
+  if (perturbation.memory) {
+    s = withMemoryEntry(s, perturbation.memory.id, perturbation.memory.tags)
+    if (perturbation.memory.id === 'atmosphere_repeat_marker') {
+      s = withMemoryEntry(s, 'atmosphere_repeat_marker_b', ['atmosphere'])
+      s = withMemoryEntry(s, 'atmosphere_repeat_marker_c', ['atmosphere'])
+    }
+  }
+  return s
+}
+
+export function buildAreaAtmosphereDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  const areaId = firstAreaId(baseState)
+  return AREA_ATMOSPHERE_PERTURBATIONS.map((perturbation, i) => ({
+    seed: areaAtmosphereBaseSeed(
+      areaId,
+      `area-atmosphere-determinism-${i}`,
+      perturbation.toneHints,
+      perturbation.severity,
+    ),
+    state: buildAreaAtmosphereState(baseState, areaId, perturbation),
+  }))
+}
+
+export function buildAreaAtmosphereDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  void options.rngSeed
+  const baseState = createInitialTavernState()
+  const areaId = firstAreaId(baseState)
+  return (i: number) => {
+    const perturbation = AREA_ATMOSPHERE_PERTURBATIONS[i % AREA_ATMOSPHERE_PERTURBATIONS.length]!
+    return {
+      seed: areaAtmosphereBaseSeed(
+        areaId,
+        `area-atmosphere-diversity-${i}`,
+        perturbation.toneHints,
+        perturbation.severity,
+      ),
+      state: buildAreaAtmosphereState(baseState, areaId, perturbation),
+    }
+  }
+}
+
+// ---- Phase 6 context builders for the two new Phase-11 templates ----
+
+// maintenance verbs at `issueSeedGenerators.ts:692-725`:
+// repair / repair (patch) / ignore / delay (close_area).
+const MAINTENANCE_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'phase137-maintenance-repair',
+    labelHint: 'Repair the area',
+    allowedVerbs: ['repair'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'long_term_investment' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['restore condition'],
+  },
+  {
+    id: 'phase137-maintenance-patch',
+    labelHint: 'Patch temporarily',
+    allowedVerbs: ['repair'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'short_term_patch' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['small fix'],
+  },
+  {
+    id: 'phase137-maintenance-ignore',
+    labelHint: 'Ignore the damage',
+    allowedVerbs: ['ignore'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'ignore' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['no cost'],
+  },
+  {
+    id: 'phase137-maintenance-delay',
+    labelHint: 'Close the area',
+    allowedVerbs: ['delay'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'compromise' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['stop further damage'],
+  },
+]
+
+const MAINTENANCE_EFFECTS: readonly EffectPreview[] = [
+  {
+    kind: 'state_change',
+    target: 'areas.main_room.damage',
+    amount: -25,
+    readable: 'damage reduced',
+    tags: ['area'],
+  },
+  {
+    kind: 'state_change',
+    target: 'coin',
+    amount: -25,
+    readable: 'coin out',
+    tags: ['coin'],
+  },
+  {
+    kind: 'pressure',
+    target: 'pressure:maintenance',
+    amount: -12,
+    readable: 'maintenance eases',
+    tags: ['pressure'],
+  },
+  {
+    kind: 'state_change',
+    target: 'customers.miners.satisfaction',
+    amount: -5,
+    readable: 'customers inconvenienced',
+    tags: ['customer'],
+  },
+  {
+    kind: 'future_hook',
+    target: 'failed_patch_possible',
+    amount: 0,
+    readable: 'risk of later failure',
+    tags: ['future_hook'],
+  },
+]
+
+export function buildMaintenanceChoiceLabelContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = MAINTENANCE_RESPONSE_SLOTS[i % MAINTENANCE_RESPONSE_SLOTS.length]!
+  return { currentResponseSlot: slot }
+}
+
+export function buildMaintenanceEffectPreviewContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = MAINTENANCE_RESPONSE_SLOTS[i % MAINTENANCE_RESPONSE_SLOTS.length]!
+  const effect = MAINTENANCE_EFFECTS[i % MAINTENANCE_EFFECTS.length]!
+  return { currentResponseSlot: slot, currentEffect: effect }
+}
+
+// area_atmosphere verbs at `expandedSeedGenerators.ts:2523-2572`:
+// repair / clean / upgrade / delay / rebrand / ignore.
+const AREA_ATMOSPHERE_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'phase137-area-repair',
+    labelHint: 'Repair the area',
+    allowedVerbs: ['repair'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'long_term_investment' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['restore condition'],
+  },
+  {
+    id: 'phase137-area-clean',
+    labelHint: 'Clean the area',
+    allowedVerbs: ['clean'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'short_term_patch' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise cleanliness'],
+  },
+  {
+    id: 'phase137-area-upgrade',
+    labelHint: 'Start a project',
+    allowedVerbs: ['upgrade'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'long_term_investment' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['major upgrade'],
+  },
+  {
+    id: 'phase137-area-delay',
+    labelHint: 'Close the area',
+    allowedVerbs: ['delay'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'compromise' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['stop damage'],
+  },
+  {
+    id: 'phase137-area-rebrand',
+    labelHint: 'Rebrand the area',
+    allowedVerbs: ['rebrand'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'reputation_play' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['shift identity'],
+  },
+  {
+    id: 'phase137-area-ignore',
+    labelHint: 'Ignore the problem',
+    allowedVerbs: ['ignore'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'ignore' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['no cost'],
+  },
+]
+
+const AREA_ATMOSPHERE_EFFECTS: readonly EffectPreview[] = [
+  {
+    kind: 'state_change',
+    target: 'areas.main_room.condition',
+    amount: 15,
+    readable: 'condition rises',
+    tags: ['area'],
+  },
+  {
+    kind: 'state_change',
+    target: 'areas.main_room.cleanliness',
+    amount: 20,
+    readable: 'area cleaned',
+    tags: ['area'],
+  },
+  {
+    kind: 'state_change',
+    target: 'coin',
+    amount: -25,
+    readable: 'project cost',
+    tags: ['coin'],
+  },
+  {
+    kind: 'state_change',
+    target: 'reputation.respectable',
+    amount: -8,
+    readable: 'reputation shifts',
+    tags: ['reputation'],
+  },
+  {
+    kind: 'pressure',
+    target: 'pressure:maintenance',
+    amount: -10,
+    readable: 'maintenance eases',
+    tags: ['pressure'],
+  },
+  {
+    kind: 'future_hook',
+    target: 'area_rebrand_audience_shift_main_room',
+    amount: 0,
+    readable: 'audience may narrow',
+    tags: ['future_hook'],
+  },
+]
+
+export function buildAreaAtmosphereChoiceLabelContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = AREA_ATMOSPHERE_RESPONSE_SLOTS[i % AREA_ATMOSPHERE_RESPONSE_SLOTS.length]!
+  return { currentResponseSlot: slot }
+}
+
+export function buildAreaAtmosphereEffectPreviewContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = AREA_ATMOSPHERE_RESPONSE_SLOTS[i % AREA_ATMOSPHERE_RESPONSE_SLOTS.length]!
+  const effect = AREA_ATMOSPHERE_EFFECTS[i % AREA_ATMOSPHERE_EFFECTS.length]!
+  return { currentResponseSlot: slot, currentEffect: effect }
+}
+
 export const __testing = {
   firstRegularId,
   installCast,
@@ -2348,4 +2908,13 @@ export const __testing = {
   FACTION_REQUEST_RESPONSE_SLOTS,
   CULTURE_CONFLICT_RESPONSE_SLOTS,
   CULTURE_PERTURBATIONS,
+  firstAreaId,
+  maintenanceBaseSeed,
+  areaAtmosphereBaseSeed,
+  buildMaintenanceState,
+  buildAreaAtmosphereState,
+  MAINTENANCE_RESPONSE_SLOTS,
+  AREA_ATMOSPHERE_RESPONSE_SLOTS,
+  MAINTENANCE_PERTURBATIONS,
+  AREA_ATMOSPHERE_PERTURBATIONS,
 }

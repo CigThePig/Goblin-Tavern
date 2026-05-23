@@ -19,11 +19,15 @@ import type { ConditionContext, SnippetCondition } from './types'
 /** Resolve the actor referenced by a role string against the seed. v1
  *  rules:
  *  - `'primaryActor'` → `seed.primaryActor`
+ *  - `'location'` → `seed.location` (Phase 137 / ISSUE-106; lets
+ *    narrator-voiced area-centred cards reach the area through the
+ *    signal surface without inventing a namedEntities entry)
  *  - any other role → first `seed.textIngredients.namedEntities` entry
  *    whose `role` matches
  *  Returns `undefined` when nothing resolves. */
 function resolveActorRef(role: string, seed: IssueSeed): EntityRef | undefined {
   if (role === 'primaryActor') return seed.primaryActor
+  if (role === 'location') return seed.location
   const named = seed.textIngredients.namedEntities?.find((n) => n.role === role)
   return named?.ref
 }

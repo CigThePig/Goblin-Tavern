@@ -13,7 +13,8 @@ import {
   supplierReliabilityCard,
   stockShortageCard,
   debtRentCard,
-  maintenanceWarningCard,
+  maintenanceCard,
+  areaAtmosphereCard,
   staffBurnoutCard,
   factionRequestCard,
   cultureConflictCard,
@@ -279,24 +280,65 @@ describe('debtRentCard voice', () => {
   })
 })
 
-describe('maintenanceWarningCard voice', () => {
-  it('honours the budget', () => {
+describe('maintenanceCard voice', () => {
+  // Phase 137 / ISSUE-106 — Voiced Surface arc, Phase 11. Replaces the
+  // legacy `maintenanceWarningCard voice` block. The compositional
+  // template's body lines pass through the snippet layer rather than
+  // hand-glued textIngredients; the title carries the area label as
+  // its `${area.label}: ${snippet}` prefix, so the legacy 6-word
+  // assertBudget cap doesn't apply.
+  it('body and title pass through the compositional pools — no raw mechanical readouts', () => {
     const seed = makeSeed({
       family: 'maintenance',
-      type: 'warning',
+      type: 'maintenance_problem',
       timing: 'morning_prep',
       location: { kind: 'area', id: 'main_room' },
     })
-    const view = maintenanceWarningCard.render(seed, createInitialTavernState())
-    assertBudget(view)
+    const view = maintenanceCard.render(seed, createInitialTavernState())
+    assertBodyBudgetOnly(view)
+    for (const line of view.body) {
+      expect(line).not.toMatch(/damage \d+/)
+      expect(line).not.toMatch(/condition \d+/)
+    }
+    expect(view.title).not.toMatch(/^(Dirty|Damaged|Smelly|Risky)\s/)
   })
 
   it('is deterministic per seed id', () => {
-    assertDeterministic(maintenanceWarningCard, {
+    assertDeterministic(maintenanceCard, {
       family: 'maintenance',
+      type: 'maintenance_problem',
+      timing: 'morning_prep',
+      location: { kind: 'area', id: 'main_room' },
+    })
+  })
+})
+
+describe('areaAtmosphereCard voice', () => {
+  // Phase 137 / ISSUE-106 — Voiced Surface arc, Phase 11. First
+  // dedicated voice block for area_atmosphere.
+  it('body and title pass through the compositional pools — no raw mechanical readouts', () => {
+    const seed = makeSeed({
+      family: 'area_atmosphere',
       type: 'warning',
       timing: 'morning_prep',
       location: { kind: 'area', id: 'main_room' },
+      affectedActors: [{ kind: 'area', id: 'main_room' }],
+    })
+    const view = areaAtmosphereCard.render(seed, createInitialTavernState())
+    assertBodyBudgetOnly(view)
+    for (const line of view.body) {
+      expect(line).not.toMatch(/cleanliness \d+/)
+      expect(line).not.toMatch(/damage \d+/)
+    }
+  })
+
+  it('is deterministic per seed id', () => {
+    assertDeterministic(areaAtmosphereCard, {
+      family: 'area_atmosphere',
+      type: 'warning',
+      timing: 'morning_prep',
+      location: { kind: 'area', id: 'main_room' },
+      affectedActors: [{ kind: 'area', id: 'main_room' }],
     })
   })
 })

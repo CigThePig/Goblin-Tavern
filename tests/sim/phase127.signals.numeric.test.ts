@@ -13,6 +13,7 @@ import {
   BAND_THRESHOLDS,
   areaCleanlinessBand,
   areaConditionBand,
+  areaDamageBand,
   bandOf,
   cultureComfortBand,
   cultureFamiliarityBand,
@@ -218,6 +219,39 @@ describe('area signals', () => {
   it('returns undefined for unknown area id', () => {
     expect(areaConditionBand(base, 'no_such_area')).toBeUndefined()
     expect(areaCleanlinessBand(base, 'no_such_area')).toBeUndefined()
+  })
+
+  // Phase 137 / ISSUE-106 — Voiced Surface Phase 11 (Premises & Atmosphere).
+  it('damage band respects the cut-points', () => {
+    function withDamage(value: number): TavernState {
+      return {
+        ...base,
+        areas: {
+          ...base.areas,
+          [areaId]: { ...base.areas[areaId]!, damage: value },
+        },
+      }
+    }
+    expect(areaDamageBand(withDamage(39), areaId)).toBe('low')
+    expect(areaDamageBand(withDamage(40), areaId)).toBe('mid')
+    expect(areaDamageBand(withDamage(69), areaId)).toBe('mid')
+    expect(areaDamageBand(withDamage(70), areaId)).toBe('high')
+  })
+
+  it('damage band returns undefined for unknown area id', () => {
+    expect(areaDamageBand(base, 'no_such_area')).toBeUndefined()
+  })
+
+  it('querySignal dispatches area.damage to the right reader', () => {
+    const adjusted: TavernState = {
+      ...base,
+      areas: {
+        ...base.areas,
+        [areaId]: { ...base.areas[areaId]!, damage: 85 },
+      },
+    }
+    const result = querySignal(adjusted, 'area.damage', { kind: 'area', id: areaId })
+    expect(result).toEqual({ band: 'high' })
   })
 })
 

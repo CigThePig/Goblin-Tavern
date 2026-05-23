@@ -36,6 +36,15 @@ export type SignalId =
   | 'culture.tension'
   | 'culture.comfort'
   | 'culture.familiarity'
+  // Phase 137 / ISSUE-106 — Voiced Surface Phase 11 (Premises & Atmosphere)
+  // additive loopback. The maintenance seed generator picks its target
+  // area by `damage + (60 - condition)`; `area.condition` is already a
+  // band signal but `area.damage` is not. Without it the establishing
+  // line can only state condition, so the broken-floorboards case and
+  // the dim-corner case land on the same snippet rung. `area.cleanliness`
+  // already covers the atmosphere card's primary meter; smell / risk /
+  // mess fold into reaction-line flavor and severityAtLeast.
+  | 'area.damage'
 
 /** Three-band tiering. Boundaries live in `bands.ts` as data so gates
  *  can enumerate them. Snippets decide what `low` / `high` *means* per
@@ -66,6 +75,7 @@ export const SIGNAL_ENTITY_KIND: Record<SignalId, EntityRef['kind']> = {
   'culture.tension': 'culture',
   'culture.comfort': 'culture',
   'culture.familiarity': 'culture',
+  'area.damage': 'area',
 }
 
 /** All band ids enumerated. The gates use this to walk every reachable

@@ -53,7 +53,7 @@
 
   {#if card.body.length > 0}
     <div class="body">
-      {#each card.body as line (line)}
+      {#each card.body as line, i (i)}
         <p class="line">{line}</p>
       {/each}
     </div>
@@ -86,7 +86,7 @@
         </span>
         {#if c.previewEffects.length > 0}
           <ul class="preview mono">
-            {#each c.previewEffects as e (e)}
+            {#each c.previewEffects as e, i (i)}
               <li>{e}</li>
             {/each}
           </ul>

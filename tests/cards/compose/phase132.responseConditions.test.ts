@@ -16,6 +16,7 @@ import { evalCondition } from '../../../src/cards/compose/conditions'
 import type { ConditionContext } from '../../../src/cards/compose/types'
 import { createInitialTavernState } from '../../../src/sim/state/defaults'
 import type {
+  IssueSeedFamilyId,
   ResponseIntentShape,
   ResponseIntentVerb,
   ResponseSlot,
@@ -222,12 +223,12 @@ describe('Phase 132 / ISSUE-101 — existing condition arms ignore ctx', () => {
   it('seedFamily evaluates the same with or without ConditionContext', () => {
     const ctx: ConditionContext = { currentResponseSlot: appeaseSlot() }
     const withoutCtx = evalCondition(
-      { kind: 'seedFamily', anyOf: [seed.family] },
+      { kind: 'seedFamily', anyOf: [seed.family as IssueSeedFamilyId] },
       seed,
       state,
     )
     const withCtx = evalCondition(
-      { kind: 'seedFamily', anyOf: [seed.family] },
+      { kind: 'seedFamily', anyOf: [seed.family as IssueSeedFamilyId] },
       seed,
       state,
       ctx,

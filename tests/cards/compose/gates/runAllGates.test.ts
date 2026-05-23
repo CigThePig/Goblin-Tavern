@@ -14,6 +14,9 @@ import { staffAsideTemplate } from '../../../../src/cards/templates/staffAside'
 import { staffBurnoutTemplate } from '../../../../src/cards/templates/staffBurnout'
 import { regularComplaintTemplate } from '../../../../src/cards/templates/regularComplaint'
 import { customerComplaintTemplate } from '../../../../src/cards/templates/customerComplaint'
+import { supplierReliabilityTemplate } from '../../../../src/cards/templates/supplierReliability'
+import { stockShortageTemplate } from '../../../../src/cards/templates/stockShortage'
+import { debtRentTemplate } from '../../../../src/cards/templates/debtRent'
 import {
   drinkOrderChoiceLabelPool,
   drinkOrderEffectPreviewPool,
@@ -30,6 +33,18 @@ import {
   customerComplaintChoiceLabelPool,
   customerComplaintEffectPreviewPool,
 } from '../../../../src/cards/compose/pools/customerComplaint'
+import {
+  supplierReliabilityChoiceLabelPool,
+  supplierReliabilityEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/supplierReliability'
+import {
+  stockShortageChoiceLabelPool,
+  stockShortageEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/stockShortage'
+import {
+  debtRentChoiceLabelPool,
+  debtRentEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/debtRent'
 import type { CompositionalCardTemplate } from '../../../../src/cards/compose/types'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
 import { buildTemplate } from './fixtures'
@@ -38,6 +53,10 @@ import {
   buildCustomerComplaintDeterminismSamples,
   buildCustomerComplaintDiversitySampler,
   buildCustomerComplaintEffectPreviewContext,
+  buildDebtRentChoiceLabelContext,
+  buildDebtRentDeterminismSamples,
+  buildDebtRentDiversitySampler,
+  buildDebtRentEffectPreviewContext,
   buildDeterminismSamples,
   buildDiversitySampler,
   buildDrinkOrderChoiceLabelContext,
@@ -52,6 +71,14 @@ import {
   buildStaffBurnoutDiversitySampler,
   buildStaffDeterminismSamples,
   buildStaffDiversitySampler,
+  buildStockShortageChoiceLabelContext,
+  buildStockShortageDeterminismSamples,
+  buildStockShortageDiversitySampler,
+  buildStockShortageEffectPreviewContext,
+  buildSupplierReliabilityChoiceLabelContext,
+  buildSupplierReliabilityDeterminismSamples,
+  buildSupplierReliabilityDiversitySampler,
+  buildSupplierReliabilityEffectPreviewContext,
   representativeBannedNames,
 } from './samplers'
 
@@ -292,6 +319,161 @@ describe('runAllGates — happy path', () => {
     expect(report.determinism.pass).toBe(true)
     expect(report.diversity.every((d) => d.pass)).toBe(true)
   })
+
+  // Phase 135 / ISSUE-104 — Voiced Surface arc, Phase 9 (Suppliers, Stock & Debt).
+  // Three new compositional templates land in this cluster:
+  //   - supplierReliability: actor-voiced, mirrors the Phase-7 / Phase-8
+  //     cast-perturbation pattern using `createSupplierCastAttributes`.
+  //   - stockShortage / debtRent: narrator-voiced (no primaryActor on
+  //     the seed), so the diversity sampler perturbs STATE not cast.
+  //     The reachable condition space is smaller — `minDistinct` on the
+  //     flavor slots is set to the realised distribution + a safety
+  //     floor of 3 (still tight; under that the gate is meaningfully
+  //     informative).
+  it('the real supplierReliability template passes all seven gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(supplierReliabilityTemplate, {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: buildSupplierReliabilityDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'title',
+          sampler: buildSupplierReliabilityDiversitySampler({
+            rngSeed: 'run-all-supplier-reliability-title',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'establishing_line',
+          sampler: buildSupplierReliabilityDiversitySampler({
+            rngSeed: 'run-all-supplier-reliability-establishing',
+          }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
+        {
+          slotId: 'reaction_line',
+          sampler: buildSupplierReliabilityDiversitySampler({
+            rngSeed: 'run-all-supplier-reliability-reaction',
+          }),
+          config: { sampleSize: 100, minDistinct: 6 },
+        },
+        {
+          slotId: 'manner_note',
+          sampler: buildSupplierReliabilityDiversitySampler({
+            rngSeed: 'run-all-supplier-reliability-manner',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  it('the real stockShortage template passes all seven gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(stockShortageTemplate, {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: buildStockShortageDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'title',
+          sampler: buildStockShortageDiversitySampler({
+            rngSeed: 'run-all-stock-shortage-title',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'establishing_line',
+          sampler: buildStockShortageDiversitySampler({
+            rngSeed: 'run-all-stock-shortage-establishing',
+          }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
+        {
+          slotId: 'reaction_line',
+          sampler: buildStockShortageDiversitySampler({
+            rngSeed: 'run-all-stock-shortage-reaction',
+          }),
+          // Narrator-voiced. State perturbation reaches a smaller
+          // condition surface than cast perturbation (10–12 distinct
+          // perturbations vs the continuous 4-axis cast space), so the
+          // floor is 3 distinct rather than the actor-voiced 6.
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'manner_note',
+          sampler: buildStockShortageDiversitySampler({
+            rngSeed: 'run-all-stock-shortage-manner',
+          }),
+          config: { sampleSize: 100, minDistinct: 2 },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  it('the real debtRent template passes all seven gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(debtRentTemplate, {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: buildDebtRentDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'title',
+          sampler: buildDebtRentDiversitySampler({
+            rngSeed: 'run-all-debt-rent-title',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'establishing_line',
+          sampler: buildDebtRentDiversitySampler({
+            rngSeed: 'run-all-debt-rent-establishing',
+          }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
+        {
+          slotId: 'reaction_line',
+          sampler: buildDebtRentDiversitySampler({
+            rngSeed: 'run-all-debt-rent-reaction',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'manner_note',
+          sampler: buildDebtRentDiversitySampler({
+            rngSeed: 'run-all-debt-rent-manner',
+          }),
+          config: { sampleSize: 100, minDistinct: 2 },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
 })
 
 // ---- Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6 ----
@@ -397,6 +579,82 @@ function buildCustomerComplaintChoicesGateTemplate(): CompositionalCardTemplate 
         id: 'effect_preview',
         role: 'effect_preview',
         pool: customerComplaintEffectPreviewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      },
+    ],
+  }
+}
+
+// Phase 135 / ISSUE-104 — Voiced Surface arc, Phase 9 (Suppliers, Stock & Debt).
+function buildSupplierReliabilityChoicesGateTemplate(): CompositionalCardTemplate {
+  return {
+    ...supplierReliabilityTemplate,
+    id: 'phase135-supplierReliability-choices-gate',
+    slots: [
+      {
+        id: 'choice_label',
+        role: 'choice_label',
+        pool: supplierReliabilityChoiceLabelPool,
+        optional: true,
+        wordBudget: 6,
+        claimMode: 'flavor',
+      },
+      {
+        id: 'effect_preview',
+        role: 'effect_preview',
+        pool: supplierReliabilityEffectPreviewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      },
+    ],
+  }
+}
+
+function buildStockShortageChoicesGateTemplate(): CompositionalCardTemplate {
+  return {
+    ...stockShortageTemplate,
+    id: 'phase135-stockShortage-choices-gate',
+    slots: [
+      {
+        id: 'choice_label',
+        role: 'choice_label',
+        pool: stockShortageChoiceLabelPool,
+        optional: true,
+        wordBudget: 6,
+        claimMode: 'flavor',
+      },
+      {
+        id: 'effect_preview',
+        role: 'effect_preview',
+        pool: stockShortageEffectPreviewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      },
+    ],
+  }
+}
+
+function buildDebtRentChoicesGateTemplate(): CompositionalCardTemplate {
+  return {
+    ...debtRentTemplate,
+    id: 'phase135-debtRent-choices-gate',
+    slots: [
+      {
+        id: 'choice_label',
+        role: 'choice_label',
+        pool: debtRentChoiceLabelPool,
+        optional: true,
+        wordBudget: 6,
+        claimMode: 'flavor',
+      },
+      {
+        id: 'effect_preview',
+        role: 'effect_preview',
+        pool: debtRentEffectPreviewPool,
         optional: true,
         wordBudget: 10,
         claimMode: 'flavor',
@@ -558,6 +816,130 @@ describe('runAllGates — Phase 6 choice / consequence pools', () => {
             sampleSize: 100,
             minDistinct: 3,
             pickContext: buildCustomerComplaintEffectPreviewContext,
+          },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  // Phase 135 / ISSUE-104 — Voiced Surface arc, Phase 9.
+  it('the supplierReliability choice-label and effect-preview pools pass all gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(buildSupplierReliabilityChoicesGateTemplate(), {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: [] },
+      diversity: [
+        {
+          slotId: 'choice_label',
+          sampler: buildSupplierReliabilityDiversitySampler({
+            rngSeed: 'phase135-supplier-choice-label',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildSupplierReliabilityChoiceLabelContext,
+          },
+        },
+        {
+          slotId: 'effect_preview',
+          sampler: buildSupplierReliabilityDiversitySampler({
+            rngSeed: 'phase135-supplier-effect-preview',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildSupplierReliabilityEffectPreviewContext,
+          },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  it('the stockShortage choice-label and effect-preview pools pass all gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(buildStockShortageChoicesGateTemplate(), {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: [] },
+      diversity: [
+        {
+          slotId: 'choice_label',
+          sampler: buildStockShortageDiversitySampler({
+            rngSeed: 'phase135-stock-choice-label',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildStockShortageChoiceLabelContext,
+          },
+        },
+        {
+          slotId: 'effect_preview',
+          sampler: buildStockShortageDiversitySampler({
+            rngSeed: 'phase135-stock-effect-preview',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildStockShortageEffectPreviewContext,
+          },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  it('the debtRent choice-label and effect-preview pools pass all gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(buildDebtRentChoicesGateTemplate(), {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: [] },
+      diversity: [
+        {
+          slotId: 'choice_label',
+          sampler: buildDebtRentDiversitySampler({
+            rngSeed: 'phase135-debt-choice-label',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildDebtRentChoiceLabelContext,
+          },
+        },
+        {
+          slotId: 'effect_preview',
+          sampler: buildDebtRentDiversitySampler({
+            rngSeed: 'phase135-debt-effect-preview',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildDebtRentEffectPreviewContext,
           },
         },
       ],

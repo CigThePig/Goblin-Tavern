@@ -25,7 +25,11 @@ import type {
   IssueSeedFamilyId,
   IssueSeedTiming,
   IssueSeedType,
+  ResponseIntentShape,
+  ResponseIntentVerb,
+  ResponseSlot,
 } from '../../sim/modules/issues/issueSeedTypes'
+import type { EffectKind, EffectPreview } from '../../sim/core/effect'
 import type { TavernState } from '../../sim/state/TavernState'
 import type { EntityRef } from '../../sim/state/TavernState'
 import type {
@@ -104,6 +108,30 @@ export type SnippetCondition =
   //   Stays data and stays inspectable — the gates enumerate
   //   `(SignalId, BandId)` to walk the reachable space.
   | { kind: 'signalEquals'; role: string; signal: SignalId; equals: BandId }
+  // — Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6. Choice &
+  //   consequence voice. Four primitives that read the iteration context
+  //   the choice helper threads in (`currentResponseSlot`,
+  //   `currentEffect`). Outside that helper — i.e. for body / title slot
+  //   evaluation — the corresponding context field is undefined and the
+  //   condition returns false (graceful degradation per framework §5).
+  //   Stay flat data, no closures, no OR/NOT/nesting.
+  | { kind: 'responseVerb'; anyOf: readonly ResponseIntentVerb[] }
+  | { kind: 'responseShape'; anyOf: readonly ResponseIntentShape[] }
+  | { kind: 'effectKind'; anyOf: readonly EffectKind[] }
+  | { kind: 'effectTag'; tag: string }
+
+/**
+ * Phase 132 / ISSUE-101 — optional iteration context the choice helper
+ * (`composeChoicesFromSeed`) threads into `pickSnippet` so the four
+ * Phase-6 condition primitives can read the current response slot and
+ * effect preview without leaving the data DSL. Body and title slots are
+ * evaluated with an empty context; the four new condition arms return
+ * false when their required field is missing.
+ */
+export type ConditionContext = {
+  currentResponseSlot?: ResponseSlot
+  currentEffect?: EffectPreview
+}
 
 // ---------- Snippet / SnippetPool / SlotSpec ----------
 

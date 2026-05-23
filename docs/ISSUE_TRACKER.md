@@ -165,6 +165,7 @@ phase-number arithmetic when deciding what's next.
 | ISSUE-098 | Voiced Surface Phase 3 — establishing-line spike: `supplier_reliability` spec | thin | done | 129 |
 | ISSUE-099 | Voiced Surface Phase 4 — retire build-time API pipeline; document Claude Code authoring loop | tech-debt | done | 130 |
 | ISSUE-100 | Voiced Surface Phase 5 — title & frame discipline: title becomes a composed slot; voice-bounds gate forbids trailing "…" / immediate duplicate token | thin | done | 131 |
+| ISSUE-101 | Voiced Surface Phase 6 — choice & consequence voice: composed labels + effect previews on drinkOrder/staffAside; 4 new condition primitives (`responseVerb`, `responseShape`, `effectKind`, `effectTag`) | thin | done | 132 |
 
 ---
 
@@ -3174,6 +3175,38 @@ scale-out) will select against. Locked roadmap:
   tests (which were the regression guard — pre-Phase-A starter
   regulars needed the new factory too, caught and fixed during
   implementation).
+
+### ISSUE-101 — Voiced Surface Phase 6: choice & consequence voice (composed choice labels + effect previews)
+
+- **Grade:** thin
+- **Status:** done
+- **Phase:** 132
+- **Implementation record:** `drinkOrderCard` and `staffAsideCard` now compose their `CardChoice.label` and per-effect `CardChoice.previewEffects` through the snippet pipeline. A new helper `composeChoicesFromSeed(seed, state, { labelPool, previewPool, maxPreview })` lives in `src/cards/cardHelpers.ts`; per response slot it builds two synthetic `SlotSpec`s (`choice_label::${slot.id}` and `effect_preview::${slot.id}::${idx}`, both `optional: true`, `claimMode: 'flavor'`) and calls `pickSnippet` with a `ConditionContext { currentResponseSlot, currentEffect }`. Pool misses fall through to the sim's verbatim `slot.labelHint` / `effect.readable` — never an invented string. `buildChoice` gains two strictly-optional `ChoiceOverrides` fields (`label`, `previewEffects`); the six legacy templates keep calling `buildChoicesFromSeed` unchanged. Four new condition primitives land in `src/cards/compose/types.ts` and `src/cards/compose/conditions.ts`: `responseVerb { anyOf: ResponseIntentVerb[] }`, `responseShape { anyOf: ResponseIntentShape[] }`, `effectKind { anyOf: EffectKind[] }`, `effectTag { tag: string }`. All four return `false` when their required `ctx` field is absent — body / title slot evaluation passes no context and continues to behave identically. `evalCondition`, `pickSnippet`, and `assembleSlots` thread an optional `ctx: ConditionContext = {}` through; the 14 existing arms are unchanged. New pools at `src/cards/compose/pools/drinkOrder/{choiceLabel,effectPreview}.ts` and `src/cards/compose/pools/staffAside/{choiceLabel,effectPreview}.ts` each ship 6 snippets covering verb-gated (appease / ignore) × voice-axis (terseness / warmth / formality / floridity) combinations. The diversity gate (`src/cards/compose/gates/diversity.ts`) gains an optional `pickContext?: (sample, i) => ConditionContext` config field so the gate can exercise the new primitives; existing call sites are backward-compatible (omit the field, behaviour unchanged). The sim-coherence guarantee for previews holds **structurally**: each composed line corresponds 1-to-1 to a real `EffectPreview` because the helper iterates `profile.immediateEffects` per choice, so the snippet only ever replaces the readable string. The backing `(kind, target, amount, tags)` survives unchanged into `simulateDay`. Both specs (`specs/cards/drink_order.spec.yaml`, `specs/cards/staff_aside.spec.yaml`) gain `choice_label` and `effect_preview` slot entries as design records.
+- **Evidence:** `docs/plans/voiced-surface-arc.md` Phase 6. Before this phase, `buildChoice` in `src/cards/cardHelpers.ts` lifted `label = slot.labelHint` and `previewEffects = profile.immediateEffects.map(e => e.readable)` straight from the seed, so the same regular said *"Smooth it over"* / *"Let it ride"* regardless of who they were — that was the entire "responses feel non-contextual" half of the arc-opening complaint.
+- **Impact:** (1) Choice labels and effect-preview lines on the two compositional templates now read in the actor's voice. A warm regular's `appease` choice surfaces "Pour them one on the house" instead of the bare `labelHint`. (2) Mechanical truth survives: a new test (`tests/cards/templates.phase132.mechanicalEquivalence.test.ts`) renders both templates under a warm-formal cast and asserts `verb`, `shape`, `targetId`, `slotId`, and `previewEffects.length` match a baseline computed directly from the seed; identical re-render under the same `(seed, state)` is also asserted. (3) The migration pattern Movement II (phases 7–13) needs is now proven on two templates and two domains.
+- **Scope (delivered):**
+  - **Edited** `src/cards/compose/types.ts`: added four new condition kinds to `SnippetCondition`; exported `ConditionContext { currentResponseSlot?, currentEffect? }`.
+  - **Edited** `src/cards/compose/conditions.ts`: added optional `ctx` parameter to `evalCondition`; added four new switch arms each returning `false` when context is missing.
+  - **Edited** `src/cards/compose/assemble.ts`: `pickSnippet` and `assembleSlots` thread optional `ctx: ConditionContext = {}` through. Existing call sites unchanged.
+  - **Edited** `src/cards/cardHelpers.ts`: added `label?` and `previewEffects?` to `ChoiceOverrides`; `buildChoice` honours them with `??` fallbacks. Added `composeChoicesFromSeed(seed, state, options)` and exported `ComposeChoicesOptions`.
+  - **New** `src/cards/compose/pools/drinkOrder/choiceLabel.ts` (6 snippets) and `effectPreview.ts` (6 snippets).
+  - **New** `src/cards/compose/pools/staffAside/choiceLabel.ts` (6 snippets) and `effectPreview.ts` (6 snippets).
+  - **Edited** `src/cards/compose/pools/drinkOrder/index.ts` and `src/cards/compose/pools/staffAside/index.ts`: re-export the four new pools.
+  - **Edited** `src/cards/templates/drinkOrder.ts` and `src/cards/templates/staffAside.ts`: swap `buildChoicesFromSeed` for `composeChoicesFromSeed` with the new pools.
+  - **Edited** `src/cards/compose/gates/diversity.ts`: added optional `pickContext?: (sample, i) => ConditionContext` to `DiversityConfig`; threads through to `pickSnippet`.
+  - **Edited** `tests/cards/compose/gates/samplers.ts`: added four Phase-6 context builders (`buildDrinkOrderChoiceLabelContext`, `buildDrinkOrderEffectPreviewContext`, `buildStaffAsideChoiceLabelContext`, `buildStaffAsideEffectPreviewContext`) with representative response-slot and effect-preview rotations.
+  - **Edited** `tests/cards/compose/gates/runAllGates.test.ts`: added two new `describe` blocks driving ad-hoc gate-only templates for each compositional card's choice-label and effect-preview pools through `runAllGates`; each pool passes coverage, specificity, voiceBounds, simCoherence, dedupe, and a `sampleSize: 100, minDistinct: 3` diversity check.
+  - **New** `tests/cards/compose/phase132.responseConditions.test.ts`: 13 unit tests covering positive, negative, and "no-context" cases for each of the four new condition arms, plus a spot-check that a representative existing arm (`seedFamily`) is unaffected by ctx.
+  - **New** `tests/cards/templates.phase132.mechanicalEquivalence.test.ts`: 6 integration tests across both templates asserting `verb`/`shape`/`targetId`/`slotId`/preview-length match a seed-derived baseline; identical re-render under same `(seed, state)`; and "a warm-formal cast voices at least one choice label or preview line".
+  - **Edited** `specs/cards/drink_order.spec.yaml` and `specs/cards/staff_aside.spec.yaml`: added `choice_label` and `effect_preview` slot entries as design records.
+- **Depends on:** ISSUE-096…100 (all done). No new dependencies.
+- **Test approach (delivered):**
+  - `npm test -- --run tests/cards/compose/phase132.responseConditions.test.ts` — 13 tests pass.
+  - `npm test -- --run tests/cards/templates.phase132.mechanicalEquivalence.test.ts` — 6 tests pass.
+  - `npm test -- --run tests/cards/compose/gates/runAllGates.test.ts` — 6 tests pass (4 existing + 2 new). The two new Phase-6 cases drive both templates' choice-label and effect-preview pools through every applicable gate.
+  - `npm test -- --run tests/cards/templates.drinkOrder.test.ts tests/cards/templates.staffAside.test.ts` — 27 tests pass; the existing template-integration assertions are unaffected.
+  - `npm run typecheck` — clean.
+  - `npm test -- --run` — full suite green.
 
 ### ISSUE-100 — Voiced Surface Phase 5: title & frame discipline (title becomes a composed slot)
 

@@ -11,11 +11,24 @@ import { describe, expect, it } from 'vitest'
 import { runAllGates } from '../../../../src/cards/compose/gates'
 import { drinkOrderTemplate } from '../../../../src/cards/templates/drinkOrder'
 import { staffAsideTemplate } from '../../../../src/cards/templates/staffAside'
+import {
+  drinkOrderChoiceLabelPool,
+  drinkOrderEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/drinkOrder'
+import {
+  staffAsideChoiceLabelPool,
+  staffAsideEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/staffAside'
+import type { CompositionalCardTemplate } from '../../../../src/cards/compose/types'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
 import { buildTemplate } from './fixtures'
 import {
   buildDeterminismSamples,
   buildDiversitySampler,
+  buildDrinkOrderChoiceLabelContext,
+  buildDrinkOrderEffectPreviewContext,
+  buildStaffAsideChoiceLabelContext,
+  buildStaffAsideEffectPreviewContext,
   buildStaffDeterminismSamples,
   buildStaffDiversitySampler,
   representativeBannedNames,
@@ -96,6 +109,150 @@ describe('runAllGates — happy path', () => {
     expect(report.voiceBounds.pass).toBe(true)
     expect(report.simCoherence.pass).toBe(true)
     expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+})
+
+// ---- Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6 ----
+//
+// Choice-label and effect-preview pools live outside the runtime
+// template's `slots[]` (the helper `composeChoicesFromSeed` builds
+// synthetic SlotSpecs per response slot / per effect). To run the seven
+// gates against these pools, build ad-hoc gate-only templates that
+// include them as static slot members. The pickContext threading on the
+// diversity gate supplies the iteration context the new condition
+// primitives read.
+
+function buildDrinkOrderChoicesGateTemplate(): CompositionalCardTemplate {
+  return {
+    ...drinkOrderTemplate,
+    id: 'phase132-drinkOrder-choices-gate',
+    slots: [
+      {
+        id: 'choice_label',
+        role: 'choice_label',
+        pool: drinkOrderChoiceLabelPool,
+        optional: true,
+        wordBudget: 6,
+        claimMode: 'flavor',
+      },
+      {
+        id: 'effect_preview',
+        role: 'effect_preview',
+        pool: drinkOrderEffectPreviewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      },
+    ],
+  }
+}
+
+function buildStaffAsideChoicesGateTemplate(): CompositionalCardTemplate {
+  return {
+    ...staffAsideTemplate,
+    id: 'phase132-staffAside-choices-gate',
+    slots: [
+      {
+        id: 'choice_label',
+        role: 'choice_label',
+        pool: staffAsideChoiceLabelPool,
+        optional: true,
+        wordBudget: 6,
+        claimMode: 'flavor',
+      },
+      {
+        id: 'effect_preview',
+        role: 'effect_preview',
+        pool: staffAsideEffectPreviewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      },
+    ],
+  }
+}
+
+describe('runAllGates — Phase 6 choice / consequence pools', () => {
+  it('the drinkOrder choice-label and effect-preview pools pass all gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(buildDrinkOrderChoicesGateTemplate(), {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      // No need to sample the full render path here — the determinism
+      // gate runs against the existing runtime template; this ad-hoc
+      // gate-only template is checked structurally. An empty samples
+      // list keeps the gate as a no-op.
+      determinism: { samples: [] },
+      diversity: [
+        {
+          slotId: 'choice_label',
+          sampler: buildDiversitySampler({ rngSeed: 'phase132-choice-label' }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildDrinkOrderChoiceLabelContext,
+          },
+        },
+        {
+          slotId: 'effect_preview',
+          sampler: buildDiversitySampler({ rngSeed: 'phase132-effect-preview' }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildDrinkOrderEffectPreviewContext,
+          },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  it('the staffAside choice-label and effect-preview pools pass all gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(buildStaffAsideChoicesGateTemplate(), {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: [] },
+      diversity: [
+        {
+          slotId: 'choice_label',
+          sampler: buildStaffDiversitySampler({
+            rngSeed: 'phase132-staff-choice-label',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildStaffAsideChoiceLabelContext,
+          },
+        },
+        {
+          slotId: 'effect_preview',
+          sampler: buildStaffDiversitySampler({
+            rngSeed: 'phase132-staff-effect-preview',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildStaffAsideEffectPreviewContext,
+          },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
     expect(report.diversity.every((d) => d.pass)).toBe(true)
   })
 })

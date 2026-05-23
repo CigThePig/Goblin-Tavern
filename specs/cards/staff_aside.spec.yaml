@@ -38,6 +38,38 @@ slots:
       An optional physical beat — posture, hands, breath, expression.
       Omitted rather than weak.
 
+  # Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6.
+  # Choice & consequence voice. The helper `composeChoicesFromSeed` in
+  # `src/cards/cardHelpers.ts` synthesises one SlotSpec per response slot
+  # for `choice_label` and one per `EffectPreview` for `effect_preview`,
+  # threading the iteration as ConditionContext into `pickSnippet`. Both
+  # slots are optional — unmatched seeds fall back to the sim's verbatim
+  # `slot.labelHint` / `effect.readable`. Mechanical fields (verb /
+  # targetId / shape and per-effect kind / target / amount / tags) are
+  # unchanged by composition; only wording moves.
+
+  - id: choice_label
+    required: false
+    claims: flavor
+    maxWords: 6
+    status: SIGNAL_AVAILABLE
+    description: >
+      Voiced rendering of a response slot's `labelHint`. Keyed on
+      (responseVerb, responseShape, voiceAxis, signalEquals). Pool
+      authored in `src/cards/compose/pools/staffAside/choiceLabel.ts`.
+
+  - id: effect_preview
+    required: false
+    claims: flavor
+    maxWords: 10
+    status: SIGNAL_AVAILABLE
+    description: >
+      Voiced rendering of one `ConsequenceProfile.immediateEffects[i]`.
+      Each composed line corresponds 1-to-1 to a real EffectPreview by
+      construction — the snippet replaces only the readable string,
+      never the kind / target / amount / tags. Pool authored in
+      `src/cards/compose/pools/staffAside/effectPreview.ts`.
+
 voiceAxesInPlay:
   terseness:
     0: full clause

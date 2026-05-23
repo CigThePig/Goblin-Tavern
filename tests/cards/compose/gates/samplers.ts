@@ -24,15 +24,23 @@ import type {
   VerbalTicId,
 } from '../../../../src/sim/content/cast'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
-import type { IssueSeed } from '../../../../src/sim/modules/issues/issueSeedTypes'
+import type {
+  IssueSeed,
+  ResponseIntentShape,
+  ResponseIntentVerb,
+  ResponseSlot,
+} from '../../../../src/sim/modules/issues/issueSeedTypes'
+import type { EffectPreview } from '../../../../src/sim/core/effect'
 import type {
   EntityRef,
   TavernState,
 } from '../../../../src/sim/state/TavernState'
 import type {
   DeterminismSample,
+  DiversitySample,
   DiversitySampler,
 } from '../../../../src/cards/compose/gates'
+import type { ConditionContext } from '../../../../src/cards/compose/types'
 import { makeSeed } from '../../cardFactories'
 
 const VERBAL_TIC_IDS: readonly VerbalTicId[] = [
@@ -354,6 +362,137 @@ export function buildStaffDiversitySampler(
   }
 }
 
+// ---- Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6 ----
+//
+// Context builders for the choice-label and effect-preview pool
+// diversity gates. Each builder maps a sample index to a
+// `ConditionContext { currentResponseSlot?, currentEffect? }` so the new
+// `responseVerb` / `responseShape` / `effectKind` / `effectTag`
+// primitives can match. Without a context builder those conditions
+// always return false (intended for body / title slots) and the gate
+// would observe zero diversity.
+//
+// We rotate through a small representative set of (verb, shape) pairs
+// per sample to ensure the verb-gated rungs of the pool fire across
+// the population, mirroring how `composeChoicesFromSeed` exercises the
+// pool per response slot at runtime. Effect contexts rotate through
+// the per-template effect tags (`regulars` vs `staff`) plus a tagless
+// `state_change` effect so the kind-gated rungs fire too.
+
+const DRINK_ORDER_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'phase132-drinkorder-appease',
+    labelHint: 'Smooth it over',
+    allowedVerbs: ['appease'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['irritation -5'],
+  },
+  {
+    id: 'phase132-drinkorder-ignore',
+    labelHint: 'Let it ride',
+    allowedVerbs: ['ignore'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'ignore' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['nothing changes'],
+  },
+]
+
+const STAFF_ASIDE_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'phase132-staffaside-appease',
+    labelHint: 'Hear them out',
+    allowedVerbs: ['appease'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['loyalty +2'],
+  },
+  {
+    id: 'phase132-staffaside-ignore',
+    labelHint: 'Let it sit',
+    allowedVerbs: ['ignore'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'ignore' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['nothing changes'],
+  },
+]
+
+const DRINK_ORDER_EFFECTS: readonly EffectPreview[] = [
+  {
+    kind: 'state_change',
+    target: 'world.regulars.irritation',
+    amount: -5,
+    readable: 'the regular settles',
+    tags: ['regulars'],
+  },
+  {
+    kind: 'state_change',
+    target: 'noop',
+    amount: 0,
+    readable: 'nothing changes',
+    tags: [],
+  },
+]
+
+const STAFF_ASIDE_EFFECTS: readonly EffectPreview[] = [
+  {
+    kind: 'state_change',
+    target: 'staff.loyalty',
+    amount: 2,
+    readable: 'the staffer relaxes',
+    tags: ['staff'],
+  },
+  {
+    kind: 'state_change',
+    target: 'noop',
+    amount: 0,
+    readable: 'nothing shifts',
+    tags: [],
+  },
+]
+
+/** Phase 6 context builder for the drinkOrder choice-label slot.
+ *  Rotates through `appease` / `ignore` per sample so verb-gated rungs
+ *  in the pool fire across the population. */
+export function buildDrinkOrderChoiceLabelContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = DRINK_ORDER_RESPONSE_SLOTS[i % DRINK_ORDER_RESPONSE_SLOTS.length]!
+  return { currentResponseSlot: slot }
+}
+
+/** Phase 6 context builder for the drinkOrder effect-preview slot.
+ *  Pairs a response slot with an effect so both `responseVerb` and
+ *  `effectKind` / `effectTag` rungs can match. */
+export function buildDrinkOrderEffectPreviewContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = DRINK_ORDER_RESPONSE_SLOTS[i % DRINK_ORDER_RESPONSE_SLOTS.length]!
+  const effect = DRINK_ORDER_EFFECTS[i % DRINK_ORDER_EFFECTS.length]!
+  return { currentResponseSlot: slot, currentEffect: effect }
+}
+
+/** Phase 6 context builder for the staffAside choice-label slot. */
+export function buildStaffAsideChoiceLabelContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = STAFF_ASIDE_RESPONSE_SLOTS[i % STAFF_ASIDE_RESPONSE_SLOTS.length]!
+  return { currentResponseSlot: slot }
+}
+
+/** Phase 6 context builder for the staffAside effect-preview slot. */
+export function buildStaffAsideEffectPreviewContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = STAFF_ASIDE_RESPONSE_SLOTS[i % STAFF_ASIDE_RESPONSE_SLOTS.length]!
+  const effect = STAFF_ASIDE_EFFECTS[i % STAFF_ASIDE_EFFECTS.length]!
+  return { currentResponseSlot: slot, currentEffect: effect }
+}
+
 export const __testing = {
   firstRegularId,
   installCast,
@@ -364,4 +503,8 @@ export const __testing = {
   installStaffCast,
   staffAsideSeedFor,
   staffRef,
+  DRINK_ORDER_RESPONSE_SLOTS,
+  STAFF_ASIDE_RESPONSE_SLOTS,
+  DRINK_ORDER_EFFECTS,
+  STAFF_ASIDE_EFFECTS,
 }

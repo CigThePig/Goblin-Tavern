@@ -19,7 +19,7 @@
 // "output" would inflate diversity for pools that mostly do nothing.
 
 import { pickSnippet } from '../assemble'
-import type { SlotSpec } from '../types'
+import type { ConditionContext, SlotSpec } from '../types'
 import type { IssueSeed } from '../../../sim/modules/issues/issueSeedTypes'
 import type { TavernState } from '../../../sim/state/TavernState'
 import { failReport, type GateReport, type GateViolation } from './types'
@@ -33,6 +33,17 @@ export type DiversitySampler = (i: number) => DiversitySample
 export type DiversityConfig = {
   sampleSize: number
   minDistinct: number
+  /**
+   * Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6. Optional
+   * context builder that surfaces the iteration context the choice
+   * helper threads in at runtime. Choice-label and effect-preview pools
+   * gate on `responseVerb` / `responseShape` / `effectKind` / `effectTag`
+   * — primitives that read `ctx.currentResponseSlot` / `ctx.currentEffect`.
+   * Without a context builder those conditions never match and the gate
+   * would observe zero diversity. Body / title pool entries continue to
+   * pass no context (omit this field).
+   */
+  pickContext?: (sample: DiversitySample, i: number) => ConditionContext
 }
 
 export type DiversityObservation = {
@@ -48,8 +59,9 @@ export function checkPoolDiversity(
   const seen = new Set<string>()
   let total = 0
   for (let i = 0; i < config.sampleSize; i += 1) {
-    const { seed, state } = sampler(i)
-    const result = pickSnippet(slot, seed, state)
+    const sample = sampler(i)
+    const ctx = config.pickContext?.(sample, i) ?? {}
+    const result = pickSnippet(slot, sample.seed, sample.state, ctx)
     if (result !== undefined) {
       seen.add(result)
       total += 1

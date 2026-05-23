@@ -1,0 +1,791 @@
+# Phase 133 / ISSUE-102 — Voiced Surface arc, Phase 7 (Staff & Personnel).
+#
+# Generation spec for the staff_burnout template — the second sim-backed
+# compositional template (the first was supplier_reliability, Phase 3 /
+# ISSUE-098) and the first migration of a hand-written legacy template
+# (staffRequest) to the compositional layer.
+#
+# This spec is the design record the in-repo Claude Code authoring loop
+# (Appendix A of voiced-surface-arc.md) reads. The committed snippet
+# pools live at src/cards/compose/pools/staffBurnout/<slot>.ts and were
+# hand-authored to match this spec; this YAML carries the exemplars,
+# negatives, sim-signal contract, and pool convergence proof.
+#
+# Supersedes src/cards/templates/staffRequest.ts (legacy hand-written;
+# its tonePools hand-glued a meter line "morale 30, stress 80", an
+# actor opinion, and a context fragment through composeBody — no voice,
+# no sim-backed claims, no specificity gradient). The legacy template
+# additionally listed `timings: ['closing']` which never matched the
+# real staff_burnout seed (which emits at morning_prep,
+# issueSeedGenerators.ts:1153) — so it never actually fired in play.
+
+templateId: staff_burnout
+voiceRegister: staff_quarters
+status: phase_7_voiced_surface_arc_complete
+purpose: >
+  Generate short cards for a staff burnout / personnel-pressure moment
+  (family `staff_burnout`, type `staff_request`, timing `morning_prep`).
+  The body STATES the actual sim situation — stress band, fatigue band,
+  rising burnout pressure, rising loyalty-risk pressure, prior workload
+  or bonus memory, repeat appearance — and the reaction carries the
+  staff member's bounded `castAttributes.voice`. Establishing line is
+  sim-backed against the Phase 127 signal surface; reaction line and
+  manner note are flavor-only, gated by voice axes and verbal tics.
+
+appliesTo:
+  seedFamilies: ['staff_burnout']
+  seedTypes: ['staff_request']
+  timings: ['morning_prep']
+
+# NOTE on cluster coverage: staff_identity / relationship_test /
+# morning_prep is staffAside's territory (Phase 126 / ISSUE-095,
+# extended in this phase to add its own sim-backed establishing line).
+# The two compositional templates partition the staff seed surface
+# cleanly — no overlap, no priority race.
+
+slots:
+  - id: title
+    required: true
+    claims: flavor
+    maxWords: 6
+    description: >
+      Composed snippet prepended with the staff display name as
+      `${display}: ${snippet}`. No clamping, no trailing "…", no
+      label/subject duplication (Phase 5 voice-bounds gate enforces).
+      Voice-axis-conditioned variants plus a plain fallback.
+
+  - id: establishing_line
+    required: true
+    claims: sim-backed
+    maxWords: 14
+    description: >
+      Third-person narration of the actual staff situation. Names what
+      the sim says — stress/fatigue band, burnout pressure rising,
+      loyalty-risk pressure rising, prior workload/bonus memory present,
+      repeated staff seeds in the rolling window — pinned by a
+      state-lookup condition (`signalEquals`, `pressureRising`,
+      `memoryPresent`, `repeatCount`, or `hasNamedEntity`). The
+      unconditional fallback claims only what the seed firing
+      guarantees: a staff member surfacing themselves before the day
+      opens.
+
+  - id: reaction_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      The staff member (primaryActor) speaking in character to the
+      owner. First-person voice driven by `voiceAxis` and `verbalTic`
+      only. May show mood, weariness, professionalism, attitude. Must
+      not assert a specific past event, named NPC, faction, or debt
+      history.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      An optional third-person sensory beat — posture, hands, breath,
+      the apron, the kettle. Omitted rather than weak. Voice-axis-
+      gated only. No checkable claim.
+
+  - id: choice_label
+    required: false
+    claims: flavor
+    maxWords: 6
+    status: SIGNAL_AVAILABLE
+    description: >
+      Voiced rendering of a response slot's `labelHint`. Keyed on
+      (responseVerb, responseShape, voiceAxis). Composed through the
+      Phase 132 / ISSUE-101 `composeChoicesFromSeed` helper; unmatched
+      seeds fall back to the sim's verbatim labelHint. Mechanical
+      fields (verb / targetId / shape) unchanged.
+
+  - id: effect_preview
+    required: false
+    claims: flavor
+    maxWords: 10
+    status: SIGNAL_AVAILABLE
+    description: >
+      Voiced rendering of one `ConsequenceProfile.immediateEffects[i]`.
+      Each composed line corresponds 1-to-1 to a real EffectPreview by
+      construction — the snippet replaces only the readable string,
+      never the kind / target / amount / tags.
+
+voiceAxesInPlay:
+  terseness:
+    0: full clause
+    1: compact
+    2: clipped imperative
+  warmth:
+    0: prickly/distant
+    1: neutral
+    2: familiar/inviting
+  formality:
+    0: casual/blunt
+    1: plain
+    2: titled/professional
+  floridity:
+    0: literal
+    1: one image allowed
+    2: vivid but short, no lore
+
+verbalTicsCovered:
+  - trails_off
+  - interrupts_self
+  - understates
+  - repeats_for_emphasis
+  - qualifies_everything
+  - italicises_stakes
+  - quotes_someone_else
+
+# Sim signals the establishing_line pool reaches for. Every entry
+# resolves through the read-only signal surface at src/sim/signals/
+# (Phase 127 / ISSUE-096) or the framework primitives at
+# src/cards/compose/conditions.ts. Bands are the three-tier scheme
+# `low` / `mid` / `high` declared in src/sim/signals/types.ts.
+simSignalsInUse:
+  - { signal: staff.stress, bands: [low, mid, high] }
+  - { signal: staff.fatigue, bands: [low, mid, high] }
+  - { kind: pressureRising, pressureIds: [staff_burnout, staff_loyalty_risk] }
+  - { kind: memoryPresent, tags: [staff, bonus, workload, risk, priority] }
+  - { kind: repeatCount, subjectTag: staff }
+  - { kind: hasNamedEntity, role: primaryActor, entityKind: staff }
+
+# What the staff member may speak to or about. Pre-shift is a posture/
+# work moment, not a customer transaction — there's no menu item or
+# customer to address. Listing the conceptual subject keeps the line
+# anchored without inventing the world.
+allowedTargets:
+  - the day ahead
+  - the morning
+  - the workload
+  - the kitchen
+  - the floor
+  - the owner directly
+  - the rota
+  - silence held
+
+mustNotInvent:
+  - named NPCs (other than the staff member as primaryActor, which the seed names)
+  - named factions
+  - specific injuries
+  - specific past tavern incidents
+  - specific debt amounts
+  - claims about which customer did what
+  - earth idioms, modern slang, real-world brand or place language
+  - direct mechanical readouts ("morale 30", "stress 80")
+
+hardBounds:
+  perSlotWords:
+    title: 6
+    establishing_line: 14
+    reaction_line: 12
+    manner_note: 10
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+  noDirectMechanicalLanguage: true
+
+gradientPolicy:
+  base: one unconditional fallback per required slot (always fires)
+  middle: single-condition snippets — a voice axis, a single signal band, a single pressure, a single tic
+  top: two-condition snippets — voice + signal, signal + repeat, pressure + memory
+  tic: single verbalTic snippets — independent of the axis/signal rungs
+  rule: |
+    the single-condition middle rung is mandatory. Two-condition top-rung
+    snippets are rare in play (Phase A's [-1,0,0,1] cast perturbation
+    makes pure-axis extremes uncommon, and signal-band extremes are
+    state-dependent), so without a populated middle rung the pool
+    collapses onto the fallback.
+
+positiveExemplars:
+  - id: terse_cold_high_stress
+    claims: mixed
+    voice: { terseness: 2, warmth: 0 }
+    sim: { stress: high }
+    slotLines:
+      title: "Quick word."
+      establishing_line: "They've been wound tight from the moment they walked in."
+      reaction_line: "Say what's needed. I'll handle it."
+      manner_note: "They cross their arms before answering."
+    why_it_works: >
+      High stress band carries the fact; terse+cold voice carries the
+      reaction. No invented incident, no named NPC.
+
+  - id: warm_high_fatigue
+    claims: mixed
+    voice: { warmth: 2, formality: 0 }
+    sim: { fatigue: high }
+    slotLines:
+      title: "Owner, a moment."
+      establishing_line: "They're moving slow today; the long week shows."
+      reaction_line: "I'm tired, owner. I'll see it through though."
+      manner_note: "They lean on the bar for half a breath."
+    why_it_works: >
+      Fatigue band reads as visible tiredness; warm+informal voice
+      sells the candour. No specific past event claimed.
+
+  - id: formal_burnout_rising
+    claims: mixed
+    voice: { formality: 2, floridity: 0 }
+    sim: { pressureRising: staff_burnout }
+    slotLines:
+      title: "A word, if I may."
+      establishing_line: "The load's been creeping into their mornings now."
+      reaction_line: "I shall serve, but the strain bears mention."
+    why_it_works: >
+      Pressure rising on `staff_burnout` pins the wider trajectory;
+      ceremonious voice carries the manner. No invented authority.
+
+  - id: florid_no_specific_signal
+    claims: flavor
+    voice: { floridity: 2, terseness: 0 }
+    slotLines:
+      title: "Before the day begins."
+      establishing_line: "A staff member stands at the rota, hands quiet."
+      reaction_line: "I came in early. The room asks for steadier hands."
+      manner_note: "Their breath fogs in the cold kitchen."
+    why_it_works: >
+      Falls back on the unconditional establishing line. Florid voice
+      delivers one image per slot without inventing lore.
+
+  - id: loyalty_risk_with_understate
+    claims: mixed
+    voice: { verbalTic: understates }
+    sim: { pressureRising: staff_loyalty_risk }
+    slotLines:
+      establishing_line: "Something's been pulling them away these last shifts."
+      reaction_line: "A small thing, perhaps. I thought you should know."
+    why_it_works: >
+      `staff_loyalty_risk` rising backs the pulling-away phrase; the
+      understates tic carries the staff member's downplaying. Tic is
+      the voice; pressure is the fact.
+
+  - id: high_stress_repeat
+    claims: sim-backed
+    voice: { terseness: 1 }
+    sim: { stress: high, repeatCount_staff: 3 }
+    slotLines:
+      establishing_line: "Third morning of the same tight shoulders, same set jaw."
+    why_it_works: >
+      Two-signal top-rung — band + repeat. The line names a pattern
+      without naming the staff member (the title prepend does that).
+      `repeatCount: staff` counts memories tagged 'staff' in the
+      rolling window.
+
+  - id: bonus_memory_warm
+    claims: mixed
+    voice: { warmth: 2 }
+    sim: { memoryPresent: bonus }
+    slotLines:
+      establishing_line: "The last bonus is still in their pocket; they remember."
+      reaction_line: "Look — I haven't forgotten what you did last time."
+    why_it_works: >
+      Memory tag 'bonus' backs the carry-over claim; warm voice
+      delivers the gratitude. No new history invented.
+
+  - id: just_terse
+    claims: flavor
+    voice: { terseness: 2 }
+    slotLines:
+      reaction_line: "Tell me what you need. I'll do it."
+    why_it_works: >
+      Single-axis middle-rung anchor. Terseness alone reads brisk
+      and ready.
+
+  - id: just_warm
+    claims: flavor
+    voice: { warmth: 2 }
+    slotLines:
+      reaction_line: "You look worn yourself. We'll see it through together."
+    why_it_works: >
+      Warmth alone carries solidarity without inventing prior detail.
+
+  - id: just_formal
+    claims: flavor
+    voice: { formality: 2 }
+    slotLines:
+      reaction_line: "At your service, as the house requires."
+    why_it_works: >
+      Ceremony from phrasing alone — no titled object, no lore.
+
+  - id: just_florid
+    claims: flavor
+    voice: { floridity: 2 }
+    slotLines:
+      reaction_line: "Sleep tasted like ash. The kettle's hot anyway."
+    why_it_works: >
+      One inward image; nothing specific claimed.
+
+  - id: tic_qualifies
+    claims: flavor
+    voice: { verbalTic: qualifies_everything }
+    slotLines:
+      reaction_line: "It's fine, I think. Mostly. Probably."
+    why_it_works: >
+      Hedging is the whole tic; no fact claimed.
+
+  - id: tic_interrupts
+    claims: flavor
+    voice: { verbalTic: interrupts_self }
+    slotLines:
+      reaction_line: "I'm — well, I'm here. That should count for something."
+    why_it_works: >
+      Self-reversal IS the tic; stays compact.
+
+  - id: tic_quotes_borderline
+    claims: flavor
+    voice: { verbalTic: quotes_someone_else }
+    slotLines:
+      reaction_line: "My old master said — show up first, complain after."
+    why_it_works: >
+      Borderline-safe quoting: 'old master' is generic attribution,
+      not a checkable named NPC. Mirrors `drink_order`'s "old captain"
+      and `staff_aside`'s "old master".
+
+negativeExamples:
+  - id: mechanical_readout
+    line: "Morale 30, stress 80 — they look ready to snap."
+    fails: [voice-bounds]
+    reason: >
+      Direct stat readout. This was the legacy `staffRequest`
+      template's body line shape — the exact symptom this migration
+      kills. Bands imply; they do not quote numbers.
+
+  - id: unsupported_backstory
+    line: "Yesterday's brawl left them shaken."
+    fails: [sim-coherence]
+    reason: >
+      Names a specific past event ('yesterday's brawl') with no
+      memoryPresent or repeatCount condition backing it. Sim-coherence
+      rejects both in flavor mode (no allowed history claim) and in
+      sim-backed mode (no state-lookup condition pins this).
+
+  - id: invented_authority
+    line: "By the Sapphire Baron's writ, I serve faithfully today."
+    fails: [sim-coherence, voice-bounds]
+    reason: >
+      Invents an authority figure. Formality is not licence to invent
+      titles or institutions.
+
+  - id: modern_register_break
+    line: "Honestly, I'm not vibing with this morning, owner."
+    fails: [voice-bounds]
+    reason: >
+      Modern register. 'Vibing' and 'honestly' break tavern-fantasy
+      voice.
+
+  - id: overlong_florid
+    line: "Allow me to lay before you a cathedral of pre-dawn exhaustion, owner."
+    fails: [length, voice-bounds]
+    reason: >
+      Over the 12-word reaction_line budget and pushing into mock-
+      cathedral register. Floridity is not permission to monologue.
+
+  - id: sim_backed_without_condition
+    line: "Third morning in a row they've come in like this."
+    fails: [sim-coherence]
+    reason: >
+      Sim-backed claim ('third morning in a row') with no repeatCount
+      condition. Either add `repeatCount subjectTag: staff atLeast: 3`
+      or move to negatives. Fixed in pool as `est_stress_repeat` with
+      the matching condition.
+
+  - id: title_truncation_forward_flag
+    line: "Owner, a word before…"
+    fails: [voice-bounds]
+    reason: >
+      Mid-phrase ellipsis on a title slot. Phase 5 (title & frame
+      discipline) voice-bounds gate fails trailing '…' on title-role
+      slots. Author shorter; never clamp.
+
+  - id: title_label_duplication_forward_flag
+    line: "Staff: Staff"
+    fails: [voice-bounds]
+    reason: >
+      Label/subject duplication. Same Phase 5 gate. The title pool's
+      snippets never repeat the actor display because the template
+      glue does the `${display}: ${snippet}` join.
+
+  - id: dangling_textIngredients_fragment
+    line: "hunched shoulders"
+    fails: [coverage, specificity-gradient]
+    reason: >
+      A pure sensory fragment lifted verbatim from
+      seed.textIngredients.sensoryDetails. This is the "fragment-dump"
+      pattern the arc is killing. The whole point of the
+      establishing_line slot is to STATE what's happening; sensory
+      fragments belong in manner_note (third-person beat), not as the
+      body's first line.
+
+# ----------------------------------------------------------------------
+# snippetPools — the inline convergence record. The committed pools at
+# src/cards/compose/pools/staffBurnout/<slot>.ts carry the same content
+# in TS form, sorted (fallback first, then by axis/signal/tic theme) for
+# readability. Equivalence between the two is asserted by the
+# per-template tests, not by an emitter.
+# ----------------------------------------------------------------------
+
+snippetPools:
+  - slotId: title
+    required: true
+    snippets:
+      - id: title_fallback
+        text: "a word before the day"
+        conditions: []
+      - id: title_terse
+        text: "quick word"
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+      - id: title_warm
+        text: "owner, a moment"
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: title_formal
+        text: "a word, if I may"
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+      - id: title_florid
+        text: "before the day begins"
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+
+  - slotId: establishing_line
+    required: true
+    snippets:
+      - id: est_fallback
+        text: "A staff member stands at the rota, hands quiet."
+        conditions: []
+
+      - id: est_high_stress
+        text: "They've been wound tight from the moment they walked in."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: staff.stress, equals: high }
+      - id: est_low_stress
+        text: "They moved easy through the open, steady as the kettle."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: staff.stress, equals: low }
+      - id: est_high_fatigue
+        text: "They're moving slow today; the long week shows."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: staff.fatigue, equals: high }
+      - id: est_burnout_rising
+        text: "The load's been creeping into their mornings now."
+        conditions:
+          - { kind: pressureRising, pressureId: staff_burnout }
+      - id: est_loyalty_risk_rising
+        text: "Something's been pulling them away these last shifts."
+        conditions:
+          - { kind: pressureRising, pressureId: staff_loyalty_risk }
+      - id: est_bonus_memory
+        text: "The last bonus is still in their pocket; they remember."
+        conditions:
+          - { kind: memoryPresent, tag: bonus }
+      - id: est_workload_memory
+        text: "Their hands remember the lighter rota you set."
+        conditions:
+          - { kind: memoryPresent, tag: workload }
+      - id: est_risk_memory
+        text: "They've stayed past the warning before; the room knows."
+        conditions:
+          - { kind: memoryPresent, tag: risk }
+      - id: est_repeat_visit
+        text: "Same set of the shoulders the rota's been seeing all week."
+        conditions:
+          - { kind: repeatCount, subjectTag: staff, atLeast: 3 }
+
+      - id: est_stress_repeat
+        text: "Third morning of the same tight shoulders, same set jaw."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: staff.stress, equals: high }
+          - { kind: repeatCount, subjectTag: staff, atLeast: 3 }
+      - id: est_fatigue_burnout
+        text: "Slow steps, and the burnout meter's been climbing besides."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: staff.fatigue, equals: high }
+          - { kind: pressureRising, pressureId: staff_burnout }
+
+  - slotId: reaction_line
+    required: true
+    snippets:
+      - id: rxn_fallback
+        text: "I came in early. The room asks for steadier hands."
+        conditions: []
+
+      - id: rxn_terse
+        text: "Tell me what you need. I'll do it."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+      - id: rxn_warm
+        text: "You look worn yourself. We'll see it through together."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: rxn_cold
+        text: "If there's a problem, name it. I'll deal."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: rxn_formal
+        text: "At your service, as the house requires."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+      - id: rxn_florid
+        text: "Sleep tasted like ash. The kettle's hot anyway."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+
+      - id: rxn_terse_cold
+        text: "Say what's needed. I'll handle it."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: rxn_warm_informal
+        text: "Look — I'm not going anywhere. We sort it together."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atMost: 0 }
+      - id: rxn_formal_restrained
+        text: "I shall serve, but the strain bears mention."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atMost: 0 }
+
+      - id: rxn_tic_qualifies
+        text: "It's fine, I think. Mostly. Probably."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: qualifies_everything }
+      - id: rxn_tic_interrupts
+        text: "I'm — well, I'm here. That should count for something."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: interrupts_self }
+      - id: rxn_tic_understates
+        text: "A small thing, perhaps. I thought you should know."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: understates }
+      - id: rxn_tic_repeats
+        text: "I'll show. I'll show, and I'll show properly."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: repeats_for_emphasis }
+      - id: rxn_tic_trails_off
+        text: "I just wanted to say — well, you know…"
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: trails_off }
+      - id: rxn_tic_italicises
+        text: "I am still here. That part should count."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: italicises_stakes }
+      - id: rxn_tic_quotes
+        text: "My old master said — show up first, complain after."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: quotes_someone_else }
+
+  - slotId: manner_note
+    required: false
+    snippets:
+      - id: mnr_warm
+        text: "They lean on the bar for half a breath."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: mnr_cold
+        text: "They cross their arms before answering."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: mnr_formal
+        text: "They stand straighter than the kitchen asks."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+      - id: mnr_florid
+        text: "Their breath fogs in the cold kitchen."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+      - id: mnr_terse_cold
+        text: "They roll their sleeves and wait."
+        conditions:
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: mnr_tic_qualifies
+        text: "They wipe the same spot twice."
+        conditions:
+          - { kind: verbalTic, role: primaryActor, tic: qualifies_everything }
+
+  # Choice label and effect preview pools follow the Phase 132 pattern.
+  # Verb-gated × voice-axis combinations cover appease (pay/delegate) and
+  # ignore. Mechanical truth (verb/target/effects) stays sourced from the
+  # seed; composition replaces only the readable string.
+  - slotId: choice_label
+    required: false
+    snippets:
+      - id: lbl_fallback_pay
+        text: "Pay the bonus"
+        conditions:
+          - { kind: responseVerb, anyOf: [pay] }
+      - id: lbl_fallback_delegate
+        text: "Lighten the load"
+        conditions:
+          - { kind: responseVerb, anyOf: [delegate] }
+      - id: lbl_fallback_ignore
+        text: "Push through"
+        conditions:
+          - { kind: responseVerb, anyOf: [ignore] }
+      - id: lbl_warm_pay
+        text: "Slip them a bonus"
+        conditions:
+          - { kind: responseVerb, anyOf: [pay] }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: lbl_terse_delegate
+        text: "Shift the rota"
+        conditions:
+          - { kind: responseVerb, anyOf: [delegate] }
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+      - id: lbl_cold_ignore
+        text: "Let them sweat it"
+        conditions:
+          - { kind: responseVerb, anyOf: [ignore] }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+
+  - slotId: effect_preview
+    required: false
+    snippets:
+      - id: pre_morale_warm
+        text: "They'd remember the gesture for weeks"
+        conditions:
+          - { kind: effectTag, tag: staff }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+      - id: pre_coin_terse
+        text: "Coin out, morale up"
+        conditions:
+          - { kind: effectTag, tag: coin }
+          - { kind: voiceAxis, role: primaryActor, axis: terseness, atLeast: 2 }
+      - id: pre_pressure_formal
+        text: "The burnout meter would still ride"
+        conditions:
+          - { kind: effectKind, anyOf: [pressure] }
+          - { kind: voiceAxis, role: primaryActor, axis: formality, atLeast: 2 }
+      - id: pre_future_florid
+        text: "A future complaint loops back round"
+        conditions:
+          - { kind: effectKind, anyOf: [future_hook] }
+          - { kind: voiceAxis, role: primaryActor, axis: floridity, atLeast: 2 }
+      - id: pre_state_cold
+        text: "They'd lose ground before noon"
+        conditions:
+          - { kind: effectKind, anyOf: [state_change] }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atMost: 0 }
+      - id: pre_state_warm
+        text: "They'd find their feet again by service"
+        conditions:
+          - { kind: effectKind, anyOf: [state_change] }
+          - { kind: voiceAxis, role: primaryActor, axis: warmth, atLeast: 2 }
+
+diversityCases:
+  - stress=high alone -> blunt fact about wound-tight posture
+  - stress=low alone -> calm fact about steady morning
+  - fatigue=high alone -> visible-tiredness fact
+  - staff_burnout rising -> wider trajectory observation
+  - staff_loyalty_risk rising -> pulling-away observation
+  - memoryPresent bonus -> bonus-still-in-pocket beat
+  - memoryPresent workload -> rota-relief beat
+  - memoryPresent risk -> previously-warned beat
+  - repeatCount staff>=3 -> pattern claim
+  - stress=high AND repeatCount staff>=3 -> sharpened pattern claim (top rung)
+  - fatigue=high AND staff_burnout rising -> compounding-pressure claim (top rung)
+  - terseness>=2 alone -> brisk staff voice
+  - warmth>=2 alone -> familiar/solidarity voice
+  - warmth<=0 alone -> blunt staff voice
+  - formality>=2 alone -> ceremonious staff voice
+  - floridity>=2 alone -> one-image staff voice
+  - terseness>=2 AND warmth<=0 -> sharpened cold competence (top rung)
+  - warmth>=2 AND formality<=0 -> open candour (top rung)
+  - formality>=2 AND floridity<=0 -> formal restrained (top rung)
+  - any verbalTic present -> sentence-motion variant
+  - no matching condition -> plain fallback (allowed plain, never dead)
+
+mustPass:
+  coverage:
+    rule: required slots title, establishing_line, reaction_line each have an unconditional fallback
+    current: title_fallback, est_fallback, rxn_fallback
+  specificityGradient:
+    rule: >
+      pools contain (a) fallback, (b) single-condition middle-rung
+      snippets (voice axis OR signal band OR pressure OR memory OR
+      repeat OR tic), (c) two-condition top-rung snippets. Mandatory:
+      single-condition middle rung.
+    current: true
+  voiceBounds:
+    rule: >
+      title <= 6 words (no trailing "…", no immediate duplicate token);
+      establishing_line <= 14; reaction_line <= 12; manner_note <= 10
+    current: true
+  simCoherence:
+    rule: >
+      establishing_line is claims: sim-backed — every non-fallback
+      snippet carries >=1 state-lookup condition (signalEquals,
+      pressureRising, repeatCount, memoryPresent, hasNamedEntity).
+      reaction_line, manner_note, title are claims: flavor — no
+      checkable history, no named entities, no event-claim language
+      unbacked by a condition.
+    current: true
+  determinism:
+    rule: same seed + same state + same slot returns same snippet after FNV tie-break
+    current: proven by the Phase D harness and the per-template test
+  diversity:
+    rule: >
+      sample across the real perturbed staff cast distribution yields
+      >=6 distinct reaction_line outputs and >=3 distinct
+      establishing_line outputs across reachable signal bands.
+    current: proven by the Phase F staff samplers extended in this phase
+  dedupe:
+    rule: >
+      no within-slot pair >= 0.85 canonical Levenshtein; no cross-slot
+      canonical equality. Some snippet shapes intentionally rhyme with
+      staff_aside's pool (same staff voice register) but every text is
+      unique within this template.
+    current: true
+
+# ----------------------------------------------------------------------
+# loopback — Phase 7 is the first migration phase. The arc doc
+# anticipates that Movement II authoring may surface gaps in Movement I
+# (a missing signal or axis). Recording the result of this pass:
+# ----------------------------------------------------------------------
+
+loopback:
+  surfaced:
+    - none
+
+  notes:
+    - >
+      The Phase 1 signal surface already exposes `staff.stress` and
+      `staff.fatigue` — the two signals the establishing_line pool
+      reaches for most often. The staff_burnout and staff_loyalty_risk
+      pressures are pre-existing on every staff_burnout seed (see
+      issueSeedGenerators.ts:953-986, where they drive the response
+      slot's expected effects). No additive signal-surface work was
+      needed for this phase.
+    - >
+      A finer-grained "publicly blamed vs quietly slighted" signal was
+      flagged in the Phase 1 plan doc as a Phase 7 candidate. Decision:
+      ship without it. The blame-mode distinction is carried today by
+      seed.textIngredients.socialContext (`'publicly blamed'` /
+      `'quietly slighted'`) on the staff_identity family — that surfaces
+      through staffAside, not this template. The staff_burnout family
+      has no blame dimension (it's about workload, not social
+      friction), so the absence doesn't bite. Revisit in Phase 10
+      (factions & culture) if blame-mode becomes load-bearing.
+    - >
+      The three-band signal scheme (low / mid / high) is sufficient
+      for the establishing-line pool. `mid` is not authored against
+      because it has no dramatic content — the fallback covers neutral
+      situations cleanly.
+    - >
+      No new voice axis or verbal tic was needed. Staff exercise the
+      full four-axis space; the seven-tic registry covers the
+      dramatic range.
+    - >
+      The legacy `staffRequest` template had `timings: ['closing']`,
+      which never matched the real staff_burnout seed (issueSeedGenerators
+      emits `timing: 'morning_prep'` at line 1153). Discovered during
+      Phase 7 scope review. The new template uses the correct timing;
+      no upstream fix needed because the legacy template was never
+      firing in production.

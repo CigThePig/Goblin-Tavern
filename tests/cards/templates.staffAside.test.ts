@@ -1,15 +1,14 @@
 // Phase 126 / ISSUE-095 — Living Cast arc, Phase F (first situation).
+// Phase 133 / ISSUE-102 — Voiced Surface arc, Phase 7 (Staff & Personnel):
+// body shape is now [establishing_line, aside_line, manner_note?].
+// body[0] is the sim-backed establishing line (states the situation),
+// body[1] is the flavor aside_line (the staff member's voiced reaction),
+// body[2] is the optional sensory manner_note. The previous textIngredients
+// sensoryDetails grounding fragment is gone.
 //
 // Integration tests for `staffAsideCard` — the second compositional card
 // and the first Phase-F scale-out beyond the drink_order spike. Proves
-// the runtime end-to-end: a real staff_identity / relationship_test /
-// morning_prep seed with a real staff member renders a composed CardView
-// whose body[0] is one of the committed `aside_line` snippet texts,
-// whose title centres on the named staff member, and whose choices
-// project the seed's response slots. Graceful degradation when
-// castAttributes is missing is the other load-bearing property — and
-// the parallel to `templates.drinkOrder.test.ts` is intentional, mirror
-// for mirror.
+// the runtime end-to-end and the Phase 7 body-shape contract.
 
 import { describe, expect, it } from 'vitest'
 
@@ -18,7 +17,10 @@ import {
   fallbackCard,
 } from '../../src/cards/index'
 import { pickCardForSeed } from '../../src/cards/selection'
-import { asideLinePool } from '../../src/cards/compose/pools/staffAside'
+import {
+  asideLinePool,
+  staffAsideEstablishingLinePool,
+} from '../../src/cards/compose/pools/staffAside'
 import { REQUIRED_CARDS } from '../../src/cards/templates/index'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import type { CastAttributes } from '../../src/sim/content/cast'
@@ -134,6 +136,9 @@ function staffAsideSeed(
 }
 
 const ASIDE_LINE_TEXTS = new Set(asideLinePool.snippets.map((s) => s.text))
+const ESTABLISHING_LINE_TEXTS = new Set(
+  staffAsideEstablishingLinePool.snippets.map((s) => s.text),
+)
 
 function wordCount(s: string): number {
   return s.trim().split(/\s+/).filter(Boolean).length
@@ -172,15 +177,33 @@ describe('staffAsideCard — appliesTo', () => {
 })
 
 describe('staffAsideCard — render output', () => {
-  it('body[0] is one of the committed aside_line snippet texts', () => {
+  it('body[0] is the sim-backed establishing line; body[1] is the voiced aside_line', () => {
     const state = createInitialTavernState()
     const staffId = firstStaffId(state)
     const seed = staffAsideSeed(staffId)
     const view = staffAsideCard.render(seed, state)
     expect(view.body[0]).toBeDefined()
-    expect(ASIDE_LINE_TEXTS.has(view.body[0]!)).toBe(true)
-    // Body lines must respect the 12-word ingredient budget.
-    expect(wordCount(view.body[0]!)).toBeLessThanOrEqual(12)
+    expect(view.body[1]).toBeDefined()
+    expect(ESTABLISHING_LINE_TEXTS.has(view.body[0]!)).toBe(true)
+    expect(ASIDE_LINE_TEXTS.has(view.body[1]!)).toBe(true)
+    // Per-slot budgets: establishing_line ≤ 14, aside_line ≤ 12.
+    expect(wordCount(view.body[0]!)).toBeLessThanOrEqual(14)
+    expect(wordCount(view.body[1]!)).toBeLessThanOrEqual(12)
+  })
+
+  it('body[0] is never a raw textIngredients fragment (Phase 7 dangling fragment removed)', () => {
+    const state = createInitialTavernState()
+    const staffId = firstStaffId(state)
+    const seed = staffAsideSeed(staffId)
+    const view = staffAsideCard.render(seed, state)
+    // The seed's sensoryDetails[0] ('the kettle clicks awake') and
+    // recentContext[0] ('tense week of service') used to surface as
+    // body[2]. After Phase 7 they no longer appear anywhere in the
+    // body — composed slots carry the moment instead.
+    for (const line of view.body) {
+      expect(line).not.toBe('the kettle clicks awake')
+      expect(line).not.toBe('tense week of service')
+    }
   })
 
   it('title centres on the named staff member and never truncates with "…"', () => {
@@ -222,7 +245,15 @@ describe('staffAsideCard — render output', () => {
     const flat = withCast(state, staffId, neutral)
     const seed = staffAsideSeed(staffId)
     const view = staffAsideCard.render(seed, flat)
-    expect(view.body[0]).toBe("Morning. I'm ready when you are.")
+    // body[0] is the establishing fallback (initial state has no high
+    // stress/fatigue, no rising staff pressures, no relevant memories,
+    // no repeat-count crossing the threshold). body[1] is the aside
+    // fallback. No axis is sharp enough to match a more-specific snippet.
+    // Initial state's starter staff has stress=0 (low band), so the
+    // establishing line resolves to `est_low_stress`. The aside_line is
+    // the slot whose fallback we're really testing here.
+    expect(view.body[0]).toBe('They walk through quiet, the morning sitting easy on them.')
+    expect(view.body[1]).toBe("Morning. I'm ready when you are.")
   })
 
   it('picks a two-axis snippet when both extremes land', () => {
@@ -241,9 +272,15 @@ describe('staffAsideCard — render output', () => {
     const sharp = withCast(state, staffId, cast)
     const seed = staffAsideSeed(staffId, 'aside-sharp')
     const view = staffAsideCard.render(seed, sharp)
-    expect(view.body[0]).toBe("What's wrong. Say it and I'll handle it.")
-    // The manner_note `manner_cold_sleeves` fires on the same conditions.
-    expect(view.body[1]).toBe('They roll their sleeves before answering.')
+    // body[0] is the establishing fallback (initial state has no sim
+    // signals triggered); body[1] is the aside_terse_cold two-axis
+    // snippet; body[2] is the manner_cold_sleeves (same axes).
+    // Initial state's starter staff has stress=0 (low band), so the
+    // establishing line resolves to `est_low_stress`. The aside_line is
+    // the slot whose fallback we're really testing here.
+    expect(view.body[0]).toBe('They walk through quiet, the morning sitting easy on them.')
+    expect(view.body[1]).toBe("What's wrong. Say it and I'll handle it.")
+    expect(view.body[2]).toBe('They roll their sleeves before answering.')
   })
 
   it('picks a tic snippet when only the verbal tic distinguishes the actor', () => {
@@ -261,8 +298,14 @@ describe('staffAsideCard — render output', () => {
     const ticActor = withCast(state, staffId, cast)
     const seed = staffAsideSeed(staffId, 'aside-tic')
     const view = staffAsideCard.render(seed, ticActor)
-    expect(view.body[0]).toBe("It's fine, I think. Mostly. Probably.")
-    expect(view.body[1]).toBe('They wipe the same spot twice.')
+    // body[0]: establishing fallback (no sim signals on initial state).
+    // body[1]: tic aside_line. body[2]: tic manner_note.
+    // Initial state's starter staff has stress=0 (low band), so the
+    // establishing line resolves to `est_low_stress`. The aside_line is
+    // the slot whose fallback we're really testing here.
+    expect(view.body[0]).toBe('They walk through quiet, the morning sitting easy on them.')
+    expect(view.body[1]).toBe("It's fine, I think. Mostly. Probably.")
+    expect(view.body[2]).toBe('They wipe the same spot twice.')
   })
 
   it('emits valid choices whose verbs are in seed.responseSlots.allowedVerbs', () => {
@@ -313,7 +356,7 @@ describe('staffAsideCard — voice variance across three profiles', () => {
   // template level — different voices land different lines, the
   // assembler does the work, no runtime branching is required.
 
-  it('produces three distinct body[0] lines for three distinct voices', () => {
+  it('produces three distinct aside lines (body[1]) for three distinct voices', () => {
     const state = createInitialTavernState()
     const staffId = firstStaffId(state)
     const profiles: CastAttributes[] = [
@@ -343,13 +386,16 @@ describe('staffAsideCard — voice variance across three profiles', () => {
         },
       },
     ]
+    // After Phase 7, body[0] is the sim-backed establishing line —
+    // unchanged across voice profiles for the same state. body[1] is
+    // the voice-driven aside_line; that's what should vary.
     const bodies = profiles.map((cast, i) => {
       const installed = withCast(state, staffId, cast)
       const view = staffAsideCard.render(
         staffAsideSeed(staffId, `variance-${i}`),
         installed,
       )
-      return view.body[0]
+      return view.body[1]
     })
     expect(new Set(bodies).size).toBe(3)
   })

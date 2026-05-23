@@ -8,7 +8,7 @@ import { foodSafetyCrisisCard } from './foodSafetyCrisis'
 import { customerComplaintCard } from './customerComplaint'
 import { supplierOfferCard } from './supplierOffer'
 import { maintenanceWarningCard } from './maintenanceWarning'
-import { staffRequestCard } from './staffRequest'
+import { staffBurnoutCard } from './staffBurnout'
 import { factionRequestCard } from './factionRequest'
 import { reputationShiftWeeklyCard } from './reputationWeekly'
 import { monthlyReviewCard } from './monthlyReview'
@@ -22,7 +22,7 @@ export const REQUIRED_CARDS: ReadonlyArray<CardDefinition> = [
   customerComplaintCard,
   supplierOfferCard,
   maintenanceWarningCard,
-  staffRequestCard,
+  staffBurnoutCard,
   factionRequestCard,
   reputationShiftWeeklyCard,
   monthlyReviewCard,
@@ -37,7 +37,7 @@ export {
   customerComplaintCard,
   supplierOfferCard,
   maintenanceWarningCard,
-  staffRequestCard,
+  staffBurnoutCard,
   factionRequestCard,
   reputationShiftWeeklyCard,
   monthlyReviewCard,

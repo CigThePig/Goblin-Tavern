@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest'
 import { runAllGates } from '../../../../src/cards/compose/gates'
 import { drinkOrderTemplate } from '../../../../src/cards/templates/drinkOrder'
 import { staffAsideTemplate } from '../../../../src/cards/templates/staffAside'
+import { staffBurnoutTemplate } from '../../../../src/cards/templates/staffBurnout'
 import {
   drinkOrderChoiceLabelPool,
   drinkOrderEffectPreviewPool,
@@ -29,6 +30,8 @@ import {
   buildDrinkOrderEffectPreviewContext,
   buildStaffAsideChoiceLabelContext,
   buildStaffAsideEffectPreviewContext,
+  buildStaffBurnoutDeterminismSamples,
+  buildStaffBurnoutDiversitySampler,
   buildStaffDeterminismSamples,
   buildStaffDiversitySampler,
   representativeBannedNames,
@@ -91,6 +94,16 @@ describe('runAllGates — happy path', () => {
           sampler: buildStaffDiversitySampler({ rngSeed: 'run-all-staff-title' }),
           config: { sampleSize: 100, minDistinct: 3 },
         },
+        // Phase 133 / ISSUE-102 — establishing_line is sim-backed; the
+        // voice-perturbation sampler doesn't vary signal state, so the
+        // achievable distinct count is small (fallback + est_low_stress
+        // for the starter staff). minDistinct: 1 holds the floor; the
+        // simCoherence + coverage gates exercise the rest.
+        {
+          slotId: 'establishing_line',
+          sampler: buildStaffDiversitySampler({ rngSeed: 'run-all-staff-establishing' }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
         {
           slotId: 'aside_line',
           sampler: buildStaffDiversitySampler({ rngSeed: 'run-all-aside' }),
@@ -99,6 +112,58 @@ describe('runAllGates — happy path', () => {
         {
           slotId: 'manner_note',
           sampler: buildStaffDiversitySampler({ rngSeed: 'run-all-staff-manner' }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  // Phase 133 / ISSUE-102 — Voiced Surface arc, Phase 7. The new
+  // staff_burnout template (replacing the legacy staffRequest) passes
+  // every gate too. Voice-perturbation sampler is the same shape as
+  // staff_aside's; the seed targets the staff_burnout / staff_request /
+  // morning_prep slice the new template handles.
+  it('the real staffBurnout template passes all seven gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(staffBurnoutTemplate, {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: buildStaffBurnoutDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'title',
+          sampler: buildStaffBurnoutDiversitySampler({
+            rngSeed: 'run-all-staff-burnout-title',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'establishing_line',
+          sampler: buildStaffBurnoutDiversitySampler({
+            rngSeed: 'run-all-staff-burnout-establishing',
+          }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
+        {
+          slotId: 'reaction_line',
+          sampler: buildStaffBurnoutDiversitySampler({
+            rngSeed: 'run-all-staff-burnout-reaction',
+          }),
+          config: { sampleSize: 100, minDistinct: 6 },
+        },
+        {
+          slotId: 'manner_note',
+          sampler: buildStaffBurnoutDiversitySampler({
+            rngSeed: 'run-all-staff-burnout-manner',
+          }),
           config: { sampleSize: 100, minDistinct: 3 },
         },
       ],

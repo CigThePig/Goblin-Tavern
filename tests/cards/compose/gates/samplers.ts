@@ -3416,6 +3416,815 @@ export function buildInspectionEffectPreviewContext(
   return { currentResponseSlot: slot, currentEffect: effect }
 }
 
+// ---- Phase 139 / ISSUE-108 — Voiced Surface arc, Phase 13 (Reputation, Rumour & Rivals) ----
+//
+// Samplers for the three new compositional templates:
+//   - reputationShiftCard (narrator-voiced, state perturbation across
+//     the seven reputation axes via `hasTag reputation.<axis>`)
+//   - rumourCrisisCard    (actor-voiced via the target's castAttributes;
+//     state perturbation across accuracy / target.kind tags)
+//   - rivalTavernCard     (narrator-voiced, state perturbation across
+//     rival.arc vs rival.system + pressures + memories)
+//
+// reputation_shift + rival_tavern follow the maintenance / debtRent
+// pattern (state-perturbation table per template); rumour_crisis is
+// actor-perturbation against the supplier cast factory (any of the six
+// kinds works; supplier is chosen as the representative kind here).
+
+// ---- reputationShift state-perturbation sampler ----
+
+const REPUTATION_AXES = [
+  'cozy',
+  'tasty',
+  'reputable',
+  'reliable',
+  'dangerous',
+  'respectable',
+  'scholarly',
+] as const
+
+function reputationShiftBaseSeed(
+  id: string,
+  domain: readonly string[],
+  toneHints: readonly string[],
+  severity: number,
+): IssueSeed {
+  return makeSeed({
+    id,
+    family: 'reputation_shift',
+    type: 'reputation_shift',
+    timing: 'closing',
+    severity,
+    domain: [...domain],
+    toneHints: [...toneHints],
+    location: { kind: 'area', id: 'main_room' },
+    textIngredients: {
+      subject: 'the tavern',
+      sensoryDetails: ['regulars settle in'],
+      recentContext: ['identity shifting'],
+    },
+  })
+}
+
+const REPUTATION_PERTURBATIONS: ReadonlyArray<{
+  axis?: string
+  pressure?: { id: string; value: number; trend: number }
+  memory?: { id: string; tags: readonly string[] }
+  toneHints: readonly string[]
+  severity: number
+}> = [
+  { toneHints: ['identity', 'reputation'], severity: 50 },
+  ...REPUTATION_AXES.map((axis) => ({
+    axis,
+    toneHints: ['identity', 'reputation'] as readonly string[],
+    severity: 50,
+  })),
+  {
+    pressure: { id: 'reputation_drift', value: 55, trend: 1 },
+    toneHints: ['identity', 'reputation'],
+    severity: 55,
+  },
+  {
+    memory: { id: 'embraced_cozy_identity', tags: ['reputation', 'identity'] },
+    toneHints: ['identity', 'reputation'],
+    severity: 55,
+  },
+  {
+    memory: { id: 'advertised_to_group_recently', tags: ['customer', 'reputation'] },
+    toneHints: ['identity', 'reputation'],
+    severity: 50,
+  },
+  // High severity (hard turn).
+  { toneHints: ['identity', 'reputation', 'urgent'], severity: 75 },
+  // Two-condition top rungs.
+  {
+    axis: 'cozy',
+    pressure: { id: 'reputation_drift', value: 65, trend: 1 },
+    toneHints: ['identity', 'reputation'],
+    severity: 60,
+  },
+  {
+    axis: 'dangerous',
+    toneHints: ['identity', 'reputation', 'urgent'],
+    severity: 80,
+  },
+  // High severity + repeat marker.
+  {
+    memory: { id: 'reputation_repeat_marker', tags: ['reputation'] },
+    toneHints: ['identity', 'reputation', 'urgent'],
+    severity: 75,
+  },
+  // Rising pressure + identity memory.
+  {
+    pressure: { id: 'reputation_drift', value: 60, trend: 1 },
+    memory: { id: 'embraced_dangerous_identity', tags: ['reputation', 'identity'] },
+    toneHints: ['identity', 'reputation'],
+    severity: 60,
+  },
+]
+
+function buildReputationShiftState(
+  baseState: TavernState,
+  perturbation: (typeof REPUTATION_PERTURBATIONS)[number],
+): TavernState {
+  let s = baseState
+  if (perturbation.pressure) {
+    s = withPressure(
+      s,
+      perturbation.pressure.id,
+      perturbation.pressure.value,
+      perturbation.pressure.trend,
+    )
+  }
+  if (perturbation.memory) {
+    s = withMemoryEntry(s, perturbation.memory.id, perturbation.memory.tags)
+    if (perturbation.memory.id === 'reputation_repeat_marker') {
+      s = withMemoryEntry(s, 'reputation_repeat_marker_b', ['reputation'])
+      s = withMemoryEntry(s, 'reputation_repeat_marker_c', ['reputation'])
+    }
+  }
+  return s
+}
+
+function reputationShiftSeedFor(
+  id: string,
+  perturbation: (typeof REPUTATION_PERTURBATIONS)[number],
+): IssueSeed {
+  const domain = ['reputation', 'customers']
+  if (perturbation.axis) domain.push(`reputation.${perturbation.axis}`)
+  return reputationShiftBaseSeed(
+    id,
+    domain,
+    perturbation.toneHints,
+    perturbation.severity,
+  )
+}
+
+export function buildReputationShiftDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  return REPUTATION_PERTURBATIONS.map((perturbation, i) => ({
+    seed: reputationShiftSeedFor(
+      `reputation-shift-determinism-${i}`,
+      perturbation,
+    ),
+    state: buildReputationShiftState(baseState, perturbation),
+  }))
+}
+
+export function buildReputationShiftDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  void options.rngSeed
+  const baseState = createInitialTavernState()
+  return (i: number) => {
+    const perturbation =
+      REPUTATION_PERTURBATIONS[i % REPUTATION_PERTURBATIONS.length]!
+    return {
+      seed: reputationShiftSeedFor(
+        `reputation-shift-diversity-${i}`,
+        perturbation,
+      ),
+      state: buildReputationShiftState(baseState, perturbation),
+    }
+  }
+}
+
+// ---- rumourCrisis sampler (actor-perturbation on supplier cast) ----
+
+function rumourCrisisSeedFor(supplierId: string, id: string): IssueSeed {
+  return makeSeed({
+    id,
+    family: 'rumour_crisis',
+    type: 'rumour',
+    timing: 'closing',
+    severity: 50,
+    domain: [
+      'rumours',
+      'reputation',
+      'social',
+      'rumour.partial',
+      'rumour.target.supplier',
+    ],
+    primaryActor: supplierRef(supplierId),
+    toneHints: ['rumour', 'reputation'],
+    textIngredients: {
+      subject: 'a story doing rounds',
+      sensoryDetails: ['whispered word'],
+      recentContext: ['accuracy: partial'],
+    },
+  })
+}
+
+export function buildRumourCrisisDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  const supplierId = firstSupplierId(baseState)
+  // Reuse the supplier neutral cast + one-axis / two-axis / verbal-tic
+  // matrix that supplierReliability uses — the rumour template centres
+  // the same voice surface.
+  const profiles: SupplierCastAttributes[] = [
+    neutralSupplierCast(),
+    { ...neutralSupplierCast(), voice: { axes: { terseness: 2, warmth: 1, formality: 1, floridity: 1 } } },
+    { ...neutralSupplierCast(), voice: { axes: { terseness: 1, warmth: 2, formality: 1, floridity: 1 } } },
+    { ...neutralSupplierCast(), voice: { axes: { terseness: 1, warmth: 0, formality: 1, floridity: 1 } } },
+    { ...neutralSupplierCast(), voice: { axes: { terseness: 1, warmth: 1, formality: 2, floridity: 1 } } },
+    { ...neutralSupplierCast(), voice: { axes: { terseness: 1, warmth: 1, formality: 0, floridity: 1 } } },
+    { ...neutralSupplierCast(), voice: { axes: { terseness: 1, warmth: 1, formality: 1, floridity: 2 } } },
+    { ...neutralSupplierCast(), voice: { axes: { terseness: 2, warmth: 0, formality: 1, floridity: 1 } } },
+    { ...neutralSupplierCast(), voice: { axes: { terseness: 1, warmth: 2, formality: 0, floridity: 1 } } },
+    ...VERBAL_TIC_IDS.map<SupplierCastAttributes>((tic) => ({
+      ...neutralSupplierCast(),
+      voice: {
+        axes: { terseness: 1, warmth: 1, formality: 1, floridity: 1 },
+        verbalTic: tic,
+      },
+    })),
+  ]
+  return profiles.map((cast, i) => ({
+    seed: rumourCrisisSeedFor(supplierId, `rumour-crisis-determinism-${i}`),
+    state: installSupplierCast(baseState, supplierId, cast),
+  }))
+}
+
+export function buildRumourCrisisDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  const seed = options.rngSeed ?? 'phase-139-rumour-crisis-diversity'
+  const rng = createRng(`${seed}:rumour_crisis`)
+  const baseState = createInitialTavernState()
+  const supplierId = firstSupplierId(baseState)
+  const supplier = baseState.world.suppliers[supplierId]!
+  return (i: number) => {
+    const cast = createSupplierCastAttributes({
+      supplierType: supplier.supplierType,
+      ...(supplier.cultureId !== undefined ? { cultureId: supplier.cultureId } : {}),
+      rng,
+    })
+    const state = installSupplierCast(baseState, supplierId, cast)
+    return {
+      seed: rumourCrisisSeedFor(supplierId, `rumour-crisis-diversity-${i}`),
+      state,
+    }
+  }
+}
+
+// ---- rivalTavern state-perturbation sampler ----
+
+function rivalTavernBaseSeed(
+  id: string,
+  domain: readonly string[],
+  toneHints: readonly string[],
+  severity: number,
+  primaryActor: EntityRef,
+): IssueSeed {
+  return makeSeed({
+    id,
+    family: 'rival_tavern',
+    type: 'social_conflict',
+    timing: 'closing',
+    severity,
+    domain: [...domain],
+    toneHints: [...toneHints],
+    primaryActor,
+    textIngredients: {
+      subject: 'the rival tavern',
+      sensoryDetails: ['emptier seats tonight'],
+      recentContext: ['rival pulling crowds'],
+    },
+  })
+}
+
+const RIVAL_PERTURBATIONS: ReadonlyArray<{
+  activation: 'arc' | 'system'
+  pressure?: { id: string; value: number; trend: number }
+  memory?: { id: string; tags: readonly string[] }
+  toneHints: readonly string[]
+  severity: number
+}> = [
+  // Fallback baseline (system).
+  { activation: 'system', toneHints: ['rival', 'market'], severity: 50 },
+  // System with rising rival pressure.
+  {
+    activation: 'system',
+    pressure: { id: 'rival_tavern_pressure', value: 60, trend: 1 },
+    toneHints: ['rival', 'market'],
+    severity: 55,
+  },
+  // System with rising regulars-loss.
+  {
+    activation: 'system',
+    pressure: { id: 'regular_customer_loss', value: 45, trend: 1 },
+    toneHints: ['rival', 'market'],
+    severity: 55,
+  },
+  // Arc activation.
+  { activation: 'arc', toneHints: ['rival', 'market'], severity: 55 },
+  // Arc + rising pressure (top rung).
+  {
+    activation: 'arc',
+    pressure: { id: 'rival_tavern_pressure', value: 70, trend: 1 },
+    toneHints: ['rival', 'market'],
+    severity: 65,
+  },
+  // System + compete memory.
+  {
+    activation: 'system',
+    memory: { id: 'rival_priced_recently', tags: ['rival', 'price'] },
+    toneHints: ['rival', 'market'],
+    severity: 50,
+  },
+  // System + event memory.
+  {
+    activation: 'system',
+    memory: { id: 'rival_counter_event_recently', tags: ['rival', 'event'] },
+    toneHints: ['rival', 'market'],
+    severity: 50,
+  },
+  // System + quality memory.
+  {
+    activation: 'system',
+    memory: { id: 'rival_quality_recently', tags: ['rival', 'quality'] },
+    toneHints: ['rival', 'market'],
+    severity: 50,
+  },
+  // System + deception memory.
+  {
+    activation: 'system',
+    memory: { id: 'rival_counter_rumour_recently', tags: ['rival', 'deception'] },
+    toneHints: ['rival', 'market'],
+    severity: 50,
+  },
+  // System + compromise memory.
+  {
+    activation: 'system',
+    memory: { id: 'rival_negotiated_recently', tags: ['rival', 'compromise'] },
+    toneHints: ['rival', 'market'],
+    severity: 50,
+  },
+  // System + ignored memory.
+  {
+    activation: 'system',
+    memory: { id: 'rival_ignored_recently', tags: ['rival', 'ignored'] },
+    toneHints: ['rival', 'market'],
+    severity: 55,
+  },
+  // High severity.
+  { activation: 'system', toneHints: ['rival', 'market', 'urgent'], severity: 75 },
+  // High severity + repeat marker.
+  {
+    activation: 'system',
+    memory: { id: 'rival_repeat_marker', tags: ['rival'] },
+    toneHints: ['rival', 'market', 'urgent'],
+    severity: 80,
+  },
+  // System + ignored + rising pressure (reaction's two-condition rung).
+  {
+    activation: 'system',
+    pressure: { id: 'rival_tavern_pressure', value: 65, trend: 1 },
+    memory: { id: 'rival_ignored_repeat', tags: ['rival', 'ignored'] },
+    toneHints: ['rival', 'market'],
+    severity: 60,
+  },
+]
+
+function rivalSystemRef(): EntityRef {
+  return { kind: 'system', id: 'rival_tavern' }
+}
+
+function rivalArcRef(): EntityRef {
+  return { kind: 'local_event', id: 'phase139_rival_arc' }
+}
+
+function buildRivalTavernState(
+  baseState: TavernState,
+  perturbation: (typeof RIVAL_PERTURBATIONS)[number],
+): TavernState {
+  let s = baseState
+  if (perturbation.activation === 'arc') {
+    s = {
+      ...s,
+      world: {
+        ...s.world,
+        localEvents: {
+          ...s.world.localEvents,
+          phase139_rival_arc: {
+            ...(s.world.localEvents['phase139_rival_arc'] ?? {
+              id: 'phase139_rival_arc',
+              tags: ['rival'],
+              severity: 50,
+            }),
+            id: 'phase139_rival_arc',
+            label: 'The Crooked Pint',
+          },
+        } as TavernState['world']['localEvents'],
+      },
+    }
+  }
+  if (perturbation.pressure) {
+    s = withPressure(
+      s,
+      perturbation.pressure.id,
+      perturbation.pressure.value,
+      perturbation.pressure.trend,
+    )
+  }
+  if (perturbation.memory) {
+    s = withMemoryEntry(s, perturbation.memory.id, perturbation.memory.tags)
+    if (perturbation.memory.id === 'rival_repeat_marker') {
+      s = withMemoryEntry(s, 'rival_repeat_marker_b', ['rival'])
+      s = withMemoryEntry(s, 'rival_repeat_marker_c', ['rival'])
+    }
+  }
+  return s
+}
+
+function rivalTavernSeedFor(
+  id: string,
+  perturbation: (typeof RIVAL_PERTURBATIONS)[number],
+): IssueSeed {
+  const domain = ['rival', 'market', 'customers']
+  domain.push(perturbation.activation === 'arc' ? 'rival.arc' : 'rival.system')
+  const actor =
+    perturbation.activation === 'arc' ? rivalArcRef() : rivalSystemRef()
+  return rivalTavernBaseSeed(
+    id,
+    domain,
+    perturbation.toneHints,
+    perturbation.severity,
+    actor,
+  )
+}
+
+export function buildRivalTavernDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  return RIVAL_PERTURBATIONS.map((perturbation, i) => ({
+    seed: rivalTavernSeedFor(`rival-tavern-determinism-${i}`, perturbation),
+    state: buildRivalTavernState(baseState, perturbation),
+  }))
+}
+
+export function buildRivalTavernDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  void options.rngSeed
+  const baseState = createInitialTavernState()
+  return (i: number) => {
+    const perturbation = RIVAL_PERTURBATIONS[i % RIVAL_PERTURBATIONS.length]!
+    return {
+      seed: rivalTavernSeedFor(`rival-tavern-diversity-${i}`, perturbation),
+      state: buildRivalTavernState(baseState, perturbation),
+    }
+  }
+}
+
+// ---- Phase 6 context builders for the three Phase-13 templates ----
+
+// reputation_shift verbs: rebrand (reputation_play), clean/repair/pay
+// (long_term_investment), invite (compromise), rebrand (compromise).
+const REPUTATION_SHIFT_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'phase139-reputation-embrace',
+    labelHint: 'Embrace the identity',
+    allowedVerbs: ['rebrand'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'reputation_play' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['lean into reputation'],
+  },
+  {
+    id: 'phase139-reputation-correct',
+    labelHint: 'Correct the identity',
+    allowedVerbs: ['clean', 'repair', 'pay'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'long_term_investment' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['shift reputation away'],
+  },
+  {
+    id: 'phase139-reputation-advertise',
+    labelHint: 'Advertise to matching group',
+    allowedVerbs: ['invite'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'compromise' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise patronage'],
+  },
+  {
+    id: 'phase139-reputation-diversify',
+    labelHint: 'Diversify',
+    allowedVerbs: ['rebrand'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'compromise' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['broaden appeal'],
+  },
+]
+
+const REPUTATION_SHIFT_EFFECTS: readonly EffectPreview[] = [
+  {
+    kind: 'state_change',
+    target: 'reputation.cozy',
+    amount: 5,
+    readable: 'cozy rises',
+    tags: ['reputation'],
+  },
+  {
+    kind: 'state_change',
+    target: 'coin',
+    amount: -10,
+    readable: 'coin out',
+    tags: ['coin'],
+  },
+  {
+    kind: 'state_change',
+    target: 'customers.miners.patronage',
+    amount: 8,
+    readable: 'patronage rises',
+    tags: ['customer'],
+  },
+  {
+    kind: 'pressure',
+    target: 'pressure:reputation_drift',
+    amount: 4,
+    readable: 'drift pressure shifts',
+    tags: ['pressure'],
+  },
+  {
+    kind: 'future_hook',
+    target: 'identity_lock_in_cozy',
+    amount: 14,
+    readable: 'identity may lock in',
+    tags: ['future_hook'],
+  },
+]
+
+export function buildReputationShiftChoiceLabelContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot =
+    REPUTATION_SHIFT_RESPONSE_SLOTS[i % REPUTATION_SHIFT_RESPONSE_SLOTS.length]!
+  return { currentResponseSlot: slot }
+}
+
+export function buildReputationShiftEffectPreviewContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot =
+    REPUTATION_SHIFT_RESPONSE_SLOTS[i % REPUTATION_SHIFT_RESPONSE_SLOTS.length]!
+  const effect = REPUTATION_SHIFT_EFFECTS[i % REPUTATION_SHIFT_EFFECTS.length]!
+  return { currentResponseSlot: slot, currentEffect: effect }
+}
+
+// rumour_crisis verbs (nine slots; largest in the codebase): rebrand
+// (reputation_play / long_term_investment / deception), confess
+// (relationship_sacrifice / escalation), blame (deception / escalation),
+// bribe, ignore, invite/negotiate.
+const RUMOUR_CRISIS_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'phase139-rumour-deny',
+    labelHint: 'Deny the rumour',
+    allowedVerbs: ['rebrand'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'reputation_play' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['shift attribution'],
+  },
+  {
+    id: 'phase139-rumour-confess',
+    labelHint: 'Confess partial truth',
+    allowedVerbs: ['confess'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'relationship_sacrifice' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['lower distrust'],
+  },
+  {
+    id: 'phase139-rumour-blame',
+    labelHint: 'Blame someone else',
+    allowedVerbs: ['blame'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'deception' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['shift blame'],
+  },
+  {
+    id: 'phase139-rumour-prove',
+    labelHint: 'Prove the truth',
+    allowedVerbs: ['rebrand'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'long_term_investment' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['lower rumour'],
+  },
+  {
+    id: 'phase139-rumour-bribe',
+    labelHint: 'Bribe the gossip',
+    allowedVerbs: ['bribe'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'risky_profitable' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['silence source'],
+  },
+  {
+    id: 'phase139-rumour-ignore',
+    labelHint: 'Ignore the rumour',
+    allowedVerbs: ['ignore'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'ignore' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['no cost'],
+  },
+  {
+    id: 'phase139-rumour-counter',
+    labelHint: 'Plant a counter-rumour',
+    allowedVerbs: ['rebrand'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'deception' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['drown out original'],
+  },
+  {
+    id: 'phase139-rumour-vouch',
+    labelHint: 'Ask a regular to vouch',
+    allowedVerbs: ['invite', 'negotiate'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['lower rumour'],
+  },
+  {
+    id: 'phase139-rumour-name',
+    labelHint: 'Name the source publicly',
+    allowedVerbs: ['blame', 'confess'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'escalation' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['flip blame'],
+  },
+]
+
+const RUMOUR_CRISIS_EFFECTS: readonly EffectPreview[] = [
+  {
+    kind: 'pressure',
+    target: 'pressure:rumour_pressure',
+    amount: -10,
+    readable: 'rumour pressure eases',
+    tags: ['pressure'],
+  },
+  {
+    kind: 'state_change',
+    target: 'reputation.respectable',
+    amount: -6,
+    readable: 'credibility takes a hit',
+    tags: ['reputation'],
+  },
+  {
+    kind: 'state_change',
+    target: 'coin',
+    amount: -20,
+    readable: 'pay the gossip',
+    tags: ['coin'],
+  },
+  {
+    kind: 'cause',
+    target: 'supplier:example',
+    amount: -10,
+    readable: 'target faces blame',
+    tags: ['rumour', 'attribution'],
+  },
+  {
+    kind: 'state_change',
+    target: 'world.regulars.example.loyalty',
+    amount: -3,
+    readable: 'regular favour drawn down',
+    tags: ['regular'],
+  },
+  {
+    kind: 'future_hook',
+    target: 'rumour_blame_grudge_example',
+    amount: 14,
+    readable: 'grudge may form',
+    tags: ['future_hook'],
+  },
+]
+
+export function buildRumourCrisisChoiceLabelContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot =
+    RUMOUR_CRISIS_RESPONSE_SLOTS[i % RUMOUR_CRISIS_RESPONSE_SLOTS.length]!
+  return { currentResponseSlot: slot }
+}
+
+export function buildRumourCrisisEffectPreviewContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot =
+    RUMOUR_CRISIS_RESPONSE_SLOTS[i % RUMOUR_CRISIS_RESPONSE_SLOTS.length]!
+  const effect = RUMOUR_CRISIS_EFFECTS[i % RUMOUR_CRISIS_EFFECTS.length]!
+  return { currentResponseSlot: slot, currentEffect: effect }
+}
+
+// rival_tavern verbs: lower_price, invite, upgrade, rebrand,
+// negotiate, ignore.
+const RIVAL_TAVERN_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'phase139-rival-price',
+    labelHint: 'Compete on price',
+    allowedVerbs: ['lower_price'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'risky_profitable' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise patronage'],
+  },
+  {
+    id: 'phase139-rival-event',
+    labelHint: 'Host counter-event',
+    allowedVerbs: ['invite'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'long_term_investment' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise patronage'],
+  },
+  {
+    id: 'phase139-rival-quality',
+    labelHint: 'Improve quality',
+    allowedVerbs: ['upgrade'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'long_term_investment' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise reputation'],
+  },
+  {
+    id: 'phase139-rival-rumour',
+    labelHint: 'Spread counter-rumour',
+    allowedVerbs: ['rebrand'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'deception' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['hurt rival'],
+  },
+  {
+    id: 'phase139-rival-negotiate',
+    labelHint: 'Negotiate with the rival',
+    allowedVerbs: ['negotiate'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'compromise' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['share market'],
+  },
+  {
+    id: 'phase139-rival-ignore',
+    labelHint: 'Ignore the rival',
+    allowedVerbs: ['ignore'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'ignore' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['no cost'],
+  },
+]
+
+const RIVAL_TAVERN_EFFECTS: readonly EffectPreview[] = [
+  {
+    kind: 'state_change',
+    target: 'customers.local_goblins.patronage',
+    amount: 8,
+    readable: 'patronage rises',
+    tags: ['customer'],
+  },
+  {
+    kind: 'state_change',
+    target: 'coin',
+    amount: -20,
+    readable: 'coin out',
+    tags: ['coin'],
+  },
+  {
+    kind: 'state_change',
+    target: 'reputation.tasty',
+    amount: 12,
+    readable: 'reputation rises',
+    tags: ['reputation'],
+  },
+  {
+    kind: 'pressure',
+    target: 'pressure:rival_tavern_pressure',
+    amount: -10,
+    readable: 'rival pressure eases',
+    tags: ['pressure'],
+  },
+  {
+    kind: 'future_hook',
+    target: 'rival_rumour_exposed_example',
+    amount: 0,
+    readable: 'counter-rumour may be exposed',
+    tags: ['future_hook'],
+  },
+]
+
+export function buildRivalTavernChoiceLabelContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot =
+    RIVAL_TAVERN_RESPONSE_SLOTS[i % RIVAL_TAVERN_RESPONSE_SLOTS.length]!
+  return { currentResponseSlot: slot }
+}
+
+export function buildRivalTavernEffectPreviewContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot =
+    RIVAL_TAVERN_RESPONSE_SLOTS[i % RIVAL_TAVERN_RESPONSE_SLOTS.length]!
+  const effect = RIVAL_TAVERN_EFFECTS[i % RIVAL_TAVERN_EFFECTS.length]!
+  return { currentResponseSlot: slot, currentEffect: effect }
+}
+
 export const __testing = {
   firstRegularId,
   installCast,
@@ -3462,4 +4271,9 @@ export const __testing = {
   AREA_ATMOSPHERE_RESPONSE_SLOTS,
   MAINTENANCE_PERTURBATIONS,
   AREA_ATMOSPHERE_PERTURBATIONS,
+  REPUTATION_PERTURBATIONS,
+  RIVAL_PERTURBATIONS,
+  REPUTATION_SHIFT_RESPONSE_SLOTS,
+  RUMOUR_CRISIS_RESPONSE_SLOTS,
+  RIVAL_TAVERN_RESPONSE_SLOTS,
 }

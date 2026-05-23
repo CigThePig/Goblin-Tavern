@@ -1,0 +1,156 @@
+# Phase 139 / ISSUE-108 — Voiced Surface arc, Phase 13 (Reputation, Rumour & Rivals).
+#
+# Generation spec for the reputation_shift compositional template.
+# Replaces the legacy `reputationShiftWeeklyCard` (deleted in this phase)
+# which set `appliesTo.timings: ['end_week']` while the generator emits
+# `timing: 'closing'` — the card never matched in production and seeds
+# routed to `fallbackCard`. Phase 13 aligns the new template to what the
+# generator actually emits, the same alignment fix Phases 7 and 12
+# applied to staff_burnout and food_safety.
+#
+# The seed has no `primaryActor` — reputation is tavern-wide (audit
+# pass 1 §5.3 omits the singleton system:reputation ref). The seed
+# carries `location: pickCustomerFacingArea(...)`, which the Phase-11
+# `'location'` role on `resolveActorRef` makes reachable, but the line
+# voices the tavern's own shifting identity rather than a per-area
+# meter. Narrator-voiced; no `voiceAxis` / `verbalTic` conditions.
+#
+# Movement I loopback (Phase 13): `seed.domain` carries
+# `reputation.${axisId}` (cozy / tasty / reputable / reliable /
+# dangerous / respectable / scholarly) so the establishing line can
+# branch on the actual axis shifting via `hasTag reputation.<axis>`.
+# No new band signals — banding seven reputation axes would add seven
+# SignalIds whose snippets still have to fork on which axis is moving;
+# the tag-on-domain route stays within `hasTag` unchanged.
+#
+# Voice register `tavern_floor` — the tavern's public identity surfaces
+# in the room itself, not in the back office.
+
+templateId: reputation_shift
+voiceRegister: tavern_floor
+status: phase_13_voiced_surface_arc_shipped
+purpose: >
+  Generate voiced cards for the closing-time reputation_shift situation.
+  The body states the actual sim situation (which axis is shifting, the
+  reputation_drift pressure rising, prior owner choice surfaced from
+  memory tags, repeat count, severity tier) and carries a narrator's
+  read of the tavern's public face. The legacy template never fired
+  (timing mismatch) and would have fragment-dumped via composeBody if
+  it had; this is the first rendering that actually voices the family.
+
+appliesTo:
+  seedFamilies: ['reputation_shift']
+  seedTypes: ['reputation_shift']
+  timings: ['closing']
+
+slots:
+  - id: title
+    required: true
+    claims: flavor
+    maxWords: 6
+    description: >
+      Short situational title; template glue prepends a fixed
+      `'Reputation'` prefix as `Reputation: ${snippet}`. Snippet text
+      stays ≤ 4 words so the final composed title stays within the
+      legacy 6-word total budget. Voice-bounds gate forbids trailing "…"
+      and immediate token duplication.
+
+  - id: establishing_line
+    required: true
+    claims: sim-backed
+    maxWords: 14
+    description: >
+      Third-person narration of the identity shift. Names what
+      happened — which axis is shifting (via `hasTag reputation.cozy` /
+      `reputation.tasty` / etc.), reputation_drift pressure rising,
+      prior memory (embraced / corrected / advertised / diversified),
+      repeat count on reputation_shift, severity tier. Unconditional
+      fallback claims only that the tavern's public face has tilted
+      this week.
+
+  - id: reaction_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      Narrator's read of how the shift is landing on the floor. Varies
+      on tone tags (`reputation` / `identity`), severity ceilings,
+      prior-choice memories, and pressure trend. No first-person
+      voice — no actor resolves on this seed.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      Optional third-person sensory beat — a glance shared between
+      newcomers, the regulars settling deeper into their corner, a
+      different crowd at the door. Narrator-voiced; no checkable claim.
+
+voiceAxesInPlay: []
+verbalTicsCovered: []
+
+simSignalsInUse:
+  - { kind: pressureRising, pressureIds: [reputation_drift] }
+  - { kind: memoryPresent, tags: [embraced_cozy_identity, embraced_tasty_identity, embraced_reputable_identity, embraced_reliable_identity, embraced_dangerous_identity, embraced_respectable_identity, embraced_scholarly_identity, corrected_cozy_identity, corrected_tasty_identity, corrected_reputable_identity, corrected_reliable_identity, corrected_dangerous_identity, corrected_respectable_identity, corrected_scholarly_identity, advertised_to_group_recently, diversification_attempted, reputation, identity] }
+  - { kind: repeatCount, subjectTag: reputation }
+  - { kind: hasTag, tags: [reputation.cozy, reputation.tasty, reputation.reputable, reputation.reliable, reputation.dangerous, reputation.respectable, reputation.scholarly, identity, reputation] }
+  - { kind: severityAtLeast, value: 50 }
+  - { kind: severityAtLeast, value: 70 }
+
+mustNotInvent:
+  - named customers or NPCs beyond the seed
+  - specific past tavern incidents beyond the seeded memory tags
+  - specific axis numeric values ("tasty 78", "dangerous 45")
+  - earth idioms, modern slang, real-world brand or place language
+  - the legacy `Weekly shift:` title prefix or `composeBody` fragment dumps
+
+positiveExemplars:
+  title:
+    - "Reputation: a cozier name"
+    - "Reputation: a sharper edge"
+    - "Reputation: tilting"
+  establishing_line:
+    - "The tavern is gaining a cozier name with the regulars."
+    - "Reputation_drift has been climbing onto the slate for days."
+    - "The identity embraced last time keeps writing itself deeper."
+    - "Third closing running, the same drift writes itself onto the books."
+
+negativeExamples:
+  - "Weekly shift: the tavern. tasty up two. three good service days in a row." (legacy composeBody glue)
+  - "Reputation: …" (mid-phrase clamp)
+  - "The cozy reputation is at 78." (mechanical readout)
+  - "Last week the inspectors came." (unbacked history)
+
+hardBounds:
+  perSlotWords:
+    title: 6
+    establishing_line: 14
+    reaction_line: 12
+    manner_note: 10
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+  noDirectMechanicalLanguage: true
+
+gradientPolicy:
+  base: one unconditional fallback per required slot (always fires)
+  middle: single-condition snippets — an axis tag, a pressure, a memory, a tone tag, a severity band
+  top: two-condition snippets — axis + pressure, severity + repeat, memory + axis
+  rule: |
+    narrator-voiced. The body line states the axis from `hasTag
+    reputation.<axis>` (Phase-13 additive `seed.domain` tag) and
+    anchors via `pressureRising reputation_drift`, prior-choice
+    memory, repeatCount, and severity tiers. No actor resolves; no
+    voiceAxis / verbalTic conditions anywhere in the pools.
+
+mustPass:
+  coverage: required slots title, establishing_line, reaction_line each have an unconditional fallback
+  specificityGradient: pools contain fallback + single-condition middle rung + two-condition top rung
+  voiceBounds: every snippet within slot.maxWords; no trailing "…" or immediate duplicate token in title-role slots
+  simCoherence: establishing_line is claims sim-backed; every non-fallback carries ≥1 state-lookup condition
+  determinism: same seed + same state + same slot returns same snippet after FNV tie-break
+  diversity: state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
+  dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots

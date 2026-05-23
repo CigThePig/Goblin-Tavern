@@ -1,0 +1,159 @@
+# Phase 139 / ISSUE-108 — Voiced Surface arc, Phase 13 (Reputation, Rumour & Rivals).
+#
+# Generation spec for the rumour_crisis compositional template. First
+# dedicated card for the family — pre-Phase-13 these seeds routed to
+# `fallbackCard`.
+#
+# The seed's `primaryActor` is the rumour's named target — most often
+# a supplier / regular / faction / staff / customer_group / notable_npc
+# (all six carry Phase-128 castAttributes), occasionally absent when
+# the target is `tavern_identity` (a tavern-wide rumour with no single
+# character on the hook). The custom predicate insists primaryActor is
+# present AND carries castAttributes for its kind; the `tavern_identity`
+# path falls through to `fallbackCard`, matching the inspection /
+# systemRef fallback precedent from Phase 12.
+#
+# Movement I loopback (Phase 13): `seed.domain` carries
+# `rumour.${accuracy}` (`true` / `partial` / `false` / `unknown`) and
+# `rumour.target.${kind}` so the establishing line can branch on
+# attribution accuracy and target kind via `hasTag`. No new band
+# signals — accuracy is enum-shaped, target.kind is categorical.
+#
+# Voice register `tavern_floor` — rumours surface in the public room,
+# whichever kind of actor the target happens to be.
+
+templateId: rumour_crisis
+voiceRegister: tavern_floor
+status: phase_13_voiced_surface_arc_shipped
+purpose: >
+  Generate voiced cards for the closing-time rumour_crisis situation.
+  The body states the actual sim situation (rumour accuracy band,
+  target kind, rumour_pressure rising, prior owner choice surfaced from
+  memory tags, repeat count, severity tier) and carries the target's
+  voiced reply through their castAttributes. The legacy fallback
+  rendering had no voice; this is the first rendering that voices the
+  target. The nine-slot response roster (deny / confess / blame /
+  prove / bribe / ignore / counter / vouch / name source) ties Phase 12's
+  inspection for the largest verb surface in the codebase.
+
+appliesTo:
+  seedFamilies: ['rumour_crisis']
+  seedTypes: ['rumour']
+  timings: ['closing']
+
+slots:
+  - id: title
+    required: true
+    claims: flavor
+    maxWords: 6
+    description: >
+      Short situational title; template glue prepends the target's
+      display name as `${display}: ${snippet}`. Display names run 1–3
+      words across supplier / regular / faction / customer_group / staff
+      / notable_npc; snippet text stays ≤ 3 words so a 3-word name
+      keeps the final composed title within the legacy 6-word total
+      budget. Voice-bounds gate forbids trailing "…" and immediate
+      token duplication.
+
+  - id: establishing_line
+    required: true
+    claims: sim-backed
+    maxWords: 14
+    description: >
+      Third-person narration of the rumour situation. Names what
+      happened — rumour_pressure rising, accuracy band (false / partial
+      / true via `hasTag rumour.<accuracy>`), target kind (via
+      `hasTag rumour.target.<kind>`), prior memory (denied / confessed
+      / bribed / ignored / vouched / named-source), repeat count,
+      severity tier. Unconditional fallback claims only that the
+      story is travelling.
+
+  - id: reaction_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      The target's first-person reply, voice-axis driven (terseness,
+      warmth, formality, floridity) plus verbal tic. May show
+      protest, weary acknowledgement, denial, cold contempt, ironic
+      dismissal. Must not assert specific past tavern incidents or
+      invent named NPCs.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      Optional third-person sensory beat — a glance away, a tightened
+      shoulder, hands settling on the bar, a sudden silence at the
+      next table. Voice-axis gated only; no checkable claim.
+
+voiceAxesInPlay: [terseness, warmth, formality, floridity]
+verbalTicsCovered: [trails_off, interrupts_self, understates, repeats_for_emphasis, qualifies_everything, italicises_stakes, quotes_someone_else]
+
+simSignalsInUse:
+  - { kind: pressureRising, pressureIds: [rumour_pressure, reputation_drift, cultural_tension] }
+  - { kind: memoryPresent, tags: [rumour, denial, confess, deflected, bribe, ignored, counter, vouch, escalation, false_blame, honesty, deception] }
+  - { kind: repeatCount, subjectTag: rumour }
+  - { kind: hasTag, tags: [rumour.true, rumour.partial, rumour.false, rumour.unknown, rumour.target.supplier, rumour.target.regular, rumour.target.faction, rumour.target.staff, rumour.target.customer_group, rumour.target.notable_npc, reputation, social] }
+  - { kind: severityAtLeast, value: 50 }
+  - { kind: severityAtLeast, value: 70 }
+  - { kind: voiceAxis, role: primaryActor }
+  - { kind: verbalTic, role: primaryActor }
+
+mustNotInvent:
+  - named witnesses or rumour-sources beyond the seeded primaryActor + display
+  - specific past rumours beyond the seeded memory tags
+  - specific rumour pressure numeric values
+  - earth idioms, modern slang, real-world brand or place language
+  - the legacy fallbackCard rendering shape (`${family.label}: ${subject}` glued bullet list)
+
+positiveExemplars:
+  title:
+    - "Brakka: the story travelling"
+    - "Brakka: under the table talk"
+    - "Brakka: a word doing the rounds"
+  establishing_line:
+    - "The story has run beyond what any single denial can settle."
+    - "Rumour_pressure has been climbing onto the slate for days."
+    - "The denial from the last round is now part of the tale."
+    - "Third closing running, the same whisper writes itself onto the books."
+
+negativeExamples:
+  - "Brakka: brakka" (duplicate subject)
+  - "Brakka: a word…" (mid-phrase clamp)
+  - "The rumour pressure is 65." (mechanical readout)
+  - "Last month the inspectors came." (unbacked history)
+
+hardBounds:
+  perSlotWords:
+    title: 6
+    establishing_line: 14
+    reaction_line: 12
+    manner_note: 10
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+  noDirectMechanicalLanguage: true
+
+gradientPolicy:
+  base: one unconditional fallback per required slot (always fires)
+  middle: single-condition snippets — an accuracy tag, a target-kind tag, a pressure, a memory, a tone tag, a severity band, a voice axis, a verbal tic
+  top: two-condition snippets — accuracy + pressure, severity + repeat, axis + axis, memory + accuracy
+  rule: |
+    voice axes and verbal tics drive the reaction line and manner_note;
+    accuracy and target-kind tags plus pressures and memories drive
+    the establishing line. The custom predicate rejects seeds without
+    primaryActor or castAttributes so the actor always speaks when
+    this template matches.
+
+mustPass:
+  coverage: required slots title, establishing_line, reaction_line each have an unconditional fallback
+  specificityGradient: pools contain fallback + single-condition middle rung + two-condition top rung
+  voiceBounds: every snippet within slot.maxWords; no trailing "…" or immediate duplicate token in title-role slots
+  simCoherence: establishing_line is claims sim-backed; every non-fallback carries ≥1 state-lookup condition
+  determinism: same seed + same state + same slot returns same snippet after FNV tie-break
+  diversity: actor + state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
+  dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots

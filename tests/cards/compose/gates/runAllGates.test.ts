@@ -24,6 +24,9 @@ import { areaAtmosphereTemplate } from '../../../../src/cards/templates/areaAtmo
 import { foodSafetyCrisisTemplate } from '../../../../src/cards/templates/foodSafetyCrisis'
 import { violenceTemplate } from '../../../../src/cards/templates/violence'
 import { inspectionTemplate } from '../../../../src/cards/templates/inspection'
+import { reputationShiftTemplate } from '../../../../src/cards/templates/reputationShift'
+import { rumourCrisisTemplate } from '../../../../src/cards/templates/rumourCrisis'
+import { rivalTavernTemplate } from '../../../../src/cards/templates/rivalTavern'
 import {
   drinkOrderChoiceLabelPool,
   drinkOrderEffectPreviewPool,
@@ -80,6 +83,18 @@ import {
   inspectionChoiceLabelPool,
   inspectionEffectPreviewPool,
 } from '../../../../src/cards/compose/pools/inspection'
+import {
+  reputationShiftChoiceLabelPool,
+  reputationShiftEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/reputationShift'
+import {
+  rumourCrisisChoiceLabelPool,
+  rumourCrisisEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/rumourCrisis'
+import {
+  rivalTavernChoiceLabelPool,
+  rivalTavernEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/rivalTavern'
 import type { CompositionalCardTemplate } from '../../../../src/cards/compose/types'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
 import { buildTemplate } from './fixtures'
@@ -142,6 +157,18 @@ import {
   buildInspectionDeterminismSamples,
   buildInspectionDiversitySampler,
   buildInspectionEffectPreviewContext,
+  buildReputationShiftChoiceLabelContext,
+  buildReputationShiftDeterminismSamples,
+  buildReputationShiftDiversitySampler,
+  buildReputationShiftEffectPreviewContext,
+  buildRumourCrisisChoiceLabelContext,
+  buildRumourCrisisDeterminismSamples,
+  buildRumourCrisisDiversitySampler,
+  buildRumourCrisisEffectPreviewContext,
+  buildRivalTavernChoiceLabelContext,
+  buildRivalTavernDeterminismSamples,
+  buildRivalTavernDiversitySampler,
+  buildRivalTavernEffectPreviewContext,
   representativeBannedNames,
 } from './samplers'
 
@@ -754,6 +781,159 @@ describe('runAllGates — happy path', () => {
     expect(report.diversity.every((d) => d.pass)).toBe(true)
   })
 
+  // Phase 139 / ISSUE-108 — Voiced Surface arc, Phase 13.
+  // reputationShift: narrator-voiced; state perturbation across the
+  // seven reputation axes + pressures + memories + severity. Replaces
+  // the legacy reputationShiftWeeklyCard (deleted in this phase).
+  it('the real reputationShift template passes all seven gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(reputationShiftTemplate, {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: buildReputationShiftDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'title',
+          sampler: buildReputationShiftDiversitySampler({
+            rngSeed: 'run-all-reputation-shift-title',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'establishing_line',
+          sampler: buildReputationShiftDiversitySampler({
+            rngSeed: 'run-all-reputation-shift-establishing',
+          }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
+        {
+          slotId: 'reaction_line',
+          sampler: buildReputationShiftDiversitySampler({
+            rngSeed: 'run-all-reputation-shift-reaction',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'manner_note',
+          sampler: buildReputationShiftDiversitySampler({
+            rngSeed: 'run-all-reputation-shift-manner',
+          }),
+          config: { sampleSize: 100, minDistinct: 2 },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  // Phase 139 / ISSUE-108 — Voiced Surface arc, Phase 13.
+  // rumourCrisis: actor-voiced via target castAttributes (the
+  // diversity sampler perturbs the supplier kind as representative).
+  // First dedicated card for the family.
+  it('the real rumourCrisis template passes all seven gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(rumourCrisisTemplate, {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: buildRumourCrisisDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'title',
+          sampler: buildRumourCrisisDiversitySampler({
+            rngSeed: 'run-all-rumour-crisis-title',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'establishing_line',
+          sampler: buildRumourCrisisDiversitySampler({
+            rngSeed: 'run-all-rumour-crisis-establishing',
+          }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
+        {
+          slotId: 'reaction_line',
+          sampler: buildRumourCrisisDiversitySampler({
+            rngSeed: 'run-all-rumour-crisis-reaction',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'manner_note',
+          sampler: buildRumourCrisisDiversitySampler({
+            rngSeed: 'run-all-rumour-crisis-manner',
+          }),
+          config: { sampleSize: 100, minDistinct: 2 },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  // Phase 139 / ISSUE-108 — Voiced Surface arc, Phase 13.
+  // rivalTavern: narrator-voiced; state perturbation across rival.arc
+  // vs rival.system + pressures + memories + severity. First dedicated
+  // card for the family.
+  it('the real rivalTavern template passes all seven gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(rivalTavernTemplate, {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: buildRivalTavernDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'title',
+          sampler: buildRivalTavernDiversitySampler({
+            rngSeed: 'run-all-rival-tavern-title',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'establishing_line',
+          sampler: buildRivalTavernDiversitySampler({
+            rngSeed: 'run-all-rival-tavern-establishing',
+          }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
+        {
+          slotId: 'reaction_line',
+          sampler: buildRivalTavernDiversitySampler({
+            rngSeed: 'run-all-rival-tavern-reaction',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'manner_note',
+          sampler: buildRivalTavernDiversitySampler({
+            rngSeed: 'run-all-rival-tavern-manner',
+          }),
+          config: { sampleSize: 100, minDistinct: 2 },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
   // Phase 138 / ISSUE-107 — Voiced Surface arc, Phase 12.
   // inspection: actor-voiced via faction castAttributes (Phase 128).
   // First dedicated card for the family.
@@ -1258,6 +1438,82 @@ function buildInspectionChoicesGateTemplate(): CompositionalCardTemplate {
         id: 'effect_preview',
         role: 'effect_preview',
         pool: inspectionEffectPreviewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      },
+    ],
+  }
+}
+
+// Phase 139 / ISSUE-108 — Voiced Surface arc, Phase 13.
+function buildReputationShiftChoicesGateTemplate(): CompositionalCardTemplate {
+  return {
+    ...reputationShiftTemplate,
+    id: 'phase139-reputationShift-choices-gate',
+    slots: [
+      {
+        id: 'choice_label',
+        role: 'choice_label',
+        pool: reputationShiftChoiceLabelPool,
+        optional: true,
+        wordBudget: 6,
+        claimMode: 'flavor',
+      },
+      {
+        id: 'effect_preview',
+        role: 'effect_preview',
+        pool: reputationShiftEffectPreviewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      },
+    ],
+  }
+}
+
+function buildRumourCrisisChoicesGateTemplate(): CompositionalCardTemplate {
+  return {
+    ...rumourCrisisTemplate,
+    id: 'phase139-rumourCrisis-choices-gate',
+    slots: [
+      {
+        id: 'choice_label',
+        role: 'choice_label',
+        pool: rumourCrisisChoiceLabelPool,
+        optional: true,
+        wordBudget: 6,
+        claimMode: 'flavor',
+      },
+      {
+        id: 'effect_preview',
+        role: 'effect_preview',
+        pool: rumourCrisisEffectPreviewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      },
+    ],
+  }
+}
+
+function buildRivalTavernChoicesGateTemplate(): CompositionalCardTemplate {
+  return {
+    ...rivalTavernTemplate,
+    id: 'phase139-rivalTavern-choices-gate',
+    slots: [
+      {
+        id: 'choice_label',
+        role: 'choice_label',
+        pool: rivalTavernChoiceLabelPool,
+        optional: true,
+        wordBudget: 6,
+        claimMode: 'flavor',
+      },
+      {
+        id: 'effect_preview',
+        role: 'effect_preview',
+        pool: rivalTavernEffectPreviewPool,
         optional: true,
         wordBudget: 10,
         claimMode: 'flavor',
@@ -1792,6 +2048,130 @@ describe('runAllGates — Phase 6 choice / consequence pools', () => {
             sampleSize: 100,
             minDistinct: 3,
             pickContext: buildInspectionEffectPreviewContext,
+          },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  // Phase 139 / ISSUE-108 — Voiced Surface arc, Phase 13.
+  it('the reputationShift choice-label and effect-preview pools pass all gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(buildReputationShiftChoicesGateTemplate(), {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: [] },
+      diversity: [
+        {
+          slotId: 'choice_label',
+          sampler: buildReputationShiftDiversitySampler({
+            rngSeed: 'phase139-reputation-choice-label',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildReputationShiftChoiceLabelContext,
+          },
+        },
+        {
+          slotId: 'effect_preview',
+          sampler: buildReputationShiftDiversitySampler({
+            rngSeed: 'phase139-reputation-effect-preview',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildReputationShiftEffectPreviewContext,
+          },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  it('the rumourCrisis choice-label and effect-preview pools pass all gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(buildRumourCrisisChoicesGateTemplate(), {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: [] },
+      diversity: [
+        {
+          slotId: 'choice_label',
+          sampler: buildRumourCrisisDiversitySampler({
+            rngSeed: 'phase139-rumour-choice-label',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildRumourCrisisChoiceLabelContext,
+          },
+        },
+        {
+          slotId: 'effect_preview',
+          sampler: buildRumourCrisisDiversitySampler({
+            rngSeed: 'phase139-rumour-effect-preview',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildRumourCrisisEffectPreviewContext,
+          },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  it('the rivalTavern choice-label and effect-preview pools pass all gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(buildRivalTavernChoicesGateTemplate(), {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: [] },
+      diversity: [
+        {
+          slotId: 'choice_label',
+          sampler: buildRivalTavernDiversitySampler({
+            rngSeed: 'phase139-rival-choice-label',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildRivalTavernChoiceLabelContext,
+          },
+        },
+        {
+          slotId: 'effect_preview',
+          sampler: buildRivalTavernDiversitySampler({
+            rngSeed: 'phase139-rival-effect-preview',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildRivalTavernEffectPreviewContext,
           },
         },
       ],

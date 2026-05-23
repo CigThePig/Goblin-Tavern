@@ -21,7 +21,9 @@ import {
   staffBurnoutCard,
   factionRequestCard,
   cultureConflictCard,
-  reputationShiftWeeklyCard,
+  reputationShiftCard,
+  rumourCrisisCard,
+  rivalTavernCard,
   monthlyReviewCard,
   fallbackCard,
 } from '../../src/cards/index'
@@ -708,29 +710,99 @@ describe('Template 6b — cultureConflictCard', () => {
   })
 })
 
-describe('Template 7 — reputationShiftWeeklyCard', () => {
+// Phase 139 / ISSUE-108 — Voiced Surface arc, Phase 13. The legacy
+// `Template 7 — reputationShiftWeeklyCard` block (which exercised a
+// template whose `timings: ['end_week']` never matched the generator's
+// `closing` emit) is replaced by three blocks covering the new
+// compositional templates for the reputation/rumour/rival cluster.
+
+describe('Template 7a — reputationShiftCard', () => {
   const state = createInitialTavernState()
   const seed = makeSeed({
     family: 'reputation_shift',
     type: 'reputation_shift',
-    timing: 'end_week',
-    domain: ['reputation.tasty', 'weekly'],
+    timing: 'closing',
+    domain: ['reputation', 'customers', 'reputation.tasty'],
     textIngredients: {
-      subject: 'tasty up two',
-      recentContext: ['three good service days in a row'],
+      subject: 'the tavern',
+      recentContext: ['tasty reputation rising'],
     },
   })
 
-  it('applies', () => {
-    expect(appliesToMatches(reputationShiftWeeklyCard.appliesTo, seed, state)).toBe(true)
+  it('applies to the real closing-timing seed', () => {
+    expect(appliesToMatches(reputationShiftCard.appliesTo, seed, state)).toBe(true)
   })
-  it('renders within budgets', () => {
-    const view = reputationShiftWeeklyCard.render(seed, state)
-    assertTitleBudget(view)
+  it('renders a composed body with no raw textIngredients fragments', () => {
+    const view = reputationShiftCard.render(seed, state)
     assertBodyBudget(view)
+    expect(view.body.length).toBeGreaterThan(0)
+    for (const line of view.body) {
+      expect(line).not.toBe('tasty reputation rising')
+    }
+    expect(view.title.startsWith('Reputation:')).toBe(true)
+    expect(view.title).not.toContain('…')
+    expect(view.title).not.toContain('...')
   })
   it('does not mutate state', () => {
-    assertNonMutation(reputationShiftWeeklyCard, seed, state)
+    assertNonMutation(reputationShiftCard, seed, state)
+  })
+})
+
+describe('Template 7b — rumourCrisisCard', () => {
+  const state = createInitialTavernState()
+  const supplierId = Object.keys(state.world.suppliers)[0]!
+  const seed = makeSeed({
+    family: 'rumour_crisis',
+    type: 'rumour',
+    timing: 'closing',
+    domain: ['rumours', 'reputation', 'social', 'rumour.partial', 'rumour.target.supplier'],
+    primaryActor: { kind: 'supplier', id: supplierId },
+    textIngredients: {
+      subject: 'a story doing rounds',
+    },
+  })
+
+  it('applies to the real seed when the target carries castAttributes', () => {
+    expect(appliesToMatches(rumourCrisisCard.appliesTo, seed, state)).toBe(true)
+  })
+  it('renders a composed body with no raw textIngredients fragments', () => {
+    const view = rumourCrisisCard.render(seed, state)
+    assertBodyBudget(view)
+    expect(view.body.length).toBeGreaterThan(0)
+    expect(view.title).not.toContain('…')
+    expect(view.title).not.toContain('...')
+  })
+  it('does not mutate state', () => {
+    assertNonMutation(rumourCrisisCard, seed, state)
+  })
+})
+
+describe('Template 7c — rivalTavernCard', () => {
+  const state = createInitialTavernState()
+  const seed = makeSeed({
+    family: 'rival_tavern',
+    type: 'social_conflict',
+    timing: 'closing',
+    domain: ['rival', 'market', 'customers', 'rival.system'],
+    primaryActor: { kind: 'system', id: 'rival_tavern' },
+    textIngredients: {
+      subject: 'the rival tavern',
+    },
+  })
+
+  it('applies to the real seed regardless of arc presence', () => {
+    expect(appliesToMatches(rivalTavernCard.appliesTo, seed, state)).toBe(true)
+  })
+  it('renders a composed body with no raw textIngredients fragments', () => {
+    const view = rivalTavernCard.render(seed, state)
+    assertBodyBudget(view)
+    expect(view.body.length).toBeGreaterThan(0)
+    expect(view.title.startsWith('Rival tavern:')).toBe(true)
+    expect(view.title).not.toContain('…')
+    expect(view.title).not.toContain('...')
+  })
+  it('does not mutate state', () => {
+    assertNonMutation(rivalTavernCard, seed, state)
   })
 })
 

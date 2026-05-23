@@ -4,14 +4,15 @@
 // regardless of registration order. The fallback is registered last by
 // convention but the registry treats it identically to any other card.
 //
-// Phase 138 / ISSUE-107 — Voiced Surface arc, Phase 12 (Crises &
-// Safety). Rewrites the hand-written `foodSafetyCrisisCard` as an
-// actor-voiced compositional template and adds two new dedicated
-// templates that previously routed through `fallbackCard`:
-// `violenceCard` (`violence.customer_incident`) and `inspectionCard`
-// (`inspection.inspection_threat`). All three are actor-voiced;
-// graceful-fallback `custom` predicates require the relevant
-// `castAttributes`.
+// Phase 139 / ISSUE-108 — Voiced Surface arc, Phase 13 (Reputation,
+// Rumour & Rivals). Replaces the legacy `reputationShiftWeeklyCard`
+// (whose `timings: ['end_week']` filter never matched the generator's
+// `closing` emit) with the compositional `reputationShiftCard` and
+// adds two new dedicated templates that previously routed through
+// `fallbackCard`: `rumourCrisisCard` (`rumour_crisis.rumour`) and
+// `rivalTavernCard` (`rival_tavern.social_conflict`). The rumour
+// template's `custom` predicate requires `primaryActor` with
+// `castAttributes`; the `tavern_identity` no-actor path falls through.
 
 import { foodSafetyCrisisCard } from './foodSafetyCrisis'
 import { customerComplaintCard } from './customerComplaint'
@@ -26,7 +27,9 @@ import { inspectionCard } from './inspection'
 import { staffBurnoutCard } from './staffBurnout'
 import { factionRequestCard } from './factionRequest'
 import { cultureConflictCard } from './cultureConflict'
-import { reputationShiftWeeklyCard } from './reputationWeekly'
+import { reputationShiftCard } from './reputationShift'
+import { rumourCrisisCard } from './rumourCrisis'
+import { rivalTavernCard } from './rivalTavern'
 import { monthlyReviewCard } from './monthlyReview'
 import { drinkOrderCard } from './drinkOrder'
 import { staffAsideCard } from './staffAside'
@@ -47,7 +50,9 @@ export const REQUIRED_CARDS: ReadonlyArray<CardDefinition> = [
   staffBurnoutCard,
   factionRequestCard,
   cultureConflictCard,
-  reputationShiftWeeklyCard,
+  reputationShiftCard,
+  rumourCrisisCard,
+  rivalTavernCard,
   monthlyReviewCard,
   drinkOrderCard,
   staffAsideCard,
@@ -69,7 +74,9 @@ export {
   staffBurnoutCard,
   factionRequestCard,
   cultureConflictCard,
-  reputationShiftWeeklyCard,
+  reputationShiftCard,
+  rumourCrisisCard,
+  rivalTavernCard,
   monthlyReviewCard,
   drinkOrderCard,
   staffAsideCard,

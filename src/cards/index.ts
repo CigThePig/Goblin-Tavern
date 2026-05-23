@@ -27,6 +27,7 @@ export {
   maintenanceWarningCard,
   staffBurnoutCard,
   factionRequestCard,
+  cultureConflictCard,
   reputationShiftWeeklyCard,
   monthlyReviewCard,
   drinkOrderCard,

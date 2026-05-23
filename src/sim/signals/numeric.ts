@@ -125,3 +125,37 @@ export function customerGroupLoyaltyBand(
   if (!group) return undefined
   return bandOf(group.loyalty, BAND_THRESHOLDS['customer_group.loyalty'])
 }
+
+// Phase 136 / ISSUE-105 — Voiced Surface Phase 10 (Factions & Culture).
+// Bands for the three culture meters. `culture_conflict` fires at
+// `cultural_tension >= 25` (a pressure, not a culture meter), but the
+// establishing line states the *culture's* standing in the room —
+// tension, comfort, and familiarity — so the snippet DSL needs bands on
+// each of the three numeric fields the seed reads.
+
+export function cultureTensionBand(
+  state: TavernState,
+  cultureId: string,
+): BandId | undefined {
+  const culture = state.world.cultures[cultureId]
+  if (!culture) return undefined
+  return bandOf(culture.tension, BAND_THRESHOLDS['culture.tension'])
+}
+
+export function cultureComfortBand(
+  state: TavernState,
+  cultureId: string,
+): BandId | undefined {
+  const culture = state.world.cultures[cultureId]
+  if (!culture) return undefined
+  return bandOf(culture.comfort, BAND_THRESHOLDS['culture.comfort'])
+}
+
+export function cultureFamiliarityBand(
+  state: TavernState,
+  cultureId: string,
+): BandId | undefined {
+  const culture = state.world.cultures[cultureId]
+  if (!culture) return undefined
+  return bandOf(culture.familiarity, BAND_THRESHOLDS['culture.familiarity'])
+}

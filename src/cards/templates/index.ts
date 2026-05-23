@@ -4,11 +4,12 @@
 // regardless of registration order. The fallback is registered last by
 // convention but the registry treats it identically to any other card.
 //
-// Phase 135 / ISSUE-104 — Voiced Surface arc, Phase 9. Replaces the
-// legacy `supplierOfferCard` with the compositional
-// `supplierReliabilityCard`; adds `stockShortageCard` and `debtRentCard`
-// (first dedicated cards for those two families — they previously fell
-// through to the fallback).
+// Phase 136 / ISSUE-105 — Voiced Surface arc, Phase 10. Replaces the
+// legacy hand-written `factionRequestCard` with a compositional template
+// that voices the faction via its `castAttributes`, and adds a first
+// dedicated `cultureConflictCard` (the legacy template nominally
+// matched `culture_conflict` seeds but its name resolver dropped culture
+// refs).
 
 import { foodSafetyCrisisCard } from './foodSafetyCrisis'
 import { customerComplaintCard } from './customerComplaint'
@@ -19,6 +20,7 @@ import { debtRentCard } from './debtRent'
 import { maintenanceWarningCard } from './maintenanceWarning'
 import { staffBurnoutCard } from './staffBurnout'
 import { factionRequestCard } from './factionRequest'
+import { cultureConflictCard } from './cultureConflict'
 import { reputationShiftWeeklyCard } from './reputationWeekly'
 import { monthlyReviewCard } from './monthlyReview'
 import { drinkOrderCard } from './drinkOrder'
@@ -36,6 +38,7 @@ export const REQUIRED_CARDS: ReadonlyArray<CardDefinition> = [
   maintenanceWarningCard,
   staffBurnoutCard,
   factionRequestCard,
+  cultureConflictCard,
   reputationShiftWeeklyCard,
   monthlyReviewCard,
   drinkOrderCard,
@@ -54,6 +57,7 @@ export {
   maintenanceWarningCard,
   staffBurnoutCard,
   factionRequestCard,
+  cultureConflictCard,
   reputationShiftWeeklyCard,
   monthlyReviewCard,
   drinkOrderCard,

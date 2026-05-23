@@ -1,0 +1,132 @@
+# Phase 136 / ISSUE-105 — Voiced Surface arc, Phase 10 (Factions & Culture).
+#
+# Generation spec for the culture_conflict compositional template. First
+# dedicated card for the family — pre-Phase 10 every culture_conflict
+# seed routed through the same legacy factionRequest template which
+# ignored cultures entirely (the primary actor is a `culture` ref, but
+# the legacy code's `factionRef = seed.primaryActor?.kind === 'faction' ? …`
+# guard meant `culture` refs fell through to a bare ti.subject title and
+# raw textIngredient body).
+#
+# Cultures have meters (tension, comfort, familiarity) but NO castAttributes
+# — they're population concepts, not individuals. The template therefore
+# renders NARRATOR-VOICED in the `civic_floor` register: snippet pools
+# gate ONLY on sim/state primitives (signalEquals on the three new
+# culture.* bands, pressureRising, memoryPresent, repeatCount, hasTag,
+# severityAtLeast). No voiceAxis / verbalTic in any slot.
+#
+# Pools live at `src/cards/compose/pools/cultureConflict/*.ts`.
+
+templateId: culture_conflict
+voiceRegister: civic_floor
+status: phase_10_voiced_surface_arc_complete
+purpose: >
+  Generate short cards for a culture tension moment (during_service,
+  family `culture_conflict`, type `social_conflict`) whose body STATES
+  the culture's actual standing in the room — tension band, comfort
+  band, familiarity band, rising cultural_tension, prior-choice memory,
+  calendar pin (festival/ritual) — and narrates the owner's read of
+  the situation. No actor voice — the culture is the topic, not the
+  speaker.
+
+appliesTo:
+  seedFamilies: ['culture_conflict']
+  seedTypes: ['social_conflict']
+  timings: ['during_service']
+
+slots:
+  - id: title
+    required: true
+    claims: flavor
+    maxWords: 6
+    description: >
+      Composed title fragment. Template glue prepends the culture display
+      label, e.g. `${culture.label}: ${snippet}`. Conditions gate on
+      state (`signalEquals culture.*`, `pressureRising`, `memoryPresent`,
+      `hasTag`); no actor voice.
+
+  - id: establishing_line
+    required: true
+    claims: sim-backed
+    maxWords: 14
+    description: >
+      Narrator statement of the situation. Names the culture's tension /
+      comfort / familiarity band, rising cultural_tension, prior owner
+      choice memory, or calendar pin. Unconditional fallback claims
+      only what the seed firing guarantees (cultural tension is in the
+      room).
+
+  - id: reaction_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      Narrator framing of how the moment lands — the room's reading,
+      what the owner sees. State-perturbation gated only.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      Small narrator sensory beat — a glance across tables, a hush, a
+      gesture toward the shrine. No checkable claim, no character voice.
+
+voiceAxesInPlay: (none — narrator-voiced, see voiceRegister)
+
+verbalTicsCovered: (none — narrator-voiced)
+
+simSignalsInUse:
+  - { signal: culture.tension, bands: [low, mid, high] }
+  - { signal: culture.comfort, bands: [low, mid, high] }
+  - { signal: culture.familiarity, bands: [low, mid, high] }
+  - { kind: pressureRising, pressureIds: [cultural_tension] }
+  - { kind: repeatCount, subjectTag: culture }
+  - { kind: memoryPresent, tags: [culture, honour, mediation, ignored, seating, neglected, compromise] }
+  - { kind: hasTag, tags: [festival, ritual] }
+
+mustNotInvent:
+  - named NPCs not on the seed
+  - specific past tavern incidents not in seed memories
+  - invented cultural customs not on the culture record
+  - earth idioms, modern slang, real-world brand or place language
+  - first-person voice (this is narrator)
+
+hardBounds:
+  perSlotWords:
+    title: 6
+    establishing_line: 14
+    reaction_line: 12
+    manner_note: 10
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+  noDirectMechanicalLanguage: true
+  noFirstPersonAddress: true
+
+mustPass:
+  coverage:
+    rule: required slots (title, establishing_line, reaction_line) each carry an unconditional fallback
+  specificityGradient:
+    rule: >
+      pools contain (a) fallback, (b) single-signal middle-rung snippets,
+      (c) two-condition top-rung snippets. No voice rungs (narrator).
+  voiceBounds:
+    rule: every slot's snippets stay within hardBounds.perSlotWords; titles forbid trailing "…" and immediate duplicate tokens.
+  simCoherence:
+    rule: >
+      establishing_line is sim-backed — every non-fallback snippet has ≥ 1
+      state-lookup condition. reaction_line / manner_note are flavor — no
+      checkable history without backing.
+  determinism:
+    rule: same (seed, state) returns same snippet after FNV tie-break.
+  diversity:
+    rule: >
+      sample across state perturbations (tension/comfort/familiarity ×
+      pressures × memories × calendar tags) yields ≥ 3 distinct
+      reaction_line outputs, ≥ 3 distinct title outputs, ≥ 1 distinct
+      establishing_line per reachable signal band.
+  dedupe:
+    rule: no near-duplicate within a slot (Levenshtein ≥ 0.85 on canonical); no canonical-equal across slots.

@@ -17,6 +17,7 @@
 import { createRng } from '../../../../src/sim/core/rng'
 import {
   createCustomerGroupCastAttributes,
+  createFactionCastAttributes,
   createRegularCastAttributes,
   createStaffCastAttributes,
   createSupplierCastAttributes,
@@ -24,6 +25,7 @@ import {
 import type {
   CastAttributes,
   CustomerGroupCastAttributes,
+  FactionCastAttributes,
   SupplierCastAttributes,
   VerbalTicId,
 } from '../../../../src/sim/content/cast'
@@ -1731,6 +1733,584 @@ export function buildDebtRentEffectPreviewContext(
   return { currentResponseSlot: slot, currentEffect: effect }
 }
 
+// ---- Phase 136 / ISSUE-105 — Voiced Surface arc, Phase 10 ----
+//
+// Samplers for the two new templates in the Factions & Culture cluster.
+// Two patterns:
+//
+//   - factionRequest: actor-perturbation, mirroring supplierReliability.
+//     A faction actor carries `castAttributes` (Phase 128); the determinism
+//     sampler hand-picks profiles; the diversity sampler rolls per-sample
+//     via `createFactionCastAttributes`.
+//
+//   - cultureConflict: STATE-perturbation. Cultures have meters but no
+//     castAttributes — the snippet pools gate on culture.* signal bands
+//     (Phase 136 loopback), pressureRising, memoryPresent, repeatCount,
+//     hasTag (festival/ritual), and severityAtLeast — never on voice
+//     axes. The sampler varies the STATE the conditions read.
+
+function firstFactionId(state: TavernState): string {
+  const id = Object.keys(state.world.factions)[0]
+  if (!id) {
+    throw new Error('samplers: createInitialTavernState() must have a faction')
+  }
+  return id
+}
+
+function factionRef(id: string): EntityRef {
+  return { kind: 'faction', id }
+}
+
+function installFactionCast(
+  state: TavernState,
+  factionId: string,
+  cast: FactionCastAttributes,
+): TavernState {
+  return {
+    ...state,
+    world: {
+      ...state.world,
+      factions: {
+        ...state.world.factions,
+        [factionId]: {
+          ...state.world.factions[factionId]!,
+          castAttributes: cast,
+        },
+      },
+    },
+  }
+}
+
+function factionRequestSeedFor(factionId: string, id: string): IssueSeed {
+  return makeSeed({
+    id,
+    family: 'faction_request',
+    type: 'social_conflict',
+    timing: 'during_service',
+    severity: 45,
+    domain: ['factions', 'social'],
+    primaryActor: factionRef(factionId),
+    textIngredients: {
+      subject: 'a delegation visit',
+      sensoryDetails: ['folded arms', 'measured glances'],
+      recentContext: ['relationship questions'],
+    },
+  })
+}
+
+function neutralFactionCast(): FactionCastAttributes {
+  return {
+    specialty: 'ceremony',
+    blindspot: 'patience',
+    affinities: [],
+    voice: { axes: { terseness: 1, warmth: 1, formality: 1, floridity: 1 } },
+  }
+}
+
+export function buildFactionRequestDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  const factionId = firstFactionId(baseState)
+  const profiles: FactionCastAttributes[] = [
+    neutralFactionCast(),
+    { ...neutralFactionCast(), voice: { axes: { terseness: 2, warmth: 1, formality: 1, floridity: 1 } } },
+    { ...neutralFactionCast(), voice: { axes: { terseness: 1, warmth: 2, formality: 1, floridity: 1 } } },
+    { ...neutralFactionCast(), voice: { axes: { terseness: 1, warmth: 0, formality: 1, floridity: 1 } } },
+    { ...neutralFactionCast(), voice: { axes: { terseness: 1, warmth: 1, formality: 2, floridity: 1 } } },
+    { ...neutralFactionCast(), voice: { axes: { terseness: 1, warmth: 1, formality: 1, floridity: 2 } } },
+    { ...neutralFactionCast(), voice: { axes: { terseness: 2, warmth: 0, formality: 1, floridity: 1 } } },
+    { ...neutralFactionCast(), voice: { axes: { terseness: 1, warmth: 2, formality: 0, floridity: 1 } } },
+    { ...neutralFactionCast(), voice: { axes: { terseness: 1, warmth: 1, formality: 2, floridity: 0 } } },
+    ...VERBAL_TIC_IDS.map<FactionCastAttributes>((tic) => ({
+      ...neutralFactionCast(),
+      voice: {
+        axes: { terseness: 1, warmth: 1, formality: 1, floridity: 1 },
+        verbalTic: tic,
+      },
+    })),
+  ]
+  return profiles.map((cast, i) => ({
+    seed: factionRequestSeedFor(factionId, `faction-request-determinism-${i}`),
+    state: installFactionCast(baseState, factionId, cast),
+  }))
+}
+
+export function buildFactionRequestDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  const seed = options.rngSeed ?? 'phase-136-faction-request-diversity'
+  const rng = createRng(`${seed}:faction_identity`)
+  const baseState = createInitialTavernState()
+  const factionId = firstFactionId(baseState)
+  const faction = baseState.world.factions[factionId]!
+  return (i: number) => {
+    const cast = createFactionCastAttributes({
+      ...(faction.cultureId !== undefined ? { cultureId: faction.cultureId } : {}),
+      rng,
+    })
+    const state = installFactionCast(baseState, factionId, cast)
+    return {
+      seed: factionRequestSeedFor(factionId, `faction-request-diversity-${i}`),
+      state,
+    }
+  }
+}
+
+// ---- cultureConflict state-perturbation sampler ----
+//
+// culture_conflict seeds carry a culture primaryActor that has no
+// castAttributes. The snippet pools gate on culture.* signal bands,
+// cultural_tension pressure rising, prior-choice memory tags
+// (ignored / neglected / honour / mediation / seating), repeatCount,
+// hasTag (festival / ritual), and severity. The sampler perturbs those
+// across the sample loop.
+
+function firstCultureId(state: TavernState): string {
+  const id = Object.keys(state.world.cultures)[0]
+  if (!id) {
+    throw new Error('samplers: createInitialTavernState() must have a culture')
+  }
+  return id
+}
+
+function cultureRef(id: string): EntityRef {
+  return { kind: 'culture', id }
+}
+
+function cultureConflictBaseSeed(
+  cultureId: string,
+  id: string,
+  toneHints: readonly string[],
+  severity: number,
+): IssueSeed {
+  return makeSeed({
+    id,
+    family: 'culture_conflict',
+    type: 'social_conflict',
+    timing: 'during_service',
+    severity,
+    domain: ['cultures', 'social'],
+    primaryActor: cultureRef(cultureId),
+    toneHints: [...toneHints],
+    textIngredients: {
+      subject: 'cultural friction',
+      sensoryDetails: ['drawn breath', 'shifted seat'],
+      recentContext: ['quiet tables'],
+    },
+  })
+}
+
+function withCultureMeters(
+  state: TavernState,
+  cultureId: string,
+  overrides: Partial<{ tension: number; comfort: number; familiarity: number }>,
+): TavernState {
+  return {
+    ...state,
+    world: {
+      ...state.world,
+      cultures: {
+        ...state.world.cultures,
+        [cultureId]: {
+          ...state.world.cultures[cultureId]!,
+          ...overrides,
+        },
+      },
+    },
+  }
+}
+
+const CULTURE_PERTURBATIONS: ReadonlyArray<{
+  meters?: Partial<{ tension: number; comfort: number; familiarity: number }>
+  pressure?: { id: string; value: number; trend: number }
+  memory?: { id: string; tags: readonly string[] }
+  toneHints: readonly string[]
+  severity: number
+}> = [
+  // Fallback baseline.
+  { toneHints: ['culture', 'tension'], severity: 50 },
+  // High tension (band: high).
+  {
+    meters: { tension: 80 },
+    toneHints: ['culture', 'tension'],
+    severity: 55,
+  },
+  // Low comfort.
+  {
+    meters: { comfort: 25 },
+    toneHints: ['culture', 'tension'],
+    severity: 50,
+  },
+  // High comfort.
+  {
+    meters: { comfort: 80 },
+    toneHints: ['culture', 'tension'],
+    severity: 45,
+  },
+  // Low familiarity.
+  {
+    meters: { familiarity: 25 },
+    toneHints: ['culture', 'tension'],
+    severity: 50,
+  },
+  // High familiarity.
+  {
+    meters: { familiarity: 80 },
+    toneHints: ['culture', 'tension'],
+    severity: 45,
+  },
+  // Rising cultural_tension pressure.
+  {
+    pressure: { id: 'cultural_tension', value: 50, trend: 1 },
+    toneHints: ['culture', 'tension'],
+    severity: 50,
+  },
+  // Memory of ignoring the custom.
+  {
+    memory: { id: 'culture_ignored_recently', tags: ['culture', 'ignored'] },
+    toneHints: ['culture', 'tension'],
+    severity: 50,
+  },
+  // Memory of neglecting the group.
+  {
+    memory: { id: 'culture_neglected_recently', tags: ['culture', 'neglected'] },
+    toneHints: ['culture', 'tension'],
+    severity: 50,
+  },
+  // Memory of honouring the custom.
+  {
+    memory: { id: 'culture_honoured_recently', tags: ['culture', 'honour'] },
+    toneHints: ['culture', 'tension'],
+    severity: 45,
+  },
+  // Memory of prior mediation.
+  {
+    memory: { id: 'culture_mediated_recently', tags: ['culture', 'mediation'] },
+    toneHints: ['culture', 'tension'],
+    severity: 45,
+  },
+  // Memory of seating change.
+  {
+    memory: { id: 'culture_seating_recently', tags: ['culture', 'seating'] },
+    toneHints: ['culture', 'tension'],
+    severity: 50,
+  },
+  // Festival calendar tag.
+  { toneHints: ['culture', 'tension', 'festival'], severity: 55 },
+  // Ritual calendar tag.
+  { toneHints: ['culture', 'tension', 'ritual'], severity: 55 },
+  // High severity baseline.
+  { toneHints: ['culture', 'tension', 'urgent'], severity: 75 },
+  // High tension + repeat (three culture-tagged memories).
+  {
+    meters: { tension: 80 },
+    memory: { id: 'culture_repeat_marker', tags: ['culture'] },
+    toneHints: ['culture', 'tension', 'urgent'],
+    severity: 72,
+  },
+  // Rising + ignored (top rung).
+  {
+    pressure: { id: 'cultural_tension', value: 60, trend: 1 },
+    memory: { id: 'culture_ignored_repeat', tags: ['culture', 'ignored'] },
+    toneHints: ['culture', 'tension', 'urgent'],
+    severity: 65,
+  },
+  // Rising + festival (top rung).
+  {
+    pressure: { id: 'cultural_tension', value: 55, trend: 1 },
+    toneHints: ['culture', 'tension', 'festival'],
+    severity: 60,
+  },
+  // High severity + repeat (top rung on reaction).
+  {
+    memory: { id: 'culture_severity_repeat', tags: ['culture'] },
+    toneHints: ['culture', 'tension', 'urgent'],
+    severity: 75,
+  },
+]
+
+function buildCultureConflictState(
+  baseState: TavernState,
+  cultureId: string,
+  perturbation: (typeof CULTURE_PERTURBATIONS)[number],
+): TavernState {
+  let s = baseState
+  if (perturbation.meters) {
+    s = withCultureMeters(s, cultureId, perturbation.meters)
+  }
+  if (perturbation.pressure) {
+    s = withPressure(
+      s,
+      perturbation.pressure.id,
+      perturbation.pressure.value,
+      perturbation.pressure.trend,
+    )
+  }
+  if (perturbation.memory) {
+    s = withMemoryEntry(s, perturbation.memory.id, perturbation.memory.tags)
+    if (
+      perturbation.memory.id === 'culture_repeat_marker' ||
+      perturbation.memory.id === 'culture_severity_repeat'
+    ) {
+      s = withMemoryEntry(s, `${perturbation.memory.id}_b`, ['culture'])
+      s = withMemoryEntry(s, `${perturbation.memory.id}_c`, ['culture'])
+    }
+  }
+  return s
+}
+
+export function buildCultureConflictDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  const cultureId = firstCultureId(baseState)
+  return CULTURE_PERTURBATIONS.map((perturbation, i) => ({
+    seed: cultureConflictBaseSeed(
+      cultureId,
+      `culture-conflict-determinism-${i}`,
+      perturbation.toneHints,
+      perturbation.severity,
+    ),
+    state: buildCultureConflictState(baseState, cultureId, perturbation),
+  }))
+}
+
+export function buildCultureConflictDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  void options.rngSeed
+  const baseState = createInitialTavernState()
+  const cultureId = firstCultureId(baseState)
+  return (i: number) => {
+    const perturbation = CULTURE_PERTURBATIONS[i % CULTURE_PERTURBATIONS.length]!
+    return {
+      seed: cultureConflictBaseSeed(
+        cultureId,
+        `culture-conflict-diversity-${i}`,
+        perturbation.toneHints,
+        perturbation.severity,
+      ),
+      state: buildCultureConflictState(baseState, cultureId, perturbation),
+    }
+  }
+}
+
+// ---- Phase 6 context builders for the two new Phase-10 templates ----
+
+// faction_request verb surface (expandedSeedGenerators.ts:1930-1979):
+// appease / pay / negotiate / blame / ignore / threaten / invite.
+const FACTION_REQUEST_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'phase136-faction-appease',
+    labelHint: 'Appease them',
+    allowedVerbs: ['appease', 'pay'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise relationship'],
+  },
+  {
+    id: 'phase136-faction-negotiate',
+    labelHint: 'Negotiate terms',
+    allowedVerbs: ['negotiate'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'compromise' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise relationship'],
+  },
+  {
+    id: 'phase136-faction-blame',
+    labelHint: 'Lay the fault',
+    allowedVerbs: ['blame'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'relationship_sacrifice' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['hold ground'],
+  },
+  {
+    id: 'phase136-faction-ignore',
+    labelHint: 'Refuse outright',
+    allowedVerbs: ['ignore'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'escalation' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['lose relationship'],
+  },
+  {
+    id: 'phase136-faction-threaten',
+    labelHint: 'Call the watch',
+    allowedVerbs: ['threaten'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'escalation' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['lower tension'],
+  },
+  {
+    id: 'phase136-faction-invite',
+    labelHint: 'Host them tonight',
+    allowedVerbs: ['invite'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'long_term_investment' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise relationship'],
+  },
+]
+
+const FACTION_REQUEST_EFFECTS: readonly EffectPreview[] = [
+  {
+    kind: 'state_change',
+    target: 'factions.example.relationship',
+    amount: 10,
+    readable: 'relationship rises',
+    tags: ['faction'],
+  },
+  {
+    kind: 'state_change',
+    target: 'coin',
+    amount: -15,
+    readable: 'coin out',
+    tags: ['coin'],
+  },
+  {
+    kind: 'pressure',
+    target: 'pressure:faction_anger',
+    amount: -10,
+    readable: 'anger eases',
+    tags: ['pressure'],
+  },
+  {
+    kind: 'future_hook',
+    target: 'faction_grudge_example',
+    amount: 0,
+    readable: 'faction may retaliate',
+    tags: ['future_hook'],
+  },
+]
+
+export function buildFactionRequestChoiceLabelContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = FACTION_REQUEST_RESPONSE_SLOTS[i % FACTION_REQUEST_RESPONSE_SLOTS.length]!
+  return { currentResponseSlot: slot }
+}
+
+export function buildFactionRequestEffectPreviewContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = FACTION_REQUEST_RESPONSE_SLOTS[i % FACTION_REQUEST_RESPONSE_SLOTS.length]!
+  const effect = FACTION_REQUEST_EFFECTS[i % FACTION_REQUEST_EFFECTS.length]!
+  return { currentResponseSlot: slot, currentEffect: effect }
+}
+
+// culture_conflict verb surface (expandedSeedGenerators.ts:2238-2287):
+// appease / negotiate / invite / serve / ignore / rebrand / discount /
+// delegate.
+const CULTURE_CONFLICT_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'phase136-culture-mediate',
+    labelHint: 'Mediate between groups',
+    allowedVerbs: ['appease', 'negotiate'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'compromise' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['lower tension'],
+  },
+  {
+    id: 'phase136-culture-invite',
+    labelHint: 'Honour the custom',
+    allowedVerbs: ['invite', 'serve'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'long_term_investment' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise familiarity'],
+  },
+  {
+    id: 'phase136-culture-ignore',
+    labelHint: 'Ignore the custom',
+    allowedVerbs: ['ignore'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'ignore' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise tension'],
+  },
+  {
+    id: 'phase136-culture-rebrand',
+    labelHint: 'Change seating',
+    allowedVerbs: ['rebrand'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'compromise' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['lower tension'],
+  },
+  {
+    id: 'phase136-culture-discount',
+    labelHint: 'Stand a round',
+    allowedVerbs: ['discount'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['raise comfort'],
+  },
+  {
+    id: 'phase136-culture-delegate',
+    labelHint: 'Ask staff to intervene',
+    allowedVerbs: ['delegate'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'delay_problem' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['lower visible tension'],
+  },
+]
+
+const CULTURE_CONFLICT_EFFECTS: readonly EffectPreview[] = [
+  {
+    kind: 'state_change',
+    target: 'cultures.example.tension',
+    amount: -10,
+    readable: 'tension drops',
+    tags: ['culture'],
+  },
+  {
+    kind: 'state_change',
+    target: 'coin',
+    amount: -10,
+    readable: 'coin out',
+    tags: ['coin'],
+  },
+  {
+    kind: 'pressure',
+    target: 'pressure:cultural_tension',
+    amount: -10,
+    readable: 'tension eases',
+    tags: ['pressure'],
+  },
+  {
+    kind: 'state_change',
+    target: 'reputation.strange',
+    amount: 6,
+    readable: 'house reads as taking sides',
+    tags: ['reputation'],
+  },
+  {
+    kind: 'pressure',
+    target: 'pressure:staff_burnout',
+    amount: 8,
+    readable: 'staff carry the strain',
+    tags: ['pressure'],
+  },
+  {
+    kind: 'future_hook',
+    target: 'culture_walkout_risk_example',
+    amount: 0,
+    readable: 'culture may walk out',
+    tags: ['future_hook'],
+  },
+]
+
+export function buildCultureConflictChoiceLabelContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = CULTURE_CONFLICT_RESPONSE_SLOTS[i % CULTURE_CONFLICT_RESPONSE_SLOTS.length]!
+  return { currentResponseSlot: slot }
+}
+
+export function buildCultureConflictEffectPreviewContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = CULTURE_CONFLICT_RESPONSE_SLOTS[i % CULTURE_CONFLICT_RESPONSE_SLOTS.length]!
+  const effect = CULTURE_CONFLICT_EFFECTS[i % CULTURE_CONFLICT_EFFECTS.length]!
+  return { currentResponseSlot: slot, currentEffect: effect }
+}
+
 export const __testing = {
   firstRegularId,
   installCast,
@@ -1759,4 +2339,13 @@ export const __testing = {
   DEBT_RENT_RESPONSE_SLOTS,
   STOCK_PERTURBATIONS,
   DEBT_PERTURBATIONS,
+  firstFactionId,
+  installFactionCast,
+  factionRequestSeedFor,
+  factionRef,
+  firstCultureId,
+  cultureRef,
+  FACTION_REQUEST_RESPONSE_SLOTS,
+  CULTURE_CONFLICT_RESPONSE_SLOTS,
+  CULTURE_PERTURBATIONS,
 }

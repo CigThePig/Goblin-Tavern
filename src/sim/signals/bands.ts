@@ -36,6 +36,14 @@ export const BAND_THRESHOLDS: Record<SignalId, [number, number]> = {
   'regular.loyalty': [40, 70],
   'customer_group.satisfaction': [40, 70],
   'customer_group.loyalty': [40, 70],
+  // Phase 136 / ISSUE-105 — Voiced Surface Phase 10 (Factions & Culture).
+  // Default-thirds matches the culture_conflict seed threshold: the seed
+  // fires at `cultural_tension >= 25`, but the culture's own `tension`
+  // meter is what the establishing line states; default-thirds keeps the
+  // dramatic extremes addressable (low: settled, high: on-edge).
+  'culture.tension': [40, 70],
+  'culture.comfort': [40, 70],
+  'culture.familiarity': [40, 70],
 }
 
 /** Pure bander. Returns `low` for `value < thresholds[0]`, `high` for

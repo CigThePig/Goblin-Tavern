@@ -17,6 +17,8 @@ import { customerComplaintTemplate } from '../../../../src/cards/templates/custo
 import { supplierReliabilityTemplate } from '../../../../src/cards/templates/supplierReliability'
 import { stockShortageTemplate } from '../../../../src/cards/templates/stockShortage'
 import { debtRentTemplate } from '../../../../src/cards/templates/debtRent'
+import { factionRequestTemplate } from '../../../../src/cards/templates/factionRequest'
+import { cultureConflictTemplate } from '../../../../src/cards/templates/cultureConflict'
 import {
   drinkOrderChoiceLabelPool,
   drinkOrderEffectPreviewPool,
@@ -45,10 +47,22 @@ import {
   debtRentChoiceLabelPool,
   debtRentEffectPreviewPool,
 } from '../../../../src/cards/compose/pools/debtRent'
+import {
+  factionRequestChoiceLabelPool,
+  factionRequestEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/factionRequest'
+import {
+  cultureConflictChoiceLabelPool,
+  cultureConflictEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/cultureConflict'
 import type { CompositionalCardTemplate } from '../../../../src/cards/compose/types'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
 import { buildTemplate } from './fixtures'
 import {
+  buildCultureConflictChoiceLabelContext,
+  buildCultureConflictDeterminismSamples,
+  buildCultureConflictDiversitySampler,
+  buildCultureConflictEffectPreviewContext,
   buildCustomerComplaintChoiceLabelContext,
   buildCustomerComplaintDeterminismSamples,
   buildCustomerComplaintDiversitySampler,
@@ -61,6 +75,10 @@ import {
   buildDiversitySampler,
   buildDrinkOrderChoiceLabelContext,
   buildDrinkOrderEffectPreviewContext,
+  buildFactionRequestChoiceLabelContext,
+  buildFactionRequestDeterminismSamples,
+  buildFactionRequestDiversitySampler,
+  buildFactionRequestEffectPreviewContext,
   buildRegularComplaintChoiceLabelContext,
   buildRegularComplaintDeterminismSamples,
   buildRegularComplaintDiversitySampler,
@@ -474,6 +492,111 @@ describe('runAllGates — happy path', () => {
     expect(report.determinism.pass).toBe(true)
     expect(report.diversity.every((d) => d.pass)).toBe(true)
   })
+
+  // Phase 136 / ISSUE-105 — Voiced Surface arc, Phase 10 (Factions & Culture).
+  // Two new compositional templates land in this cluster:
+  //   - factionRequest: actor-voiced, mirrors the Phase-7 / Phase-8 / Phase-9
+  //     cast-perturbation pattern using `createFactionCastAttributes`.
+  //   - cultureConflict: narrator-voiced (cultures have no castAttributes),
+  //     so the diversity sampler perturbs STATE not cast. The reachable
+  //     condition space (culture meters × pressures × memories × calendar
+  //     tags) is smaller than the continuous 4-axis cast space; `minDistinct`
+  //     on the flavor slots is set to a tight floor of 3.
+  it('the real factionRequest template passes all seven gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(factionRequestTemplate, {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: buildFactionRequestDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'title',
+          sampler: buildFactionRequestDiversitySampler({
+            rngSeed: 'run-all-faction-request-title',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'establishing_line',
+          sampler: buildFactionRequestDiversitySampler({
+            rngSeed: 'run-all-faction-request-establishing',
+          }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
+        {
+          slotId: 'reaction_line',
+          sampler: buildFactionRequestDiversitySampler({
+            rngSeed: 'run-all-faction-request-reaction',
+          }),
+          config: { sampleSize: 100, minDistinct: 6 },
+        },
+        {
+          slotId: 'manner_note',
+          sampler: buildFactionRequestDiversitySampler({
+            rngSeed: 'run-all-faction-request-manner',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  it('the real cultureConflict template passes all seven gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(cultureConflictTemplate, {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: buildCultureConflictDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'title',
+          sampler: buildCultureConflictDiversitySampler({
+            rngSeed: 'run-all-culture-conflict-title',
+          }),
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'establishing_line',
+          sampler: buildCultureConflictDiversitySampler({
+            rngSeed: 'run-all-culture-conflict-establishing',
+          }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
+        {
+          slotId: 'reaction_line',
+          sampler: buildCultureConflictDiversitySampler({
+            rngSeed: 'run-all-culture-conflict-reaction',
+          }),
+          // Narrator-voiced. State perturbation reaches a smaller
+          // condition surface than cast perturbation; the floor is 3.
+          config: { sampleSize: 100, minDistinct: 3 },
+        },
+        {
+          slotId: 'manner_note',
+          sampler: buildCultureConflictDiversitySampler({
+            rngSeed: 'run-all-culture-conflict-manner',
+          }),
+          config: { sampleSize: 100, minDistinct: 2 },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
 })
 
 // ---- Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6 ----
@@ -655,6 +778,57 @@ function buildDebtRentChoicesGateTemplate(): CompositionalCardTemplate {
         id: 'effect_preview',
         role: 'effect_preview',
         pool: debtRentEffectPreviewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      },
+    ],
+  }
+}
+
+// Phase 136 / ISSUE-105 — Voiced Surface arc, Phase 10.
+function buildFactionRequestChoicesGateTemplate(): CompositionalCardTemplate {
+  return {
+    ...factionRequestTemplate,
+    id: 'phase136-factionRequest-choices-gate',
+    slots: [
+      {
+        id: 'choice_label',
+        role: 'choice_label',
+        pool: factionRequestChoiceLabelPool,
+        optional: true,
+        wordBudget: 6,
+        claimMode: 'flavor',
+      },
+      {
+        id: 'effect_preview',
+        role: 'effect_preview',
+        pool: factionRequestEffectPreviewPool,
+        optional: true,
+        wordBudget: 10,
+        claimMode: 'flavor',
+      },
+    ],
+  }
+}
+
+function buildCultureConflictChoicesGateTemplate(): CompositionalCardTemplate {
+  return {
+    ...cultureConflictTemplate,
+    id: 'phase136-cultureConflict-choices-gate',
+    slots: [
+      {
+        id: 'choice_label',
+        role: 'choice_label',
+        pool: cultureConflictChoiceLabelPool,
+        optional: true,
+        wordBudget: 6,
+        claimMode: 'flavor',
+      },
+      {
+        id: 'effect_preview',
+        role: 'effect_preview',
+        pool: cultureConflictEffectPreviewPool,
         optional: true,
         wordBudget: 10,
         claimMode: 'flavor',
@@ -940,6 +1114,89 @@ describe('runAllGates — Phase 6 choice / consequence pools', () => {
             sampleSize: 100,
             minDistinct: 3,
             pickContext: buildDebtRentEffectPreviewContext,
+          },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  // Phase 136 / ISSUE-105 — Voiced Surface arc, Phase 10.
+  it('the factionRequest choice-label and effect-preview pools pass all gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(buildFactionRequestChoicesGateTemplate(), {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: [] },
+      diversity: [
+        {
+          slotId: 'choice_label',
+          sampler: buildFactionRequestDiversitySampler({
+            rngSeed: 'phase136-faction-choice-label',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildFactionRequestChoiceLabelContext,
+          },
+        },
+        {
+          slotId: 'effect_preview',
+          sampler: buildFactionRequestDiversitySampler({
+            rngSeed: 'phase136-faction-effect-preview',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildFactionRequestEffectPreviewContext,
+          },
+        },
+      ],
+    })
+    expect(report.pass).toBe(true)
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+  })
+
+  it('the cultureConflict choice-label and effect-preview pools pass all gates with one call', () => {
+    const state = createInitialTavernState()
+    const report = runAllGates(buildCultureConflictChoicesGateTemplate(), {
+      simCoherence: {
+        bannedDisplayNames: representativeBannedNames(state),
+      },
+      determinism: { samples: [] },
+      diversity: [
+        {
+          slotId: 'choice_label',
+          sampler: buildCultureConflictDiversitySampler({
+            rngSeed: 'phase136-culture-choice-label',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildCultureConflictChoiceLabelContext,
+          },
+        },
+        {
+          slotId: 'effect_preview',
+          sampler: buildCultureConflictDiversitySampler({
+            rngSeed: 'phase136-culture-effect-preview',
+          }),
+          config: {
+            sampleSize: 100,
+            minDistinct: 3,
+            pickContext: buildCultureConflictEffectPreviewContext,
           },
         },
       ],

@@ -14,7 +14,7 @@ import {
   customerComplaintCard,
   supplierOfferCard,
   maintenanceWarningCard,
-  staffRequestCard,
+  staffBurnoutCard,
   factionRequestCard,
   reputationShiftWeeklyCard,
   monthlyReviewCard,
@@ -84,7 +84,11 @@ function staffSeed(state: TavernState): IssueSeed {
     id: 'staff-request',
     family: 'staff_burnout',
     type: 'staff_request',
-    timing: 'closing',
+    // Phase 133 / ISSUE-102 — Voiced Surface arc, Phase 7.
+    // The real generator emits `morning_prep` (issueSeedGenerators.ts:1153);
+    // the legacy staffRequest template's `closing` declaration never
+    // actually matched. New `staffBurnoutCard` matches the real timing.
+    timing: 'morning_prep',
     primaryActor: { kind: 'staff', id: firstStaffId },
     responseSlots: [
       {
@@ -273,25 +277,30 @@ describe('Template 4 — maintenanceWarningCard', () => {
   })
 })
 
-describe('Template 5 — staffRequestCard', () => {
+describe('Template 5 — staffBurnoutCard', () => {
+  // Phase 133 / ISSUE-102 — Voiced Surface arc, Phase 7. Replaces the
+  // legacy staffRequestCard block. The compositional template carries
+  // its own integration coverage in tests/cards/templates.staffBurnout.test.ts;
+  // this slot is here for the registry-shape parity with the other
+  // numbered templates.
   const state = createInitialTavernState()
   const seed = staffSeed(state)
   it('applies', () => {
-    expect(appliesToMatches(staffRequestCard.appliesTo, seed, state)).toBe(true)
+    expect(appliesToMatches(staffBurnoutCard.appliesTo, seed, state)).toBe(true)
   })
   it('renders within budgets and names the staff member', () => {
     const firstStaffId = Object.keys(state.staff)[0]!
     const display = state.staff[firstStaffId]!.name.display
-    const view = staffRequestCard.render(seed, state)
+    const view = staffBurnoutCard.render(seed, state)
     assertTitleBudget(view)
     assertBodyBudget(view)
     expect(view.title).toContain(display.split(' ')[0]!)
   })
   it('emits valid choices', () => {
-    assertChoiceValidity(staffRequestCard.render(seed, state), seed)
+    assertChoiceValidity(staffBurnoutCard.render(seed, state), seed)
   })
   it('does not mutate state', () => {
-    assertNonMutation(staffRequestCard, seed, state)
+    assertNonMutation(staffBurnoutCard, seed, state)
   })
 })
 

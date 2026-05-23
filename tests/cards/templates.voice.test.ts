@@ -11,7 +11,7 @@ import {
   customerComplaintCard,
   supplierOfferCard,
   maintenanceWarningCard,
-  staffRequestCard,
+  staffBurnoutCard,
   factionRequestCard,
   reputationShiftWeeklyCard,
   monthlyReviewCard,
@@ -156,17 +156,21 @@ describe('maintenanceWarningCard voice', () => {
   })
 })
 
-describe('staffRequestCard voice', () => {
+describe('staffBurnoutCard voice', () => {
+  // Phase 133 / ISSUE-102 — Voiced Surface arc, Phase 7. Replaces the
+  // staffRequestCard voice block. Timing changed from `closing` (legacy
+  // declaration that never matched a real seed) to `morning_prep` (the
+  // generator's actual output).
   it('honours the budget', () => {
     const state = createInitialTavernState()
     const staffId = Object.keys(state.staff)[0]!
     const seed = makeSeed({
       family: 'staff_burnout',
       type: 'staff_request',
-      timing: 'closing',
+      timing: 'morning_prep',
       primaryActor: { kind: 'staff', id: staffId },
     })
-    const view = staffRequestCard.render(seed, state)
+    const view = staffBurnoutCard.render(seed, state)
     assertBudget(view)
   })
 
@@ -177,11 +181,11 @@ describe('staffRequestCard voice', () => {
       id: 'staff-voice-A',
       family: 'staff_burnout',
       type: 'staff_request',
-      timing: 'closing',
+      timing: 'morning_prep',
       primaryActor: { kind: 'staff', id: staffId },
     })
-    const a = staffRequestCard.render(seed, state)
-    const b = staffRequestCard.render(seed, state)
+    const a = staffBurnoutCard.render(seed, state)
+    const b = staffBurnoutCard.render(seed, state)
     expect(a.title).toBe(b.title)
     expect(a.body).toEqual(b.body)
   })

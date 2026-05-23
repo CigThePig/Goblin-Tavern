@@ -13,14 +13,45 @@
 
 templateId: staff_aside
 voiceRegister: staff_quarters
-status: phase_f_hand_authored
+status: phase_7_voiced_surface_arc_complete
 purpose: >
   Generate short in-character pre-shift remarks from a staff member to the
-  owner. Voice variation is driven by the shipped Phase-A
-  CastAttributes.voice scalars carried by staff (createStaffCastAttributes).
-  No claim about specific events, named NPCs, factions, or past incidents.
+  owner. The body STATES what's going on with the staff member (Phase 7
+  added sim-backed establishing_line) and voices their reaction
+  (flavor-only aside_line). Voice variation is driven by the shipped
+  Phase-A CastAttributes.voice scalars carried by staff
+  (createStaffCastAttributes). No invented events, named NPCs, factions,
+  or past incidents.
+
+# Phase 133 / ISSUE-102 — Voiced Surface arc, Phase 7. Sim signals the
+# establishing_line pool reaches for. The same staff signals the
+# staff_burnout template uses; this template adds a `loyalty_risk`
+# memory present and an `identity` memory present that fit the
+# staff_identity / relationship_test framing specifically.
+simSignalsInUse:
+  - { signal: staff.stress, bands: [low, mid, high] }
+  - { signal: staff.fatigue, bands: [low, mid, high] }
+  - { kind: pressureRising, pressureIds: [staff_loyalty_risk, staff_burnout] }
+  - { kind: memoryPresent, tags: [identity, warning, staff] }
+  - { kind: repeatCount, subjectTag: staff }
+  - { kind: hasNamedEntity, role: primaryActor, entityKind: staff }
 
 slots:
+  - id: establishing_line
+    required: true
+    claims: sim-backed
+    maxWords: 14
+    description: >
+      Third-person narration of what's actually going on with this
+      staff member. Names the sim truth — stress band, fatigue band,
+      rising loyalty-risk or burnout pressure, prior identity-warning
+      memory, repeat staff seed appearance — pinned by a state-lookup
+      condition. The unconditional fallback claims only what the seed
+      firing guarantees (a staff member surfacing themselves before
+      the day opens). Added in Phase 7; replaces the dangling
+      textIngredients sensoryDetails fragment that buildStaffAsideBody
+      previously appended as "grounding."
+
   - id: aside_line
     required: true
     claims: flavor
@@ -304,6 +335,62 @@ negativeExamples:
       rung is mandatory.
 
 snippetPools:
+  # Phase 133 / ISSUE-102 — Voiced Surface arc, Phase 7. Sim-backed
+  # establishing line: states what the sim says about this staff member
+  # before the voiced aside_line lands. Every non-fallback snippet
+  # carries >=1 state-lookup condition; the unconditional fallback
+  # claims only what the seed firing guarantees.
+  - slotId: establishing_line
+    required: true
+    snippets:
+      - id: est_fallback
+        text: "A staff member surfaces before the day fully opens."
+        conditions: []
+
+      - id: est_high_stress
+        text: "Their shoulders are pulled tight before the door's even propped."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: staff.stress, equals: high }
+      - id: est_low_stress
+        text: "They walk through quiet, the morning sitting easy on them."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: staff.stress, equals: low }
+      - id: est_high_fatigue
+        text: "They came in slow today; the long week is plain to see."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: staff.fatigue, equals: high }
+      - id: est_loyalty_risk_rising
+        text: "Something's been pulling them away from the work these days."
+        conditions:
+          - { kind: pressureRising, pressureId: staff_loyalty_risk }
+      - id: est_burnout_rising
+        text: "Tomorrow's load is already crowding into this morning."
+        conditions:
+          - { kind: pressureRising, pressureId: staff_burnout }
+      - id: est_identity_memory
+        text: "Last week's slight still sits in the room between you."
+        conditions:
+          - { kind: memoryPresent, tag: identity }
+      - id: est_warning_memory
+        text: "They've been on warning before; the rota remembers."
+        conditions:
+          - { kind: memoryPresent, tag: warning }
+      - id: est_repeat_visit
+        text: "Third quiet morning in a row from this one."
+        conditions:
+          - { kind: repeatCount, subjectTag: staff, atLeast: 3 }
+
+      - id: est_stress_loyalty
+        text: "Wound tight, and pulling back from the room besides."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: staff.stress, equals: high }
+          - { kind: pressureRising, pressureId: staff_loyalty_risk }
+      - id: est_fatigue_warning
+        text: "Slow steps, and they were on warning last week already."
+        conditions:
+          - { kind: signalEquals, role: primaryActor, signal: staff.fatigue, equals: high }
+          - { kind: memoryPresent, tag: warning }
+
   - slotId: aside_line
     required: true
     snippets:
@@ -434,20 +521,58 @@ mustPass:
       is mandatory.
     current: true
   voiceBounds:
-    rule: every aside_line <= 12 words; every manner_note <= 10 words
+    rule: >
+      title <= 6 words (no trailing "…", no immediate duplicate token);
+      establishing_line <= 14; aside_line <= 12; manner_note <= 10
     current: true
   simCoherence:
     rule: >
-      flavor slots assert no checkable history; staff-identity seed framing
-      (loyalty risk, blame, slighted) flows through textIngredients, not
-      through the voice line.
+      establishing_line (added Phase 7) is claims: sim-backed — every
+      non-fallback snippet carries >=1 state-lookup condition
+      (signalEquals, pressureRising, repeatCount, memoryPresent,
+      hasNamedEntity). aside_line, manner_note, title are claims:
+      flavor — no checkable history, no named entities, no event-claim
+      language unbacked by a condition.
     current: true
   determinism:
     rule: same seed + same state + same slot returns same snippet after tie-break
     current: proven by Phase C/D / F template tests
   diversity:
     rule: >
-      sample pool yields >= 6 distinct aside_line outputs across a RANDOM
-      staff cast sample drawn from the real [-1,0,0,1]-perturbed
-      distribution.
-    current: proven by Phase D harness extended in Phase F
+      sample pool yields >= 6 distinct aside_line outputs and >= 3
+      distinct establishing_line outputs across reachable signal bands,
+      sampled across a RANDOM staff cast sample drawn from the real
+      [-1,0,0,1]-perturbed distribution.
+    current: proven by Phase D harness extended in Phase F and Phase 7
+  dedupe:
+    rule: >
+      no within-slot pair >= 0.85 canonical Levenshtein; no cross-slot
+      canonical equality across the five live slots (title,
+      establishing_line, aside_line, manner_note, choice_label,
+      effect_preview).
+    current: true
+
+# ----------------------------------------------------------------------
+# loopback — Phase 7 added the sim-backed establishing_line slot. The
+# Voiced Surface arc anticipates that migrations may surface gaps in
+# Movement I (a missing signal or axis). Recording the Phase 7 pass:
+# ----------------------------------------------------------------------
+
+loopback:
+  surfaced:
+    - none
+
+  notes:
+    - >
+      The Phase 1 signal surface already exposes `staff.stress` and
+      `staff.fatigue`; the `staff_loyalty_risk` and `staff_burnout`
+      pressures are pre-existing on every staff_identity seed (see
+      expandedSeedGenerators.ts:802-813). The memory tags `identity`
+      and `warning` are written by the same generator (line 822-825).
+      No additive signal-surface work was needed.
+    - >
+      The dangling textIngredients sensoryDetails fragment that
+      buildStaffAsideBody previously appended as body grounding is
+      now removed in favour of the composed establishing_line. The
+      Phase 7 template tests assert the body's first line is the
+      sim-backed snippet, not a raw sensory fragment.

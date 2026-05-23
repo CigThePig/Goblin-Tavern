@@ -22,7 +22,7 @@ export {
   customerComplaintCard,
   supplierOfferCard,
   maintenanceWarningCard,
-  staffRequestCard,
+  staffBurnoutCard,
   factionRequestCard,
   reputationShiftWeeklyCard,
   monthlyReviewCard,

@@ -362,6 +362,104 @@ export function buildStaffDiversitySampler(
   }
 }
 
+// ---- Phase 133 / ISSUE-102 — Voiced Surface arc, Phase 7 ----
+//
+// Samplers for the staff_burnout template. The seed shape differs from
+// staff_aside (different family / type, no `socialContext`) so the
+// determinism harness needs its own seed factory. The diversity sampler
+// reuses the same cast-perturbation rng as staff_aside since the voice
+// dimensions are identical.
+
+function staffBurnoutSeedFor(staffId: string, id: string): IssueSeed {
+  return makeSeed({
+    id,
+    family: 'staff_burnout',
+    type: 'staff_request',
+    timing: 'morning_prep',
+    severity: 50,
+    domain: ['staff'],
+    primaryActor: staffRef(staffId),
+    textIngredients: {
+      subject: 'looks ready to snap',
+      sensoryDetails: ['hunched shoulders', 'dark eyes'],
+      recentContext: ['heavy week of service'],
+    },
+  })
+}
+
+export function buildStaffBurnoutDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  const staffId = firstStaffId(baseState)
+  const profiles: CastAttributes[] = [
+    neutralCast(),
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 2, warmth: 1, formality: 1, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 1, warmth: 2, formality: 1, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 1, warmth: 0, formality: 1, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 1, warmth: 1, formality: 2, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 1, warmth: 1, formality: 1, floridity: 2 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 2, warmth: 0, formality: 1, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 2, warmth: 2, formality: 1, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 1, warmth: 2, formality: 0, floridity: 1 } },
+    },
+    {
+      ...neutralCast(),
+      voice: { axes: { terseness: 1, warmth: 1, formality: 2, floridity: 0 } },
+    },
+    ...VERBAL_TIC_IDS.map<CastAttributes>((tic) => ({
+      ...neutralCast(),
+      voice: {
+        axes: { terseness: 1, warmth: 1, formality: 1, floridity: 1 },
+        verbalTic: tic,
+      },
+    })),
+  ]
+  return profiles.map((cast, i) => ({
+    seed: staffBurnoutSeedFor(staffId, `staff-burnout-determinism-${i}`),
+    state: installStaffCast(baseState, staffId, cast),
+  }))
+}
+
+export function buildStaffBurnoutDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  const seed = options.rngSeed ?? 'phase-133-staff-burnout-diversity'
+  const rng = createRng(`${seed}:staff_burnout`)
+  const baseState = createInitialTavernState()
+  const staffId = firstStaffId(baseState)
+  const roleId = baseState.staff[staffId]!.role
+  return (i: number) => {
+    const cast = createStaffCastAttributes({ roleId, rng })
+    const state = installStaffCast(baseState, staffId, cast)
+    return {
+      seed: staffBurnoutSeedFor(staffId, `staff-burnout-diversity-${i}`),
+      state,
+    }
+  }
+}
+
 // ---- Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6 ----
 //
 // Context builders for the choice-label and effect-preview pool

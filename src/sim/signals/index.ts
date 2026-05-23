@@ -21,6 +21,7 @@ export {
   cultureFamiliarityBand,
   cultureTensionBand,
   customerGroupLoyaltyBand,
+  customerGroupRowdinessBand,
   customerGroupSatisfactionBand,
   factionInfluenceBand,
   factionRelationshipBand,

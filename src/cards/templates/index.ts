@@ -4,14 +4,14 @@
 // regardless of registration order. The fallback is registered last by
 // convention but the registry treats it identically to any other card.
 //
-// Phase 137 / ISSUE-106 — Voiced Surface arc, Phase 11 (Premises &
-// Atmosphere). Replaces the legacy hand-written `maintenanceWarningCard`
-// with two compositional templates: `maintenanceCard` (handles the
-// `maintenance` family's `maintenance_problem` seeds) and
-// `areaAtmosphereCard` (first dedicated card for `area_atmosphere` —
-// pre-Phase 11 these seeds were nominally claimed by the legacy
-// template but rendered through `maintenance_problem`-shaped body code).
-// Both are narrator-voiced (areas have no `castAttributes`).
+// Phase 138 / ISSUE-107 — Voiced Surface arc, Phase 12 (Crises &
+// Safety). Rewrites the hand-written `foodSafetyCrisisCard` as an
+// actor-voiced compositional template and adds two new dedicated
+// templates that previously routed through `fallbackCard`:
+// `violenceCard` (`violence.customer_incident`) and `inspectionCard`
+// (`inspection.inspection_threat`). All three are actor-voiced;
+// graceful-fallback `custom` predicates require the relevant
+// `castAttributes`.
 
 import { foodSafetyCrisisCard } from './foodSafetyCrisis'
 import { customerComplaintCard } from './customerComplaint'
@@ -21,6 +21,8 @@ import { stockShortageCard } from './stockShortage'
 import { debtRentCard } from './debtRent'
 import { maintenanceCard } from './maintenance'
 import { areaAtmosphereCard } from './areaAtmosphere'
+import { violenceCard } from './violence'
+import { inspectionCard } from './inspection'
 import { staffBurnoutCard } from './staffBurnout'
 import { factionRequestCard } from './factionRequest'
 import { cultureConflictCard } from './cultureConflict'
@@ -40,6 +42,8 @@ export const REQUIRED_CARDS: ReadonlyArray<CardDefinition> = [
   debtRentCard,
   maintenanceCard,
   areaAtmosphereCard,
+  violenceCard,
+  inspectionCard,
   staffBurnoutCard,
   factionRequestCard,
   cultureConflictCard,
@@ -60,6 +64,8 @@ export {
   debtRentCard,
   maintenanceCard,
   areaAtmosphereCard,
+  violenceCard,
+  inspectionCard,
   staffBurnoutCard,
   factionRequestCard,
   cultureConflictCard,

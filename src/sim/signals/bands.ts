@@ -50,6 +50,13 @@ export const BAND_THRESHOLDS: Record<SignalId, [number, number]> = {
   // dramatic extremes (low: barely touched, high: visibly failing) on
   // the band; the mid band is the unanchored fallback.
   'area.damage': [40, 70],
+  // Phase 138 / ISSUE-107 — Voiced Surface Phase 12 (Crises & Safety).
+  // Default-thirds keeps the dramatic extremes (low: peaceable, high:
+  // spoiling for trouble) addressable. The violence picker fires at
+  // `patronage + rowdiness` above a sum threshold; the band lets the
+  // establishing line state the group's actual temperature rather than
+  // a pressure proxy.
+  'customer_group.rowdiness': [40, 70],
 }
 
 /** Pure bander. Returns `low` for `value < thresholds[0]`, `high` for

@@ -2871,6 +2871,551 @@ export function buildAreaAtmosphereEffectPreviewContext(
   return { currentResponseSlot: slot, currentEffect: effect }
 }
 
+// ---- Phase 138 / ISSUE-107 — Voiced Surface arc, Phase 12 (Crises & Safety) ----
+//
+// Samplers for the three new compositional templates:
+//   - foodSafetyCrisisCard (actor-voiced via cook staff cast)
+//   - violenceCard         (actor-voiced via customer-group cohort cast)
+//   - inspectionCard       (actor-voiced via faction cast)
+//
+// Each determinism sample set is a hand-picked profile cover plus the
+// six verbal tics; each diversity sampler rolls fresh cast attributes
+// via the matching factory. State is otherwise unperturbed — the
+// establishing-line slot is sim-backed at `minDistinct: 1`, so the
+// fallback covers the diversity floor.
+
+// ---- foodSafety (cook-voiced) ----
+
+function foodSafetyCrisisSeedFor(staffId: string, id: string): IssueSeed {
+  return makeSeed({
+    id,
+    family: 'food_safety',
+    type: 'crisis',
+    timing: 'morning_prep',
+    severity: 65,
+    domain: ['food', 'kitchen', 'stock'],
+    primaryActor: staffRef(staffId),
+    location: { kind: 'area', id: 'kitchen' },
+    toneHints: ['risk', 'kitchen', 'urgent'],
+    textIngredients: {
+      subject: 'the kitchen',
+      sensoryDetails: ['greasy floor'],
+      recentContext: ['kitchen filthy for days'],
+    },
+  })
+}
+
+export function buildFoodSafetyDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  const staffId = firstStaffId(baseState)
+  const profiles: CastAttributes[] = [
+    neutralCast(),
+    { ...neutralCast(), voice: { axes: { terseness: 2, warmth: 1, formality: 1, floridity: 1 } } },
+    { ...neutralCast(), voice: { axes: { terseness: 1, warmth: 2, formality: 1, floridity: 1 } } },
+    { ...neutralCast(), voice: { axes: { terseness: 1, warmth: 0, formality: 1, floridity: 1 } } },
+    { ...neutralCast(), voice: { axes: { terseness: 1, warmth: 1, formality: 2, floridity: 1 } } },
+    { ...neutralCast(), voice: { axes: { terseness: 1, warmth: 1, formality: 0, floridity: 1 } } },
+    { ...neutralCast(), voice: { axes: { terseness: 2, warmth: 0, formality: 1, floridity: 1 } } },
+    { ...neutralCast(), voice: { axes: { terseness: 1, warmth: 2, formality: 0, floridity: 1 } } },
+    ...VERBAL_TIC_IDS.map<CastAttributes>((tic) => ({
+      ...neutralCast(),
+      voice: {
+        axes: { terseness: 1, warmth: 1, formality: 1, floridity: 1 },
+        verbalTic: tic,
+      },
+    })),
+  ]
+  return profiles.map((cast, i) => ({
+    seed: foodSafetyCrisisSeedFor(staffId, `food-safety-determinism-${i}`),
+    state: installStaffCast(baseState, staffId, cast),
+  }))
+}
+
+export function buildFoodSafetyDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  const seed = options.rngSeed ?? 'phase-138-food-safety-diversity'
+  const rng = createRng(`${seed}:food_safety`)
+  const baseState = createInitialTavernState()
+  const staffId = firstStaffId(baseState)
+  const roleId = baseState.staff[staffId]!.role
+  return (i: number) => {
+    const cast = createStaffCastAttributes({ roleId, rng })
+    const state = installStaffCast(baseState, staffId, cast)
+    return {
+      seed: foodSafetyCrisisSeedFor(staffId, `food-safety-diversity-${i}`),
+      state,
+    }
+  }
+}
+
+// ---- violence (customer-group-voiced) ----
+
+function violenceSeedFor(groupId: string, id: string): IssueSeed {
+  return makeSeed({
+    id,
+    family: 'violence',
+    type: 'customer_incident',
+    timing: 'during_service',
+    severity: 55,
+    domain: ['customers', 'service', 'maintenance'],
+    primaryActor: customerGroupRef(groupId),
+    location: { kind: 'area', id: 'main_room' },
+    toneHints: ['violence', 'rowdy'],
+    textIngredients: {
+      subject: 'main room',
+      sensoryDetails: ['shouting voices'],
+      recentContext: ['brawl this week'],
+    },
+  })
+}
+
+export function buildViolenceDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  const groupId = firstCustomerGroupId(baseState)
+  const profiles: CustomerGroupCastAttributes[] = [
+    { voice: { axes: { terseness: 1, warmth: 1, formality: 1, floridity: 1 } } },
+    { voice: { axes: { terseness: 2, warmth: 1, formality: 1, floridity: 1 } } },
+    { voice: { axes: { terseness: 1, warmth: 2, formality: 1, floridity: 1 } } },
+    { voice: { axes: { terseness: 1, warmth: 0, formality: 1, floridity: 1 } } },
+    { voice: { axes: { terseness: 1, warmth: 1, formality: 2, floridity: 1 } } },
+    { voice: { axes: { terseness: 1, warmth: 1, formality: 0, floridity: 1 } } },
+    { voice: { axes: { terseness: 1, warmth: 1, formality: 1, floridity: 2 } } },
+    { voice: { axes: { terseness: 2, warmth: 0, formality: 1, floridity: 1 } } },
+    { voice: { axes: { terseness: 1, warmth: 2, formality: 0, floridity: 1 } } },
+    ...VERBAL_TIC_IDS.map<CustomerGroupCastAttributes>((tic) => ({
+      voice: {
+        axes: { terseness: 1, warmth: 1, formality: 1, floridity: 1 },
+        verbalTic: tic,
+      },
+    })),
+  ]
+  return profiles.map((cast, i) => ({
+    seed: violenceSeedFor(groupId, `violence-determinism-${i}`),
+    state: installGroupCast(baseState, groupId, cast),
+  }))
+}
+
+export function buildViolenceDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  const seed = options.rngSeed ?? 'phase-138-violence-diversity'
+  const rng = createRng(`${seed}:violence`)
+  const baseState = createInitialTavernState()
+  const groupId = firstCustomerGroupId(baseState)
+  const cultureId = baseState.customerGroups[groupId]!.cultureId
+  return (i: number) => {
+    const cast = createCustomerGroupCastAttributes({ rng, cultureId })
+    const state = installGroupCast(baseState, groupId, cast)
+    return {
+      seed: violenceSeedFor(groupId, `violence-diversity-${i}`),
+      state,
+    }
+  }
+}
+
+// ---- inspection (faction-voiced) ----
+
+function inspectionSeedFor(factionId: string, id: string): IssueSeed {
+  return makeSeed({
+    id,
+    family: 'inspection',
+    type: 'inspection_threat',
+    timing: 'morning_prep',
+    severity: 55,
+    domain: ['inspection', 'food', 'areas', 'reputation'],
+    primaryActor: factionRef(factionId),
+    location: { kind: 'area', id: 'main_room' },
+    toneHints: ['inspection', 'urgent'],
+    textIngredients: {
+      subject: 'the tavern',
+      sensoryDetails: ['privy stench'],
+      recentContext: ['privy left filthy'],
+    },
+  })
+}
+
+export function buildInspectionDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  const factionId = firstFactionId(baseState)
+  const profiles: FactionCastAttributes[] = [
+    neutralFactionCast(),
+    { ...neutralFactionCast(), voice: { axes: { terseness: 2, warmth: 1, formality: 1, floridity: 1 } } },
+    { ...neutralFactionCast(), voice: { axes: { terseness: 1, warmth: 1, formality: 2, floridity: 1 } } },
+    { ...neutralFactionCast(), voice: { axes: { terseness: 1, warmth: 1, formality: 0, floridity: 1 } } },
+    { ...neutralFactionCast(), voice: { axes: { terseness: 1, warmth: 1, formality: 1, floridity: 2 } } },
+    { ...neutralFactionCast(), voice: { axes: { terseness: 2, warmth: 1, formality: 2, floridity: 1 } } },
+    { ...neutralFactionCast(), voice: { axes: { terseness: 1, warmth: 1, formality: 2, floridity: 2 } } },
+    ...VERBAL_TIC_IDS.map<FactionCastAttributes>((tic) => ({
+      ...neutralFactionCast(),
+      voice: {
+        axes: { terseness: 1, warmth: 1, formality: 1, floridity: 1 },
+        verbalTic: tic,
+      },
+    })),
+  ]
+  return profiles.map((cast, i) => ({
+    seed: inspectionSeedFor(factionId, `inspection-determinism-${i}`),
+    state: installFactionCast(baseState, factionId, cast),
+  }))
+}
+
+export function buildInspectionDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  const seed = options.rngSeed ?? 'phase-138-inspection-diversity'
+  const rng = createRng(`${seed}:inspection`)
+  const baseState = createInitialTavernState()
+  const factionId = firstFactionId(baseState)
+  const faction = baseState.world.factions[factionId]!
+  return (i: number) => {
+    const cast = createFactionCastAttributes({
+      ...(faction.cultureId !== undefined ? { cultureId: faction.cultureId } : {}),
+      rng,
+    })
+    const state = installFactionCast(baseState, factionId, cast)
+    return {
+      seed: inspectionSeedFor(factionId, `inspection-diversity-${i}`),
+      state,
+    }
+  }
+}
+
+// ---- Phase 6 context builders for the three Phase-12 templates ----
+
+const FOOD_SAFETY_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'phase138-foodsafety-discard',
+    labelHint: 'Discard questionable stock',
+    allowedVerbs: ['discard'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['stock -20'],
+  },
+  {
+    id: 'phase138-foodsafety-clean',
+    labelHint: 'Clean the kitchen',
+    allowedVerbs: ['clean'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'long_term_investment' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['cleanliness +25'],
+  },
+  {
+    id: 'phase138-foodsafety-serve',
+    labelHint: 'Serve it anyway',
+    allowedVerbs: ['serve'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'risky_profitable' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['coin +15'],
+  },
+  {
+    id: 'phase138-foodsafety-blame',
+    labelHint: 'Blame the supplier',
+    allowedVerbs: ['blame'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'relationship_sacrifice' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['supplier grudge'],
+  },
+]
+
+const FOOD_SAFETY_EFFECTS: readonly EffectPreview[] = [
+  {
+    kind: 'state_change',
+    target: 'stock.mushrooms.quantity',
+    amount: -20,
+    readable: 'mushrooms drop',
+    tags: ['stock'],
+  },
+  {
+    kind: 'state_change',
+    target: 'areas.kitchen.cleanliness',
+    amount: 25,
+    readable: 'kitchen cleaner',
+    tags: ['area'],
+  },
+  {
+    kind: 'state_change',
+    target: 'coin',
+    amount: 15,
+    readable: 'earn coin',
+    tags: ['coin'],
+  },
+  {
+    kind: 'pressure',
+    target: 'pressure:food_safety',
+    amount: -10,
+    readable: 'food safety pressure eases',
+    tags: ['pressure'],
+  },
+  {
+    kind: 'future_hook',
+    target: 'food_poisoning_rumor_possible',
+    amount: 0,
+    readable: 'food poisoning rumor may emerge',
+    tags: ['future_hook'],
+  },
+]
+
+export function buildFoodSafetyChoiceLabelContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = FOOD_SAFETY_RESPONSE_SLOTS[i % FOOD_SAFETY_RESPONSE_SLOTS.length]!
+  return { currentResponseSlot: slot }
+}
+
+export function buildFoodSafetyEffectPreviewContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = FOOD_SAFETY_RESPONSE_SLOTS[i % FOOD_SAFETY_RESPONSE_SLOTS.length]!
+  const effect = FOOD_SAFETY_EFFECTS[i % FOOD_SAFETY_EFFECTS.length]!
+  return { currentResponseSlot: slot, currentEffect: effect }
+}
+
+const VIOLENCE_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'phase138-violence-pay',
+    labelHint: 'Hire security',
+    allowedVerbs: ['pay'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['coin -20'],
+  },
+  {
+    id: 'phase138-violence-ban',
+    labelHint: 'Ban the rowdiest group',
+    allowedVerbs: ['ban'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'relationship_sacrifice' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['patronage -25'],
+  },
+  {
+    id: 'phase138-violence-rebrand',
+    labelHint: 'Embrace the chaos',
+    allowedVerbs: ['rebrand'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'reputation_play' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['dangerous rep up'],
+  },
+  {
+    id: 'phase138-violence-repair',
+    labelHint: 'Repair the damage',
+    allowedVerbs: ['repair'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'short_term_patch' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['area damage -20'],
+  },
+]
+
+const VIOLENCE_EFFECTS: readonly EffectPreview[] = [
+  {
+    kind: 'state_change',
+    target: 'coin',
+    amount: -20,
+    readable: 'coin drops',
+    tags: ['coin'],
+  },
+  {
+    kind: 'state_change',
+    target: 'customers.ogres.patronage',
+    amount: -25,
+    readable: 'group leaves',
+    tags: ['customer'],
+  },
+  {
+    kind: 'state_change',
+    target: 'reputation.dangerous',
+    amount: 6,
+    readable: 'dangerous reputation up',
+    tags: ['reputation'],
+  },
+  {
+    kind: 'pressure',
+    target: 'pressure:violence',
+    amount: -15,
+    readable: 'violence pressure eases',
+    tags: ['pressure'],
+  },
+  {
+    kind: 'state_change',
+    target: 'areas.main_room.damage',
+    amount: -20,
+    readable: 'damage repaired',
+    tags: ['area'],
+  },
+  {
+    kind: 'cause',
+    target: 'customer_group:ogres',
+    amount: -20,
+    readable: 'group banned',
+    tags: ['customer'],
+  },
+  {
+    kind: 'future_hook',
+    target: 'security_routine_possible',
+    amount: 14,
+    readable: 'security may stay on',
+    tags: ['future_hook'],
+  },
+]
+
+export function buildViolenceChoiceLabelContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = VIOLENCE_RESPONSE_SLOTS[i % VIOLENCE_RESPONSE_SLOTS.length]!
+  return { currentResponseSlot: slot }
+}
+
+export function buildViolenceEffectPreviewContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = VIOLENCE_RESPONSE_SLOTS[i % VIOLENCE_RESPONSE_SLOTS.length]!
+  const effect = VIOLENCE_EFFECTS[i % VIOLENCE_EFFECTS.length]!
+  return { currentResponseSlot: slot, currentEffect: effect }
+}
+
+// Eight slots — the inspection family has the largest verb roster in
+// the codebase. Rotated by index so the diversity gate exercises every
+// verb-gated rung.
+const INSPECTION_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'phase138-inspection-clean',
+    labelHint: 'Clean the worst areas',
+    allowedVerbs: ['clean'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'long_term_investment' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['areas cleaner'],
+  },
+  {
+    id: 'phase138-inspection-bribe',
+    labelHint: 'Bribe the inspector',
+    allowedVerbs: ['bribe'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'risky_profitable' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['coin -30'],
+  },
+  {
+    id: 'phase138-inspection-hide',
+    labelHint: 'Hide the evidence',
+    allowedVerbs: ['hide'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'deception' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['stall, risk'],
+  },
+  {
+    id: 'phase138-inspection-discard',
+    labelHint: 'Improve food safety',
+    allowedVerbs: ['discard'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['stock -10'],
+  },
+  {
+    id: 'phase138-inspection-ignore',
+    labelHint: 'Ignore it',
+    allowedVerbs: ['ignore'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'ignore' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['no cost'],
+  },
+  {
+    id: 'phase138-inspection-delegate',
+    labelHint: 'Set up a cleaning roster',
+    allowedVerbs: ['delegate'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'long_term_investment' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['cleanliness up'],
+  },
+  {
+    id: 'phase138-inspection-invite',
+    labelHint: 'Walk them through',
+    allowedVerbs: ['invite'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['inspection eases'],
+  },
+  {
+    id: 'phase138-inspection-negotiate',
+    labelHint: 'Ask their guidance',
+    allowedVerbs: ['negotiate'] as readonly ResponseIntentVerb[] as ResponseIntentVerb[],
+    shape: 'safe_costly' as ResponseIntentShape,
+    targetOptions: [],
+    expectedEffects: ['reputation up'],
+  },
+]
+
+const INSPECTION_EFFECTS: readonly EffectPreview[] = [
+  {
+    kind: 'state_change',
+    target: 'areas.kitchen.cleanliness',
+    amount: 20,
+    readable: 'kitchen cleaner',
+    tags: ['area'],
+  },
+  {
+    kind: 'state_change',
+    target: 'coin',
+    amount: -30,
+    readable: 'coin drops',
+    tags: ['coin'],
+  },
+  {
+    kind: 'state_change',
+    target: 'stock.stew.quantity',
+    amount: -10,
+    readable: 'stock drops',
+    tags: ['stock'],
+  },
+  {
+    kind: 'pressure',
+    target: 'pressure:inspection',
+    amount: -12,
+    readable: 'inspection pressure eases',
+    tags: ['pressure'],
+  },
+  {
+    kind: 'state_change',
+    target: 'reputation.respectable',
+    amount: 5,
+    readable: 'respect up',
+    tags: ['reputation'],
+  },
+  {
+    kind: 'future_hook',
+    target: 'town_watch_goodwill',
+    amount: 10,
+    readable: 'goodwill may bloom',
+    tags: ['future_hook'],
+  },
+  {
+    kind: 'cause',
+    target: 'faction:town_watch',
+    amount: 10,
+    readable: 'watch weighs the gesture',
+    tags: ['faction'],
+  },
+]
+
+export function buildInspectionChoiceLabelContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = INSPECTION_RESPONSE_SLOTS[i % INSPECTION_RESPONSE_SLOTS.length]!
+  return { currentResponseSlot: slot }
+}
+
+export function buildInspectionEffectPreviewContext(
+  _sample: DiversitySample,
+  i: number,
+): ConditionContext {
+  const slot = INSPECTION_RESPONSE_SLOTS[i % INSPECTION_RESPONSE_SLOTS.length]!
+  const effect = INSPECTION_EFFECTS[i % INSPECTION_EFFECTS.length]!
+  return { currentResponseSlot: slot, currentEffect: effect }
+}
+
 export const __testing = {
   firstRegularId,
   installCast,

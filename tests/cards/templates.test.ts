@@ -133,27 +133,53 @@ function staffSeed(state: TavernState): IssueSeed {
 }
 
 describe('Template 1 — foodSafetyCrisisCard', () => {
+  // Phase 138 / ISSUE-107 — Voiced Surface arc, Phase 12 (Crises &
+  // Safety). Rewrites in place the legacy hand-written
+  // foodSafetyCrisisCard, which composed the body from
+  // `ti.sensoryDetails[0]` + `ti.recentContext[0]` + `ti.stakesReadable[0]`
+  // through the Phase-95 `composeBody`. The new compositional template
+  // is actor-voiced via the cook's `castAttributes`; integration
+  // coverage lives in tests/cards/templates.foodSafety.test.ts.
   const state = createInitialTavernState()
+  const cookId = 'cook'
   const seed = makeSeed({
     family: 'food_safety',
     type: 'crisis',
-    timing: 'during_service',
+    // Phase 138 alignment — the generator emits `morning_prep`
+    // (`issueSeedGenerators.ts:326`); the legacy template's
+    // `during_service` never matched, so seeds were rejected and fell
+    // through to the fallback card.
+    timing: 'morning_prep',
     severity: 75,
+    primaryActor: { kind: 'staff', id: cookId },
+    location: { kind: 'area', id: 'kitchen' },
+    textIngredients: {
+      subject: 'the kitchen',
+      sensoryDetails: ['greasy floor'],
+      recentContext: ['kitchen filthy for days'],
+      stakesReadable: ['customers may get sick'],
+    },
   })
 
   it('applies', () => {
     expect(appliesToMatches(foodSafetyCrisisCard.appliesTo, seed, state)).toBe(true)
   })
-  it('renders within budgets', () => {
+  it('renders body lines through the compositional pools (no raw textIngredients leak)', () => {
     const view = foodSafetyCrisisCard.render(seed, state)
     assertTitleBudget(view)
     assertBodyBudget(view)
-    expect(view.choices.length).toBeGreaterThan(0)
+    for (const line of view.body) {
+      expect(line).not.toBe('greasy floor')
+      expect(line).not.toBe('kitchen filthy for days')
+      expect(line).not.toBe('customers may get sick')
+    }
     expect(view.severity).toBe(75)
     expect(view.tag).toBe('food_safety')
   })
-  it('emits valid choices', () => {
-    assertChoiceValidity(foodSafetyCrisisCard.render(seed, state), seed)
+  it('names the cook in the title', () => {
+    const display = state.staff[cookId]!.name.display
+    const view = foodSafetyCrisisCard.render(seed, state)
+    expect(view.title).toContain(display.split(' ')[0]!)
   })
   it('does not mutate state', () => {
     assertNonMutation(foodSafetyCrisisCard, seed, state)

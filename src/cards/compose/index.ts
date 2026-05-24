@@ -24,3 +24,8 @@ export { defineCompositionalCard } from './defineCompositionalCard'
 
 // Phase 124 / ISSUE-093 — structural gate harness (framework §6).
 export * from './gates'
+
+// Phase 141 / ISSUE-110 — Voiced Surface arc, Phase 15. Report-section
+// composition runtime (synthetic seed adapter, multi-note assembler,
+// gate adapter). The card runtime above is unchanged.
+export * from './reports'

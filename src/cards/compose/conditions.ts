@@ -208,6 +208,15 @@ export function evalCondition(
       return (condition.anyOf as readonly string[]).includes(slot.shape)
     }
 
+    case 'responseSlot': {
+      // Phase 148 / ISSUE-116 — Legible Surface arc, Phase 3.
+      // Slot-discriminating gate. Reads `ctx.currentResponseSlot?.id`;
+      // returns false outside choice iteration (body / title slots).
+      const slot = ctx.currentResponseSlot
+      if (!slot) return false
+      return condition.anyOf.includes(slot.id)
+    }
+
     case 'effectKind': {
       // Reads `ctx.currentEffect`, threaded in per immediate effect by
       // the choice helper. Body / title slots evaluate with no context

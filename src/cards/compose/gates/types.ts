@@ -26,6 +26,16 @@ export type GateViolation = {
 export type GateReport = {
   pass: boolean
   violations: GateViolation[]
+  /** Phase 148 / ISSUE-116 — Legible Surface arc, Phase 3. Soft
+   *  signals that do NOT fail the gate. The invariant
+   *  `pass === (violations.length === 0)` is preserved across all nine
+   *  gates; warnings never affect `pass`. The eight pre-Phase-148 gates
+   *  leave this undefined (existing assertions like `violations.length
+   *  === 0` keep meaning exactly what they always have). The new
+   *  `checkChoiceDistinctness` gate populates this with
+   *  `choice_preview_near_collision` entries — near-identical previews
+   *  surfaced for author attention without blocking the gate. */
+  warnings?: GateViolation[]
 }
 
 /** Build a passing report (no violations). */

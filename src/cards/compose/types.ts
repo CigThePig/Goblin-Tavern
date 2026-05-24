@@ -143,6 +143,15 @@ export type SnippetCondition =
   //   bleeding into other slots. Returns false when the ctx field is
   //   absent — same graceful-degradation pattern.
   | { kind: 'inactionPreview'; value: boolean }
+  // — Phase 148 / ISSUE-116 — Legible Surface arc, Phase 3. Reads
+  //   `ctx.currentResponseSlot?.id`. Slot-discriminating gate so a label
+  //   pool can author distinct text for distinct response slots that
+  //   happen to share a verb. Without this primitive a pool keying only
+  //   on `responseVerb` collapses same-verb slots to the same label
+  //   (the supplier `negotiate_supplier` / `supplier_exclusivity_deal`
+  //   collision the Phase-3 distinctness gate fails on). Returns false
+  //   when the ctx field is absent — body / title evaluation unaffected.
+  | { kind: 'responseSlot'; anyOf: readonly string[] }
 
 /**
  * Phase 132 / ISSUE-101 — optional iteration context the choice helper

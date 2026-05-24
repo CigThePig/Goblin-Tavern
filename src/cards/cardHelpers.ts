@@ -11,18 +11,34 @@
 import type { CardChoice, CardView, StakeView } from './types'
 import type {
   IssueSeed,
+  IssueSeedFamilyId,
   ResponseSlot,
   ConsequenceProfile,
   ResponseIntentVerb,
 } from '../sim/modules/issues/issueSeedTypes'
+import type { EffectPreview } from '../sim/core/effect'
 import type { TavernState } from '../sim/state/TavernState'
 import { pickSnippet } from './compose/assemble'
+import { SALIENCE_TABLES, type SalienceRead } from './compose/salience'
 import type { SlotSpec, SnippetPool } from './compose/types'
 
 const MAX_TITLE_WORDS = 6
 const MAX_STAKES = 3
 const MAX_PREVIEW = 3
 const MAX_BODY = 3
+
+/**
+ * Phase 148 / ISSUE-116 — Legible Surface arc, Phase 3. Default cap on
+ * the rendered choice set when a template doesn't override it via
+ * `ComposeChoicesOptions.maxChoices`. Six chosen to leave the
+ * eleven-slot supplier seed at a tractable size (six surfaced, five
+ * mechanically present in the sim but not rendered) without affecting
+ * the other nineteen migrated templates, whose seeds emit ≤ six
+ * response slots. The cap is a *presentation* policy over what
+ * `composeChoicesFromSeed` renders — `seed.responseSlots` is unchanged
+ * and every dropped slot's `consequenceProfile` is still in `seed`.
+ */
+export const DEFAULT_LEGIBLE_CHOICE_CAP = 6
 
 export function clampWords(s: string, max: number): string {
   const words = s.trim().split(/\s+/).filter(Boolean)
@@ -179,6 +195,19 @@ export type ComposeChoicesOptions = {
   labelPool: SnippetPool
   previewPool: SnippetPool
   maxPreview?: number
+  /**
+   * Phase 148 / ISSUE-116 — Legible Surface arc, Phase 3. Cap on the
+   * rendered choice set. Defaults to `DEFAULT_LEGIBLE_CHOICE_CAP` (6).
+   * Slots are ordered by salience of the meter their effects move
+   * (against `SALIENCE_TABLES[seed.family]`), ties broken by
+   * seed-author order, then the top `maxChoices` slots are surfaced.
+   * The inaction slot (verb `'ignore'` or empty `immediateEffects`) is
+   * always preserved — appended past the cap if salience would
+   * otherwise drop it. Set this only when a template genuinely needs a
+   * different cap; otherwise leave the default and let
+   * `applyLegibleChoiceCap` decide.
+   */
+  maxChoices?: number
   /** Optional extra producer-side overrides (e.g. `disabledReason`).
    *  Mechanical fields (`verb`, `targetId`) remain settable here; the
    *  helper sets `label` and `previewEffects` from the pools and any
@@ -189,13 +218,147 @@ export type ComposeChoicesOptions = {
   >
 }
 
+/**
+ * Phase 148 / ISSUE-116 — Legible Surface arc, Phase 3. Pure helper —
+ * the legible choice-set cap policy. Pure function over `(seed, slots,
+ * profiles, maxChoices) → ResponseSlot[]`; same inputs ⇒ same output,
+ * no `Math.random`. Inspectable by tests and the `choiceDistinctness`
+ * gate's sampler authors.
+ *
+ * Three steps:
+ *   1. Score every slot by salience against `SALIENCE_TABLES[seed.family]`
+ *      — the minimum salience-table index that any of the slot's
+ *      consequence effects matches. Lower = more decision-relevant.
+ *      Slots whose effects touch none of the table's reads score
+ *      `Infinity`. Families without a salience table all score 0
+ *      (cap degenerates to first-N in seed order).
+ *   2. Sort by `(score ascending, originalIndex ascending)` so ties
+ *      preserve seed-author order — the eleven supplier slots are
+ *      curated in `expandedSeedGenerators.ts:1189-1280` from most-
+ *      common (pay / negotiate) to most-strategic (split / exclusivity
+ *      / investigate); seed order is the right secondary key.
+ *   3. Take the first `maxChoices`. If the inaction slot would be
+ *      dropped, append it past the cap (effective cap N+1 in the rare
+ *      case the inaction option ranks outside the salience cut — never
+ *      drop the option that needs the most legibility per the Phase-2
+ *      preview legibility contract).
+ *
+ * A slot is "inaction" when its first allowed verb is `'ignore'` OR
+ * its consequence profile has `immediateEffects: []` with at least one
+ * `delayedEffects` entry (the Phase-147 inaction carve-out).
+ */
+export function applyLegibleChoiceCap(
+  seed: IssueSeed,
+  slots: readonly ResponseSlot[],
+  profileFor: (slotId: string) => ConsequenceProfile | undefined,
+  maxChoices: number,
+): ResponseSlot[] {
+  if (slots.length <= maxChoices) return slots.slice()
+  const table = SALIENCE_TABLES[seed.family as IssueSeedFamilyId]
+  const scored = slots.map((slot, originalIndex) => {
+    const profile = profileFor(slot.id)
+    const score = scoreSlotBySalience(slot, profile, table?.reads)
+    return { slot, profile, originalIndex, score }
+  })
+  scored.sort((a, b) => {
+    if (a.score !== b.score) return a.score - b.score
+    return a.originalIndex - b.originalIndex
+  })
+  const capped = scored.slice(0, maxChoices)
+  for (const entry of scored) {
+    if (!isInactionSlot(entry.slot, entry.profile)) continue
+    if (capped.some((c) => c.slot.id === entry.slot.id)) continue
+    capped.push(entry)
+  }
+  return capped.map((c) => c.slot)
+}
+
+function scoreSlotBySalience(
+  slot: ResponseSlot,
+  profile: ConsequenceProfile | undefined,
+  reads: readonly SalienceRead[] | undefined,
+): number {
+  if (!reads || reads.length === 0) return 0
+  // Inaction carve-out: when immediate is empty, score against delayed
+  // so an "ignore" slot that triggers delayed consequences doesn't
+  // get Infinity by default. Same source the Phase-147 inaction
+  // preview path uses (`composeChoicesFromSeed:222-225`).
+  const immediate = profile?.immediateEffects ?? []
+  const delayed = profile?.delayedEffects ?? []
+  const effects = immediate.length > 0 ? immediate : delayed
+  if (effects.length === 0) {
+    // Slot with no effects at all (a curated UI-only fallback) — let
+    // it preserve seed order rather than rank last; score 0 means it
+    // sits at the front of the tie. In practice no real seed emits
+    // this, but the guard keeps the helper robust against fixtures.
+    return 0
+  }
+  let min = Infinity
+  for (const effect of effects) {
+    for (let i = 0; i < reads.length; i += 1) {
+      if (effectMatchesSalienceRead(effect, reads[i]!)) {
+        if (i < min) min = i
+      }
+    }
+  }
+  return min
+}
+
+function effectMatchesSalienceRead(
+  effect: EffectPreview,
+  read: SalienceRead,
+): boolean {
+  switch (read.kind) {
+    case 'signal': {
+      // SignalId is `<kind>.<field>` (e.g. `supplier.reliability`);
+      // an effect targets a salient meter when its targetKind matches
+      // the SignalId's prefix kind. Mirrors the precedent in
+      // `salience.ts:evaluateRead` which uses `querySignal` to resolve
+      // the same prefix-kind mapping at sim time.
+      const prefix = read.signal.split('.')[0]
+      if (!effect.targetKind) return false
+      return effect.targetKind === prefix
+    }
+    case 'pressure': {
+      return (
+        effect.targetKind === 'pressure' &&
+        effect.target === `pressure:${read.pressureId}`
+      )
+    }
+    case 'memory':
+      return effect.tags.includes(read.tag)
+    case 'repeat':
+      return effect.tags.includes(read.subjectTag)
+  }
+}
+
+function isInactionSlot(
+  slot: ResponseSlot,
+  profile: ConsequenceProfile | undefined,
+): boolean {
+  if (slot.allowedVerbs[0] === 'ignore') return true
+  const immediate = profile?.immediateEffects ?? []
+  const delayed = profile?.delayedEffects ?? []
+  if (immediate.length === 0 && delayed.length > 0) return true
+  return false
+}
+
 export function composeChoicesFromSeed(
   seed: IssueSeed,
   state: TavernState,
   options: ComposeChoicesOptions,
 ): CardChoice[] {
   const previewMax = options.maxPreview ?? MAX_PREVIEW
-  return seed.responseSlots.map((slot) => {
+  const maxChoices = options.maxChoices ?? DEFAULT_LEGIBLE_CHOICE_CAP
+  const profileFor = (slotId: string) =>
+    seed.consequenceProfiles.find((p) => p.responseSlotId === slotId)
+  const cappedSlots = applyLegibleChoiceCap(
+    seed,
+    seed.responseSlots,
+    profileFor,
+    maxChoices,
+  )
+  return cappedSlots.map((slot) => {
     const profile = seed.consequenceProfiles.find(
       (p) => p.responseSlotId === slot.id,
     )

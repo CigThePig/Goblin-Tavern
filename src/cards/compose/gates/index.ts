@@ -31,8 +31,10 @@ export {
   runAllGates,
   type AllGatesConfig,
   type AllGatesReport,
+  type ChoiceDistinctnessReportEntry,
   type DiversityReportEntry,
   type DiversitySlotConfig,
+  type PreviewVarietyReportEntry,
 } from './runAllGates'
 export {
   passReport,
@@ -74,3 +76,14 @@ export {
   type PreviewVarietySample,
   type PreviewVarietySampler,
 } from './previewVariety'
+export {
+  checkChoiceDistinctness,
+  CHOICE_DISTINCTNESS_REASONS,
+  DEFAULT_PREVIEW_NEAR_COLLISION_THRESHOLD,
+  type ChoiceDistinctnessConfig,
+  type ChoiceDistinctnessObservation,
+  type ChoiceDistinctnessReason,
+  type ChoiceDistinctnessSample,
+  type ChoiceDistinctnessSampler,
+  type ChoiceDistinctnessSlot,
+} from './choiceDistinctness'

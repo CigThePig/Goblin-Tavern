@@ -70,11 +70,24 @@ export const supplierReliabilityTemplate: CompositionalCardTemplate = {
       claimMode: 'flavor',
     },
     {
+      // Phase 146 / ISSUE-114 — Legible Surface arc, Phase 1. The
+      // supplier card is *about* reliability × relationship; when both
+      // bands resolve, the establishing line should state the pair.
+      // `saliencePolicy: 'multi'` lets the assembler tie-break top-
+      // specificity matches by salience (reliability is the lead read
+      // for `supplier_relationship`; see `compose/salience.ts`), then
+      // append a secondary snippet covering the next orthogonal salient
+      // fact (relationship, distrust, market_instability, repeat,
+      // memory) within the combined word budget. Layered OVER the
+      // gradient — when only one read resolves, behaviour matches the
+      // single-fact baseline.
       id: 'establishing_line',
       role: 'utterance',
       pool: supplierReliabilityEstablishingLinePool,
       wordBudget: 14,
       claimMode: 'sim_backed',
+      saliencePolicy: 'multi',
+      multiFactJoin: ' — ',
     },
     {
       id: 'reaction_line',

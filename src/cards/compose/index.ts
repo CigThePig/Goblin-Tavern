@@ -19,8 +19,27 @@ export type {
 } from './types'
 
 export { evalCondition } from './conditions'
-export { assembleSlots, pickSnippet, specificityOf } from './assemble'
+export {
+  assembleSlots,
+  pickComposedSlotText,
+  pickSnippet,
+  pickSnippetTrace,
+  specificityOf,
+} from './assemble'
 export { defineCompositionalCard } from './defineCompositionalCard'
+
+// Phase 146 / ISSUE-114 — Legible Surface arc, Phase 1. Signal salience
+// read used by the assembler to tie-break top-specificity matches and
+// drive the multi-fact establishing slot. Layered over the gradient.
+export {
+  SALIENCE_TABLES,
+  resolveSalientReads,
+  scoreCandidateSalience,
+  type ResolvedRead,
+  type SalienceRead,
+  type SalienceScore,
+  type SeedFamilySalience,
+} from './salience'
 
 // Phase 124 / ISSUE-093 — structural gate harness (framework §6).
 export * from './gates'

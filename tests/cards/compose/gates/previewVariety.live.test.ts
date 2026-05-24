@@ -25,6 +25,7 @@ import { effectPreviewPool as areaAtmospherePreviewPool } from '../../../../src/
 import { effectPreviewPool as seasonalArcPreviewPool } from '../../../../src/cards/compose/pools/seasonalArc/effectPreview'
 import { effectPreviewPool as inspectionPreviewPool } from '../../../../src/cards/compose/pools/inspection/effectPreview'
 import { effectPreviewPool as stockShortagePreviewPool } from '../../../../src/cards/compose/pools/stockShortage/effectPreview'
+import { effectPreviewPool as supplierReliabilityPreviewPool } from '../../../../src/cards/compose/pools/supplierReliability/effectPreview'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
 import type { CastAttributes } from '../../../../src/sim/content/cast'
 import type {
@@ -524,5 +525,156 @@ describe('previewVariety gate — Phase 145 specificity on real pools', () => {
         `${name} specificityRatio`,
       ).toBeGreaterThanOrEqual(0.7)
     }
+  })
+})
+
+// ---- Phase 147 / ISSUE-115 — legibility on the two pilot templates ----
+
+describe('previewVariety gate — Phase 147 legibility on pilot pools', () => {
+  const state = createInitialTavernState()
+
+  it('supplierReliability pool: every banded line carries magnitude vocabulary', () => {
+    const seed = makeSeed({
+      id: 'supplier-leg-pilot',
+      family: 'supplier_relationship',
+      type: 'supplier_offer',
+      timing: 'during_service',
+      severity: 40,
+      domain: ['supplier'],
+    })
+    // Mix of supplier-emitted cells per `expandedSeedGenerators.ts`:
+    // coin -15 small (cost), coin -30 medium, supplier ±5 small, pressure ±10 medium.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('standing_order', 'Place standing order'),
+        effects: [
+          effect('state_change', 'coin', -15, 'pay supplier', ['coin']),
+          effect('state_change', 'world.suppliers.s1.relationship', 5, 'rel up', ['supplier']),
+        ],
+      },
+      {
+        slot: slot('exclusivity', 'Sign exclusivity'),
+        effects: [
+          effect('state_change', 'coin', -30, 'pay deal', ['coin']),
+          effect('pressure', 'pressure:supplier_distrust', -10, 'distrust eases', ['pressure']),
+        ],
+      },
+      {
+        slot: slot('split_orders', 'Split orders'),
+        effects: [
+          effect('state_change', 'world.suppliers.s1.relationship', -5, 'rel down', ['supplier']),
+          effect('pressure', 'pressure:market_instability', -10, 'market eases', ['pressure']),
+        ],
+      },
+    ]
+    const sample: PreviewVarietySample = {
+      seed,
+      state,
+      previewPool: supplierReliabilityPreviewPool,
+      choices,
+      maxPreview: 2,
+    }
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: {
+        requireMagnitude: true,
+        requireCostSurfacing: true,
+        forbidInactionBlank: true,
+      },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+    expect(report.observed.costSurfacingRatio).toBe(1)
+    expect(report.observed.inactionBlankCount).toBe(0)
+  })
+
+  it('areaAtmosphere pool: every banded line carries magnitude on the acting path', () => {
+    const seed = makeSeed({
+      id: 'area-leg-pilot',
+      family: 'area_atmosphere',
+      type: 'warning',
+      timing: 'morning_prep',
+      severity: 45,
+      domain: ['areas'],
+      location: { kind: 'area', id: 'privy' },
+    })
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('deep_clean', 'Deep clean'),
+        effects: [
+          effect('state_change', 'areas.privy.cleanliness', 25, 'cleaned', ['area']),
+          effect('state_change', 'coin', -15, 'cost', ['coin']),
+        ],
+      },
+      {
+        slot: slot('repair', 'Repair'),
+        effects: [
+          effect('state_change', 'areas.privy.condition', 15, 'fixed', ['area']),
+          effect('state_change', 'coin', -25, 'pay', ['coin']),
+        ],
+      },
+      {
+        slot: slot('rebrand', 'Rebrand'),
+        effects: [
+          effect('state_change', 'reputation.respectable', -8, 'rep slip', ['reputation']),
+          effect('state_change', 'areas.privy.condition', 5, 'minor', ['area']),
+        ],
+      },
+    ]
+    const sample: PreviewVarietySample = {
+      seed,
+      state,
+      previewPool: areaAtmospherePreviewPool,
+      choices,
+      maxPreview: 2,
+    }
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: {
+        requireMagnitude: true,
+        requireCostSurfacing: true,
+        forbidInactionBlank: true,
+      },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+    expect(report.observed.costSurfacingRatio).toBe(1)
+    expect(report.observed.inactionBlankCount).toBe(0)
+  })
+
+  it('areaAtmosphere pool: inaction-flagged choice fires inactionPreview-gated snippets', () => {
+    const seed = makeSeed({
+      id: 'area-leg-inaction',
+      family: 'area_atmosphere',
+      type: 'warning',
+      timing: 'morning_prep',
+      severity: 45,
+      domain: ['areas'],
+      location: { kind: 'area', id: 'privy' },
+    })
+    // Mirror the production `ignore_area_problem_profile` delayed effects.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('ignore', 'Ignore the problem'),
+        effects: [
+          effect('pressure', 'pressure:maintenance', 10, 'maintenance pressure rises', ['pressure']),
+          effect('state_change', 'areas.privy.condition', -8, 'slow decay', ['area']),
+        ],
+        inactionPreview: true,
+      },
+    ]
+    const sample: PreviewVarietySample = {
+      seed,
+      state,
+      previewPool: areaAtmospherePreviewPool,
+      choices,
+      maxPreview: 2,
+    }
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { forbidInactionBlank: true },
+    })
+    expect(report.pass).toBe(true)
+    expect(report.observed.inactionBlankCount).toBe(0)
   })
 })

@@ -249,6 +249,16 @@ export function evalCondition(
         effect.magnitudeBand,
       )
     }
+
+    case 'inactionPreview': {
+      // Phase 147 / ISSUE-115 — true when `composeChoicesFromSeed`
+      // routed the preview through `delayedEffects` (immediate was
+      // empty). Snippets gated on `value: true` only fire on the
+      // inaction path. `value: false` makes a snippet explicitly
+      // non-inaction; ctx field absent ⇒ neither variant matches.
+      if (ctx.inactionPreview === undefined) return false
+      return ctx.inactionPreview === condition.value
+    }
   }
 }
 

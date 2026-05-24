@@ -421,14 +421,219 @@ describe('previewVariety gate — specificity rule (Phase 145)', () => {
   })
 })
 
+// ---- Phase 147 / ISSUE-115 — legibility rule ----
+
+// Coin loss + stock loss + pressure already have targetKind/direction/
+// magnitudeBand from the Phase-145 typed effects above. The legibility
+// rule reads the same metadata and adds: (a) every banded line must
+// carry a magnitude-lexicon token; (b) any choice spending coin must
+// surface that cost; (c) every choice must render ≥1 preview line.
+
+// A pool that names the targetKind keyword AND a magnitude word per
+// (direction, band) cell. Satisfies `requireMagnitude` for the typed
+// fixtures.
+const MAGNITUDE_AWARE_POOL: SnippetPool = {
+  slotId: 'effect_preview',
+  snippets: [
+    {
+      id: 'mag_coin_neg_medium',
+      text: 'a clear drop of silver would leave the till',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'mag_stock_neg_small',
+      text: 'shelves would step back a notch in stores',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['stock'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'mag_pressure_neg_medium',
+      text: 'the meter would settle by a clear drop in pressure',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+  ],
+}
+
+// A pool that names the targetKind keyword but drops the magnitude
+// vocabulary. Passes specificity; fails magnitude.
+const MAGNITUDE_STRIPPED_POOL: SnippetPool = {
+  slotId: 'effect_preview',
+  snippets: [
+    {
+      id: 'noband_coin',
+      text: 'coin would leave the till somehow',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'negative' },
+      ],
+    },
+    {
+      id: 'noband_stock',
+      text: 'shelves would change in stores',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['stock'] },
+        { kind: 'effectDirection', sign: 'negative' },
+      ],
+    },
+    {
+      id: 'noband_pressure',
+      text: 'the pressure meter would move on the reading',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+      ],
+    },
+  ],
+}
+
+// Choices where every choice carries the coin-cost effect; cost-surfacing
+// reads the coin keyword on rendered preview lines.
+const COIN_BEARING_CHOICES: readonly PreviewVarietyChoice[] = [
+  { slot: RESPONSE_SLOTS[0]!, effects: [COIN_LOSS_EFFECT] },
+  { slot: RESPONSE_SLOTS[2]!, effects: [COIN_LOSS_EFFECT] },
+]
+
+// A pool whose snippets never mention coin keywords — fails cost-surfacing.
+const COIN_BLIND_POOL: SnippetPool = {
+  slotId: 'effect_preview',
+  snippets: [
+    {
+      id: 'coin_blind_a',
+      text: 'a clear drop would settle the matter',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'coin_blind_b',
+      text: 'the room would carry the cost quietly',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+  ],
+}
+
+// Choices where one renders zero lines (no effects at all) — fires the
+// inaction-blank rule under `forbidInactionBlank`.
+const BLANK_CHOICE_SET: readonly PreviewVarietyChoice[] = [
+  { slot: RESPONSE_SLOTS[0]!, effects: [COIN_LOSS_EFFECT] },
+  { slot: RESPONSE_SLOTS[1]!, effects: [] },
+  { slot: RESPONSE_SLOTS[2]!, effects: [PRESSURE_EFFECT_TYPED] },
+]
+
+describe('previewVariety gate — legibility rule (Phase 147)', () => {
+  it('flags preview_magnitude_missing when a pool drops magnitude vocabulary', () => {
+    const sampler = makeSampler(MAGNITUDE_STRIPPED_POOL, TYPED_CHOICES)
+    const report = checkPreviewVariety(sampler, {
+      sampleSize: 3,
+      legibility: { requireMagnitude: true },
+    })
+    expect(report.pass).toBe(false)
+    const reasons = report.violations.map((v) => v.reason)
+    expect(reasons).toContain('preview_magnitude_missing')
+    expect(report.observed.magnitudeRatio).toBeLessThan(1)
+  })
+
+  it('passes magnitude when every banded line carries a lexicon token', () => {
+    const sampler = makeSampler(MAGNITUDE_AWARE_POOL, TYPED_CHOICES)
+    const report = checkPreviewVariety(sampler, {
+      sampleSize: 3,
+      legibility: { requireMagnitude: true },
+    })
+    expect(report.pass).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('counts sim fallthrough as magnitude-legible (sim is authoritative)', () => {
+    // Empty pool → every line uses verbatim effect.readable, which the
+    // gate accepts even when readable carries no magnitude token.
+    const emptyPool: SnippetPool = { slotId: 'effect_preview', snippets: [] }
+    const sampler = makeSampler(emptyPool, TYPED_CHOICES)
+    const report = checkPreviewVariety(sampler, {
+      sampleSize: 2,
+      legibility: { requireMagnitude: true },
+    })
+    expect(report.pass).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('flags preview_cost_unsurfaced when a coin-spending choice does not name coin', () => {
+    const sampler = makeSampler(COIN_BLIND_POOL, COIN_BEARING_CHOICES)
+    const report = checkPreviewVariety(sampler, {
+      sampleSize: 2,
+      legibility: { requireCostSurfacing: true },
+    })
+    expect(report.pass).toBe(false)
+    const reasons = report.violations.map((v) => v.reason)
+    expect(reasons).toContain('preview_cost_unsurfaced')
+    expect(report.observed.costSurfacingRatio).toBeLessThan(1)
+  })
+
+  it('passes cost-surfacing when at least one coin keyword surfaces per spending choice', () => {
+    const sampler = makeSampler(MAGNITUDE_AWARE_POOL, COIN_BEARING_CHOICES)
+    const report = checkPreviewVariety(sampler, {
+      sampleSize: 2,
+      legibility: { requireCostSurfacing: true },
+    })
+    expect(report.pass).toBe(true)
+    expect(report.observed.costSurfacingRatio).toBe(1)
+  })
+
+  it('flags preview_inaction_blank when a choice renders zero lines', () => {
+    const sampler = makeSampler(MAGNITUDE_AWARE_POOL, BLANK_CHOICE_SET)
+    const report = checkPreviewVariety(sampler, {
+      sampleSize: 1,
+      legibility: { forbidInactionBlank: true },
+    })
+    expect(report.pass).toBe(false)
+    const reasons = report.violations.map((v) => v.reason)
+    expect(reasons).toContain('preview_inaction_blank')
+    expect(report.observed.inactionBlankCount).toBeGreaterThan(0)
+  })
+
+  it('passes inaction-blank when every choice has at least one effect', () => {
+    const sampler = makeSampler(MAGNITUDE_AWARE_POOL, TYPED_CHOICES)
+    const report = checkPreviewVariety(sampler, {
+      sampleSize: 1,
+      legibility: { forbidInactionBlank: true },
+    })
+    expect(report.pass).toBe(true)
+    expect(report.observed.inactionBlankCount).toBe(0)
+  })
+
+  it('is opt-in: omitting the legibility config leaves Phase-145 behaviour unchanged', () => {
+    // The magnitude-stripped + coin-blind pools were failing both rules
+    // above; without the legibility config they must pass.
+    const sampler = makeSampler(MAGNITUDE_STRIPPED_POOL, TYPED_CHOICES)
+    const report = checkPreviewVariety(sampler, { sampleSize: 2 })
+    expect(report.pass).toBe(true)
+    expect(report.observed.magnitudeRatio).toBeUndefined()
+    expect(report.observed.costSurfacingRatio).toBeUndefined()
+    expect(report.observed.inactionBlankCount).toBeUndefined()
+  })
+})
+
 describe('previewVariety gate — frozen reason tuple', () => {
   it('exports the failure reasons as a frozen tuple', () => {
     // Phase 145 / ISSUE-113 — `preview_specificity_low` joined as the
     // third reason when the iteration-2 specificity rule landed.
+    // Phase 147 / ISSUE-115 — three legibility reasons joined when the
+    // preview legibility contract landed.
     expect(PREVIEW_VARIETY_REASONS).toEqual([
       'within_card_preview_collapse',
       'card_render_low_diversity',
       'preview_specificity_low',
+      'preview_magnitude_missing',
+      'preview_cost_unsurfaced',
+      'preview_inaction_blank',
     ])
     expect(Object.isFrozen(PREVIEW_VARIETY_REASONS)).toBe(true)
   })

@@ -41,6 +41,11 @@ export {
   type SeedFamilySalience,
 } from './salience'
 
+// Phase 147 / ISSUE-115 — Legible Surface arc, Phase 2. Calibrated
+// magnitude vocabulary for effect-preview composition; the
+// `requireMagnitude` rule on `checkPreviewVariety` reads the same table.
+export { MAGNITUDE_LEXICON, lineCarriesMagnitude } from './magnitudeLexicon'
+
 // Phase 124 / ISSUE-093 — structural gate harness (framework §6).
 export * from './gates'
 

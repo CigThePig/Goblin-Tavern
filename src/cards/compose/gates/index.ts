@@ -61,8 +61,11 @@ export {
 } from './crossSituation'
 export {
   checkPreviewVariety,
+  DEFAULT_TARGET_KIND_KEYWORDS,
   PREVIEW_VARIETY_REASONS,
   PREVIEW_VARIETY_DEFAULTS,
+  type PreviewLegibilityRule,
+  type PreviewSpecificityRule,
   type PreviewVarietyChoice,
   type PreviewVarietyConfig,
   type PreviewVarietyContext,

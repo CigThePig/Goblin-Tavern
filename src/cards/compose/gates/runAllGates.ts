@@ -26,6 +26,12 @@ import {
   type PreviewVarietyObservation,
   type PreviewVarietySampler,
 } from './previewVariety'
+import {
+  checkChoiceDistinctness,
+  type ChoiceDistinctnessConfig,
+  type ChoiceDistinctnessObservation,
+  type ChoiceDistinctnessSampler,
+} from './choiceDistinctness'
 import { passReport, type GateReport } from './types'
 
 export type DiversitySlotConfig = {
@@ -52,6 +58,19 @@ export type AllGatesConfig = {
     sampler: PreviewVarietySampler
     config: PreviewVarietyConfig
   }
+  /**
+   * Phase 148 / ISSUE-116 — Legible Surface arc, Phase 3. Optional 9th
+   * gate that simulates a full multi-choice card render and asserts the
+   * rendered CHOICES stay distinct from each other (sibling to
+   * `previewVariety`, which asserts within-card preview LINES vary).
+   * Templates whose seeds surface ≥ 2 response slots should configure
+   * this; templates with one choice (or none) legitimately omit it.
+   * When absent, the gate is skipped and reports a pass.
+   */
+  choiceDistinctness?: {
+    sampler: ChoiceDistinctnessSampler
+    config: ChoiceDistinctnessConfig
+  }
 }
 
 export type DiversityReportEntry = GateReport & {
@@ -61,6 +80,11 @@ export type DiversityReportEntry = GateReport & {
 
 export type PreviewVarietyReportEntry = GateReport & {
   observed: PreviewVarietyObservation
+  skipped: boolean
+}
+
+export type ChoiceDistinctnessReportEntry = GateReport & {
+  observed: ChoiceDistinctnessObservation
   skipped: boolean
 }
 
@@ -74,6 +98,7 @@ export type AllGatesReport = {
   diversity: DiversityReportEntry[]
   dedupe: GateReport
   previewVariety: PreviewVarietyReportEntry
+  choiceDistinctness: ChoiceDistinctnessReportEntry
 }
 
 export function runAllGates(
@@ -123,10 +148,41 @@ export function runAllGates(
       observed: result.observed,
       skipped: false,
     }
+    if (result.warnings && result.warnings.length > 0) {
+      previewVariety.warnings = result.warnings
+    }
   } else {
     previewVariety = {
       ...passReport(),
       observed: { sampleSize: 0, minUniqueRatio: 1, maxIdenticalRun: 0 },
+      skipped: true,
+    }
+  }
+  const choiceDistinctnessEntry = config.choiceDistinctness
+  let choiceDistinctness: ChoiceDistinctnessReportEntry
+  if (choiceDistinctnessEntry) {
+    const result = checkChoiceDistinctness(
+      choiceDistinctnessEntry.sampler,
+      choiceDistinctnessEntry.config,
+    )
+    choiceDistinctness = {
+      pass: result.pass,
+      violations: result.violations,
+      observed: result.observed,
+      skipped: false,
+    }
+    if (result.warnings && result.warnings.length > 0) {
+      choiceDistinctness.warnings = result.warnings
+    }
+  } else {
+    choiceDistinctness = {
+      ...passReport(),
+      observed: {
+        sampleSize: 0,
+        labelCollisions: 0,
+        previewNearCollisions: 0,
+        maxPreviewSimilarity: 0,
+      },
       skipped: true,
     }
   }
@@ -138,7 +194,8 @@ export function runAllGates(
     determinism.pass &&
     diversity.every((d) => d.pass) &&
     dedupe.pass &&
-    previewVariety.pass
+    previewVariety.pass &&
+    choiceDistinctness.pass
   return {
     pass,
     coverage,
@@ -149,5 +206,6 @@ export function runAllGates(
     diversity,
     dedupe,
     previewVariety,
+    choiceDistinctness,
   }
 }

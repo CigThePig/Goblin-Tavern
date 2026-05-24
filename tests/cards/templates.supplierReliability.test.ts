@@ -16,10 +16,13 @@ import {
 } from '../../src/cards/index'
 import { pickCardForSeed } from '../../src/cards/selection'
 import {
+  supplierReliabilityChoiceLabelPool,
+  supplierReliabilityEffectPreviewPool,
   supplierReliabilityEstablishingLinePool,
   supplierReliabilityReactionLinePool,
   supplierReliabilityTitlePool,
 } from '../../src/cards/compose/pools/supplierReliability'
+import { composeChoicesFromSeed } from '../../src/cards/cardHelpers'
 import { REQUIRED_CARDS } from '../../src/cards/templates/index'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import type { SupplierCastAttributes } from '../../src/sim/content/cast'
@@ -361,6 +364,155 @@ describe('supplierReliabilityCard — render output', () => {
     const before = JSON.stringify(state)
     supplierReliabilityCard.render(seed, state)
     expect(JSON.stringify(state)).toBe(before)
+  })
+})
+
+// Phase 148 / ISSUE-116 — Legible Surface arc, Phase 3. The eleven-slot
+// supplier seed is the canonical worst case for both Layer C (cap) and
+// Layer D (label distinctness). These tests use a real eleven-slot seed
+// shaped like `expandedSeedGenerators.ts:1189-1280` to assert end-to-end
+// that the cap caps and the new slot-distinct snippets disambiguate.
+function elevenSlotSupplierOfferSeed(supplierId: string): IssueSeed {
+  const ref: EntityRef = supplierRef(supplierId)
+  const goodsRef: EntityRef = { kind: 'stock', id: 'good_basic_grain' }
+  return makeSeed({
+    id: 'eleven-slot-supplier-seed',
+    family: 'supplier_relationship' as IssueSeedFamilyId,
+    type: 'supplier_offer',
+    timing: 'morning_prep',
+    severity: 45,
+    domain: ['suppliers', 'market', 'stock'],
+    primaryActor: ref,
+    responseSlots: [
+      { id: 'pay_supplier', labelHint: 'Pay supplier', allowedVerbs: ['pay'], shape: 'safe_costly', targetOptions: [ref], expectedEffects: [] },
+      { id: 'negotiate_supplier', labelHint: 'Negotiate', allowedVerbs: ['negotiate'], shape: 'compromise', targetOptions: [ref], expectedEffects: [] },
+      { id: 'blame_supplier', labelHint: 'Blame supplier', allowedVerbs: ['blame'], shape: 'relationship_sacrifice', targetOptions: [ref], expectedEffects: [] },
+      { id: 'switch_supplier', labelHint: 'Switch supplier', allowedVerbs: ['fire'], shape: 'long_term_investment', targetOptions: [ref], expectedEffects: [] },
+      { id: 'accept_suspicious_goods', labelHint: 'Accept suspicious goods', allowedVerbs: ['buy'], shape: 'risky_profitable', targetOptions: [goodsRef], expectedEffects: [] },
+      { id: 'refuse_supplier_offer', labelHint: 'Refuse the offer', allowedVerbs: ['ignore'], shape: 'safe_costly', targetOptions: [ref], expectedEffects: [] },
+      { id: 'place_standing_order', labelHint: 'Place a standing order', allowedVerbs: ['buy', 'negotiate'], shape: 'safe_costly', targetOptions: [ref], expectedEffects: [] },
+      { id: 'inspect_delivery', labelHint: 'Inspect delivery', allowedVerbs: ['inspect'], shape: 'compromise', targetOptions: [ref, goodsRef], expectedEffects: [] },
+      { id: 'split_orders', labelHint: 'Split orders', allowedVerbs: ['buy', 'negotiate'], shape: 'long_term_investment', targetOptions: [ref], expectedEffects: [] },
+      { id: 'supplier_exclusivity_deal', labelHint: 'Sign exclusivity', allowedVerbs: ['negotiate', 'buy'], shape: 'risky_profitable', targetOptions: [ref], expectedEffects: [] },
+      { id: 'investigate_suspicious_goods', labelHint: 'Investigate goods', allowedVerbs: ['inspect', 'discard'], shape: 'safe_costly', targetOptions: [ref, goodsRef], expectedEffects: [] },
+    ],
+    consequenceProfiles: [
+      { id: 'pay_supplier_p', responseSlotId: 'pay_supplier', immediateEffects: [{ kind: 'cause', target: `supplier:${supplierId}`, amount: 10, readable: 'Supplier paid', tags: ['supplier', 'attribution'], targetKind: 'supplier', direction: 'positive', magnitudeBand: 'medium' }], delayedEffects: [], memories: [], futureHooks: [], impactScore: 5 },
+      { id: 'negotiate_p', responseSlotId: 'negotiate_supplier', immediateEffects: [{ kind: 'cause', target: `supplier:${supplierId}`, amount: 12, readable: 'Negotiated', tags: ['supplier', 'attribution'], targetKind: 'supplier', direction: 'positive', magnitudeBand: 'medium' }], delayedEffects: [], memories: [], futureHooks: [], impactScore: 5 },
+      { id: 'blame_p', responseSlotId: 'blame_supplier', immediateEffects: [{ kind: 'cause', target: `supplier:${supplierId}`, amount: -10, readable: 'Blamed', tags: ['supplier', 'attribution'], targetKind: 'supplier', direction: 'negative', magnitudeBand: 'medium' }], delayedEffects: [], memories: [], futureHooks: [], impactScore: 5 },
+      { id: 'switch_p', responseSlotId: 'switch_supplier', immediateEffects: [{ kind: 'cause', target: `supplier:${supplierId}`, amount: -20, readable: 'Switched', tags: ['supplier', 'attribution'], targetKind: 'supplier', direction: 'negative', magnitudeBand: 'large' }], delayedEffects: [], memories: [], futureHooks: [], impactScore: 5 },
+      { id: 'accept_p', responseSlotId: 'accept_suspicious_goods', immediateEffects: [{ kind: 'state_change', target: 'stock', amount: 10, readable: 'Got cheap stock', tags: ['stock'], targetKind: 'stock', direction: 'positive', magnitudeBand: 'medium' }], delayedEffects: [], memories: [], futureHooks: [], impactScore: 5 },
+      { id: 'refuse_p', responseSlotId: 'refuse_supplier_offer', immediateEffects: [], delayedEffects: [{ kind: 'cause', target: `supplier:${supplierId}`, amount: -3, readable: 'They look elsewhere', tags: ['supplier', 'attribution'], targetKind: 'supplier', direction: 'negative', magnitudeBand: 'tiny' }], memories: [], futureHooks: [], impactScore: 2 },
+      { id: 'standing_p', responseSlotId: 'place_standing_order', immediateEffects: [{ kind: 'cause', target: `supplier:${supplierId}`, amount: 8, readable: 'Standing order', tags: ['supplier', 'attribution'], targetKind: 'supplier', direction: 'positive', magnitudeBand: 'small' }], delayedEffects: [], memories: [], futureHooks: [], impactScore: 4 },
+      { id: 'inspect_p', responseSlotId: 'inspect_delivery', immediateEffects: [{ kind: 'cause', target: `supplier:${supplierId}`, amount: 3, readable: 'Inspected', tags: ['supplier', 'attribution'], targetKind: 'supplier', direction: 'positive', magnitudeBand: 'tiny' }], delayedEffects: [], memories: [], futureHooks: [], impactScore: 3 },
+      { id: 'split_p', responseSlotId: 'split_orders', immediateEffects: [{ kind: 'cause', target: `supplier:${supplierId}`, amount: -3, readable: 'Split orders', tags: ['supplier', 'attribution'], targetKind: 'supplier', direction: 'negative', magnitudeBand: 'tiny' }], delayedEffects: [], memories: [], futureHooks: [], impactScore: 4 },
+      { id: 'exclusivity_p', responseSlotId: 'supplier_exclusivity_deal', immediateEffects: [{ kind: 'cause', target: `supplier:${supplierId}`, amount: 15, readable: 'Exclusivity locked', tags: ['supplier', 'attribution'], targetKind: 'supplier', direction: 'positive', magnitudeBand: 'large' }], delayedEffects: [], memories: [], futureHooks: [], impactScore: 6 },
+      { id: 'investigate_p', responseSlotId: 'investigate_suspicious_goods', immediateEffects: [{ kind: 'cause', target: `supplier:${supplierId}`, amount: 5, readable: 'Investigated', tags: ['supplier', 'attribution'], targetKind: 'supplier', direction: 'positive', magnitudeBand: 'small' }], delayedEffects: [], memories: [], futureHooks: [], impactScore: 3 },
+    ],
+    textIngredients: {
+      subject: 'a supply dispute',
+      sensoryDetails: ['stacked crates', 'tight handshake'],
+      recentContext: ['reliability 45'],
+    },
+  })
+}
+
+describe('supplierReliabilityCard — Phase 148 cap & distinctness', () => {
+  it('caps an 11-slot supplier seed to 6 rendered choices (DEFAULT_LEGIBLE_CHOICE_CAP)', () => {
+    const state = createInitialTavernState()
+    const supplierId = firstSupplierId(state)
+    const seed = elevenSlotSupplierOfferSeed(supplierId)
+    const view = supplierReliabilityCard.render(seed, state)
+    // 11 slots ⇒ cap of 6. `accept_suspicious_goods` only touches the
+    // `stock` meter, which the `supplier_relationship` salience table
+    // doesn't cover — so it scores Infinity and ranks last, dropping
+    // out of the cap. Every other slot touches `supplier:X` (signal
+    // index 0 or 1) and scores 0 — those ten resolve by original
+    // index, giving us the first six in seed order. `refuse_supplier_offer`
+    // (inaction) is at original index 5 ⇒ already in the cap ⇒ no append.
+    expect(view.choices.length).toBe(6)
+    expect(view.choices.map((c) => c.slotId)).toEqual([
+      'pay_supplier',
+      'negotiate_supplier',
+      'blame_supplier',
+      'switch_supplier',
+      'refuse_supplier_offer',
+      'place_standing_order',
+    ])
+  })
+
+  it('renders distinct labels for the same-verb collision pairs (Layer D)', () => {
+    // A terse-cold supplier: `terseness 2` activates the
+    // `label_negotiate_terse` "Cut the terms shorter" snippet for any
+    // slot with first verb `negotiate`. Pre-Phase 148 both
+    // `negotiate_supplier` and `supplier_exclusivity_deal` rendered
+    // that same text. The new Layer-D `responseSlot`-gated snippets
+    // out-rank it for `supplier_exclusivity_deal`.
+    const state = createInitialTavernState()
+    const supplierId = firstSupplierId(state)
+    const terseCold: SupplierCastAttributes = {
+      specialty: 'goods',
+      blindspot: 'late_payment',
+      affinities: [],
+      voice: { axes: { terseness: 2, warmth: 0, formality: 1, floridity: 0 } },
+    }
+    const installed = withSupplierCast(state, supplierId, terseCold)
+    // To get both `negotiate_supplier` and `supplier_exclusivity_deal`
+    // into the rendered set we need a larger cap than 6, since the
+    // exclusivity slot is at original index 9. Use the explicit
+    // maxChoices override via a wrapping render. The supplier card
+    // template doesn't expose `maxChoices`, so we exercise the
+    // `composeChoicesFromSeed` helper directly with the supplier
+    // pools — same call shape the template uses.
+    const seed = elevenSlotSupplierOfferSeed(supplierId)
+    const choices = composeChoicesFromSeed(seed, installed, {
+      labelPool: supplierReliabilityChoiceLabelPool,
+      previewPool: supplierReliabilityEffectPreviewPool,
+      maxPreview: 2,
+      maxChoices: 11,
+    })
+    // All eleven slots rendered ⇒ all labels distinct after Layer D.
+    const labels = choices.map((c) => c.label)
+    const uniqueLabels = new Set(labels)
+    expect(uniqueLabels.size).toBe(labels.length)
+    // Specifically: the two same-verb pairs render distinctly.
+    const labelBySlot = new Map(choices.map((c) => [c.slotId, c.label]))
+    expect(labelBySlot.get('negotiate_supplier')).not.toBe(
+      labelBySlot.get('supplier_exclusivity_deal'),
+    )
+    expect(labelBySlot.get('place_standing_order')).not.toBe(
+      labelBySlot.get('split_orders'),
+    )
+    expect(labelBySlot.get('inspect_delivery')).not.toBe(
+      labelBySlot.get('investigate_suspicious_goods'),
+    )
+  })
+
+  it('preserves mechanical mapping after capping (slotId / verb / shape unchanged)', () => {
+    const state = createInitialTavernState()
+    const supplierId = firstSupplierId(state)
+    const seed = elevenSlotSupplierOfferSeed(supplierId)
+    const view = supplierReliabilityCard.render(seed, state)
+    for (const choice of view.choices) {
+      const slot = seed.responseSlots.find((s) => s.id === choice.slotId)
+      expect(slot).toBeDefined()
+      expect(slot!.allowedVerbs).toContain(choice.verb)
+      expect(slot!.shape).toBe(choice.shape)
+    }
+  })
+
+  it('re-render stability — same seed ⇒ same capped choice set', () => {
+    const state = createInitialTavernState()
+    const supplierId = firstSupplierId(state)
+    const seed = elevenSlotSupplierOfferSeed(supplierId)
+    const a = supplierReliabilityCard.render(seed, state)
+    const b = supplierReliabilityCard.render(seed, state)
+    expect(a.choices.map((c) => c.slotId)).toEqual(
+      b.choices.map((c) => c.slotId),
+    )
+    expect(a.choices.map((c) => c.label)).toEqual(
+      b.choices.map((c) => c.label),
+    )
   })
 })
 

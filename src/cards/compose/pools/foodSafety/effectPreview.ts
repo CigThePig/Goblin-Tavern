@@ -71,5 +71,47 @@ export const effectPreviewPool: SnippetPool = {
         { kind: 'effectTag', tag: 'reputation' },
       ],
     },
+
+    // — Phase 18 repair: base rung of unconditional kind-only snippets —
+    {
+      id: 'pre_state_change_a',
+      text: 'The prep would carry the change',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_state_change_b',
+      text: 'The kitchen tally would shift a notch',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_state_change_c',
+      text: 'The board would feel the choice',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_state_change_d',
+      text: 'A measure would tilt the cooking line',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_pressure_a',
+      text: 'The safety meter would lean a touch',
+      conditions: [{ kind: 'effectKind', anyOf: ['pressure'] }],
+    },
+    {
+      id: 'pre_pressure_b',
+      text: 'The inspection meter would inch its way',
+      conditions: [{ kind: 'effectKind', anyOf: ['pressure'] }],
+    },
+    {
+      id: 'pre_future_thread',
+      text: 'A flag would mark the slate for later',
+      conditions: [{ kind: 'effectKind', anyOf: ['future_hook'] }],
+    },
+    {
+      id: 'pre_cause_mark',
+      text: 'The reason would be recorded plainly',
+      conditions: [{ kind: 'effectKind', anyOf: ['cause'] }],
+    },
   ],
 }

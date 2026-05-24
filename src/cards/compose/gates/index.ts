@@ -59,3 +59,15 @@ export {
   type CrossSituationReport,
   type CrossSituationSample,
 } from './crossSituation'
+export {
+  checkPreviewVariety,
+  PREVIEW_VARIETY_REASONS,
+  PREVIEW_VARIETY_DEFAULTS,
+  type PreviewVarietyChoice,
+  type PreviewVarietyConfig,
+  type PreviewVarietyContext,
+  type PreviewVarietyObservation,
+  type PreviewVarietyReason,
+  type PreviewVarietySample,
+  type PreviewVarietySampler,
+} from './previewVariety'

@@ -54,5 +54,42 @@ export const effectPreviewPool: SnippetPool = {
         { kind: 'effectKind', anyOf: ['future_hook'] },
       ],
     },
+
+    // — Phase 18 repair: base rung of unconditional kind-only snippets —
+    {
+      id: 'pre_pressure_a',
+      text: 'A meter would lean a touch further',
+      conditions: [{ kind: 'effectKind', anyOf: ['pressure'] }],
+    },
+    {
+      id: 'pre_pressure_b',
+      text: 'The ledger would tilt another column',
+      conditions: [{ kind: 'effectKind', anyOf: ['pressure'] }],
+    },
+    {
+      id: 'pre_pressure_c',
+      text: 'The drift would carry into next month',
+      conditions: [{ kind: 'effectKind', anyOf: ['pressure'] }],
+    },
+    {
+      id: 'pre_future_thread',
+      text: 'A reminder would sit on the slate for later',
+      conditions: [{ kind: 'effectKind', anyOf: ['future_hook'] }],
+    },
+    {
+      id: 'pre_future_visit',
+      text: 'The landlord would loop back to the door',
+      conditions: [{ kind: 'effectKind', anyOf: ['future_hook'] }],
+    },
+    {
+      id: 'pre_state_change_a',
+      text: 'The books would shift a measure',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_state_change_b',
+      text: 'The till would feel the move',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
   ],
 }

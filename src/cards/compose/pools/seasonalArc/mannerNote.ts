@@ -45,5 +45,25 @@ export const mannerNotePool: SnippetPool = {
         { kind: 'memoryPresent', tag: 'arc' },
       ],
     },
+
+    // Phase 18 repair: spec-0 unconditional fillers so the body fires.
+    {
+      id: 'mnr_mild_row',
+      text: 'A neighbour leans out to glance down the row.',
+      conditions: [],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_light',
+      text: 'The morning light catches the dust above the bar.',
+      conditions: [],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_quiet',
+      text: 'The street has its own slow weather today.',
+      conditions: [],
+      specificity: 0,
+    },
   ],
 }

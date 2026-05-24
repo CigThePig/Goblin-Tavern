@@ -60,5 +60,42 @@ export const effectPreviewPool: SnippetPool = {
         { kind: 'voiceAxis', role: 'primaryActor', axis: 'floridity', atLeast: 2 },
       ],
     },
+
+    // — Phase 18 repair: base rung of unconditional kind-only snippets —
+    {
+      id: 'pre_state_change_a',
+      text: 'the trade meter would shift a notch',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_state_change_b',
+      text: 'the cellar count would carry the move',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_state_change_c',
+      text: 'the route would tilt a measure either way',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_state_change_d',
+      text: 'the partnership would feel the choice',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_pressure_a',
+      text: 'a meter would lean back a touch',
+      conditions: [{ kind: 'effectKind', anyOf: ['pressure'] }],
+    },
+    {
+      id: 'pre_pressure_b',
+      text: 'the trade drift would carry into next week',
+      conditions: [{ kind: 'effectKind', anyOf: ['pressure'] }],
+    },
+    {
+      id: 'pre_cause_mark',
+      text: 'the reason would be marked in the books',
+      conditions: [{ kind: 'effectKind', anyOf: ['cause'] }],
+    },
   ],
 }

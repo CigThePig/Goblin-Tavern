@@ -44,5 +44,26 @@ export const mannerNotePool: SnippetPool = {
         { kind: 'repeatCount', subjectTag: 'debt', atLeast: 3 },
       ],
     },
+
+    // Phase 18 repair: unconditional narrator beats at spec 0 so the
+    // body fires SOMETHING when no state gate above matches.
+    {
+      id: 'mnr_mild_pen',
+      text: 'The pen rests in the crease of the ledger.',
+      conditions: [],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_lamp',
+      text: 'The desk lamp burns lower than the room asks.',
+      conditions: [],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_quiet',
+      text: 'The back office sits quiet around the figures.',
+      conditions: [],
+      specificity: 0,
+    },
   ],
 }

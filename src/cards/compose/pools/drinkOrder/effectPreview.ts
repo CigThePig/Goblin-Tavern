@@ -69,5 +69,27 @@ export const effectPreviewPool: SnippetPool = {
         { kind: 'voiceAxis', role: 'primaryActor', axis: 'warmth', atMost: 0 },
       ],
     },
+
+    // — Phase 18 repair: base rung of unconditional kind-only snippets —
+    {
+      id: 'pre_state_change_a',
+      text: 'the room settles a beat',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_state_change_b',
+      text: 'the bar absorbs the change',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_state_change_c',
+      text: 'their mood lifts a measure',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_state_change_d',
+      text: 'the count tilts a notch',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
   ],
 }

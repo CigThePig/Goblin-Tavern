@@ -354,7 +354,7 @@ deliberately-inconsistent fixture that must fail. Wait for plan approval.
 
 ## Phase 18 — Deepening, Pruning & Tuning
 
-**Provisional:** phase 144 / ISSUE-113. Standing — never strictly done.
+**Status:** phase 144 / ISSUE-113 — **done (first playtest iteration).** Standing — never strictly done; future playtest iterations append to ISSUE-113 in the tracker. See `docs/plans/phase-144-deepening-and-voice-selection-repair.md` for the first iteration's plan + verification.
 
 **Goal.** Play it. Add specific high-rung snippets where a moment deserves more; delete dead snippets whose conditions stopped firing; tune `voiceProfile` axes and `CULTURE_VOICE_DEFAULTS` where a kind of character isn't landing. The gates keep every edit safe, so the gradient can deepen forever at zero structural cost.
 

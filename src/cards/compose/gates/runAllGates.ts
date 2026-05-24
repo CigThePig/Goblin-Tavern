@@ -20,7 +20,13 @@ import {
   type DiversityObservation,
 } from './diversity'
 import { checkDedupe, type DedupeConfig } from './dedupe'
-import type { GateReport } from './types'
+import {
+  checkPreviewVariety,
+  type PreviewVarietyConfig,
+  type PreviewVarietyObservation,
+  type PreviewVarietySampler,
+} from './previewVariety'
+import { passReport, type GateReport } from './types'
 
 export type DiversitySlotConfig = {
   slotId: string
@@ -34,11 +40,28 @@ export type AllGatesConfig = {
   determinism: { samples: readonly DeterminismSample[] }
   diversity: readonly DiversitySlotConfig[]
   dedupe?: DedupeConfig
+  /**
+   * Phase 144 / ISSUE-113 — Voiced Surface arc, Phase 18. Optional 8th
+   * gate that simulates a multi-choice card render and asserts the
+   * effect-preview lines vary across the card. Templates whose seeds
+   * surface ≥ 2 response slots with effects should configure this; the
+   * narrator-only `fallback` template legitimately omits it. When
+   * absent, the gate is skipped and reports a pass.
+   */
+  previewVariety?: {
+    sampler: PreviewVarietySampler
+    config: PreviewVarietyConfig
+  }
 }
 
 export type DiversityReportEntry = GateReport & {
   slotId: string
   observed: DiversityObservation
+}
+
+export type PreviewVarietyReportEntry = GateReport & {
+  observed: PreviewVarietyObservation
+  skipped: boolean
 }
 
 export type AllGatesReport = {
@@ -50,6 +73,7 @@ export type AllGatesReport = {
   determinism: GateReport
   diversity: DiversityReportEntry[]
   dedupe: GateReport
+  previewVariety: PreviewVarietyReportEntry
 }
 
 export function runAllGates(
@@ -86,6 +110,26 @@ export function runAllGates(
       observed: result.observed,
     }
   })
+  const previewVarietyEntry = config.previewVariety
+  let previewVariety: PreviewVarietyReportEntry
+  if (previewVarietyEntry) {
+    const result = checkPreviewVariety(
+      previewVarietyEntry.sampler,
+      previewVarietyEntry.config,
+    )
+    previewVariety = {
+      pass: result.pass,
+      violations: result.violations,
+      observed: result.observed,
+      skipped: false,
+    }
+  } else {
+    previewVariety = {
+      ...passReport(),
+      observed: { sampleSize: 0, minUniqueRatio: 1, maxIdenticalRun: 0 },
+      skipped: true,
+    }
+  }
   const pass =
     coverage.pass &&
     specificity.pass &&
@@ -93,7 +137,8 @@ export function runAllGates(
     simCoherence.pass &&
     determinism.pass &&
     diversity.every((d) => d.pass) &&
-    dedupe.pass
+    dedupe.pass &&
+    previewVariety.pass
   return {
     pass,
     coverage,
@@ -103,5 +148,6 @@ export function runAllGates(
     determinism,
     diversity,
     dedupe,
+    previewVariety,
   }
 }

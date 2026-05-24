@@ -52,5 +52,33 @@ export const mannerNotePool: SnippetPool = {
         { kind: 'repeatCount', subjectTag: 'atmosphere', atLeast: 3 },
       ],
     },
+
+    // Phase 18 repair: unconditional narrator-voiced beats at explicit
+    // specificity 0 so the body fires SOMETHING when no state gate
+    // above matches. Never outranks the sharper rungs.
+    {
+      id: 'mnr_mild_quiet',
+      text: 'The corner sits a little quieter than the rest.',
+      conditions: [],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_step',
+      text: 'A regular slows their step as they pass.',
+      conditions: [],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_dust',
+      text: 'A scuff line traces the floor by the wall.',
+      conditions: [],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_air',
+      text: 'The air there has its own small weight.',
+      conditions: [],
+      specificity: 0,
+    },
   ],
 }

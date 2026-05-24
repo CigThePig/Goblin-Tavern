@@ -52,5 +52,39 @@ export const mannerNotePool: SnippetPool = {
         { kind: 'verbalTic', role: 'primaryActor', tic: 'italicises_stakes' },
       ],
     },
+
+    // Phase 18 repair: spec-0 fillers so neutral-voiced cohorts fire.
+    {
+      id: 'mnr_mild_warm',
+      text: 'They settle their weight onto the nearest stool.',
+      conditions: [
+        { kind: 'voiceAxis', role: 'primaryActor', axis: 'warmth', atLeast: 1 },
+      ],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_formal',
+      text: 'They straighten before turning to address you.',
+      conditions: [
+        { kind: 'voiceAxis', role: 'primaryActor', axis: 'formality', atLeast: 1 },
+      ],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_terse',
+      text: 'A hand drums once on the bench top.',
+      conditions: [
+        { kind: 'voiceAxis', role: 'primaryActor', axis: 'terseness', atLeast: 1 },
+      ],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_florid',
+      text: 'They turn a cuff back to free the wrist.',
+      conditions: [
+        { kind: 'voiceAxis', role: 'primaryActor', axis: 'floridity', atLeast: 1 },
+      ],
+      specificity: 0,
+    },
   ],
 }

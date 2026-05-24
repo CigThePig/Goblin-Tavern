@@ -26,6 +26,24 @@ export const effectPreviewPool: SnippetPool = {
         { kind: 'effectTag', tag: 'area' },
       ],
     },
+    // Phase 18 — additional state_change+area variants for multi-area
+    // repair choices.
+    {
+      id: 'pre_area_state_b',
+      text: 'The room would carry the repair forward',
+      conditions: [
+        { kind: 'effectKind', anyOf: ['state_change'] },
+        { kind: 'effectTag', tag: 'area' },
+      ],
+    },
+    {
+      id: 'pre_area_state_c',
+      text: 'The boards would hold the work',
+      conditions: [
+        { kind: 'effectKind', anyOf: ['state_change'] },
+        { kind: 'effectTag', tag: 'area' },
+      ],
+    },
     {
       id: 'pre_coin_cost',
       text: 'Coin would leave the till for it',
@@ -61,6 +79,43 @@ export const effectPreviewPool: SnippetPool = {
         { kind: 'effectKind', anyOf: ['state_change'] },
         { kind: 'severityAtLeast', value: 70 },
       ],
+    },
+
+    // — Phase 18 repair: base rung of unconditional kind-only snippets —
+    {
+      id: 'pre_state_change_a',
+      text: 'The condition would carry the work forward',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_state_change_b',
+      text: 'The reading would shift a notch',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_state_change_c',
+      text: 'A measure would tilt the slate',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_state_change_d',
+      text: 'The room would feel the choice',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_pressure_a',
+      text: 'A drift would lean back a touch',
+      conditions: [{ kind: 'effectKind', anyOf: ['pressure'] }],
+    },
+    {
+      id: 'pre_pressure_b',
+      text: 'The repair queue would carry less weight',
+      conditions: [{ kind: 'effectKind', anyOf: ['pressure'] }],
+    },
+    {
+      id: 'pre_future_thread',
+      text: 'A reminder would sit on the slate for later',
+      conditions: [{ kind: 'effectKind', anyOf: ['future_hook'] }],
     },
   ],
 }

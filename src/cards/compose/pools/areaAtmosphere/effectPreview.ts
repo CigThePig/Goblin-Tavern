@@ -28,6 +28,33 @@ export const effectPreviewPool: SnippetPool = {
         { kind: 'effectTag', tag: 'area' },
       ],
     },
+    // Phase 18 — additional state_change+area variants so multiple
+    // area-tagged effects on one card resolve to different snippets via
+    // the FNV tie-break.
+    {
+      id: 'pre_area_state_b',
+      text: 'The walls would read cleaner by service',
+      conditions: [
+        { kind: 'effectKind', anyOf: ['state_change'] },
+        { kind: 'effectTag', tag: 'area' },
+      ],
+    },
+    {
+      id: 'pre_area_state_c',
+      text: 'The room would carry the work',
+      conditions: [
+        { kind: 'effectKind', anyOf: ['state_change'] },
+        { kind: 'effectTag', tag: 'area' },
+      ],
+    },
+    {
+      id: 'pre_area_state_d',
+      text: 'The floor would hold the change through the night',
+      conditions: [
+        { kind: 'effectKind', anyOf: ['state_change'] },
+        { kind: 'effectTag', tag: 'area' },
+      ],
+    },
     {
       id: 'pre_coin_cost',
       text: 'Coin would leave the till for the work',
@@ -63,6 +90,43 @@ export const effectPreviewPool: SnippetPool = {
         { kind: 'effectKind', anyOf: ['state_change'] },
         { kind: 'severityAtLeast', value: 70 },
       ],
+    },
+
+    // — Phase 18 repair: base rung of unconditional kind-only snippets —
+    {
+      id: 'pre_state_change_floor',
+      text: 'The floor would feel the change',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_state_change_wear',
+      text: 'The wear would walk back a step',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_state_change_breath',
+      text: 'The room would breathe a bit easier',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_state_change_meter',
+      text: 'The reading would shift a touch',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change'] }],
+    },
+    {
+      id: 'pre_pressure_lean',
+      text: 'The drift would lean back a notch',
+      conditions: [{ kind: 'effectKind', anyOf: ['pressure'] }],
+    },
+    {
+      id: 'pre_pressure_thread',
+      text: 'Another thread would join the slate',
+      conditions: [{ kind: 'effectKind', anyOf: ['pressure'] }],
+    },
+    {
+      id: 'pre_future_thread',
+      text: 'A reminder would sit on the slate',
+      conditions: [{ kind: 'effectKind', anyOf: ['future_hook'] }],
     },
   ],
 }

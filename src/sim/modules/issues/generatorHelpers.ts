@@ -5,7 +5,12 @@ import type {
   EntityRef,
   TavernState,
 } from '../../state/TavernState'
-import type { EffectPreview } from '../../core/effect'
+import type {
+  EffectDirection,
+  EffectMagnitudeBand,
+  EffectPreview,
+  EffectTargetKind,
+} from '../../core/effect'
 import type {
   ConsequenceProfile,
   IssueSeed,
@@ -48,6 +53,104 @@ export function stampFromState(state: TavernState): CalendarStamp {
   }
 }
 
+// Phase 145 / ISSUE-113 — Voiced Surface arc, Phase 18 (iteration 2).
+//
+// `effect()` is the single choke point through which every consequence
+// preview is constructed (~240 call sites across `issueSeedGenerators.ts`
+// and `expandedSeedGenerators.ts`). Classifying targetKind / direction /
+// magnitudeBand here means the card layer's snippet pools can gate on
+// structural meter facts without re-parsing the `target` string at
+// condition time. Snippets stay flat data; the parsing rules live here.
+
+/** Per-targetKind absolute-magnitude cutoffs. A reading lands in the
+ *  first band whose upper bound is greater than `Math.abs(amount)`.
+ *  Tuned so "small" reads as a noticeable nudge and "large" reads as
+ *  a meaningful shock per meter family. */
+const MAGNITUDE_BAND_CUTOFFS: Record<EffectTargetKind, readonly number[]> = {
+  coin: [5, 20, 50],
+  pressure: [5, 10, 20],
+  staff: [3, 8, 15],
+  customer: [3, 8, 15],
+  cohort: [3, 8, 15],
+  reputation: [5, 10, 20],
+  area: [10, 25, 50],
+  stock: [10, 30, 60],
+  supplier: [5, 10, 20],
+  faction: [5, 10, 20],
+  culture: [5, 10, 20],
+  memory: [1, 1, 1],
+  arc: [1, 1, 1],
+  attribution: [1, 1, 1],
+  global: [5, 15, 30],
+  other: [5, 15, 30],
+}
+
+const BANDS: readonly EffectMagnitudeBand[] = [
+  'tiny',
+  'small',
+  'medium',
+  'large',
+]
+
+/** Classify a `target` string into a structural target-kind. Order
+ *  matters: `pressure:` colon-prefix must beat any later `pressure.`
+ *  dot-path, etc. Unknown patterns fall to `'other'` rather than
+ *  throwing — keeps existing seeds valid if a new target shape lands. */
+export function classifyTargetKind(target: string): EffectTargetKind {
+  if (target.startsWith('pressure:') || target.startsWith('pressure.'))
+    return 'pressure'
+  if (target.startsWith('memory:') || target.startsWith('memory.'))
+    return 'memory'
+  if (target.startsWith('arc:')) return 'arc'
+  if (target.startsWith('attribution.') || target.startsWith('attribution:'))
+    return 'attribution'
+  if (target.startsWith('world.suppliers.') || target.startsWith('suppliers.'))
+    return 'supplier'
+  if (target.startsWith('supplier:')) return 'supplier'
+  if (target.startsWith('factions.') || target.startsWith('world.factions.'))
+    return 'faction'
+  if (target.startsWith('faction:')) return 'faction'
+  if (target.startsWith('cultures.') || target.startsWith('world.cultures.'))
+    return 'culture'
+  if (target.startsWith('customer_group:')) return 'cohort'
+  if (target.startsWith('staff:')) return 'staff'
+  if (target.startsWith('regular:')) return 'customer'
+  if (target.startsWith('rumour:')) return 'memory'
+  if (target === 'coin' || target.startsWith('coin.')) return 'coin'
+  if (target.startsWith('stock.')) return 'stock'
+  if (target.startsWith('areas.')) return 'area'
+  if (target.startsWith('customers.')) return 'customer'
+  if (target.startsWith('staff.')) return 'staff'
+  if (target.startsWith('reputation.')) return 'reputation'
+  if (target.startsWith('cohort.') || target.startsWith('cohorts.'))
+    return 'cohort'
+  if (target === 'global' || target === 'tavern' || target.startsWith('global.'))
+    return 'global'
+  return 'other'
+}
+
+/** Sign-only classification. `0` and `undefined` resolve to `'neutral'`. */
+export function classifyDirection(amount?: number): EffectDirection {
+  if (amount === undefined || amount === 0) return 'neutral'
+  return amount > 0 ? 'positive' : 'negative'
+}
+
+/** Band the absolute amount against the per-targetKind cutoff table.
+ *  Returns `undefined` when amount is missing or 0 (no meter movement
+ *  to band). */
+export function classifyMagnitudeBand(
+  targetKind: EffectTargetKind,
+  amount?: number,
+): EffectMagnitudeBand | undefined {
+  if (amount === undefined || amount === 0) return undefined
+  const abs = Math.abs(amount)
+  const cutoffs = MAGNITUDE_BAND_CUTOFFS[targetKind]
+  for (const [i, cutoff] of cutoffs.entries()) {
+    if (abs < cutoff) return BANDS[i] ?? 'large'
+  }
+  return 'large'
+}
+
 export function effect(
   kind: EffectPreview['kind'],
   target: string,
@@ -55,7 +158,20 @@ export function effect(
   readable: string,
   tags: string[] = [],
 ): EffectPreview {
-  return { kind, target, amount, readable, tags }
+  const targetKind = classifyTargetKind(target)
+  const direction = classifyDirection(amount)
+  const magnitudeBand = classifyMagnitudeBand(targetKind, amount)
+  const out: EffectPreview = {
+    kind,
+    target,
+    amount,
+    readable,
+    tags,
+    targetKind,
+    direction,
+  }
+  if (magnitudeBand !== undefined) out.magnitudeBand = magnitudeBand
+  return out
 }
 
 /** Compute impactScore for a profile shaped by partial inputs. */

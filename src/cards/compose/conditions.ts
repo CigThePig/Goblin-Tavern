@@ -222,6 +222,33 @@ export function evalCondition(
       if (!effect) return false
       return effect.tags.includes(condition.tag)
     }
+
+    case 'effectTargetKind': {
+      // Phase 145 / ISSUE-113 — reads the structural target classification
+      // that `effect()` in `generatorHelpers.ts` writes onto every preview.
+      // Older serialized seeds that pre-date the field return false here
+      // (graceful degradation).
+      const effect = ctx.currentEffect
+      if (!effect || effect.targetKind === undefined) return false
+      return (condition.anyOf as readonly string[]).includes(effect.targetKind)
+    }
+
+    case 'effectDirection': {
+      const effect = ctx.currentEffect
+      if (!effect || effect.direction === undefined) return false
+      return effect.direction === condition.sign
+    }
+
+    case 'effectMagnitudeBand': {
+      // `magnitudeBand` is undefined for zero / missing amounts (cause
+      // effects, neutral markers). Snippets gated on magnitude should
+      // never match those — voice-on-zero is ambiguous anyway.
+      const effect = ctx.currentEffect
+      if (!effect || effect.magnitudeBand === undefined) return false
+      return (condition.anyOf as readonly string[]).includes(
+        effect.magnitudeBand,
+      )
+    }
   }
 }
 

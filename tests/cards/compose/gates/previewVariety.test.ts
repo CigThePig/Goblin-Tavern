@@ -269,11 +269,166 @@ describe('previewVariety gate — happy path', () => {
   })
 })
 
+// ---- Phase 145 / ISSUE-113 (iteration 2) — specificity rule ----
+
+const COIN_LOSS_EFFECT: EffectPreview = {
+  kind: 'state_change',
+  target: 'coin',
+  amount: -25,
+  readable: 'Pay landlord',
+  tags: ['coin'],
+  targetKind: 'coin',
+  direction: 'negative',
+  magnitudeBand: 'medium',
+}
+
+const STOCK_LOSS_EFFECT: EffectPreview = {
+  kind: 'state_change',
+  target: 'stock.ale.quantity',
+  amount: -20,
+  readable: 'Pour out the bad ale',
+  tags: ['stock'],
+  targetKind: 'stock',
+  direction: 'negative',
+  magnitudeBand: 'small',
+}
+
+const PRESSURE_EFFECT_TYPED: EffectPreview = {
+  kind: 'pressure',
+  target: 'pressure:food_safety',
+  amount: -10,
+  readable: 'Lower food safety risk',
+  tags: ['pressure'],
+  targetKind: 'pressure',
+  direction: 'negative',
+  magnitudeBand: 'medium',
+}
+
+const TYPED_CHOICES: readonly PreviewVarietyChoice[] = [
+  { slot: RESPONSE_SLOTS[0]!, effects: [COIN_LOSS_EFFECT, STOCK_LOSS_EFFECT] },
+  {
+    slot: RESPONSE_SLOTS[1]!,
+    effects: [COIN_LOSS_EFFECT, PRESSURE_EFFECT_TYPED],
+  },
+  {
+    slot: RESPONSE_SLOTS[2]!,
+    effects: [STOCK_LOSS_EFFECT, PRESSURE_EFFECT_TYPED],
+  },
+]
+
+// A pool that varies (passes variety) but says nothing about the meter.
+// Three distinct snippets, all of them generic enough to fail
+// specificity. The Phase-144 base rung — "the room steadies a beat" /
+// "a quiet shift threads through" — is exactly this shape.
+const GENERIC_VARIED_POOL: SnippetPool = {
+  slotId: 'effect_preview',
+  snippets: [
+    {
+      id: 'gen_a',
+      text: 'the room steadies a beat',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change', 'pressure'] }],
+    },
+    {
+      id: 'gen_b',
+      text: 'a quiet shift threads through',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change', 'pressure'] }],
+    },
+    {
+      id: 'gen_c',
+      text: 'the count tilts a notch',
+      conditions: [{ kind: 'effectKind', anyOf: ['state_change', 'pressure'] }],
+    },
+  ],
+}
+
+// A pool where every snippet uses the targetKind keyword set. The
+// rendered lines all name what changed.
+const SPECIFIC_POOL: SnippetPool = {
+  slotId: 'effect_preview',
+  snippets: [
+    {
+      id: 'spec_coin_neg',
+      text: 'the till lightens by a hand',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'negative' },
+      ],
+    },
+    {
+      id: 'spec_stock_neg',
+      text: 'shelves would thin a measure',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['stock'] },
+        { kind: 'effectDirection', sign: 'negative' },
+      ],
+    },
+    {
+      id: 'spec_pressure_neg',
+      text: 'the meter would settle a notch',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+      ],
+    },
+  ],
+}
+
+describe('previewVariety gate — specificity rule (Phase 145)', () => {
+  it('flags preview_specificity_low when a varied pool says nothing about the meter', () => {
+    const sampler = makeSampler(GENERIC_VARIED_POOL, TYPED_CHOICES)
+    const report = checkPreviewVariety(sampler, {
+      sampleSize: 4,
+      specificity: { minSpecificityRatio: 0.5 },
+    })
+    expect(report.pass).toBe(false)
+    const reasons = report.violations.map((v) => v.reason)
+    expect(reasons).toContain('preview_specificity_low')
+    expect(report.observed.specificityRatio).toBeLessThan(0.5)
+  })
+
+  it('passes specificity when every line names its targetKind', () => {
+    const sampler = makeSampler(SPECIFIC_POOL, TYPED_CHOICES)
+    const report = checkPreviewVariety(sampler, {
+      sampleSize: 4,
+      specificity: { minSpecificityRatio: 0.7 },
+    })
+    expect(report.pass).toBe(true)
+    expect(report.observed.specificityRatio).toBeGreaterThanOrEqual(0.7)
+  })
+
+  it('counts sim-emitted readable fallthrough as specific (sim is authoritative)', () => {
+    // Empty pool → every line falls back to `effect.readable` which IS
+    // the sim's specific translation. The specificity rule must NOT
+    // penalise sim fallthrough.
+    const emptyPool: SnippetPool = { slotId: 'effect_preview', snippets: [] }
+    const sampler = makeSampler(emptyPool, TYPED_CHOICES)
+    const report = checkPreviewVariety(sampler, {
+      sampleSize: 3,
+      specificity: { minSpecificityRatio: 1 },
+    })
+    expect(report.pass).toBe(true)
+    expect(report.observed.specificityRatio).toBe(1)
+  })
+
+  it('is opt-in: omitting the specificity config preserves Phase-144 behaviour', () => {
+    // The generic pool was failing specificity above; without the
+    // specificity rule it must pass (variety rules alone don't catch
+    // generic-but-varied text).
+    const sampler = makeSampler(GENERIC_VARIED_POOL, TYPED_CHOICES)
+    const report = checkPreviewVariety(sampler, { sampleSize: 4 })
+    expect(report.pass).toBe(true)
+    expect(report.observed.specificityRatio).toBeUndefined()
+  })
+})
+
 describe('previewVariety gate — frozen reason tuple', () => {
-  it('exports the two failure reasons as a frozen tuple', () => {
+  it('exports the failure reasons as a frozen tuple', () => {
+    // Phase 145 / ISSUE-113 — `preview_specificity_low` joined as the
+    // third reason when the iteration-2 specificity rule landed.
     expect(PREVIEW_VARIETY_REASONS).toEqual([
       'within_card_preview_collapse',
       'card_render_low_diversity',
+      'preview_specificity_low',
     ])
     expect(Object.isFrozen(PREVIEW_VARIETY_REASONS)).toBe(true)
   })

@@ -16,10 +16,12 @@
 //   - ignore_area_problem_profile: only delayed pressure + decay
 
 import type { SnippetPool } from '../../types'
+import { narratorEffectPreviewBase } from '../_shared/effectPreviewBase'
 
 export const effectPreviewPool: SnippetPool = {
   slotId: 'effect_preview',
   snippets: [
+    ...narratorEffectPreviewBase(),
     {
       id: 'pre_area_state',
       text: 'The room would steady its footing',

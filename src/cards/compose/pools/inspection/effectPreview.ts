@@ -19,10 +19,12 @@
 //   - ask_town_watch_for_guidance_profile: pressure:inspection -10, reputation +5
 
 import type { SnippetPool } from '../../types'
+import { narratorEffectPreviewBase } from '../_shared/effectPreviewBase'
 
 export const effectPreviewPool: SnippetPool = {
   slotId: 'effect_preview',
   snippets: [
+    ...narratorEffectPreviewBase(),
     {
       id: 'pre_area_clean',
       text: 'The rooms would come back to order',

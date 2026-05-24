@@ -8,10 +8,12 @@
 // unmatched effects fall back to the sim's verbatim `effect.readable`.
 
 import type { SnippetPool } from '../../types'
+import { narratorEffectPreviewBase } from '../_shared/effectPreviewBase'
 
 export const effectPreviewPool: SnippetPool = {
   slotId: 'effect_preview',
   snippets: [
+    ...narratorEffectPreviewBase(),
     {
       id: 'pre_state_warm',
       text: "They'd warm back up by closing",

@@ -15,10 +15,12 @@
 // and future hooks.
 
 import type { SnippetPool } from '../../types'
+import { narratorEffectPreviewBase } from '../_shared/effectPreviewBase'
 
 export const effectPreviewPool: SnippetPool = {
   slotId: 'effect_preview',
   snippets: [
+    ...narratorEffectPreviewBase(),
     {
       id: 'pre_reputation_state',
       text: "The house's name would shift with this",

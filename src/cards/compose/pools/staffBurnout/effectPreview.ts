@@ -15,10 +15,12 @@
 // the dominant kind on the card.
 
 import type { SnippetPool } from '../../types'
+import { narratorEffectPreviewBase } from '../_shared/effectPreviewBase'
 
 export const effectPreviewPool: SnippetPool = {
   slotId: 'effect_preview',
   snippets: [
+    ...narratorEffectPreviewBase(),
     // — top rung: voice-axis-gated variants (specificity 2) —
     {
       id: 'pre_state_warm',

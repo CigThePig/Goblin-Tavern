@@ -8,10 +8,12 @@
 // / `effectTag` / situational tags, never on actor voice.
 
 import type { SnippetPool } from '../../types'
+import { narratorEffectPreviewBase } from '../_shared/effectPreviewBase'
 
 export const effectPreviewPool: SnippetPool = {
   slotId: 'effect_preview',
   snippets: [
+    ...narratorEffectPreviewBase(),
     {
       id: 'pre_stock_state',
       text: 'The shelves would steady by evening',

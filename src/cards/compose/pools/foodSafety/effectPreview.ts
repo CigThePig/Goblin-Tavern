@@ -15,10 +15,12 @@
 //   - blame_supplier_profile: cause-only
 
 import type { SnippetPool } from '../../types'
+import { narratorEffectPreviewBase } from '../_shared/effectPreviewBase'
 
 export const effectPreviewPool: SnippetPool = {
   slotId: 'effect_preview',
   snippets: [
+    ...narratorEffectPreviewBase(),
     {
       id: 'pre_stock_loss',
       text: 'Stock would leave the larder',

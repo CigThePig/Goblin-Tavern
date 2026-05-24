@@ -16,10 +16,12 @@
 //   - diversify_profile: reputation.<axis> -3, customers.merchants.patronage +4
 
 import type { SnippetPool } from '../../types'
+import { narratorEffectPreviewBase } from '../_shared/effectPreviewBase'
 
 export const effectPreviewPool: SnippetPool = {
   slotId: 'effect_preview',
   snippets: [
+    ...narratorEffectPreviewBase(),
     {
       id: 'pre_reputation_state',
       text: 'The name would tilt with this',

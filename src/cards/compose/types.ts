@@ -29,7 +29,13 @@ import type {
   ResponseIntentVerb,
   ResponseSlot,
 } from '../../sim/modules/issues/issueSeedTypes'
-import type { EffectKind, EffectPreview } from '../../sim/core/effect'
+import type {
+  EffectDirection,
+  EffectKind,
+  EffectMagnitudeBand,
+  EffectPreview,
+  EffectTargetKind,
+} from '../../sim/core/effect'
 import type { TavernState } from '../../sim/state/TavernState'
 import type { EntityRef } from '../../sim/state/TavernState'
 import type {
@@ -119,6 +125,15 @@ export type SnippetCondition =
   | { kind: 'responseShape'; anyOf: readonly ResponseIntentShape[] }
   | { kind: 'effectKind'; anyOf: readonly EffectKind[] }
   | { kind: 'effectTag'; tag: string }
+  // — Phase 145 / ISSUE-113 — Voiced Surface arc, Phase 18 (iteration 2).
+  //   Per-effect structural meter facts derived sim-side by `effect()`
+  //   in `generatorHelpers.ts`. Read `ctx.currentEffect.targetKind` /
+  //   `.direction` / `.magnitudeBand`. Return false when the field is
+  //   missing — same graceful-degradation pattern as the Phase-6
+  //   effectKind/effectTag arms.
+  | { kind: 'effectTargetKind'; anyOf: readonly EffectTargetKind[] }
+  | { kind: 'effectDirection'; sign: EffectDirection }
+  | { kind: 'effectMagnitudeBand'; anyOf: readonly EffectMagnitudeBand[] }
 
 /**
  * Phase 132 / ISSUE-101 — optional iteration context the choice helper

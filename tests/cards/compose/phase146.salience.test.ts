@@ -207,6 +207,73 @@ describe('resolveSalientReads', () => {
     const state = makeTavernState({})
     expect(resolveSalientReads(seed, state)).toEqual([])
   })
+
+  // Phase 149 / ISSUE-117 — Legible Surface arc, Phase 4. SalienceRead
+  // gained two new kinds: `hasTag` (calendar/domain/toneHint flow) and
+  // `severity` (seed-level severity threshold).
+  it('resolves hasTag reads against the seed tag flow (domain ∪ toneHints ∪ stake tags)', () => {
+    const seed = makeSeed({
+      id: 'debt-tag-seed',
+      family: 'debt_rent' as IssueSeedFamilyId,
+      type: 'debt_pressure',
+      timing: 'end_month',
+      severity: 50,
+      domain: ['economy', 'monthly', 'landlord'],
+      toneHints: ['debt', 'pressure', 'rent_due_soon'],
+    })
+    const state = makeTavernState({})
+    const reads = resolveSalientReads(seed, state)
+    // The debt_rent table puts hasTag(rent_due_soon) at index 1; with no
+    // pressures rising and no memories, only the tag and (below sev 70)
+    // no severity read resolve.
+    expect(reads.some((r) => r.read.kind === 'hasTag' && r.read.tag === 'rent_due_soon')).toBe(true)
+    const tagRead = reads.find((r) => r.read.kind === 'hasTag')!
+    expect(tagRead.extremity).toBe(1)
+  })
+
+  it('omits hasTag reads when the tag is absent from the seed flow', () => {
+    const seed = makeSeed({
+      id: 'debt-no-tag-seed',
+      family: 'debt_rent' as IssueSeedFamilyId,
+      type: 'debt_pressure',
+      timing: 'end_month',
+      severity: 50,
+      domain: ['economy', 'monthly', 'landlord'],
+      toneHints: ['debt', 'pressure'],
+    })
+    const state = makeTavernState({})
+    const reads = resolveSalientReads(seed, state)
+    expect(reads.some((r) => r.read.kind === 'hasTag')).toBe(false)
+  })
+
+  it('resolves severity reads with extremity 2 at-or-above 70, 1 below', () => {
+    const lowSevSeed = makeSeed({
+      id: 'stock-low-sev',
+      family: 'stock_shortage' as IssueSeedFamilyId,
+      type: 'warning',
+      timing: 'morning_prep',
+      severity: 65,
+      toneHints: ['warning'],
+    })
+    const highSevSeed = makeSeed({
+      id: 'stock-high-sev',
+      family: 'stock_shortage' as IssueSeedFamilyId,
+      type: 'warning',
+      timing: 'morning_prep',
+      severity: 80,
+      toneHints: ['warning'],
+    })
+    const state = makeTavernState({})
+    // stock_shortage table has severity atLeast 70 at index 0.
+    // For sev=65 (< 70), the read does NOT resolve (below threshold).
+    const lowReads = resolveSalientReads(lowSevSeed, state)
+    expect(lowReads.some((r) => r.read.kind === 'severity')).toBe(false)
+    // For sev=80 (>= 70), it resolves with extremity 2.
+    const highReads = resolveSalientReads(highSevSeed, state)
+    const sev = highReads.find((r) => r.read.kind === 'severity')!
+    expect(sev).toBeDefined()
+    expect(sev.extremity).toBe(2)
+  })
 })
 
 describe('scoreCandidateSalience', () => {
@@ -234,6 +301,71 @@ describe('scoreCandidateSalience', () => {
     expect(score.index).toBe(Infinity)
     expect(score.extremity).toBe(0)
     expect(score.coveredReadIndices).toEqual([])
+  })
+
+  // Phase 149 / ISSUE-117 — hasTag and severity snippet conditions
+  // score against the matching new SalienceRead kinds.
+  it('a hasTag snippet covers a hasTag salience read with the same tag', () => {
+    const seed = makeSeed({
+      id: 'debt-tag-seed',
+      family: 'debt_rent' as IssueSeedFamilyId,
+      type: 'debt_pressure',
+      timing: 'end_month',
+      severity: 50,
+      toneHints: ['debt', 'pressure', 'rent_due_soon'],
+    })
+    const state = makeTavernState({})
+    const resolved = resolveSalientReads(seed, state)
+    const snippet: Snippet = {
+      id: 'rent_due_snippet',
+      text: 'Rent is closing in.',
+      conditions: [{ kind: 'hasTag', tag: 'rent_due_soon' }],
+    }
+    const score = scoreCandidateSalience(snippet, resolved)
+    // debt_rent table puts hasTag(rent_due_soon) at index 1; resolved
+    // reads array drops anything that didn't fire (severity below
+    // threshold, no pressures, no memories), so the tag is at the only
+    // resolved position.
+    expect(score.index).toBeLessThan(Infinity)
+    expect(score.coveredReadIndices.length).toBeGreaterThan(0)
+    const covered = resolved[score.coveredReadIndices[0]!]!
+    expect(covered.read.kind).toBe('hasTag')
+  })
+
+  it('a severityAtLeast snippet covers a severity read when its threshold ≥ the read threshold', () => {
+    const seed = makeSeed({
+      id: 'stock-high-sev',
+      family: 'stock_shortage' as IssueSeedFamilyId,
+      type: 'warning',
+      timing: 'morning_prep',
+      severity: 80,
+      toneHints: ['warning'],
+    })
+    const state = makeTavernState({})
+    const resolved = resolveSalientReads(seed, state)
+    // Snippet at 70 exactly matches the table's severity read (atLeast 70).
+    const exact: Snippet = {
+      id: 's70',
+      text: 'Critical now.',
+      conditions: [{ kind: 'severityAtLeast', value: 70 }],
+    }
+    expect(scoreCandidateSalience(exact, resolved).index).toBeLessThan(Infinity)
+    // Snippet at 85 is even tighter — still covers the table's atLeast 70.
+    const tighter: Snippet = {
+      id: 's85',
+      text: 'Beyond crisis now.',
+      conditions: [{ kind: 'severityAtLeast', value: 85 }],
+    }
+    expect(scoreCandidateSalience(tighter, resolved).index).toBeLessThan(Infinity)
+    // Snippet at 50 is looser than the read's threshold (50 < 70). It
+    // would fire for cases the read considers below salient — does NOT
+    // cover the read. Returns Infinity.
+    const looser: Snippet = {
+      id: 's50',
+      text: 'Slightly tight.',
+      conditions: [{ kind: 'severityAtLeast', value: 50 }],
+    }
+    expect(scoreCandidateSalience(looser, resolved).index).toBe(Infinity)
   })
 })
 

@@ -37,19 +37,30 @@ import {
 import { __internal as conditionInternal } from './conditions'
 import type { Snippet, SnippetCondition } from './types'
 
-const { resolveActorRef } = conditionInternal
+const { resolveActorRef, collectSeedTags } = conditionInternal
 
 /**
  * One read a situation can make against the sim. Mirrors the shape of
  * the existing state-lookup snippet conditions (`signalEquals`,
- * `pressureRising`, `memoryPresent`, `repeatCount`) so a snippet's
- * conditions map 1-to-1 onto reads by structural equality.
+ * `pressureRising`, `memoryPresent`, `repeatCount`, `hasTag`,
+ * `severityAtLeast`) so a snippet's conditions map 1-to-1 onto reads by
+ * structural equality.
+ *
+ * Phase 149 / ISSUE-117 — Legible Surface arc, Phase 4. Added `hasTag`
+ * and `severity` so narrator-voiced cluster members (stock_shortage,
+ * debt_rent) can declare their top-salient facts as data. The legacy
+ * four kinds covered every Movement-V (Phase 1) test case, but the first
+ * Movement-VI cluster surfaced two facts that *are* the salient ones —
+ * the `rent_due_soon` calendar tag, and the `severityAtLeast 70`
+ * crisis-threshold — yet had no salience-table representation.
  */
 export type SalienceRead =
   | { kind: 'signal'; role: string; signal: SignalId }
   | { kind: 'pressure'; pressureId: string }
   | { kind: 'memory'; tag: string }
   | { kind: 'repeat'; subjectTag: string; atLeast: number }
+  | { kind: 'hasTag'; tag: string }
+  | { kind: 'severity'; atLeast: number }
 
 export type SeedFamilySalience = {
   /** Ordered most-salient first. Earlier index = more decision-relevant. */
@@ -77,6 +88,42 @@ export const SALIENCE_TABLES: Partial<
       { kind: 'pressure', pressureId: 'market_instability' },
       { kind: 'repeat', subjectTag: 'supplier', atLeast: 3 },
       { kind: 'memory', tag: 'supplier' },
+    ],
+  },
+
+  // Phase 149 / ISSUE-117 — Legible Surface arc, Phase 4 (Suppliers,
+  // Stock & Debt cluster). Narrator-voiced — neither family carries a
+  // primaryActor with castAttributes (stock subject is a stock item;
+  // landlord is a `systemRef` per audit pass 1 §5.3), so reads here are
+  // pressure / memory / hasTag / severity / repeat only. Order: highest-
+  // extremity facts first (the crisis-threshold severity flag or the
+  // calendar window dominate decision-relevance), then family pressures,
+  // then choice-affecting memories, then the multi-period repeat as the
+  // deepest rung.
+  stock_shortage: {
+    reads: [
+      { kind: 'severity', atLeast: 70 },
+      { kind: 'pressure', pressureId: 'stock_shortage' },
+      { kind: 'hasTag', tag: 'high_demand' },
+      { kind: 'pressure', pressureId: 'reputation_drift' },
+      { kind: 'memory', tag: 'deception' },
+      { kind: 'memory', tag: 'price' },
+      { kind: 'memory', tag: 'ignored' },
+      { kind: 'memory', tag: 'stock' },
+      { kind: 'repeat', subjectTag: 'stock', atLeast: 3 },
+    ],
+  },
+  debt_rent: {
+    reads: [
+      { kind: 'severity', atLeast: 70 },
+      { kind: 'hasTag', tag: 'rent_due_soon' },
+      { kind: 'pressure', pressureId: 'debt' },
+      { kind: 'pressure', pressureId: 'landlord' },
+      { kind: 'memory', tag: 'risk' },
+      { kind: 'memory', tag: 'rent' },
+      { kind: 'memory', tag: 'landlord' },
+      { kind: 'memory', tag: 'debt' },
+      { kind: 'repeat', subjectTag: 'debt', atLeast: 3 },
     ],
   },
 }
@@ -128,6 +175,24 @@ function evaluateRead(
       if (count < read.atLeast) return null
       return { read, extremity: 1 }
     }
+    case 'hasTag': {
+      // Phase 149 / ISSUE-117 — same source as the `hasTag` snippet
+      // condition (domain ∪ toneHints ∪ stake tags). Calendar tags that
+      // are flowed onto the seed via `toneHints` resolve here.
+      if (!collectSeedTags(seed).has(read.tag)) return null
+      return { read, extremity: 1 }
+    }
+    case 'severity': {
+      // Phase 149 / ISSUE-117 — extremity 2 at-or-above the crisis-
+      // threshold convention (`>= 70`, matching the `severityAtLeast 70`
+      // cells across all twenty Movement-II templates), 1 below it. The
+      // `read.atLeast` defines what counts as "severity worth opening
+      // on" for this family; the extremity ladder mirrors the band
+      // extremity used by `signal` reads.
+      if (seed.severity < read.atLeast) return null
+      const extremity = seed.severity >= 70 ? 2 : 1
+      return { read, extremity }
+    }
   }
 }
 
@@ -173,6 +238,21 @@ function conditionMatchesRead(
       return (
         condition.kind === 'repeatCount' &&
         condition.subjectTag === read.read.subjectTag
+      )
+    case 'hasTag':
+      // Phase 149 / ISSUE-117 — exact tag match.
+      return condition.kind === 'hasTag' && condition.tag === read.read.tag
+    case 'severity':
+      // Phase 149 / ISSUE-117 — a snippet covers the read when its own
+      // threshold is at least as tight as the read's. A snippet gated on
+      // `severityAtLeast 70` covers the `severity >= 70` read; a snippet
+      // gated on `severityAtLeast 85` covers it more sharply (still
+      // matches); a snippet gated on `severityAtLeast 50` is looser than
+      // the read and does NOT cover it (the snippet would fire for cases
+      // the read considers below the salient threshold).
+      return (
+        condition.kind === 'severityAtLeast' &&
+        condition.value >= read.read.atLeast
       )
   }
 }

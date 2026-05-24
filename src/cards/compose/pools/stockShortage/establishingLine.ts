@@ -96,5 +96,78 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'repeatCount', subjectTag: 'stock', atLeast: 3 },
       ],
     },
+
+    // ─── Phase 149 / ISSUE-117 — matrix cells ────────────────────────
+    // Spec-2 combos covering pressure × memory / hasTag / severity
+    // intersections the seed generator can reach. Every snippet carries
+    // at least one state-lookup primitive (pressureRising / memoryPresent
+    // / repeatCount) so the sim-coherence gate passes — hasTag and
+    // severityAtLeast are NOT state-lookup kinds on their own.
+
+    {
+      id: 'est_shortage_high_demand',
+      text: 'The shortage tightens, and the rush is already at the door.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'stock_shortage' },
+        { kind: 'hasTag', tag: 'high_demand' },
+      ],
+    },
+    {
+      id: 'est_shortage_deception',
+      text: 'The shortage worsens, with the watered ale still on the slate.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'stock_shortage' },
+        { kind: 'memoryPresent', tag: 'deception' },
+      ],
+    },
+    {
+      id: 'est_shortage_price',
+      text: 'The shortage worsens, and the price hike sits fresh on the slate.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'stock_shortage' },
+        { kind: 'memoryPresent', tag: 'price' },
+      ],
+    },
+    {
+      id: 'est_shortage_ignored',
+      text: 'The shortage you left to itself has come back biting harder.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'stock_shortage' },
+        { kind: 'memoryPresent', tag: 'ignored' },
+      ],
+    },
+    {
+      id: 'est_severity_high_demand',
+      text: 'Critical shortage, and the day is already drawing a thirsty crowd.',
+      conditions: [
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'pressureRising', pressureId: 'stock_shortage' },
+        { kind: 'hasTag', tag: 'high_demand' },
+      ],
+    },
+    {
+      id: 'est_severity_deception',
+      text: 'Critical shortage, and the watered ale still marks the slate.',
+      conditions: [
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'memoryPresent', tag: 'deception' },
+      ],
+    },
+    {
+      id: 'est_high_demand_deception',
+      text: "A busy day looms, and the watered ale isn't forgotten yet.",
+      conditions: [
+        { kind: 'hasTag', tag: 'high_demand' },
+        { kind: 'memoryPresent', tag: 'deception' },
+      ],
+    },
+    {
+      id: 'est_reputation_ignored',
+      text: 'Regulars are noticing — the untended shortage echoes outside the door.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'reputation_drift' },
+        { kind: 'memoryPresent', tag: 'ignored' },
+      ],
+    },
   ],
 }

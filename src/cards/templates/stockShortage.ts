@@ -58,11 +58,23 @@ export const stockShortageTemplate: CompositionalCardTemplate = {
       claimMode: 'flavor',
     },
     {
+      // Phase 149 / ISSUE-117 — Legible Surface arc, Phase 4. The
+      // stock_shortage card is *about* the rising shortage × the
+      // memory/calendar/severity context that makes the next choice
+      // matter. When two top-salient facts resolve (e.g. severity ≥ 70
+      // AND rising stock_shortage; or rising shortage AND a watered-ale
+      // memory), the establishing line should state the pair, not
+      // whichever single condition out-specifies the other. Salience
+      // table at `compose/salience.ts:stock_shortage` orders the reads;
+      // assembler at `compose/assemble.ts:pickComposedSlotText` joins
+      // primary + secondary with ' — ' within the combined budget.
       id: 'establishing_line',
       role: 'utterance',
       pool: stockShortageEstablishingLinePool,
       wordBudget: 14,
       claimMode: 'sim_backed',
+      saliencePolicy: 'multi',
+      multiFactJoin: ' — ',
     },
     {
       id: 'reaction_line',

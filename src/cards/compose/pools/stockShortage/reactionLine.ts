@@ -100,5 +100,35 @@ export const reactionLinePool: SnippetPool = {
         { kind: 'repeatCount', subjectTag: 'stock', atLeast: 3 },
       ],
     },
+
+    // ─── Phase 149 / ISSUE-117 — matrix-aligned state combos ─────────
+    // Reaction lines for the new establishing-matrix top cells. Each
+    // pairs severity / pressure with memory / calendar so the narrator's
+    // read matches the situation the establishing line stated.
+
+    {
+      id: 'rxn_severity_deception',
+      text: 'The slate already shows what cutting corners cost.',
+      conditions: [
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'memoryPresent', tag: 'deception' },
+      ],
+    },
+    {
+      id: 'rxn_severity_high_demand',
+      text: 'The day asks more than the cellar holds.',
+      conditions: [
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'hasTag', tag: 'high_demand' },
+      ],
+    },
+    {
+      id: 'rxn_shortage_ignored',
+      text: 'Ignored the warning before; this one bites sooner.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'stock_shortage' },
+        { kind: 'memoryPresent', tag: 'ignored' },
+      ],
+    },
   ],
 }

@@ -100,5 +100,70 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'repeatCount', subjectTag: 'debt', atLeast: 3 },
       ],
     },
+
+    // ─── Phase 149 / ISSUE-117 — matrix cells ────────────────────────
+    // Spec-2 combos covering pressure × memory / hasTag / severity
+    // intersections the seed generator can reach. Every snippet carries
+    // at least one state-lookup primitive (pressureRising / memoryPresent
+    // / repeatCount) so sim-coherence passes — hasTag and severityAtLeast
+    // are not state-lookup kinds on their own.
+
+    {
+      id: 'est_rent_due_debt',
+      text: 'The rent window is closing and the coin pile keeps thinning.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rent_due_soon' },
+        { kind: 'pressureRising', pressureId: 'debt' },
+      ],
+    },
+    {
+      id: 'est_rent_due_risk',
+      text: 'Rent is days away, and the eviction warning sits open on the desk.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rent_due_soon' },
+        { kind: 'memoryPresent', tag: 'risk' },
+      ],
+    },
+    {
+      id: 'est_debt_landlord',
+      text: 'Both pressures squeezing — debt climbing, landlord patience thinning.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'debt' },
+        { kind: 'pressureRising', pressureId: 'landlord' },
+      ],
+    },
+    {
+      id: 'est_landlord_rent_paid',
+      text: "The landlord is cooling even after last month's clean payment.",
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'landlord' },
+        { kind: 'memoryPresent', tag: 'rent' },
+      ],
+    },
+    {
+      id: 'est_landlord_risk',
+      text: "The landlord's tone matches the week the eviction note arrived.",
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'landlord' },
+        { kind: 'memoryPresent', tag: 'risk' },
+      ],
+    },
+    {
+      id: 'est_severity_rent_due',
+      text: 'The worst month yet, and the rent window is closing fast.',
+      conditions: [
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'hasTag', tag: 'rent_due_soon' },
+        { kind: 'pressureRising', pressureId: 'landlord' },
+      ],
+    },
+    {
+      id: 'est_severity_landlord',
+      text: "The shortfall bites and the landlord's patience is gone.",
+      conditions: [
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'pressureRising', pressureId: 'landlord' },
+      ],
+    },
   ],
 }

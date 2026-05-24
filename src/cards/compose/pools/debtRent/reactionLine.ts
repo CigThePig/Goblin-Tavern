@@ -100,5 +100,31 @@ export const reactionLinePool: SnippetPool = {
         { kind: 'repeatCount', subjectTag: 'debt', atLeast: 3 },
       ],
     },
+
+    // ─── Phase 149 / ISSUE-117 — matrix-aligned state combos ─────────
+    {
+      id: 'rxn_rent_due_debt',
+      text: 'The rent window narrows as the till keeps thinning.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rent_due_soon' },
+        { kind: 'pressureRising', pressureId: 'debt' },
+      ],
+    },
+    {
+      id: 'rxn_severity_rent_due',
+      text: 'The month asks more than the coin pile holds.',
+      conditions: [
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'hasTag', tag: 'rent_due_soon' },
+      ],
+    },
+    {
+      id: 'rxn_landlord_risk',
+      text: "The landlord's tone is the same as before the eviction note.",
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'landlord' },
+        { kind: 'memoryPresent', tag: 'risk' },
+      ],
+    },
   ],
 }

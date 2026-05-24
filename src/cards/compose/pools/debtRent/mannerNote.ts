@@ -65,5 +65,30 @@ export const mannerNotePool: SnippetPool = {
       conditions: [],
       specificity: 0,
     },
+
+    // ─── Phase 149 / ISSUE-117 — matrix-aligned sensory beats ────────
+    {
+      id: 'mnr_landlord_rising',
+      text: 'The door to the office quiet, but not for long.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'landlord' },
+      ],
+    },
+    {
+      id: 'mnr_severity_debt',
+      text: 'The coin stack thin enough to count by eye.',
+      conditions: [
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'pressureRising', pressureId: 'debt' },
+      ],
+    },
+    {
+      id: 'mnr_rent_due_paid',
+      text: "Last month's receipt still pinned to the lintel.",
+      conditions: [
+        { kind: 'hasTag', tag: 'rent_due_soon' },
+        { kind: 'memoryPresent', tag: 'rent' },
+      ],
+    },
   ],
 }

@@ -197,6 +197,30 @@ export type SlotSpec = {
   /** Sim-coherence policy. Defaults to `'flavor'` — slots that make no
    *  checkable sim claims. Phase-D `sim-coherence` gate reads this. */
   claimMode?: SlotClaimMode
+  /** Phase 146 / ISSUE-114 — Legible Surface arc, Phase 1. Salience
+   *  policy for this slot. Omitted ⇒ today's behaviour (pure specificity
+   *  + FNV tie-break). `'top'` ⇒ when multiple snippets tie on top
+   *  specificity, prefer the one covering the most-salient resolved read
+   *  for the seed's family. `'multi'` ⇒ same primary pick as `'top'`,
+   *  AND attempt to append a secondary snippet from the same pool that
+   *  covers the next orthogonal salient fact, joined into one line
+   *  within `multiFactBudget`. Layered OVER the gradient, not replacing
+   *  it. See `src/cards/compose/salience.ts`. */
+  saliencePolicy?: 'top' | 'multi'
+  /** Phase 146. Joining string between primary and secondary snippets
+   *  when `saliencePolicy === 'multi'`. Defaults to `' '` (a space).
+   *  Authors set `' — '` for em-dash separation when the prose reads
+   *  more cleanly with a break. */
+  multiFactJoin?: string
+  /** Phase 146. Combined-line word budget for the joined primary +
+   *  secondary output when `saliencePolicy === 'multi'`. Independent
+   *  from `wordBudget` (which the voice-bounds gate checks against each
+   *  snippet's text). Defaults to `wordBudget * 2` — room for two
+   *  snippets each at their individual cap plus a join token. If the
+   *  joined string would exceed this budget, the secondary is dropped
+   *  and only the primary renders ("silence beats stapling" per the
+   *  arc plan). */
+  multiFactBudget?: number
 }
 
 // ---------- Template + factory shape ----------

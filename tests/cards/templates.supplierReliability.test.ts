@@ -258,6 +258,22 @@ describe('supplierReliabilityCard — render output', () => {
     expect(view.body[0]).toBe('Their wagons run steady; the loads always arrive whole.')
   })
 
+  // Phase 146 / ISSUE-114 — Legible Surface arc, Phase 1. The supplier
+  // card opens with reliability × relationship when both bands resolve.
+  // The establishing slot is opted into `saliencePolicy: 'multi'`; the
+  // assembler picks the reliability-covering snippet as primary and
+  // appends the relationship-covering snippet via the ' — ' join.
+  it('multi-fact establishing line states both reliability AND relationship when both bands resolve', () => {
+    const state = createInitialTavernState()
+    const supplierId = firstSupplierId(state)
+    const both = withSupplierReliability(state, supplierId, 20, 20)
+    const seed = supplierOfferSeed(supplierId, 'supplier-low-low')
+    const view = supplierReliabilityCard.render(seed, both)
+    expect(view.body[0]).toContain('come up short') // reliability fact
+    expect(view.body[0]).toContain('old cold') // relationship fact
+    expect(view.body[0]).toContain(' — ')
+  })
+
   it('title centres on the supplier display and never truncates with "…"', () => {
     const state = createInitialTavernState()
     const supplierId = firstSupplierId(state)

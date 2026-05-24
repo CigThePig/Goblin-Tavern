@@ -48,3 +48,14 @@ export {
   type DedupeConfig,
 } from './dedupe'
 export { levenshtein, normalisedSimilarity } from './levenshtein'
+export {
+  checkCrossSituationVoice,
+  type CrossSituationActorKind,
+  type CrossSituationArchetype,
+  type CrossSituationArchetypeObservation,
+  type CrossSituationConfig,
+  type CrossSituationKindConfig,
+  type CrossSituationKindObservation,
+  type CrossSituationReport,
+  type CrossSituationSample,
+} from './crossSituation'

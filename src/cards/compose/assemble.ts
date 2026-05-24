@@ -32,12 +32,20 @@ export function specificityOf(snippet: Snippet): number {
   return snippet.specificity ?? snippet.conditions.length
 }
 
-export function pickSnippet(
+/** Phase 143 / ISSUE-112 — Voiced Surface arc, Phase 17. Internal twin
+ *  of `pickSnippet` that returns the resolved `Snippet` (id + conditions
+ *  + text) instead of just the text. The cross-situation voice
+ *  consistency gate uses this to introspect which snippet fired so it
+ *  can read its `conditions` for `voiceAxis` / `verbalTic` gates without
+ *  re-running selection. `pickSnippet` delegates to this; both paths
+ *  share the same filter-then-specificity-then-FNV logic, so callers
+ *  see identical text. */
+export function pickSnippetTrace(
   slot: SlotSpec,
   seed: IssueSeed,
   state: TavernState,
   ctx: ConditionContext = {},
-): string | undefined {
+): Snippet | undefined {
   const matches = slot.pool.snippets.filter((s) =>
     s.conditions.every((c) => evalCondition(c, seed, state, ctx)),
   )
@@ -48,14 +56,23 @@ export function pickSnippet(
     if (s > maxSpec) maxSpec = s
   }
   const top = matches.filter((s) => specificityOf(s) === maxSpec)
-  if (top.length === 1) return top[0]!.text
+  if (top.length === 1) return top[0]!
   // Deterministic tie-break: same seed + same slot ⇒ same pick across
   // every re-render. Matches the FNV precedent in `descriptors.ts` and
   // `voice/composer.ts`, now via the shared helper. Slot id namespacing
   // (Phase 132 / ISSUE-101) ensures choice-label / effect-preview synthetic
   // slots discriminate between response slots in the helper.
   const idx = fnvIndex(`${seed.id}::${slot.id}`, top.length)
-  return top[idx]!.text
+  return top[idx]!
+}
+
+export function pickSnippet(
+  slot: SlotSpec,
+  seed: IssueSeed,
+  state: TavernState,
+  ctx: ConditionContext = {},
+): string | undefined {
+  return pickSnippetTrace(slot, seed, state, ctx)?.text
 }
 
 export function assembleSlots(

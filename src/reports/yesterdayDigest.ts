@@ -21,6 +21,17 @@
 //     its existing `composeEmpty('morning', …)` line.
 
 import type { DailyReportData } from './types'
+import { createInitialTavernState } from '../sim/state/defaults'
+import {
+  pickYesterdayPressureVerb,
+  pickYesterdayReputationVerb,
+} from './compose/sections'
+
+// Yesterday-digest snippet conditions read only seed.domain (hasTag)
+// and never state, so the runtime state parameter is effectively
+// unused for the FNV pick. Pre-build a frozen singleton so we don't
+// re-construct on every projection.
+const DIGEST_STATE = createInitialTavernState()
 
 export type YesterdayDigestDirection = 'gain' | 'loss' | 'neutral'
 
@@ -134,6 +145,7 @@ export function projectYesterdayDigest(
 function pickSecondary(
   report: DailyReportData,
 ): YesterdayDigestSecondary | undefined {
+  const closedDayOrdinal = report.header.closedDayOrdinal
   // Reputation deltas are already sorted by magnitude descending in
   // `projectReputationDeltas`. Take the first.
   const topRep = report.reputationDeltas[0]
@@ -143,23 +155,29 @@ function pickSecondary(
 
   if (!topRep && !topPressure) return undefined
 
-  if (topRep && !topPressure) return repSecondary(topRep)
-  if (!topRep && topPressure) return pressureSecondary(topPressure)
+  if (topRep && !topPressure) return repSecondary(topRep, closedDayOrdinal)
+  if (!topRep && topPressure) return pressureSecondary(topPressure, closedDayOrdinal)
 
   // Both present. Reputation magnitude vs. pressure value+delta. We
   // compare raw movement: rep delta absolute vs. pressure delta. On
   // tie or when rep is larger, reputation wins (more interpretable).
   const repMag = Math.abs(topRep!.delta)
   const presMag = topPressure!.delta
-  if (repMag >= presMag) return repSecondary(topRep!)
-  return pressureSecondary(topPressure!)
+  if (repMag >= presMag) return repSecondary(topRep!, closedDayOrdinal)
+  return pressureSecondary(topPressure!, closedDayOrdinal)
 }
 
 function repSecondary(
   delta: DailyReportData['reputationDeltas'][number],
+  closedDayOrdinal: number,
 ): YesterdayDigestSecondary {
   const dir = direction(delta.delta)
-  const verb = dir === 'gain' ? 'rose' : dir === 'loss' ? 'fell' : 'held'
+  const verb = pickYesterdayReputationVerb({
+    state: DIGEST_STATE,
+    closedDayOrdinal,
+    axis: delta.axis,
+    delta: delta.delta,
+  })
   return {
     kind: 'reputation',
     axis: delta.axis,
@@ -174,10 +192,17 @@ function repSecondary(
 
 function pressureSecondary(
   line: DailyReportData['risingPressures'][number],
+  closedDayOrdinal: number,
 ): YesterdayDigestSecondary {
   // A rising pressure is tonally a loss — the meter moved against
   // the player. Reading direction as 'loss' lets the digest reuse
   // the same icon and color treatment as a falling reputation axis.
+  const verb = pickYesterdayPressureVerb({
+    state: DIGEST_STATE,
+    closedDayOrdinal,
+    pressureId: line.id,
+    delta: line.delta,
+  })
   return {
     kind: 'pressure',
     id: line.id,
@@ -186,7 +211,7 @@ function pressureSecondary(
     delta: line.delta,
     direction: 'loss',
     readable: clampWords(
-      `${line.label} rising ${signed(line.delta)} (now ${line.value})`,
+      `${line.label} ${verb} ${signed(line.delta)} (now ${line.value})`,
     ),
   }
 }

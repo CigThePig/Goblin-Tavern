@@ -26,7 +26,13 @@ import type { OwnerActionApplied } from '../sim/modules/ownerActions/types'
 import type { DailyServiceResult } from '../sim/modules/service/types'
 
 import { closedDayAbsolute } from './causeLookup'
-import { composeEmpty } from '../cards/voice/index'
+import {
+  composeDailyHeaderLine,
+  composeDailyQuietLine,
+  composeDriverLine,
+  composeServiceLine,
+  composeTrafficLine,
+} from './compose/sections'
 import { projectMissedOpportunities } from './missedOpportunityProjection'
 import { humanizeDiff, humanizePath } from './labels/humanizePath'
 import { idLabel, humanizeId } from './labels/idLabel'
@@ -104,7 +110,7 @@ export function buildDailyReport(
   const groupedDiffs = projectGroupedDiffs(significant)
   const ownerActionsApplied = projectOwnerActions(result, state)
   const resolvedIntents = projectResolvedIntents(state)
-  const serviceLines = projectServiceLines(result)
+  const serviceLines = projectServiceLines(result, state, closedDay)
   const risingPressures = projectRisingPressures(result, state)
   const futureHooks = projectFutureHooks(state, closedDay)
   const missedOpportunities: MissedOpportunityLine[] = projectMissedOpportunities(
@@ -131,8 +137,13 @@ export function buildDailyReport(
     coinDelta === 0 &&
     reputationDeltas.length === 0
 
-  const voiceKey = `${state.meta.tavernId}.d${closedDay}`
-  const quietLine = isQuiet ? composeEmpty('quiet', voiceKey) : undefined
+  const quietLine = isQuiet
+    ? composeDailyQuietLine({
+        state,
+        closedDayOrdinal: closedDay,
+        isEndOfWeek: header.isEndOfWeek,
+      })
+    : undefined
 
   return {
     header,
@@ -179,8 +190,13 @@ function buildHeader(
   const isEndOfWeek = closedDayOfWeek === 7
   const isEndOfMonth = previousCalendar ? cal.day === 28 : false
 
-  const voiceKey = `${state.meta.tavernId}.d${totalElapsed}`
-  const headerVoice = composeEmpty('header', voiceKey)
+  const headerVoice = composeDailyHeaderLine({
+    state,
+    closedDayOrdinal: totalElapsed,
+    calendar: cal,
+    isEndOfWeek,
+    isEndOfMonth,
+  })
 
   return {
     closedDayOrdinal: totalElapsed,
@@ -439,7 +455,11 @@ function projectResolvedIntents(state: TavernState): ReportResolvedIntent[] {
 
 // ---------- Service lines ----------
 
-function projectServiceLines(result: SimResult): ReportServiceLine[] {
+function projectServiceLines(
+  result: SimResult,
+  state: TavernState,
+  closedDay: number,
+): ReportServiceLine[] {
   const section = result.reports.find((r) => r.id === 'service')
   if (!section?.data) return []
   const serviceResult = section.data['result'] as DailyServiceResult | undefined
@@ -450,14 +470,25 @@ function projectServiceLines(result: SimResult): ReportServiceLine[] {
     0,
   )
   if (trafficTotal > 0) {
+    const groupCount = Object.keys(serviceResult.trafficByGroup ?? {}).length
     lines.push({
-      readable: `Traffic: ${trafficTotal} patrons across ${Object.keys(serviceResult.trafficByGroup ?? {}).length} groups`,
+      readable: composeTrafficLine({
+        state,
+        closedDay,
+        trafficTotal,
+        groupCount,
+      }),
       category: 'traffic',
     })
   }
   if (serviceResult.netCoinEarned !== undefined && serviceResult.netCoinEarned !== 0) {
     lines.push({
-      readable: `Service earned ${serviceResult.netCoinEarned} coin (${serviceResult.unpaidTabs ?? 0} unpaid tabs)`,
+      readable: composeServiceLine({
+        state,
+        closedDay,
+        netCoin: serviceResult.netCoinEarned,
+        unpaidTabs: serviceResult.unpaidTabs ?? 0,
+      }),
       category: 'traffic',
     })
   }
@@ -473,10 +504,26 @@ function projectServiceLines(result: SimResult): ReportServiceLine[] {
     | { positive?: string; negative?: string }
     | undefined
   if (drivers?.positive && lines.length < SERVICE_LINE_CAP) {
-    lines.push({ readable: `Positive driver: ${drivers.positive}`, category: 'driver' })
+    lines.push({
+      readable: composeDriverLine({
+        state,
+        closedDay,
+        driverName: drivers.positive,
+        direction: 'positive',
+      }),
+      category: 'driver',
+    })
   }
   if (drivers?.negative && lines.length < SERVICE_LINE_CAP) {
-    lines.push({ readable: `Negative driver: ${drivers.negative}`, category: 'driver' })
+    lines.push({
+      readable: composeDriverLine({
+        state,
+        closedDay,
+        driverName: drivers.negative,
+        direction: 'negative',
+      }),
+      category: 'driver',
+    })
   }
   return lines.slice(0, SERVICE_LINE_CAP)
 }

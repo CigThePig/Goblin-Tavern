@@ -37,15 +37,28 @@ import type {
   ResponseSlot,
 } from '../../../sim/modules/issues/issueSeedTypes'
 import type {
+  EffectDirection,
+  EffectMagnitudeBand,
   EffectPreview,
   EffectTargetKind,
 } from '../../../sim/core/effect'
 import type { TavernState } from '../../../sim/state/TavernState'
+import {
+  MAGNITUDE_LEXICON,
+  lineCarriesMagnitude,
+} from '../magnitudeLexicon'
 import { failReport, type GateReport, type GateViolation } from './types'
 
 export type PreviewVarietyChoice = {
   slot: ResponseSlot
   effects: readonly EffectPreview[]
+  /** Phase 147 / ISSUE-115 — when true, the gate threads
+   *  `inactionPreview: true` into the per-effect `ConditionContext`,
+   *  mirroring how `composeChoicesFromSeed` flags a preview sourced
+   *  from `delayedEffects` because `immediateEffects` was empty. Lets
+   *  the live suite exercise inaction-specific snippet variants
+   *  (`{ kind: 'inactionPreview', value: true }`). Defaults to false. */
+  inactionPreview?: boolean
 }
 
 export type PreviewVarietySample = {
@@ -80,6 +93,14 @@ export type PreviewVarietyConfig = {
    *  it describes — the player can't translate flavor back to sim
    *  effect. Disabled when omitted (back-compat with Phase-144 callers). */
   specificity?: PreviewSpecificityRule
+  /** Phase 147 / ISSUE-115 — Legible Surface arc, Phase 2. The legibility
+   *  contract: every immediate-effect preview line must encode the
+   *  effect's magnitude (via `MAGNITUDE_LEXICON`); choices that spend
+   *  coin must surface that cost; the inaction option must render
+   *  non-empty preview lines. Disabled when omitted (back-compat with
+   *  pre-Phase-147 callers — including all 17 non-pilot templates whose
+   *  per-meter content hasn't landed yet). */
+  legibility?: PreviewLegibilityRule
 }
 
 /** A rendered preview line counts as "specific" when one of three things
@@ -103,6 +124,54 @@ export type PreviewSpecificityRule = {
   targetKindKeywords?: Partial<Record<EffectTargetKind, readonly string[]>>
 }
 
+/** Phase 147 / ISSUE-115 — Legible Surface arc, Phase 2.
+ *
+ *  The preview legibility contract, machine-checked. Three opt-in rules
+ *  that key on the structural metadata the sim already attaches to every
+ *  `EffectPreview` (`targetKind`, `direction`, `magnitudeBand`):
+ *
+ *    1. `requireMagnitude` — a preview line whose effect carries a
+ *       defined `magnitudeBand` must contain a token from
+ *       `MAGNITUDE_LEXICON[direction][band]`. Sim fallthrough
+ *       (`effect.readable`) always counts as legible — same carve-out
+ *       Phase 145 applied to specificity. Lines for effects where
+ *       `magnitudeBand` is undefined (neutral-amount, memory / arc /
+ *       attribution markers) are excluded.
+ *    2. `requireCostSurfacing` — a choice with any negative-direction
+ *       `coin` effect must render at least one preview line containing
+ *       a `coin` keyword from the targetKindKeywords table. A choice
+ *       that spends should not be indistinguishable from a choice that
+ *       gains.
+ *    3. `forbidInactionBlank` — a choice's preview must render at least
+ *       one line. The Phase-147 inaction wiring in
+ *       `composeChoicesFromSeed` makes this satisfiable for every
+ *       profile that has either an immediate or a delayed effect; the
+ *       gate guards against regressions.
+ *
+ *  All three default to `false` (the rule is opt-in). Templates that
+ *  haven't been authored against the magnitude lexicon yet keep
+ *  passing — only the two Phase-147 pilots opt in. */
+export type PreviewLegibilityRule = {
+  /** Require every rendered line whose effect carries a defined
+   *  `magnitudeBand` to contain a token from
+   *  `MAGNITUDE_LEXICON[direction][band]`. */
+  requireMagnitude?: boolean
+  /** Override the magnitude lexicon. Defaults to `MAGNITUDE_LEXICON`. */
+  magnitudeLexicon?: Record<
+    EffectDirection,
+    Record<EffectMagnitudeBand, readonly string[]>
+  >
+  /** Require any choice that spends coin (negative-direction `coin`
+   *  effect) to surface that cost in at least one preview line via a
+   *  coin keyword from `coinKeywords`. */
+  requireCostSurfacing?: boolean
+  /** Coin-keyword list used by `requireCostSurfacing`. Defaults to
+   *  `DEFAULT_TARGET_KIND_KEYWORDS.coin`. */
+  coinKeywords?: readonly string[]
+  /** Require every choice to render at least one preview line. */
+  forbidInactionBlank?: boolean
+}
+
 export type PreviewVarietyObservation = {
   sampleSize: number
   /** Lowest unique-ratio observed across samples. */
@@ -113,12 +182,29 @@ export type PreviewVarietyObservation = {
    *  across every sample. `undefined` when the specificity rule is
    *  disabled. */
   specificityRatio?: number
+  /** Phase 147 — fraction of rendered lines whose effect carries a
+   *  defined `magnitudeBand` that contain a magnitude-lexicon token.
+   *  `undefined` when the `requireMagnitude` rule is disabled. */
+  magnitudeRatio?: number
+  /** Phase 147 — fraction of choices carrying any negative-direction
+   *  coin effect whose preview surfaced a coin keyword on at least one
+   *  line. `undefined` when `requireCostSurfacing` is disabled or no
+   *  sampled choice spent coin. */
+  costSurfacingRatio?: number
+  /** Phase 147 — count of choices that rendered zero preview lines
+   *  across the samples. `undefined` when `forbidInactionBlank` is
+   *  disabled. */
+  inactionBlankCount?: number
 }
 
 export const PREVIEW_VARIETY_REASONS = Object.freeze([
   'within_card_preview_collapse',
   'card_render_low_diversity',
   'preview_specificity_low',
+  // Phase 147 / ISSUE-115 — Legible Surface arc, Phase 2.
+  'preview_magnitude_missing',
+  'preview_cost_unsurfaced',
+  'preview_inaction_blank',
 ] as const)
 
 export type PreviewVarietyReason = (typeof PREVIEW_VARIETY_REASONS)[number]
@@ -175,6 +261,11 @@ export function checkPreviewVariety(
     specificityRule?.minSpecificityRatio ?? DEFAULT_MIN_SPECIFICITY_RATIO
   const keywordTable =
     specificityRule?.targetKindKeywords ?? DEFAULT_TARGET_KIND_KEYWORDS
+  const legibilityRule = config.legibility
+  const magnitudeLexicon =
+    legibilityRule?.magnitudeLexicon ?? MAGNITUDE_LEXICON
+  const coinKeywords =
+    legibilityRule?.coinKeywords ?? DEFAULT_TARGET_KIND_KEYWORDS.coin
   const violations: GateViolation[] = []
   let observedMinRatio = 1
   let observedMaxRun = 0
@@ -182,10 +273,54 @@ export function checkPreviewVariety(
   let totalLines = 0
   let specificLines = 0
   let genericExamples: string[] = []
+  // Phase 147 counters.
+  let totalBandedLines = 0
+  let magnitudeOkLines = 0
+  let magnitudeExamples: string[] = []
+  let costBearingChoices = 0
+  let costSurfacedChoices = 0
+  let costMissedExamples: string[] = []
+  let inactionBlankChoices = 0
+  let inactionBlankExamples: string[] = []
   for (let i = 0; i < config.sampleSize; i += 1) {
     const sample = sampler(i)
     const maxPreview = sample.maxPreview ?? 3
-    const rendered = renderPreviewLines(sample, maxPreview)
+    const renderedByChoice = renderPreviewByChoice(sample, maxPreview)
+    const rendered = renderedByChoice.flatMap((r) => r.lines)
+    // Phase 147 — per-choice rules run on every sampled choice
+    // including ones that produced zero lines (the inaction-blank
+    // detector). They run before the early-exit on `rendered.length`
+    // so an entirely-blank card still surfaces the violation.
+    if (legibilityRule?.forbidInactionBlank) {
+      for (const choice of renderedByChoice) {
+        if (choice.lines.length === 0) {
+          inactionBlankChoices += 1
+          if (inactionBlankExamples.length < 3) {
+            inactionBlankExamples.push(
+              `sample ${i} choice "${choice.slot.id}" (${choice.slot.shape})`,
+            )
+          }
+        }
+      }
+    }
+    if (legibilityRule?.requireCostSurfacing) {
+      for (const choice of renderedByChoice) {
+        const spendsCoin = choice.effects.some(
+          (e) => e.targetKind === 'coin' && e.direction === 'negative',
+        )
+        if (!spendsCoin) continue
+        costBearingChoices += 1
+        const surfaced = choice.lines.some((line) =>
+          lineContainsAny(line.text, coinKeywords),
+        )
+        if (surfaced) costSurfacedChoices += 1
+        else if (costMissedExamples.length < 3) {
+          costMissedExamples.push(
+            `sample ${i} choice "${choice.slot.id}": ${choice.lines.map((l) => `"${l.text}"`).join(', ') || '(no lines)'}`,
+          )
+        }
+      }
+    }
     if (rendered.length === 0) continue
     samplesWithLines += 1
     const texts = rendered.map((r) => r.text)
@@ -222,6 +357,27 @@ export function checkPreviewVariety(
         }
       }
     }
+    if (legibilityRule?.requireMagnitude) {
+      for (const line of rendered) {
+        const band = line.effect.magnitudeBand
+        const direction = line.effect.direction
+        if (band === undefined || direction === undefined) continue
+        totalBandedLines += 1
+        // Sim fallthrough is always legible — same carve-out the
+        // specificity rule applies.
+        if (line.fromFallback) {
+          magnitudeOkLines += 1
+          continue
+        }
+        if (lineCarriesMagnitude(line.text, direction, band, magnitudeLexicon)) {
+          magnitudeOkLines += 1
+        } else if (magnitudeExamples.length < 3) {
+          magnitudeExamples.push(
+            `"${line.text}" for ${direction}/${band}`,
+          )
+        }
+      }
+    }
   }
   let specificityRatio: number | undefined
   if (specificityRule && totalLines > 0) {
@@ -234,6 +390,39 @@ export function checkPreviewVariety(
       })
     }
   }
+  let magnitudeRatio: number | undefined
+  if (legibilityRule?.requireMagnitude && totalBandedLines > 0) {
+    magnitudeRatio = magnitudeOkLines / totalBandedLines
+    if (magnitudeOkLines < totalBandedLines) {
+      violations.push({
+        slotId: 'effect_preview',
+        reason: 'preview_magnitude_missing',
+        detail: `${magnitudeOkLines}/${totalBandedLines} banded preview lines carry a magnitude-lexicon token. Examples of lines missing magnitude: ${magnitudeExamples.join('; ')}`,
+      })
+    }
+  }
+  let costSurfacingRatio: number | undefined
+  if (legibilityRule?.requireCostSurfacing && costBearingChoices > 0) {
+    costSurfacingRatio = costSurfacedChoices / costBearingChoices
+    if (costSurfacedChoices < costBearingChoices) {
+      violations.push({
+        slotId: 'effect_preview',
+        reason: 'preview_cost_unsurfaced',
+        detail: `${costSurfacedChoices}/${costBearingChoices} coin-spending choices surfaced the cost in a preview line. Examples: ${costMissedExamples.join('; ')}`,
+      })
+    }
+  }
+  let inactionBlankCount: number | undefined
+  if (legibilityRule?.forbidInactionBlank) {
+    inactionBlankCount = inactionBlankChoices
+    if (inactionBlankChoices > 0) {
+      violations.push({
+        slotId: 'effect_preview',
+        reason: 'preview_inaction_blank',
+        detail: `${inactionBlankChoices} choice(s) rendered zero preview lines. Examples: ${inactionBlankExamples.join('; ')}`,
+      })
+    }
+  }
   const report = failReport(violations)
   const observed: PreviewVarietyObservation = {
     sampleSize: samplesWithLines,
@@ -243,11 +432,27 @@ export function checkPreviewVariety(
   if (specificityRatio !== undefined) {
     observed.specificityRatio = specificityRatio
   }
+  if (magnitudeRatio !== undefined) {
+    observed.magnitudeRatio = magnitudeRatio
+  }
+  if (costSurfacingRatio !== undefined) {
+    observed.costSurfacingRatio = costSurfacingRatio
+  }
+  if (inactionBlankCount !== undefined) {
+    observed.inactionBlankCount = inactionBlankCount
+  }
   return {
     pass: report.pass,
     violations: report.violations,
     observed,
   }
+}
+
+/** Case-insensitive substring test against any token in a list. */
+function lineContainsAny(line: string, tokens: readonly string[]): boolean {
+  if (tokens.length === 0) return false
+  const haystack = line.toLowerCase()
+  return tokens.some((tok) => haystack.includes(tok.toLowerCase()))
 }
 
 /** A rendered line is "specific" if (a) it matched no snippet and the
@@ -274,14 +479,28 @@ type RenderedPreviewLine = {
   fromFallback: boolean
 }
 
-function renderPreviewLines(
+type RenderedPreviewChoice = {
+  slot: ResponseSlot
+  /** The effects this choice would surface (already truncated to
+   *  `maxPreview` and possibly delayed-effect-sourced for inaction). */
+  effects: readonly EffectPreview[]
+  lines: RenderedPreviewLine[]
+  /** True when this choice rendered via the Phase-147 inaction path
+   *  (`composeChoicesFromSeed` sourcing from `delayedEffects` because
+   *  `immediateEffects` was empty). The gate's per-choice rules read
+   *  this so the inaction-blank rule doesn't falsely fire on a choice
+   *  whose preview legitimately came from delayed effects. */
+  fromInaction: boolean
+}
+
+function renderPreviewByChoice(
   sample: PreviewVarietySample,
   maxPreview: number,
-): RenderedPreviewLine[] {
-  const lines: RenderedPreviewLine[] = []
-  for (const choice of sample.choices) {
+): RenderedPreviewChoice[] {
+  return sample.choices.map((choice) => {
     const effects = choice.effects.slice(0, maxPreview)
-    effects.forEach((effect, idx) => {
+    const inaction = choice.inactionPreview === true
+    const lines: RenderedPreviewLine[] = effects.map((effect, idx) => {
       const slot: SlotSpec = {
         id: `effect_preview::${choice.slot.id}::${idx}`,
         role: 'effect_preview',
@@ -293,16 +512,22 @@ function renderPreviewLines(
       const ctx: ConditionContext = {
         currentResponseSlot: choice.slot,
         currentEffect: effect,
+        inactionPreview: inaction,
       }
       const composed = pickSnippet(slot, sample.seed, sample.state, ctx)
-      lines.push({
+      return {
         text: composed ?? effect.readable,
         effect,
         fromFallback: composed === undefined,
-      })
+      }
     })
-  }
-  return lines
+    return {
+      slot: choice.slot,
+      effects,
+      lines,
+      fromInaction: inaction,
+    }
+  })
 }
 
 function longestIdenticalRun(lines: readonly string[]): number {

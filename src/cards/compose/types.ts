@@ -134,6 +134,15 @@ export type SnippetCondition =
   | { kind: 'effectTargetKind'; anyOf: readonly EffectTargetKind[] }
   | { kind: 'effectDirection'; sign: EffectDirection }
   | { kind: 'effectMagnitudeBand'; anyOf: readonly EffectMagnitudeBand[] }
+  // — Phase 147 / ISSUE-115 — Legible Surface arc, Phase 2. Reads
+  //   `ctx.inactionPreview`, set by `composeChoicesFromSeed` when the
+  //   choice has no immediate effects and the preview is being sourced
+  //   from `delayedEffects` instead. Lets authors write "what not
+  //   acting costs" variants ("the rot would keep spreading") that
+  //   out-rank the generic shared base for ignore choices without
+  //   bleeding into other slots. Returns false when the ctx field is
+  //   absent — same graceful-degradation pattern.
+  | { kind: 'inactionPreview'; value: boolean }
 
 /**
  * Phase 132 / ISSUE-101 — optional iteration context the choice helper
@@ -146,6 +155,12 @@ export type SnippetCondition =
 export type ConditionContext = {
   currentResponseSlot?: ResponseSlot
   currentEffect?: EffectPreview
+  /** Phase 147 / ISSUE-115 — Legible Surface arc, Phase 2. True when
+   *  `composeChoicesFromSeed` is rendering preview lines sourced from
+   *  `delayedEffects` because `immediateEffects` was empty (the inaction
+   *  path). False / absent otherwise. Read by the `inactionPreview`
+   *  condition arm. */
+  inactionPreview?: boolean
 }
 
 // ---------- Snippet / SnippetPool / SlotSpec ----------

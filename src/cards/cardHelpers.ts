@@ -210,7 +210,19 @@ export function composeChoicesFromSeed(
     const composedLabel = pickSnippet(labelSlot, seed, state, {
       currentResponseSlot: slot,
     })
-    const effects = (profile?.immediateEffects ?? []).slice(0, previewMax)
+    // Phase 147 / ISSUE-115 — when a response slot has no immediate
+    // effects (e.g. the `ignore_area_problem` profile at
+    // `expandedSeedGenerators.ts:2692`), the previous path rendered the
+    // choice with zero preview lines — exactly the option a player
+    // needs the most information about. Source from `delayedEffects`
+    // instead, threading `inactionPreview: true` so pools can author
+    // "what not acting costs" variants. The snippet replaces only the
+    // text; the underlying `EffectPreview { kind, target, amount,
+    // tags, … }` is unchanged.
+    const immediate = profile?.immediateEffects ?? []
+    const delayed = profile?.delayedEffects ?? []
+    const useDelayed = immediate.length === 0 && delayed.length > 0
+    const effects = (useDelayed ? delayed : immediate).slice(0, previewMax)
     const composedPreview = effects.map((effect, idx) => {
       const previewSlot: SlotSpec = {
         id: `effect_preview::${slot.id}::${idx}`,
@@ -223,6 +235,7 @@ export function composeChoicesFromSeed(
       const composed = pickSnippet(previewSlot, seed, state, {
         currentResponseSlot: slot,
         currentEffect: effect,
+        inactionPreview: useDelayed,
       })
       return composed ?? effect.readable
     })

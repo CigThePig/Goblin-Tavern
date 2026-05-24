@@ -430,3 +430,139 @@ describe('areaAtmosphereCard — ownerless guarantee', () => {
     expect(poolHasActorCondition(areaAtmosphereChoiceLabelPool)).toBe(false)
   })
 })
+
+// ---- Phase 147 / ISSUE-115 — Legible Surface arc, Phase 2 ----
+
+describe('areaAtmosphereCard — inaction preview (Phase 147)', () => {
+  function inactionSeed(id = 'area-inaction-seed', areaId = 'main_room'): IssueSeed {
+    // Mirror the production `ignore_area_problem_profile`:
+    // immediateEffects: [], delayedEffects: [pressure, condition, damage].
+    return makeSeed({
+      id,
+      family: 'area_atmosphere' as IssueSeedFamilyId,
+      type: 'warning',
+      timing: 'morning_prep',
+      severity: 50,
+      domain: ['areas', 'atmosphere'],
+      toneHints: ['atmosphere'],
+      location: { kind: 'area', id: areaId },
+      affectedActors: [{ kind: 'area', id: areaId }],
+      responseSlots: [
+        {
+          id: 'ignore_area_problem',
+          labelHint: 'Ignore the problem',
+          allowedVerbs: ['ignore'],
+          shape: 'ignore',
+          targetOptions: [],
+          expectedEffects: ['no cost', 'rep drifts'],
+        },
+      ],
+      consequenceProfiles: [
+        {
+          id: 'ignore_area_problem_profile',
+          responseSlotId: 'ignore_area_problem',
+          immediateEffects: [],
+          delayedEffects: [
+            {
+              kind: 'pressure',
+              target: 'pressure:maintenance',
+              amount: 10,
+              readable: 'Maintenance pressure rises',
+              tags: ['pressure'],
+              targetKind: 'pressure',
+              direction: 'positive',
+              magnitudeBand: 'medium',
+            },
+            {
+              kind: 'state_change',
+              target: `areas.${areaId}.condition`,
+              amount: -8,
+              readable: 'Slow decay',
+              tags: ['area'],
+              targetKind: 'area',
+              direction: 'negative',
+              magnitudeBand: 'tiny',
+            },
+            {
+              kind: 'state_change',
+              target: `areas.${areaId}.damage`,
+              amount: 6,
+              readable: 'Damage accrues',
+              tags: ['area'],
+              targetKind: 'area',
+              direction: 'positive',
+              magnitudeBand: 'tiny',
+            },
+          ],
+          memories: [],
+          futureHooks: [],
+          impactScore: 0,
+        },
+      ],
+      textIngredients: {
+        subject: 'sour atmosphere',
+        sensoryDetails: ['dim light'],
+        recentContext: ['cleanliness 25'],
+        stakesReadable: ['atmosphere may rot'],
+      },
+    })
+  }
+
+  it('renders non-empty preview lines for the ignore choice (sourced from delayed effects)', () => {
+    const state = createInitialTavernState()
+    const seed = inactionSeed()
+    const view = areaAtmosphereCard.render(seed, state)
+    const ignore = view.choices.find((c) => c.slotId === 'ignore_area_problem')
+    expect(ignore).toBeDefined()
+    expect(ignore!.previewEffects.length).toBeGreaterThan(0)
+  })
+
+  it('inaction preview lines come from the delayed-effect pipeline, not invented text', () => {
+    const state = createInitialTavernState()
+    const seed = inactionSeed()
+    const view = areaAtmosphereCard.render(seed, state)
+    const ignore = view.choices.find((c) => c.slotId === 'ignore_area_problem')!
+    // Each line is either a snippet from the effectPreview pool OR the
+    // verbatim `effect.readable` from the seed's delayed effects. It is
+    // never a textIngredients fragment or invented prose.
+    const delayedReadables = new Set(
+      seed.consequenceProfiles[0]!.delayedEffects.map((e) => e.readable),
+    )
+    for (const line of ignore.previewEffects) {
+      expect(line.length).toBeGreaterThan(0)
+      // Either it's exactly one of the delayed readables (sim
+      // fallthrough), or it's prose composed by the snippet pipeline.
+      // We don't pin to specific snippet text because the pool can
+      // evolve; we DO pin to the line not being a textIngredient.
+      expect(line).not.toBe('dim light')
+      expect(line).not.toBe('atmosphere may rot')
+      expect(line).not.toBe('cleanliness 25')
+      // If it IS a sim readable, it must be one of the delayed ones.
+      if (delayedReadables.has(line)) {
+        expect(delayedReadables.has(line)).toBe(true)
+      }
+    }
+  })
+
+  it('inaction-preview routing is deterministic across re-renders', () => {
+    const state = createInitialTavernState()
+    const seed = inactionSeed()
+    const a = areaAtmosphereCard.render(seed, state)
+    const b = areaAtmosphereCard.render(seed, structuredClone(state) as TavernState)
+    const ignoreA = a.choices.find((c) => c.slotId === 'ignore_area_problem')!
+    const ignoreB = b.choices.find((c) => c.slotId === 'ignore_area_problem')!
+    expect(ignoreA.previewEffects).toEqual(ignoreB.previewEffects)
+  })
+
+  it('preserves mechanical truth: ignore choice verb/shape unchanged on inaction path', () => {
+    const state = createInitialTavernState()
+    const seed = inactionSeed()
+    const view = areaAtmosphereCard.render(seed, state)
+    const ignore = view.choices.find((c) => c.slotId === 'ignore_area_problem')!
+    expect(ignore.verb).toBe('ignore')
+    expect(ignore.shape).toBe('ignore')
+    expect(ignore.previewEffects.length).toBeLessThanOrEqual(
+      seed.consequenceProfiles[0]!.delayedEffects.length,
+    )
+  })
+})

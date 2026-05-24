@@ -14,6 +14,20 @@
 //   - close_area_temporarily_profile: area.damage -8, area.cleanliness +10 (+ delayed pressure)
 //   - rebrand_area_profile: reputation -8, area.condition +5 (+ delayed future_hook)
 //   - ignore_area_problem_profile: only delayed pressure + decay
+//
+// Phase 147 / ISSUE-115 — Legible Surface arc, Phase 2. Pilot pool for the
+// preview legibility contract. Two new blocks at the bottom:
+//
+//   1. `pre_leg_*` — magnitude-bearing snippets gated on (effectTargetKind
+//      × effectDirection × effectMagnitudeBand) at specificity 3, carrying
+//      both the targetKind keyword and a `MAGNITUDE_LEXICON` token for
+//      their cell. Beats the shared narrator base for matching effects.
+//   2. `pre_inact_*` — inaction-specific snippets that fire when
+//      `composeChoicesFromSeed` routes through `delayedEffects` because
+//      `immediateEffects` was empty (the `ignore_area_problem` profile at
+//      `expandedSeedGenerators.ts:2692`). Pulled from the delayed-effect
+//      shape: pressure:maintenance rising, area.condition decaying,
+//      area.damage accruing.
 
 import type { SnippetPool } from '../../types'
 import { narratorEffectPreviewBase } from '../_shared/effectPreviewBase'
@@ -129,6 +143,174 @@ export const effectPreviewPool: SnippetPool = {
       id: 'pre_future_thread',
       text: 'A reminder would sit on the slate',
       conditions: [{ kind: 'effectKind', anyOf: ['future_hook'] }],
+    },
+
+    // — Phase 147 / ISSUE-115 — legibility-contract snippets.
+    //
+    // Specificity 3 on (effectTargetKind × effectDirection ×
+    // effectMagnitudeBand) — beats the shared narrator base and the
+    // 2-condition area variants above for the cells the area_atmosphere
+    // seeds actually emit (area cleanliness ±10/20/25; area condition
+    // ±5/8/10/15; area damage ±6/8/15; coin -10/-15/-25; pressure +10;
+    // reputation -8).
+
+    // Area: positive cells (cleanup / repair lines).
+    {
+      id: 'pre_leg_area_pos_tiny',
+      text: 'the corner would lift a hair',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
+      ],
+    },
+    {
+      id: 'pre_leg_area_pos_small',
+      text: 'the floor would lift a notch by service',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'pre_leg_area_pos_medium',
+      text: 'the room would gain a real step by morning',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    // Area: negative cells (decay / damage / wear).
+    {
+      id: 'pre_leg_area_neg_tiny',
+      text: 'the floor would dip a hair further',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
+      ],
+    },
+    {
+      id: 'pre_leg_area_neg_small',
+      text: 'the room would slip a notch through the night',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'pre_leg_area_neg_medium',
+      text: 'the corner would slide a clear drop overnight',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+
+    // Coin: cost surfacing for the repair / clean / start_project paths.
+    {
+      id: 'pre_leg_coin_neg_small',
+      text: 'coin would leave the till by a step',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'pre_leg_coin_neg_medium',
+      text: 'a clear drop of silver would leave the till',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+
+    // Pressure: maintenance rising / settling.
+    {
+      id: 'pre_leg_pressure_pos_small',
+      text: 'maintenance pressure would climb a notch on the reading',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'pre_leg_pressure_pos_medium',
+      text: 'pressure would lift a real step on the reading',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'pre_leg_pressure_neg_small',
+      text: 'the maintenance reading would step back a notch',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+
+    // Reputation: rebrand path drops it.
+    {
+      id: 'pre_leg_reputation_neg_small',
+      text: 'the tavern name would step back a notch in talk',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+
+    // — Phase 147 / ISSUE-115 — inaction-path snippets.
+    //
+    // The `ignore_area_problem_profile` (expandedSeedGenerators.ts:2692)
+    // has `immediateEffects: []` plus delayed pressure:maintenance +10,
+    // area.condition -8, area.damage +6. Phase 147's inaction wiring in
+    // `composeChoicesFromSeed` routes preview composition through those
+    // delayed effects with `inactionPreview: true`. These snippets
+    // (specificity 4 with inactionPreview + targetKind + direction +
+    // band) out-rank everything else on that path. Body of "what not
+    // acting costs" — sourced from the seed's delayedEffects, never
+    // invented.
+    {
+      id: 'pre_inact_pressure_pos_medium',
+      text: 'maintenance pressure would keep climbing a real step',
+      conditions: [
+        { kind: 'inactionPreview', value: true },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'pre_inact_area_neg_tiny',
+      text: 'the room would keep slipping a hair through the night',
+      conditions: [
+        { kind: 'inactionPreview', value: true },
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
+      ],
+    },
+    {
+      id: 'pre_inact_area_pos_tiny',
+      text: 'damage would creep a hair across the floor',
+      conditions: [
+        { kind: 'inactionPreview', value: true },
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
+      ],
     },
   ],
 }

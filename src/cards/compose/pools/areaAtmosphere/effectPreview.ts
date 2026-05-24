@@ -28,6 +28,33 @@ export const effectPreviewPool: SnippetPool = {
         { kind: 'effectTag', tag: 'area' },
       ],
     },
+    // Phase 18 — additional state_change+area variants so multiple
+    // area-tagged effects on one card resolve to different snippets via
+    // the FNV tie-break.
+    {
+      id: 'pre_area_state_b',
+      text: 'The walls would read cleaner by service',
+      conditions: [
+        { kind: 'effectKind', anyOf: ['state_change'] },
+        { kind: 'effectTag', tag: 'area' },
+      ],
+    },
+    {
+      id: 'pre_area_state_c',
+      text: 'The room would carry the work',
+      conditions: [
+        { kind: 'effectKind', anyOf: ['state_change'] },
+        { kind: 'effectTag', tag: 'area' },
+      ],
+    },
+    {
+      id: 'pre_area_state_d',
+      text: 'The floor would hold the change through the night',
+      conditions: [
+        { kind: 'effectKind', anyOf: ['state_change'] },
+        { kind: 'effectTag', tag: 'area' },
+      ],
+    },
     {
       id: 'pre_coin_cost',
       text: 'Coin would leave the till for the work',

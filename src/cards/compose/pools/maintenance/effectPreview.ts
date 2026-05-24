@@ -26,6 +26,24 @@ export const effectPreviewPool: SnippetPool = {
         { kind: 'effectTag', tag: 'area' },
       ],
     },
+    // Phase 18 — additional state_change+area variants for multi-area
+    // repair choices.
+    {
+      id: 'pre_area_state_b',
+      text: 'The room would carry the repair forward',
+      conditions: [
+        { kind: 'effectKind', anyOf: ['state_change'] },
+        { kind: 'effectTag', tag: 'area' },
+      ],
+    },
+    {
+      id: 'pre_area_state_c',
+      text: 'The boards would hold the work',
+      conditions: [
+        { kind: 'effectKind', anyOf: ['state_change'] },
+        { kind: 'effectTag', tag: 'area' },
+      ],
+    },
     {
       id: 'pre_coin_cost',
       text: 'Coin would leave the till for it',

@@ -31,6 +31,24 @@ export const effectPreviewPool: SnippetPool = {
         { kind: 'effectTag', tag: 'area' },
       ],
     },
+    // Phase 18 — additional state_change+area variants so multi-area
+    // inspection choices spread snippets via FNV tie-break.
+    {
+      id: 'pre_area_clean_b',
+      text: 'A station would line up cleaner by close',
+      conditions: [
+        { kind: 'effectKind', anyOf: ['state_change'] },
+        { kind: 'effectTag', tag: 'area' },
+      ],
+    },
+    {
+      id: 'pre_area_clean_c',
+      text: 'The kitchen line would read presentable',
+      conditions: [
+        { kind: 'effectKind', anyOf: ['state_change'] },
+        { kind: 'effectTag', tag: 'area' },
+      ],
+    },
     {
       id: 'pre_coin_cost',
       text: 'Coin would leave the till for it',

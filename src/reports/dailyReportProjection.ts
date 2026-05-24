@@ -26,7 +26,10 @@ import type { OwnerActionApplied } from '../sim/modules/ownerActions/types'
 import type { DailyServiceResult } from '../sim/modules/service/types'
 
 import { closedDayAbsolute } from './causeLookup'
-import { composeEmpty } from '../cards/voice/index'
+import {
+  composeDailyHeaderLine,
+  composeDailyQuietLine,
+} from './compose/sections'
 import { projectMissedOpportunities } from './missedOpportunityProjection'
 import { humanizeDiff, humanizePath } from './labels/humanizePath'
 import { idLabel, humanizeId } from './labels/idLabel'
@@ -131,8 +134,13 @@ export function buildDailyReport(
     coinDelta === 0 &&
     reputationDeltas.length === 0
 
-  const voiceKey = `${state.meta.tavernId}.d${closedDay}`
-  const quietLine = isQuiet ? composeEmpty('quiet', voiceKey) : undefined
+  const quietLine = isQuiet
+    ? composeDailyQuietLine({
+        state,
+        closedDayOrdinal: closedDay,
+        isEndOfWeek: header.isEndOfWeek,
+      })
+    : undefined
 
   return {
     header,
@@ -179,8 +187,13 @@ function buildHeader(
   const isEndOfWeek = closedDayOfWeek === 7
   const isEndOfMonth = previousCalendar ? cal.day === 28 : false
 
-  const voiceKey = `${state.meta.tavernId}.d${totalElapsed}`
-  const headerVoice = composeEmpty('header', voiceKey)
+  const headerVoice = composeDailyHeaderLine({
+    state,
+    closedDayOrdinal: totalElapsed,
+    calendar: cal,
+    isEndOfWeek,
+    isEndOfMonth,
+  })
 
   return {
     closedDayOrdinal: totalElapsed,

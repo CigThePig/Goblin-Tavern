@@ -44,6 +44,10 @@ import {
   type RemedyEntry,
 } from './pressureRemedyMap'
 import type { MissedOpportunityKind, MissedOpportunityLine } from './types'
+import {
+  composePressureReadableVoiced,
+  composePressureSecondaryVoiced,
+} from './compose/sections'
 
 export type { MissedOpportunityKind, MissedOpportunityLine }
 
@@ -130,11 +134,27 @@ function composePressureLine(
   const actionLabel = def.label
   const targetLabel = target ? resolveEntityLabel(state, target) : undefined
   const readable = clampWords(
-    composePressureReadable(remedy.actionId, targetLabel, snap.label),
+    composePressureReadableVoiced({
+      state,
+      closedDay,
+      actionId: remedy.actionId,
+      actionLabel,
+      targetLabel,
+      pressureLabel: snap.label,
+      pressureDelta: snap.delta,
+    }),
     READABLE_WORD_BUDGET,
   )
   const secondary = clampWords(
-    `${snap.label} rose ${signed(snap.delta)} to ${snap.value}.`,
+    composePressureSecondaryVoiced({
+      state,
+      closedDay,
+      actionId: remedy.actionId,
+      targetId: target?.id,
+      pressureLabel: snap.label,
+      pressureDelta: snap.delta,
+      pressureValue: snap.value,
+    }),
     SECONDARY_WORD_BUDGET,
   )
   const impact = (snap.delta * snap.severity) / 100 * (remedy.impactWeight ?? 1)

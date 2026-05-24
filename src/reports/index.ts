@@ -14,6 +14,17 @@ export {
   TAG_FACET_LIMIT,
 } from './tavernLogProjection'
 export { projectYesterdayDigest } from './yesterdayDigest'
+// Phase 142 / ISSUE-111 — Voiced Surface arc, Phase 16. Day-screen
+// empty-state composers, exposed alongside the daily-report projections
+// so `DayScreen.svelte` imports symmetrically.
+export {
+  composeClosingEmptyLine,
+  composeMorningEmptyLine,
+  composeServiceEmptyLine,
+  type ClosingEmptyInput,
+  type MorningEmptyInput,
+  type ServiceEmptyInput,
+} from './compose/sections'
 export { projectMissedOpportunities } from './missedOpportunityProjection'
 export { PRESSURE_REMEDIES, resolveRemedyTarget } from './pressureRemedyMap'
 export type { RemedyEntry } from './pressureRemedyMap'

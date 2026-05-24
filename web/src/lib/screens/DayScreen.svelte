@@ -40,10 +40,17 @@
     projectYesterdayDigest,
     type YesterdayDigestData,
   } from '../../../../src/reports/yesterdayDigest'
-  // Phase 95 — Voice composer. The day-screen empty-state lines
-  // pull from the same `composeEmpty` pool the report header uses,
-  // deterministically keyed by (tavernId, day, beat).
-  import { composeEmpty } from '../../../../src/cards/voice/index'
+  // Phase 142 / ISSUE-111 — Voiced Surface arc, Phase 16. Day-screen
+  // empty-state lines flow through the compose-runtime section composers
+  // that replaced the retired Phase-95 `composeEmpty` tone-pool helper.
+  // Each section keys deterministically off `(closedDayOrdinal, beat)`
+  // so the same calendar day reads the same line across the three beats
+  // on a refresh.
+  import {
+    composeClosingEmptyLine,
+    composeMorningEmptyLine,
+    composeServiceEmptyLine,
+  } from '../../../../src/reports/index'
   import type { CardChoice } from '../cards/types'
   import type { IssueSeed } from '../cards/types'
   import type { ResponseIntent } from '../../../../src/sim/modules/issues/issueSeedTypes'
@@ -149,15 +156,39 @@
     return 'Next day'
   })
 
-  // Phase 95 — Voice for empty-state lines. Key uses the calendar day
-  // ordinal so a single calendar day reads the same line through all
-  // three beats unless the player relaunches the app on a new day.
-  const voiceKeyBase = $derived(
-    `${gameStore.state.meta.tavernId}.d${gameStore.state.calendar.totalDaysElapsed}`,
+  // Phase 142 / ISSUE-111 — Voiced Surface arc, Phase 16. Day-screen
+  // empty-state lines: the compose-runtime section composers key off
+  // the same `closedDayOrdinal` the daily-report sections use, so the
+  // same calendar day reads the same line through all three beats on
+  // a refresh. Calendar tags (`isEndOfWeek` / `isEndOfMonth`) feed into
+  // the snippet pools as `hasTag` gates.
+  const closedDayOrdinal = $derived(gameStore.state.calendar.totalDaysElapsed)
+  const isEndOfWeek = $derived(gameStore.state.calendar.dayOfWeek === 7)
+  const isEndOfMonth = $derived(
+    isEndOfWeek && gameStore.state.calendar.week === 4,
   )
-  const morningEmpty = $derived(composeEmpty('morning', `${voiceKeyBase}.morning`))
-  const serviceEmpty = $derived(composeEmpty('service', `${voiceKeyBase}.service`))
-  const closingEmpty = $derived(composeEmpty('closing', `${voiceKeyBase}.closing`))
+  const morningEmpty = $derived(
+    composeMorningEmptyLine({
+      state: gameStore.state,
+      closedDayOrdinal,
+      isEndOfWeek,
+    }) ?? '',
+  )
+  const serviceEmpty = $derived(
+    composeServiceEmptyLine({
+      state: gameStore.state,
+      closedDayOrdinal,
+      isEndOfWeek,
+    }) ?? '',
+  )
+  const closingEmpty = $derived(
+    composeClosingEmptyLine({
+      state: gameStore.state,
+      closedDayOrdinal,
+      isEndOfWeek,
+      isEndOfMonth,
+    }) ?? '',
+  )
 
   // ── Beat transitions ──────────────────────────────────────────────
   function startPlanning() {

@@ -65,16 +65,9 @@ export type {
   CardChoice,
   StakeView,
 } from './types'
-// Phase 95 — Voice composer surface. Templates and the report layer
-// import the composer through this entry point so the voice slice
-// stays a single import target.
-export {
-  composeTitle,
-  composeBody,
-  composeEmpty,
-  pickFromPool,
-  TONE_POOLS,
-  EMPTY_STATE_POOLS,
-  type ComposeOpts,
-  type TonePool,
-} from './voice/index'
+// Phase 142 / ISSUE-111 — Voiced Surface arc, Phase 16 (Ambient Surface).
+// The legacy Phase-95 voice composer is retired. Day-screen
+// empty-state lines now compose through
+// `src/reports/compose/sections/{morningEmpty,serviceEmpty,closingEmpty}`;
+// the fallback card composes its title through the seventh-gate-clean
+// pool at `src/cards/compose/pools/fallback/title.ts`.

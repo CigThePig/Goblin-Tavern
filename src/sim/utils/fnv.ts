@@ -2,14 +2,9 @@
 //
 // Shared FNV-1a string-hash helper. Used wherever the codebase needs a
 // deterministic pick from a small pool keyed by a stable string (typically
-// a seed id) — descriptor pools, the voice composer, and now the compose
-// slice's snippet tie-break. Same key + same modulo always returns the
-// same index, so re-views of the same seed produce stable text.
-//
-// Before this file existed there were two identical inline copies in
-// `src/sim/content/text/descriptors.ts` and `src/cards/voice/composer.ts`.
-// Phase C consolidates them so a third copy doesn't accrete in the new
-// compose slice.
+// a seed id) — descriptor pools and the compose slice's snippet
+// tie-break. Same key + same modulo always returns the same index, so
+// re-views of the same seed produce stable text.
 
 export function fnvIndex(key: string, modulo: number): number {
   if (modulo <= 0) return 0

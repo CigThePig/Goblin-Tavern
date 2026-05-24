@@ -18,10 +18,12 @@
 //   - ignore_rival_profile:        delayed pressure +12 / customers -8 / regulars_loss +6
 
 import type { SnippetPool } from '../../types'
+import { narratorEffectPreviewBase } from '../_shared/effectPreviewBase'
 
 export const effectPreviewPool: SnippetPool = {
   slotId: 'effect_preview',
   snippets: [
+    ...narratorEffectPreviewBase(),
     {
       id: 'pre_customer_gain',
       text: 'Crowds would drift back this way',

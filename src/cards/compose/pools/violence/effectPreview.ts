@@ -14,10 +14,12 @@
 //   - repair_damage_profile: area.damage -20, coin -12 (+delayed)
 
 import type { SnippetPool } from '../../types'
+import { narratorEffectPreviewBase } from '../_shared/effectPreviewBase'
 
 export const effectPreviewPool: SnippetPool = {
   slotId: 'effect_preview',
   snippets: [
+    ...narratorEffectPreviewBase(),
     {
       id: 'pre_coin_cost',
       text: 'Coin would leave the till for it',

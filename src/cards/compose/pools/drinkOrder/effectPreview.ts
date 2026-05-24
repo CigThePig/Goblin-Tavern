@@ -14,10 +14,12 @@
 // voice-bounds gate.
 
 import type { SnippetPool } from '../../types'
+import { narratorEffectPreviewBase } from '../_shared/effectPreviewBase'
 
 export const effectPreviewPool: SnippetPool = {
   slotId: 'effect_preview',
   snippets: [
+    ...narratorEffectPreviewBase(),
     // No unconditional fallback — synthetic slot is `optional: true`
     // and the helper passes `effect.readable` through when no snippet
     // matches.

@@ -21,10 +21,12 @@
 // repair is variety-first.
 
 import type { SnippetPool } from '../../types'
+import { narratorEffectPreviewBase } from '../_shared/effectPreviewBase'
 
 export const effectPreviewPool: SnippetPool = {
   slotId: 'effect_preview',
   snippets: [
+    ...narratorEffectPreviewBase(),
     // — state_change base rung (the dominant kind on staff_identity) —
     {
       id: 'pre_state_change_a',

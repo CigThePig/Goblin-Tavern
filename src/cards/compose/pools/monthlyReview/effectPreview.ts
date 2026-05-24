@@ -8,10 +8,12 @@
 // / `effectTag`, never on actor voice.
 
 import type { SnippetPool } from '../../types'
+import { narratorEffectPreviewBase } from '../_shared/effectPreviewBase'
 
 export const effectPreviewPool: SnippetPool = {
   slotId: 'effect_preview',
   snippets: [
+    ...narratorEffectPreviewBase(),
     {
       id: 'pre_coin_rent',
       text: 'Coin would leave the till for the landlord',

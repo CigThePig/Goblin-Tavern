@@ -38,6 +38,7 @@ import type {
 } from '../../../../src/sim/state/TavernState'
 import type { SnippetPool } from '../../../../src/cards/compose/types'
 import { makeSeed } from '../../cardFactories'
+import { effect } from '../../../../src/sim/modules/issues/generatorHelpers'
 
 // ---- helpers ----
 
@@ -86,12 +87,15 @@ const NEUTRAL_CAST: CastAttributes = {
   },
 }
 
+// Phase 145 / ISSUE-113 — go through `effect()` so the new targetKind /
+// direction / magnitudeBand metadata lands on each preview. Without
+// this the shared narrator base never matches in the live tests.
 function makeStateChangeEffect(target: string, amount: number): EffectPreview {
-  return { kind: 'state_change', target, amount, readable: target, tags: ['staff'] }
+  return effect('state_change', target, amount, target, ['staff'])
 }
 
 function makePressureEffect(target: string, amount: number): EffectPreview {
-  return { kind: 'pressure', target: `pressure:${target}`, amount, readable: `${target} ${amount}`, tags: [] }
+  return effect('pressure', `pressure:${target}`, amount, `${target} ${amount}`, [])
 }
 
 function slot(id: string, label: string): ResponseSlot {
@@ -340,5 +344,185 @@ describe('previewVariety gate — neutral-cast variants stay varied', () => {
     }
     const report = checkPreviewVariety(() => sample, { sampleSize: 1 })
     expect(report.pass).toBe(true)
+  })
+})
+
+// ---- Phase 145 / ISSUE-113 (iteration 2) — specificity assertions ----
+//
+// The Phase-144 variety repair stops snippets from collapsing to a
+// single line per card, but a card can still render fully varied AND
+// fully generic ("the rota notes it quietly" + "the prep tilts under
+// it" + "the count moves a touch"). The specificity rule on the same
+// gate asserts that ≥70% of rendered lines mention something
+// discriminating about the meter that moved.
+
+describe('previewVariety gate — Phase 145 specificity on real pools', () => {
+  it('staffAside surfaces meter-specific lines on a Mira-like 6-choice card', () => {
+    const baseState = createInitialTavernState()
+    const staffId = firstStaffId(baseState)
+    const state = withStaffCast(baseState, staffId, MIRA_LIKE)
+    const seed = staffSeed(state, 'mira-specificity-regression')
+
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('pay_bonus', 'Pay bonus'),
+        effects: [
+          makeStateChangeEffect(`staff.${staffId}.morale`, 10),
+          makeStateChangeEffect('coin', -15),
+        ],
+      },
+      {
+        slot: slot('reduce_workload', 'Reduce workload'),
+        effects: [
+          makeStateChangeEffect(`staff.${staffId}.fatigue`, -10),
+          makePressureEffect('staff_burnout', -8),
+        ],
+      },
+      {
+        slot: slot('push_through', 'Push through'),
+        effects: [
+          makePressureEffect('staff_burnout', 8),
+          makeStateChangeEffect(`staff.${staffId}.stress`, 6),
+        ],
+      },
+    ]
+    const sample: PreviewVarietySample = {
+      seed,
+      state,
+      previewPool: staffAsideEffectPreviewPool,
+      choices,
+      maxPreview: 2,
+    }
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      specificity: { minSpecificityRatio: 0.7 },
+    })
+    expect(report.pass).toBe(true)
+    // Specificity is observed and tracked when the rule runs.
+    expect(report.observed.specificityRatio ?? 0).toBeGreaterThanOrEqual(0.7)
+  })
+
+  it('areaAtmosphere surfaces meter-specific lines on a multi-choice card', () => {
+    const baseState = createInitialTavernState()
+    const seed = makeSeed({
+      id: 'area-atm-specificity',
+      family: 'area_atmosphere',
+      type: 'warning',
+      timing: 'during_service',
+      severity: 35,
+      domain: ['areas'],
+      location: { kind: 'area', id: 'privy' },
+    })
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('deep_clean', 'Deep clean'),
+        effects: [
+          makeStateChangeEffect('areas.privy.cleanliness', 25),
+          makeStateChangeEffect('coin', -10),
+        ],
+      },
+      {
+        slot: slot('quick_mop', 'Quick mop'),
+        effects: [
+          makeStateChangeEffect('areas.privy.cleanliness', 10),
+          makeStateChangeEffect('coin', -3),
+        ],
+      },
+      {
+        slot: slot('ignore_it', 'Let it slide'),
+        effects: [
+          makePressureEffect('reputation_drift', 4),
+          makeStateChangeEffect('areas.privy.cleanliness', -5),
+        ],
+      },
+    ]
+    const sample: PreviewVarietySample = {
+      seed,
+      state: baseState,
+      previewPool: areaAtmospherePreviewPool,
+      choices,
+      maxPreview: 2,
+    }
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      specificity: { minSpecificityRatio: 0.7 },
+    })
+    expect(report.pass).toBe(true)
+    expect(report.observed.specificityRatio ?? 0).toBeGreaterThanOrEqual(0.7)
+  })
+
+  it('stockShortage, seasonalArc, and inspection all clear specificity on representative cards', () => {
+    const baseState = createInitialTavernState()
+    const stockSeed = makeSeed({
+      id: 'stock-shortage-spec',
+      family: 'stock_shortage',
+      type: 'warning',
+      timing: 'morning_prep',
+      severity: 40,
+      domain: ['stock'],
+    })
+    const arcSeed = makeSeed({
+      id: 'arc-spec',
+      family: 'seasonal_arc',
+      type: 'arc_milestone',
+      timing: 'morning_prep',
+      severity: 30,
+      domain: ['arc'],
+    })
+    const inspectionSeed = makeSeed({
+      id: 'inspection-spec',
+      family: 'inspection',
+      type: 'inspection_threat',
+      timing: 'morning_prep',
+      severity: 50,
+      domain: ['inspection'],
+    })
+    const baseChoices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('option_a', 'Option A'),
+        effects: [
+          makeStateChangeEffect('stock.ale.quantity', 60),
+          makeStateChangeEffect('coin', -30),
+        ],
+      },
+      {
+        slot: slot('option_b', 'Option B'),
+        effects: [
+          makeStateChangeEffect('stock.ale.salePrice', 1),
+          makePressureEffect('reputation_drift', 3),
+        ],
+      },
+      {
+        slot: slot('option_c', 'Option C'),
+        effects: [
+          makePressureEffect('stock_shortage', 5),
+          makeStateChangeEffect('coin', -10),
+        ],
+      },
+    ]
+    for (const [name, pool, seed] of [
+      ['stockShortage', stockShortagePreviewPool, stockSeed],
+      ['seasonalArc', seasonalArcPreviewPool, arcSeed],
+      ['inspection', inspectionPreviewPool, inspectionSeed],
+    ] as const) {
+      const sample: PreviewVarietySample = {
+        seed,
+        state: baseState,
+        previewPool: pool,
+        choices: baseChoices,
+        maxPreview: 2,
+      }
+      const report = checkPreviewVariety(() => sample, {
+        sampleSize: 1,
+        specificity: { minSpecificityRatio: 0.7 },
+      })
+      // Annotate failures with the pool name so the failure message is
+      // useful when one of the three regresses independently.
+      expect(report.pass, `${name} failed specificity`).toBe(true)
+      expect(
+        report.observed.specificityRatio ?? 0,
+        `${name} specificityRatio`,
+      ).toBeGreaterThanOrEqual(0.7)
+    }
   })
 })

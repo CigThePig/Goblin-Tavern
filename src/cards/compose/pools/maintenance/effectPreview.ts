@@ -14,10 +14,12 @@
 //   - close_area_profile: area.risk -10, customer satisfaction -5
 
 import type { SnippetPool } from '../../types'
+import { narratorEffectPreviewBase } from '../_shared/effectPreviewBase'
 
 export const effectPreviewPool: SnippetPool = {
   slotId: 'effect_preview',
   snippets: [
+    ...narratorEffectPreviewBase(),
     {
       id: 'pre_area_state',
       text: 'The damage would step back from the worst',

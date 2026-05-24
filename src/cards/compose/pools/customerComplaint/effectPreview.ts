@@ -5,10 +5,12 @@
 // EffectPreview; the snippet replaces only the readable string.
 
 import type { SnippetPool } from '../../types'
+import { narratorEffectPreviewBase } from '../_shared/effectPreviewBase'
 
 export const effectPreviewPool: SnippetPool = {
   slotId: 'effect_preview',
   snippets: [
+    ...narratorEffectPreviewBase(),
     {
       id: 'pre_state_warm',
       text: "They'd settle back into the room",

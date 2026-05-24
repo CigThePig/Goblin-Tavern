@@ -13,6 +13,8 @@ import {
   reportSectionAsTemplate,
 } from '../../../src/cards/compose/reports'
 import {
+  missedOpportunityDiffSection,
+  missedOpportunityIgnoredSection,
   missedOpportunityReadableSection,
   missedOpportunitySecondarySection,
 } from '../../../src/reports/compose/sections'
@@ -128,6 +130,120 @@ describe('runAllGates — daily.missed_opportunity.secondary section', () => {
         {
           slotId: 'verb',
           sampler: secondaryDiversitySampler(),
+          config: { sampleSize: 60, minDistinct: 3 },
+        },
+      ],
+    })
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+    expect(report.pass).toBe(true)
+  })
+})
+
+// — diff_counterfactual section —
+
+function diffDeterminismSamples(): DeterminismSample[] {
+  return ACTION_TAGS.map((tag, i) => ({
+    seed: buildReportSeed({
+      sectionId: 'daily.missed_opportunity.diff',
+      periodKey: `det-${i}`,
+      timing: 'closing',
+      domain: [tag],
+    }),
+    state: STATE,
+  }))
+}
+
+function diffDiversitySampler(): DiversitySampler {
+  return (i: number) => {
+    const tag = ACTION_TAGS[i % ACTION_TAGS.length]!
+    return {
+      seed: buildReportSeed({
+        sectionId: 'daily.missed_opportunity.diff',
+        periodKey: `div-${i}`,
+        timing: 'closing',
+        domain: [tag],
+      }),
+      state: STATE,
+    }
+  }
+}
+
+describe('runAllGates — daily.missed_opportunity.diff section', () => {
+  it('passes all seven gates', () => {
+    const template = reportSectionAsTemplate(missedOpportunityDiffSection)
+    const report = runAllGates(template, {
+      simCoherence: { bannedDisplayNames: [] },
+      determinism: { samples: diffDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'diff_connector',
+          sampler: diffDiversitySampler(),
+          config: { sampleSize: 80, minDistinct: 3 },
+        },
+      ],
+    })
+    expect(report.coverage.pass).toBe(true)
+    expect(report.specificity.pass).toBe(true)
+    expect(report.voiceBounds.pass).toBe(true)
+    expect(report.simCoherence.pass).toBe(true)
+    expect(report.determinism.pass).toBe(true)
+    expect(report.dedupe.pass).toBe(true)
+    expect(report.diversity.every((d) => d.pass)).toBe(true)
+    expect(report.pass).toBe(true)
+  })
+})
+
+// — ignored_seed section —
+
+const IGNORED_TAGS: readonly string[] = [
+  'ignored_low',
+  'ignored_mid',
+  'ignored_high',
+]
+
+function ignoredDeterminismSamples(): DeterminismSample[] {
+  return IGNORED_TAGS.map((tag, i) => ({
+    seed: buildReportSeed({
+      sectionId: 'daily.missed_opportunity.ignored',
+      periodKey: `det-${i}`,
+      timing: 'closing',
+      domain: [tag],
+    }),
+    state: STATE,
+  }))
+}
+
+function ignoredDiversitySampler(): DiversitySampler {
+  return (i: number) => {
+    const tag = IGNORED_TAGS[i % IGNORED_TAGS.length]!
+    return {
+      seed: buildReportSeed({
+        sectionId: 'daily.missed_opportunity.ignored',
+        periodKey: `div-${i}`,
+        timing: 'closing',
+        domain: [tag],
+      }),
+      state: STATE,
+    }
+  }
+}
+
+describe('runAllGates — daily.missed_opportunity.ignored section', () => {
+  it('passes all seven gates', () => {
+    const template = reportSectionAsTemplate(missedOpportunityIgnoredSection)
+    const report = runAllGates(template, {
+      simCoherence: { bannedDisplayNames: [] },
+      determinism: { samples: ignoredDeterminismSamples() },
+      diversity: [
+        {
+          slotId: 'ignored_verb',
+          sampler: ignoredDiversitySampler(),
           config: { sampleSize: 60, minDistinct: 3 },
         },
       ],

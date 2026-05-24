@@ -45,6 +45,8 @@ import {
 } from './pressureRemedyMap'
 import type { MissedOpportunityKind, MissedOpportunityLine } from './types'
 import {
+  composeDiffReadableVoiced,
+  composeIgnoredReadableVoiced,
   composePressureReadableVoiced,
   composePressureSecondaryVoiced,
 } from './compose/sections'
@@ -195,49 +197,6 @@ function remedyValidityNote(
   return clampWords(`would have needed: ${verdict.reason}`, 8)
 }
 
-function composePressureReadable(
-  actionId: string,
-  targetLabel: string | undefined,
-  pressureLabel: string,
-): string {
-  const pressure = pressureLabel.toLowerCase()
-  switch (actionId) {
-    case 'clean_area':
-      return targetLabel
-        ? `Cleaning ${targetLabel} would have eased ${pressure}.`
-        : `Cleaning an area would have eased ${pressure}.`
-    case 'repair_area':
-      return targetLabel
-        ? `Repairing ${targetLabel} would have slowed ${pressure}.`
-        : `A repair would have slowed ${pressure}.`
-    case 'patch_roof':
-      return `Patching the roof would have slowed ${pressure}.`
-    case 'fumigate_cellar':
-      return `Fumigating the cellar would have curbed ${pressure}.`
-    case 'pay_staff_bonus':
-      return targetLabel
-        ? `A bonus would have steadied ${targetLabel}.`
-        : `A staff bonus would have eased ${pressure}.`
-    case 'restock_item':
-      return targetLabel
-        ? `Restocking ${targetLabel} would have eased ${pressure}.`
-        : `A restock would have eased ${pressure}.`
-    case 'buy_mugs':
-      return `Buying mugs would have eased ${pressure}.`
-    case 'adjust_prices':
-      return `Adjusting prices would have softened ${pressure}.`
-    default:
-      return `${actionLabelGuess(actionId)} would have eased ${pressure}.`
-  }
-}
-
-function actionLabelGuess(actionId: string): string {
-  return actionId
-    .split('_')
-    .map((w) => (w ? w[0]!.toUpperCase() + w.slice(1) : w))
-    .join(' ')
-}
-
 // ─── Sub-projector: ignored seeds ───────────────────────────────────
 
 function projectIgnoredSeeds(
@@ -321,7 +280,14 @@ function composeIgnoredSeedLine(
     : undefined
   const slotLabel = slot.labelHint.trim() || `${verb} ${subject}`
   const readable = clampWords(
-    composeSeedReadable(slotLabel, subject),
+    composeIgnoredReadableVoiced({
+      state,
+      closedDay,
+      slotLabel,
+      subject,
+      seedId: seed.id,
+      severity: seed.severity,
+    }),
     READABLE_WORD_BUDGET,
   )
   const secondary = clampWords(
@@ -341,18 +307,6 @@ function composeIgnoredSeedLine(
     seedId: seed.id,
     impact,
   }
-}
-
-function composeSeedReadable(slotLabel: string, subject: string): string {
-  // The slot's labelHint is already imperative ("Clean the kitchen",
-  // "Discard the stew"). Rephrase to hypothetical mood by lower-casing
-  // the verb and prefixing.
-  const lowered = slotLabel.charAt(0).toLowerCase() + slotLabel.slice(1)
-  return `${capitalize(lowered)} would have closed the ${subject} incident.`
-}
-
-function capitalize(s: string): string {
-  return s.length === 0 ? s : s[0]!.toUpperCase() + s.slice(1)
 }
 
 // ─── Sub-projector: diff counterfactual ─────────────────────────────
@@ -458,7 +412,15 @@ function composeDiffLine(
   const targetLabel = target ? resolveEntityLabel(state, target) : undefined
   const subjectNoun = diffSubject(change.path)
   const readable = clampWords(
-    composeDiffReadable(remedy.actionId, targetLabel, subjectNoun),
+    composeDiffReadableVoiced({
+      state,
+      closedDay,
+      actionId: remedy.actionId,
+      actionLabel,
+      targetLabel,
+      subjectNoun,
+      diffPath: change.path,
+    }),
     READABLE_WORD_BUDGET,
   )
   const secondary = clampWords(
@@ -494,37 +456,6 @@ function diffSubject(path: string): string {
     return `${item} ${meter}`.trim()
   }
   return path
-}
-
-function composeDiffReadable(
-  actionId: string,
-  targetLabel: string | undefined,
-  subjectNoun: string,
-): string {
-  switch (actionId) {
-    case 'clean_area':
-      return targetLabel
-        ? `Cleaning ${targetLabel} earlier would have softened the ${subjectNoun} slide.`
-        : `An earlier clean would have softened the ${subjectNoun} slide.`
-    case 'repair_area':
-      return targetLabel
-        ? `Repairing ${targetLabel} would have slowed the ${subjectNoun} loss.`
-        : `An earlier repair would have slowed the ${subjectNoun} loss.`
-    case 'patch_roof':
-      return `Patching the roof would have slowed the ${subjectNoun} loss.`
-    case 'fumigate_cellar':
-      return `Fumigating the cellar would have curbed the ${subjectNoun} loss.`
-    case 'restock_item':
-      return targetLabel
-        ? `Restocking ${targetLabel} would have prevented the ${subjectNoun} shortfall.`
-        : `An earlier restock would have prevented the ${subjectNoun} shortfall.`
-    case 'pay_staff_bonus':
-      return targetLabel
-        ? `A bonus for ${targetLabel} would have eased the ${subjectNoun} slide.`
-        : `A bonus would have eased the ${subjectNoun} slide.`
-    default:
-      return `${actionLabelGuess(actionId)} would have softened the ${subjectNoun} slide.`
-  }
 }
 
 // ─── Dedup / sort ───────────────────────────────────────────────────

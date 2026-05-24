@@ -29,6 +29,8 @@ import type { SlotSpec } from '../../../cards/compose/types'
 import type { TavernState } from '../../../sim/state/TavernState'
 import {
   missedOpportunityConnectorPool,
+  missedOpportunityDiffConnectorPool,
+  missedOpportunityIgnoredVerbPool,
   missedOpportunitySecondaryVerbPool,
 } from '../pools/missedOpportunity'
 
@@ -71,6 +73,47 @@ export const missedOpportunitySecondarySection: ReportSection = {
   id: 'daily.missed_opportunity.secondary',
   voiceRegister: 'office_quarters',
   slots: missedOpportunitySecondarySlots,
+}
+
+const DIFF_VERB_BUDGET = 1
+const IGNORED_VERB_BUDGET = 2
+
+/** Slot list for the diff_counterfactual readable line. One slot —
+ *  the connector verb. Routed by action category. */
+export const missedOpportunityDiffSlots: readonly SlotSpec[] = [
+  {
+    id: 'diff_connector',
+    role: 'aside',
+    pool: missedOpportunityDiffConnectorPool,
+    optional: false,
+    wordBudget: DIFF_VERB_BUDGET,
+    claimMode: 'flavor',
+  },
+]
+
+/** Slot list for the ignored_seed readable line. One slot — the
+ *  closing verb. Routed by severity band. */
+export const missedOpportunityIgnoredSlots: readonly SlotSpec[] = [
+  {
+    id: 'ignored_verb',
+    role: 'aside',
+    pool: missedOpportunityIgnoredVerbPool,
+    optional: false,
+    wordBudget: IGNORED_VERB_BUDGET,
+    claimMode: 'flavor',
+  },
+]
+
+export const missedOpportunityDiffSection: ReportSection = {
+  id: 'daily.missed_opportunity.diff',
+  voiceRegister: 'office_quarters',
+  slots: missedOpportunityDiffSlots,
+}
+
+export const missedOpportunityIgnoredSection: ReportSection = {
+  id: 'daily.missed_opportunity.ignored',
+  voiceRegister: 'office_quarters',
+  slots: missedOpportunityIgnoredSlots,
 }
 
 /** Maps an owner-action id to the snippet-routing tag used in
@@ -159,6 +202,116 @@ export function composePressureSecondaryVoiced(
   const verb = filled['verb'] ?? 'rose'
   const signed = input.pressureDelta >= 0 ? `+${input.pressureDelta}` : `${input.pressureDelta}`
   return `${input.pressureLabel} ${verb} ${signed} to ${input.pressureValue}.`
+}
+
+/** Maps absolute severity to the routing tag for the ignored_seed
+ *  verb pool. */
+export function ignoredSeverityTag(severity: number): string {
+  if (severity <= 30) return 'ignored_low'
+  if (severity > 70) return 'ignored_high'
+  return 'ignored_mid'
+}
+
+export type DiffCounterfactualReadableInput = {
+  state: TavernState
+  closedDay: number
+  actionId: string
+  actionLabel: string
+  targetLabel: string | undefined
+  subjectNoun: string
+  diffPath: string
+}
+
+/** Maps a sim diff path to its "kind noun" — the trailing noun that
+ *  matches the loss shape. Reputation paths slide; stock paths
+ *  shortfall; everything else loses. */
+export function diffKindNoun(diffPath: string): string {
+  if (diffPath.startsWith('reputation.')) return 'slide'
+  if (diffPath.startsWith('stock.')) return 'shortfall'
+  return 'loss'
+}
+
+/** Composes the voiced `readable` line for a diff_counterfactual
+ *  missed opportunity. Structure:
+ *  `${actionPhrase} would have ${verb} the ${subjectNoun} ${kindNoun}.` */
+export function composeDiffReadableVoiced(
+  input: DiffCounterfactualReadableInput,
+): string {
+  const seed = buildReportSeed({
+    sectionId: 'daily.missed_opportunity.diff',
+    periodKey: `d${input.closedDay}.${input.actionId}.${input.diffPath}`,
+    timing: 'closing',
+    domain: [actionCategoryTag(input.actionId)],
+  })
+  const filled = assembleSlots(missedOpportunityDiffSlots, seed, input.state)
+  const verb = filled['diff_connector'] ?? 'softened'
+  const actionPhrase = buildDiffActionPhrase(
+    input.actionId,
+    input.actionLabel,
+    input.targetLabel,
+  )
+  const kindNoun = diffKindNoun(input.diffPath)
+  return `${actionPhrase} would have ${verb} the ${input.subjectNoun} ${kindNoun}.`
+}
+
+/** Builds the action phrase for the diff_counterfactual readable.
+ *  Mirrors `buildActionPhrase` but uses the "earlier" framing for
+ *  cleans and restocks (matches legacy `composeDiffReadable`). */
+export function buildDiffActionPhrase(
+  actionId: string,
+  actionLabel: string,
+  targetLabel: string | undefined,
+): string {
+  switch (actionId) {
+    case 'clean_area':
+      return targetLabel
+        ? `Cleaning ${targetLabel} earlier`
+        : 'An earlier clean'
+    case 'repair_area':
+      return targetLabel ? `Repairing ${targetLabel}` : 'An earlier repair'
+    case 'patch_roof':
+      return 'Patching the roof'
+    case 'fumigate_cellar':
+      return 'Fumigating the cellar'
+    case 'restock_item':
+      return targetLabel ? `Restocking ${targetLabel}` : 'An earlier restock'
+    case 'pay_staff_bonus':
+      return targetLabel ? `A bonus for ${targetLabel}` : 'A bonus'
+    default:
+      return actionLabel
+  }
+}
+
+export type IgnoredSeedReadableInput = {
+  state: TavernState
+  closedDay: number
+  slotLabel: string
+  subject: string
+  seedId: string
+  severity: number
+}
+
+/** Composes the voiced `readable` line for an ignored_seed missed
+ *  opportunity. Structure:
+ *  `${slotLabel} would have ${verb} the ${subject} incident.` */
+export function composeIgnoredReadableVoiced(
+  input: IgnoredSeedReadableInput,
+): string {
+  const seed = buildReportSeed({
+    sectionId: 'daily.missed_opportunity.ignored',
+    periodKey: `d${input.closedDay}.${input.seedId}`,
+    timing: 'closing',
+    domain: [ignoredSeverityTag(input.severity)],
+  })
+  const filled = assembleSlots(missedOpportunityIgnoredSlots, seed, input.state)
+  const verb = filled['ignored_verb'] ?? 'closed'
+  // Match legacy: slot label gets lower-cased and re-capitalized so a
+  // raw imperative "Clean the kitchen" becomes a hypothetical
+  // "Clean the kitchen would have ...".
+  const lowered =
+    input.slotLabel.charAt(0).toLowerCase() + input.slotLabel.slice(1)
+  const recapped = lowered.length === 0 ? '' : lowered[0]!.toUpperCase() + lowered.slice(1)
+  return `${recapped} would have ${verb} the ${input.subject} incident.`
 }
 
 /** Builds the action phrase for the readable line. Mirrors the legacy

@@ -2,3 +2,5 @@
 
 export { connectorPool as missedOpportunityConnectorPool } from './connector'
 export { secondaryVerbPool as missedOpportunitySecondaryVerbPool } from './secondaryVerb'
+export { diffConnectorPool as missedOpportunityDiffConnectorPool } from './diffConnector'
+export { ignoredVerbPool as missedOpportunityIgnoredVerbPool } from './ignoredVerb'

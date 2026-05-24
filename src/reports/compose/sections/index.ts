@@ -5,6 +5,13 @@
 // `ReportSection` shape for the gate adapter to wrap.
 
 export {
+  closingEmptySection,
+  closingEmptySlots,
+  composeClosingEmptyLine,
+  type ClosingEmptyInput,
+} from './closingEmpty'
+
+export {
   composeDailyHeaderLine,
   dailyHeaderSection,
   dailyHeaderSlots,
@@ -17,6 +24,20 @@ export {
   dailyQuietSlots,
   type DailyQuietInput,
 } from './dailyQuiet'
+
+export {
+  composeMorningEmptyLine,
+  morningEmptySection,
+  morningEmptySlots,
+  type MorningEmptyInput,
+} from './morningEmpty'
+
+export {
+  composeServiceEmptyLine,
+  serviceEmptySection,
+  serviceEmptySlots,
+  type ServiceEmptyInput,
+} from './serviceEmpty'
 
 export {
   actionCategoryTag,

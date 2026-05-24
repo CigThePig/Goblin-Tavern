@@ -88,7 +88,10 @@ export const PREVIEW_VARIETY_REASONS = Object.freeze([
 
 export type PreviewVarietyReason = (typeof PREVIEW_VARIETY_REASONS)[number]
 
-const DEFAULT_MIN_UNIQUE_RATIO = 0.5
+// Defaults chosen to distinguish "single snippet dominates" (screenshot
+// defect, ratio ~0.04) from "healthy multi-snippet pool" (ratio ~0.25
+// with 6 snippets across 24 lines). 0.15 sits comfortably between.
+const DEFAULT_MIN_UNIQUE_RATIO = 0.15
 const DEFAULT_MAX_IDENTICAL_RUN = 2
 
 export const PREVIEW_VARIETY_DEFAULTS = Object.freeze({

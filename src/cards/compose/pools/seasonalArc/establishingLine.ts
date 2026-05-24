@@ -120,5 +120,6 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'pressureRising', pressureId: 'arc_escalation' },
       ],
     },
+
   ],
 }

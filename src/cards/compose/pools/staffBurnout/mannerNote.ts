@@ -52,5 +52,42 @@ export const mannerNotePool: SnippetPool = {
         { kind: 'verbalTic', role: 'primaryActor', tic: 'qualifies_everything' },
       ],
     },
+
+    // Phase 18 repair: `atLeast: 1` mid-rung snippets at explicit
+    // specificity 0 so neutral staff fire SOMETHING rather than have
+    // the body collapse to 2 lines. They never outrank the sharper
+    // rungs above.
+    {
+      id: 'mnr_mild_warm',
+      text: 'They lean their hip against the bench.',
+      conditions: [
+        { kind: 'voiceAxis', role: 'primaryActor', axis: 'warmth', atLeast: 1 },
+      ],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_formal',
+      text: 'They settle their stance before answering.',
+      conditions: [
+        { kind: 'voiceAxis', role: 'primaryActor', axis: 'formality', atLeast: 1 },
+      ],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_terse',
+      text: 'They glance at the prep board once.',
+      conditions: [
+        { kind: 'voiceAxis', role: 'primaryActor', axis: 'terseness', atLeast: 1 },
+      ],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_florid',
+      text: 'They smooth their apron pocket flat.',
+      conditions: [
+        { kind: 'voiceAxis', role: 'primaryActor', axis: 'floridity', atLeast: 1 },
+      ],
+      specificity: 0,
+    },
   ],
 }

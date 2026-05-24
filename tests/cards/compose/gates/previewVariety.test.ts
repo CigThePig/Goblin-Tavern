@@ -150,7 +150,7 @@ function makeSampler(
       state: STATE,
       previewPool: pool,
       choices,
-      maxPreview: 3,
+      maxPreview: 4,
     }
     void count
     return sample
@@ -170,14 +170,49 @@ const SCREENSHOT_CHOICES: readonly PreviewVarietyChoice[] = RESPONSE_SLOTS.map(
 )
 
 // A mixed render that should fire `card_render_low_diversity` but not
-// `within_card_preview_collapse` — half state_change, half pressure on
-// the bad pool means the pressure half falls through to
-// `effect.readable`, breaking the run, but most lines still duplicate.
+// `within_card_preview_collapse` — alternates state_change with the
+// pressure-pool fallback so no run reaches 3, yet 8 of 12 lines share
+// the same snippet text. Ratio = 4 unique (3 readable variants + the
+// collapsed snippet) / 12 = 0.33; with `minUniqueRatio: 0.6` forced in
+// the test config, the rule fires.
+
+const PRESSURE_EFFECT_2: EffectPreview = {
+  ...PRESSURE_EFFECT,
+  readable: 'pressure ticks again',
+}
+const PRESSURE_EFFECT_3: EffectPreview = {
+  ...PRESSURE_EFFECT,
+  readable: 'pressure carries forward',
+}
 
 const MIXED_CHOICES: readonly PreviewVarietyChoice[] = [
-  { slot: RESPONSE_SLOTS[0]!, effects: [STATE_CHANGE_EFFECT, PRESSURE_EFFECT] },
-  { slot: RESPONSE_SLOTS[1]!, effects: [STATE_CHANGE_EFFECT, PRESSURE_EFFECT] },
-  { slot: RESPONSE_SLOTS[2]!, effects: [STATE_CHANGE_EFFECT, PRESSURE_EFFECT] },
+  {
+    slot: RESPONSE_SLOTS[0]!,
+    effects: [
+      STATE_CHANGE_EFFECT,
+      STATE_CHANGE_EFFECT,
+      STATE_CHANGE_EFFECT,
+      PRESSURE_EFFECT,
+    ],
+  },
+  {
+    slot: RESPONSE_SLOTS[1]!,
+    effects: [
+      STATE_CHANGE_EFFECT,
+      STATE_CHANGE_EFFECT,
+      STATE_CHANGE_EFFECT,
+      PRESSURE_EFFECT_2,
+    ],
+  },
+  {
+    slot: RESPONSE_SLOTS[2]!,
+    effects: [
+      STATE_CHANGE_EFFECT,
+      STATE_CHANGE_EFFECT,
+      STATE_CHANGE_EFFECT,
+      PRESSURE_EFFECT_3,
+    ],
+  },
 ]
 
 describe('previewVariety gate — failure fixtures', () => {
@@ -191,19 +226,20 @@ describe('previewVariety gate — failure fixtures', () => {
   })
 
   it('flags card_render_low_diversity when unique-ratio falls below the threshold', () => {
-    // Mixed effects break the run but most lines still duplicate.
+    // Mixed effects break the run but most lines still duplicate. With
+    // a strict 0.6 threshold the unique-ratio rule fires even though
+    // the default 0.15 wouldn't.
     const sampler = makeSampler(COLLAPSED_POOL, MIXED_CHOICES)
     const report = checkPreviewVariety(sampler, {
       sampleSize: 5,
-      // Force the ratio rule to bite even if the run rule already did.
+      // Force the ratio rule to bite even if the run rule didn't.
       maxIdenticalRun: 10,
+      minUniqueRatio: 0.6,
     })
     expect(report.pass).toBe(false)
     const reasons = report.violations.map((v) => v.reason)
     expect(reasons).toContain('card_render_low_diversity')
-    expect(report.observed.minUniqueRatio).toBeLessThan(
-      PREVIEW_VARIETY_DEFAULTS.minUniqueRatio,
-    )
+    expect(report.observed.minUniqueRatio).toBeLessThan(0.6)
   })
 })
 

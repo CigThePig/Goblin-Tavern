@@ -45,5 +45,25 @@ export const mannerNotePool: SnippetPool = {
         { kind: 'repeatCount', subjectTag: 'monthly', atLeast: 3 },
       ],
     },
+
+    // Phase 18 repair: spec-0 unconditional fillers so the body fires.
+    {
+      id: 'mnr_mild_lamp',
+      text: 'The desk lamp throws long shadows across the page.',
+      conditions: [],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_pen',
+      text: 'The pen rests in the crease of the ledger.',
+      conditions: [],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_chair',
+      text: 'The chair creaks as you settle to the work.',
+      conditions: [],
+      specificity: 0,
+    },
   ],
 }

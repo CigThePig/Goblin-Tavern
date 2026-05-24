@@ -52,5 +52,27 @@ export const mannerNotePool: SnippetPool = {
         { kind: 'repeatCount', subjectTag: 'culture', atLeast: 3 },
       ],
     },
+
+    // Phase 18 repair: unconditional narrator beats at explicit
+    // specificity 0 so the body fires SOMETHING when no state gate
+    // above matches.
+    {
+      id: 'mnr_mild_glance',
+      text: 'One of them glances toward the bar and back.',
+      conditions: [],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_quiet',
+      text: 'Their corner sits a half-beat quieter than the rest.',
+      conditions: [],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_table',
+      text: 'They lean closer over their table when the room shifts.',
+      conditions: [],
+      specificity: 0,
+    },
   ],
 }

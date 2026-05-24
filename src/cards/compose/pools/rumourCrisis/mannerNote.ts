@@ -60,5 +60,39 @@ export const mannerNotePool: SnippetPool = {
         { kind: 'verbalTic', role: 'primaryActor', tic: 'italicises_stakes' },
       ],
     },
+
+    // Phase 18 repair: spec-0 fillers so neutral-voiced actors fire.
+    {
+      id: 'mnr_mild_warm',
+      text: 'They glance toward the bar before answering.',
+      conditions: [
+        { kind: 'voiceAxis', role: 'primaryActor', axis: 'warmth', atLeast: 1 },
+      ],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_formal',
+      text: 'They settle their stance before speaking.',
+      conditions: [
+        { kind: 'voiceAxis', role: 'primaryActor', axis: 'formality', atLeast: 1 },
+      ],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_terse',
+      text: 'A finger taps the table edge.',
+      conditions: [
+        { kind: 'voiceAxis', role: 'primaryActor', axis: 'terseness', atLeast: 1 },
+      ],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_florid',
+      text: 'They turn their cup between their hands.',
+      conditions: [
+        { kind: 'voiceAxis', role: 'primaryActor', axis: 'floridity', atLeast: 1 },
+      ],
+      specificity: 0,
+    },
   ],
 }

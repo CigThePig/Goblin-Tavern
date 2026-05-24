@@ -52,5 +52,25 @@ export const mannerNotePool: SnippetPool = {
         { kind: 'repeatCount', subjectTag: 'maintenance', atLeast: 3 },
       ],
     },
+
+    // Phase 18 repair: spec-0 unconditional fillers so the body fires.
+    {
+      id: 'mnr_mild_board',
+      text: 'A board settles under your boot as you cross.',
+      conditions: [],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_corner',
+      text: 'The corner sits darker than the rest of the room.',
+      conditions: [],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_handle',
+      text: 'A door handle hangs a fraction loose.',
+      conditions: [],
+      specificity: 0,
+    },
   ],
 }

@@ -52,5 +52,39 @@ export const mannerNotePool: SnippetPool = {
         { kind: 'verbalTic', role: 'primaryActor', tic: 'qualifies_everything' },
       ],
     },
+
+    // Phase 18 repair: spec-0 fillers so neutral-voiced cooks fire.
+    {
+      id: 'mnr_mild_warm',
+      text: 'She rests one hand on the cutting board.',
+      conditions: [
+        { kind: 'voiceAxis', role: 'primaryActor', axis: 'warmth', atLeast: 1 },
+      ],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_formal',
+      text: 'She smooths the apron flat before speaking.',
+      conditions: [
+        { kind: 'voiceAxis', role: 'primaryActor', axis: 'formality', atLeast: 1 },
+      ],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_terse',
+      text: 'She turns the spoon over in her palm.',
+      conditions: [
+        { kind: 'voiceAxis', role: 'primaryActor', axis: 'terseness', atLeast: 1 },
+      ],
+      specificity: 0,
+    },
+    {
+      id: 'mnr_mild_florid',
+      text: 'She tilts her head toward the larder door.',
+      conditions: [
+        { kind: 'voiceAxis', role: 'primaryActor', axis: 'floridity', atLeast: 1 },
+      ],
+      specificity: 0,
+    },
   ],
 }

@@ -87,5 +87,47 @@ export const mannerNotePool: SnippetPool = {
       ],
       specificity: 0,
     },
+
+    // ─── Phase 149 / ISSUE-117 — state-keyed sensory beats ──────────
+    // The sensory beat should reflect the supplier's actual standing.
+    // Spec-1 / spec-2 state-keyed snippets fire orthogonally on signal
+    // bands / pressures / repeat / memory.
+
+    {
+      id: 'mnr_state_low_reliability',
+      text: 'Their cart wheels still creaking in the yard.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'supplier.reliability', equals: 'low' },
+      ],
+    },
+    {
+      id: 'mnr_state_distrust',
+      text: 'Their eyes on the ledger, not on yours.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'supplier_distrust' },
+      ],
+    },
+    {
+      id: 'mnr_state_market_memory',
+      text: 'The road dust still on their coat.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'market_instability' },
+        { kind: 'memoryPresent', tag: 'supplier' },
+      ],
+    },
+    {
+      id: 'mnr_state_repeat',
+      text: 'The third pattern in their boots this season.',
+      conditions: [
+        { kind: 'repeatCount', subjectTag: 'supplier', atLeast: 3 },
+      ],
+    },
+    {
+      id: 'mnr_state_high_relationship',
+      text: 'A small nod between merchants.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'supplier.relationship', equals: 'high' },
+      ],
+    },
   ],
 }

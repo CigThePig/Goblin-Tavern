@@ -65,5 +65,23 @@ export const mannerNotePool: SnippetPool = {
       conditions: [],
       specificity: 0,
     },
+
+    // ─── Phase 149 / ISSUE-117 — matrix-aligned sensory beats ────────
+    {
+      id: 'mnr_severity_shortage',
+      text: 'The cellar steps echo where the kegs used to stand.',
+      conditions: [
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'pressureRising', pressureId: 'stock_shortage' },
+      ],
+    },
+    {
+      id: 'mnr_demand_deception',
+      text: 'The slate marked twice: shortage and excuse.',
+      conditions: [
+        { kind: 'hasTag', tag: 'high_demand' },
+        { kind: 'memoryPresent', tag: 'deception' },
+      ],
+    },
   ],
 }

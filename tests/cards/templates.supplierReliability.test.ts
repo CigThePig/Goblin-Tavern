@@ -263,17 +263,57 @@ describe('supplierReliabilityCard — render output', () => {
 
   // Phase 146 / ISSUE-114 — Legible Surface arc, Phase 1. The supplier
   // card opens with reliability × relationship when both bands resolve.
-  // The establishing slot is opted into `saliencePolicy: 'multi'`; the
-  // assembler picks the reliability-covering snippet as primary and
-  // appends the relationship-covering snippet via the ' — ' join.
-  it('multi-fact establishing line states both reliability AND relationship when both bands resolve', () => {
+  // Phase 149 / ISSUE-117 — Phase 4 added matrix-cell combo snippets at
+  // spec 2 (`est_low_rel_low_rship`, etc.) that state BOTH facts as one
+  // hand-authored line. The combo cell wins specificity over the spec-1
+  // single-condition pair the multi-fact join would compose, so when a
+  // corner cell is reachable the body[0] IS the combo — no ' — ' join
+  // because the line itself already carries both facts.
+  it('establishing line states both reliability AND relationship when both low bands resolve', () => {
     const state = createInitialTavernState()
     const supplierId = firstSupplierId(state)
     const both = withSupplierReliability(state, supplierId, 20, 20)
     const seed = supplierOfferSeed(supplierId, 'supplier-low-low')
     const view = supplierReliabilityCard.render(seed, both)
-    expect(view.body[0]).toContain('come up short') // reliability fact
-    expect(view.body[0]).toContain('old cold') // relationship fact
+    // `est_low_rel_low_rship`: 'Both their goods and their goodwill come up short with us.'
+    // "goods" surfaces the reliability fact; "goodwill" surfaces the
+    // relationship fact. The line stays within `multiFactBudget` (28) by
+    // a wide margin — it's a 12-word single snippet, not a join.
+    expect(view.body[0]).toContain('come up short')
+    expect(view.body[0]).toContain('goodwill')
+    expect(wordCount(view.body[0]!)).toBeLessThanOrEqual(14)
+  })
+
+  it('multi-fact join still composes the pair when no combo cell exists (low rel × distrust rising state)', () => {
+    // When low reliability resolves AND market_instability is rising (but
+    // not supplier_distrust), no spec-2 combo covers that exact pair, so
+    // the assembler falls back to multi-fact: it picks the salient
+    // primary (covering reliability — index 0) and appends a secondary
+    // covering market_instability (index 3) within budget. This proves
+    // the multi-fact mechanism still works for non-authored combinations.
+    const state = createInitialTavernState()
+    const supplierId = firstSupplierId(state)
+    const low = withSupplierReliability(state, supplierId, 20)
+    const withMarketRising: TavernState = {
+      ...low,
+      pressures: {
+        ...low.pressures,
+        market_instability: {
+          id: 'market_instability',
+          label: 'market_instability',
+          value: 40,
+          trend: 1,
+          tags: low.pressures.market_instability?.tags ?? [],
+          topCauses: low.pressures.market_instability?.topCauses ?? [],
+        },
+      },
+    }
+    const seed = supplierOfferSeed(supplierId, 'supplier-low-market')
+    const view = supplierReliabilityCard.render(seed, withMarketRising)
+    // est_low_reliability + ' — ' + est_market_rising (or similar join).
+    // Both fact substrings should appear; the join token should appear.
+    expect(view.body[0]).toContain('come up short')
+    expect(view.body[0]).toContain('market')
     expect(view.body[0]).toContain(' — ')
   })
 

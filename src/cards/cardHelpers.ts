@@ -329,6 +329,19 @@ function effectMatchesSalienceRead(
       return effect.tags.includes(read.tag)
     case 'repeat':
       return effect.tags.includes(read.subjectTag)
+    case 'hasTag':
+      // Phase 149 / ISSUE-117 — calendar / domain / toneHint tags live
+      // on the seed, not on individual effects, so effects don't map to
+      // `hasTag` reads through `effect.tags` cleanly. Treat as no match;
+      // the cap ranks slots whose effects DO move a salient meter first,
+      // and slots tied to calendar facts (rent_due_soon) fall through to
+      // seed-order tie-break, which is the intended presentation order
+      // anyway (no salient meter ⇒ original-index sort).
+      return false
+    case 'severity':
+      // Phase 149 / ISSUE-117 — seed-level fact, no per-effect analogue.
+      // Same rationale as `hasTag` above.
+      return false
   }
 }
 

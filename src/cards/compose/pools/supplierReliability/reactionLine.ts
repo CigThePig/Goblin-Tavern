@@ -134,5 +134,71 @@ export const reactionLinePool: SnippetPool = {
         { kind: 'verbalTic', role: 'primaryActor', tic: 'quotes_someone_else' },
       ],
     },
+
+    // ─── Phase 149 / ISSUE-117 — state-keyed reactions ───────────────
+    // The supplier's reaction should reflect their actual standing, not
+    // just their voice profile. These spec-1 / spec-2 snippets fire on
+    // signal bands / pressures / repeat / memory so a struggling
+    // supplier sounds different from a thriving one even with the same
+    // voice axes. The existing voice-keyed snippets above remain — they
+    // resolve when state is neutral and voice is extreme.
+
+    {
+      id: 'rxn_state_low_reliability',
+      text: "You'll forgive what the road's done to me lately.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'supplier.reliability', equals: 'low' },
+      ],
+    },
+    {
+      id: 'rxn_state_high_reliability',
+      text: 'My trade speaks for itself, owner.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'supplier.reliability', equals: 'high' },
+      ],
+    },
+    {
+      id: 'rxn_state_low_relationship',
+      text: "We'll keep this brief, then.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'supplier.relationship', equals: 'low' },
+      ],
+    },
+    {
+      id: 'rxn_state_high_relationship',
+      text: 'Good to see you across the counter, friend.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'supplier.relationship', equals: 'high' },
+      ],
+    },
+    {
+      id: 'rxn_state_distrust',
+      text: 'I know how this looks. Hear me through, owner.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'supplier_distrust' },
+      ],
+    },
+    {
+      id: 'rxn_state_market',
+      text: "The trade's been like this for everyone this season.",
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'market_instability' },
+      ],
+    },
+    {
+      id: 'rxn_state_repeat',
+      text: 'Third time at this counter, isn’t it.',
+      conditions: [
+        { kind: 'repeatCount', subjectTag: 'supplier', atLeast: 3 },
+      ],
+    },
+    {
+      id: 'rxn_state_warm_memory',
+      text: "After what we did last quarter, you'll trust me here.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'supplier.relationship', equals: 'high' },
+        { kind: 'memoryPresent', tag: 'supplier' },
+      ],
+    },
   ],
 }

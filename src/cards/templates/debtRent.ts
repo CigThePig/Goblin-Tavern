@@ -61,11 +61,23 @@ export const debtRentTemplate: CompositionalCardTemplate = {
       claimMode: 'flavor',
     },
     {
+      // Phase 149 / ISSUE-117 — Legible Surface arc, Phase 4. The
+      // debt_rent card is *about* the converging end-of-month pressures:
+      // severity, the `rent_due_soon` calendar window, rising debt and
+      // landlord pressures, prior payment / borrow / delay memories.
+      // When two top-salient facts resolve (e.g. severity ≥ 70 AND
+      // rent_due_soon; or rising debt AND a 3-month repeat), the
+      // establishing line should state the pair, not whichever single
+      // condition out-specifies the other. Salience table at
+      // `compose/salience.ts:debt_rent`; assembler joins primary +
+      // secondary with ' — ' within the combined budget.
       id: 'establishing_line',
       role: 'utterance',
       pool: debtRentEstablishingLinePool,
       wordBudget: 14,
       claimMode: 'sim_backed',
+      saliencePolicy: 'multi',
+      multiFactJoin: ' — ',
     },
     {
       id: 'reaction_line',

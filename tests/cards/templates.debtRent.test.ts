@@ -273,18 +273,22 @@ describe('debtRentCard — render output', () => {
     expect(view.body[1]).toBe('There are only days left to find the rent.')
   })
 
-  it('establishing_line fires the risk memory snippet when an eviction memory is present', () => {
+  it('establishing_line surfaces the risk-memory fact when an eviction memory is present', () => {
     const state = createInitialTavernState()
     const stressed = withMemory(state, 'eviction_threat_possible', ['landlord', 'risk'])
     const seed = debtRentSeed('debt-rent-evict')
     const view = debtRentCard.render(seed, stressed)
-    // memory tag 'landlord' wins because est_landlord_memory comes before
-    // est_risk_memory in the pool's specificity tie-break (both single-condition
-    // middle rung; FNV tie-break on snippet id).
-    expect([
-      'The landlord came by once before; the door remembers.',
-      'An eviction warning sits half-curled in the desk drawer.',
-    ]).toContain(view.body[0])
+    // Phase 149 / ISSUE-117 — the establishing_line slot opts into
+    // `saliencePolicy: 'multi'`. The injected memory carries both
+    // `landlord` and `risk` tags; both reads resolve. `memory risk`
+    // sits ahead of `memory landlord` in the debt_rent salience table,
+    // so the risk-memory snippet wins the primary pick. The line should
+    // carry evidence of the eviction fact regardless of whether a
+    // secondary snippet appends after (both `est_risk_memory` and a
+    // joined pair satisfy the contract — what matters is that the
+    // salient fact opens the line).
+    expect(view.body[0]).toBeDefined()
+    expect(view.body[0]).toContain('eviction warning')
   })
 
   it('emits valid choices whose verbs are in seed.responseSlots.allowedVerbs', () => {

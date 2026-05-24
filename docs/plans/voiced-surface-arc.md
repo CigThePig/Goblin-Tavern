@@ -328,7 +328,7 @@ approval.
 
 ## Phase 17 — Cross-Situation Voice Consistency
 
-**Provisional:** phase 143 / ISSUE-112. Needs ≥3 migrated situations to be meaningful.
+**Status:** phase 143 / ISSUE-112 — **done**. See `docs/plans/phase-143-cross-situation-voice-consistency.md`.
 
 **Goal.** This is the centerpiece of the original Living Cast vision, finally made testable: a gate + harness proving the **same character is recognizably themselves across situations** — ordering, complaining, asking for a raise, grumbling about rent — driven only by their `voiceProfile`. A terse-cold dwarf reads terse-cold whether they're at the bar or in the back office.
 

@@ -55,3 +55,20 @@ export {
   type YesterdayPressureInput,
   type YesterdayReputationInput,
 } from './yesterdayDigest'
+
+export {
+  composeDriverLine,
+  composeServiceLine,
+  composeTrafficLine,
+  serviceCoinTag,
+  serviceLogDriverSection,
+  serviceLogDriverSlots,
+  serviceLogServiceSection,
+  serviceLogServiceSlots,
+  serviceLogTrafficSection,
+  serviceLogTrafficSlots,
+  trafficVolumeTag,
+  type DriverLineInput,
+  type ServiceLineInput,
+  type TrafficLineInput,
+} from './serviceLog'

@@ -318,11 +318,14 @@ describe('maintenanceCard — render output', () => {
     const damaged = withAreaDamage(state, 'main_room', 80)
     const seed = maintenanceSeed('maintenance-damage-high')
     const view = maintenanceCard.render(seed, damaged)
-    // Either the damage-only snippet or the damage+rising-pressure top
-    // rung; both are valid sim-anchored rungs on this state.
+    // Three valid sim-anchored rungs on this state. Phase 153 added the
+    // damage=high × condition=mid spec-2 support; main_room defaults to
+    // condition in the mid band, so the new combo cell is the deepest
+    // matching rung and typically wins.
     expect([
       'The damage has crept past anything a wipe-down can hide.',
       'The damage is well past the line, and the pressure keeps climbing.',
+      'Visible harm written into the wear of an average room.',
     ]).toContain(view.body[0])
   })
 

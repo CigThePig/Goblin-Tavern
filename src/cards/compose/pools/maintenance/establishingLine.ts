@@ -98,5 +98,116 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'repeatCount', subjectTag: 'maintenance', atLeast: 3 },
       ],
     },
+
+    // Phase 153 / ISSUE-121 — Legible Surface arc, Phase 8.
+    //
+    // 4 spec-3 cube corners (damage=high × condition × cleanliness 2×2).
+    // The picker scores `damage + (60 − condition)`, so damage=high is
+    // the dominant lever; cleanliness adds the cube-face third meter.
+    // Each combo states all three salient bands in one ≤14-word line;
+    // imagery varies per corner so the within-pool dedupe gate has
+    // room.
+    {
+      id: 'est_high_dmg_high_cond_high_clean',
+      text: 'A fresh gouge across an otherwise-careful wall stands out at the door.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+        { kind: 'signalEquals', signal: 'area.condition', role: 'location', equals: 'high' },
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_high_dmg_high_cond_low_clean',
+      text: 'A split in sound timber that has not been scrubbed for weeks.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+        { kind: 'signalEquals', signal: 'area.condition', role: 'location', equals: 'high' },
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_high_dmg_low_cond_high_clean',
+      text: 'The floor is swept clean and the joist beneath it is listing badly.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+        { kind: 'signalEquals', signal: 'area.condition', role: 'location', equals: 'low' },
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_high_dmg_low_cond_low_clean',
+      text: 'A wreck of a corner, with no pretence of upkeep to soften it.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+        { kind: 'signalEquals', signal: 'area.condition', role: 'location', equals: 'low' },
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+      ],
+    },
+
+    // 4 spec-2 damage × condition supports (for cleanliness=mid or
+    // when cleanliness is unbanded). Out-rank single-condition snippets
+    // when both meters resolve; under-rank the spec-3 cube corners.
+    {
+      id: 'est_high_dmg_high_cond',
+      text: 'Sudden harm in a room that had been kept careful until now.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+        { kind: 'signalEquals', signal: 'area.condition', role: 'location', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_high_dmg_low_cond',
+      text: 'A long-overdue room has finally taken visible harm.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+        { kind: 'signalEquals', signal: 'area.condition', role: 'location', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_mid_dmg_low_cond',
+      text: 'A quiet decline; deferred upkeep is turning into something structural.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'mid' },
+        { kind: 'signalEquals', signal: 'area.condition', role: 'location', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_high_dmg_mid_cond',
+      text: 'Visible harm written into the wear of an average room.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+        { kind: 'signalEquals', signal: 'area.condition', role: 'location', equals: 'mid' },
+      ],
+    },
+
+    // 3 pressure / memory / hasTag top rungs. The first shares
+    // conditions with the legacy `est_damage_high_rising` above; FNV
+    // tie-break picks one. Both are semantically equivalent (the same
+    // damage+pressure cell phrased two ways); the new wording widens
+    // the pool's spec-2 surface here without erasing the legacy line.
+    {
+      id: 'est_damage_rising_top',
+      text: 'The damage stands out plainly, and the pressure keeps climbing.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+        { kind: 'pressureRising', pressureId: 'maintenance' },
+      ],
+    },
+    {
+      id: 'est_low_cond_warning',
+      text: "The room is failing today on a warning we noted before.",
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.condition', role: 'location', equals: 'low' },
+        { kind: 'memoryPresent', tag: 'warning' },
+      ],
+    },
+    {
+      id: 'est_fire_risk_ignored',
+      text: 'A fire risk we have already chosen once to live with.',
+      conditions: [
+        { kind: 'hasTag', tag: 'fire_risk' },
+        { kind: 'memoryPresent', tag: 'ignored' },
+      ],
+    },
   ],
 }

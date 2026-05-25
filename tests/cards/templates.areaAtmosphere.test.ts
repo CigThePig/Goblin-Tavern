@@ -340,7 +340,15 @@ describe('areaAtmosphereCard — render output', () => {
     const remembered = withMemory(state, 'area_atmosphere_seed_main_room', ['area', 'atmosphere', 'warning'])
     const seed = areaAtmosphereSeed('atmosphere-memory')
     const view = areaAtmosphereCard.render(seed, remembered)
-    expect(view.body[0]).toBe('The mood from the last warning has not lifted.')
+    // Phase 153 added the `hasTag reputation + memoryPresent atmosphere`
+    // spec-2 combo; the default seed's toneHints carry 'reputation', so
+    // the new combo outranks the single-condition memory snippet when
+    // an atmosphere memory is present. Both are valid sim-anchored
+    // rungs on this state.
+    expect([
+      'The mood from the last warning has not lifted.',
+      'A reputation-facing corner where prior atmosphere calls still echo.',
+    ]).toContain(view.body[0])
   })
 
   it('reaction_line picks a tag-specific snippet when the seed names a reputation tag', () => {

@@ -100,5 +100,114 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'repeatCount', subjectTag: 'atmosphere', atLeast: 3 },
       ],
     },
+
+    // Phase 153 / ISSUE-121 — Legible Surface arc, Phase 8.
+    //
+    // 4 spec-3 cube corners (cleanliness=low × damage × condition 2×2).
+    // The picker scores `(100 − cleanliness) + damage` and requires
+    // ≥ 60, so cleanliness=low is the dominant lever; condition adds
+    // the cube-face third meter. Imagery varies per corner so the
+    // within-pool dedupe gate has room.
+    {
+      id: 'est_low_clean_high_dmg_high_cond',
+      text: 'Dust on rafters whose carpentry would still pass any test.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+        { kind: 'signalEquals', signal: 'area.condition', role: 'location', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_low_clean_high_dmg_low_cond',
+      text: 'The room reads as nobody has bothered with it for a long stretch.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+        { kind: 'signalEquals', signal: 'area.condition', role: 'location', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_low_clean_low_dmg_high_cond',
+      text: 'A sturdy room let grubby enough that its good bones cannot hide it.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'low' },
+        { kind: 'signalEquals', signal: 'area.condition', role: 'location', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_low_clean_low_dmg_low_cond',
+      text: 'The kind of slow slip nobody catches until regulars stop sitting there.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'low' },
+        { kind: 'signalEquals', signal: 'area.condition', role: 'location', equals: 'low' },
+      ],
+    },
+
+    // 4 spec-2 cleanliness × damage supports (for condition=mid).
+    {
+      id: 'est_low_clean_high_dmg',
+      text: 'Grime layered over real wear; both speak at once.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_low_clean_mid_dmg',
+      text: 'The standard atmosphere case: a room slipping past clean.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'mid' },
+      ],
+    },
+    {
+      id: 'est_mid_clean_high_dmg',
+      text: 'Passable upkeep, but real damage showing plainly through it.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'mid' },
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_high_clean_high_dmg',
+      text: 'The rare clean-but-damaged room; the harm shows because nothing else does.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'high' },
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+      ],
+    },
+
+    // 3 pressure / memory / hasTag top rungs. The first shares
+    // conditions with the legacy `est_cleanliness_pressure` above; FNV
+    // tie-break picks one. Both are semantically equivalent (the same
+    // cleanliness+pressure cell phrased two ways); the new wording
+    // widens the pool's spec-2 surface here without erasing the
+    // legacy line.
+    {
+      id: 'est_cleanliness_rising_top',
+      text: 'Grime sunk into the corner while the board keeps creeping upward.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+        { kind: 'pressureRising', pressureId: 'maintenance' },
+      ],
+    },
+    {
+      id: 'est_high_dmg_neglected',
+      text: "Today's wear written on top of an older standing neglect.",
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+        { kind: 'memoryPresent', tag: 'neglected' },
+      ],
+    },
+    {
+      id: 'est_reputation_atmosphere',
+      text: 'A reputation-facing corner where prior atmosphere calls still echo.',
+      conditions: [
+        { kind: 'hasTag', tag: 'reputation' },
+        { kind: 'memoryPresent', tag: 'atmosphere' },
+      ],
+    },
   ],
 }

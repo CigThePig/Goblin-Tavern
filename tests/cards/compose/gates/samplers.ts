@@ -2437,6 +2437,46 @@ const MAINTENANCE_PERTURBATIONS: ReadonlyArray<{
     toneHints: ['maintenance', 'inspection_relevant', 'urgent'],
     severity: 80,
   },
+
+  // Phase 153 / ISSUE-121 — Legible Surface arc, Phase 8.
+  // Cube-coverage perturbations: Phase 8 adds `area.cleanliness` as a
+  // salient signal for maintenance and authors 4 spec-3 cube corners
+  // (damage=high × condition × cleanliness 2×2). Diversity gate needs
+  // samples that vary the previously-unperturbed cleanliness band.
+  // Low cleanliness alone.
+  { meters: { cleanliness: 25 }, toneHints: ['maintenance'], severity: 50 },
+  // High cleanliness alone.
+  { meters: { cleanliness: 85 }, toneHints: ['maintenance'], severity: 50 },
+  // Cube corner: damage=high × condition=high × cleanliness=high.
+  {
+    meters: { damage: 80, condition: 80, cleanliness: 85 },
+    toneHints: ['maintenance'],
+    severity: 60,
+  },
+  // Cube corner: damage=high × condition=high × cleanliness=low.
+  {
+    meters: { damage: 80, condition: 80, cleanliness: 25 },
+    toneHints: ['maintenance'],
+    severity: 60,
+  },
+  // Cube corner: damage=high × condition=low × cleanliness=high.
+  {
+    meters: { damage: 80, condition: 25, cleanliness: 85 },
+    toneHints: ['maintenance'],
+    severity: 60,
+  },
+  // Cube corner: damage=high × condition=low × cleanliness=low.
+  {
+    meters: { damage: 80, condition: 25, cleanliness: 25 },
+    toneHints: ['maintenance'],
+    severity: 65,
+  },
+  // Spec-2 support: damage=mid × condition=low.
+  {
+    meters: { damage: 50, condition: 25 },
+    toneHints: ['maintenance'],
+    severity: 55,
+  },
 ]
 
 function buildMaintenanceState(
@@ -2598,6 +2638,53 @@ const AREA_ATMOSPHERE_PERTURBATIONS: ReadonlyArray<{
     memory: { id: 'area_neglected_again', tags: ['area', 'neglected'] },
     toneHints: ['atmosphere'],
     severity: 60,
+  },
+
+  // Phase 153 / ISSUE-121 — Legible Surface arc, Phase 8.
+  // Cube-coverage perturbations: Phase 8 adds `area.condition` as a
+  // salient signal for area_atmosphere and authors 4 spec-3 cube
+  // corners (cleanliness=low × damage × condition 2×2). Diversity
+  // gate needs samples that vary the previously-unperturbed condition
+  // band, plus more damage-band coverage.
+  // Low condition alone.
+  { meters: { condition: 25 }, toneHints: ['atmosphere'], severity: 50 },
+  // High condition alone.
+  { meters: { condition: 85 }, toneHints: ['atmosphere'], severity: 50 },
+  // Cube corner: cleanliness=low × damage=high × condition=high.
+  {
+    meters: { cleanliness: 25, damage: 80, condition: 80 },
+    toneHints: ['atmosphere'],
+    severity: 60,
+  },
+  // Cube corner: cleanliness=low × damage=high × condition=low.
+  {
+    meters: { cleanliness: 25, damage: 80, condition: 25 },
+    toneHints: ['atmosphere'],
+    severity: 65,
+  },
+  // Cube corner: cleanliness=low × damage=low × condition=high.
+  {
+    meters: { cleanliness: 25, damage: 25, condition: 80 },
+    toneHints: ['atmosphere'],
+    severity: 55,
+  },
+  // Cube corner: cleanliness=low × damage=low × condition=low.
+  {
+    meters: { cleanliness: 25, damage: 25, condition: 25 },
+    toneHints: ['atmosphere'],
+    severity: 60,
+  },
+  // Spec-2 support: cleanliness=mid × damage=high.
+  {
+    meters: { cleanliness: 50, damage: 80 },
+    toneHints: ['atmosphere'],
+    severity: 60,
+  },
+  // Spec-2 support: cleanliness=high × damage=high (the rare cell).
+  {
+    meters: { cleanliness: 85, damage: 80 },
+    toneHints: ['atmosphere'],
+    severity: 55,
   },
 ]
 

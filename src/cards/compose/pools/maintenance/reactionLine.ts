@@ -108,5 +108,55 @@ export const reactionLinePool: SnippetPool = {
         { kind: 'memoryPresent', tag: 'ignored' },
       ],
     },
+
+    // Phase 153 / ISSUE-121 — Legible Surface arc, Phase 8.
+    // State-keyed reaction snippets. Existing pool covers tone tags +
+    // memories + severity + pressure + repeat; the gap is signalEquals
+    // reads on the three area meters. Narrator-voiced throughout.
+    {
+      id: 'rxn_damage_high',
+      text: 'The eye lands on a gouge the morning light cannot soften.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+      ],
+    },
+    {
+      id: 'rxn_condition_low',
+      text: 'The room reads tired in the cool morning light.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.condition', role: 'location', equals: 'low' },
+      ],
+    },
+    {
+      id: 'rxn_cleanliness_low',
+      text: 'A scrub has not been near this corner in days.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+      ],
+    },
+    {
+      id: 'rxn_dmg_high_cond_high',
+      text: 'A strong room with one bad surface; the contrast does the talking.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+        { kind: 'signalEquals', signal: 'area.condition', role: 'location', equals: 'high' },
+      ],
+    },
+    {
+      id: 'rxn_pressure_warning',
+      text: 'The earlier warning is cashing itself in this morning.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'maintenance' },
+        { kind: 'memoryPresent', tag: 'warning' },
+      ],
+    },
+    {
+      id: 'rxn_repeat_ignored',
+      text: 'Third visit, and looking past it has become a habit.',
+      conditions: [
+        { kind: 'repeatCount', subjectTag: 'maintenance', atLeast: 3 },
+        { kind: 'memoryPresent', tag: 'ignored' },
+      ],
+    },
   ],
 }

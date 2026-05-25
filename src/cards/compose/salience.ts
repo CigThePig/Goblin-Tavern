@@ -257,6 +257,67 @@ export const SALIENCE_TABLES: Partial<
       { kind: 'repeat', subjectTag: 'culture', atLeast: 3 },
     ],
   },
+
+  // Phase 153 / ISSUE-121 — Legible Surface arc, Phase 8 (Premises &
+  // Atmosphere cluster). Both families are NARRATOR-voiced — areas
+  // have no `castAttributes` (rooms are not characters) — so pool
+  // snippets carry no `voiceAxis` / `verbalTic` conditions. The Phase-
+  // 137 `resolveActorRef` extension lets snippets read the area
+  // through the `'location'` role for signal lookups. Each template
+  // authors a 3-meter cube on its own picker projection:
+  //
+  //   - `maintenance` picker scores `damage + (60 − condition)`. Lead
+  //     read is `area.damage` (strictly dominant: higher = higher
+  //     score, no inversion), then `area.condition` (second picker
+  //     meter, inverted), then `area.cleanliness` as the cube-face
+  //     third meter.
+  //   - `area_atmosphere` picker scores `(100 − cleanliness) + damage`
+  //     (must score ≥ 60). Lead read is `area.cleanliness` (strictly
+  //     dominant), then `area.damage`, then `area.condition` as the
+  //     cube-face third.
+  //
+  // Both families share one pressure (`maintenance`) which follows the
+  // three signals. Memory ordering mirrors each generator's prior-
+  // choice tag emissions. Two `hasTag` reads on maintenance
+  // (`inspection_relevant`, `fire_risk`) and three on area_atmosphere
+  // (`reputation`, `inspection_negative`, `merchant_sensitive`) gate
+  // top-rung escalation snippets in the existing pools — included so
+  // the salience read stays enumerable for the Phase-16 legibility
+  // gate. `severity` is NOT a salience read for these families: the
+  // pickers don't threshold on severity (severity is downstream of the
+  // meters), matching Phase 152's choice for faction / culture. The
+  // repeat read is the deepest rung for each (multi-period pattern).
+  maintenance: {
+    reads: [
+      { kind: 'signal', role: 'location', signal: 'area.damage' },
+      { kind: 'signal', role: 'location', signal: 'area.condition' },
+      { kind: 'signal', role: 'location', signal: 'area.cleanliness' },
+      { kind: 'pressure', pressureId: 'maintenance' },
+      { kind: 'memory', tag: 'warning' },
+      { kind: 'memory', tag: 'ignored' },
+      { kind: 'memory', tag: 'patch' },
+      { kind: 'memory', tag: 'maintenance' },
+      { kind: 'hasTag', tag: 'inspection_relevant' },
+      { kind: 'hasTag', tag: 'fire_risk' },
+      { kind: 'repeat', subjectTag: 'maintenance', atLeast: 3 },
+    ],
+  },
+  area_atmosphere: {
+    reads: [
+      { kind: 'signal', role: 'location', signal: 'area.cleanliness' },
+      { kind: 'signal', role: 'location', signal: 'area.damage' },
+      { kind: 'signal', role: 'location', signal: 'area.condition' },
+      { kind: 'pressure', pressureId: 'maintenance' },
+      { kind: 'memory', tag: 'atmosphere' },
+      { kind: 'memory', tag: 'neglected' },
+      { kind: 'memory', tag: 'cleaning' },
+      { kind: 'memory', tag: 'repair' },
+      { kind: 'hasTag', tag: 'reputation' },
+      { kind: 'hasTag', tag: 'inspection_negative' },
+      { kind: 'hasTag', tag: 'merchant_sensitive' },
+      { kind: 'repeat', subjectTag: 'atmosphere', atLeast: 3 },
+    ],
+  },
 }
 
 /**

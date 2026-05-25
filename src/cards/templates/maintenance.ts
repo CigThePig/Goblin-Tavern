@@ -66,11 +66,29 @@ export const maintenanceTemplate: CompositionalCardTemplate = {
       claimMode: 'flavor',
     },
     {
+      // Phase 153 / ISSUE-121 — Legible Surface arc, Phase 8. The
+      // maintenance card opens on a 3-meter cube (damage × condition
+      // × cleanliness); when more than one band resolves, the
+      // establishing line should state the salient combination, not
+      // whichever single condition out-specifies the others.
+      // `saliencePolicy: 'multi'` lets the assembler tie-break top-
+      // specificity matches by salience (damage leads the read for
+      // `maintenance`; see `compose/salience.ts`) and join a secondary
+      // snippet covering the next orthogonal fact.
+      //
+      // The pool authors 4 spec-3 cube corners (damage=high ×
+      // condition × cleanliness 2×2) plus 4 spec-2 damage × condition
+      // supports for the cleanliness=mid case. The multi-fact join is
+      // the fallback for unanticipated band pairs the spec-2/spec-3
+      // cells don't catch. Layered OVER the gradient — when only one
+      // read resolves, behaviour matches the single-fact baseline.
       id: 'establishing_line',
       role: 'utterance',
       pool: maintenanceEstablishingLinePool,
       wordBudget: 14,
       claimMode: 'sim_backed',
+      saliencePolicy: 'multi',
+      multiFactJoin: ' — ',
     },
     {
       id: 'reaction_line',

@@ -278,6 +278,55 @@ describe('SALIENCE_TABLES', () => {
       pressureId: 'cultural_tension',
     })
   })
+
+  // Phase 153 / ISSUE-121 — Legible Surface arc, Phase 8 additions.
+  it('seeds maintenance with damage, condition, cleanliness, then maintenance pressure', () => {
+    const table = SALIENCE_TABLES['maintenance' as IssueSeedFamilyId]
+    expect(table).toBeDefined()
+    expect(table!.reads[0]).toMatchObject({
+      kind: 'signal',
+      role: 'location',
+      signal: 'area.damage',
+    })
+    expect(table!.reads[1]).toMatchObject({
+      kind: 'signal',
+      role: 'location',
+      signal: 'area.condition',
+    })
+    expect(table!.reads[2]).toMatchObject({
+      kind: 'signal',
+      role: 'location',
+      signal: 'area.cleanliness',
+    })
+    expect(table!.reads[3]).toMatchObject({
+      kind: 'pressure',
+      pressureId: 'maintenance',
+    })
+  })
+
+  it('seeds area_atmosphere with cleanliness, damage, condition, then maintenance pressure', () => {
+    const table = SALIENCE_TABLES['area_atmosphere' as IssueSeedFamilyId]
+    expect(table).toBeDefined()
+    expect(table!.reads[0]).toMatchObject({
+      kind: 'signal',
+      role: 'location',
+      signal: 'area.cleanliness',
+    })
+    expect(table!.reads[1]).toMatchObject({
+      kind: 'signal',
+      role: 'location',
+      signal: 'area.damage',
+    })
+    expect(table!.reads[2]).toMatchObject({
+      kind: 'signal',
+      role: 'location',
+      signal: 'area.condition',
+    })
+    expect(table!.reads[3]).toMatchObject({
+      kind: 'pressure',
+      pressureId: 'maintenance',
+    })
+  })
 })
 
 describe('resolveSalientReads', () => {

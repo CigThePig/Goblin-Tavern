@@ -127,5 +127,62 @@ export const reactionLinePool: SnippetPool = {
         { kind: 'verbalTic', role: 'primaryActor', tic: 'quotes_someone_else' },
       ],
     },
+
+    // ─── Phase 151 / ISSUE-119 — state-keyed reactions ───────────────
+    // The cohort's reaction should reflect their meter state, not just
+    // their voice axes. Spec-1 state-keyed snippets fire on signal
+    // bands / pressures / repeat / memory. First-person plural ("we")
+    // throughout — a slip to "I" reads as a single regular speaking
+    // and breaks the cohort framing.
+
+    {
+      id: 'rxn_state_low_satisfaction',
+      text: "We've stopped looking forward to coming through the door.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'customer_group.satisfaction', equals: 'low' },
+      ],
+    },
+    {
+      id: 'rxn_state_low_loyalty',
+      text: "There's no reason left to keep us here.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'customer_group.loyalty', equals: 'low' },
+      ],
+    },
+    {
+      id: 'rxn_state_reputation_rising',
+      text: 'And we tell the others when they ask.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'reputation_drift' },
+      ],
+    },
+    {
+      id: 'rxn_state_loss_rising',
+      text: "The table's been thinning around us for weeks.",
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'regular_customer_loss' },
+      ],
+    },
+    {
+      id: 'rxn_state_complaint_memory',
+      text: "We said it before, and nothing came of it.",
+      conditions: [
+        { kind: 'memoryPresent', tag: 'complaint' },
+      ],
+    },
+    {
+      id: 'rxn_state_customer_memory',
+      text: "We've come here long enough to remember better.",
+      conditions: [
+        { kind: 'memoryPresent', tag: 'customer' },
+      ],
+    },
+    {
+      id: 'rxn_state_repeat',
+      text: 'Three nights running, the same trouble at this table.',
+      conditions: [
+        { kind: 'repeatCount', subjectTag: 'customer', atLeast: 3 },
+      ],
+    },
   ],
 }

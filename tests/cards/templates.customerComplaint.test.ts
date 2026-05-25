@@ -70,6 +70,28 @@ function withSatisfaction(
   }
 }
 
+// Phase 151 / ISSUE-119 — hold cohort loyalty at the mid band so a test
+// that only intends to vary satisfaction (or test the bare fallback)
+// isn't pulled into the new corner-combo / state-keyed-reaction rungs.
+// Starter cohorts carry loyalty 20-70; the first is `adventurers` at 30
+// = low.
+function withLoyalty(
+  state: TavernState,
+  groupId: string,
+  loyalty: number,
+): TavernState {
+  return {
+    ...state,
+    customerGroups: {
+      ...state.customerGroups,
+      [groupId]: {
+        ...state.customerGroups[groupId]!,
+        loyalty,
+      },
+    },
+  }
+}
+
 function groupRef(id: string): EntityRef {
   return { kind: 'customer_group', id }
 }
@@ -259,20 +281,33 @@ describe('customerComplaintCard — render output', () => {
     const neutral: CustomerGroupCastAttributes = {
       voice: { axes: { terseness: 1, warmth: 1, formality: 1, floridity: 1 } },
     }
-    const flat = withCast(state, groupId, neutral)
+    // Hold loyalty mid AND satisfaction mid so neither the Phase-6
+    // state-keyed reaction snippets (signalEquals loyalty=low /
+    // satisfaction=low) nor the corner combos fire; the unconditional
+    // fallback is the only candidate.
+    const flat = withSatisfaction(
+      withLoyalty(withCast(state, groupId, neutral), groupId, 50),
+      groupId,
+      50,
+    )
     const seed = customerComplaintSeed(groupId)
     const view = customerComplaintCard.render(seed, flat)
-    // Starter group satisfaction varies per group; whichever band it
-    // resolves to, both reaction and manner stay on fallback because no
-    // axis matches.
     expect(REACTION_LINE_TEXTS.has(view.body[1]!)).toBe(true)
     expect(view.body[1]).toBe('The mugs grow cold while the silence grows louder.')
   })
 
-  it('picks a sim-backed snippet when the group has low satisfaction', () => {
+  it('picks a sim-backed snippet when the group has low satisfaction (loyalty mid)', () => {
     const state = createInitialTavernState()
     const groupId = firstGroupId(state)
-    const grumpy = withSatisfaction(state, groupId, 25)
+    // Hold loyalty mid so the single-condition `est_low_satisfaction`
+    // snippet wins specificity — the Phase-6 corner combos
+    // (est_low_sat_low_loy / est_low_sat_high_loy) only fire when
+    // loyalty also resolves to low or high.
+    const grumpy = withSatisfaction(
+      withLoyalty(state, groupId, 50),
+      groupId,
+      25,
+    )
     const seed = customerComplaintSeed(groupId, 'low-satisfaction')
     const view = customerComplaintCard.render(seed, grumpy)
     expect(view.body[0]).toBe("Their satisfaction's been bottoming out all evening.")

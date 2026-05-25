@@ -133,5 +133,63 @@ export const reactionLinePool: SnippetPool = {
         { kind: 'verbalTic', role: 'primaryActor', tic: 'quotes_someone_else' },
       ],
     },
+
+    // ─── Phase 151 / ISSUE-119 — state-keyed reactions ───────────────
+    // The regular's reaction should reflect their actual standing, not
+    // just their voice profile. These spec-1 snippets fire on signal
+    // bands / pressures / repeat / memory so an irritated regular and a
+    // loyalty-low regular sound different even at the same voice
+    // axes. The existing voice/tic snippets above remain — they resolve
+    // when state is neutral and voice is extreme.
+
+    {
+      id: 'rxn_state_high_irritation',
+      text: "I've held this in for weeks.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'regular.irritation', equals: 'high' },
+      ],
+    },
+    {
+      id: 'rxn_state_low_loyalty',
+      text: "I shouldn't even be here saying this.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'regular.loyalty', equals: 'low' },
+      ],
+    },
+    {
+      id: 'rxn_state_loss_rising',
+      text: "And I won't be the last to walk.",
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'regular_customer_loss' },
+      ],
+    },
+    {
+      id: 'rxn_state_grudge_memory',
+      text: "I haven't forgotten the last one either.",
+      conditions: [
+        { kind: 'memoryPresent', tag: 'grudge' },
+      ],
+    },
+    {
+      id: 'rxn_state_ignored_memory',
+      text: "You never answered the last one; here it is back.",
+      conditions: [
+        { kind: 'memoryPresent', tag: 'ignored_complaint' },
+      ],
+    },
+    {
+      id: 'rxn_state_warning_memory',
+      text: "And I did warn you this would happen.",
+      conditions: [
+        { kind: 'memoryPresent', tag: 'warning' },
+      ],
+    },
+    {
+      id: 'rxn_state_repeat',
+      text: "Third time I've stood here saying it.",
+      conditions: [
+        { kind: 'repeatCount', subjectTag: 'regular', atLeast: 3 },
+      ],
+    },
   ],
 }

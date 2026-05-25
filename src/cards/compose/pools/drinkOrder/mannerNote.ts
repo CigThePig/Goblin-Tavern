@@ -84,5 +84,40 @@ export const mannerNotePool: SnippetPool = {
       ],
       specificity: 0,
     },
+
+    // ─── Phase 151 / ISSUE-119 — state-keyed sensory beats ──────────
+    // drinkOrder fires on the mild branch (irritation ≤ 60), so the
+    // regular hasn't escalated yet, but their meter standing still
+    // reads at the manner. Subtle by design — the order_line is the
+    // body's voice; the manner_note carries the standing.
+
+    {
+      id: 'manner_state_mid_irritation',
+      text: 'An extra glance at the bar before they speak.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'regular.irritation', equals: 'mid' },
+      ],
+    },
+    {
+      id: 'manner_state_high_loyalty',
+      text: 'They wait their turn the way they always have.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'regular.loyalty', equals: 'high' },
+      ],
+    },
+    {
+      id: 'manner_state_low_loyalty',
+      text: 'The order comes shorter than usual.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'regular.loyalty', equals: 'low' },
+      ],
+    },
+    {
+      id: 'manner_state_grudge_memory',
+      text: 'No nod across the bar where one used to be.',
+      conditions: [
+        { kind: 'memoryPresent', tag: 'grudge' },
+      ],
+    },
   ],
 }

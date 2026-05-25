@@ -117,5 +117,76 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'memoryPresent', tag: 'complaint' },
       ],
     },
+
+    // ─── Phase 151 / ISSUE-119 — satisfaction × loyalty matrix corners ─
+    // The cohort card is *about* satisfaction × loyalty; when both
+    // bands resolve, the establishing line should state the pair, not
+    // whichever single-condition snippet happens to out-specify the
+    // other. Each corner combo holds BOTH signal facts as one hand-
+    // authored line and outranks the multi-fact join. The
+    // customer_complaint generator picks groups by `100 - satisfaction`
+    // weighting, so satisfaction is low or mid (rarely high) — author
+    // only the cells the design distinguishes.
+
+    {
+      id: 'est_low_sat_low_loy',
+      text: "Bags already on the chair, eyes already on the door.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'customer_group.satisfaction', equals: 'low' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'customer_group.loyalty', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_low_sat_high_loy',
+      text: "Loyal regulars watching us stumble, and not understanding why.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'customer_group.satisfaction', equals: 'low' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'customer_group.loyalty', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_mid_sat_low_loy',
+      text: "Nothing in particular holds them; nothing is what we've offered.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'customer_group.satisfaction', equals: 'mid' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'customer_group.loyalty', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_mid_sat_high_loy',
+      text: "A hundred forgiven nights; tonight is the test of one more.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'customer_group.satisfaction', equals: 'mid' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'customer_group.loyalty', equals: 'high' },
+      ],
+    },
+
+    // Spec-2 signal × pressure / memory top rungs. Sit between the band-
+    // pair corners and the single-condition rungs; fire when one signal
+    // extreme meets a matching pressure or memory.
+    {
+      id: 'est_sat_reputation',
+      text: "Their mood drops as the talk about us turns sour outside.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'customer_group.satisfaction', equals: 'low' },
+        { kind: 'pressureRising', pressureId: 'reputation_drift' },
+      ],
+    },
+    {
+      id: 'est_loyalty_complaint_memory',
+      text: 'Loyalty thinned, and an unanswered complaint still sits between us.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'customer_group.loyalty', equals: 'low' },
+        { kind: 'memoryPresent', tag: 'complaint' },
+      ],
+    },
+    {
+      id: 'est_loss_customer_memory',
+      text: 'The loss climbs and an old slight still sits unmended.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'regular_customer_loss' },
+        { kind: 'memoryPresent', tag: 'customer' },
+      ],
+    },
   ],
 }

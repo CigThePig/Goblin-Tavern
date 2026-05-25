@@ -102,5 +102,78 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'memoryPresent', tag: 'grudge' },
       ],
     },
+
+    // ─── Phase 151 / ISSUE-119 — irritation × loyalty matrix corners ──
+    // The card is *about* irritation × loyalty; when both bands resolve
+    // the establishing line should state the pair, not whichever
+    // single-condition snippet happens to out-specify the other. Each
+    // corner combo holds BOTH signal facts as one hand-authored line and
+    // outranks the multi-fact join (which only fires when no combo
+    // covers the pair). The regular_customer / complaint seed fires for
+    // irritation > 60 (mid or high band), so the low-irritation row of
+    // the 9-cell matrix never resolves at runtime — author only the
+    // mid/high × low/mid/high corners the design distinguishes.
+
+    {
+      id: 'est_high_irritation_high_loyalty',
+      text: "Years between us, and the way they're looking at me now.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'regular.irritation', equals: 'high' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'regular.loyalty', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_high_irritation_low_loyalty',
+      text: "Door's already in their hand; the words are catching up.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'regular.irritation', equals: 'high' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'regular.loyalty', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_mid_irritation_high_loyalty',
+      text: 'Still here, but the patience is thinning by the breath.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'regular.irritation', equals: 'mid' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'regular.loyalty', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_mid_irritation_low_loyalty',
+      text: "Quiet between us, and the visits getting shorter each round.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'regular.irritation', equals: 'mid' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'regular.loyalty', equals: 'low' },
+      ],
+    },
+
+    // Spec-2 signal × pressure / memory top rungs. The salience table
+    // ranks these below the band-pair corners but above the single-
+    // condition rungs, so they fire when one signal extreme meets a
+    // matching pressure or memory.
+    {
+      id: 'est_loyalty_loss',
+      text: 'Loyalty thinning, and the regulars drifting from the door.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'regular.loyalty', equals: 'low' },
+        { kind: 'pressureRising', pressureId: 'regular_customer_loss' },
+      ],
+    },
+    {
+      id: 'est_irritation_ignored',
+      text: "Anger today, built on a complaint that's still unanswered.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'regular.irritation', equals: 'high' },
+        { kind: 'memoryPresent', tag: 'ignored_complaint' },
+      ],
+    },
+    {
+      id: 'est_loss_warning',
+      text: 'The loss you were warned about is starting to arrive.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'regular_customer_loss' },
+        { kind: 'memoryPresent', tag: 'warning' },
+      ],
+    },
   ],
 }

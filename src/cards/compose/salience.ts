@@ -206,6 +206,57 @@ export const SALIENCE_TABLES: Partial<
       { kind: 'repeat', subjectTag: 'customer', atLeast: 3 },
     ],
   },
+
+  // Phase 152 / ISSUE-120 — Legible Surface arc, Phase 7 (Factions &
+  // Culture cluster). Two new entries. factionRequest is actor-voiced
+  // (faction has castAttributes via Phase 128); cultureConflict is
+  // narrator-voiced (cultures are population concepts, no individual
+  // cast). The two band signals for each family lead the read order
+  // (extremity 2 at low/high). For `faction_request` the generator
+  // embeds only `faction_anger` and `cultural_tension` as pressures
+  // (Phase 136 record) — both listed, primary first. For
+  // `culture_conflict` the generator embeds only `cultural_tension`;
+  // the four memory tags listed match the generator's emission ranking
+  // (mediate / honour / ignore / neglected paths). The `hasTag` reads
+  // for festival / ritual stay secondary to memories because the
+  // cultural calendar context modulates flavor rather than driving the
+  // headline. Both families' banded meters were added in Phase 136 /
+  // ISSUE-105 (no Movement-V loopback required).
+  //
+  // `culture_conflict` is the arc's first 3-meter situation; the
+  // establishing pool authors spec-3 cube corners for tension=high ×
+  // comfort × familiarity to express the readable cube alongside the
+  // 2-meter spec-2 supports. The salience read resolves all three
+  // meters independently — slot selection layers over the gradient.
+  faction_request: {
+    reads: [
+      { kind: 'signal', role: 'primaryActor', signal: 'faction.relationship' },
+      { kind: 'signal', role: 'primaryActor', signal: 'faction.influence' },
+      { kind: 'pressure', pressureId: 'faction_anger' },
+      { kind: 'pressure', pressureId: 'cultural_tension' },
+      { kind: 'memory', tag: 'grudge' },
+      { kind: 'memory', tag: 'refusal' },
+      { kind: 'memory', tag: 'gratitude' },
+      { kind: 'memory', tag: 'faction' },
+      { kind: 'repeat', subjectTag: 'faction', atLeast: 3 },
+    ],
+  },
+  culture_conflict: {
+    reads: [
+      { kind: 'signal', role: 'primaryActor', signal: 'culture.tension' },
+      { kind: 'signal', role: 'primaryActor', signal: 'culture.comfort' },
+      { kind: 'signal', role: 'primaryActor', signal: 'culture.familiarity' },
+      { kind: 'pressure', pressureId: 'cultural_tension' },
+      { kind: 'memory', tag: 'ignored' },
+      { kind: 'memory', tag: 'neglected' },
+      { kind: 'memory', tag: 'honour' },
+      { kind: 'memory', tag: 'mediation' },
+      { kind: 'memory', tag: 'culture' },
+      { kind: 'hasTag', tag: 'festival' },
+      { kind: 'hasTag', tag: 'ritual' },
+      { kind: 'repeat', subjectTag: 'culture', atLeast: 3 },
+    ],
+  },
 }
 
 /**

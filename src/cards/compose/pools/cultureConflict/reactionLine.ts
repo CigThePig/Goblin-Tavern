@@ -100,5 +100,47 @@ export const reactionLinePool: SnippetPool = {
         { kind: 'hasTag', tag: 'festival' },
       ],
     },
+
+    // ─── Phase 152 / ISSUE-120 — signal-keyed reaction snippets ─────
+    // Narrator-voiced state-keyed reactions on the three culture
+    // bands. The existing pool covered memories, severity, pressure,
+    // and hasTag, but had no direct signal reads; these fill that
+    // coverage gap. Each carries one band condition so spec stays at
+    // 1 and they tie-break orthogonally to the existing snippets.
+    {
+      id: 'rxn_state_tension_high',
+      text: 'The noise from their table has stopped being a murmur.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.tension', equals: 'high' },
+      ],
+    },
+    {
+      id: 'rxn_state_comfort_low',
+      text: 'They sit with shoulders the room has never softened.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.comfort', equals: 'low' },
+      ],
+    },
+    {
+      id: 'rxn_state_comfort_high',
+      text: 'A settled crowd, and yet the corner is turning sharp.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.comfort', equals: 'high' },
+      ],
+    },
+    {
+      id: 'rxn_state_familiarity_low',
+      text: 'Their gestures sit outside what the staff knows how to read.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.familiarity', equals: 'low' },
+      ],
+    },
+    {
+      id: 'rxn_state_familiarity_high',
+      text: 'Staff knows them well, and the knowing cuts both ways now.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.familiarity', equals: 'high' },
+      ],
+    },
   ],
 }

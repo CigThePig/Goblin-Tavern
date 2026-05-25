@@ -143,3 +143,60 @@ mustPass:
       outputs, ≥ 1 distinct establishing_line per reachable signal band.
   dedupe:
     rule: no near-duplicate within a slot (Levenshtein ≥ 0.85 on canonical); no canonical-equal across slots.
+
+# ─── Phase 152 / ISSUE-120 — Legible Surface arc, Phase 7 ──────────
+# Factions & Culture cluster matrix authoring. Salience table + multi-
+# fact establishing slot + state-keyed reaction/sensory snippets.
+phase152:
+  salienceTable:
+    family: faction_request
+    reads:
+      - { kind: signal, role: primaryActor, signal: faction.relationship }
+      - { kind: signal, role: primaryActor, signal: faction.influence }
+      - { kind: pressure, pressureId: faction_anger }
+      - { kind: pressure, pressureId: cultural_tension }
+      - { kind: memory, tag: grudge }
+      - { kind: memory, tag: refusal }
+      - { kind: memory, tag: gratitude }
+      - { kind: memory, tag: faction }
+      - { kind: repeat, subjectTag: faction, atLeast: 3 }
+    note: >
+      Two band signals lead (extremity 2 at low/high). Primary pressure
+      faction_anger, secondary cultural_tension. Memory tags ordered to
+      match the seed generator's emission ranking
+      (gratitude/grudge/refusal/faction). Repeat as the deepest rung.
+  saliencePolicy:
+    slot: establishing_line
+    policy: multi
+    join: " — "
+    note: >
+      Multi-fact join fires only when no authored spec-2 corner combo
+      covers the resolved band pair. The 4 corner combos handle every
+      relationship × influence quadrant; the join catches signal ×
+      pressure / memory unanticipated pairs.
+  newSnippets:
+    establishing_line:
+      cornerCombos:
+        - est_high_rel_high_inf
+        - est_high_rel_low_inf
+        - est_low_rel_high_inf
+        - est_low_rel_low_inf
+      topRungs:
+        - est_relationship_anger
+        - est_influence_refusal
+        - est_anger_grudge
+    reaction_line:
+      stateKeyed:
+        - rxn_state_low_relationship
+        - rxn_state_high_influence
+        - rxn_state_anger_rising
+        - rxn_state_grudge_memory
+        - rxn_state_refusal_memory
+        - rxn_state_faction_repeat
+    manner_note:
+      stateKeyed:
+        - mnr_state_low_relationship
+        - mnr_state_high_influence
+        - mnr_state_anger_rising
+        - mnr_state_grudge_memory
+        - mnr_state_faction_repeat

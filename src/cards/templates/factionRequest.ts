@@ -76,11 +76,27 @@ export const factionRequestTemplate: CompositionalCardTemplate = {
       claimMode: 'flavor',
     },
     {
+      // Phase 152 / ISSUE-120 — Legible Surface arc, Phase 7. The
+      // faction card is *about* relationship × influence; when both
+      // bands resolve, the establishing line should state the pair.
+      // `saliencePolicy: 'multi'` lets the assembler tie-break top-
+      // specificity matches by salience (relationship is the lead read
+      // for `faction_request`; see `compose/salience.ts`), then append
+      // a secondary snippet covering the next orthogonal salient fact
+      // (influence, faction_anger, cultural_tension, prior-choice
+      // memory, repeat) within the combined word budget. Layered OVER
+      // the gradient — when only one read resolves, behaviour matches
+      // the single-fact baseline. The 4 spec-2 corner combos in the
+      // pool cover every relationship × influence band pair; the
+      // multi-fact join fires only for unanticipated signal × pressure
+      // / memory pairs.
       id: 'establishing_line',
       role: 'utterance',
       pool: factionRequestEstablishingLinePool,
       wordBudget: 14,
       claimMode: 'sim_backed',
+      saliencePolicy: 'multi',
+      multiFactJoin: ' — ',
     },
     {
       id: 'reaction_line',

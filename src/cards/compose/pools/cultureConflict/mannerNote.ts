@@ -74,5 +74,45 @@ export const mannerNotePool: SnippetPool = {
       conditions: [],
       specificity: 0,
     },
+
+    // ─── Phase 152 / ISSUE-120 — state-keyed sensory beats ──────────
+    // Narrator-voiced; fill the coverage gap on familiarity, high
+    // comfort, rising pressure, and honour-memory paths the prior
+    // pool didn't surface as sensory beats.
+    {
+      id: 'mnr_state_familiarity_low',
+      text: 'A question asked twice, neither answer fitting the other.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.familiarity', equals: 'low' },
+      ],
+    },
+    {
+      id: 'mnr_state_familiarity_high',
+      text: 'A knowing nod the staff would usually return is absent.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.familiarity', equals: 'high' },
+      ],
+    },
+    {
+      id: 'mnr_state_comfort_high',
+      text: 'Coats stay over arms, where moments ago they were not.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.comfort', equals: 'high' },
+      ],
+    },
+    {
+      id: 'mnr_state_pressure_rising',
+      text: 'The next table has stopped pretending not to listen.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'cultural_tension' },
+      ],
+    },
+    {
+      id: 'mnr_state_honour_memory',
+      text: 'A small token from the last honouring sits unmoved.',
+      conditions: [
+        { kind: 'memoryPresent', tag: 'honour' },
+      ],
+    },
   ],
 }

@@ -132,5 +132,52 @@ export const reactionLinePool: SnippetPool = {
         { kind: 'verbalTic', role: 'primaryActor', tic: 'quotes_someone_else' },
       ],
     },
+
+    // ─── Phase 152 / ISSUE-120 — state-keyed reaction snippets ──────
+    // The faction speaks in first person; state-keyed snippets fire
+    // orthogonally to voice. Each carries ≥1 sim primitive so the
+    // faction's reply reflects their actual standing, not only voice.
+    {
+      id: 'rxn_state_low_relationship',
+      text: "We came because we had to, not because we wanted to.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'faction.relationship', equals: 'low' },
+      ],
+    },
+    {
+      id: 'rxn_state_high_influence',
+      text: "You'll find we don't ask twice for the same thing.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'faction.influence', equals: 'high' },
+      ],
+    },
+    {
+      id: 'rxn_state_anger_rising',
+      text: 'The patience downriver is thinner than it was a month back.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'faction_anger' },
+      ],
+    },
+    {
+      id: 'rxn_state_grudge_memory',
+      text: "We haven't forgotten the last time we stood here.",
+      conditions: [
+        { kind: 'memoryPresent', tag: 'grudge' },
+      ],
+    },
+    {
+      id: 'rxn_state_refusal_memory',
+      text: 'You turned us away before; this is the harder ask.',
+      conditions: [
+        { kind: 'memoryPresent', tag: 'refusal' },
+      ],
+    },
+    {
+      id: 'rxn_state_faction_repeat',
+      text: 'Third visit, same question; a different answer would help.',
+      conditions: [
+        { kind: 'repeatCount', subjectTag: 'faction', atLeast: 3 },
+      ],
+    },
   ],
 }

@@ -109,5 +109,56 @@ export const reactionLinePool: SnippetPool = {
         { kind: 'pressureRising', pressureId: 'maintenance' },
       ],
     },
+
+    // Phase 153 / ISSUE-121 — Legible Surface arc, Phase 8.
+    // State-keyed reaction snippets. Existing pool covers reputation +
+    // inspection + merchant + urgent + severity + pressure + 3
+    // memories + repeat; the gap is signalEquals reads on the three
+    // area meters.
+    {
+      id: 'rxn_cleanliness_low',
+      text: 'A smear the owner would not wipe with customers watching.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+      ],
+    },
+    {
+      id: 'rxn_damage_high',
+      text: 'A broken slat the regulars already know to step around.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+      ],
+    },
+    {
+      id: 'rxn_condition_low',
+      text: 'A slow read of a room showing its age.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.condition', role: 'location', equals: 'low' },
+      ],
+    },
+    {
+      id: 'rxn_clean_low_dmg_high',
+      text: 'Grime over real wear; the read carries both at once.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+      ],
+    },
+    {
+      id: 'rxn_pressure_atmosphere',
+      text: 'The atmosphere we let happen, now the atmosphere we wear.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'maintenance' },
+        { kind: 'memoryPresent', tag: 'atmosphere' },
+      ],
+    },
+    {
+      id: 'rxn_repeat_neglected',
+      text: 'Third week reading, and the same corner has slipped further.',
+      conditions: [
+        { kind: 'repeatCount', subjectTag: 'atmosphere', atLeast: 3 },
+        { kind: 'memoryPresent', tag: 'neglected' },
+      ],
+    },
   ],
 }

@@ -72,5 +72,47 @@ export const mannerNotePool: SnippetPool = {
       conditions: [],
       specificity: 0,
     },
+
+    // Phase 153 / ISSUE-121 — Legible Surface arc, Phase 8.
+    // State-keyed sensory beats. Existing pool covers severity + 2
+    // memories + pressure + inspection + repeat; the gap is signal
+    // reads on the three area meters.
+    {
+      id: 'mnr_damage_high',
+      text: 'A splinter underfoot at the door.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+      ],
+    },
+    {
+      id: 'mnr_condition_low',
+      text: 'A floorboard gives where one should not.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.condition', role: 'location', equals: 'low' },
+      ],
+    },
+    {
+      id: 'mnr_cleanliness_low',
+      text: 'A faint sour breath at the threshold.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+      ],
+    },
+    {
+      id: 'mnr_pressure_ignored',
+      text: 'A glance past where the fix was meant to go.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'maintenance' },
+        { kind: 'memoryPresent', tag: 'ignored' },
+      ],
+    },
+    {
+      id: 'mnr_damage_fire_risk',
+      text: 'A char-mark on the timber, no longer plausibly old.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+        { kind: 'hasTag', tag: 'fire_risk' },
+      ],
+    },
   ],
 }

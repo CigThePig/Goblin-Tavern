@@ -65,11 +65,29 @@ export const areaAtmosphereTemplate: CompositionalCardTemplate = {
       claimMode: 'flavor',
     },
     {
+      // Phase 153 / ISSUE-121 — Legible Surface arc, Phase 8. The
+      // area_atmosphere card opens on a 3-meter cube (cleanliness ×
+      // damage × condition); when more than one band resolves, the
+      // establishing line should state the salient combination, not
+      // whichever single condition out-specifies the others.
+      // `saliencePolicy: 'multi'` lets the assembler tie-break top-
+      // specificity matches by salience (cleanliness leads the read
+      // for `area_atmosphere`; see `compose/salience.ts`) and join a
+      // secondary snippet covering the next orthogonal fact.
+      //
+      // The pool authors 4 spec-3 cube corners (cleanliness=low ×
+      // damage × condition 2×2) plus 4 spec-2 cleanliness × damage
+      // supports for the condition=mid case. The multi-fact join is
+      // the fallback for unanticipated band pairs. Layered OVER the
+      // gradient — when only one read resolves, behaviour matches the
+      // single-fact baseline.
       id: 'establishing_line',
       role: 'utterance',
       pool: areaAtmosphereEstablishingLinePool,
       wordBudget: 14,
       claimMode: 'sim_backed',
+      saliencePolicy: 'multi',
+      multiFactJoin: ' — ',
     },
     {
       id: 'reaction_line',

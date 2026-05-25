@@ -150,3 +150,87 @@ mustPass:
   determinism: same seed + same state + same slot returns same snippet after FNV tie-break
   diversity: state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
   dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots
+
+# ─── Phase 153 / ISSUE-121 — Legible Surface arc, Phase 8 ──────────
+# Premises & Atmosphere cluster matrix authoring. The area_atmosphere
+# card opens on a 3-meter cube (cleanliness × damage × condition)
+# authored at spec-3 corners fixing cleanliness=low. Narrator-voiced
+# throughout — areas carry no castAttributes.
+phase153:
+  salienceTable:
+    family: area_atmosphere
+    reads:
+      - { kind: signal, role: location, signal: area.cleanliness }
+      - { kind: signal, role: location, signal: area.damage }
+      - { kind: signal, role: location, signal: area.condition }
+      - { kind: pressure, pressureId: maintenance }
+      - { kind: memory, tag: atmosphere }
+      - { kind: memory, tag: neglected }
+      - { kind: memory, tag: cleaning }
+      - { kind: memory, tag: repair }
+      - { kind: hasTag, tag: reputation }
+      - { kind: hasTag, tag: inspection_negative }
+      - { kind: hasTag, tag: merchant_sensitive }
+      - { kind: repeat, subjectTag: atmosphere, atLeast: 3 }
+    note: >
+      cleanliness leads as the strictly dominant picker driver (the
+      picker scores (100 − cleanliness) + damage and requires ≥ 60;
+      low cleanliness is the primary cell). damage is second (the
+      direct second picker meter). condition is the cube-face third
+      meter — decision-relevant for "is the room failing in its bones
+      or just in its surface?" Memory tags ordered to mirror the seed
+      generator's emission ranking (atmosphere as the family bucket,
+      then neglected / cleaning / repair paths). hasTag reads gate
+      top-rung escalation snippets in the existing pool. `severity`
+      deliberately not added — same picker-doesn't-threshold rule.
+  saliencePolicy:
+    slot: establishing_line
+    policy: multi
+    join: " — "
+    note: >
+      Multi-fact join is the fallback for unanticipated band pairs the
+      spec-2/spec-3 cells don't catch. The 4 spec-3 cube corners cover
+      the readable cleanliness=low × damage × condition 2×2 face; the
+      4 spec-2 supports cover cleanliness × damage combinations the
+      spec-3 cells leave unauthored (condition=mid case + the
+      alternate cleanliness=mid × damage=high picker-driving cell + the
+      rare clean-but-damaged room).
+  newSnippets:
+    establishing_line:
+      cubeCorners:
+        - est_low_clean_high_dmg_high_cond
+        - est_low_clean_high_dmg_low_cond
+        - est_low_clean_low_dmg_high_cond
+        - est_low_clean_low_dmg_low_cond
+      cleanlinessDamageSupports:
+        - est_low_clean_high_dmg
+        - est_low_clean_mid_dmg
+        - est_mid_clean_high_dmg
+        - est_high_clean_high_dmg
+      topRungs:
+        - est_cleanliness_rising_top
+        - est_high_dmg_neglected
+        - est_reputation_atmosphere
+    reaction_line:
+      stateKeyed:
+        - rxn_cleanliness_low
+        - rxn_damage_high
+        - rxn_condition_low
+        - rxn_clean_low_dmg_high
+        - rxn_pressure_atmosphere
+        - rxn_repeat_neglected
+    manner_note:
+      stateKeyed:
+        - mnr_cleanliness_low
+        - mnr_damage_high
+        - mnr_condition_low
+        - mnr_clean_merchant
+        - mnr_pressure_repair
+  notes:
+    - `est_cleanliness_rising_top` (new, spec 2) shares conditions with
+      the legacy `est_cleanliness_pressure` (also spec 2). FNV
+      tie-break picks one deterministically. Both are semantically
+      equivalent; the new wording widens the spec-2 surface without
+      erasing the legacy line.
+    - mid×mid cells (and mid-third-meter slots on the cube face) stay
+      unauthored — the unconditional fallback handles them cleanly.

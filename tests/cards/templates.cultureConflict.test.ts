@@ -217,8 +217,19 @@ describe('cultureConflictCard — render output', () => {
   it('body[0] is the sim-backed establishing line; body[1] is the narrator reaction', () => {
     const state = createInitialTavernState()
     const cultureId = firstCultureId(state)
+    // Phase 152 / ISSUE-120: pin all three culture meters to mid so
+    // the Phase-7 multi-fact salience policy does not compose two
+    // pool entries (which would render as a `${a} — ${b}` join rather
+    // than a single pool entry). This preserves the test's intent —
+    // body[0] resolves to a sim-backed pool snippet — without
+    // overconstraining the new authoring.
+    const neutral = withCultureMeters(state, cultureId, {
+      tension: 50,
+      comfort: 50,
+      familiarity: 50,
+    })
     const seed = cultureConflictSeed(cultureId)
-    const view = cultureConflictCard.render(seed, state)
+    const view = cultureConflictCard.render(seed, neutral)
     expect(view.body[0]).toBeDefined()
     expect(view.body[1]).toBeDefined()
     expect(ESTABLISHING_LINE_TEXTS.has(view.body[0]!)).toBe(true)
@@ -273,7 +284,19 @@ describe('cultureConflictCard — render output', () => {
   it('reaction_line picks the rising-tension snippet when cultural_tension is rising', () => {
     const state = createInitialTavernState()
     const cultureId = firstCultureId(state)
-    const rising = withRisingPressure(state, 'cultural_tension', 60)
+    // Phase 152 / ISSUE-120: pin all three culture meters to mid so
+    // the Phase-7 signal-keyed reaction snippets (high comfort / high
+    // familiarity) do not tie with `rxn_cultural_rising` at spec 1.
+    // Default starter culture has comfort=70 and familiarity=80, both
+    // high, which would otherwise resolve the new signal-keyed
+    // snippets alongside the pressure one. Pinning to mid preserves
+    // the test's intent: a pure pressure-rising reaction.
+    const neutral = withCultureMeters(state, cultureId, {
+      tension: 50,
+      comfort: 50,
+      familiarity: 50,
+    })
+    const rising = withRisingPressure(neutral, 'cultural_tension', 60)
     const seed = cultureConflictSeed(cultureId, 'culture-rising-tension')
     const view = cultureConflictCard.render(seed, rising)
     expect(view.body[1]).toBe(

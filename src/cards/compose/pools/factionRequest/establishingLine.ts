@@ -112,5 +112,79 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'repeatCount', subjectTag: 'faction', atLeast: 3 },
       ],
     },
+
+    // ─── Phase 152 / ISSUE-120 — relationship × influence matrix corners
+    // The card is *about* relationship × influence; when both bands
+    // resolve the establishing line should state the pair, not whichever
+    // single-condition snippet happens to out-specify the other. Each
+    // corner combo holds BOTH signal facts as one hand-authored line and
+    // outranks the multi-fact join (which only fires when no combo
+    // covers the pair). All 9 cells of the matrix are reachable — the
+    // faction generator picks by `|relationship − 50| + 0.5×influence`,
+    // not a single-axis threshold — so the four corner combos cover the
+    // design-distinct (low/high) × (low/high) quadrants; mid bands fall
+    // back to single-condition snippets.
+
+    {
+      id: 'est_high_rel_high_inf',
+      text: 'A strong hand at the door, and it rests on the latch.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'faction.relationship', equals: 'high' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'faction.influence', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_high_rel_low_inf',
+      text: 'A small house that brings what little it has, freely.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'faction.relationship', equals: 'high' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'faction.influence', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_low_rel_high_inf',
+      text: "Weight without welcome; they've come for compliance, not council.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'faction.relationship', equals: 'low' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'faction.influence', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_low_rel_low_inf',
+      text: 'A minor house in a sour mood — the kind that breeds next year.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'faction.relationship', equals: 'low' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'faction.influence', equals: 'low' },
+      ],
+    },
+
+    // Spec-2 signal × pressure / memory top rungs. Ranked by the
+    // salience table below the band-pair corners but above single-
+    // condition rungs, so they fire when one signal extreme meets a
+    // matching pressure or memory.
+    {
+      id: 'est_relationship_anger',
+      text: 'Cold relations, and their anger steepening toward this door.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'faction.relationship', equals: 'low' },
+        { kind: 'pressureRising', pressureId: 'faction_anger' },
+      ],
+    },
+    {
+      id: 'est_influence_refusal',
+      text: 'A heavy house, and the refusal you handed them is in the room.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'faction.influence', equals: 'high' },
+        { kind: 'memoryPresent', tag: 'refusal' },
+      ],
+    },
+    {
+      id: 'est_anger_grudge',
+      text: 'The anger is climbing, and an older grudge is still under it.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'faction_anger' },
+        { kind: 'memoryPresent', tag: 'grudge' },
+      ],
+    },
   ],
 }

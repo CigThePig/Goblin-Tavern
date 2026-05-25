@@ -130,3 +130,70 @@ mustPass:
       establishing_line per reachable signal band.
   dedupe:
     rule: no near-duplicate within a slot (Levenshtein ≥ 0.85 on canonical); no canonical-equal across slots.
+
+# ─── Phase 152 / ISSUE-120 — Legible Surface arc, Phase 7 ──────────
+# Factions & Culture cluster matrix authoring. First 3-meter cube
+# template: tension × comfort × familiarity authored at spec-3 corners.
+phase152:
+  salienceTable:
+    family: culture_conflict
+    reads:
+      - { kind: signal, role: primaryActor, signal: culture.tension }
+      - { kind: signal, role: primaryActor, signal: culture.comfort }
+      - { kind: signal, role: primaryActor, signal: culture.familiarity }
+      - { kind: pressure, pressureId: cultural_tension }
+      - { kind: memory, tag: ignored }
+      - { kind: memory, tag: neglected }
+      - { kind: memory, tag: honour }
+      - { kind: memory, tag: mediation }
+      - { kind: memory, tag: culture }
+      - { kind: hasTag, tag: festival }
+      - { kind: hasTag, tag: ritual }
+      - { kind: repeat, subjectTag: culture, atLeast: 3 }
+    note: >
+      Three band signals lead (extremity 2 at low/high). Single primary
+      pressure cultural_tension. Memory tags ordered to mirror the seed
+      generator's emission ranking (mediate / honour / ignore /
+      neglected paths). Calendar tags (festival/ritual) sit after
+      memories — they modulate flavor rather than driving the headline.
+  saliencePolicy:
+    slot: establishing_line
+    policy: multi
+    join: " — "
+    note: >
+      Multi-fact join is the fallback for unanticipated tension +
+      familiarity pairs or pressure/memory stacks the top rungs do not
+      catch. The 4 spec-3 cube corners cover the readable tension=high
+      × comfort × familiarity face; the 4 spec-2 supports cover the
+      (mid+high tension) × (low+high comfort) edges when familiarity is
+      mid.
+  newSnippets:
+    establishing_line:
+      cubeCorners:
+        - est_high_ten_low_comf_low_fam
+        - est_high_ten_low_comf_high_fam
+        - est_high_ten_high_comf_low_fam
+        - est_high_ten_high_comf_high_fam
+      tensionComfortSupports:
+        - est_mid_ten_low_comf
+        - est_mid_ten_high_comf
+        - est_high_ten_low_comf
+        - est_high_ten_high_comf
+      topRungs:
+        - est_tension_pressure
+        - est_comfort_ignored
+        - est_familiarity_neglected
+    reaction_line:
+      stateKeyed:
+        - rxn_state_tension_high
+        - rxn_state_comfort_low
+        - rxn_state_comfort_high
+        - rxn_state_familiarity_low
+        - rxn_state_familiarity_high
+    manner_note:
+      stateKeyed:
+        - mnr_state_familiarity_low
+        - mnr_state_familiarity_high
+        - mnr_state_comfort_high
+        - mnr_state_pressure_rising
+        - mnr_state_honour_memory

@@ -86,5 +86,44 @@ export const mannerNotePool: SnippetPool = {
       ],
       specificity: 0,
     },
+
+    // ─── Phase 152 / ISSUE-120 — state-keyed sensory beats ──────────
+    // Third-person beats reflecting the faction's actual standing.
+    // Spec 1; fires when state matches even on neutral voice.
+    {
+      id: 'mnr_state_low_relationship',
+      text: 'A delegation that will not quite meet the eyes.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'faction.relationship', equals: 'low' },
+      ],
+    },
+    {
+      id: 'mnr_state_high_influence',
+      text: 'The nearest tables ease back without being asked.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'faction.influence', equals: 'high' },
+      ],
+    },
+    {
+      id: 'mnr_state_anger_rising',
+      text: 'Their second has yet to unclench a hand.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'faction_anger' },
+      ],
+    },
+    {
+      id: 'mnr_state_grudge_memory',
+      text: 'A glance at the wall they remember from before.',
+      conditions: [
+        { kind: 'memoryPresent', tag: 'grudge' },
+      ],
+    },
+    {
+      id: 'mnr_state_faction_repeat',
+      text: 'The same boots on the same floorboard, again.',
+      conditions: [
+        { kind: 'repeatCount', subjectTag: 'faction', atLeast: 3 },
+      ],
+    },
   ],
 }

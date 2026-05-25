@@ -128,5 +128,114 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'memoryPresent', tag: 'ignored' },
       ],
     },
+
+    // ─── Phase 152 / ISSUE-120 — tension × comfort × familiarity cube
+    // The card is *about* the three-meter culture surface; when more
+    // than one band resolves the establishing line should state the
+    // salient combination, not whichever single condition out-specifies
+    // the others. The seed generator picks by highest tension, so the
+    // 4 spec-3 cube corners fix tension=high and span comfort ×
+    // familiarity 2×2 (the readable cube face). The 4 spec-2 supports
+    // cover the (mid+high tension) × (low+high comfort) edges for the
+    // familiarity=mid case. Mid-band combinations fall back to single-
+    // condition snippets and ultimately the unconditional fallback.
+
+    // ── Spec-3 cube corners (tension=high × comfort × familiarity) ──
+    {
+      id: 'est_high_ten_low_comf_low_fam',
+      text: 'Strangers in a room that never tried to read them, gone tense.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.tension', equals: 'high' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.comfort', equals: 'low' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.familiarity', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_high_ten_low_comf_high_fam',
+      text: 'A crowd you read well, kept in a room that has never been theirs.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.tension', equals: 'high' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.comfort', equals: 'low' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.familiarity', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_high_ten_high_comf_low_fam',
+      text: 'Settled enough to stay, opaque enough for the outburst to land cold.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.tension', equals: 'high' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.comfort', equals: 'high' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.familiarity', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_high_ten_high_comf_high_fam',
+      text: 'The crowd that always made the place feel certain, suddenly unfamiliar.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.tension', equals: 'high' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.comfort', equals: 'high' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.familiarity', equals: 'high' },
+      ],
+    },
+
+    // ── Spec-2 tension × comfort supports (familiarity-mid catch) ──
+    {
+      id: 'est_mid_ten_low_comf',
+      text: 'A quiet drift toward the door — not angry, just not welcome.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.tension', equals: 'mid' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.comfort', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_mid_ten_high_comf',
+      text: 'A low rumble in a cheerful corner — out of place, sounding worse.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.tension', equals: 'mid' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.comfort', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_high_ten_low_comf',
+      text: 'Stirred up, and never settled here in the first place.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.tension', equals: 'high' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.comfort', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_high_ten_high_comf',
+      text: 'At home in this room, and yet stirred to anger inside it.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.tension', equals: 'high' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.comfort', equals: 'high' },
+      ],
+    },
+
+    // ── Spec-2 signal × pressure / memory top rungs ──
+    {
+      id: 'est_tension_pressure',
+      text: 'On edge in the room, and the wider tension only climbing.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.tension', equals: 'high' },
+        { kind: 'pressureRising', pressureId: 'cultural_tension' },
+      ],
+    },
+    {
+      id: 'est_comfort_ignored',
+      text: 'Braced today, on the back of the silence you gave them.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.comfort', equals: 'low' },
+        { kind: 'memoryPresent', tag: 'ignored' },
+      ],
+    },
+    {
+      id: 'est_familiarity_neglected',
+      text: 'The gap in how you know them is showing, and old neglect with it.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'culture.familiarity', equals: 'low' },
+        { kind: 'memoryPresent', tag: 'neglected' },
+      ],
+    },
   ],
 }

@@ -457,13 +457,39 @@ describe('cultureConflictCard voice', () => {
   it('honours the budget', () => {
     const state = createInitialTavernState()
     const cultureId = Object.keys(state.world.cultures)[0]
+    // Phase 152 / ISSUE-120: the Phase-7 multi-fact salience policy
+    // on `establishing_line` joins two snippets when more than one
+    // culture meter resolves to a non-mid band; the joined line uses
+    // the slot's `multiFactBudget` (default wordBudget * 2 = 28) rather
+    // than the per-snippet 14-word budget. Starter culture defaults
+    // (tension=20, comfort=70, familiarity=80) resolve two high-band
+    // signals and trigger the join. Pin all three meters to mid so
+    // this body-budget test exercises the per-snippet baseline, not
+    // the joined output (which is exercised by phase152's matrix tests).
+    const meterPinned = cultureId
+      ? {
+          ...state,
+          world: {
+            ...state.world,
+            cultures: {
+              ...state.world.cultures,
+              [cultureId]: {
+                ...state.world.cultures[cultureId]!,
+                tension: 50,
+                comfort: 50,
+                familiarity: 50,
+              },
+            },
+          },
+        }
+      : state
     const seed = makeSeed({
       family: 'culture_conflict',
       type: 'social_conflict',
       timing: 'during_service',
       ...(cultureId ? { primaryActor: { kind: 'culture', id: cultureId } } : {}),
     })
-    const view = cultureConflictCard.render(seed, state)
+    const view = cultureConflictCard.render(seed, meterPinned)
     assertBodyBudgetOnly(view)
   })
 

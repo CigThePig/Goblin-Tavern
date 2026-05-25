@@ -239,6 +239,45 @@ describe('SALIENCE_TABLES', () => {
       pressureId: 'reputation_drift',
     })
   })
+
+  // Phase 152 / ISSUE-120 — Legible Surface arc, Phase 7 additions.
+  it('seeds faction_request with relationship, influence, then faction_anger pressure', () => {
+    const table = SALIENCE_TABLES['faction_request' as IssueSeedFamilyId]
+    expect(table).toBeDefined()
+    expect(table!.reads[0]).toMatchObject({
+      kind: 'signal',
+      signal: 'faction.relationship',
+    })
+    expect(table!.reads[1]).toMatchObject({
+      kind: 'signal',
+      signal: 'faction.influence',
+    })
+    expect(table!.reads[2]).toMatchObject({
+      kind: 'pressure',
+      pressureId: 'faction_anger',
+    })
+  })
+
+  it('seeds culture_conflict with tension, comfort, familiarity, then cultural_tension pressure', () => {
+    const table = SALIENCE_TABLES['culture_conflict' as IssueSeedFamilyId]
+    expect(table).toBeDefined()
+    expect(table!.reads[0]).toMatchObject({
+      kind: 'signal',
+      signal: 'culture.tension',
+    })
+    expect(table!.reads[1]).toMatchObject({
+      kind: 'signal',
+      signal: 'culture.comfort',
+    })
+    expect(table!.reads[2]).toMatchObject({
+      kind: 'signal',
+      signal: 'culture.familiarity',
+    })
+    expect(table!.reads[3]).toMatchObject({
+      kind: 'pressure',
+      pressureId: 'cultural_tension',
+    })
+  })
 })
 
 describe('resolveSalientReads', () => {

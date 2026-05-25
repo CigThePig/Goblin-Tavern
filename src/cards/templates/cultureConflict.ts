@@ -70,11 +70,30 @@ export const cultureConflictTemplate: CompositionalCardTemplate = {
       claimMode: 'flavor',
     },
     {
+      // Phase 152 / ISSUE-120 — Legible Surface arc, Phase 7. The
+      // culture card opens on a 3-meter cube (tension × comfort ×
+      // familiarity); when more than one band resolves, the
+      // establishing line should state the salient combination, not
+      // whichever single condition out-specifies the others.
+      // `saliencePolicy: 'multi'` lets the assembler tie-break top-
+      // specificity matches by salience (tension leads the read for
+      // `culture_conflict`; see `compose/salience.ts`) and join a
+      // secondary snippet covering the next orthogonal fact.
+      //
+      // The pool authors 4 spec-3 cube corners (tension=high ×
+      // comfort × familiarity 2×2) plus 4 spec-2 tension × comfort
+      // supports for the familiarity=mid case. The multi-fact join is
+      // the fallback for unanticipated tension+familiarity pairs or
+      // pressure/memory stacks the top rungs don't catch. Layered
+      // OVER the gradient — when only one read resolves, behaviour
+      // matches the single-fact baseline.
       id: 'establishing_line',
       role: 'utterance',
       pool: cultureConflictEstablishingLinePool,
       wordBudget: 14,
       claimMode: 'sim_backed',
+      saliencePolicy: 'multi',
+      multiFactJoin: ' — ',
     },
     {
       id: 'reaction_line',

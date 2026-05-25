@@ -103,5 +103,70 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'memoryPresent', tag: 'warning' },
       ],
     },
+
+    // ─── Phase 150 / ISSUE-118 — exhaustive stress × fatigue matrix ──
+    // The four corner combos of the 9-cell stress × fatigue grid. Each
+    // spec-2 combo cell beats the single-condition rungs above when
+    // both bands resolve, and beats the multi-fact join when both reads
+    // are top-salient. The mid×mid case stays unauthored — the
+    // unconditional fallback handles it cleanly (Phase-149 precedent).
+    {
+      id: 'est_low_stress_low_fatigue',
+      text: 'They walk in clear-eyed; the week has not landed on them yet.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.stress', equals: 'low' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.fatigue', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_low_stress_high_fatigue',
+      text: 'Steady steps, but the long week shows in their shoulders.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.stress', equals: 'low' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.fatigue', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_high_stress_low_fatigue',
+      text: 'Rested, and still pulled tight before the door props open.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.stress', equals: 'high' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.fatigue', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_high_stress_high_fatigue',
+      text: 'Tight shoulders, slow steps; the long week sits heavy on them.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.stress', equals: 'high' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.fatigue', equals: 'high' },
+      ],
+    },
+
+    // ─── Pressure × signal/memory top rungs (orthogonal to band×band) ─
+    {
+      id: 'est_fatigue_burnout',
+      text: 'Slow steps, and the load already crowding into the morning.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.fatigue', equals: 'high' },
+        { kind: 'pressureRising', pressureId: 'staff_burnout' },
+      ],
+    },
+    {
+      id: 'est_stress_identity',
+      text: 'Wound tight, and last week’s slight still sits between you.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.stress', equals: 'high' },
+        { kind: 'memoryPresent', tag: 'identity' },
+      ],
+    },
+    {
+      id: 'est_loyalty_risk_warning',
+      text: 'Pulling away again, and the warning from before still on file.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'staff_loyalty_risk' },
+        { kind: 'memoryPresent', tag: 'warning' },
+      ],
+    },
   ],
 }

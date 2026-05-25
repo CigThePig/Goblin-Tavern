@@ -96,12 +96,26 @@ export const staffAsideTemplate: CompositionalCardTemplate = {
     // the voiced aside_line so the body reads "what happened" then
     // "what they feel about it" — the Phase-3 supplier_reliability
     // pattern, now for staff.
+    //
+    // Phase 150 / ISSUE-118 — Legible Surface arc, Phase 5 (Staff &
+    // Personnel cluster). The staffAside card is *about* stress ×
+    // fatigue (plus loyalty-risk / burnout pressures + identity/warning
+    // memories); when both top-salient facts resolve, the establishing
+    // line should state the pair, not whichever single condition out-
+    // specifies the other. `saliencePolicy: 'multi'` lets the assembler
+    // tie-break top-specificity matches by salience and append a
+    // secondary snippet covering the next orthogonal fact within the
+    // combined word budget. Authored spec-2 combo cells always beat the
+    // multi-fact join when both their facts resolve; the join only
+    // fires for unanticipated state pairs.
     {
       id: 'establishing_line',
       role: 'utterance',
       pool: staffAsideEstablishingLinePool,
       wordBudget: 14,
       claimMode: 'sim_backed',
+      saliencePolicy: 'multi',
+      multiFactJoin: ' — ',
     },
     // Per-slot budgets are the source of truth; the Phase D voice-bounds
     // gate enforces them from this data, not from prose comments.

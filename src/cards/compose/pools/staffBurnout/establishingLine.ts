@@ -104,5 +104,75 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'pressureRising', pressureId: 'staff_burnout' },
       ],
     },
+
+    // ─── Phase 150 / ISSUE-118 — exhaustive stress × fatigue matrix ──
+    // The four corner combos of the 9-cell stress × fatigue grid for
+    // the staff_burnout family. Different phrasing than staffAside's
+    // matching corners — same character of staff member, but the
+    // burnout-request register is owner-facing in a different way (the
+    // staff member is asking; staffAside is the staff member surfacing
+    // themselves). Mid×mid stays unauthored — fallback handles it.
+    {
+      id: 'est_low_stress_low_fatigue',
+      text: 'They stand at the rota easy, the week still ahead of them.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.stress', equals: 'low' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.fatigue', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_low_stress_high_fatigue',
+      text: 'Calm hands, but the run of long shifts shows on them.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.stress', equals: 'low' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.fatigue', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_high_stress_low_fatigue',
+      text: 'Rested enough, and still wound tight at the rota.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.stress', equals: 'high' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.fatigue', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_high_stress_high_fatigue',
+      text: 'Tight as a wire, and the long week wearing them through.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.stress', equals: 'high' },
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.fatigue', equals: 'high' },
+      ],
+    },
+
+    // ─── Pressure × memory / repeat top rungs (memory surface) ────────
+    // The staff_burnout family reads bonus / workload / risk memories
+    // (vs staffAside's identity / warning surface). These top rungs
+    // orthogonalise burnout pressure against the memory the player's
+    // last choice left in the room.
+    {
+      id: 'est_fatigue_bonus',
+      text: 'Bone-tired, even with the bonus still warm in their pocket.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.fatigue', equals: 'high' },
+        { kind: 'memoryPresent', tag: 'bonus' },
+      ],
+    },
+    {
+      id: 'est_burnout_workload_memory',
+      text: 'The lighter rota you set is already squeezing back tight.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'staff_burnout' },
+        { kind: 'memoryPresent', tag: 'workload' },
+      ],
+    },
+    {
+      id: 'est_burnout_repeat',
+      text: "Third request this week, and the load's still climbing on them.",
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'staff_burnout' },
+        { kind: 'repeatCount', subjectTag: 'staff', atLeast: 3 },
+      ],
+    },
   ],
 }

@@ -229,11 +229,11 @@ describe('staffAsideCard — render output', () => {
     expect(a.title).toBe(b.title)
   })
 
-  it('falls back to the unconditional snippet when no axes match', () => {
+  it('falls back to the unconditional snippet when no axes or state reads match', () => {
     const state = createInitialTavernState()
     const staffId = firstStaffId(state)
-    // Force the staff member onto neutral axes — no specific condition
-    // can match.
+    // Force the staff member onto neutral axes — no voice-extreme
+    // snippet can match.
     const neutral: CastAttributes = {
       specialty: 'meat_dishes',
       blindspot: 'pastry',
@@ -243,16 +243,26 @@ describe('staffAsideCard — render output', () => {
       },
     }
     const flat = withCast(state, staffId, neutral)
+    // Phase 150: also pin stress + fatigue to mid band so the new
+    // state-keyed aside_line snippets don't fire either — the test's
+    // intent is "fallback fires when nothing matches", and that now
+    // requires neither voice axes NOR state signals to match.
+    const midStaff = {
+      ...flat.staff[staffId]!,
+      stress: 50,
+      fatigue: 50,
+    }
+    const flatMid: TavernState = {
+      ...flat,
+      staff: { ...flat.staff, [staffId]: midStaff },
+    }
     const seed = staffAsideSeed(staffId)
-    const view = staffAsideCard.render(seed, flat)
-    // body[0] is the establishing fallback (initial state has no high
-    // stress/fatigue, no rising staff pressures, no relevant memories,
-    // no repeat-count crossing the threshold). body[1] is the aside
-    // fallback. No axis is sharp enough to match a more-specific snippet.
-    // Initial state's starter staff has stress=0 (low band), so the
-    // establishing line resolves to `est_low_stress`. The aside_line is
-    // the slot whose fallback we're really testing here.
-    expect(view.body[0]).toBe('They walk through quiet, the morning sitting easy on them.')
+    const view = staffAsideCard.render(seed, flatMid)
+    // body[0] is the sim-backed establishing fallback (no signal bands
+    // resolve at mid; no rising pressures; no memories; no repeat-count
+    // crossing the threshold). body[1] is the aside fallback. The
+    // aside_line is the slot whose fallback we're really testing here.
+    expect(view.body[0]).toBe('A staff member surfaces before the day fully opens.')
     expect(view.body[1]).toBe("Morning. I'm ready when you are.")
   })
 
@@ -272,13 +282,14 @@ describe('staffAsideCard — render output', () => {
     const sharp = withCast(state, staffId, cast)
     const seed = staffAsideSeed(staffId, 'aside-sharp')
     const view = staffAsideCard.render(seed, sharp)
-    // body[0] is the establishing fallback (initial state has no sim
-    // signals triggered); body[1] is the aside_terse_cold two-axis
-    // snippet; body[2] is the manner_cold_sleeves (same axes).
-    // Initial state's starter staff has stress=0 (low band), so the
-    // establishing line resolves to `est_low_stress`. The aside_line is
-    // the slot whose fallback we're really testing here.
-    expect(view.body[0]).toBe('They walk through quiet, the morning sitting easy on them.')
+    // body[0] is the sim-backed establishing line — initial state's
+    // stress=0 + fatigue=0 resolve both low bands, so the Phase-150
+    // spec-2 combo `est_low_stress_low_fatigue` fires. body[1] is the
+    // aside_terse_cold two-axis snippet; body[2] is manner_cold_sleeves
+    // (same axes). The aside_line is the slot we're really testing.
+    expect(view.body[0]).toBe(
+      'They walk in clear-eyed; the week has not landed on them yet.',
+    )
     expect(view.body[1]).toBe("What's wrong. Say it and I'll handle it.")
     expect(view.body[2]).toBe('They roll their sleeves before answering.')
   })
@@ -296,14 +307,25 @@ describe('staffAsideCard — render output', () => {
       },
     }
     const ticActor = withCast(state, staffId, cast)
+    // Phase 150: pin stress + fatigue to mid band so the new
+    // state-keyed aside_line snippets don't compete with the tic
+    // snippet at spec 1 (FNV tie-break otherwise picks unpredictably).
+    // The test's intent is "only the tic distinguishes" — that requires
+    // no state signal to compete.
+    const midStaff = {
+      ...ticActor.staff[staffId]!,
+      stress: 50,
+      fatigue: 50,
+    }
+    const ticActorMid: TavernState = {
+      ...ticActor,
+      staff: { ...ticActor.staff, [staffId]: midStaff },
+    }
     const seed = staffAsideSeed(staffId, 'aside-tic')
-    const view = staffAsideCard.render(seed, ticActor)
-    // body[0]: establishing fallback (no sim signals on initial state).
-    // body[1]: tic aside_line. body[2]: tic manner_note.
-    // Initial state's starter staff has stress=0 (low band), so the
-    // establishing line resolves to `est_low_stress`. The aside_line is
-    // the slot whose fallback we're really testing here.
-    expect(view.body[0]).toBe('They walk through quiet, the morning sitting easy on them.')
+    const view = staffAsideCard.render(seed, ticActorMid)
+    // body[0]: sim-backed establishing fallback (no bands resolve at
+    // mid). body[1]: tic aside_line. body[2]: tic manner_note.
+    expect(view.body[0]).toBe('A staff member surfaces before the day fully opens.')
     expect(view.body[1]).toBe("It's fine, I think. Mostly. Probably.")
     expect(view.body[2]).toBe('They wipe the same spot twice.')
   })

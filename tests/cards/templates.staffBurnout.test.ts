@@ -254,9 +254,14 @@ describe('staffBurnoutCard — render output', () => {
     const flat = withCast(state, staffId, neutral)
     const seed = staffBurnoutSeed(staffId)
     const view = staffBurnoutCard.render(seed, flat)
-    // body[0]: establishing fires `est_low_stress` (starter stress=0)
+    // body[0]: sim-backed establishing line. Initial state has
+    // staff.stress=0 (low band) AND staff.fatigue=0 (low band), so the
+    // Phase-150 spec-2 combo `est_low_stress_low_fatigue` wins over the
+    // single-condition `est_low_stress` snippet.
     // body[1]: reaction fallback (no axis sharp enough)
-    expect(view.body[0]).toBe('They moved easy through the open, steady as the kettle.')
+    expect(view.body[0]).toBe(
+      'They stand at the rota easy, the week still ahead of them.',
+    )
     expect(view.body[1]).toBe('I came in early. The room asks for steadier hands.')
   })
 

@@ -70,12 +70,21 @@ export const staffBurnoutTemplate: CompositionalCardTemplate = {
       wordBudget: 6,
       claimMode: 'flavor',
     },
+    // Phase 150 / ISSUE-118 — Legible Surface arc, Phase 5 (Staff &
+    // Personnel cluster). The staffBurnout card turns on stress ×
+    // fatigue (plus the burnout/loyalty-risk pressures + the
+    // bonus/workload/risk memory surface). `saliencePolicy: 'multi'`
+    // lets the assembler tie-break top-specificity matches by salience
+    // and append an orthogonal secondary fact when one resolves —
+    // mirrors the supplier/stock/debt pattern from Phase 4.
     {
       id: 'establishing_line',
       role: 'utterance',
       pool: staffBurnoutEstablishingLinePool,
       wordBudget: 14,
       claimMode: 'sim_backed',
+      saliencePolicy: 'multi',
+      multiFactJoin: ' — ',
     },
     {
       id: 'reaction_line',

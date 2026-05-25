@@ -576,3 +576,62 @@ loopback:
       now removed in favour of the composed establishing_line. The
       Phase 7 template tests assert the body's first line is the
       sim-backed snippet, not a raw sensory fragment.
+
+# ── Phase 150 / ISSUE-118 — Legible Surface arc, Phase 5 ─────────────
+#
+# Staff & Personnel cluster content matrix. The establishing_line slot
+# opts into `saliencePolicy: 'multi'` (the assembler tie-breaks top-
+# specificity matches by salience and appends an orthogonal secondary
+# fact when one resolves within the combined word budget). New combo
+# cells deepen the 9-cell stress × fatigue matrix; new state-keyed
+# spec-1 snippets are added to aside_line and manner_note so reaction
+# and sensory beats vary with state, not just voiceProfile.
+#
+# Salience table at `src/cards/compose/salience.ts`:
+#   staff_identity reads (order):
+#     1. signal staff.stress (primaryActor) — extremity 2 at low/high
+#     2. signal staff.fatigue (primaryActor) — extremity 2 at low/high
+#     3. pressure staff_loyalty_risk
+#     4. pressure staff_burnout
+#     5. memory identity
+#     6. memory warning
+#     7. repeat subjectTag: staff, atLeast: 3
+phase150:
+  saliencePolicy: multi
+  multiFactJoin: " — "
+
+  newEstablishingMatrixCells:
+    # Four corner combos of the stress × fatigue matrix. Mid×mid stays
+    # unauthored (unconditional fallback handles it).
+    - id: est_low_stress_low_fatigue
+      conditions: [stress=low, fatigue=low]
+    - id: est_low_stress_high_fatigue
+      conditions: [stress=low, fatigue=high]
+    - id: est_high_stress_low_fatigue
+      conditions: [stress=high, fatigue=low]
+    - id: est_high_stress_high_fatigue
+      conditions: [stress=high, fatigue=high]
+    # Pressure × signal / memory top rungs (orthogonal to band×band).
+    - id: est_fatigue_burnout
+      conditions: [fatigue=high, pressureRising staff_burnout]
+    - id: est_stress_identity
+      conditions: [stress=high, memoryPresent identity]
+    - id: est_loyalty_risk_warning
+      conditions: [pressureRising staff_loyalty_risk, memoryPresent warning]
+
+  newAsideLineStateKeyed:
+    - aside_state_high_stress      # signalEquals stress=high
+    - aside_state_low_stress       # signalEquals stress=low
+    - aside_state_high_fatigue     # signalEquals fatigue=high
+    - aside_state_loyalty_risk     # pressureRising staff_loyalty_risk
+    - aside_state_burnout          # pressureRising staff_burnout
+    - aside_state_repeat           # repeatCount staff ≥ 3
+    - aside_state_identity         # memoryPresent identity
+    - aside_state_warning          # memoryPresent warning
+
+  newMannerNoteStateKeyed:
+    - manner_state_high_stress
+    - manner_state_high_fatigue
+    - manner_state_burnout
+    - manner_state_warning
+    - manner_state_repeat

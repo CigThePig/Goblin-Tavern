@@ -789,3 +789,62 @@ loopback:
       Phase 7 scope review. The new template uses the correct timing;
       no upstream fix needed because the legacy template was never
       firing in production.
+
+# ── Phase 150 / ISSUE-118 — Legible Surface arc, Phase 5 ─────────────
+#
+# Staff & Personnel cluster content matrix. The establishing_line slot
+# opts into `saliencePolicy: 'multi'`. New combo cells deepen the 9-cell
+# stress × fatigue matrix; new state-keyed spec-1 snippets land on
+# reaction_line and manner_note so the cook's reaction reflects actual
+# standing instead of just voice axes.
+#
+# Salience table at `src/cards/compose/salience.ts`:
+#   staff_burnout reads (order):
+#     1. signal staff.stress (primaryActor) — extremity 2 at low/high
+#     2. signal staff.fatigue (primaryActor) — extremity 2 at low/high
+#     3. pressure staff_burnout
+#     4. pressure staff_loyalty_risk
+#     5. memory bonus
+#     6. memory workload
+#     7. memory risk
+#     8. repeat subjectTag: staff, atLeast: 3
+phase150:
+  saliencePolicy: multi
+  multiFactJoin: " — "
+
+  newEstablishingMatrixCells:
+    # Four corner combos of the stress × fatigue matrix. Mid×mid
+    # unauthored — fallback handles it.
+    - id: est_low_stress_low_fatigue
+      conditions: [stress=low, fatigue=low]
+    - id: est_low_stress_high_fatigue
+      conditions: [stress=low, fatigue=high]
+    - id: est_high_stress_low_fatigue
+      conditions: [stress=high, fatigue=low]
+    - id: est_high_stress_high_fatigue
+      conditions: [stress=high, fatigue=high]
+    # Pressure × memory / repeat top rungs (the bonus/workload/risk
+    # memory surface this family reads).
+    - id: est_fatigue_bonus
+      conditions: [fatigue=high, memoryPresent bonus]
+    - id: est_burnout_workload_memory
+      conditions: [pressureRising staff_burnout, memoryPresent workload]
+    - id: est_burnout_repeat
+      conditions: [pressureRising staff_burnout, repeatCount staff ≥ 3]
+
+  newReactionLineStateKeyed:
+    - rxn_state_high_stress        # signalEquals stress=high
+    - rxn_state_high_fatigue       # signalEquals fatigue=high
+    - rxn_state_burnout            # pressureRising staff_burnout
+    - rxn_state_loyalty_risk       # pressureRising staff_loyalty_risk
+    - rxn_state_bonus_memory       # memoryPresent bonus
+    - rxn_state_workload_memory    # memoryPresent workload
+    - rxn_state_repeat             # repeatCount staff ≥ 3
+    - rxn_state_fatigue_bonus      # fatigue=high + memoryPresent bonus (spec 2)
+
+  newMannerNoteStateKeyed:
+    - mnr_state_high_stress
+    - mnr_state_high_fatigue
+    - mnr_state_burnout
+    - mnr_state_risk
+    - mnr_state_repeat

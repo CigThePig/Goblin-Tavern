@@ -89,5 +89,45 @@ export const mannerNotePool: SnippetPool = {
       ],
       specificity: 0,
     },
+
+    // ─── Phase 150 / ISSUE-118 — state-keyed sensory beats ───────────
+    // The cook's body reflecting standing. Spec-1 state-keyed; fires
+    // when state matches even on neutral voice profiles.
+
+    {
+      id: 'mnr_state_high_stress',
+      text: 'Their grip on the counter sits white at the knuckles.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.stress', equals: 'high' },
+      ],
+    },
+    {
+      id: 'mnr_state_high_fatigue',
+      text: 'They lean, shoulders rounded, eyes shadowed.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.fatigue', equals: 'high' },
+      ],
+    },
+    {
+      id: 'mnr_state_burnout',
+      text: 'A pause too long before they look up.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'staff_burnout' },
+      ],
+    },
+    {
+      id: 'mnr_state_risk',
+      text: 'Their eyes cut to the back door once.',
+      conditions: [
+        { kind: 'memoryPresent', tag: 'risk' },
+      ],
+    },
+    {
+      id: 'mnr_state_repeat',
+      text: 'The same worn knot riding their shoulders again.',
+      conditions: [
+        { kind: 'repeatCount', subjectTag: 'staff', atLeast: 3 },
+      ],
+    },
   ],
 }

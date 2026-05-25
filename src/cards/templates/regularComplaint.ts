@@ -71,11 +71,24 @@ export const regularComplaintTemplate: CompositionalCardTemplate = {
       claimMode: 'flavor',
     },
     {
+      // Phase 151 / ISSUE-119 — Legible Surface arc, Phase 6. The
+      // regular_complaint card is *about* irritation × loyalty; when
+      // both bands resolve, the establishing line should state the
+      // pair (or the band+pressure / band+memory rung the salience
+      // table ranks second). `saliencePolicy: 'multi'` lets the
+      // assembler tie-break top-specificity matches by salience
+      // (irritation leads for `regular_customer`; see
+      // `compose/salience.ts`), then append an orthogonal secondary
+      // within the combined word budget. Layered OVER the gradient —
+      // when only one read resolves, behaviour matches the single-fact
+      // baseline.
       id: 'establishing_line',
       role: 'utterance',
       pool: regularComplaintEstablishingLinePool,
       wordBudget: 14,
       claimMode: 'sim_backed',
+      saliencePolicy: 'multi',
+      multiFactJoin: ' — ',
     },
     {
       id: 'reaction_line',

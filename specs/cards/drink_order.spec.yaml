@@ -489,3 +489,23 @@ mustPass:
       sample pool yields >= 6 distinct order_line outputs across a RANDOM cast
       sample drawn from the real [-1,0,0,1]-perturbed distribution.
     current: proven by Phase D harness
+
+# ─── Phase 151 / ISSUE-119 — Legible Surface arc, Phase 6 ─────────────
+# Regulars & Complaints cluster. drinkOrder is the relationship_test
+# branch of the regular_customer family (irritation ≤ 60); the seed
+# has no establishing_line slot (order_line is the regular's voice,
+# not a fact-stating slot), so no `saliencePolicy` opt-in here. The
+# regular_customer salience table is shared with regularComplaint;
+# see `specs/cards/regular_complaint.spec.yaml` Phase 151 block for
+# the read ordering.
+#
+# Phase 6 deepens drinkOrder's mannerNote pool only — subtle by
+# design, since the regular hasn't escalated yet but their meter
+# standing still reads at the manner.
+phase151:
+  saliencePolicy: null  # no establishing_line slot to opt in
+  newMannerNoteStateKeyed:
+    - manner_state_mid_irritation   # signalEquals regular.irritation=mid
+    - manner_state_high_loyalty     # signalEquals regular.loyalty=high
+    - manner_state_low_loyalty      # signalEquals regular.loyalty=low
+    - manner_state_grudge_memory    # memoryPresent grudge

@@ -86,5 +86,46 @@ export const mannerNotePool: SnippetPool = {
       ],
       specificity: 0,
     },
+
+    // ─── Phase 151 / ISSUE-119 — state-keyed sensory beats ──────────
+    // Same pattern as the reaction pool: spec-1 state-keyed snippets
+    // fire when state matches but voice is neutral. The voice/tic-
+    // gated snippets above stay; the new snippets sit alongside them.
+
+    {
+      id: 'mnr_state_high_irritation',
+      text: 'A flat hand spreads slow across the bar.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'regular.irritation', equals: 'high' },
+      ],
+    },
+    {
+      id: 'mnr_state_low_loyalty',
+      text: 'One foot already turned toward the door.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'regular.loyalty', equals: 'low' },
+      ],
+    },
+    {
+      id: 'mnr_state_loss_rising',
+      text: 'A glance to where their friends used to sit.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'regular_customer_loss' },
+      ],
+    },
+    {
+      id: 'mnr_state_grudge_memory',
+      text: 'The same hard line settles at the mouth.',
+      conditions: [
+        { kind: 'memoryPresent', tag: 'grudge' },
+      ],
+    },
+    {
+      id: 'mnr_state_repeat',
+      text: 'The words come without thinking now.',
+      conditions: [
+        { kind: 'repeatCount', subjectTag: 'regular', atLeast: 3 },
+      ],
+    },
   ],
 }

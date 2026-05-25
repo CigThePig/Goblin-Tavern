@@ -79,6 +79,32 @@ function withIrritation(
   }
 }
 
+// Phase 151 / ISSUE-119 — hold loyalty at the mid band so a test that
+// only intends to vary irritation isn't pulled into the new corner-
+// combo or multi-fact rungs (starter regulars carry loyalty 58-72; the
+// first is `local_goblins_1` at 72 = high, so high-irritation tests
+// would resolve `est_high_irritation_high_loyalty` instead of the
+// single-condition snippet they pre-Phase-6 expected).
+function withLoyalty(
+  state: TavernState,
+  regularId: string,
+  loyalty: number,
+): TavernState {
+  return {
+    ...state,
+    world: {
+      ...state.world,
+      regulars: {
+        ...state.world.regulars,
+        [regularId]: {
+          ...state.world.regulars[regularId]!,
+          loyalty,
+        },
+      },
+    },
+  }
+}
+
 function regularRef(id: string): EntityRef {
   return { kind: 'regular', id }
 }
@@ -296,10 +322,14 @@ describe('regularComplaintCard — render output', () => {
     expect(view.body[1]).toBe('I came in for warmth. The bench is cold today.')
   })
 
-  it('picks a sim-backed snippet when the regular has high irritation', () => {
+  it('picks a sim-backed snippet when the regular has high irritation (loyalty mid)', () => {
     const state = createInitialTavernState()
     const regularId = firstRegularId(state)
-    const angry = withIrritation(state, regularId, 85)
+    // Hold loyalty mid so the single-condition `est_high_irritation`
+    // snippet wins specificity — the Phase-6 corner combos
+    // (est_high_irritation_high_loyalty / _low_loyalty) only fire when
+    // loyalty also resolves to low or high.
+    const angry = withIrritation(withLoyalty(state, regularId, 50), regularId, 85)
     const seed = regularComplaintSeed(regularId, 'high-irritation')
     const view = regularComplaintCard.render(seed, angry)
     expect(view.body[0]).toBe('Their patience snapped a quarter-hour back.')

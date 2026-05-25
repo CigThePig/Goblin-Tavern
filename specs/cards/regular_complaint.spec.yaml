@@ -690,3 +690,57 @@ loopback:
       memory tags covers prior-history anchors.
     - >
       No new voice axis or verbal tic was needed.
+
+# ─── Phase 151 / ISSUE-119 — Legible Surface arc, Phase 6 ─────────────
+# Regulars & Complaints cluster. Salience table added at
+# `src/cards/compose/salience.ts`:
+#   regular_customer reads (order, serves both drinkOrderCard
+#   relationship_test and regularComplaintCard complaint):
+#     1. signal regular.irritation (primaryActor) — extremity 2 low/high
+#     2. signal regular.loyalty (primaryActor)    — extremity 2 low/high
+#     3. pressure regular_customer_loss
+#     4. memory grudge
+#     5. memory ignored_complaint
+#     6. memory warning
+#     7. memory customer
+#     8. repeat subjectTag: regular, atLeast: 3
+phase151:
+  saliencePolicy: multi
+  multiFactJoin: " — "
+
+  newEstablishingMatrixCells:
+    # Four irritation × loyalty corner combos. The seed generator fires
+    # on irritation > 60, so low-irritation rows never resolve — author
+    # only the mid/high × low/high corners the design distinguishes.
+    # Mid×mid unauthored — fallback handles it.
+    - id: est_high_irritation_high_loyalty
+      conditions: [irritation=high, loyalty=high]
+    - id: est_high_irritation_low_loyalty
+      conditions: [irritation=high, loyalty=low]
+    - id: est_mid_irritation_high_loyalty
+      conditions: [irritation=mid, loyalty=high]
+    - id: est_mid_irritation_low_loyalty
+      conditions: [irritation=mid, loyalty=low]
+    # Signal × pressure / memory top rungs.
+    - id: est_loyalty_loss
+      conditions: [loyalty=low, pressureRising regular_customer_loss]
+    - id: est_irritation_ignored
+      conditions: [irritation=high, memoryPresent ignored_complaint]
+    - id: est_loss_warning
+      conditions: [pressureRising regular_customer_loss, memoryPresent warning]
+
+  newReactionLineStateKeyed:
+    - rxn_state_high_irritation   # signalEquals regular.irritation=high
+    - rxn_state_low_loyalty       # signalEquals regular.loyalty=low
+    - rxn_state_loss_rising       # pressureRising regular_customer_loss
+    - rxn_state_grudge_memory     # memoryPresent grudge
+    - rxn_state_ignored_memory    # memoryPresent ignored_complaint
+    - rxn_state_warning_memory    # memoryPresent warning
+    - rxn_state_repeat            # repeatCount regular ≥ 3
+
+  newMannerNoteStateKeyed:
+    - mnr_state_high_irritation
+    - mnr_state_low_loyalty
+    - mnr_state_loss_rising
+    - mnr_state_grudge_memory
+    - mnr_state_repeat

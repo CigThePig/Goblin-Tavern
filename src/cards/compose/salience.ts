@@ -161,6 +161,51 @@ export const SALIENCE_TABLES: Partial<
       { kind: 'repeat', subjectTag: 'staff', atLeast: 3 },
     ],
   },
+
+  // Phase 151 / ISSUE-119 — Legible Surface arc, Phase 6 (Regulars &
+  // Complaints cluster). Both families are actor-voiced (the templates'
+  // `custom` predicate insists primaryActor carries castAttributes).
+  // Reads lead with the two band signals each family turns on
+  // (irritation × loyalty for the named regular; satisfaction × loyalty
+  // for the cohort), then the family-primary pressure, then secondary
+  // pressures, then choice-affecting memories, then the per-family
+  // multi-period repeat-count as the deepest rung. No new SalienceRead
+  // kinds — every read uses the six already shipped (Phase 1 + Phase 4).
+  //
+  // `regular_customer` serves both drinkOrderCard (relationship_test)
+  // and regularComplaintCard (complaint) — salience is per-family, not
+  // per-template; drinkOrder has no establishing slot opted into the
+  // multi-fact policy, so its scoring is effectively a no-op for that
+  // template. customer_complaint's generator references five pressures
+  // across response profiles; the table lists the top three
+  // (reputation_drift, regular_customer_loss, staff_loyalty_risk).
+  // rumour_pressure and cultural_tension stay reachable as snippet
+  // conditions but aren't broadly salient to a cohort complaint's
+  // headline.
+  regular_customer: {
+    reads: [
+      { kind: 'signal', role: 'primaryActor', signal: 'regular.irritation' },
+      { kind: 'signal', role: 'primaryActor', signal: 'regular.loyalty' },
+      { kind: 'pressure', pressureId: 'regular_customer_loss' },
+      { kind: 'memory', tag: 'grudge' },
+      { kind: 'memory', tag: 'ignored_complaint' },
+      { kind: 'memory', tag: 'warning' },
+      { kind: 'memory', tag: 'customer' },
+      { kind: 'repeat', subjectTag: 'regular', atLeast: 3 },
+    ],
+  },
+  customer_complaint: {
+    reads: [
+      { kind: 'signal', role: 'primaryActor', signal: 'customer_group.satisfaction' },
+      { kind: 'signal', role: 'primaryActor', signal: 'customer_group.loyalty' },
+      { kind: 'pressure', pressureId: 'reputation_drift' },
+      { kind: 'pressure', pressureId: 'regular_customer_loss' },
+      { kind: 'pressure', pressureId: 'staff_loyalty_risk' },
+      { kind: 'memory', tag: 'complaint' },
+      { kind: 'memory', tag: 'customer' },
+      { kind: 'repeat', subjectTag: 'customer', atLeast: 3 },
+    ],
+  },
 }
 
 /**

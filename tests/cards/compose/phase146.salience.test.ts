@@ -204,6 +204,41 @@ describe('SALIENCE_TABLES', () => {
       pressureId: 'staff_burnout',
     })
   })
+
+  // Phase 151 / ISSUE-119 — Legible Surface arc, Phase 6 additions.
+  it('seeds regular_customer with irritation, loyalty, then loss pressure', () => {
+    const table = SALIENCE_TABLES['regular_customer' as IssueSeedFamilyId]
+    expect(table).toBeDefined()
+    expect(table!.reads[0]).toMatchObject({
+      kind: 'signal',
+      signal: 'regular.irritation',
+    })
+    expect(table!.reads[1]).toMatchObject({
+      kind: 'signal',
+      signal: 'regular.loyalty',
+    })
+    expect(table!.reads[2]).toMatchObject({
+      kind: 'pressure',
+      pressureId: 'regular_customer_loss',
+    })
+  })
+
+  it('seeds customer_complaint with satisfaction, loyalty, then reputation_drift pressure', () => {
+    const table = SALIENCE_TABLES['customer_complaint' as IssueSeedFamilyId]
+    expect(table).toBeDefined()
+    expect(table!.reads[0]).toMatchObject({
+      kind: 'signal',
+      signal: 'customer_group.satisfaction',
+    })
+    expect(table!.reads[1]).toMatchObject({
+      kind: 'signal',
+      signal: 'customer_group.loyalty',
+    })
+    expect(table!.reads[2]).toMatchObject({
+      kind: 'pressure',
+      pressureId: 'reputation_drift',
+    })
+  })
 })
 
 describe('resolveSalientReads', () => {

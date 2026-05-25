@@ -169,6 +169,41 @@ describe('SALIENCE_TABLES', () => {
       signal: 'supplier.relationship',
     })
   })
+
+  // Phase 150 / ISSUE-118 — Staff & Personnel cluster entries.
+  it('seeds staff_identity with the two band signals first, then loyalty-risk pressure', () => {
+    const table = SALIENCE_TABLES['staff_identity' as IssueSeedFamilyId]
+    expect(table).toBeDefined()
+    expect(table!.reads[0]).toMatchObject({
+      kind: 'signal',
+      signal: 'staff.stress',
+    })
+    expect(table!.reads[1]).toMatchObject({
+      kind: 'signal',
+      signal: 'staff.fatigue',
+    })
+    expect(table!.reads[2]).toMatchObject({
+      kind: 'pressure',
+      pressureId: 'staff_loyalty_risk',
+    })
+  })
+
+  it('seeds staff_burnout with the two band signals first, then burnout pressure', () => {
+    const table = SALIENCE_TABLES['staff_burnout' as IssueSeedFamilyId]
+    expect(table).toBeDefined()
+    expect(table!.reads[0]).toMatchObject({
+      kind: 'signal',
+      signal: 'staff.stress',
+    })
+    expect(table!.reads[1]).toMatchObject({
+      kind: 'signal',
+      signal: 'staff.fatigue',
+    })
+    expect(table!.reads[2]).toMatchObject({
+      kind: 'pressure',
+      pressureId: 'staff_burnout',
+    })
+  })
 })
 
 describe('resolveSalientReads', () => {

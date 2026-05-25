@@ -159,5 +159,70 @@ export const asideLinePool: SnippetPool = {
         { kind: 'verbalTic', role: 'primaryActor', tic: 'quotes_someone_else' },
       ],
     },
+
+    // ─── Phase 150 / ISSUE-118 — state-keyed asides ──────────────────
+    // First-person reactions that reflect the staff member's actual
+    // standing instead of just their voice profile. Spec-1 by default;
+    // these fire orthogonally to the voice-keyed rungs above so a
+    // tense staff member sounds different from a steady one even with
+    // the same axes. The existing voice-keyed snippets stay — they
+    // resolve when state is neutral and voice is extreme.
+
+    {
+      id: 'aside_state_high_stress',
+      text: "I'm pulled tight today. I'll keep it off the floor.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.stress', equals: 'high' },
+      ],
+    },
+    {
+      id: 'aside_state_low_stress',
+      text: "Steady morning. I'm where you need me.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.stress', equals: 'low' },
+      ],
+    },
+    {
+      id: 'aside_state_high_fatigue',
+      text: "I'm slow today. I'll move careful, not careless.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.fatigue', equals: 'high' },
+      ],
+    },
+    {
+      id: 'aside_state_loyalty_risk',
+      text: "I've been pulling away. Wanted you to hear it from me.",
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'staff_loyalty_risk' },
+      ],
+    },
+    {
+      id: 'aside_state_burnout',
+      text: "The load's been crowding into my mornings. Just so you know.",
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'staff_burnout' },
+      ],
+    },
+    {
+      id: 'aside_state_repeat',
+      text: "Third quiet word in a week. I'd rather not need a fourth.",
+      conditions: [
+        { kind: 'repeatCount', subjectTag: 'staff', atLeast: 3 },
+      ],
+    },
+    {
+      id: 'aside_state_identity',
+      text: "That slight last week — I'd like to set it down.",
+      conditions: [
+        { kind: 'memoryPresent', tag: 'identity' },
+      ],
+    },
+    {
+      id: 'aside_state_warning',
+      text: "I know I was on warning. I'm trying to be plain.",
+      conditions: [
+        { kind: 'memoryPresent', tag: 'warning' },
+      ],
+    },
   ],
 }

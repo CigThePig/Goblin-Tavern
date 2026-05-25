@@ -105,5 +105,46 @@ export const mannerNotePool: SnippetPool = {
       ],
       specificity: 0,
     },
+
+    // ─── Phase 150 / ISSUE-118 — state-keyed sensory beats ───────────
+    // Physical beats that reflect the staff member's actual standing.
+    // Spec-1 state-keyed; orthogonal to the voice-keyed rungs above so
+    // they fire when state matches but voice is neutral.
+
+    {
+      id: 'manner_state_high_stress',
+      text: 'Their hands grip the counter a beat too long.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.stress', equals: 'high' },
+      ],
+    },
+    {
+      id: 'manner_state_high_fatigue',
+      text: 'They lean on the bar, shadows under the eyes.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.fatigue', equals: 'high' },
+      ],
+    },
+    {
+      id: 'manner_state_burnout',
+      text: 'A pause too long before the answer.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'staff_burnout' },
+      ],
+    },
+    {
+      id: 'manner_state_warning',
+      text: 'A glance at the door before they speak.',
+      conditions: [
+        { kind: 'memoryPresent', tag: 'warning' },
+      ],
+    },
+    {
+      id: 'manner_state_repeat',
+      text: 'The third morning standing like they belong here.',
+      conditions: [
+        { kind: 'repeatCount', subjectTag: 'staff', atLeast: 3 },
+      ],
+    },
   ],
 }

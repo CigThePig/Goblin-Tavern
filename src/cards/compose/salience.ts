@@ -126,6 +126,41 @@ export const SALIENCE_TABLES: Partial<
       { kind: 'repeat', subjectTag: 'debt', atLeast: 3 },
     ],
   },
+
+  // Phase 150 / ISSUE-118 — Legible Surface arc, Phase 5 (Staff &
+  // Personnel cluster). Both staff families are actor-voiced — the
+  // template `custom` predicate insists primaryActor is a staff member
+  // with populated castAttributes — so reads lead with the two banded
+  // staff signals (stress, fatigue: extremity 2 at low/high). The
+  // family-primary pressure comes next, then the secondary pressure,
+  // then choice-affecting memories ordered to mirror each family's
+  // generator (`staff_burnout` reads bonus/workload/risk memories;
+  // `staff_identity` reads identity/warning memories), then the staff
+  // repeat-count as the deepest rung. No new SalienceRead kinds — every
+  // read uses the six already shipped (Phase 1 + Phase 4).
+  staff_identity: {
+    reads: [
+      { kind: 'signal', role: 'primaryActor', signal: 'staff.stress' },
+      { kind: 'signal', role: 'primaryActor', signal: 'staff.fatigue' },
+      { kind: 'pressure', pressureId: 'staff_loyalty_risk' },
+      { kind: 'pressure', pressureId: 'staff_burnout' },
+      { kind: 'memory', tag: 'identity' },
+      { kind: 'memory', tag: 'warning' },
+      { kind: 'repeat', subjectTag: 'staff', atLeast: 3 },
+    ],
+  },
+  staff_burnout: {
+    reads: [
+      { kind: 'signal', role: 'primaryActor', signal: 'staff.stress' },
+      { kind: 'signal', role: 'primaryActor', signal: 'staff.fatigue' },
+      { kind: 'pressure', pressureId: 'staff_burnout' },
+      { kind: 'pressure', pressureId: 'staff_loyalty_risk' },
+      { kind: 'memory', tag: 'bonus' },
+      { kind: 'memory', tag: 'workload' },
+      { kind: 'memory', tag: 'risk' },
+      { kind: 'repeat', subjectTag: 'staff', atLeast: 3 },
+    ],
+  },
 }
 
 /**

@@ -133,5 +133,69 @@ export const reactionLinePool: SnippetPool = {
         { kind: 'verbalTic', role: 'primaryActor', tic: 'quotes_someone_else' },
       ],
     },
+
+    // ─── Phase 150 / ISSUE-118 — state-keyed reactions ───────────────
+    // First-person cook reactions that reflect actual standing rather
+    // than just voice axes. The cook stays the same character across
+    // these — voice persists as a layer — but a tense cook sounds
+    // distinct from a tired cook even with the same axes.
+
+    {
+      id: 'rxn_state_high_stress',
+      text: "I'm pulled tight. Tell me plain what you need.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.stress', equals: 'high' },
+      ],
+    },
+    {
+      id: 'rxn_state_high_fatigue',
+      text: "I'm slow today. I'll work careful, not fast.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.fatigue', equals: 'high' },
+      ],
+    },
+    {
+      id: 'rxn_state_burnout',
+      text: "The load's been climbing. I came to ask before it broke.",
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'staff_burnout' },
+      ],
+    },
+    {
+      id: 'rxn_state_loyalty_risk',
+      text: "I've been pulling away. Wanted to say it to you direct.",
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'staff_loyalty_risk' },
+      ],
+    },
+    {
+      id: 'rxn_state_bonus_memory',
+      text: "The bonus carried me a stretch. Now the wind's gone out.",
+      conditions: [
+        { kind: 'memoryPresent', tag: 'bonus' },
+      ],
+    },
+    {
+      id: 'rxn_state_workload_memory',
+      text: "That lighter rota helped. It's squeezing back tight already.",
+      conditions: [
+        { kind: 'memoryPresent', tag: 'workload' },
+      ],
+    },
+    {
+      id: 'rxn_state_repeat',
+      text: "Third ask in a stretch. I'd rather not need a fourth.",
+      conditions: [
+        { kind: 'repeatCount', subjectTag: 'staff', atLeast: 3 },
+      ],
+    },
+    {
+      id: 'rxn_state_fatigue_bonus',
+      text: "I'm worn through, even after the bonus. Wanted you to know.",
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.fatigue', equals: 'high' },
+        { kind: 'memoryPresent', tag: 'bonus' },
+      ],
+    },
   ],
 }

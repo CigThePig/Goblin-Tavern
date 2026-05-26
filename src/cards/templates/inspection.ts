@@ -87,6 +87,20 @@ export const inspectionTemplate: CompositionalCardTemplate = {
       pool: inspectionEstablishingLinePool,
       wordBudget: 14,
       claimMode: 'sim_backed',
+      // Phase 154 / ISSUE-122 — Legible Surface arc, Phase 9. The
+      // inspection SALIENCE_TABLES entry leads with
+      // `faction.relationship` on `'primaryActor'` then
+      // `faction.influence` and `area.cleanliness` / `area.condition`
+      // on `'location'`. The cube is authored at 4 spec-3 corners
+      // fixing `faction.relationship=low` and spanning `influence ×
+      // area.cleanliness` 2×2 (authority + venue-state); 4 spec-2
+      // supports cover the relationship=mid alternates. When
+      // primaryActor is a notable_npc (not a faction) the faction-
+      // signal reads on `'primaryActor'` silently don't resolve —
+      // single-condition snippets handle the establishing line.
+      // Multi-fact join is the fallback for unanticipated band pairs.
+      saliencePolicy: 'multi',
+      multiFactJoin: ' — ',
     },
     {
       id: 'reaction_line',

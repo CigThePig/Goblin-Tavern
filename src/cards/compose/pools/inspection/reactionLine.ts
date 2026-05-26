@@ -104,5 +104,57 @@ export const reactionLinePool: SnippetPool = {
         { kind: 'verbalTic', role: 'primaryActor', tic: 'quotes_someone_else' },
       ],
     },
+
+    // Phase 154 / ISSUE-122 — Legible Surface arc, Phase 9.
+    // Spec-1 state-keyed snippets so the inspector's reply reflects
+    // the actual standing rather than standing fixed on voice axes
+    // alone. First-person framing throughout (the inspector
+    // speaking). Pairs pressureRising / repeatCount with
+    // memoryPresent where a history cue lands.
+    {
+      id: 'rxn_state_low_relationship',
+      text: 'We have not been good to each other, yours and mine.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'faction.relationship', role: 'primaryActor', equals: 'low' },
+      ],
+    },
+    {
+      id: 'rxn_state_high_influence',
+      text: 'My reports do go up, you know.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'faction.influence', role: 'primaryActor', equals: 'high' },
+      ],
+    },
+    {
+      id: 'rxn_state_low_clean',
+      text: 'This is not a kitchen I would license today.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+      ],
+    },
+    {
+      id: 'rxn_state_low_rel_low_clean',
+      text: 'You give me no room to be lenient here.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'faction.relationship', role: 'primaryActor', equals: 'low' },
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+      ],
+    },
+    {
+      id: 'rxn_state_pressure_warning',
+      text: 'You were told this was coming, plain enough.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'inspection' },
+        { kind: 'memoryPresent', tag: 'warning' },
+      ],
+    },
+    {
+      id: 'rxn_state_bribed_repeat',
+      text: 'Our arrangement, yours and mine, has grown expensive lately.',
+      conditions: [
+        { kind: 'repeatCount', subjectTag: 'inspection', atLeast: 3 },
+        { kind: 'memoryPresent', tag: 'bribed_inspector' },
+      ],
+    },
   ],
 }

@@ -150,3 +150,88 @@ mustPass:
   determinism: same seed + same state + same slot returns same snippet after FNV tie-break
   diversity: actor + state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
   dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots
+
+# ─── Phase 154 / ISSUE-122 — Legible Surface arc, Phase 9 ──────────
+# Crises & Safety cluster matrix authoring. The food_safety card opens
+# on a cross-role 3-meter cube (area.cleanliness on location ×
+# staff.stress on primaryActor × staff.fatigue on primaryActor)
+# authored at spec-3 corners fixing area.cleanliness=low. Actor-voiced
+# via cook castAttributes (reaction/manner pools); establishing_line
+# stays sim-backed narrator framing.
+phase154:
+  salienceTable:
+    family: food_safety
+    reads:
+      - { kind: signal, role: location, signal: area.cleanliness }
+      - { kind: signal, role: primaryActor, signal: staff.stress }
+      - { kind: signal, role: primaryActor, signal: staff.fatigue }
+      - { kind: signal, role: location, signal: area.damage }
+      - { kind: pressure, pressureId: food_safety }
+      - { kind: pressure, pressureId: inspection }
+      - { kind: memory, tag: warning }
+      - { kind: memory, tag: kitchen }
+      - { kind: memory, tag: stock }
+      - { kind: memory, tag: deception }
+      - { kind: hasTag, tag: inspection_relevant }
+      - { kind: repeat, subjectTag: food_safety, atLeast: 3 }
+    note: >
+      area.cleanliness leads as the strictly dominant picker driver for
+      the kitchen vector (`100 − cleanliness`). The next two reads are
+      the cook's banded meters on primaryActor — stress / fatigue are
+      the cook's voicing surface even though the picker uses cook
+      loyalty (which is not a banded signal). area.damage follows as
+      the secondary kitchen meter. inspection appears as a secondary
+      pressure read because the `serve_anyway` profile raises it. The
+      hasTag inspection_relevant read gates the food_safety/inspection
+      bridge snippet. `severity` deliberately not added — pickers don't
+      threshold on severity (downstream of meters).
+  saliencePolicy:
+    slot: establishing_line
+    policy: multi
+    join: " — "
+    note: >
+      Multi-fact join is the fallback for unanticipated band pairs the
+      spec-2 / spec-3 cells don't catch. The 4 spec-3 cube corners
+      cover the readable cleanliness=low × stress × fatigue 2×2 face;
+      the 4 spec-2 supports cover the off-extreme cells where one cook
+      axis stays mid while the other resolves.
+  newSnippets:
+    establishing_line:
+      cubeCorners:
+        - est_low_clean_high_stress_high_fatigue
+        - est_low_clean_high_stress_low_fatigue
+        - est_low_clean_low_stress_high_fatigue
+        - est_low_clean_low_stress_low_fatigue
+      cleanlinessStressFatigueSupports:
+        - est_low_clean_high_stress
+        - est_low_clean_high_fatigue
+        - est_high_stress_high_fatigue
+        - est_clean_low_inspection_pressure
+      topRungs:
+        - est_clean_low_kitchen_memory
+        - est_inspection_tag_warning
+        - est_deception_repeat
+    reaction_line:
+      stateKeyed:
+        - rxn_state_low_clean
+        - rxn_state_high_stress
+        - rxn_state_high_fatigue
+        - rxn_state_stress_fatigue
+        - rxn_state_warning_pressure
+        - rxn_state_kitchen_repeat
+    manner_note:
+      stateKeyed:
+        - mnr_state_low_clean
+        - mnr_state_high_stress
+        - mnr_state_high_fatigue
+        - mnr_state_fatigue_inspection
+        - mnr_state_pressure_deception
+  notes:
+    - `est_clean_low_inspection_pressure` (spec 2, area.cleanliness=low
+      + pressureRising inspection) widens the spec-2 surface against
+      the inspection-pressure crossover; the existing
+      `est_cleanliness_pressure` and `est_inspection_relevant` cover
+      food_safety + cleanliness and inspection + cleanliness from
+      different angles.
+    - mid×mid cells (and mid-third-meter slots on the cube face) stay
+      unauthored — the unconditional fallback handles them cleanly.

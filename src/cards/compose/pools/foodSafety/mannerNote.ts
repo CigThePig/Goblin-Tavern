@@ -86,5 +86,48 @@ export const mannerNotePool: SnippetPool = {
       ],
       specificity: 0,
     },
+
+    // Phase 154 / ISSUE-122 — Legible Surface arc, Phase 9.
+    // Spec-1 state-keyed sensory beats so the cook's manner reflects
+    // her actual standing rather than standing fixed on voice axes
+    // alone. Third-person "she" framing (consistent with the existing
+    // pool); no role-claim words.
+    {
+      id: 'mnr_state_low_clean',
+      text: 'She glances at the grease line along the wall.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+      ],
+    },
+    {
+      id: 'mnr_state_high_stress',
+      text: 'Her knuckles whiten on the cleaver grip.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'staff.stress', role: 'primaryActor', equals: 'high' },
+      ],
+    },
+    {
+      id: 'mnr_state_high_fatigue',
+      text: 'She leans on the prep counter, weight off her feet.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'staff.fatigue', role: 'primaryActor', equals: 'high' },
+      ],
+    },
+    {
+      id: 'mnr_state_fatigue_inspection',
+      text: 'A tired hand on the day it matters most.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'staff.fatigue', role: 'primaryActor', equals: 'high' },
+        { kind: 'hasTag', tag: 'inspection_relevant' },
+      ],
+    },
+    {
+      id: 'mnr_state_pressure_deception',
+      text: 'A glance past the pot we sent out wrong.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'food_safety' },
+        { kind: 'memoryPresent', tag: 'deception' },
+      ],
+    },
   ],
 }

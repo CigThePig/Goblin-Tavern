@@ -75,6 +75,18 @@ export const violenceTemplate: CompositionalCardTemplate = {
       pool: violenceEstablishingLinePool,
       wordBudget: 14,
       claimMode: 'sim_backed',
+      // Phase 154 / ISSUE-122 — Legible Surface arc, Phase 9. The
+      // violence SALIENCE_TABLES entry leads with
+      // `customer_group.rowdiness` on `'primaryActor'` then
+      // `customer_group.satisfaction` and `area.damage`. The cube is
+      // authored at 4 spec-3 corners fixing `rowdiness=high` and
+      // spanning `satisfaction × area.damage` 2×2 (the social pole
+      // crossed with the structural pole); 4 spec-2 supports cover
+      // the rowdiness=mid alternates. Multi-fact join is the fallback
+      // for unanticipated band pairs the spec-2 / spec-3 cells don't
+      // catch.
+      saliencePolicy: 'multi',
+      multiFactJoin: ' — ',
     },
     {
       id: 'reaction_line',

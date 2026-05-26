@@ -87,5 +87,48 @@ export const mannerNotePool: SnippetPool = {
       ],
       specificity: 0,
     },
+
+    // Phase 154 / ISSUE-122 — Legible Surface arc, Phase 9.
+    // Spec-1 state-keyed sensory beats so the inspector's manner
+    // reflects actual standing rather than voice axes alone.
+    // Third-person framing ("they" / impersonal); no role-claim
+    // words.
+    {
+      id: 'mnr_state_low_relationship',
+      text: 'Their glance lingers a beat too long on you.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'faction.relationship', role: 'primaryActor', equals: 'low' },
+      ],
+    },
+    {
+      id: 'mnr_state_high_influence',
+      text: 'Their badge catches the lamp as they straighten.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'faction.influence', role: 'primaryActor', equals: 'high' },
+      ],
+    },
+    {
+      id: 'mnr_state_low_clean',
+      text: 'A careful step around a sticky board.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+      ],
+    },
+    {
+      id: 'mnr_state_low_rel_inspection_tag',
+      text: 'Their notebook comes out at the door.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'faction.relationship', role: 'primaryActor', equals: 'low' },
+        { kind: 'hasTag', tag: 'inspection_relevant' },
+      ],
+    },
+    {
+      id: 'mnr_state_pressure_prep',
+      text: 'A glance past where the prep was meant to hold.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'inspection' },
+        { kind: 'memoryPresent', tag: 'inspection_prep_recently' },
+      ],
+    },
   ],
 }

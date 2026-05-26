@@ -111,5 +111,58 @@ export const reactionLinePool: SnippetPool = {
         { kind: 'verbalTic', role: 'primaryActor', tic: 'repeats_for_emphasis' },
       ],
     },
+
+    // Phase 154 / ISSUE-122 — Legible Surface arc, Phase 9.
+    // Spec-1 state-keyed snippets so the cook's reaction line reflects
+    // her actual standing instead of standing fixed on voice axes
+    // alone. First-person framing throughout (the cook speaking).
+    // Pairs `pressureRising` and `repeatCount` with `memoryPresent`
+    // where the line carries a history cue so simCoherence's
+    // flavor-mode history-claim detector stays quiet.
+    {
+      id: 'rxn_state_low_clean',
+      text: 'I cannot pretend the place is fine today.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+      ],
+    },
+    {
+      id: 'rxn_state_high_stress',
+      text: 'I am holding the line and it is slipping.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'staff.stress', role: 'primaryActor', equals: 'high' },
+      ],
+    },
+    {
+      id: 'rxn_state_high_fatigue',
+      text: 'My hands are slower than I want them to be.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'staff.fatigue', role: 'primaryActor', equals: 'high' },
+      ],
+    },
+    {
+      id: 'rxn_state_stress_fatigue',
+      text: 'I am wrung out before service has even begun.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'staff.stress', role: 'primaryActor', equals: 'high' },
+        { kind: 'signalEquals', signal: 'staff.fatigue', role: 'primaryActor', equals: 'high' },
+      ],
+    },
+    {
+      id: 'rxn_state_warning_pressure',
+      text: 'We said this would come; here it is on my counter.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'food_safety' },
+        { kind: 'memoryPresent', tag: 'warning' },
+      ],
+    },
+    {
+      id: 'rxn_state_kitchen_repeat',
+      text: 'Same kitchen trouble, three mornings out of four now.',
+      conditions: [
+        { kind: 'repeatCount', subjectTag: 'food_safety', atLeast: 3 },
+        { kind: 'memoryPresent', tag: 'kitchen' },
+      ],
+    },
   ],
 }

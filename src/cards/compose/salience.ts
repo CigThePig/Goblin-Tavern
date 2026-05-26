@@ -318,6 +318,113 @@ export const SALIENCE_TABLES: Partial<
       { kind: 'repeat', subjectTag: 'atmosphere', atLeast: 3 },
     ],
   },
+
+  // Phase 154 / ISSUE-122 — Legible Surface arc, Phase 9 (Crises &
+  // Safety cluster). Three new entries, all actor-voiced (the pool
+  // reaction/manner snippets carry `voiceAxis` / `verbalTic`
+  // conditions; the establishing pool stays narrator/sim-backed). Each
+  // family authors a 3-meter cube on its own picker projection:
+  //
+  //   - `food_safety` picker scores four food vectors (kitchen,
+  //     mushrooms, stew, cook); the cube fixes
+  //     `area.cleanliness=low` on the kitchen and spans
+  //     `staff.stress × staff.fatigue` 2×2 on the cook actor. Lead
+  //     read is `area.cleanliness` on `'location'` (the strictly
+  //     dominant picker-driver for the kitchen vector: `100 −
+  //     cleanliness`). Next two reads are the cook's banded meters on
+  //     `'primaryActor'` — stress / fatigue are the cook's voicing
+  //     surface even though the picker uses cook loyalty (which is
+  //     not a banded signal in `numeric.ts`). `area.damage` follows
+  //     as the secondary kitchen meter. `food_safety` pressure leads
+  //     the pressure rung; `inspection` is the secondary pressure
+  //     (the `serve_anyway` profile raises it). Four memories match
+  //     the food_safety response profiles' emitted tags (`warning` /
+  //     `kitchen` / `stock` / `deception`). The `hasTag
+  //     inspection_relevant` read gates the food_safety/inspection
+  //     bridge snippet. `severity` deliberately omitted — pickers
+  //     don't threshold on severity (downstream of meters), matching
+  //     Phase 152 / 153.
+  //
+  //   - `violence` picker scores customer groups by `patronage +
+  //     rowdiness`; the cube fixes `customer_group.rowdiness=high`
+  //     and spans `customer_group.satisfaction × area.damage` 2×2
+  //     (social + structural). Lead is `rowdiness` on
+  //     `'primaryActor'` (strictly dominant picker-driver); then
+  //     `satisfaction` (the social dimension a player reads alongside
+  //     rowdiness); then `area.damage` on `'location'`;
+  //     `customer_group.loyalty` follows because a low-loyalty rowdy
+  //     group is a different problem from a high-loyalty rowdy group
+  //     (the ban response profile bites differently). `violence`
+  //     pressure follows. Four memories match the violence response
+  //     profiles (`warning` / `brawl` / `security` / `ban`).
+  //     `severity` deliberately omitted (same rationale).
+  //
+  //   - `inspection` picker selects a primary faction by
+  //     authority-bonus minus recency; the cube fixes
+  //     `faction.relationship=low` and spans `faction.influence ×
+  //     area.cleanliness` 2×2 (authority + venue-state). Lead is
+  //     `faction.relationship` on `'primaryActor'` (the standing
+  //     that makes the inspection bite). Then `faction.influence`
+  //     (high-authority sour inspector = worst case top rung). Then
+  //     `area.cleanliness` and `area.condition` on `'location'` (the
+  //     venue meters the inspector is actually scoring). `inspection`
+  //     pressure follows. Three memories match inspection profiles
+  //     (`warning` / `bribed_inspector` / `inspection_prep_recently`).
+  //     The `hasTag inspection_relevant` read gates the
+  //     inspection-bridge snippet. `severity` deliberately omitted.
+  //
+  // Pre-existing asymmetry inherited from Phase 138: the inspection
+  // template's `custom` predicate accepts `notable_npc` primaryActors
+  // too. When primaryActor is an NPC (not a faction), the
+  // `faction.relationship` / `faction.influence` reads on
+  // `'primaryActor'` don't resolve — the salience read silently
+  // returns those facts as missing, and spec-1 / spec-2 single-
+  // condition snippets handle the establishing line. Documented here
+  // so a future reader doesn't read this as a bug.
+  food_safety: {
+    reads: [
+      { kind: 'signal', role: 'location', signal: 'area.cleanliness' },
+      { kind: 'signal', role: 'primaryActor', signal: 'staff.stress' },
+      { kind: 'signal', role: 'primaryActor', signal: 'staff.fatigue' },
+      { kind: 'signal', role: 'location', signal: 'area.damage' },
+      { kind: 'pressure', pressureId: 'food_safety' },
+      { kind: 'pressure', pressureId: 'inspection' },
+      { kind: 'memory', tag: 'warning' },
+      { kind: 'memory', tag: 'kitchen' },
+      { kind: 'memory', tag: 'stock' },
+      { kind: 'memory', tag: 'deception' },
+      { kind: 'hasTag', tag: 'inspection_relevant' },
+      { kind: 'repeat', subjectTag: 'food_safety', atLeast: 3 },
+    ],
+  },
+  violence: {
+    reads: [
+      { kind: 'signal', role: 'primaryActor', signal: 'customer_group.rowdiness' },
+      { kind: 'signal', role: 'primaryActor', signal: 'customer_group.satisfaction' },
+      { kind: 'signal', role: 'location', signal: 'area.damage' },
+      { kind: 'signal', role: 'primaryActor', signal: 'customer_group.loyalty' },
+      { kind: 'pressure', pressureId: 'violence' },
+      { kind: 'memory', tag: 'warning' },
+      { kind: 'memory', tag: 'brawl' },
+      { kind: 'memory', tag: 'security' },
+      { kind: 'memory', tag: 'ban' },
+      { kind: 'repeat', subjectTag: 'violence', atLeast: 3 },
+    ],
+  },
+  inspection: {
+    reads: [
+      { kind: 'signal', role: 'primaryActor', signal: 'faction.relationship' },
+      { kind: 'signal', role: 'primaryActor', signal: 'faction.influence' },
+      { kind: 'signal', role: 'location', signal: 'area.cleanliness' },
+      { kind: 'signal', role: 'location', signal: 'area.condition' },
+      { kind: 'pressure', pressureId: 'inspection' },
+      { kind: 'memory', tag: 'warning' },
+      { kind: 'memory', tag: 'bribed_inspector' },
+      { kind: 'memory', tag: 'inspection_prep_recently' },
+      { kind: 'hasTag', tag: 'inspection_relevant' },
+      { kind: 'repeat', subjectTag: 'inspection', atLeast: 3 },
+    ],
+  },
 }
 
 /**

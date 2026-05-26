@@ -327,6 +327,82 @@ describe('SALIENCE_TABLES', () => {
       pressureId: 'maintenance',
     })
   })
+
+  // Phase 154 / ISSUE-122 — Legible Surface arc, Phase 9 additions.
+  it('seeds food_safety with cleanliness on location then cook stress/fatigue on primaryActor', () => {
+    const table = SALIENCE_TABLES['food_safety' as IssueSeedFamilyId]
+    expect(table).toBeDefined()
+    expect(table!.reads[0]).toMatchObject({
+      kind: 'signal',
+      role: 'location',
+      signal: 'area.cleanliness',
+    })
+    expect(table!.reads[1]).toMatchObject({
+      kind: 'signal',
+      role: 'primaryActor',
+      signal: 'staff.stress',
+    })
+    expect(table!.reads[2]).toMatchObject({
+      kind: 'signal',
+      role: 'primaryActor',
+      signal: 'staff.fatigue',
+    })
+    expect(table!.reads[3]).toMatchObject({
+      kind: 'signal',
+      role: 'location',
+      signal: 'area.damage',
+    })
+  })
+
+  it('seeds violence with rowdiness, satisfaction, area.damage, then loyalty', () => {
+    const table = SALIENCE_TABLES['violence' as IssueSeedFamilyId]
+    expect(table).toBeDefined()
+    expect(table!.reads[0]).toMatchObject({
+      kind: 'signal',
+      role: 'primaryActor',
+      signal: 'customer_group.rowdiness',
+    })
+    expect(table!.reads[1]).toMatchObject({
+      kind: 'signal',
+      role: 'primaryActor',
+      signal: 'customer_group.satisfaction',
+    })
+    expect(table!.reads[2]).toMatchObject({
+      kind: 'signal',
+      role: 'location',
+      signal: 'area.damage',
+    })
+    expect(table!.reads[3]).toMatchObject({
+      kind: 'signal',
+      role: 'primaryActor',
+      signal: 'customer_group.loyalty',
+    })
+  })
+
+  it('seeds inspection with relationship, influence on actor then cleanliness/condition on location', () => {
+    const table = SALIENCE_TABLES['inspection' as IssueSeedFamilyId]
+    expect(table).toBeDefined()
+    expect(table!.reads[0]).toMatchObject({
+      kind: 'signal',
+      role: 'primaryActor',
+      signal: 'faction.relationship',
+    })
+    expect(table!.reads[1]).toMatchObject({
+      kind: 'signal',
+      role: 'primaryActor',
+      signal: 'faction.influence',
+    })
+    expect(table!.reads[2]).toMatchObject({
+      kind: 'signal',
+      role: 'location',
+      signal: 'area.cleanliness',
+    })
+    expect(table!.reads[3]).toMatchObject({
+      kind: 'signal',
+      role: 'location',
+      signal: 'area.condition',
+    })
+  })
 })
 
 describe('resolveSalientReads', () => {

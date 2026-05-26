@@ -116,5 +116,51 @@ export const reactionLinePool: SnippetPool = {
         { kind: 'hasTag', tag: 'rival.arc' },
       ],
     },
+
+    // Phase 155 / ISSUE-123 — Legible Surface arc, Phase 10. State-
+    // keyed reaction snippets so the line varies with current rival-
+    // type / pressure / memory reads. Narrator-voiced; no
+    // `voiceAxis` / `verbalTic` because the seed's primaryActor
+    // carries no castAttributes.
+    {
+      id: 'rxn_state_arc_customer_loss',
+      text: 'The named house takes regulars by name and by trade.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rival.arc' },
+        { kind: 'pressureRising', pressureId: 'regular_customer_loss' },
+      ],
+    },
+    {
+      id: 'rxn_state_system_pressure',
+      text: 'The anonymous pull will keep climbing while the source is unseen.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rival.system' },
+        { kind: 'pressureRising', pressureId: 'rival_tavern_pressure' },
+      ],
+    },
+    {
+      id: 'rxn_state_price_pressure',
+      text: 'The price war from before is not holding the pull back.',
+      conditions: [
+        { kind: 'memoryPresent', tag: 'price' },
+        { kind: 'pressureRising', pressureId: 'rival_tavern_pressure' },
+      ],
+    },
+    {
+      id: 'rxn_state_event_pressure',
+      text: 'The counter-event has lost its grip on the crowd already.',
+      conditions: [
+        { kind: 'memoryPresent', tag: 'event' },
+        { kind: 'pressureRising', pressureId: 'rival_tavern_pressure' },
+      ],
+    },
+    {
+      id: 'rxn_state_dual_pressure',
+      text: 'Both the rival pull and the regulars drift want answering this week.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'rival_tavern_pressure' },
+        { kind: 'pressureRising', pressureId: 'regular_customer_loss' },
+      ],
+    },
   ],
 }

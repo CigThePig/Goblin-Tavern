@@ -109,5 +109,53 @@ export const reactionLinePool: SnippetPool = {
         { kind: 'memoryPresent', tag: 'identity' },
       ],
     },
+
+    // Phase 155 / ISSUE-123 — Legible Surface arc, Phase 10. State-
+    // keyed reaction snippets so the line varies with current axis +
+    // memory + repeat + severity reads, not just on broad tone tags.
+    // Sit at default specificity (1+) — they out-rank the spec-0 mood
+    // fallbacks but stay orthogonal to the existing combination
+    // snippets above. Narrator-voiced; no `voiceAxis` / `verbalTic`
+    // because the seed has no actor cast.
+    {
+      id: 'rxn_state_cozy_pressure',
+      text: 'Merchants will read the door from this cozy corner now.',
+      conditions: [
+        { kind: 'hasTag', tag: 'reputation.cozy' },
+        { kind: 'pressureRising', pressureId: 'reputation_drift' },
+      ],
+    },
+    {
+      id: 'rxn_state_dangerous_severity',
+      text: 'The rougher name has tipped past where soft words still hold.',
+      conditions: [
+        { kind: 'hasTag', tag: 'reputation.dangerous' },
+        { kind: 'severityAtLeast', value: 70 },
+      ],
+    },
+    {
+      id: 'rxn_state_identity_pressure',
+      text: 'Choosing the identity loud will keep the drift climbing past tonight.',
+      conditions: [
+        { kind: 'memoryPresent', tag: 'identity' },
+        { kind: 'pressureRising', pressureId: 'reputation_drift' },
+      ],
+    },
+    {
+      id: 'rxn_state_pressure_repeat',
+      text: 'The slate has been climbing across closings; the room is naming itself.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'reputation_drift' },
+        { kind: 'repeatCount', subjectTag: 'reputation', atLeast: 3 },
+      ],
+    },
+    {
+      id: 'rxn_state_customer_pressure',
+      text: 'The targeted crowd keeps arriving; the drift climbs with them.',
+      conditions: [
+        { kind: 'memoryPresent', tag: 'customer' },
+        { kind: 'pressureRising', pressureId: 'reputation_drift' },
+      ],
+    },
   ],
 }

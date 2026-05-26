@@ -64,11 +64,24 @@ export const reputationShiftTemplate: CompositionalCardTemplate = {
       claimMode: 'flavor',
     },
     {
+      // Phase 155 / ISSUE-123 — Legible Surface arc, Phase 10. The
+      // reputation_shift card is *about* the axis × pressure pair
+      // (which axis is moving, and whether the drift pressure is
+      // climbing). `saliencePolicy: 'multi'` lets the assembler tie-
+      // break top-specificity matches by salience (the axis tag is the
+      // lead read for `reputation_shift`; see `compose/salience.ts`),
+      // then append a secondary snippet covering the next orthogonal
+      // salient fact (pressureRising / memory / severity / repeat)
+      // within the combined word budget. Layered OVER the gradient —
+      // when only one read resolves, behaviour matches the single-fact
+      // baseline.
       id: 'establishing_line',
       role: 'utterance',
       pool: reputationShiftEstablishingLinePool,
       wordBudget: 14,
       claimMode: 'sim_backed',
+      saliencePolicy: 'multi',
+      multiFactJoin: ' — ',
     },
     {
       id: 'reaction_line',

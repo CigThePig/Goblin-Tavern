@@ -157,3 +157,59 @@ mustPass:
   determinism: same seed + same state + same slot returns same snippet after FNV tie-break
   diversity: actor + state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
   dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots
+
+phase155:
+  description: |
+    Legible Surface arc, Phase 10 (Reputation, Rumour & Rivals
+    cluster). Adds the `rumour_crisis` entry to SALIENCE_TABLES (17
+    reads: four accuracy hasTag + six target-kind hasTag +
+    rumour_pressure pressure + four memories + severity ≥70 + repeat
+    ≥3). Opts the establishing_line slot into saliencePolicy 'multi'
+    with em-dash join. Deepens establishingLine pool with 10 new
+    combination cells covering accuracy × target_kind × pressure
+    corners + accuracy × memory + top-rung accuracy × pressure ×
+    repeat. Adds 5 state-keyed reaction snippets (rumour-state-keyed
+    so they fire across all six target kinds regardless of voice)
+    and 3 state-keyed manner beats.
+  salience:
+    family: rumour_crisis
+    reads:
+      - hasTag rumour.true               # accuracy 0
+      - hasTag rumour.partial            # accuracy 1
+      - hasTag rumour.false              # accuracy 2
+      - hasTag rumour.unknown            # accuracy 3
+      - hasTag rumour.target.supplier    # target 0
+      - hasTag rumour.target.regular     # target 1
+      - hasTag rumour.target.faction     # target 2
+      - hasTag rumour.target.staff       # target 3
+      - hasTag rumour.target.customer_group # target 4
+      - hasTag rumour.target.notable_npc # target 5
+      - pressureRising rumour_pressure
+      - memoryPresent denial
+      - memoryPresent honesty
+      - memoryPresent bribe
+      - memoryPresent deception
+      - severityAtLeast 70
+      - repeatCount rumour atLeast 3
+  newEstablishingCells:
+    - est_false_target_regular        # accuracy × target × pressure
+    - est_true_target_faction
+    - est_partial_target_supplier
+    - est_false_target_staff
+    - est_true_target_customer_group
+    - est_partial_target_faction
+    - est_target_notable_npc_pressure # missing-target rung filled
+    - est_false_denial_memory         # accuracy × memory
+    - est_true_honesty_memory
+    - est_partial_bribe_memory
+    - est_false_pressure_repeat       # accuracy × pressure × repeat (top rung)
+  newReactionSnippets:
+    - rxn_state_false_denial
+    - rxn_state_true_honesty
+    - rxn_state_partial_pressure
+    - rxn_state_pressure_repeat
+    - rxn_state_severity
+  newMannerSnippets:
+    - mnr_state_false_pressure
+    - mnr_state_supplier_bribe
+    - mnr_state_severity_repeat

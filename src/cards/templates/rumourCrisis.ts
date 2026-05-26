@@ -92,11 +92,24 @@ export const rumourCrisisTemplate: CompositionalCardTemplate = {
       claimMode: 'flavor',
     },
     {
+      // Phase 155 / ISSUE-123 — Legible Surface arc, Phase 10. The
+      // rumour_crisis card is *about* the accuracy × target-kind pair
+      // (which truth-value the tale carries, and who it's landed on).
+      // `saliencePolicy: 'multi'` lets the assembler tie-break top-
+      // specificity matches by salience (the accuracy tag is the lead
+      // read for `rumour_crisis`; see `compose/salience.ts`), then
+      // append a secondary snippet covering the next orthogonal salient
+      // fact (target-kind tag / pressureRising / memory / severity /
+      // repeat) within the combined word budget. Layered OVER the
+      // gradient — when only one read resolves, behaviour matches the
+      // single-fact baseline.
       id: 'establishing_line',
       role: 'utterance',
       pool: rumourCrisisEstablishingLinePool,
       wordBudget: 14,
       claimMode: 'sim_backed',
+      saliencePolicy: 'multi',
+      multiFactJoin: ' — ',
     },
     {
       id: 'reaction_line',

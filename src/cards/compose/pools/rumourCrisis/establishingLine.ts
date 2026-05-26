@@ -152,5 +152,115 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'repeatCount', subjectTag: 'rumour', atLeast: 3 },
       ],
     },
+
+    // Phase 155 / ISSUE-123 — Legible Surface arc, Phase 10
+    // (Reputation, Rumour & Rivals cluster). Multi-meter combination
+    // cells covering `(accuracy × target_kind)` (the natural distinct-
+    // decision corners), `(accuracy × memory)`, `(target_kind ×
+    // memory)`, and top-rung (accuracy × pressure × repeat) cells.
+    // Every combo pairs `hasTag` reads with `pressureRising` /
+    // `memoryPresent` / `severityAtLeast` / `repeatCount` so the
+    // sim-coherence gate sees at least one state-lookup primitive
+    // (`STATE_LOOKUP_KINDS` excludes `hasTag`).
+    {
+      id: 'est_false_target_regular',
+      text: 'A false tale has wound around a regular and held in the talk.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rumour.false' },
+        { kind: 'hasTag', tag: 'rumour.target.regular' },
+        { kind: 'pressureRising', pressureId: 'rumour_pressure' },
+      ],
+    },
+    {
+      id: 'est_true_target_faction',
+      text: 'A true story has landed on a whole faction and is travelling.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rumour.true' },
+        { kind: 'hasTag', tag: 'rumour.target.faction' },
+        { kind: 'pressureRising', pressureId: 'rumour_pressure' },
+      ],
+    },
+    {
+      id: 'est_partial_target_supplier',
+      text: 'A half-truth has wound around a supplier, the worse half winning.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rumour.partial' },
+        { kind: 'hasTag', tag: 'rumour.target.supplier' },
+        { kind: 'pressureRising', pressureId: 'rumour_pressure' },
+      ],
+    },
+    {
+      id: 'est_false_target_staff',
+      text: 'A false tale has folded one of the staff into its travelling shape.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rumour.false' },
+        { kind: 'hasTag', tag: 'rumour.target.staff' },
+        { kind: 'pressureRising', pressureId: 'rumour_pressure' },
+      ],
+    },
+    {
+      id: 'est_true_target_customer_group',
+      text: 'A true story about a whole cohort is now in steady talk.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rumour.true' },
+        { kind: 'hasTag', tag: 'rumour.target.customer_group' },
+        { kind: 'pressureRising', pressureId: 'rumour_pressure' },
+      ],
+    },
+    {
+      id: 'est_partial_target_faction',
+      text: 'A half-truth pinned on a faction is finding rooms to enter.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rumour.partial' },
+        { kind: 'hasTag', tag: 'rumour.target.faction' },
+        { kind: 'pressureRising', pressureId: 'rumour_pressure' },
+      ],
+    },
+    {
+      id: 'est_target_notable_npc_pressure',
+      text: 'The talk has caught on a known name and is climbing on it.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rumour.target.notable_npc' },
+        { kind: 'pressureRising', pressureId: 'rumour_pressure' },
+      ],
+    },
+
+    // Accuracy × memory combos — last round's choice tangled with the
+    // current accuracy reading.
+    {
+      id: 'est_false_denial_memory',
+      text: 'The false tale and last round’s denial are now braided in the talk.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rumour.false' },
+        { kind: 'memoryPresent', tag: 'denial' },
+      ],
+    },
+    {
+      id: 'est_true_honesty_memory',
+      text: 'The truth admitted last round is the spine of what is travelling.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rumour.true' },
+        { kind: 'memoryPresent', tag: 'honesty' },
+      ],
+    },
+    {
+      id: 'est_partial_bribe_memory',
+      text: 'A half-truth and a quiet bribe are sharing one mouth tonight.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rumour.partial' },
+        { kind: 'memoryPresent', tag: 'bribe' },
+      ],
+    },
+
+    // Top-rung (accuracy × pressure × repeat) — the deepest cell.
+    {
+      id: 'est_false_pressure_repeat',
+      text: 'A false tale, three closings deep, climbing the books again today.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rumour.false' },
+        { kind: 'pressureRising', pressureId: 'rumour_pressure' },
+        { kind: 'repeatCount', subjectTag: 'rumour', atLeast: 3 },
+      ],
+    },
   ],
 }

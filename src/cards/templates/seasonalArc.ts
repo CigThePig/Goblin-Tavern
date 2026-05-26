@@ -85,11 +85,26 @@ export const seasonalArcTemplate: CompositionalCardTemplate = {
       claimMode: 'flavor',
     },
     {
+      // Phase 156 / ISSUE-124 — Legible Surface arc, Phase 11. The
+      // seasonal_arc card is *about* the active theme × rising arc
+      // pressure × prior-arc choice memory. When two top-salient facts
+      // resolve (e.g. festival_approaching theme AND
+      // festival_readiness rising; arc_escalation rising AND
+      // arc-memory present), the establishing line should state the
+      // pair, not whichever single condition out-specifies the other.
+      // Salience table at `compose/salience.ts:seasonal_arc` orders
+      // the reads — theme `hasTag` leads (categorical *what-is-this-
+      // about* per Phase 155 precedent), then family pressures, then
+      // memories, then severity. Assembler joins primary + secondary
+      // with ' — ' within the combined budget; spec-2 / spec-3 combo
+      // cells in establishingLine.ts beat the join when authored.
       id: 'establishing_line',
       role: 'utterance',
       pool: seasonalArcEstablishingLinePool,
       wordBudget: 14,
       claimMode: 'sim_backed',
+      saliencePolicy: 'multi',
+      multiFactJoin: ' — ',
     },
     {
       id: 'reaction_line',

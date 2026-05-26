@@ -65,5 +65,32 @@ export const mannerNotePool: SnippetPool = {
       conditions: [],
       specificity: 0,
     },
+
+    // ─── Phase 156 / ISSUE-124 — state-keyed manner beats ───────────
+    // Spec-1 / spec-2 narrator sensory beats tied to seasonal_arc
+    // state. Flavor slot (history-claim detector active).
+    {
+      id: 'mnr_arc_escalation',
+      text: 'The boards along the row have tightened overnight.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'arc_escalation' },
+      ],
+    },
+    {
+      id: 'mnr_severity_pressure',
+      text: 'The street has gone heavier with watchers tonight.',
+      conditions: [
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'pressureRising', pressureId: 'arc_escalation' },
+      ],
+    },
+    {
+      id: 'mnr_dual_pressure',
+      text: 'Two notices sit pinned side by side on the wall.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'arc_escalation' },
+        { kind: 'pressureRising', pressureId: 'festival_readiness' },
+      ],
+    },
   ],
 }

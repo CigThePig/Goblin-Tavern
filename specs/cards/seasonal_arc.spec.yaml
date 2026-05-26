@@ -138,3 +138,57 @@ mustPass:
   determinism: same seed + same state + same slot returns same snippet after FNV tie-break
   diversity: state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
   dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots
+
+phase156:
+  description: |
+    Legible Surface arc, Phase 11 (Periodic & Narrative cluster, final
+    Movement VI phase). Adds the `seasonal_arc` entry to
+    SALIENCE_TABLES (11 reads: five theme hasTag reads (mushroom_blight
+    / miner_payday_boom / inspection_campaign / rival_tavern_expansion
+    / festival_approaching) → arc_escalation → festival_readiness →
+    memory arc → memory festival → severity ≥70 → repeat arc ≥3). Opts
+    the establishing_line slot into saliencePolicy 'multi' with em-
+    dash join. Deepens establishingLine pool with 10 new combination
+    cells covering theme × memory + theme × severity × pressure +
+    dual-pressure + top-rung climax × severity × pressure + theme ×
+    pressure × memory. Adds 5 state-keyed reaction snippets and 3
+    state-keyed manner beats. Narrator-voiced — local_event refs and
+    anticipation seeds carry no castAttributes. Theme `hasTag` reads
+    paired with `pressureRising arc_escalation` / `festival_readiness`
+    co-conditions on every sim-backed combo so simCoherence passes
+    (hasTag is not a state-lookup kind on its own).
+  salience:
+    family: seasonal_arc
+    reads:
+      - hasTag mushroom_blight
+      - hasTag miner_payday_boom
+      - hasTag inspection_campaign
+      - hasTag rival_tavern_expansion
+      - hasTag festival_approaching
+      - pressureRising arc_escalation
+      - pressureRising festival_readiness
+      - memoryPresent arc
+      - memoryPresent festival
+      - severityAtLeast 70
+      - repeatCount arc atLeast 3
+  newEstablishingCells:
+    - est_blight_arc_memory             # theme × memory
+    - est_payday_arc_memory
+    - est_inspection_arc_memory
+    - est_rival_arc_memory
+    - est_festival_memory
+    - est_blight_severity               # theme × severity × pressure
+    - est_inspection_severity
+    - est_dual_pressure_arc_festival    # dual pressure
+    - est_climax_severity_pressure      # climax × severity × pressure (top)
+    - est_festival_pressure_memory      # theme × pressure × memory
+  newReactionSnippets:
+    - rxn_arc_escalation
+    - rxn_festival_readiness
+    - rxn_climax_severity
+    - rxn_arc_memory_pressure
+    - rxn_dual_pressure
+  newMannerSnippets:
+    - mnr_arc_escalation
+    - mnr_severity_pressure
+    - mnr_dual_pressure

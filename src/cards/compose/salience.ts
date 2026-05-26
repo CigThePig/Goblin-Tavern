@@ -526,6 +526,84 @@ export const SALIENCE_TABLES: Partial<
       { kind: 'repeat', subjectTag: 'rival', atLeast: 3 },
     ],
   },
+
+  // Phase 156 / ISSUE-124 — Legible Surface arc, Phase 11 (Periodic &
+  // Narrative cluster, final Movement VI phase). Two new entries, both
+  // narrator-voiced: `monthly_review`'s primaryActor is a `month` ref
+  // (periods are not characters, audit pass 1 §5.3); `seasonal_arc`'s
+  // primaryActor is a `local_event` ref (Path A) or `undefined` (Path B
+  // anticipation) — neither carries castAttributes. Neither family has
+  // band signals on its primary subject (months and arc events aren't
+  // banded), so reads are pressure / memory / hasTag / severity / repeat
+  // only. No Movement-V loopback — every read uses the six already-
+  // shipped `SalienceRead` kinds.
+  //
+  //   - `monthly_review` has no categorical *what-is-this-about* tag the
+  //     way `reputation_shift` does (`monthly` / `summary` / `economy`
+  //     are shared surface tags). Severity ≥ 70 leads (matches Phase 149
+  //     stock_shortage / debt_rent precedent for narrator-voiced
+  //     families without a categorical tag). Family pressure `landlord`
+  //     follows, then the secondary pressures the seed's
+  //     `recentCauseEntries` and consequence-profile delayed effects
+  //     actually touch (`debt`, `reputation_drift`,
+  //     `rival_tavern_pressure`, `staff_burnout`, `customer_complaint`).
+  //     Memories ordered to mirror the four consequence profiles'
+  //     emitted tags: `rent_paid_${monthKey}` → `rent`,
+  //     `cellar_invested_${monthKey}` → `cellar`,
+  //     `reserves_held_${monthKey}` → `reserves`,
+  //     `rival_settled_${monthKey}` → `rival`. `landlord` memory caps
+  //     the memory rung. `repeatCount monthly ≥ 3` is the deepest rung
+  //     (multi-month pattern).
+  //
+  //   - `seasonal_arc` leads with the theme `hasTag` reads (one of five
+  //     mushroom_blight / miner_payday_boom / inspection_campaign /
+  //     rival_tavern_expansion / festival_approaching — flowed through
+  //     `seed.toneHints[2]`). Theme is the categorical *what-is-this-
+  //     about* fact — mirrors Phase 155's rumour-accuracy / rival-type
+  //     precedent: enum/categorical facts can't band naturally and
+  //     `hasTag` reads them directly without new SignalIds. Only one
+  //     theme resolves per seed; order matters for enumerability. Family
+  //     pressures `arc_escalation` (primary) and `festival_readiness`
+  //     (secondary) follow. Memory tags `arc` / `festival` are the most
+  //     consistent across `buildSeasonalArcContent`'s emitted profile
+  //     memories. `severity ≥ 70` then `repeat arc ≥ 3` close as the
+  //     deepest rungs. The `repeat` read may not always resolve in
+  //     production (the family doesn't currently emit `arc` as a
+  //     `recencyKey`), but listing it preserves enumerability for the
+  //     Phase-16 legibility gate — matches Phase 152's precedent of
+  //     listing memory tags that don't always fire.
+  monthly_review: {
+    reads: [
+      { kind: 'severity', atLeast: 70 },
+      { kind: 'pressure', pressureId: 'landlord' },
+      { kind: 'pressure', pressureId: 'debt' },
+      { kind: 'pressure', pressureId: 'reputation_drift' },
+      { kind: 'pressure', pressureId: 'rival_tavern_pressure' },
+      { kind: 'pressure', pressureId: 'staff_burnout' },
+      { kind: 'pressure', pressureId: 'customer_complaint' },
+      { kind: 'memory', tag: 'rent' },
+      { kind: 'memory', tag: 'cellar' },
+      { kind: 'memory', tag: 'reserves' },
+      { kind: 'memory', tag: 'rival' },
+      { kind: 'memory', tag: 'landlord' },
+      { kind: 'repeat', subjectTag: 'monthly', atLeast: 3 },
+    ],
+  },
+  seasonal_arc: {
+    reads: [
+      { kind: 'hasTag', tag: 'mushroom_blight' },
+      { kind: 'hasTag', tag: 'miner_payday_boom' },
+      { kind: 'hasTag', tag: 'inspection_campaign' },
+      { kind: 'hasTag', tag: 'rival_tavern_expansion' },
+      { kind: 'hasTag', tag: 'festival_approaching' },
+      { kind: 'pressure', pressureId: 'arc_escalation' },
+      { kind: 'pressure', pressureId: 'festival_readiness' },
+      { kind: 'memory', tag: 'arc' },
+      { kind: 'memory', tag: 'festival' },
+      { kind: 'severity', atLeast: 70 },
+      { kind: 'repeat', subjectTag: 'arc', atLeast: 3 },
+    ],
+  },
 }
 
 /**

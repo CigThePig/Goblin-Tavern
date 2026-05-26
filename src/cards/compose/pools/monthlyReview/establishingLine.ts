@@ -125,5 +125,96 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'repeatCount', subjectTag: 'monthly', atLeast: 3 },
       ],
     },
+
+    // ─── Phase 156 / ISSUE-124 — matrix cells ────────────────────────
+    // Spec-2 / spec-3 combos covering pressure × memory / dual-pressure
+    // / severity intersections the monthly_review seed can reach. Every
+    // snippet carries ≥1 state-lookup primitive (pressureRising /
+    // memoryPresent / repeatCount) so simCoherence passes — severity
+    // alone is not a state-lookup kind. Memory tags match the four
+    // consequence-profile emissions (rent / cellar / reserves / rival).
+
+    {
+      id: 'est_landlord_rent_memory',
+      text: 'The landlord column thickens; rent paid last month feels distant now.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'landlord' },
+        { kind: 'memoryPresent', tag: 'rent' },
+      ],
+    },
+    {
+      id: 'est_landlord_reserves_memory',
+      text: 'The landlord column thickens, with reserves already held back tight.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'landlord' },
+        { kind: 'memoryPresent', tag: 'reserves' },
+      ],
+    },
+    {
+      id: 'est_debt_rent_memory',
+      text: 'The shortfall widens, even with rent settled the prior month.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'debt' },
+        { kind: 'memoryPresent', tag: 'rent' },
+      ],
+    },
+    {
+      id: 'est_debt_landlord_dual',
+      text: 'Debt and landlord columns are both climbing across the page tonight.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'debt' },
+        { kind: 'pressureRising', pressureId: 'landlord' },
+      ],
+    },
+    {
+      id: 'est_rival_pressure_memory',
+      text: 'The rival house is taking the take; the prior settlement still echoes.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'rival_tavern_pressure' },
+        { kind: 'memoryPresent', tag: 'rival' },
+      ],
+    },
+    {
+      id: 'est_customer_complaint_reputation_dual',
+      text: 'Complaints climb and the reputation marks slide together this closing.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'customer_complaint' },
+        { kind: 'pressureRising', pressureId: 'reputation_drift' },
+      ],
+    },
+    {
+      id: 'est_staff_burnout_landlord_dual',
+      text: 'The staff edge thickens just as the landlord column tightens.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'staff_burnout' },
+        { kind: 'pressureRising', pressureId: 'landlord' },
+      ],
+    },
+    {
+      id: 'est_severity_landlord_rent',
+      text: 'Crisis at the rent line, with the prior payment offering no slack.',
+      conditions: [
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'pressureRising', pressureId: 'landlord' },
+        { kind: 'memoryPresent', tag: 'rent' },
+      ],
+    },
+    {
+      id: 'est_severity_debt_repeat',
+      text: 'Critical shortfall, and a third month of the same hard column.',
+      conditions: [
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'pressureRising', pressureId: 'debt' },
+        { kind: 'repeatCount', subjectTag: 'monthly', atLeast: 3 },
+      ],
+    },
+    {
+      id: 'est_cellar_landlord_dual',
+      text: 'The cellar investment shows on the books; the landlord still pushes.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'landlord' },
+        { kind: 'memoryPresent', tag: 'cellar' },
+      ],
+    },
   ],
 }

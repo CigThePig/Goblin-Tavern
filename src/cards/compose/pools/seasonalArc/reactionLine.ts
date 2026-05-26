@@ -76,5 +76,49 @@ export const reactionLinePool: SnippetPool = {
         { kind: 'memoryPresent', tag: 'arc' },
       ],
     },
+
+    // ─── Phase 156 / ISSUE-124 — state-keyed reactions ──────────────
+    // Spec-1 / spec-2 narrator reactions tied to seasonal_arc state.
+    // Flavor slot (history-claim detector active): "earlier" / "prior"
+    // phrasings paired with memoryPresent.
+    {
+      id: 'rxn_arc_escalation',
+      text: 'The arc presses harder than the room has carried so far.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'arc_escalation' },
+      ],
+    },
+    {
+      id: 'rxn_festival_readiness',
+      text: 'The readiness has been gathering on the boards for days.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'festival_readiness' },
+      ],
+    },
+    {
+      id: 'rxn_climax_severity',
+      text: 'The climax of the arc cannot be sidestepped from here.',
+      conditions: [
+        { kind: 'seedType', anyOf: ['arc_milestone'] },
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'pressureRising', pressureId: 'arc_escalation' },
+      ],
+    },
+    {
+      id: 'rxn_arc_memory_pressure',
+      text: 'The prior arc choice still rides under this rising shape.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'arc_escalation' },
+        { kind: 'memoryPresent', tag: 'arc' },
+      ],
+    },
+    {
+      id: 'rxn_dual_pressure',
+      text: 'Two arc pressures climb together; the day will not stay quiet.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'arc_escalation' },
+        { kind: 'pressureRising', pressureId: 'festival_readiness' },
+      ],
+    },
   ],
 }

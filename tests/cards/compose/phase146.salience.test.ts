@@ -512,6 +512,99 @@ describe('SALIENCE_TABLES', () => {
       atLeast: 3,
     })
   })
+
+  // ─── Phase 156 / ISSUE-124 — Legible Surface arc, Phase 11 ──────
+  it('seeds monthly_review with severity 70 leading, then pressures, then choice-tag memories, then repeat', () => {
+    const table = SALIENCE_TABLES['monthly_review' as IssueSeedFamilyId]
+    expect(table).toBeDefined()
+    expect(table!.reads[0]).toMatchObject({
+      kind: 'severity',
+      atLeast: 70,
+    })
+    expect(table!.reads[1]).toMatchObject({
+      kind: 'pressure',
+      pressureId: 'landlord',
+    })
+    expect(table!.reads[2]).toMatchObject({
+      kind: 'pressure',
+      pressureId: 'debt',
+    })
+    expect(table!.reads[3]).toMatchObject({
+      kind: 'pressure',
+      pressureId: 'reputation_drift',
+    })
+    expect(table!.reads[7]).toMatchObject({
+      kind: 'memory',
+      tag: 'rent',
+    })
+    expect(table!.reads[8]).toMatchObject({
+      kind: 'memory',
+      tag: 'cellar',
+    })
+    expect(table!.reads[9]).toMatchObject({
+      kind: 'memory',
+      tag: 'reserves',
+    })
+    expect(table!.reads[10]).toMatchObject({
+      kind: 'memory',
+      tag: 'rival',
+    })
+    expect(table!.reads[12]).toMatchObject({
+      kind: 'repeat',
+      subjectTag: 'monthly',
+      atLeast: 3,
+    })
+  })
+
+  it('seeds seasonal_arc with theme hasTag reads leading, then arc pressures, then memory, severity, repeat', () => {
+    const table = SALIENCE_TABLES['seasonal_arc' as IssueSeedFamilyId]
+    expect(table).toBeDefined()
+    expect(table!.reads[0]).toMatchObject({
+      kind: 'hasTag',
+      tag: 'mushroom_blight',
+    })
+    expect(table!.reads[1]).toMatchObject({
+      kind: 'hasTag',
+      tag: 'miner_payday_boom',
+    })
+    expect(table!.reads[2]).toMatchObject({
+      kind: 'hasTag',
+      tag: 'inspection_campaign',
+    })
+    expect(table!.reads[3]).toMatchObject({
+      kind: 'hasTag',
+      tag: 'rival_tavern_expansion',
+    })
+    expect(table!.reads[4]).toMatchObject({
+      kind: 'hasTag',
+      tag: 'festival_approaching',
+    })
+    expect(table!.reads[5]).toMatchObject({
+      kind: 'pressure',
+      pressureId: 'arc_escalation',
+    })
+    expect(table!.reads[6]).toMatchObject({
+      kind: 'pressure',
+      pressureId: 'festival_readiness',
+    })
+    expect(table!.reads[7]).toMatchObject({
+      kind: 'memory',
+      tag: 'arc',
+    })
+    expect(table!.reads[8]).toMatchObject({
+      kind: 'memory',
+      tag: 'festival',
+    })
+    expect(table!.reads[9]).toMatchObject({
+      kind: 'severity',
+      atLeast: 70,
+    })
+    expect(table!.reads[10]).toMatchObject({
+      kind: 'repeat',
+      subjectTag: 'arc',
+      atLeast: 3,
+    })
+  })
 })
 
 describe('resolveSalientReads', () => {

@@ -126,3 +126,55 @@ mustPass:
   determinism: same seed + same state + same slot returns same snippet after FNV tie-break
   diversity: state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
   dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots
+
+phase156:
+  description: |
+    Legible Surface arc, Phase 11 (Periodic & Narrative cluster, final
+    Movement VI phase). Adds the `monthly_review` entry to
+    SALIENCE_TABLES (13 reads: severity ≥70 → landlord → debt →
+    reputation_drift → rival_tavern_pressure → staff_burnout →
+    customer_complaint → four choice-tag memories (rent / cellar /
+    reserves / rival) → landlord memory → repeat monthly ≥3). Opts
+    the establishing_line slot into saliencePolicy 'multi' with em-
+    dash join. Deepens establishingLine pool with 10 new combination
+    cells covering pressure × memory + dual-pressure + top-rung
+    severity × pressure × memory|repeat. Adds 5 state-keyed reaction
+    snippets and 3 state-keyed manner beats. Narrator-voiced — month
+    refs carry no castAttributes.
+  salience:
+    family: monthly_review
+    reads:
+      - severityAtLeast 70
+      - pressureRising landlord
+      - pressureRising debt
+      - pressureRising reputation_drift
+      - pressureRising rival_tavern_pressure
+      - pressureRising staff_burnout
+      - pressureRising customer_complaint
+      - memoryPresent rent
+      - memoryPresent cellar
+      - memoryPresent reserves
+      - memoryPresent rival
+      - memoryPresent landlord
+      - repeatCount monthly atLeast 3
+  newEstablishingCells:
+    - est_landlord_rent_memory          # pressure × memory
+    - est_landlord_reserves_memory
+    - est_debt_rent_memory
+    - est_debt_landlord_dual            # dual pressure
+    - est_rival_pressure_memory
+    - est_customer_complaint_reputation_dual
+    - est_staff_burnout_landlord_dual
+    - est_severity_landlord_rent        # severity × pressure × memory (top)
+    - est_severity_debt_repeat          # severity × pressure × repeat (top)
+    - est_cellar_landlord_dual
+  newReactionSnippets:
+    - rxn_landlord_rising
+    - rxn_debt_rising
+    - rxn_severity_landlord
+    - rxn_rival_memory_pressure
+    - rxn_monthly_repeat
+  newMannerSnippets:
+    - mnr_rival_memory
+    - mnr_debt_landlord_dual
+    - mnr_customer_complaint

@@ -67,11 +67,26 @@ export const monthlyReviewTemplate: CompositionalCardTemplate = {
       claimMode: 'flavor',
     },
     {
+      // Phase 156 / ISSUE-124 — Legible Surface arc, Phase 11. The
+      // monthly_review card is *about* the month's dominant
+      // pressure(s) × prior-month choice memory × crisis severity. When
+      // two top-salient facts resolve (e.g. landlord rising AND
+      // rent-paid memory present; debt rising AND reserves-held
+      // memory), the establishing line should state the pair, not
+      // whichever single condition out-specifies the other. Salience
+      // table at `compose/salience.ts:monthly_review` orders the reads;
+      // assembler at `compose/assemble.ts:pickComposedSlotText` joins
+      // primary + secondary with ' — ' within the combined budget. The
+      // spec-2 / spec-3 combo cells in establishingLine.ts beat the
+      // join when they cover the pair directly; the join is the
+      // fallback when no authored combo matches.
       id: 'establishing_line',
       role: 'utterance',
       pool: monthlyReviewEstablishingLinePool,
       wordBudget: 14,
       claimMode: 'sim_backed',
+      saliencePolicy: 'multi',
+      multiFactJoin: ' — ',
     },
     {
       id: 'reaction_line',

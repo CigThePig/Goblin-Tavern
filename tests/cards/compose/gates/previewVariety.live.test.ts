@@ -35,6 +35,10 @@ import { effectPreviewPool as regularComplaintPreviewPool } from '../../../../sr
 import { effectPreviewPool as violencePreviewPool } from '../../../../src/cards/compose/pools/violence/effectPreview'
 import { effectPreviewPool as reputationShiftPreviewPool } from '../../../../src/cards/compose/pools/reputationShift/effectPreview'
 import { effectPreviewPool as monthlyReviewPreviewPool } from '../../../../src/cards/compose/pools/monthlyReview/effectPreview'
+// Phase 158 / ISSUE-126 — social-cluster pools.
+import { effectPreviewPool as rumourCrisisPreviewPool } from '../../../../src/cards/compose/pools/rumourCrisis/effectPreview'
+import { effectPreviewPool as cultureConflictPreviewPool } from '../../../../src/cards/compose/pools/cultureConflict/effectPreview'
+import { effectPreviewPool as factionRequestPreviewPool } from '../../../../src/cards/compose/pools/factionRequest/effectPreview'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
 import type { CastAttributes } from '../../../../src/sim/content/cast'
 import type {
@@ -1033,6 +1037,8 @@ describe('previewVariety gate — Phase 157 economic legibility on cluster pools
     expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
   })
 
+  // (debt-tagged rent variant test follows)
+
   it('debt-tagged rent variant outranks the plain coin cell deterministically', () => {
     // Two calls with the same (seed, state, effect) produce the same
     // text. The rent-tagged effect resolves to a rent-flavoured snippet
@@ -1075,5 +1081,364 @@ describe('previewVariety gate — Phase 157 economic legibility on cluster pools
     // Both passes — magnitude landed on both choices' single effects.
     expect(reportA.observed.magnitudeRatio).toBe(1)
     expect(reportB.observed.magnitudeRatio).toBe(1)
+  })
+})
+
+// ---- Phase 158 / ISSUE-126 — social-cluster live legibility ----
+//
+// Each test below builds a realistic multi-choice render whose effects
+// match the production cells emitted by that template's consequence
+// profiles per the audit in docs/plans/phase-158-social-previews.md.
+// `requireMagnitude` is the social-meter analogue of Phase 157's coin
+// magnitude rule; cost-surfacing doesn't apply (social meters are not
+// resource spends). Templates whose seeds carry a coin spend additionally
+// opt into `requireCostSurfacing` so the social-cluster pools don't lose
+// the Phase-157 protections that already cover them.
+
+describe('previewVariety gate — Phase 158 social legibility on cluster pools', () => {
+  const state = createInitialTavernState()
+
+  function socialSample(
+    family: string,
+    type: string,
+    timing: 'during_service' | 'morning_prep' | 'closing' | 'end_week' | 'end_month',
+    pool: SnippetPool,
+    seedId: string,
+    choices: PreviewVarietyChoice[],
+  ): PreviewVarietySample {
+    return {
+      seed: makeSeed({
+        id: seedId,
+        family: family as IssueSeed['family'],
+        type: type as IssueSeed['type'],
+        timing,
+        severity: 45,
+        domain: [family.split('_')[0] ?? family],
+      }),
+      state,
+      previewPool: pool,
+      choices,
+      maxPreview: 2,
+    }
+  }
+
+  it('regularComplaint pool: customer satisfaction loss renders calibrated magnitude', () => {
+    // Customer effects on the regular_customer complaint branch — small and
+    // medium negative cells dominate. Effects sourced from real consequence
+    // profiles in expandedSeedGenerators.ts.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('appease', 'Appease the regular'),
+        effects: [
+          effect('state_change', 'customers.miners.satisfaction', -5, 'Patron grumbles', ['customer']),
+        ],
+      },
+      {
+        slot: slot('ignore', 'Let it slide'),
+        effects: [
+          effect('state_change', 'customers.miners.satisfaction', -8, 'Patron stews', ['customer']),
+        ],
+      },
+    ]
+    const sample = socialSample(
+      'regular_customer',
+      'complaint',
+      'during_service',
+      regularComplaintPreviewPool,
+      'phase158-regular',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('customerComplaint pool: cohort-scoped patronage loss renders calibrated magnitude', () => {
+    // The customer_complaint cohort branch includes a customer patronage ban
+    // path (-25 large). Coin and customer cells are mixed.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('appease', 'Comp the group'),
+        effects: [
+          effect('state_change', 'coin', -20, 'Comp cost', ['coin']),
+          effect('state_change', 'customers.merchants.patronage', 4, 'Group warms back', ['customer']),
+        ],
+      },
+      {
+        slot: slot('ban', 'Ask them to leave'),
+        effects: [
+          effect('state_change', 'customers.merchants.patronage', -25, 'Banned cohort', ['customer']),
+        ],
+      },
+    ]
+    const sample = socialSample(
+      'customer_complaint',
+      'complaint',
+      'during_service',
+      customerComplaintPreviewPool,
+      'phase158-cust',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true, requireCostSurfacing: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+    expect(report.observed.costSurfacingRatio).toBe(1)
+  })
+
+  it('factionRequest pool: faction relationship/trust movements render calibrated magnitude', () => {
+    // Faction effects on alliance / betrayal / hosting paths.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('host', 'Host the gathering'),
+        effects: [
+          effect('state_change', 'factions.guild.relationship', 15, 'Faction warms', ['faction']),
+        ],
+      },
+      {
+        slot: slot('refuse', 'Refuse the request'),
+        effects: [
+          effect('state_change', 'factions.guild.trust', -12, 'Faction trust falls', ['faction']),
+        ],
+      },
+      {
+        slot: slot('betray', 'Betray the alliance'),
+        effects: [
+          effect('state_change', 'factions.guild.relationship', -25, 'Faction severs ties', ['faction']),
+        ],
+      },
+    ]
+    const sample = socialSample(
+      'faction_request',
+      'social_conflict',
+      'during_service',
+      factionRequestPreviewPool,
+      'phase158-faction',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('cultureConflict pool: culture tension/comfort movements render calibrated magnitude', () => {
+    // Culture effects on seating / ritual / discount paths.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('honor', 'Honor the ritual'),
+        effects: [
+          effect('state_change', 'cultures.miners.familiarity', 15, 'Cultural recognition', ['culture']),
+          effect('state_change', 'cultures.miners.comfort', 12, 'Cultural comfort', ['culture']),
+        ],
+      },
+      {
+        slot: slot('impose', 'Impose tavern rules'),
+        effects: [
+          effect('state_change', 'cultures.miners.tension', 12, 'Cultural tension rises', ['culture']),
+          effect('state_change', 'cultures.miners.comfort', -8, 'Cultural comfort drops', ['culture']),
+        ],
+      },
+    ]
+    const sample = socialSample(
+      'culture_conflict',
+      'social_conflict',
+      'during_service',
+      cultureConflictPreviewPool,
+      'phase158-culture',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('reputationShift pool: reputation deltas across axes render calibrated magnitude', () => {
+    // Reputation effects span multiple axes; pool is axis-neutral.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('codify', 'Codify the standard'),
+        effects: [
+          effect('state_change', 'reputation.respectable', 8, 'Standing rises', ['reputation']),
+        ],
+      },
+      {
+        slot: slot('gamble', 'Gamble on a new identity'),
+        effects: [
+          effect('state_change', 'reputation.respectable', -8, 'Identity gamble', ['reputation']),
+        ],
+      },
+      {
+        slot: slot('ignore', 'Let the drift run'),
+        effects: [
+          effect('state_change', 'reputation.cheap', -10, 'Reputation slips medium', ['reputation']),
+        ],
+      },
+    ]
+    const sample = socialSample(
+      'reputation_shift',
+      'reputation_shift',
+      'closing',
+      reputationShiftPreviewPool,
+      'phase158-rep',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('rumourCrisis pool: reputation drift renders calibrated magnitude', () => {
+    // Rumour effects sit on reputation.respectable -3 / -8 (small/tiny).
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('confront', 'Confront the rumour'),
+        effects: [
+          effect('state_change', 'reputation.respectable', -3, 'Rumour leaks slowly', ['reputation']),
+        ],
+      },
+      {
+        slot: slot('amplify', 'Lean into the rumour'),
+        effects: [
+          effect('state_change', 'reputation.dangerous', 6, 'Dangerous name spreads', ['reputation']),
+        ],
+      },
+    ]
+    const sample = socialSample(
+      'rumour_crisis',
+      'rumour',
+      'during_service',
+      rumourCrisisPreviewPool,
+      'phase158-rumour',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('supplierReliability pool: supplier relationship movements render calibrated magnitude', () => {
+    // Supplier effects span tiny → medium on both directions per Phase 9
+    // consequence profiles. Mix in pressure to validate Phase 14's cells
+    // aren't broken by the new social-base recalibration.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('blame', 'Blame the supplier'),
+        effects: [
+          effect('state_change', 'world.suppliers.alepost.relationship', -10, 'Supplier deal cools', ['supplier']),
+        ],
+      },
+      {
+        slot: slot('negotiate', 'Negotiate'),
+        effects: [
+          effect('state_change', 'world.suppliers.alepost.relationship', 3, 'Supplier softens a touch', ['supplier']),
+        ],
+      },
+      {
+        slot: slot('place_standing_order', 'Place a standing order'),
+        effects: [
+          effect('state_change', 'coin', -15, 'Standing-order cost', ['coin']),
+          effect('state_change', 'world.suppliers.alepost.reliability', 5, 'Reliability lifts', ['supplier']),
+        ],
+      },
+    ]
+    const sample = socialSample(
+      'supplier_relationship',
+      'supplier_offer',
+      'during_service',
+      supplierReliabilityPreviewPool,
+      'phase158-supplier',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true, requireCostSurfacing: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+    expect(report.observed.costSurfacingRatio).toBe(1)
+  })
+
+  it('violence pool: reputation.dangerous/respectable swap renders calibrated magnitude', () => {
+    // Violence template emits reputation.dangerous +6 / reputation.respectable
+    // -4 on the rowdy embrace path — both small / tiny cells.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('embrace', 'Embrace the rowdy crowd'),
+        effects: [
+          effect('state_change', 'reputation.dangerous', 6, 'Dangerous name rises', ['reputation']),
+          effect('state_change', 'reputation.respectable', -4, 'Respectable name falls', ['reputation']),
+        ],
+      },
+      {
+        slot: slot('settle', 'Settle the fight'),
+        effects: [
+          effect('state_change', 'reputation.respectable', 5, 'Quiet handling earns standing', ['reputation']),
+        ],
+      },
+    ]
+    const sample = socialSample(
+      'violence',
+      'customer_incident',
+      'during_service',
+      violencePreviewPool,
+      'phase158-violence',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('monthlyReview pool: reputation.respectable mover renders calibrated magnitude', () => {
+    // Monthly review surfaces the dominant reputation mover for the month —
+    // typically small / medium cells.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('invest', 'Invest in standing'),
+        effects: [
+          effect('state_change', 'reputation.respectable', 12, 'Month of credibility', ['reputation']),
+        ],
+      },
+      {
+        slot: slot('cut', 'Cut corners'),
+        effects: [
+          effect('state_change', 'reputation.respectable', -10, 'Month of slipping', ['reputation']),
+        ],
+      },
+    ]
+    const sample = socialSample(
+      'monthly_review',
+      'monthly_review',
+      'end_month',
+      monthlyReviewPreviewPool,
+      'phase158-monthly-social',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
   })
 })

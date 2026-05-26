@@ -1,5 +1,6 @@
 // Phase 145 / ISSUE-113 — Voiced Surface arc, Phase 18 (iteration 2).
 // Phase 157 / ISSUE-125 — Legible Surface arc, Phase 12 (Economic Previews).
+// Phase 158 / ISSUE-126 — Legible Surface arc, Phase 13 (Social Previews).
 //
 // Shared narrator-register snippet base for effect-preview slots. Every
 // Movement II template's `effectPreview.ts` prepends this base to its
@@ -38,10 +39,19 @@
 // out-rank these via the FNV tie-break on identical condition shapes.
 // Two additional debt-tag variants at the bottom of the coin block
 // substitute the cost noun ("the till" → "the rent" / "wages") when
-// the effect tag carries `rent` / `wages`. All other targetKinds in
-// the base (area, pressure, customer, staff, reputation, cohort,
-// supplier, faction, culture, memory, arc, attribution, global) are
-// untouched in this phase — they belong to Phases 13–14.
+// the effect tag carries `rent` / `wages`.
+//
+// Phase 158 — social-meter recalibration. The customer / cohort /
+// reputation / supplier / faction / culture blocks now carry the same
+// `direction × magnitudeBand` matrix at the same 3-condition specificity
+// as the economic blocks. Production-emitted cells (per the audit in
+// `docs/plans/phase-158-social-previews.md`) carry multiple snippets for
+// FNV spread; cells the sim doesn't emit today get a single optimistic
+// snippet so a future emission stays legible. Cohort cells are fully
+// optimistic — cohort effects today are `cause` writes, not
+// `state_change`. The narrator-register area / pressure / staff /
+// memory / arc / attribution / global blocks stay at kind+direction
+// specificity until Phase 14 (Operational Previews).
 
 import type { Snippet } from '../../types'
 
@@ -413,37 +423,108 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'effectDirection', sign: 'negative' },
       ],
     },
-    // ---- customer (regulars + named) ----
+    // ---- customer (Phase 158 / ISSUE-126 recalibration) ----
+    //
+    // Production emits: satisfaction -5/-6 (small) through -8 (medium);
+    // patronage +4 (small) through +12 (medium); patronage -25 (large
+    // bans). `tiny` and `pos large` get optimistic single snippets.
     {
-      id: 'shared_preview_customer_neg_a',
-      text: 'the regular would lose patience',
+      id: 'shared_preview_customer_neg_tiny_a',
+      text: 'a hair of patience would slip from the patron',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['customer'] },
         { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
       ],
     },
     {
-      id: 'shared_preview_customer_neg_b',
-      text: 'the patron would pull away by degrees',
+      id: 'shared_preview_customer_neg_small_a',
+      text: 'the regular would cool by a step',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['customer'] },
         { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
       ],
     },
     {
-      id: 'shared_preview_customer_pos_a',
-      text: 'the patron would warm a measure',
+      id: 'shared_preview_customer_neg_small_b',
+      text: 'a notch of patience would leave the customer',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['customer'] },
-        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
       ],
     },
     {
-      id: 'shared_preview_customer_pos_b',
-      text: 'the regular would lean into the room',
+      id: 'shared_preview_customer_neg_medium_a',
+      text: 'a clear drop would set the patron grumbling',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_customer_neg_medium_b',
+      text: 'a real slip of trust would chill the guest',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_customer_neg_large_a',
+      text: 'a heavy fall would empty the regular tables',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    {
+      id: 'shared_preview_customer_pos_tiny_a',
+      text: 'a hair of warmth would reach the patron',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['customer'] },
         { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
+      ],
+    },
+    {
+      id: 'shared_preview_customer_pos_small_a',
+      text: 'the regular would lean in by a step',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_customer_pos_medium_a',
+      text: 'a real step would draw the customer closer',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_customer_pos_medium_b',
+      text: 'a clear lift would settle the guest into the bench',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_customer_pos_large_a',
+      text: 'a surge of patronage would fill every regular seat',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
       ],
     },
     // ---- staff ----
@@ -495,38 +576,228 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'effectDirection', sign: 'positive' },
       ],
     },
-    // ---- reputation ----
+    // ---- reputation (Phase 158 / ISSUE-126 recalibration) ----
+    //
+    // Production emits: tiny -3/-4 + pos +2/+4 (`respectable`,
+    // `dangerous`, `goblinAuthentic`); small dominant on both sides;
+    // medium -10 (`cheap`, `reliable`) + +10/+12 (`reliable`,
+    // `respectable`, `tasty`). No `large` cells today. Axis-neutral by
+    // design (reputation effects encode axis in the target string, not in
+    // tags — per-axis specificity is a future loopback per the Phase 158
+    // plan). Three snippets at each high-traffic small cell so the FNV
+    // tie-break spreads them across a multi-effect render.
     {
-      id: 'shared_preview_reputation_pos_a',
-      text: "the tavern's name would carry further",
-      conditions: [
-        { kind: 'effectTargetKind', anyOf: ['reputation'] },
-        { kind: 'effectDirection', sign: 'positive' },
-      ],
-    },
-    {
-      id: 'shared_preview_reputation_neg_a',
-      text: 'word would turn against the name',
+      id: 'shared_preview_reputation_neg_tiny_a',
+      text: 'a hair of standing would slip from the name',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['reputation'] },
         { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
       ],
     },
-    // ---- cohort (customer_group: refs) ----
     {
-      id: 'shared_preview_cohort_neg_a',
-      text: 'the group would harden against the choice',
+      id: 'shared_preview_reputation_neg_tiny_b',
+      text: 'talk would dim a touch around the tavern',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
+      ],
+    },
+    {
+      id: 'shared_preview_reputation_neg_small_a',
+      text: 'the name would lose a step of standing',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_reputation_neg_small_b',
+      text: 'a notch of repute would slip into the word',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_reputation_neg_small_c',
+      text: 'the tavern talk would dim by a measure',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_reputation_neg_medium_a',
+      text: 'a clear drop would mark the tavern name',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_reputation_neg_medium_b',
+      text: 'talk would carry a marked fall against the house',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_reputation_neg_large_a',
+      text: 'a heavy fall would crush the tavern name in talk',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    {
+      id: 'shared_preview_reputation_pos_tiny_a',
+      text: 'a hair of repute would settle on the name',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
+      ],
+    },
+    {
+      id: 'shared_preview_reputation_pos_small_a',
+      text: 'the name would gain a step in the talk',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_reputation_pos_small_b',
+      text: 'a notch of standing would warm the word',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_reputation_pos_small_c',
+      text: 'the tavern name would carry a measure further',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_reputation_pos_medium_a',
+      text: 'a clear lift would carry the name further',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_reputation_pos_medium_b',
+      text: 'a real step would settle the word across the city',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_reputation_pos_large_a',
+      text: 'a surge would carry the tavern name across the city',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    // ---- cohort (Phase 158 / ISSUE-126 recalibration) ----
+    //
+    // No `state_change` cohort emissions in production today — every
+    // customer_group: effect is a `cause` write. Each cell gets a single
+    // optimistic snippet so a future emission stays legible. The
+    // direction-neutral kind+direction snippet stays for the cause-write
+    // path (direction === 'neutral' / undefined band).
+    {
+      id: 'shared_preview_cohort_neg_tiny_a',
+      text: 'a touch of unease would settle on the crowd',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['cohort'] },
         { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
       ],
     },
     {
-      id: 'shared_preview_cohort_pos_a',
-      text: 'the group would soften a measure',
+      id: 'shared_preview_cohort_neg_small_a',
+      text: 'the table would harden by a step',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['cohort'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_cohort_neg_medium_a',
+      text: 'a clear drop would turn the crowd grumbling',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['cohort'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_cohort_neg_large_a',
+      text: 'a heavy fall would empty the cohort table',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['cohort'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    {
+      id: 'shared_preview_cohort_pos_tiny_a',
+      text: 'a hair of warmth would settle on the crowd',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['cohort'] },
         { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
+      ],
+    },
+    {
+      id: 'shared_preview_cohort_pos_small_a',
+      text: 'a step of goodwill would draw the table in',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['cohort'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_cohort_pos_medium_a',
+      text: 'a marked rise would warm the crowd through the night',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['cohort'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_cohort_pos_large_a',
+      text: 'a surge would fill the cohort table for the night',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['cohort'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
       ],
     },
     {
@@ -537,21 +808,84 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'effectDirection', sign: 'neutral' },
       ],
     },
-    // ---- supplier ----
+    // ---- supplier (Phase 158 / ISSUE-126 recalibration) ----
+    //
+    // Production emits: relationship/reliability -5 (small) / -10 (medium)
+    // / +3 / +5. No production large or pos-medium cells. supplierReliability
+    // template carries 6 `pre_leg_supplier_*` snippets at the same
+    // 3-condition specificity; the base authors here use distinct vocabulary
+    // so dedupe stays below 0.85 and FNV tie-break spreads renders between
+    // base and template variants.
     {
-      id: 'shared_preview_supplier_neg_a',
-      text: "the trader's deal would cool",
+      id: 'shared_preview_supplier_neg_tiny_a',
+      text: 'a touch would cool the supplier line',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['supplier'] },
         { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
       ],
     },
     {
-      id: 'shared_preview_supplier_pos_a',
-      text: 'the merchant would warm to the gesture',
+      id: 'shared_preview_supplier_neg_small_a',
+      text: 'a notch would loosen the supplier deal',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['supplier'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_supplier_neg_medium_a',
+      text: 'a marked fall would chill the merchant route',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['supplier'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_supplier_neg_large_a',
+      text: 'a heavy fall would sever the supplier lane',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['supplier'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    {
+      id: 'shared_preview_supplier_pos_tiny_a',
+      text: 'a touch of goodwill would reach the trader',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['supplier'] },
         { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
+      ],
+    },
+    {
+      id: 'shared_preview_supplier_pos_small_a',
+      text: 'a measure of goodwill would settle on the deal',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['supplier'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_supplier_pos_medium_a',
+      text: 'a marked rise would steady the merchant route',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['supplier'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_supplier_pos_large_a',
+      text: 'a wide leap would bind the supplier deal closer',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['supplier'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
       ],
     },
     {
@@ -562,21 +896,108 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'effectDirection', sign: 'neutral' },
       ],
     },
-    // ---- faction ----
+    // ---- faction (Phase 158 / ISSUE-126 recalibration) ----
+    //
+    // Production emits: trust -8 (small), trust -12 / relationship -15
+    // (medium), relationship -20/-25 (large) on betrayal paths; +5/+8
+    // small / +10/+15 medium on alliance & hosting paths; +15 fear large.
     {
-      id: 'shared_preview_faction_neg_a',
-      text: 'the guild would mark the snub',
+      id: 'shared_preview_faction_neg_tiny_a',
+      text: 'a hair of grace would slip from the guild',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['faction'] },
         { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
       ],
     },
     {
-      id: 'shared_preview_faction_pos_a',
-      text: 'the guild would warm to the move',
+      id: 'shared_preview_faction_neg_small_a',
+      text: 'the order would cool by a step',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['faction'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_faction_neg_medium_a',
+      text: 'a clear drop would harden the guild stance',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['faction'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_faction_neg_medium_b',
+      text: 'the guild would shutter a real slip behind it',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['faction'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_faction_neg_large_a',
+      text: 'a heavy fall would sever ties with the faction',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['faction'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    {
+      id: 'shared_preview_faction_pos_tiny_a',
+      text: 'a hair of warmth would reach the guild',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['faction'] },
         { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
+      ],
+    },
+    {
+      id: 'shared_preview_faction_pos_small_a',
+      text: 'a step of goodwill would reach the order',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['faction'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_faction_pos_small_b',
+      text: 'a notch of trust would settle with the guild',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['faction'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_faction_pos_medium_a',
+      text: 'a clear lift would draw the faction closer',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['faction'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_faction_pos_medium_b',
+      text: 'the house would warm by a real step',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['faction'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_faction_pos_large_a',
+      text: 'a surge would reshape standing with the faction',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['faction'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
       ],
     },
     {
@@ -587,21 +1008,100 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'effectDirection', sign: 'neutral' },
       ],
     },
-    // ---- culture ----
+    // ---- culture (Phase 158 / ISSUE-126 recalibration) ----
+    //
+    // Production emits: comfort -8 small, tension +12 / comfort -8 medium,
+    // tension -10..-15 / comfort -8..-15 medium; +8..+9 small, +10..+15
+    // medium across familiarity / comfort / tension-relief. No tiny or
+    // large emissions today.
     {
-      id: 'shared_preview_culture_neg_a',
-      text: 'the kin would feel the tension build',
+      id: 'shared_preview_culture_neg_tiny_a',
+      text: 'a hair of ease would slip from the folk',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['culture'] },
         { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
       ],
     },
     {
-      id: 'shared_preview_culture_pos_a',
-      text: 'the folk would settle into the room',
+      id: 'shared_preview_culture_neg_small_a',
+      text: 'the kin would cool by a step',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['culture'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_culture_neg_medium_a',
+      text: 'a clear drop would mark the culture standing',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['culture'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_culture_neg_medium_b',
+      text: 'kin lines would harden by a real slip',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['culture'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_culture_neg_large_a',
+      text: 'a heavy fall would set the culture against the room',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['culture'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    {
+      id: 'shared_preview_culture_pos_tiny_a',
+      text: 'a hair of ease would settle on the folk',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['culture'] },
         { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
+      ],
+    },
+    {
+      id: 'shared_preview_culture_pos_small_a',
+      text: 'the kin would warm by a step into the room',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['culture'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_culture_pos_medium_a',
+      text: 'a clear lift would warm the people gathered',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['culture'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_culture_pos_medium_b',
+      text: 'a real step would knit the kin into the night',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['culture'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_culture_pos_large_a',
+      text: 'a surge would bind the people to the tavern',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['culture'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
       ],
     },
     // ---- memory + arc + attribution (typically neutral) ----

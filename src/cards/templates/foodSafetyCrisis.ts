@@ -85,6 +85,18 @@ export const foodSafetyCrisisTemplate: CompositionalCardTemplate = {
       pool: foodSafetyEstablishingLinePool,
       wordBudget: 14,
       claimMode: 'sim_backed',
+      // Phase 154 / ISSUE-122 — Legible Surface arc, Phase 9. The
+      // food_safety SALIENCE_TABLES entry leads with
+      // `area.cleanliness` on `'location'` (kitchen) then the cook's
+      // `staff.stress` / `staff.fatigue` on `'primaryActor'`. The
+      // cube is authored at 4 spec-3 corners fixing
+      // `area.cleanliness=low` and spanning `staff.stress ×
+      // staff.fatigue` 2×2 on the cook; 4 spec-2 supports cover the
+      // off-extreme cells. Multi-fact join is the fallback for
+      // unanticipated band pairs the spec-2 / spec-3 cells don't
+      // catch (silence beats stapling per Phase 1 contract).
+      saliencePolicy: 'multi',
+      multiFactJoin: ' — ',
     },
     {
       id: 'reaction_line',

@@ -118,5 +118,58 @@ export const reactionLinePool: SnippetPool = {
         { kind: 'verbalTic', role: 'primaryActor', tic: 'quotes_someone_else' },
       ],
     },
+
+    // Phase 154 / ISSUE-122 — Legible Surface arc, Phase 9.
+    // Spec-1 state-keyed snippets so the cohort's reply reflects its
+    // actual standing rather than standing fixed on voice axes alone.
+    // First-person plural "we" framing throughout (cohort speaking,
+    // not an individual). Pairs `pressureRising` / `repeatCount` with
+    // `memoryPresent` where the line carries a history cue so
+    // simCoherence's flavor-mode history-claim detector stays quiet.
+    {
+      id: 'rxn_state_high_rowdiness',
+      text: 'We are loud and we are not stopping for you.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'customer_group.rowdiness', role: 'primaryActor', equals: 'high' },
+      ],
+    },
+    {
+      id: 'rxn_state_low_satisfaction',
+      text: 'We came in wronged, and the night has not mended it.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'customer_group.satisfaction', role: 'primaryActor', equals: 'low' },
+      ],
+    },
+    {
+      id: 'rxn_state_high_damage',
+      text: 'Look around; this room was bruised before we sat down.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+      ],
+    },
+    {
+      id: 'rxn_state_rowdy_unhappy',
+      text: 'We do not owe this place gentleness tonight.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'customer_group.rowdiness', role: 'primaryActor', equals: 'high' },
+        { kind: 'signalEquals', signal: 'customer_group.satisfaction', role: 'primaryActor', equals: 'low' },
+      ],
+    },
+    {
+      id: 'rxn_state_pressure_brawl',
+      text: 'We know how this one ends; we have been there.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'violence' },
+        { kind: 'memoryPresent', tag: 'brawl' },
+      ],
+    },
+    {
+      id: 'rxn_state_security_repeat',
+      text: 'Your hired shoulders have not changed how we drink here.',
+      conditions: [
+        { kind: 'repeatCount', subjectTag: 'violence', atLeast: 3 },
+        { kind: 'memoryPresent', tag: 'security' },
+      ],
+    },
   ],
 }

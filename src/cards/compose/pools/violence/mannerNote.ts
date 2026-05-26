@@ -86,5 +86,48 @@ export const mannerNotePool: SnippetPool = {
       ],
       specificity: 0,
     },
+
+    // Phase 154 / ISSUE-122 — Legible Surface arc, Phase 9.
+    // Spec-1 state-keyed sensory beats so the cohort's manner
+    // reflects its actual standing rather than standing fixed on
+    // voice axes alone. Third-person framing ("they" / "a noun
+    // action"); no role-claim words.
+    {
+      id: 'mnr_state_high_rowdiness',
+      text: 'A fist pounds the bench in steady rhythm.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'customer_group.rowdiness', role: 'primaryActor', equals: 'high' },
+      ],
+    },
+    {
+      id: 'mnr_state_low_satisfaction',
+      text: 'A tankard is set down with deliberate force.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'customer_group.satisfaction', role: 'primaryActor', equals: 'low' },
+      ],
+    },
+    {
+      id: 'mnr_state_high_damage',
+      text: 'A regular steps wide around the splintered bench.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+      ],
+    },
+    {
+      id: 'mnr_state_rowdy_damage',
+      text: 'A fresh crack underfoot near their table.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'customer_group.rowdiness', role: 'primaryActor', equals: 'high' },
+        { kind: 'signalEquals', signal: 'area.damage', role: 'location', equals: 'high' },
+      ],
+    },
+    {
+      id: 'mnr_state_pressure_warning',
+      text: 'A head turns at the door, listening hard.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'violence' },
+        { kind: 'memoryPresent', tag: 'warning' },
+      ],
+    },
   ],
 }

@@ -148,3 +148,86 @@ mustPass:
   determinism: same seed + same state + same slot returns same snippet after FNV tie-break
   diversity: actor + state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
   dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots
+
+# ─── Phase 154 / ISSUE-122 — Legible Surface arc, Phase 9 ──────────
+# Crises & Safety cluster matrix authoring. The inspection card opens
+# on a cross-role 3-meter cube (faction.relationship on primaryActor
+# × faction.influence on primaryActor × area.cleanliness on location)
+# authored at spec-3 corners fixing relationship=low. Actor-voiced via
+# faction or notable_npc castAttributes (reaction/manner pools);
+# establishing_line stays sim-backed narrator framing.
+#
+# Pre-existing asymmetry from Phase 138: when primaryActor is a
+# notable_npc (not a faction), the faction-signal reads on
+# 'primaryActor' silently don't resolve and the spec-1 / spec-2
+# single-condition snippets handle that path.
+phase154:
+  salienceTable:
+    family: inspection
+    reads:
+      - { kind: signal, role: primaryActor, signal: faction.relationship }
+      - { kind: signal, role: primaryActor, signal: faction.influence }
+      - { kind: signal, role: location, signal: area.cleanliness }
+      - { kind: signal, role: location, signal: area.condition }
+      - { kind: pressure, pressureId: inspection }
+      - { kind: memory, tag: warning }
+      - { kind: memory, tag: bribed_inspector }
+      - { kind: memory, tag: inspection_prep_recently }
+      - { kind: hasTag, tag: inspection_relevant }
+      - { kind: repeat, subjectTag: inspection, atLeast: 3 }
+    note: >
+      faction.relationship leads as the standing that makes the
+      inspection bite (the picker prefers `INSPECTION_AUTHORITY_TAG`
+      factions but the standing drives decision-relevance). influence
+      follows because a high-influence sour inspector is the worst-
+      case top rung. area.cleanliness on location is the venue meter
+      the inspector is actually scoring. area.condition follows.
+      Memories match the response profile emissions (warning /
+      bribed_inspector / inspection_prep_recently). `severity`
+      deliberately not added.
+  saliencePolicy:
+    slot: establishing_line
+    policy: multi
+    join: " — "
+    note: >
+      Multi-fact join is the fallback for unanticipated band pairs the
+      spec-2 / spec-3 cells don't catch. The 4 spec-3 cube corners
+      cover the readable relationship=low × influence × cleanliness
+      2×2 face; the 4 spec-2 supports cover the off-extreme cells.
+  newSnippets:
+    establishing_line:
+      cubeCorners:
+        - est_low_rel_high_inf_high_clean
+        - est_low_rel_high_inf_low_clean
+        - est_low_rel_low_inf_high_clean
+        - est_low_rel_low_inf_low_clean
+      relationshipInfluenceCleanlinessSupports:
+        - est_low_rel_high_inf
+        - est_low_rel_low_clean
+        - est_high_inf_low_clean
+        - est_low_rel_low_cond
+      topRungs:
+        - est_low_rel_inspection_pressure
+        - est_low_clean_bribed_memory
+        - est_inspection_tag_prep_memory
+    reaction_line:
+      stateKeyed:
+        - rxn_state_low_relationship
+        - rxn_state_high_influence
+        - rxn_state_low_clean
+        - rxn_state_low_rel_low_clean
+        - rxn_state_pressure_warning
+        - rxn_state_bribed_repeat
+    manner_note:
+      stateKeyed:
+        - mnr_state_low_relationship
+        - mnr_state_high_influence
+        - mnr_state_low_clean
+        - mnr_state_low_rel_inspection_tag
+        - mnr_state_pressure_prep
+  notes:
+    - mid×mid cells (and mid-third-meter slots on the cube face) stay
+      unauthored — the unconditional fallback handles them cleanly.
+    - When primaryActor is a notable_npc, faction-signal reads don't
+      resolve; the spec-1 / spec-2 single-condition snippets handle
+      that path. Pre-existing asymmetry from Phase 138.

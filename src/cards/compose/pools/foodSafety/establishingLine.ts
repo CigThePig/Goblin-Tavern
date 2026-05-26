@@ -116,5 +116,118 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'repeatCount', subjectTag: 'food_safety', atLeast: 3 },
       ],
     },
+
+    // Phase 154 / ISSUE-122 — Legible Surface arc, Phase 9.
+    // Cross-role 3-meter cube: the fixed extreme reads on
+    // `'location'` (kitchen cleanliness=low — the strictly dominant
+    // picker-driver for the kitchen vector); the spec-3 cube axes
+    // read on `'primaryActor'` (cook stress, cook fatigue — the
+    // cook's banded surface). All four corners carry 3 state-lookup
+    // primitives, so `simCoherence` is well-covered.
+    //
+    // The mid×mid cells (and mid-third-meter slots on the cube faces)
+    // stay unauthored; the unconditional fallback handles them.
+    {
+      id: 'est_low_clean_high_stress_high_fatigue',
+      text: 'The kitchen reeks and its lead hand is past her last good hour.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+        { kind: 'signalEquals', signal: 'staff.stress', role: 'primaryActor', equals: 'high' },
+        { kind: 'signalEquals', signal: 'staff.fatigue', role: 'primaryActor', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_low_clean_high_stress_low_fatigue',
+      text: 'A sharp-eyed cook bracing in a kitchen she has not scrubbed in days.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+        { kind: 'signalEquals', signal: 'staff.stress', role: 'primaryActor', equals: 'high' },
+        { kind: 'signalEquals', signal: 'staff.fatigue', role: 'primaryActor', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_low_clean_low_stress_high_fatigue',
+      text: 'A weary cook moves slow through a kitchen well past its turn.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+        { kind: 'signalEquals', signal: 'staff.stress', role: 'primaryActor', equals: 'low' },
+        { kind: 'signalEquals', signal: 'staff.fatigue', role: 'primaryActor', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_low_clean_low_stress_low_fatigue',
+      text: 'An unhurried cook in a kitchen that does not match her composure.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+        { kind: 'signalEquals', signal: 'staff.stress', role: 'primaryActor', equals: 'low' },
+        { kind: 'signalEquals', signal: 'staff.fatigue', role: 'primaryActor', equals: 'low' },
+      ],
+    },
+
+    // 4 spec-2 supports for off-extreme cells (cleanliness mid OR
+    // single cook-axis at high while the other is mid).
+    {
+      id: 'est_low_clean_high_stress',
+      text: 'A grim kitchen and a cook strung tight before the doors open.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+        { kind: 'signalEquals', signal: 'staff.stress', role: 'primaryActor', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_low_clean_high_fatigue',
+      text: 'A grim kitchen and a cook running on yesterday and a half.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+        { kind: 'signalEquals', signal: 'staff.fatigue', role: 'primaryActor', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_high_stress_high_fatigue',
+      text: 'The cook is wrung out and braced at once, kitchen aside.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'staff.stress', role: 'primaryActor', equals: 'high' },
+        { kind: 'signalEquals', signal: 'staff.fatigue', role: 'primaryActor', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_clean_low_inspection_pressure',
+      text: 'A grim kitchen on a day the inspector has been gathering momentum.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+        { kind: 'pressureRising', pressureId: 'inspection' },
+      ],
+    },
+
+    // 3 pressure / memory / hasTag top rungs (spec-2 orthogonal pairs).
+    // The new top rung `area.cleanliness=low + pressureRising
+    // food_safety` overlaps semantically with the existing
+    // `est_cleanliness_pressure` (same conditions); FNV tie-break
+    // picks one deterministically. Kept for distinctive narrative
+    // imagery distinct from the existing pool's framing.
+    {
+      id: 'est_clean_low_kitchen_memory',
+      text: 'Today the kitchen is past its turn and a prior word is sitting due.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'staff.stress', role: 'primaryActor', equals: 'high' },
+        { kind: 'memoryPresent', tag: 'kitchen' },
+      ],
+    },
+    {
+      id: 'est_inspection_tag_warning',
+      text: 'An inspector-flagged morning, and the warning is already on record.',
+      conditions: [
+        { kind: 'hasTag', tag: 'inspection_relevant' },
+        { kind: 'memoryPresent', tag: 'warning' },
+      ],
+    },
+    {
+      id: 'est_deception_repeat',
+      text: 'A trick we have served before, and the kitchen is asking for it again.',
+      conditions: [
+        { kind: 'memoryPresent', tag: 'deception' },
+        { kind: 'repeatCount', subjectTag: 'food_safety', atLeast: 3 },
+      ],
+    },
   ],
 }

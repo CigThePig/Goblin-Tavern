@@ -120,5 +120,120 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'repeatCount', subjectTag: 'inspection', atLeast: 3 },
       ],
     },
+
+    // Phase 154 / ISSUE-122 — Legible Surface arc, Phase 9.
+    // Cross-role 3-meter cube: the fixed extreme reads on
+    // `'primaryActor'` (faction.relationship=low — the standing that
+    // makes an inspection bite); one spec-3 cube axis reads on
+    // `'primaryActor'` (faction.influence); the other reads on
+    // `'location'` (area.cleanliness — the venue the inspector
+    // walks). All four corners carry 3 state-lookup primitives, so
+    // `simCoherence` is well-covered.
+    //
+    // When primaryActor is a notable_npc (not a faction), the
+    // faction-signal reads on `'primaryActor'` don't resolve; spec-1 /
+    // spec-2 single-condition snippets handle that path. Pre-existing
+    // asymmetry from Phase 138; documented in the template comment.
+    //
+    // Mid×mid cells stay unauthored; the unconditional fallback
+    // handles them.
+    {
+      id: 'est_low_rel_high_inf_high_clean',
+      text: 'A faction with reach and a grudge, in a room that gives no excuses.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'faction.relationship', role: 'primaryActor', equals: 'low' },
+        { kind: 'signalEquals', signal: 'faction.influence', role: 'primaryActor', equals: 'high' },
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_low_rel_high_inf_low_clean',
+      text: 'The kind who closes places, and the room is making the argument.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'faction.relationship', role: 'primaryActor', equals: 'low' },
+        { kind: 'signalEquals', signal: 'faction.influence', role: 'primaryActor', equals: 'high' },
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_low_rel_low_inf_high_clean',
+      text: 'Their grievance is real, their backing thin; the floor is clean.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'faction.relationship', role: 'primaryActor', equals: 'low' },
+        { kind: 'signalEquals', signal: 'faction.influence', role: 'primaryActor', equals: 'low' },
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_low_rel_low_inf_low_clean',
+      text: 'A smaller faction with a longer grievance, and a grubby room.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'faction.relationship', role: 'primaryActor', equals: 'low' },
+        { kind: 'signalEquals', signal: 'faction.influence', role: 'primaryActor', equals: 'low' },
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+      ],
+    },
+
+    // 4 spec-2 supports for off-extreme cells.
+    {
+      id: 'est_low_rel_high_inf',
+      text: 'A faction with reach and a grudge, here this morning by appointment.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'faction.relationship', role: 'primaryActor', equals: 'low' },
+        { kind: 'signalEquals', signal: 'faction.influence', role: 'primaryActor', equals: 'high' },
+      ],
+    },
+    {
+      id: 'est_low_rel_low_clean',
+      text: 'Cold relations to start, and the room is not helping the case.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'faction.relationship', role: 'primaryActor', equals: 'low' },
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_high_inf_low_clean',
+      text: 'A heavy office to face, and a room that will not stand reading.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'faction.influence', role: 'primaryActor', equals: 'high' },
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+      ],
+    },
+    {
+      id: 'est_low_rel_low_cond',
+      text: 'Cold relations, and a room that is holding together by habit alone.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'faction.relationship', role: 'primaryActor', equals: 'low' },
+        { kind: 'signalEquals', signal: 'area.condition', role: 'location', equals: 'low' },
+      ],
+    },
+
+    // 3 pressure / memory / hasTag top rungs (spec-2 orthogonal pairs).
+    // The new `faction.relationship=low + pressureRising inspection`
+    // top rung covers a cell the existing pool misses.
+    {
+      id: 'est_low_rel_inspection_pressure',
+      text: 'Cold relations on a morning the slate has been steepening for days.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'faction.relationship', role: 'primaryActor', equals: 'low' },
+        { kind: 'pressureRising', pressureId: 'inspection' },
+      ],
+    },
+    {
+      id: 'est_low_clean_bribed_memory',
+      text: 'A grubby room on a faction whose silence has already been bought.',
+      conditions: [
+        { kind: 'signalEquals', signal: 'area.cleanliness', role: 'location', equals: 'low' },
+        { kind: 'memoryPresent', tag: 'bribed_inspector' },
+      ],
+    },
+    {
+      id: 'est_inspection_tag_prep_memory',
+      text: 'An inspector-flagged morning after a prep we thought would hold longer.',
+      conditions: [
+        { kind: 'hasTag', tag: 'inspection_relevant' },
+        { kind: 'memoryPresent', tag: 'inspection_prep_recently' },
+      ],
+    },
   ],
 }

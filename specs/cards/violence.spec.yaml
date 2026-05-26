@@ -145,3 +145,82 @@ mustPass:
   determinism: same seed + same state + same slot returns same snippet after FNV tie-break
   diversity: actor + state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
   dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots
+
+# ─── Phase 154 / ISSUE-122 — Legible Surface arc, Phase 9 ──────────
+# Crises & Safety cluster matrix authoring. The violence card opens
+# on a cross-role 3-meter cube (customer_group.rowdiness on
+# primaryActor × customer_group.satisfaction on primaryActor ×
+# area.damage on location) authored at spec-3 corners fixing
+# rowdiness=high. Actor-voiced via cohort castAttributes
+# (reaction/manner pools); establishing_line stays sim-backed
+# narrator framing.
+phase154:
+  salienceTable:
+    family: violence
+    reads:
+      - { kind: signal, role: primaryActor, signal: customer_group.rowdiness }
+      - { kind: signal, role: primaryActor, signal: customer_group.satisfaction }
+      - { kind: signal, role: location, signal: area.damage }
+      - { kind: signal, role: primaryActor, signal: customer_group.loyalty }
+      - { kind: pressure, pressureId: violence }
+      - { kind: memory, tag: warning }
+      - { kind: memory, tag: brawl }
+      - { kind: memory, tag: security }
+      - { kind: memory, tag: ban }
+      - { kind: repeat, subjectTag: violence, atLeast: 3 }
+    note: >
+      customer_group.rowdiness leads as the strictly dominant picker
+      driver (the picker scores `patronage + rowdiness`). satisfaction
+      follows as the social dimension a player reads alongside
+      rowdiness. area.damage on location follows because the violence
+      damage cascade affects it. loyalty is the fourth meter — a
+      low-loyalty rowdy group is a different problem than a high-
+      loyalty one. Memory tags ordered to mirror response profile
+      emissions (warning / brawl / security / ban). `severity`
+      deliberately not added.
+  saliencePolicy:
+    slot: establishing_line
+    policy: multi
+    join: " — "
+    note: >
+      Multi-fact join is the fallback for unanticipated band pairs the
+      spec-2 / spec-3 cells don't catch. The 4 spec-3 cube corners
+      cover the readable rowdiness=high × satisfaction × area.damage
+      2×2 face; the 4 spec-2 supports cover the off-extreme cells.
+  newSnippets:
+    establishing_line:
+      cubeCorners:
+        - est_high_row_high_sat_high_dmg
+        - est_high_row_high_sat_low_dmg
+        - est_high_row_low_sat_high_dmg
+        - est_high_row_low_sat_low_dmg
+      rowdinessSatisfactionDamageSupports:
+        - est_high_row_high_sat
+        - est_high_row_low_sat
+        - est_high_row_high_dmg
+        - est_low_sat_high_dmg
+      topRungs:
+        - est_low_sat_brawl_memory
+        - est_high_dmg_security_memory
+        - est_low_loyalty_ban_memory
+    reaction_line:
+      stateKeyed:
+        - rxn_state_high_rowdiness
+        - rxn_state_low_satisfaction
+        - rxn_state_high_damage
+        - rxn_state_rowdy_unhappy
+        - rxn_state_pressure_brawl
+        - rxn_state_security_repeat
+    manner_note:
+      stateKeyed:
+        - mnr_state_high_rowdiness
+        - mnr_state_low_satisfaction
+        - mnr_state_high_damage
+        - mnr_state_rowdy_damage
+        - mnr_state_pressure_warning
+  notes:
+    - mid×mid cells (and mid-third-meter slots on the cube face) stay
+      unauthored — the unconditional fallback handles them cleanly.
+    - reaction_line snippets use first-person plural "we" framing —
+      the cohort speaking, not an individual; a slip to "I" would
+      break the template's cohort centring.

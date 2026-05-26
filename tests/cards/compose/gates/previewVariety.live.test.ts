@@ -1442,3 +1442,579 @@ describe('previewVariety gate — Phase 158 social legibility on cluster pools',
     expect(report.observed.magnitudeRatio).toBe(1)
   })
 })
+
+// ---- Phase 159 / ISSUE-127 — operational-cluster live legibility ----
+//
+// Live coverage for the staff / area / pressure recalibrations and the
+// shared inaction-pressure block. Each test below builds a realistic
+// multi-choice render whose effects match the production cells emitted
+// by that template's consequence profiles per the audit in
+// docs/plans/phase-159-operational-previews.md §"What the sim emits".
+// `requireMagnitude` is the universal rule; `forbidInactionBlank` opts
+// on for templates whose seeds carry an inaction profile so the new
+// inaction-gated pressure snippets get exercised.
+
+describe('previewVariety gate — Phase 159 operational legibility on cluster pools', () => {
+  const state = createInitialTavernState()
+
+  function operationalSample(
+    family: string,
+    type: string,
+    timing:
+      | 'during_service'
+      | 'morning_prep'
+      | 'closing'
+      | 'end_week'
+      | 'end_month',
+    pool: SnippetPool,
+    seedId: string,
+    choices: PreviewVarietyChoice[],
+  ): PreviewVarietySample {
+    return {
+      seed: makeSeed({
+        id: seedId,
+        family: family as IssueSeed['family'],
+        type: type as IssueSeed['type'],
+        timing,
+        severity: 45,
+        domain: [family.split('_')[0] ?? family],
+      }),
+      state,
+      previewPool: pool,
+      choices,
+      maxPreview: 2,
+    }
+  }
+
+  it('staffAside pool: staff stress/morale movements render calibrated magnitude', () => {
+    // Mira's staff_identity card draws stress -10 (medium) and morale +6
+    // (small) cells; the Phase 159 recalibration adds bands to both.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('rest', 'Send the cook home early'),
+        effects: [
+          effect('state_change', 'staff.alice.stress', -10, 'Stress eases', ['staff']),
+          effect('state_change', 'staff.alice.morale', 6, 'Morale lifts', ['staff']),
+        ],
+      },
+      {
+        slot: slot('push', 'Push through service'),
+        effects: [
+          effect('state_change', 'staff.alice.fatigue', 8, 'Fatigue climbs', ['staff']),
+        ],
+      },
+    ]
+    const sample = operationalSample(
+      'staff_identity',
+      'relationship_test',
+      'morning_prep',
+      staffAsideEffectPreviewPool,
+      'phase159-staffAside',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('staffBurnout pool: staff loyalty/morale extremes render calibrated magnitude', () => {
+    // staff_burnout cards drive loyalty +14 (medium) on raise paths and
+    // -20 (large) on dismissal — Phase 159's staff cells cover both.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('raise', 'Give a raise'),
+        effects: [
+          effect('state_change', 'staff.bob.loyalty', 14, 'Loyalty rises', ['staff']),
+          effect('state_change', 'coin', -15, 'Wages paid', ['coin', 'wages']),
+        ],
+      },
+      {
+        slot: slot('dismiss', 'Let them go'),
+        effects: [
+          effect('state_change', 'staff.bob.loyalty', -20, 'Staff betrayed', ['staff']),
+        ],
+      },
+    ]
+    const sample = operationalSample(
+      'staff_burnout',
+      'staff_request',
+      'morning_prep',
+      staffBurnoutEffectPreviewPool,
+      'phase159-staffBurnout',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true, requireCostSurfacing: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('maintenance pool: area condition + pressure rise render calibrated magnitude', () => {
+    // Maintenance card emits area damage repair (-10/-25) on fix path,
+    // coin spend, and pressure:maintenance rising on inaction. The
+    // inaction-flagged choice exercises the new shared inaction-pressure
+    // snippets.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('fix_now', 'Fix it tonight'),
+        effects: [
+          effect('state_change', 'areas.kitchen.damage', -20, 'Kitchen repair', ['area']),
+          effect('state_change', 'coin', -25, 'Spend on repair', ['coin']),
+        ],
+      },
+      {
+        slot: slot('ignore', 'Let it ride'),
+        effects: [effect('pressure', 'pressure:maintenance', 6, 'Maintenance rising', ['pressure'])],
+        inactionPreview: true,
+      },
+    ]
+    const sample = operationalSample(
+      'maintenance',
+      'maintenance_problem',
+      'morning_prep',
+      maintenancePreviewPool,
+      'phase159-maintenance',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: {
+        requireMagnitude: true,
+        requireCostSurfacing: true,
+        forbidInactionBlank: true,
+      },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('areaAtmosphere pool: area cleanliness + delayed pressure render calibrated magnitude', () => {
+    // areaAtmosphere is the Phase-147 pilot; the area-specific inaction
+    // snippets stay in its pool but the shared inaction-pressure block
+    // covers the pressure:maintenance side of the same render.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('scrub', 'Scrub the kitchen'),
+        effects: [
+          effect('state_change', 'areas.kitchen.cleanliness', 15, 'Cleanliness rises', ['area']),
+          effect('state_change', 'coin', -15, 'Cleaning supplies', ['coin']),
+        ],
+      },
+      {
+        slot: slot('ignore', 'Leave it for tomorrow'),
+        effects: [
+          effect('pressure', 'pressure:maintenance', 10, 'Maintenance rising', ['pressure']),
+          effect('state_change', 'areas.kitchen.condition', -8, 'Room slipping', ['area']),
+        ],
+        inactionPreview: true,
+      },
+    ]
+    const sample = operationalSample(
+      'area_atmosphere',
+      'warning',
+      'morning_prep',
+      areaAtmospherePreviewPool,
+      'phase159-area',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: {
+        requireMagnitude: true,
+        requireCostSurfacing: true,
+        forbidInactionBlank: true,
+      },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('foodSafety pool: staff stress + pressure framing render calibrated magnitude', () => {
+    // Food-safety crisis cards mix coin spend, staff effects, area
+    // (kitchen cleanliness), and pressure:food_safety on multiple paths.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('treat', 'Treat the kitchen now'),
+        effects: [
+          effect('state_change', 'areas.kitchen.cleanliness', 20, 'Sanitized', ['area']),
+          effect('state_change', 'coin', -25, 'Cleaning crew cost', ['coin']),
+        ],
+      },
+      {
+        slot: slot('push_through', 'Push through service'),
+        effects: [
+          effect('state_change', 'staff.alice.stress', 8, 'Stress climbing', ['staff']),
+        ],
+        inactionPreview: true,
+      },
+    ]
+    const sample = operationalSample(
+      'food_safety',
+      'crisis',
+      'morning_prep',
+      foodSafetyPreviewPool,
+      'phase159-foodSafety',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: {
+        requireMagnitude: true,
+        requireCostSurfacing: true,
+        forbidInactionBlank: true,
+      },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('inspection pool: staff/coin + pressure render calibrated magnitude', () => {
+    // Inspection card mixes coin (bribe -25), staff loyalty (+6 morale
+    // path), and pressure:inspection rising on inaction.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('bribe', 'Slip them coin'),
+        effects: [
+          effect('state_change', 'coin', -25, 'Bribe', ['coin']),
+        ],
+      },
+      {
+        slot: slot('comply', 'Comply with the inspector'),
+        effects: [
+          effect('state_change', 'staff.alice.morale', 6, 'Crew steadies', ['staff']),
+        ],
+      },
+      {
+        slot: slot('refuse', 'Refuse cooperation'),
+        effects: [effect('pressure', 'pressure:inspection', 12, 'Inspection looms', ['pressure'])],
+        inactionPreview: true,
+      },
+    ]
+    const sample = operationalSample(
+      'inspection',
+      'inspection_threat',
+      'during_service',
+      inspectionPreviewPool,
+      'phase159-inspection',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: {
+        requireMagnitude: true,
+        requireCostSurfacing: true,
+        forbidInactionBlank: true,
+      },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('debtRent pool: pressure:landlord rising on delay path renders calibrated magnitude', () => {
+    // Phase 12 covered the coin/wages/rent legs; Phase 14 covers the
+    // pressure:landlord +10 delayed rise on the `delay` profile.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('pay', 'Pay what we owe'),
+        effects: [effect('state_change', 'coin', -30, 'Pay rent', ['coin', 'rent'])],
+      },
+      {
+        slot: slot('delay', 'Push it to next month'),
+        effects: [effect('pressure', 'pressure:landlord', 10, 'Landlord angrier', ['pressure'])],
+        inactionPreview: true,
+      },
+    ]
+    const sample = operationalSample(
+      'debt_rent',
+      'debt_pressure',
+      'end_month',
+      debtRentPreviewPool,
+      'phase159-debt',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: {
+        requireMagnitude: true,
+        requireCostSurfacing: true,
+        forbidInactionBlank: true,
+      },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('stockShortage pool: pressure:stock_shortage rising on ignore path renders calibrated magnitude', () => {
+    // Stock-shortage `ignore` profile delays pressure:stock_shortage +6.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('restock', 'Restock cellar'),
+        effects: [
+          effect('state_change', 'stock.ale.quantity', 60, 'restock', ['stock']),
+          effect('state_change', 'coin', -30, 'Spend on stock', ['coin']),
+        ],
+      },
+      {
+        slot: slot('ignore', 'Ration the cellar'),
+        effects: [effect('pressure', 'pressure:stock_shortage', 6, 'Shortage worsens', ['pressure'])],
+        inactionPreview: true,
+      },
+    ]
+    const sample = operationalSample(
+      'stock_shortage',
+      'warning',
+      'morning_prep',
+      stockShortagePreviewPool,
+      'phase159-stock',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: {
+        requireMagnitude: true,
+        requireCostSurfacing: true,
+        forbidInactionBlank: true,
+      },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('customerComplaint pool: pressure:regular_customer_loss rising on ignore path renders calibrated magnitude', () => {
+    // The `ignore` profile on customer_complaint emits
+    // pressure:regular_customer_loss +5/+6 as the delayed cost.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('appease', 'Comp the group'),
+        effects: [
+          effect('state_change', 'coin', -20, 'Comp cost', ['coin']),
+          effect('state_change', 'customers.merchants.patronage', 4, 'Group warms back', ['customer']),
+        ],
+      },
+      {
+        slot: slot('ignore', 'Let them stew'),
+        effects: [effect('pressure', 'pressure:regular_customer_loss', 5, 'Loss climbing', ['pressure'])],
+        inactionPreview: true,
+      },
+    ]
+    const sample = operationalSample(
+      'customer_complaint',
+      'complaint',
+      'during_service',
+      customerComplaintPreviewPool,
+      'phase159-customerComp',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: {
+        requireMagnitude: true,
+        requireCostSurfacing: true,
+        forbidInactionBlank: true,
+      },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('violence pool: staff stress + pressure mix renders calibrated magnitude', () => {
+    // Violence cards write staff stress (+8 medium on calm-the-room
+    // paths), coin (security wages -15), area damage (+6 delayed).
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('intervene', 'Step in personally'),
+        effects: [
+          effect('state_change', 'staff.alice.stress', 8, 'Stress rises', ['staff']),
+        ],
+      },
+      {
+        slot: slot('security', 'Call extra security'),
+        effects: [
+          effect('state_change', 'coin', -15, 'Security wages', ['coin', 'wages']),
+        ],
+      },
+      {
+        slot: slot('ignore', 'Let it run its course'),
+        effects: [
+          effect('pressure', 'pressure:rival_tavern', 6, 'Rival pressure', ['pressure']),
+          effect('state_change', 'areas.taproom.damage', 6, 'Damage accruing', ['area']),
+        ],
+        inactionPreview: true,
+      },
+    ]
+    const sample = operationalSample(
+      'violence',
+      'customer_incident',
+      'during_service',
+      violencePreviewPool,
+      'phase159-violence',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: {
+        requireMagnitude: true,
+        requireCostSurfacing: true,
+        forbidInactionBlank: true,
+      },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('factionRequest pool: faction + staff + pressure mix renders calibrated magnitude', () => {
+    // Phase 13 covered the faction-meter side; Phase 14 cross-checks
+    // staff/pressure effects that ride along with social-meter movements.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('host', 'Host the gathering'),
+        effects: [
+          effect('state_change', 'factions.guild.relationship', 15, 'Faction warms', ['faction']),
+          effect('state_change', 'staff.alice.fatigue', 8, 'Fatigue climbs', ['staff']),
+        ],
+      },
+      {
+        slot: slot('refuse', 'Refuse the request'),
+        effects: [
+          effect('pressure', 'pressure:faction_anger', 8, 'Anger rising', ['pressure']),
+        ],
+        inactionPreview: true,
+      },
+    ]
+    const sample = operationalSample(
+      'faction_request',
+      'social_conflict',
+      'during_service',
+      factionRequestPreviewPool,
+      'phase159-faction',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: {
+        requireMagnitude: true,
+        forbidInactionBlank: true,
+      },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('cultureConflict pool: pressure:cultural_tension rising on ignore renders calibrated magnitude', () => {
+    // Phase 13 covered the culture-meter side; Phase 14 cross-checks the
+    // pressure:cultural_tension companion effect on social_conflict
+    // ignore paths.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('mediate', 'Mediate the dispute'),
+        effects: [
+          effect('state_change', 'cultures.miners.tension', -10, 'Tension eases', ['culture']),
+        ],
+      },
+      {
+        slot: slot('ignore', 'Stay out of it'),
+        effects: [
+          effect('pressure', 'pressure:cultural_tension', 12, 'Tension worsens', ['pressure']),
+        ],
+        inactionPreview: true,
+      },
+    ]
+    const sample = operationalSample(
+      'culture_conflict',
+      'social_conflict',
+      'during_service',
+      cultureConflictPreviewPool,
+      'phase159-culture',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: {
+        requireMagnitude: true,
+        forbidInactionBlank: true,
+      },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('seasonalArc pool: pressure:arc_escalation rising renders calibrated magnitude', () => {
+    // Seasonal arcs build pressure:arc_escalation on inattention to
+    // mushroom_blight / inspection_campaign / etc.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('invest', 'Invest in the cellar'),
+        effects: [
+          effect('state_change', 'coin', -30, 'Invest in seasonal stores', ['coin']),
+        ],
+      },
+      {
+        slot: slot('delay', 'Push it to next week'),
+        effects: [
+          effect('pressure', 'pressure:arc_escalation', 8, 'Arc escalating', ['pressure']),
+        ],
+        inactionPreview: true,
+      },
+    ]
+    const sample = operationalSample(
+      'seasonal_arc',
+      'arc_milestone',
+      'closing',
+      seasonalArcPreviewPool,
+      'phase159-seasonal',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: {
+        requireMagnitude: true,
+        requireCostSurfacing: true,
+        forbidInactionBlank: true,
+      },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+
+  it('monthlyReview pool: pressure:staff_burnout rising on month-end inattention renders calibrated magnitude', () => {
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('invest', 'Reinvest profits in the crew'),
+        effects: [
+          effect('state_change', 'staff.alice.morale', 12, 'Crew morale climbs', ['staff']),
+          effect('state_change', 'coin', -30, 'Crew bonus', ['coin', 'wages']),
+        ],
+      },
+      {
+        slot: slot('coast', 'Coast another month'),
+        effects: [
+          effect('pressure', 'pressure:staff_burnout', 8, 'Burnout rising', ['pressure']),
+        ],
+        inactionPreview: true,
+      },
+    ]
+    const sample = operationalSample(
+      'monthly_review',
+      'monthly_review',
+      'end_month',
+      monthlyReviewPreviewPool,
+      'phase159-monthly-ops',
+      choices,
+    )
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: {
+        requireMagnitude: true,
+        requireCostSurfacing: true,
+        forbidInactionBlank: true,
+      },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+  })
+})

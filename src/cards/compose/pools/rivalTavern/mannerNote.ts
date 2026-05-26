@@ -73,5 +73,33 @@ export const mannerNotePool: SnippetPool = {
       conditions: [],
       specificity: 0,
     },
+
+    // Phase 155 / ISSUE-123 — Legible Surface arc, Phase 10. State-
+    // keyed sensory beats so the manner line varies with rival-type +
+    // pressure + memory combinations, not just on broad tags.
+    {
+      id: 'mnr_state_arc_pressure',
+      text: 'Lamplight catches a stool that has stayed empty tonight.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rival.arc' },
+        { kind: 'pressureRising', pressureId: 'rival_tavern_pressure' },
+      ],
+    },
+    {
+      id: 'mnr_state_dual_pressure',
+      text: 'Two columns of the ledger have both thinned tonight.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'rival_tavern_pressure' },
+        { kind: 'pressureRising', pressureId: 'regular_customer_loss' },
+      ],
+    },
+    {
+      id: 'mnr_state_severity_repeat',
+      text: 'The candle by the till sits thinner than before.',
+      conditions: [
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'repeatCount', subjectTag: 'rival', atLeast: 3 },
+      ],
+    },
   ],
 }

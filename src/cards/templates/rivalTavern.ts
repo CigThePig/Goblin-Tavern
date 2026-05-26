@@ -68,11 +68,25 @@ export const rivalTavernTemplate: CompositionalCardTemplate = {
       claimMode: 'flavor',
     },
     {
+      // Phase 155 / ISSUE-123 — Legible Surface arc, Phase 10. The
+      // rival_tavern card is *about* the rival-type × pressure pair (a
+      // named-arc rival reads as a different problem from an anonymous
+      // price-undercutter, and the rival-tavern pressure climbing
+      // changes the urgency). `saliencePolicy: 'multi'` lets the
+      // assembler tie-break top-specificity matches by salience (the
+      // rival-type tag is the lead read for `rival_tavern`; see
+      // `compose/salience.ts`), then append a secondary snippet covering
+      // the next orthogonal salient fact (pressureRising / memory /
+      // severity / repeat) within the combined word budget. Layered
+      // OVER the gradient — when only one read resolves, behaviour
+      // matches the single-fact baseline.
       id: 'establishing_line',
       role: 'utterance',
       pool: rivalTavernEstablishingLinePool,
       wordBudget: 14,
       claimMode: 'sim_backed',
+      saliencePolicy: 'multi',
+      multiFactJoin: ' — ',
     },
     {
       id: 'reaction_line',

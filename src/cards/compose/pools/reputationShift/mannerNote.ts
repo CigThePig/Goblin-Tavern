@@ -73,5 +73,33 @@ export const mannerNotePool: SnippetPool = {
       conditions: [],
       specificity: 0,
     },
+
+    // Phase 155 / ISSUE-123 — Legible Surface arc, Phase 10. State-
+    // keyed sensory beats so the manner line varies with axis +
+    // pressure + memory combinations, not just on broad tags.
+    {
+      id: 'mnr_state_reliable_pressure',
+      text: 'The same regulars touch the bar at the same hour.',
+      conditions: [
+        { kind: 'hasTag', tag: 'reputation.reliable' },
+        { kind: 'pressureRising', pressureId: 'reputation_drift' },
+      ],
+    },
+    {
+      id: 'mnr_state_severity_repeat',
+      text: 'The lamps over the till sit a notch lower tonight.',
+      conditions: [
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'repeatCount', subjectTag: 'reputation', atLeast: 3 },
+      ],
+    },
+    {
+      id: 'mnr_state_dangerous_identity',
+      text: 'A shoulder brushes the bar with extra space around it.',
+      conditions: [
+        { kind: 'hasTag', tag: 'reputation.dangerous' },
+        { kind: 'memoryPresent', tag: 'identity' },
+      ],
+    },
   ],
 }

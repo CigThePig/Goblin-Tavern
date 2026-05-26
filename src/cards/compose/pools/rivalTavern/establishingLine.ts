@@ -123,5 +123,104 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'repeatCount', subjectTag: 'rival', atLeast: 3 },
       ],
     },
+
+    // Phase 155 / ISSUE-123 — Legible Surface arc, Phase 10
+    // (Reputation, Rumour & Rivals cluster). Multi-meter combination
+    // cells covering `(rival_type × dual-pressure)`, `(rival_type ×
+    // memory)`, `(dual-pressure × memory)`, and top-rung
+    // (rival_type × severity × repeat) cells. Every combo pairs
+    // `hasTag rival.*` with `pressureRising` / `memoryPresent` /
+    // `severityAtLeast` / `repeatCount` so the sim-coherence gate sees
+    // a state-lookup primitive.
+    {
+      id: 'est_arc_customer_loss',
+      text: 'A named rival has been bleeding regulars off the floor for days.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rival.arc' },
+        { kind: 'pressureRising', pressureId: 'regular_customer_loss' },
+      ],
+    },
+    {
+      id: 'est_system_customer_loss',
+      text: 'An anonymous undercutter is bleeding regulars off the floor.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rival.system' },
+        { kind: 'pressureRising', pressureId: 'regular_customer_loss' },
+      ],
+    },
+
+    // Rival-type × memory combos — last round's response tangled with
+    // the current rival reading.
+    {
+      id: 'est_arc_price_memory',
+      text: 'The named rival and last round’s price cut are both still trading.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rival.arc' },
+        { kind: 'memoryPresent', tag: 'price' },
+      ],
+    },
+    {
+      id: 'est_arc_event_memory',
+      text: 'The named rival and last round’s counter-event sit beside each other.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rival.arc' },
+        { kind: 'memoryPresent', tag: 'event' },
+      ],
+    },
+    {
+      id: 'est_system_ignored_memory',
+      text: 'The anonymous pull was set aside last round; it is back heavier.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rival.system' },
+        { kind: 'memoryPresent', tag: 'ignored' },
+      ],
+    },
+    {
+      id: 'est_arc_deception_memory',
+      text: 'The named rival and last round’s counter-rumour are still in talk.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rival.arc' },
+        { kind: 'memoryPresent', tag: 'deception' },
+      ],
+    },
+
+    // Dual-pressure combos — both pressures climbing in step, or one
+    // pressure paired with last round's choice memory.
+    {
+      id: 'est_dual_pressure_rising',
+      text: 'Both the rival pull and the regulars drift are climbing on the same day.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'rival_tavern_pressure' },
+        { kind: 'pressureRising', pressureId: 'regular_customer_loss' },
+      ],
+    },
+    {
+      id: 'est_dual_pressure_deception_memory',
+      text: 'Both pressures are up while last round’s counter-rumour still trades.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'rival_tavern_pressure' },
+        { kind: 'memoryPresent', tag: 'deception' },
+      ],
+    },
+
+    // Top-rung (rival_type × severity × repeat) — the deepest cells.
+    {
+      id: 'est_arc_severity_repeat',
+      text: 'The named house, three closings deep, pulls harder again today.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rival.arc' },
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'repeatCount', subjectTag: 'rival', atLeast: 3 },
+      ],
+    },
+    {
+      id: 'est_system_severity_pressure',
+      text: 'The anonymous pull has tipped past softening; the books bend with it.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rival.system' },
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'pressureRising', pressureId: 'rival_tavern_pressure' },
+      ],
+    },
   ],
 }

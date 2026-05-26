@@ -403,6 +403,115 @@ describe('SALIENCE_TABLES', () => {
       signal: 'area.condition',
     })
   })
+
+  // Phase 155 / ISSUE-123 — Legible Surface arc, Phase 10 (Reputation,
+  // Rumour & Rivals cluster). The three new entries have no band
+  // signals on their primary subject (axes / accuracy / target_kind /
+  // rival_type are categorical enums), so reads[0] is `hasTag` not
+  // `signal`. Assertions cover the lead-rung shape per family.
+  it('seeds reputation_shift with axis hasTag reads leading, then pressure / memory / severity', () => {
+    const table = SALIENCE_TABLES['reputation_shift' as IssueSeedFamilyId]
+    expect(table).toBeDefined()
+    expect(table!.reads[0]).toMatchObject({
+      kind: 'hasTag',
+      tag: 'reputation.cozy',
+    })
+    expect(table!.reads[1]).toMatchObject({
+      kind: 'hasTag',
+      tag: 'reputation.tasty',
+    })
+    // After the ten axes (indices 0-9) comes the pressure read.
+    expect(table!.reads[10]).toMatchObject({
+      kind: 'pressure',
+      pressureId: 'reputation_drift',
+    })
+    expect(table!.reads[11]).toMatchObject({
+      kind: 'memory',
+      tag: 'identity',
+    })
+    expect(table!.reads[12]).toMatchObject({
+      kind: 'memory',
+      tag: 'customer',
+    })
+    expect(table!.reads[13]).toMatchObject({
+      kind: 'severity',
+      atLeast: 70,
+    })
+    expect(table!.reads[14]).toMatchObject({
+      kind: 'repeat',
+      subjectTag: 'reputation',
+      atLeast: 3,
+    })
+  })
+
+  it('seeds rumour_crisis with accuracy then target-kind hasTag reads, then pressure / memory', () => {
+    const table = SALIENCE_TABLES['rumour_crisis' as IssueSeedFamilyId]
+    expect(table).toBeDefined()
+    expect(table!.reads[0]).toMatchObject({
+      kind: 'hasTag',
+      tag: 'rumour.true',
+    })
+    expect(table!.reads[1]).toMatchObject({
+      kind: 'hasTag',
+      tag: 'rumour.partial',
+    })
+    expect(table!.reads[2]).toMatchObject({
+      kind: 'hasTag',
+      tag: 'rumour.false',
+    })
+    expect(table!.reads[3]).toMatchObject({
+      kind: 'hasTag',
+      tag: 'rumour.unknown',
+    })
+    // Target-kind reads start at index 4.
+    expect(table!.reads[4]).toMatchObject({
+      kind: 'hasTag',
+      tag: 'rumour.target.supplier',
+    })
+    // Pressure read comes after all 10 hasTag reads (indices 0-9).
+    expect(table!.reads[10]).toMatchObject({
+      kind: 'pressure',
+      pressureId: 'rumour_pressure',
+    })
+    expect(table!.reads[11]).toMatchObject({
+      kind: 'memory',
+      tag: 'denial',
+    })
+  })
+
+  it('seeds rival_tavern with rival-type hasTag reads first, then dual pressures, memory, severity', () => {
+    const table = SALIENCE_TABLES['rival_tavern' as IssueSeedFamilyId]
+    expect(table).toBeDefined()
+    expect(table!.reads[0]).toMatchObject({
+      kind: 'hasTag',
+      tag: 'rival.arc',
+    })
+    expect(table!.reads[1]).toMatchObject({
+      kind: 'hasTag',
+      tag: 'rival.system',
+    })
+    expect(table!.reads[2]).toMatchObject({
+      kind: 'pressure',
+      pressureId: 'rival_tavern_pressure',
+    })
+    expect(table!.reads[3]).toMatchObject({
+      kind: 'pressure',
+      pressureId: 'regular_customer_loss',
+    })
+    expect(table!.reads[4]).toMatchObject({
+      kind: 'memory',
+      tag: 'price',
+    })
+    expect(table!.reads[8]).toMatchObject({
+      kind: 'severity',
+      atLeast: 70,
+    })
+    expect(table!.reads[9]).toMatchObject({
+      kind: 'repeat',
+      subjectTag: 'rival',
+      atLeast: 3,
+    })
+  })
 })
 
 describe('resolveSalientReads', () => {

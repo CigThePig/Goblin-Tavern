@@ -425,6 +425,107 @@ export const SALIENCE_TABLES: Partial<
       { kind: 'repeat', subjectTag: 'inspection', atLeast: 3 },
     ],
   },
+
+  // Phase 155 / ISSUE-123 — Legible Surface arc, Phase 10 (Reputation,
+  // Rumour & Rivals cluster). Three new entries on a cluster with **no
+  // band signals on its primary subject** — reputation axes, rumour
+  // accuracy, rumour target kind, and rival type are categorical enums
+  // per Phase 13 / ISSUE-108's tag-enrichment decision ("enum /
+  // categorical facts don't band naturally and `hasTag` reads them
+  // directly without new SignalIds"). So lead reads are `hasTag` (the
+  // categorical *what-is-this-about* fact) followed by `pressureRising`
+  // (the family pressure climbing), family memories ordered to mirror
+  // each generator's emit, severity, and the multi-period repeat as
+  // the deepest rung. Matches the narrator-voiced shape Phase 149 used
+  // for stock_shortage / debt_rent.
+  //
+  //   - `reputation_shift` reads list all ten axis tags (the picker at
+  //     `issueSeedGenerators.ts:3308` ranks by `|axisValue - 50|`,
+  //     emits any axis given enough deviation). Order: the five highest-
+  //     trafficked axes first (cozy / tasty / dangerous / reliable /
+  //     respectable — the ones playtest commonly surfaces), then the
+  //     other five (culinary_renown / filthy / strange / cheap /
+  //     goblinAuthentic). Only one axis tag resolves per seed, so the
+  //     order matters only for enumerability — the salience-table
+  //     coverage tests assert each axis can be the lead read. Memory
+  //     order mirrors the generator's emission (`identity` from the
+  //     embrace path at `issueSeedGenerators.ts:3403`, `customer` from
+  //     the advertise path).
+  //
+  //   - `rumour_crisis` leads with accuracy because it shapes the
+  //     decision space (a *true* rumour can't be denied honestly; a
+  //     *false* one can). Target-kind reads come next so the card
+  //     states *who* the tale has landed on. Memory order mirrors the
+  //     generator's emission of `denial` / `honesty` / `bribe` /
+  //     `deception` tags
+  //     (`expandedSeedGenerators.ts:5074`, `5723`, `5333`).
+  //
+  //   - `rival_tavern` leads with `rival.arc` vs `rival.system` — a
+  //     named-arc rival reads as a different problem from an anonymous
+  //     price-undercutter. `regular_customer_loss` follows the family
+  //     pressure as a cross-pressure crossover (mirrors Phase 154's
+  //     `inspection` listing alongside `food_safety`) because the
+  //     rival's secondary mechanical effect bleeds regulars. Memory
+  //     order mirrors the generator's profile emissions (`price` /
+  //     `event` / `deception` / `ignored` paths).
+  //
+  // `severity ≥ 70` is included on all three — the crisis-threshold
+  // floor matching Phase 149's stock_shortage / debt_rent precedent for
+  // narrator-voiced families.
+  reputation_shift: {
+    reads: [
+      { kind: 'hasTag', tag: 'reputation.cozy' },
+      { kind: 'hasTag', tag: 'reputation.tasty' },
+      { kind: 'hasTag', tag: 'reputation.dangerous' },
+      { kind: 'hasTag', tag: 'reputation.reliable' },
+      { kind: 'hasTag', tag: 'reputation.respectable' },
+      { kind: 'hasTag', tag: 'reputation.culinary_renown' },
+      { kind: 'hasTag', tag: 'reputation.filthy' },
+      { kind: 'hasTag', tag: 'reputation.strange' },
+      { kind: 'hasTag', tag: 'reputation.cheap' },
+      { kind: 'hasTag', tag: 'reputation.goblinAuthentic' },
+      { kind: 'pressure', pressureId: 'reputation_drift' },
+      { kind: 'memory', tag: 'identity' },
+      { kind: 'memory', tag: 'customer' },
+      { kind: 'severity', atLeast: 70 },
+      { kind: 'repeat', subjectTag: 'reputation', atLeast: 3 },
+    ],
+  },
+  rumour_crisis: {
+    reads: [
+      { kind: 'hasTag', tag: 'rumour.true' },
+      { kind: 'hasTag', tag: 'rumour.partial' },
+      { kind: 'hasTag', tag: 'rumour.false' },
+      { kind: 'hasTag', tag: 'rumour.unknown' },
+      { kind: 'hasTag', tag: 'rumour.target.supplier' },
+      { kind: 'hasTag', tag: 'rumour.target.regular' },
+      { kind: 'hasTag', tag: 'rumour.target.faction' },
+      { kind: 'hasTag', tag: 'rumour.target.staff' },
+      { kind: 'hasTag', tag: 'rumour.target.customer_group' },
+      { kind: 'hasTag', tag: 'rumour.target.notable_npc' },
+      { kind: 'pressure', pressureId: 'rumour_pressure' },
+      { kind: 'memory', tag: 'denial' },
+      { kind: 'memory', tag: 'honesty' },
+      { kind: 'memory', tag: 'bribe' },
+      { kind: 'memory', tag: 'deception' },
+      { kind: 'severity', atLeast: 70 },
+      { kind: 'repeat', subjectTag: 'rumour', atLeast: 3 },
+    ],
+  },
+  rival_tavern: {
+    reads: [
+      { kind: 'hasTag', tag: 'rival.arc' },
+      { kind: 'hasTag', tag: 'rival.system' },
+      { kind: 'pressure', pressureId: 'rival_tavern_pressure' },
+      { kind: 'pressure', pressureId: 'regular_customer_loss' },
+      { kind: 'memory', tag: 'price' },
+      { kind: 'memory', tag: 'event' },
+      { kind: 'memory', tag: 'deception' },
+      { kind: 'memory', tag: 'ignored' },
+      { kind: 'severity', atLeast: 70 },
+      { kind: 'repeat', subjectTag: 'rival', atLeast: 3 },
+    ],
+  },
 }
 
 /**

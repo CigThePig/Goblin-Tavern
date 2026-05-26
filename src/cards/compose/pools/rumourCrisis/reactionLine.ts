@@ -126,5 +126,52 @@ export const reactionLinePool: SnippetPool = {
         { kind: 'verbalTic', role: 'primaryActor', tic: 'trails_off' },
       ],
     },
+
+    // Phase 155 / ISSUE-123 — Legible Surface arc, Phase 10. State-
+    // keyed reaction snippets so the line varies with current
+    // accuracy / target / pressure / memory reads as well as voice
+    // axes. Sit at specificity 1+ (one condition each is the floor);
+    // they reach across all six target kinds because they gate only
+    // on rumour-state reads, not on voice axes that depend on each
+    // target carrying castAttributes. First-person target voice.
+    {
+      id: 'rxn_state_false_denial',
+      text: 'I denied this once already, and now it has grown teeth.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rumour.false' },
+        { kind: 'memoryPresent', tag: 'denial' },
+      ],
+    },
+    {
+      id: 'rxn_state_true_honesty',
+      text: 'I gave you the truth last round; it has not stopped travelling.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rumour.true' },
+        { kind: 'memoryPresent', tag: 'honesty' },
+      ],
+    },
+    {
+      id: 'rxn_state_partial_pressure',
+      text: 'The half they keep is not the half that helps me.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rumour.partial' },
+        { kind: 'pressureRising', pressureId: 'rumour_pressure' },
+      ],
+    },
+    {
+      id: 'rxn_state_pressure_repeat',
+      text: 'Third closing this whisper has come back; I am tired of it.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'rumour_pressure' },
+        { kind: 'repeatCount', subjectTag: 'rumour', atLeast: 3 },
+      ],
+    },
+    {
+      id: 'rxn_state_severity',
+      text: 'There is no quiet word that will reach this now.',
+      conditions: [
+        { kind: 'severityAtLeast', value: 70 },
+      ],
+    },
   ],
 }

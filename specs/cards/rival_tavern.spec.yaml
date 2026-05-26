@@ -152,3 +152,50 @@ mustPass:
   determinism: same seed + same state + same slot returns same snippet after FNV tie-break
   diversity: state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
   dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots
+
+phase155:
+  description: |
+    Legible Surface arc, Phase 10 (Reputation, Rumour & Rivals
+    cluster). Adds the `rival_tavern` entry to SALIENCE_TABLES (10
+    reads: rival.arc → rival.system → rival_tavern_pressure →
+    regular_customer_loss cross-pressure crossover → four memories
+    → severity ≥70 → repeat ≥3). Opts the establishing_line slot
+    into saliencePolicy 'multi' with em-dash join. Deepens
+    establishingLine pool with 10 new combination cells covering
+    rival_type × dual-pressure + rival_type × memory + dual-pressure
+    + top-rung rival_type × severity × repeat / pressure. Adds 5
+    state-keyed reaction snippets and 3 state-keyed manner beats.
+  salience:
+    family: rival_tavern
+    reads:
+      - hasTag rival.arc
+      - hasTag rival.system
+      - pressureRising rival_tavern_pressure
+      - pressureRising regular_customer_loss   # cross-pressure crossover
+      - memoryPresent price
+      - memoryPresent event
+      - memoryPresent deception
+      - memoryPresent ignored
+      - severityAtLeast 70
+      - repeatCount rival atLeast 3
+  newEstablishingCells:
+    - est_arc_customer_loss              # rival_type × customer-loss pressure
+    - est_system_customer_loss
+    - est_arc_price_memory               # rival_type × memory
+    - est_arc_event_memory
+    - est_system_ignored_memory
+    - est_arc_deception_memory
+    - est_dual_pressure_rising           # dual-pressure
+    - est_dual_pressure_deception_memory
+    - est_arc_severity_repeat            # rival_type × severity × repeat (top)
+    - est_system_severity_pressure       # rival_type × severity × pressure (top)
+  newReactionSnippets:
+    - rxn_state_arc_customer_loss
+    - rxn_state_system_pressure
+    - rxn_state_price_pressure
+    - rxn_state_event_pressure
+    - rxn_state_dual_pressure
+  newMannerSnippets:
+    - mnr_state_arc_pressure
+    - mnr_state_dual_pressure
+    - mnr_state_severity_repeat

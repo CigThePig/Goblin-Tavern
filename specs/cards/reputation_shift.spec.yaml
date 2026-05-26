@@ -154,3 +154,54 @@ mustPass:
   determinism: same seed + same state + same slot returns same snippet after FNV tie-break
   diversity: state-perturbation sampler reaches title ≥3 distinct, establishing_line ≥1 distinct, reaction_line ≥3 distinct, manner_note ≥2 distinct
   dedupe: no near-duplicate pair (≥0.85 similarity) within slot; no canonical-equal text across slots
+
+phase155:
+  description: |
+    Legible Surface arc, Phase 10 (Reputation, Rumour & Rivals
+    cluster). Adds the `reputation_shift` entry to SALIENCE_TABLES
+    (15 reads: ten axis hasTag reads + reputation_drift pressure +
+    two memories + severity ≥70 + repeat ≥3). Opts the
+    establishing_line slot into saliencePolicy 'multi' with em-dash
+    join. Deepens establishingLine pool with 10 new combination
+    cells (axis × pressure × memory + axis × severity ×
+    pressure + axis × severity × repeat top rung). Adds 5 state-keyed
+    reaction snippets and 3 state-keyed manner beats.
+  salience:
+    family: reputation_shift
+    reads:
+      - hasTag reputation.cozy        # axis 0 (highest-trafficked)
+      - hasTag reputation.tasty       # axis 1
+      - hasTag reputation.dangerous   # axis 2
+      - hasTag reputation.reliable    # axis 3
+      - hasTag reputation.respectable # axis 4
+      - hasTag reputation.culinary_renown # axis 5 (lower-trafficked)
+      - hasTag reputation.filthy      # axis 6
+      - hasTag reputation.strange     # axis 7
+      - hasTag reputation.cheap       # axis 8
+      - hasTag reputation.goblinAuthentic # axis 9
+      - pressureRising reputation_drift
+      - memoryPresent identity        # embrace path
+      - memoryPresent customer        # advertise path
+      - severityAtLeast 70
+      - repeatCount reputation atLeast 3
+  newEstablishingCells:
+    - est_cozy_identity_memory         # axis × pressure × memory
+    - est_dangerous_customer_memory
+    - est_reliable_identity_memory
+    - est_tasty_customer_memory
+    - est_respectable_identity_memory
+    - est_cozy_high_severity           # axis × severity × pressure
+    - est_tasty_high_severity
+    - est_reliable_high_severity
+    - est_respectable_high_severity
+    - est_dangerous_severity_repeat    # axis × severity × repeat (top rung)
+  newReactionSnippets:
+    - rxn_state_cozy_pressure
+    - rxn_state_dangerous_severity
+    - rxn_state_identity_pressure
+    - rxn_state_pressure_repeat
+    - rxn_state_customer_pressure
+  newMannerSnippets:
+    - mnr_state_reliable_pressure
+    - mnr_state_severity_repeat
+    - mnr_state_dangerous_identity

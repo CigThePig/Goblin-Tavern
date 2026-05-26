@@ -134,5 +134,116 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'repeatCount', subjectTag: 'reputation', atLeast: 3 },
       ],
     },
+
+    // Phase 155 / ISSUE-123 — Legible Surface arc, Phase 10
+    // (Reputation, Rumour & Rivals cluster). Multi-meter combination
+    // cells covering `(axis × pressure)`, `(axis × memory)`, `(axis ×
+    // severity)`, and top rungs. Selective authoring: the five
+    // highest-trafficked axes (cozy / tasty / dangerous / reliable /
+    // respectable) get combo coverage; the lower-traffic axes
+    // (culinary_renown / filthy / strange / cheap / goblinAuthentic)
+    // stay on the existing spec-1 single-condition rungs. Every combo
+    // includes `pressureRising reputation_drift` as the
+    // sim-coherence-anchoring state-lookup primitive (the gate's
+    // `STATE_LOOKUP_KINDS` excludes `hasTag`, so axis-only combos
+    // would fail the gate).
+    {
+      id: 'est_cozy_identity_memory',
+      text: 'The cozy welcome embraced before is widening on the talk.',
+      conditions: [
+        { kind: 'hasTag', tag: 'reputation.cozy' },
+        { kind: 'pressureRising', pressureId: 'reputation_drift' },
+        { kind: 'memoryPresent', tag: 'identity' },
+      ],
+    },
+    {
+      id: 'est_dangerous_customer_memory',
+      text: 'A rougher draw at the door is bringing the targeted crowd in.',
+      conditions: [
+        { kind: 'hasTag', tag: 'reputation.dangerous' },
+        { kind: 'pressureRising', pressureId: 'reputation_drift' },
+        { kind: 'memoryPresent', tag: 'customer' },
+      ],
+    },
+    {
+      id: 'est_reliable_identity_memory',
+      text: 'The reliable rhythm leaned into before is hardening in the talk.',
+      conditions: [
+        { kind: 'hasTag', tag: 'reputation.reliable' },
+        { kind: 'pressureRising', pressureId: 'reputation_drift' },
+        { kind: 'memoryPresent', tag: 'identity' },
+      ],
+    },
+    {
+      id: 'est_tasty_customer_memory',
+      text: 'The kitchen note from before is pulling its targeted crowd back.',
+      conditions: [
+        { kind: 'hasTag', tag: 'reputation.tasty' },
+        { kind: 'pressureRising', pressureId: 'reputation_drift' },
+        { kind: 'memoryPresent', tag: 'customer' },
+      ],
+    },
+    {
+      id: 'est_respectable_identity_memory',
+      text: 'The respectable register chosen before is now reading as the house.',
+      conditions: [
+        { kind: 'hasTag', tag: 'reputation.respectable' },
+        { kind: 'pressureRising', pressureId: 'reputation_drift' },
+        { kind: 'memoryPresent', tag: 'identity' },
+      ],
+    },
+
+    // Severity × axis combos for the four axes whose hard turns read
+    // distinctly. Each pairs the axis tag with the crisis-threshold
+    // severity flag and rising pressure as the state-lookup anchor.
+    {
+      id: 'est_cozy_high_severity',
+      text: 'The cozy hold has tipped past softening; the drift is sharp now.',
+      conditions: [
+        { kind: 'hasTag', tag: 'reputation.cozy' },
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'pressureRising', pressureId: 'reputation_drift' },
+      ],
+    },
+    {
+      id: 'est_tasty_high_severity',
+      text: 'The kitchen note is past softening; the drift will not slow.',
+      conditions: [
+        { kind: 'hasTag', tag: 'reputation.tasty' },
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'pressureRising', pressureId: 'reputation_drift' },
+      ],
+    },
+    {
+      id: 'est_reliable_high_severity',
+      text: 'The reliable rhythm is past softening; the drift is sharp now.',
+      conditions: [
+        { kind: 'hasTag', tag: 'reputation.reliable' },
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'pressureRising', pressureId: 'reputation_drift' },
+      ],
+    },
+    {
+      id: 'est_respectable_high_severity',
+      text: 'The respectable register is past softening; the drift bites today.',
+      conditions: [
+        { kind: 'hasTag', tag: 'reputation.respectable' },
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'pressureRising', pressureId: 'reputation_drift' },
+      ],
+    },
+
+    // Top-rung (axis × severity × repeat) — the deepest cell, fires
+    // when the axis has been climbing across three closings AND has
+    // hit the crisis-threshold.
+    {
+      id: 'est_dangerous_severity_repeat',
+      text: 'Three closings on a rougher name, and the drift bites harder today.',
+      conditions: [
+        { kind: 'hasTag', tag: 'reputation.dangerous' },
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'repeatCount', subjectTag: 'reputation', atLeast: 3 },
+      ],
+    },
   ],
 }

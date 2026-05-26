@@ -94,5 +94,35 @@ export const mannerNotePool: SnippetPool = {
       ],
       specificity: 0,
     },
+
+    // Phase 155 / ISSUE-123 — Legible Surface arc, Phase 10. State-
+    // keyed sensory beats so the manner line varies with accuracy /
+    // pressure / memory reads, not just on voice axes. Third-person
+    // narrator-observed; reachable across all six target kinds because
+    // these gate on rumour-state reads, not actor castAttributes.
+    {
+      id: 'mnr_state_false_pressure',
+      text: 'Their jaw sets at the false tale and rising slate.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rumour.false' },
+        { kind: 'pressureRising', pressureId: 'rumour_pressure' },
+      ],
+    },
+    {
+      id: 'mnr_state_supplier_bribe',
+      text: 'The supplier’s hand strays once toward an inside pocket.',
+      conditions: [
+        { kind: 'hasTag', tag: 'rumour.target.supplier' },
+        { kind: 'memoryPresent', tag: 'bribe' },
+      ],
+    },
+    {
+      id: 'mnr_state_severity_repeat',
+      text: 'Their shoulders carry the third closing of the same whisper.',
+      conditions: [
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'repeatCount', subjectTag: 'rumour', atLeast: 3 },
+      ],
+    },
   ],
 }

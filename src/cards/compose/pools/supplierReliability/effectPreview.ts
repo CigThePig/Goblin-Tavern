@@ -121,52 +121,12 @@ export const effectPreviewPool: SnippetPool = {
     // through -30 (medium); supplier ±3 (tiny) through ±20 (large);
     // pressure ±5 (small) through ±12 (medium); reputation -8 (small).
 
-    // Coin: cost surfacing (the till / purse / silver carry the keyword).
-    {
-      id: 'pre_leg_coin_neg_tiny',
-      text: 'a hair of coin would slip from the till',
-      conditions: [
-        { kind: 'effectTargetKind', anyOf: ['coin'] },
-        { kind: 'effectDirection', sign: 'negative' },
-        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
-      ],
-    },
-    {
-      id: 'pre_leg_coin_neg_small',
-      text: 'coin would leave the till by a step',
-      conditions: [
-        { kind: 'effectTargetKind', anyOf: ['coin'] },
-        { kind: 'effectDirection', sign: 'negative' },
-        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
-      ],
-    },
-    {
-      id: 'pre_leg_coin_neg_medium',
-      text: 'a clear drop of silver would leave the till',
-      conditions: [
-        { kind: 'effectTargetKind', anyOf: ['coin'] },
-        { kind: 'effectDirection', sign: 'negative' },
-        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
-      ],
-    },
-    {
-      id: 'pre_leg_coin_neg_large',
-      text: 'a heavy fall of silver would empty the purse',
-      conditions: [
-        { kind: 'effectTargetKind', anyOf: ['coin'] },
-        { kind: 'effectDirection', sign: 'negative' },
-        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
-      ],
-    },
-    {
-      id: 'pre_leg_coin_pos_small',
-      text: 'coin would settle into the till by a step',
-      conditions: [
-        { kind: 'effectTargetKind', anyOf: ['coin'] },
-        { kind: 'effectDirection', sign: 'positive' },
-        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
-      ],
-    },
+    // Coin cells are owned by the shared narrator base after Phase 157
+    // (`_shared/effectPreviewBase.ts`). The per-template coin snippets
+    // that used to sit here ride the same condition shape as the base
+    // and collided with `canonical_equality` once the base recalibrated
+    // — supplier-specific coin phrasing is not needed because the
+    // base's cost-surfacing language carries the same legibility weight.
 
     // Supplier: relationship / reliability meters.
     {

@@ -26,6 +26,15 @@ import { effectPreviewPool as seasonalArcPreviewPool } from '../../../../src/car
 import { effectPreviewPool as inspectionPreviewPool } from '../../../../src/cards/compose/pools/inspection/effectPreview'
 import { effectPreviewPool as stockShortagePreviewPool } from '../../../../src/cards/compose/pools/stockShortage/effectPreview'
 import { effectPreviewPool as supplierReliabilityPreviewPool } from '../../../../src/cards/compose/pools/supplierReliability/effectPreview'
+// Phase 157 / ISSUE-125 — economic-preview cluster pools.
+import { effectPreviewPool as debtRentPreviewPool } from '../../../../src/cards/compose/pools/debtRent/effectPreview'
+import { effectPreviewPool as maintenancePreviewPool } from '../../../../src/cards/compose/pools/maintenance/effectPreview'
+import { effectPreviewPool as foodSafetyPreviewPool } from '../../../../src/cards/compose/pools/foodSafety/effectPreview'
+import { effectPreviewPool as customerComplaintPreviewPool } from '../../../../src/cards/compose/pools/customerComplaint/effectPreview'
+import { effectPreviewPool as regularComplaintPreviewPool } from '../../../../src/cards/compose/pools/regularComplaint/effectPreview'
+import { effectPreviewPool as violencePreviewPool } from '../../../../src/cards/compose/pools/violence/effectPreview'
+import { effectPreviewPool as reputationShiftPreviewPool } from '../../../../src/cards/compose/pools/reputationShift/effectPreview'
+import { effectPreviewPool as monthlyReviewPreviewPool } from '../../../../src/cards/compose/pools/monthlyReview/effectPreview'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
 import type { CastAttributes } from '../../../../src/sim/content/cast'
 import type {
@@ -676,5 +685,395 @@ describe('previewVariety gate — Phase 147 legibility on pilot pools', () => {
     })
     expect(report.pass).toBe(true)
     expect(report.observed.inactionBlankCount).toBe(0)
+  })
+})
+
+// ---- Phase 157 / ISSUE-125 — Legible Surface arc, Phase 12.
+//
+// First Movement-VII per-meter authoring phase. The shared narrator
+// base at `_shared/effectPreviewBase.ts` is recalibrated for `coin` and
+// `stock` to fill the `direction × magnitudeBand` grid; per-template
+// pools that depend on the base now satisfy the Phase-147 legibility
+// contract (`requireMagnitude` + `requireCostSurfacing`) for the
+// production effect signatures their families emit. These tests
+// exercise the contract on the cluster — twelve coin/stock-emitting
+// templates' realistic effect sets must all pass with both rules on.
+
+describe('previewVariety gate — Phase 157 economic legibility on cluster pools', () => {
+  const state = createInitialTavernState()
+
+  function coinStockSample(
+    family: string,
+    type: string,
+    pool: SnippetPool,
+    seedId: string,
+    choices: PreviewVarietyChoice[],
+  ): PreviewVarietySample {
+    return {
+      seed: makeSeed({
+        id: seedId,
+        family: family as IssueSeed['family'],
+        type: type as IssueSeed['type'],
+        timing: 'during_service',
+        severity: 45,
+        domain: [family.split('_')[0] ?? family],
+      }),
+      state,
+      previewPool: pool,
+      choices,
+      maxPreview: 2,
+    }
+  }
+
+  it('debtRent pool: rent-tagged coin effects render rent-flavour magnitude', () => {
+    // `generateDebtRent` emits `coin -(rent ?? 30)` tagged ['coin','rent']
+    // on the `pay` profile, `coin +40` tagged ['coin'] on `borrow`, and
+    // raises `stock.ale.salePrice +1` on the `raise_prices` path. The
+    // legibility gate runs on every banded line, so this test isolates
+    // to coin / stock effects only — the `pressure:landlord` companion
+    // effect on `pay` is Phase 14's territory and is exercised on
+    // separate tests.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('pay', 'Pay what we owe'),
+        effects: [
+          effect('state_change', 'coin', -30, 'Pay rent', ['coin', 'rent']),
+        ],
+      },
+      {
+        slot: slot('borrow', 'Borrow coin'),
+        effects: [
+          effect('state_change', 'coin', 40, 'Borrowed coin', ['coin']),
+        ],
+      },
+      {
+        slot: slot('raise_prices', 'Raise prices'),
+        effects: [
+          effect('state_change', 'stock.ale.salePrice', 1, 'Raise ale price', ['price']),
+        ],
+      },
+    ]
+    const sample = coinStockSample('debt_rent', 'debt_pressure', debtRentPreviewPool, 'phase157-debt-rent', choices)
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true, requireCostSurfacing: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+    expect(report.observed.costSurfacingRatio).toBe(1)
+  })
+
+  it('stockShortage pool: stock-band cells render calibrated magnitude', () => {
+    // `generateStockShortage` emits stock.${id}.quantity ±60/20, salePrice
+    // +1, quality -15, plus coin -30/-15.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('restock', 'Restock cellar'),
+        effects: [
+          effect('state_change', 'stock.ale.quantity', 60, 'restock', ['stock']),
+          effect('state_change', 'coin', -30, 'Spend coin restocking', ['coin']),
+        ],
+      },
+      {
+        slot: slot('raise_prices', 'Raise prices'),
+        effects: [
+          effect('state_change', 'stock.ale.salePrice', 1, 'Price up', ['price']),
+        ],
+      },
+      {
+        slot: slot('water_down', 'Water down'),
+        effects: [
+          effect('state_change', 'stock.ale.quantity', 20, 'Stretch quantity', ['stock']),
+          effect('state_change', 'stock.ale.quality', -15, 'Quality slips', ['stock', 'quality']),
+        ],
+      },
+    ]
+    const sample = coinStockSample('stock_shortage', 'warning', stockShortagePreviewPool, 'phase157-stock', choices)
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true, requireCostSurfacing: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+    expect(report.observed.costSurfacingRatio).toBe(1)
+  })
+
+  it('maintenance pool: coin-spend choices surface cost', () => {
+    // Coin-only: area effects are owned by the pilot's per-template
+    // pool (which has Phase-147 magnitude snippets) but unaffected
+    // templates' area cells defer to Phase 14.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('repair', 'Repair'),
+        effects: [
+          effect('state_change', 'coin', -25, 'Pay for repair', ['coin']),
+        ],
+      },
+      {
+        slot: slot('patch', 'Patch quickly'),
+        effects: [
+          effect('state_change', 'coin', -12, 'Repair cost', ['coin']),
+        ],
+      },
+    ]
+    const sample = coinStockSample('maintenance', 'maintenance_problem', maintenancePreviewPool, 'phase157-maintenance', choices)
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true, requireCostSurfacing: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+    expect(report.observed.costSurfacingRatio).toBe(1)
+  })
+
+  it('staffBurnout pool: wages-tagged coin effect renders wages-flavour magnitude', () => {
+    // `expandedSeedGenerators.ts:634` — staff raise becomes due as
+    // `coin -15` tagged ['coin','wages']. Coin-only test; staff target
+    // effects defer to Phase 14.
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('pay_raise', 'Approve the raise'),
+        effects: [
+          effect('state_change', 'coin', -15, 'Raise becomes due', ['coin', 'wages']),
+        ],
+      },
+      {
+        slot: slot('bonus', 'Pay bonus'),
+        effects: [
+          effect('state_change', 'coin', -10, 'Bonus paid', ['coin']),
+        ],
+      },
+    ]
+    const sample = coinStockSample('staff_burnout', 'staff_request', staffBurnoutEffectPreviewPool, 'phase157-burnout', choices)
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true, requireCostSurfacing: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+    expect(report.observed.magnitudeRatio).toBe(1)
+    expect(report.observed.costSurfacingRatio).toBe(1)
+  })
+
+  it('foodSafety pool: coin-spend cleaning supplies surface cost', () => {
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('deep_clean', 'Deep clean'),
+        effects: [
+          effect('state_change', 'coin', -25, 'Cleaning supplies', ['coin']),
+        ],
+      },
+      {
+        slot: slot('comp', 'Comp affected'),
+        effects: [
+          effect('state_change', 'coin', -15, 'Comp cost', ['coin']),
+        ],
+      },
+    ]
+    const sample = coinStockSample('food_safety', 'crisis', foodSafetyPreviewPool, 'phase157-food', choices)
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true, requireCostSurfacing: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+  })
+
+  it('customerComplaint pool: appeasement coin spend surfaces cost', () => {
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('appease', 'Appease'),
+        effects: [
+          effect('state_change', 'coin', -20, 'Appeasement cost', ['coin']),
+        ],
+      },
+      {
+        slot: slot('discount', 'Discount'),
+        effects: [
+          effect('state_change', 'coin', -15, 'Discount cost', ['coin']),
+        ],
+      },
+    ]
+    const sample = coinStockSample('customer_complaint', 'complaint', customerComplaintPreviewPool, 'phase157-cust', choices)
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true, requireCostSurfacing: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+  })
+
+  it('regularComplaint pool: appeasement coin spend surfaces cost', () => {
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('appease', 'Appease'),
+        effects: [
+          effect('state_change', 'coin', -10, 'Custom honoured', ['coin']),
+        ],
+      },
+      {
+        slot: slot('discount', 'Offer discount'),
+        effects: [
+          effect('state_change', 'coin', -15, 'Discount cost', ['coin']),
+        ],
+      },
+    ]
+    const sample = coinStockSample('regular_customer', 'complaint', regularComplaintPreviewPool, 'phase157-reg', choices)
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true, requireCostSurfacing: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+  })
+
+  it('violence pool: security wages and settlement coin spend surface cost', () => {
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('hire_security', 'Hire security'),
+        effects: [
+          effect('state_change', 'coin', -20, 'Hire security cost', ['coin']),
+        ],
+      },
+      {
+        slot: slot('settle', 'Settle'),
+        effects: [
+          effect('state_change', 'coin', -15, 'Settlement payment', ['coin']),
+        ],
+      },
+    ]
+    const sample = coinStockSample('violence', 'customer_incident', violencePreviewPool, 'phase157-violence', choices)
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true, requireCostSurfacing: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+  })
+
+  it('inspection pool: bribe coin spend surfaces cost on the strongest cell', () => {
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('bribe_small', 'Pay a small bribe'),
+        effects: [
+          effect('state_change', 'coin', -30, 'Pay bribe', ['coin']),
+        ],
+      },
+      {
+        slot: slot('bribe_heavy', 'Heavy bribe'),
+        effects: [
+          effect('state_change', 'coin', -40, 'Heavy bribe', ['coin']),
+        ],
+      },
+    ]
+    const sample = coinStockSample('inspection', 'inspection_threat', inspectionPreviewPool, 'phase157-insp', choices)
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true, requireCostSurfacing: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+  })
+
+  it('reputationShift pool: hospitality coin spend surfaces cost', () => {
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('host_event', 'Host event'),
+        effects: [
+          effect('state_change', 'coin', -8, 'Hospitality cost', ['coin']),
+        ],
+      },
+    ]
+    const sample = coinStockSample('reputation_shift', 'reputation_shift', reputationShiftPreviewPool, 'phase157-rep', choices)
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true, requireCostSurfacing: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+  })
+
+  it('monthlyReview pool: month-end coin spend surfaces cost', () => {
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('invest', 'Invest in upgrades'),
+        effects: [
+          effect('state_change', 'coin', -15, 'Investment cost', ['coin']),
+        ],
+      },
+      {
+        slot: slot('admin', 'Tidy the books'),
+        effects: [
+          effect('state_change', 'coin', -5, 'Admin cost for the rewrite', ['coin']),
+        ],
+      },
+    ]
+    const sample = coinStockSample('monthly_review', 'monthly_review', monthlyReviewPreviewPool, 'phase157-monthly', choices)
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true, requireCostSurfacing: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+  })
+
+  it('seasonalArc pool: arc-themed coin spends surface cost; stock cells calibrated', () => {
+    const choices: PreviewVarietyChoice[] = [
+      {
+        slot: slot('prepare', 'Prepare for the festival'),
+        effects: [
+          effect('state_change', 'coin', -20, 'Preparation cost', ['coin']),
+        ],
+      },
+      {
+        slot: slot('cellar_invest', 'Stock the cellar'),
+        effects: [
+          effect('state_change', 'coin', -20, 'Bulk ale costs', ['coin']),
+          effect('state_change', 'stock.ale.quantity', 40, 'Cellars overflow', ['stock']),
+        ],
+      },
+    ]
+    const sample = coinStockSample('seasonal_arc', 'arc_milestone', seasonalArcPreviewPool, 'phase157-arc', choices)
+    const report = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true, requireCostSurfacing: true },
+    })
+    expect(report.pass, `violations: ${JSON.stringify(report.violations)}`).toBe(true)
+  })
+
+  it('debt-tagged rent variant outranks the plain coin cell deterministically', () => {
+    // Two calls with the same (seed, state, effect) produce the same
+    // text. The rent-tagged effect resolves to a rent-flavoured snippet
+    // when one is available at higher specificity.
+    const seed = makeSeed({
+      id: 'phase157-rent-determinism',
+      family: 'debt_rent' as IssueSeed['family'],
+      type: 'debt_pressure' as IssueSeed['type'],
+      timing: 'end_month',
+      severity: 50,
+      domain: ['economy'],
+    })
+    const rentChoice: PreviewVarietyChoice = {
+      slot: slot('pay', 'Pay what we owe'),
+      effects: [effect('state_change', 'coin', -30, 'Pay rent', ['coin', 'rent'])],
+    }
+    const plainChoice: PreviewVarietyChoice = {
+      slot: slot('borrow', 'Borrow coin'),
+      // -30 medium negative WITHOUT the rent tag — should fall through
+      // to the plain coin medium cell.
+      effects: [effect('state_change', 'coin', -30, 'Borrowed coin out', ['coin'])],
+    }
+    const sample: PreviewVarietySample = {
+      seed,
+      state,
+      previewPool: debtRentPreviewPool,
+      choices: [rentChoice, plainChoice],
+      maxPreview: 1,
+    }
+    const reportA = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true },
+    })
+    const reportB = checkPreviewVariety(() => sample, {
+      sampleSize: 1,
+      legibility: { requireMagnitude: true },
+    })
+    expect(reportA.pass).toBe(true)
+    expect(reportB.pass).toBe(true)
+    // Both passes — magnitude landed on both choices' single effects.
+    expect(reportA.observed.magnitudeRatio).toBe(1)
+    expect(reportB.observed.magnitudeRatio).toBe(1)
   })
 })

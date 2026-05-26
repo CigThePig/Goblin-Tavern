@@ -211,25 +211,10 @@ export const effectPreviewPool: SnippetPool = {
       ],
     },
 
-    // Coin: cost surfacing for the repair / clean / start_project paths.
-    {
-      id: 'pre_leg_coin_neg_small',
-      text: 'coin would leave the till by a step',
-      conditions: [
-        { kind: 'effectTargetKind', anyOf: ['coin'] },
-        { kind: 'effectDirection', sign: 'negative' },
-        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
-      ],
-    },
-    {
-      id: 'pre_leg_coin_neg_medium',
-      text: 'a clear drop of silver would leave the till',
-      conditions: [
-        { kind: 'effectTargetKind', anyOf: ['coin'] },
-        { kind: 'effectDirection', sign: 'negative' },
-        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
-      ],
-    },
+    // Coin cells are owned by the shared narrator base after Phase 157
+    // — the per-template coin snippets that used to sit here collided
+    // with `canonical_equality` against `shared_preview_coin_neg_*`
+    // once the base recalibrated against the legibility contract.
 
     // Pressure: maintenance rising / settling.
     {

@@ -1,4 +1,5 @@
 // Phase 145 / ISSUE-113 — Voiced Surface arc, Phase 18 (iteration 2).
+// Phase 157 / ISSUE-125 — Legible Surface arc, Phase 12 (Economic Previews).
 //
 // Shared narrator-register snippet base for effect-preview slots. Every
 // Movement II template's `effectPreview.ts` prepends this base to its
@@ -22,75 +23,328 @@
 // The base is intentionally voice-neutral. Templates whose primaryActor
 // carries a voiceProfile (drinkOrder, staffAside, etc.) layer
 // voice-axis-gated specificity-3+ snippets on top.
+//
+// Phase 157 — economic-meter recalibration. The coin and stock blocks
+// below are authored against the Phase-147 preview legibility contract:
+// every banded snippet contains a `MAGNITUDE_LEXICON[direction][band]`
+// token (passes `requireMagnitude`), every negative-coin snippet names
+// a `DEFAULT_TARGET_KIND_KEYWORDS.coin` token (passes
+// `requireCostSurfacing`), and the production direction × band cells
+// (`coin neg tiny/small/medium`, `coin pos small/medium`, `stock` cells
+// from `tiny` salePrice through `large` restock) carry multiple
+// snippets so the FNV tie-break on `effect_preview::${slotId}::${idx}`
+// spreads across multi-effect renders. Per-template specificity-3+
+// snippets (e.g. supplierReliability's `pre_leg_supplier_*` rung) still
+// out-rank these via the FNV tie-break on identical condition shapes.
+// Two additional debt-tag variants at the bottom of the coin block
+// substitute the cost noun ("the till" → "the rent" / "wages") when
+// the effect tag carries `rent` / `wages`. All other targetKinds in
+// the base (area, pressure, customer, staff, reputation, cohort,
+// supplier, faction, culture, memory, arc, attribution, global) are
+// untouched in this phase — they belong to Phases 13–14.
 
 import type { Snippet } from '../../types'
 
 export function narratorEffectPreviewBase(): Snippet[] {
   return [
-    // ---- coin ----
+    // ---- coin (Phase 157 / ISSUE-125 recalibration) ----
+    //
+    // Production emits: tiny (-3 rare), small (-5 through -15 + 6/12/15
+    // common), medium (-20 through -40 + 20/30/40 common), no large
+    // cells. Negative cells dominate — they're the cost-bearing path.
+    // Every banded snippet names a coin keyword and a magnitude token.
     {
-      id: 'shared_preview_coin_neg_a',
-      text: 'the till lightens by a hand',
+      id: 'shared_preview_coin_neg_tiny_a',
+      text: 'a hair of coin would slip from the purse',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['coin'] },
         { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
       ],
     },
     {
-      id: 'shared_preview_coin_neg_b',
-      text: 'coin would leave the purse',
+      id: 'shared_preview_coin_neg_tiny_b',
+      text: 'a whisper of silver would leave the till',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['coin'] },
         { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
       ],
     },
     {
-      id: 'shared_preview_coin_pos_a',
-      text: 'coin would land in the till',
+      id: 'shared_preview_coin_neg_small_a',
+      text: 'coin would leave the till by a step',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_coin_neg_small_b',
+      text: 'a notch of silver would slip from the purse',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_coin_neg_small_c',
+      text: 'a measure of coppers would leave the till',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_coin_neg_small_d',
+      text: 'the till would lighten by a step',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_coin_neg_medium_a',
+      text: 'a clear drop of silver would leave the till',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_coin_neg_medium_b',
+      text: 'a real slip of coin would leave the purse',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_coin_neg_medium_c',
+      text: 'a marked fall of silver would empty the till',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_coin_neg_medium_d',
+      text: 'silver would slip the till by a clear drop',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_coin_neg_large_a',
+      text: 'a heavy fall of coin would drain the purse bare',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    {
+      id: 'shared_preview_coin_pos_tiny_a',
+      text: 'a hair of silver would land in the till',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['coin'] },
         { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
       ],
     },
     {
-      id: 'shared_preview_coin_pos_b',
-      text: 'silver would settle into the till',
+      id: 'shared_preview_coin_pos_small_a',
+      text: 'a step of coin would settle into the till',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['coin'] },
         { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
       ],
     },
-    // ---- stock ----
     {
-      id: 'shared_preview_stock_neg_a',
-      text: 'shelves would thin a measure',
+      id: 'shared_preview_coin_pos_small_b',
+      text: 'a notch of silver would land in the purse',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_coin_pos_medium_a',
+      text: 'a real step of silver would land in the till',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_coin_pos_medium_b',
+      text: 'a marked rise of coin would settle into the purse',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_coin_pos_large_a',
+      text: 'a surge of silver would fill the till',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    // Debt-flavoured coin variants. `effectTag rent | wages` at
+    // specificity 4 (one more condition than the plain coin band cell)
+    // substitutes the cost noun without changing the magnitude word.
+    // Cells covered are the ones the `debt_rent` and `staff_burnout`
+    // families actually emit (small/medium negatives).
+    {
+      id: 'shared_preview_coin_rent_small_a',
+      text: 'a step of rent would draw from the till',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+        { kind: 'effectTag', tag: 'rent' },
+      ],
+    },
+    {
+      id: 'shared_preview_coin_rent_medium_a',
+      text: 'the rent would carve a clear drop from the till',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+        { kind: 'effectTag', tag: 'rent' },
+      ],
+    },
+    {
+      id: 'shared_preview_coin_wages_small_a',
+      text: 'wages would slip a step from the purse',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+        { kind: 'effectTag', tag: 'wages' },
+      ],
+    },
+    // ---- stock (Phase 157 / ISSUE-125 recalibration) ----
+    //
+    // Production emits: tiny (salePrice ±1), small (quantity ±10/-15/
+    // -20/+20), medium (quantity +30/+40 + quality +10), large
+    // (quantity +60 — restock response only). Every banded snippet
+    // names a stock keyword (shelf/shelves/stock/stores/barrel/pantry/
+    // cellar) and a magnitude token.
+    {
+      id: 'shared_preview_stock_neg_tiny_a',
+      text: 'a hair of stock would slip from the pantry',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['stock'] },
         { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
       ],
     },
     {
-      id: 'shared_preview_stock_neg_b',
-      text: 'stores would draw down further',
+      id: 'shared_preview_stock_neg_small_a',
+      text: 'shelves would thin by a step',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['stock'] },
         { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
       ],
     },
     {
-      id: 'shared_preview_stock_pos_a',
-      text: 'the shelves would fill back up',
+      id: 'shared_preview_stock_neg_small_b',
+      text: 'a notch would draw from the cellar stores',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['stock'] },
-        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
       ],
     },
     {
-      id: 'shared_preview_stock_pos_b',
-      text: 'stores would deepen by a barrel',
+      id: 'shared_preview_stock_neg_medium_a',
+      text: 'a clear drop would empty the barrel by half',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['stock'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_stock_neg_large_a',
+      text: 'a heavy fall would empty the cellar shelves',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['stock'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    {
+      id: 'shared_preview_stock_pos_tiny_a',
+      text: 'a hair would lift the shelf count',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['stock'] },
         { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
+      ],
+    },
+    {
+      id: 'shared_preview_stock_pos_small_a',
+      text: 'a step would deepen the pantry stores',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['stock'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_stock_pos_small_b',
+      text: 'a notch would fill the shelves further',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['stock'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_stock_pos_medium_a',
+      text: 'a real step would deepen the cellar stores',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['stock'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_stock_pos_medium_b',
+      text: 'a marked rise would fill the barrel further',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['stock'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_stock_pos_large_a',
+      text: 'a wide leap would refill the cellar shelves',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['stock'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
       ],
     },
     // ---- area ----

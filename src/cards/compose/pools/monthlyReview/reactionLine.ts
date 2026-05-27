@@ -3,9 +3,16 @@
 // Flavor reaction line for the monthly_review compositional template.
 // Narrator-voiced — owner-at-the-ledger third-person register matching
 // debtRent. No first-person address, no character voice (the month has
-// no actor). Gated on `hasTag` (the seed's domain ∪ toneHints — `monthly`,
-// `summary`, `rent_due_soon`, `economy`, `reputation`),
-// `severityAtLeast`, and prior monthly memories.
+// no actor). Gated on `hasTag` (the seed's domain ∪ toneHints —
+// `monthly`, `summary`, `economy`, `reputation`), `severityAtLeast`,
+// and prior monthly memories.
+//
+// Phase 162 / ISSUE-130 — Legible Surface Phase 17 pruning: the
+// `rxn_rent_due_soon` rung gated on `hasTag rent_due_soon`, but that
+// tag lives on `state.calendar.tags` only, not on the monthly_review
+// seed's domain / toneHints / stakes (verified at
+// `issueSeedGenerators.ts:3844-3868`). Deleted as harmless dead code
+// per the Phase 156 / ISSUE-124 plan deferral.
 
 import type { SnippetPool } from '../../types'
 
@@ -18,13 +25,6 @@ export const reactionLinePool: SnippetPool = {
       conditions: [],
     },
 
-    {
-      id: 'rxn_rent_due_soon',
-      text: 'Rent week sits inside the very next pass of the calendar.',
-      conditions: [
-        { kind: 'hasTag', tag: 'rent_due_soon' },
-      ],
-    },
     {
       id: 'rxn_high_severity',
       text: 'The shortfall will not soften on its own from here.',

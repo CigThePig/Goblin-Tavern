@@ -4,8 +4,20 @@
 // Narrator-voiced — populace-/world-event register matching
 // cultureConflict's civic_floor framing. No first-person address, no
 // character voice (local_events have no castAttributes). Gated on
-// `hasTag` (theme + `arc` / `calendar` / `anticipation`),
-// `severityAtLeast`, and prior arc memories.
+// `hasTag` (theme + `arc` / `calendar`), `severityAtLeast`,
+// `memoryPresent`, and prior arc memories.
+//
+// Phase 162 / ISSUE-130 — Legible Surface Phase 17 fix: `rxn_anticipation`
+// was originally gated on `hasTag anticipation`, but the seasonal_arc
+// seed writes the `anticipation` flag into `memoriesCreated[].tags`
+// (see `expandedSeedGenerators.ts:4469`), not into seed.domain /
+// toneHints / stake tags — so `collectSeedTags` never returned it and
+// the snippet was dead from Phase 140 onward (flagged in the
+// Phase 156 / ISSUE-124 plan as harmless dead code). Condition swap to
+// `memoryPresent { tag: 'anticipation' }` reads `state.memories`,
+// which receives the anticipation-tagged entry when a prior
+// anticipation card resolves, restoring the line to the reachable set
+// on second-and-later anticipation seeds for the same theme arc.
 
 import type { SnippetPool } from '../../types'
 
@@ -22,7 +34,7 @@ export const reactionLinePool: SnippetPool = {
       id: 'rxn_anticipation',
       text: 'It has not arrived, but the air is bending toward it.',
       conditions: [
-        { kind: 'hasTag', tag: 'anticipation' },
+        { kind: 'memoryPresent', tag: 'anticipation' },
       ],
     },
     {

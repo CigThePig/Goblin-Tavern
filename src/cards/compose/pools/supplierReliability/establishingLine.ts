@@ -153,5 +153,45 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'memoryPresent', tag: 'supplier' },
       ],
     },
+
+    // ─── Phase 162 / ISSUE-130 — Legible Surface arc, Phase 17,
+    // iteration #1. Salience-rank-#4 deepening: the
+    // `supplier_relationship` salience table at
+    // `compose/salience.ts:83-92` lists `market_instability` (rising)
+    // as the fourth salient read after reliability, relationship, and
+    // supplier_distrust. Pre-Phase-162 the pool carried five snippets
+    // touching `supplier_distrust` (single + low-reliability combo +
+    // severity combo + distrust+memory) but only one touching
+    // `market_instability` (the bare `est_market_rising` base-rung).
+    // When market_instability rose alongside a band-signal extreme,
+    // the gradient picked the higher-spec band/distrust combo and the
+    // multi-fact slot fell back to the base-rung market line — the
+    // exact failure mode Movement V's multi-fact slot was built to
+    // fix. Three new combo cells mirror the distrust matrix shape so
+    // the establishing line states the pair when both reads resolve.
+    {
+      id: 'est_low_rel_market',
+      text: 'Light loads, and the market keeps shifting under us each visit.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'supplier.reliability', equals: 'low' },
+        { kind: 'pressureRising', pressureId: 'market_instability' },
+      ],
+    },
+    {
+      id: 'est_severity_market',
+      text: 'The trade has thinned and the wider market keeps slipping with it.',
+      conditions: [
+        { kind: 'severityAtLeast', value: 70 },
+        { kind: 'pressureRising', pressureId: 'market_instability' },
+      ],
+    },
+    {
+      id: 'est_market_memory',
+      text: 'Each visit lands lighter; the market has been wobbling all season.',
+      conditions: [
+        { kind: 'pressureRising', pressureId: 'market_instability' },
+        { kind: 'memoryPresent', tag: 'supplier' },
+      ],
+    },
   ],
 }

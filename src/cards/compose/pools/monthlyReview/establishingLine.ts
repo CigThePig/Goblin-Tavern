@@ -17,9 +17,15 @@
 //     `rival_settled_${monthKey}` memories on prior monthly choices)
 //   - repeatCount `monthly` ≥ 3 (three months of the same pressure
 //     trending positive)
-//   - hasTag `rent_due_soon` (calendar tag flowed through seed.domain /
-//     toneHints) and `monthly` / `summary`
 //   - severityAtLeast 55 (mid) and 70 (hard)
+//
+// Phase 162 / ISSUE-130 — Legible Surface arc, Phase 17, iteration #1.
+// The `est_rent_due_soon` rung (and matching reactionLine / title
+// entries) was pruned: `rent_due_soon` lives on `state.calendar.tags`
+// only, not on the monthly_review seed's domain / toneHints / stake
+// tags, so `collectSeedTags` never returned it and the snippet was
+// dead. Phase 156 / ISSUE-124's plan doc explicitly flagged this as
+// harmless dead code deferred to Phase 17 cleanup.
 //
 // Design record at `specs/cards/monthly_review.spec.yaml`.
 
@@ -96,15 +102,6 @@ export const establishingLinePool: SnippetPool = {
       text: 'An eviction warning is folded into the corner of the desk drawer.',
       conditions: [
         { kind: 'memoryPresent', tag: 'risk' },
-      ],
-    },
-
-    {
-      id: 'est_rent_due_soon',
-      text: 'The month closes with the rent window already inside the next week.',
-      conditions: [
-        { kind: 'hasTag', tag: 'rent_due_soon' },
-        { kind: 'pressureRising', pressureId: 'landlord' },
       ],
     },
 

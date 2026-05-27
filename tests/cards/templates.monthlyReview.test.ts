@@ -299,16 +299,16 @@ describe('monthlyReviewCard — render output', () => {
     )
   })
 
-  it('reaction_line picks the rent_due_soon snippet when seed carries the tag', () => {
-    const state = createInitialTavernState()
-    const seed = monthlyReviewSeed('monthly-review-soon', {
-      toneHints: ['summary', 'monthly', 'rent_due_soon'],
-    })
-    const view = monthlyReviewCard.render(seed, state)
-    expect(view.body[1]).toBe(
-      'Rent week sits inside the very next pass of the calendar.',
-    )
-  })
+  // Phase 162 / ISSUE-130 — Legible Surface Phase 17, iteration #1.
+  // The "rent_due_soon snippet when seed carries the tag" test was
+  // removed alongside the snippet it covered. `rxn_rent_due_soon` was
+  // authored in Phase 140 expecting the monthly_review seed to thread
+  // the `rent_due_soon` calendar tag through seed.domain / toneHints,
+  // but the seed at `issueSeedGenerators.ts:3844-3868` never did — so
+  // the snippet was dead in production from the start. The test only
+  // passed by manually injecting the tag through toneHints, which is
+  // not a real production state shape. Snippet + test pruned per the
+  // Phase 156 / ISSUE-124 plan deferral.
 
   it('establishing_line fires a memory snippet when a rent memory is present', () => {
     const state = createInitialTavernState()

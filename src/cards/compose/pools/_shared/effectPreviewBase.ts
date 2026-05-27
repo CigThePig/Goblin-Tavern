@@ -1,6 +1,8 @@
 // Phase 145 / ISSUE-113 — Voiced Surface arc, Phase 18 (iteration 2).
 // Phase 157 / ISSUE-125 — Legible Surface arc, Phase 12 (Economic Previews).
 // Phase 158 / ISSUE-126 — Legible Surface arc, Phase 13 (Social Previews).
+// Phase 159 / ISSUE-127 — Legible Surface arc, Phase 14 (Operational
+//   Previews + Pressure & Delayed/Uncertain framing).
 //
 // Shared narrator-register snippet base for effect-preview slots. Every
 // Movement II template's `effectPreview.ts` prepends this base to its
@@ -49,9 +51,24 @@
 // FNV spread; cells the sim doesn't emit today get a single optimistic
 // snippet so a future emission stays legible. Cohort cells are fully
 // optimistic — cohort effects today are `cause` writes, not
-// `state_change`. The narrator-register area / pressure / staff /
-// memory / arc / attribution / global blocks stay at kind+direction
-// specificity until Phase 14 (Operational Previews).
+// `state_change`. The narrator-register memory / arc / attribution /
+// global blocks stay at kind+direction specificity — they emit too
+// rarely to justify a per-meter pass.
+//
+// Phase 159 — operational-meter recalibration. The staff / area /
+// pressure blocks now carry the same `direction × magnitudeBand` matrix
+// at the same 3-condition specificity as the economic and social blocks.
+// A new specificity-4 inaction-gated block at the end of the pressure
+// section authors the "what *not* acting costs" framing for delayed
+// pressure rises — every inaction profile in production emits delayed
+// positive pressure as its consequence, so a single shared block
+// inherits to every family. Pressure direction semantics: positive =
+// rising (bad), negative = relief (good); the surrounding verb palette
+// ("build / mount / climb / creep" for rising; "settle / ease / loosen
+// / fall back" for relief) carries the threat-vs-relief tone. Axis-
+// neutral across the 20 pressure families — Phase 13's reputation axis
+// precedent. Per-family specificity is a future loopback if play
+// surfaces it.
 
 import type { Snippet } from '../../types'
 
@@ -357,70 +374,337 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'effectMagnitudeBand', anyOf: ['large'] },
       ],
     },
-    // ---- area ----
+    // ---- area (Phase 159 / ISSUE-127 recalibration) ----
+    //
+    // Production emits: condition -8 (small), -25 (medium repair via
+    // damage), damage +6 (tiny accrual on inaction), damage -10/-20/-25
+    // (small/medium repair), cleanliness +10/+12/+15/+20/+25 (small/
+    // medium), smell -10/-12 (small clean), condition +5/+10/+12/+20.
+    // Axis-neutral on the condition/cleanliness vs damage split — verbs
+    // ("slip" / "lift" / "settle") carry the meaning regardless of which
+    // sub-meter moved. No `large` emissions today; single optimistic
+    // snippet apiece. Direction = the raw sign of the amount: positive
+    // direction can mean "cleaner room" (cleanliness +10) or "more
+    // damage" (damage +6), so snippets stay neutral on the change and
+    // let the verb carry weight.
     {
-      id: 'shared_preview_area_pos_a',
-      text: 'the room would read cleaner',
-      conditions: [
-        { kind: 'effectTargetKind', anyOf: ['area'] },
-        { kind: 'effectDirection', sign: 'positive' },
-      ],
-    },
-    {
-      id: 'shared_preview_area_pos_b',
-      text: 'the floor would steady underfoot',
-      conditions: [
-        { kind: 'effectTargetKind', anyOf: ['area'] },
-        { kind: 'effectDirection', sign: 'positive' },
-      ],
-    },
-    {
-      id: 'shared_preview_area_neg_a',
-      text: 'the corner would slip further',
+      id: 'shared_preview_area_neg_tiny_a',
+      text: 'a hair of wear would creep across the floor',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['area'] },
         { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
       ],
     },
     {
-      id: 'shared_preview_area_neg_b',
-      text: 'the room would mark the neglect',
+      id: 'shared_preview_area_neg_small_a',
+      text: 'the room would slip by a step tonight',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['area'] },
         { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
       ],
     },
-    // ---- pressure ----
     {
-      id: 'shared_preview_pressure_pos_a',
-      text: 'the meter would climb a notch',
+      id: 'shared_preview_area_neg_small_b',
+      text: 'a notch of grime would mark the corner',
       conditions: [
-        { kind: 'effectTargetKind', anyOf: ['pressure'] },
-        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
       ],
     },
     {
-      id: 'shared_preview_pressure_pos_b',
-      text: 'pressure would rise another reading',
+      id: 'shared_preview_area_neg_medium_a',
+      text: 'a clear drop would mark the room by morning',
       conditions: [
-        { kind: 'effectTargetKind', anyOf: ['pressure'] },
-        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
       ],
     },
     {
-      id: 'shared_preview_pressure_neg_a',
-      text: 'the meter would settle a notch',
+      id: 'shared_preview_area_neg_large_a',
+      text: 'a heavy fall would scar the floor through',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    {
+      id: 'shared_preview_area_pos_tiny_a',
+      text: 'a hair of order would touch the kitchen',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
+      ],
+    },
+    {
+      id: 'shared_preview_area_pos_small_a',
+      text: 'the floor would read by a step cleaner',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_area_pos_small_b',
+      text: 'a notch of polish would steady the corner',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_area_pos_medium_a',
+      text: 'a clear lift would brighten the room',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_area_pos_medium_b',
+      text: 'the floor would gain a real step of polish',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_area_pos_large_a',
+      text: 'a strong climb would scrub the kitchen through',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    // ---- pressure (Phase 159 / ISSUE-127 recalibration) ----
+    //
+    // Most-emitted preview target in the sim — every major family writes
+    // pressure deltas through `delayedEffects`. Positive direction = rising
+    // (bad); negative direction = relief (good). Lexicon tokens still apply
+    // ("a step" / "a clear lift" / "a marked rise") — the surrounding verb
+    // ("build" / "mount" / "climb" / "creep" for rising; "settle" / "ease" /
+    // "loosen" / "fall back" for relief) carries the threat-vs-relief tone.
+    // Axis-neutral across the 20 pressure families (`landlord`, `debt`,
+    // `staff_burnout`, `food_safety`, etc.) — Phase 13's reputation axis
+    // precedent. Family-specific snippets are a future loopback candidate
+    // if play surfaces it.
+    {
+      id: 'shared_preview_pressure_neg_tiny_a',
+      text: 'a hair of pressure would lift off the meter',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['pressure'] },
         { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
       ],
     },
     {
-      id: 'shared_preview_pressure_neg_b',
-      text: 'pressure would ease its reading',
+      id: 'shared_preview_pressure_neg_small_a',
+      text: 'the meter would settle a step lower',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['pressure'] },
         { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_pressure_neg_small_b',
+      text: 'a notch of pressure would ease off the reading',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_pressure_neg_small_c',
+      text: 'a measure of risk would loosen its grip',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_pressure_neg_medium_a',
+      text: 'pressure would fall back a clear drop',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_pressure_neg_medium_b',
+      text: 'the reading would quiet by a real slip',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_pressure_neg_large_a',
+      text: 'a heavy fall would lift the worst pressure off',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    {
+      id: 'shared_preview_pressure_pos_tiny_a',
+      text: 'a hair of pressure would press onto the reading',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
+      ],
+    },
+    {
+      id: 'shared_preview_pressure_pos_small_a',
+      text: 'the meter would climb by a step further',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_pressure_pos_small_b',
+      text: 'a notch of pressure would mount through the night',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_pressure_pos_small_c',
+      text: 'a measure of risk would thicken on the meter',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_pressure_pos_medium_a',
+      text: 'a clear lift would build pressure onto the room',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_pressure_pos_medium_b',
+      text: 'the reading would creep up by a real step',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_pressure_pos_medium_c',
+      text: 'a marked rise would press onto the meter',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_pressure_pos_large_a',
+      text: 'a strong climb would mount risk to a peak',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    // ---- pressure inaction block (Phase 159 / ISSUE-127) ----
+    //
+    // Specificity 4: `inactionPreview: true` + `effectTargetKind: pressure`
+    // + `effectDirection: positive` + `effectMagnitudeBand`. Every inaction
+    // profile across the sim (14 `immediateEffects: []` profiles in
+    // `issueSeedGenerators.ts` + `expandedSeedGenerators.ts`) emits delayed
+    // positive pressure as its consequence — stock_shortage, maintenance,
+    // staff_burnout, debt, inspection, food_safety, customer_complaint,
+    // regular_loss, rival, rumour. These snippets out-rank the active-
+    // choice pressure base on the inaction path; the leading "would keep" /
+    // "would mount unchecked" frames the "what *not* acting costs" temporal
+    // claim Phase 147 wired through the `inactionPreview` ctx. Active-
+    // choice renders never receive `inactionPreview: true`, so these stay
+    // out of "treat now" preview text.
+    {
+      id: 'shared_preview_pressure_inact_pos_small_a',
+      text: 'pressure would keep climbing a step unchecked',
+      conditions: [
+        { kind: 'inactionPreview', value: true },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_pressure_inact_pos_small_b',
+      text: 'the meter would mount a notch with every hour',
+      conditions: [
+        { kind: 'inactionPreview', value: true },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_pressure_inact_pos_small_c',
+      text: 'a measure of risk would build with no answer',
+      conditions: [
+        { kind: 'inactionPreview', value: true },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_pressure_inact_pos_medium_a',
+      text: 'pressure would mount unchecked by a clear lift',
+      conditions: [
+        { kind: 'inactionPreview', value: true },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_pressure_inact_pos_medium_b',
+      text: 'the reading would press harder by a marked rise',
+      conditions: [
+        { kind: 'inactionPreview', value: true },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_pressure_inact_pos_large_a',
+      text: 'a strong climb of risk would mount without check',
+      conditions: [
+        { kind: 'inactionPreview', value: true },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
       ],
     },
     // ---- customer (Phase 158 / ISSUE-126 recalibration) ----
@@ -527,53 +811,142 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'effectMagnitudeBand', anyOf: ['large'] },
       ],
     },
-    // ---- staff ----
+    // ---- staff (Phase 159 / ISSUE-127 recalibration) ----
+    //
+    // Production emits: stress -8/-10/-12 (small/medium); fatigue
+    // -3/-15 + +4/+6/+8 (tiny → medium); morale -6/-12/-15 + +6/+8/+12/+15;
+    // loyalty -3/-4/-20 + +6/+8/+10/+14/+15/+20. Axis-neutral on the
+    // stress/fatigue/morale/loyalty split — verbs ("wear" / "steady" /
+    // "weigh") carry the meaning regardless of which sub-meter moved.
+    // Direction = the raw sign of the amount: positive direction can
+    // mean "rising stress" (bad) or "rising morale" (good); the
+    // surrounding state-change verbs stay neutral on the value direction
+    // and let the consequence-profile context steer interpretation. No
+    // `tiny` cells emitted; single optimistic snippet apiece.
     {
-      id: 'shared_preview_staff_neg_a',
-      text: 'the rota would wear thin tonight',
+      id: 'shared_preview_staff_neg_tiny_a',
+      text: 'a hair of the rota would slip tonight',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['staff'] },
         { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
       ],
     },
     {
-      id: 'shared_preview_staff_neg_b',
-      text: 'the crew would feel the weight',
+      id: 'shared_preview_staff_neg_small_a',
+      text: 'the crew would lean harder by a step',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['staff'] },
         { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
       ],
     },
     {
-      id: 'shared_preview_staff_neg_c',
-      text: 'the shift would lean harder on hands',
+      id: 'shared_preview_staff_neg_small_b',
+      text: 'a notch of weight would land on the shift',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['staff'] },
         { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
       ],
     },
     {
-      id: 'shared_preview_staff_pos_a',
-      text: 'the crew would steady through the shift',
+      id: 'shared_preview_staff_neg_medium_a',
+      text: 'a clear drop would weigh on the kitchen crew',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['staff'] },
-        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
       ],
     },
     {
-      id: 'shared_preview_staff_pos_b',
-      text: 'the rota would settle a measure lighter',
+      id: 'shared_preview_staff_neg_medium_b',
+      text: 'the rota would slip a real step thinner',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['staff'] },
-        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
       ],
     },
     {
-      id: 'shared_preview_staff_pos_c',
-      text: 'a beat of relief would reach the kitchen staff',
+      id: 'shared_preview_staff_neg_large_a',
+      text: 'a heavy fall would hollow the kitchen crew',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    {
+      id: 'shared_preview_staff_neg_large_b',
+      text: 'a sharp drop would empty the rota by half',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    {
+      id: 'shared_preview_staff_pos_tiny_a',
+      text: 'a hair of ease would touch the rota tonight',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['staff'] },
         { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
+      ],
+    },
+    {
+      id: 'shared_preview_staff_pos_small_a',
+      text: 'the crew would steady by a step tonight',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_staff_pos_small_b',
+      text: 'the rota would settle a notch lighter',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_staff_pos_small_c',
+      text: 'a measure of relief would reach the shift',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_staff_pos_medium_a',
+      text: 'a clear lift would buoy the kitchen tonight',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_staff_pos_medium_b',
+      text: 'the crew would gain a real step of grit',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_staff_pos_large_a',
+      text: 'a strong climb of loyalty would bind the crew',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
       ],
     },
     // ---- reputation (Phase 158 / ISSUE-126 recalibration) ----

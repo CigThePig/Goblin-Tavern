@@ -16,8 +16,12 @@ import {
   serviceLogTrafficVerbPool,
 } from '../pools/serviceLog'
 
-const TRAFFIC_VERB_BUDGET = 2
-const SERVICE_VERB_BUDGET = 2
+// Phase 160 / ISSUE-128 — Legible Surface arc, Phase 15. Traffic and
+// service verb budgets bumped from 2 to 4 so snippets can carry
+// MAGNITUDE_LEXICON tokens (e.g. "Filled a real step" / "Lost a heavy
+// fall"). Driver phrase stays at 3 — it carries no magnitude weight.
+const TRAFFIC_VERB_BUDGET = 4
+const SERVICE_VERB_BUDGET = 4
 const DRIVER_PHRASE_BUDGET = 3
 
 export const serviceLogTrafficSlots: readonly SlotSpec[] = [
@@ -79,9 +83,17 @@ export function trafficVolumeTag(trafficTotal: number): string {
 }
 
 /** Maps a non-zero net coin amount to the routing tag for the service
- *  verb pool. Loss is detected by sign; gain bands at ≤30 / 31-100 / >100. */
+ *  verb pool. Loss is detected by sign; both gain and loss band at
+ *  ≤30 / 31-100 / >100. (Phase 160 / ISSUE-128 — loss was previously
+ *  flat `service_loss`; tier-binning gives the lexicon-gate the
+ *  symmetry it needs to enforce magnitude on both sides.) */
 export function serviceCoinTag(netCoin: number): string {
-  if (netCoin < 0) return 'service_loss'
+  if (netCoin < 0) {
+    const abs = Math.abs(netCoin)
+    if (abs <= 30) return 'service_loss_small'
+    if (abs > 100) return 'service_loss_large'
+    return 'service_loss_mid'
+  }
   if (netCoin <= 30) return 'service_gain_small'
   if (netCoin > 100) return 'service_gain_large'
   return 'service_gain_mid'

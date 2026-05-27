@@ -35,6 +35,7 @@ export {
   type DiversityReportEntry,
   type DiversitySlotConfig,
   type PreviewVarietyReportEntry,
+  type ReportLegibilityReportEntry,
 } from './runAllGates'
 export {
   passReport,
@@ -87,3 +88,11 @@ export {
   type ChoiceDistinctnessSampler,
   type ChoiceDistinctnessSlot,
 } from './choiceDistinctness'
+export {
+  checkReportLegibility,
+  REPORT_LEGIBILITY_REASONS,
+  type ReportLegibilityConfig,
+  type ReportLegibilityObservation,
+  type ReportLegibilityReason,
+  type ReportTagBand,
+} from './reportLegibility'

@@ -1,4 +1,8 @@
 // Phase 141 / ISSUE-110 — Voiced Surface arc, Phase 15 (Reports Prose).
+// Phase 160 / ISSUE-128 — Legible Surface arc, Phase 15 (Report-Prose
+// Legibility). Recalibrated verb expectations to the magnitude-banded
+// pool: serviceCoinTag now tiers losses too, and verb snippets carry
+// MAGNITUDE_LEXICON tokens.
 
 import { describe, expect, it } from 'vitest'
 
@@ -25,9 +29,15 @@ describe('trafficVolumeTag', () => {
 })
 
 describe('serviceCoinTag', () => {
-  it('bands signed: <0 loss, 0-30 small, 31-100 mid, >100 large', () => {
-    expect(serviceCoinTag(-1)).toBe('service_loss')
-    expect(serviceCoinTag(-50)).toBe('service_loss')
+  it('bands signed by tier on both sides: gain and loss at ≤30 / 31-100 / >100', () => {
+    // Loss side
+    expect(serviceCoinTag(-1)).toBe('service_loss_small')
+    expect(serviceCoinTag(-30)).toBe('service_loss_small')
+    expect(serviceCoinTag(-50)).toBe('service_loss_mid')
+    expect(serviceCoinTag(-100)).toBe('service_loss_mid')
+    expect(serviceCoinTag(-101)).toBe('service_loss_large')
+    expect(serviceCoinTag(-500)).toBe('service_loss_large')
+    // Gain side
     expect(serviceCoinTag(0)).toBe('service_gain_small')
     expect(serviceCoinTag(30)).toBe('service_gain_small')
     expect(serviceCoinTag(31)).toBe('service_gain_mid')
@@ -45,7 +55,21 @@ describe('composeTrafficLine', () => {
       trafficTotal: 12,
       groupCount: 2,
     })
-    expect(line).toMatch(/^(Welcomed|Seated|Served) 12 patrons across 2 groups\.$/)
+    expect(line).toMatch(
+      /^(Welcomed a hair|Seated a touch|Served) 12 patrons across 2 groups\.$/,
+    )
+  })
+
+  it('composes a mid-volume readable with figures intact', () => {
+    const line = composeTrafficLine({
+      state: STATE,
+      closedDay: 3,
+      trafficTotal: 40,
+      groupCount: 3,
+    })
+    expect(line).toMatch(
+      /^(Poured a step|Fed a measure|Served) 40 patrons across 3 groups\.$/,
+    )
   })
 
   it('composes a high-volume readable with figures intact', () => {
@@ -55,7 +79,9 @@ describe('composeTrafficLine', () => {
       trafficTotal: 142,
       groupCount: 5,
     })
-    expect(line).toMatch(/^(Drew|Brought in|Served) 142 patrons across 5 groups\.$/)
+    expect(line).toMatch(
+      /^(Drew a strong climb|Packed a wide leap|Served) 142 patrons across 5 groups\.$/,
+    )
   })
 
   it('is deterministic per closedDay', () => {
@@ -72,7 +98,9 @@ describe('composeServiceLine', () => {
       netCoin: 15,
       unpaidTabs: 1,
     })
-    expect(line).toMatch(/^(Pocketed|Took) 15 coin \(1 unpaid tabs\)\.$/)
+    expect(line).toMatch(
+      /^(Pocketed a notch|Took a measure|Took) 15 coin \(1 unpaid tabs\)\.$/,
+    )
   })
 
   it('composes a mid-gain line', () => {
@@ -82,7 +110,9 @@ describe('composeServiceLine', () => {
       netCoin: 65,
       unpaidTabs: 0,
     })
-    expect(line).toMatch(/^(Earned|Banked|Took) 65 coin \(0 unpaid tabs\)\.$/)
+    expect(line).toMatch(
+      /^(Banked a real step|Earned a clear lift|Took) 65 coin \(0 unpaid tabs\)\.$/,
+    )
   })
 
   it('composes a large-gain line', () => {
@@ -92,17 +122,45 @@ describe('composeServiceLine', () => {
       netCoin: 250,
       unpaidTabs: 2,
     })
-    expect(line).toMatch(/^(Brought in|Pulled in|Took) 250 coin \(2 unpaid tabs\)\.$/)
+    expect(line).toMatch(
+      /^(Pulled in a surge|Brought a wide leap|Took) 250 coin \(2 unpaid tabs\)\.$/,
+    )
   })
 
-  it('composes a loss line with absolute figure (verb carries direction)', () => {
+  it('composes a small-loss line with absolute figure (verb carries direction + band)', () => {
     const line = composeServiceLine({
       state: STATE,
       closedDay: 3,
-      netCoin: -45,
+      netCoin: -15,
       unpaidTabs: 3,
     })
-    expect(line).toMatch(/^(Lost|Dropped|Took) 45 coin \(3 unpaid tabs\)\.$/)
+    expect(line).toMatch(
+      /^(Spent a notch|Lost a measure|Took) 15 coin \(3 unpaid tabs\)\.$/,
+    )
+  })
+
+  it('composes a mid-loss line', () => {
+    const line = composeServiceLine({
+      state: STATE,
+      closedDay: 3,
+      netCoin: -65,
+      unpaidTabs: 4,
+    })
+    expect(line).toMatch(
+      /^(Dropped a real slip|Lost a clear drop|Took) 65 coin \(4 unpaid tabs\)\.$/,
+    )
+  })
+
+  it('composes a large-loss line', () => {
+    const line = composeServiceLine({
+      state: STATE,
+      closedDay: 3,
+      netCoin: -250,
+      unpaidTabs: 5,
+    })
+    expect(line).toMatch(
+      /^(Took a heavy fall|Lost a wide slide|Took) 250 coin \(5 unpaid tabs\)\.$/,
+    )
   })
 
   it('is deterministic', () => {

@@ -284,35 +284,39 @@ describe('supplierReliabilityCard — render output', () => {
     expect(wordCount(view.body[0]!)).toBeLessThanOrEqual(14)
   })
 
-  it('multi-fact join still composes the pair when no combo cell exists (low rel × distrust rising state)', () => {
-    // When low reliability resolves AND market_instability is rising (but
-    // not supplier_distrust), no spec-2 combo covers that exact pair, so
-    // the assembler falls back to multi-fact: it picks the salient
-    // primary (covering reliability — index 0) and appends a secondary
-    // covering market_instability (index 3) within budget. This proves
-    // the multi-fact mechanism still works for non-authored combinations.
+  it('multi-fact join still composes the pair when no combo cell exists (high rel × market rising state)', () => {
+    // Phase 162 / ISSUE-130 — Legible Surface Phase 17, iteration #1.
+    // The Phase-17 supplier-deepening pass added a `est_low_rel_market`
+    // spec-2 combo, so the previous `low reliability × market_instability
+    // rising` state now resolves to the combo cell (not the multi-fact
+    // join). This test now uses `HIGH reliability × market_instability
+    // rising` — a pair still not covered by any spec-2 combo — so the
+    // assembler still falls back to multi-fact: it picks the salient
+    // primary (covering reliability — rank #1) and appends a secondary
+    // covering market_instability (rank #4) within budget. Proves the
+    // multi-fact mechanism still works for non-authored combinations.
     const state = createInitialTavernState()
     const supplierId = firstSupplierId(state)
-    const low = withSupplierReliability(state, supplierId, 20)
+    const high = withSupplierReliability(state, supplierId, 85)
     const withMarketRising: TavernState = {
-      ...low,
+      ...high,
       pressures: {
-        ...low.pressures,
+        ...high.pressures,
         market_instability: {
           id: 'market_instability',
           label: 'market_instability',
           value: 40,
           trend: 1,
-          tags: low.pressures.market_instability?.tags ?? [],
-          topCauses: low.pressures.market_instability?.topCauses ?? [],
+          tags: high.pressures.market_instability?.tags ?? [],
+          topCauses: high.pressures.market_instability?.topCauses ?? [],
         },
       },
     }
-    const seed = supplierOfferSeed(supplierId, 'supplier-low-market')
+    const seed = supplierOfferSeed(supplierId, 'supplier-high-market')
     const view = supplierReliabilityCard.render(seed, withMarketRising)
-    // est_low_reliability + ' — ' + est_market_rising (or similar join).
+    // est_high_reliability + ' — ' + est_market_rising.
     // Both fact substrings should appear; the join token should appear.
-    expect(view.body[0]).toContain('come up short')
+    expect(view.body[0]).toContain('wagons run steady')
     expect(view.body[0]).toContain('market')
     expect(view.body[0]).toContain(' — ')
   })

@@ -5,6 +5,12 @@
 // fixed legacy header prefix while the snippet supplies the month's
 // character. All snippets ≤ 6 words. Voice-bounds gate forbids trailing
 // "…" and immediate duplicate token.
+//
+// Phase 162 / ISSUE-130 — Legible Surface Phase 17 pruning: the
+// `title_rent_due_soon` rung gated on `hasTag rent_due_soon`, but the
+// monthly_review seed does not emit that tag (it lives on
+// `state.calendar.tags` only). Deleted as harmless dead code per the
+// Phase 156 / ISSUE-124 plan deferral.
 
 import type { SnippetPool } from '../../types'
 
@@ -35,13 +41,6 @@ export const titlePool: SnippetPool = {
       text: 'reputation drifts on the books',
       conditions: [
         { kind: 'pressureRising', pressureId: 'reputation_drift' },
-      ],
-    },
-    {
-      id: 'title_rent_due_soon',
-      text: 'rent week looms tomorrow',
-      conditions: [
-        { kind: 'hasTag', tag: 'rent_due_soon' },
       ],
     },
     {

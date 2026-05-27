@@ -47,14 +47,6 @@ export const establishingLinePool: SnippetPool = {
       ],
     },
     {
-      id: 'est_axis_reputable',
-      text: 'The tavern is reading respectable to a steadier crowd.',
-      conditions: [
-        { kind: 'hasTag', tag: 'reputation.reputable' },
-        { kind: 'pressureRising', pressureId: 'reputation_drift' },
-      ],
-    },
-    {
       id: 'est_axis_reliable',
       text: 'The room is settling into a reliable rhythm at the door.',
       conditions: [
@@ -78,15 +70,6 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'pressureRising', pressureId: 'reputation_drift' },
       ],
     },
-    {
-      id: 'est_axis_scholarly',
-      text: 'A scholarly air is starting to stick to the place.',
-      conditions: [
-        { kind: 'hasTag', tag: 'reputation.scholarly' },
-        { kind: 'pressureRising', pressureId: 'reputation_drift' },
-      ],
-    },
-
     {
       id: 'est_pressure_rising',
       text: 'Reputation_drift has been climbing onto the slate for days.',

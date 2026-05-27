@@ -48,6 +48,35 @@ import type {
 } from '../../../../src/cards/compose/gates'
 import type { ConditionContext } from '../../../../src/cards/compose/types'
 import { makeSeed } from '../../cardFactories'
+// Phase 163 / ISSUE-131 — Real-seed shape capture. Each `*_SHAPE()` returns
+// the production responseSlots + consequenceProfiles + stakes for its
+// family, captured once at module-load and cached. The `*SeedFor` and
+// `*BaseSeed` factories below spread these into their `makeSeed` calls so
+// gates exercise the shape players actually see, not the synthetic 2-slot
+// `clean`/`ignore` stub `cardFactories.makeSeed` falls back to.
+import {
+  AREA_ATMOSPHERE_SHAPE,
+  CULTURE_CONFLICT_SHAPE,
+  CUSTOMER_COMPLAINT_SHAPE,
+  DEBT_RENT_SHAPE,
+  FACTION_REQUEST_SHAPE,
+  FOOD_SAFETY_SHAPE,
+  INSPECTION_SHAPE,
+  MAINTENANCE_SHAPE,
+  MONTHLY_REVIEW_SHAPE,
+  REGULAR_CUSTOMER_COMPLAINT_SHAPE,
+  REGULAR_CUSTOMER_RELATIONSHIP_SHAPE,
+  REPUTATION_SHIFT_SHAPE,
+  RIVAL_TAVERN_ARC_SHAPE,
+  RIVAL_TAVERN_SYSTEM_SHAPE,
+  RUMOUR_CRISIS_SHAPE,
+  SEASONAL_ARC_SHAPE,
+  STAFF_BURNOUT_SHAPE,
+  STAFF_IDENTITY_SHAPE,
+  STOCK_SHORTAGE_SHAPE,
+  SUPPLIER_RELATIONSHIP_SHAPE,
+  VIOLENCE_SHAPE,
+} from './realSeedShapes'
 
 const VERBAL_TIC_IDS: readonly VerbalTicId[] = [
   'trails_off',
@@ -92,6 +121,7 @@ function installCast(
 }
 
 function drinkOrderSeedFor(regularId: string, id: string): IssueSeed {
+  const shape = REGULAR_CUSTOMER_RELATIONSHIP_SHAPE()
   return makeSeed({
     id,
     family: 'regular_customer',
@@ -100,6 +130,9 @@ function drinkOrderSeedFor(regularId: string, id: string): IssueSeed {
     severity: 35,
     domain: ['regulars', 'customers', 'social'],
     primaryActor: regularRef(regularId),
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'asks for ale',
       sensoryDetails: ['stools scrape back as they settle'],
@@ -267,6 +300,7 @@ function installStaffCast(
 }
 
 function staffAsideSeedFor(staffId: string, id: string): IssueSeed {
+  const shape = STAFF_IDENTITY_SHAPE()
   return makeSeed({
     id,
     family: 'staff_identity',
@@ -275,6 +309,9 @@ function staffAsideSeedFor(staffId: string, id: string): IssueSeed {
     severity: 40,
     domain: ['staff', 'identity', 'social'],
     primaryActor: staffRef(staffId),
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'before the doors open',
       sensoryDetails: ['the kettle clicks awake'],
@@ -377,6 +414,7 @@ export function buildStaffDiversitySampler(
 // dimensions are identical.
 
 function staffBurnoutSeedFor(staffId: string, id: string): IssueSeed {
+  const shape = STAFF_BURNOUT_SHAPE()
   return makeSeed({
     id,
     family: 'staff_burnout',
@@ -385,6 +423,9 @@ function staffBurnoutSeedFor(staffId: string, id: string): IssueSeed {
     severity: 50,
     domain: ['staff'],
     primaryActor: staffRef(staffId),
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'looks ready to snap',
       sensoryDetails: ['hunched shoulders', 'dark eyes'],
@@ -636,6 +677,7 @@ function installGroupCast(
 }
 
 function regularComplaintSeedFor(regularId: string, id: string): IssueSeed {
+  const shape = REGULAR_CUSTOMER_COMPLAINT_SHAPE()
   return makeSeed({
     id,
     family: 'regular_customer',
@@ -644,6 +686,9 @@ function regularComplaintSeedFor(regularId: string, id: string): IssueSeed {
     severity: 60,
     domain: ['regulars', 'customers', 'social'],
     primaryActor: regularRef(regularId),
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'a sour mood',
       sensoryDetails: ['half-empty mug', 'cold stare'],
@@ -653,6 +698,7 @@ function regularComplaintSeedFor(regularId: string, id: string): IssueSeed {
 }
 
 function customerComplaintSeedFor(groupId: string, id: string): IssueSeed {
+  const shape = CUSTOMER_COMPLAINT_SHAPE()
   return makeSeed({
     id,
     family: 'customer_complaint',
@@ -661,6 +707,9 @@ function customerComplaintSeedFor(groupId: string, id: string): IssueSeed {
     severity: 55,
     domain: ['customers', 'reputation', 'service'],
     primaryActor: customerGroupRef(groupId),
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'a cold welcome',
       sensoryDetails: ['pursed lips', 'half-finished mugs'],
@@ -1000,6 +1049,7 @@ function installSupplierCast(
 }
 
 function supplierOfferSeedFor(supplierId: string, id: string): IssueSeed {
+  const shape = SUPPLIER_RELATIONSHIP_SHAPE()
   return makeSeed({
     id,
     family: 'supplier_relationship',
@@ -1008,6 +1058,9 @@ function supplierOfferSeedFor(supplierId: string, id: string): IssueSeed {
     severity: 45,
     domain: ['suppliers', 'market', 'stock'],
     primaryActor: supplierRef(supplierId),
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'a supply matter',
       sensoryDetails: ['stacked crates', 'tight handshake'],
@@ -1093,6 +1146,7 @@ function stockShortageBaseSeed(
   toneHints: readonly string[],
   severity: number,
 ): IssueSeed {
+  const shape = STOCK_SHORTAGE_SHAPE()
   return makeSeed({
     id,
     family: 'stock_shortage',
@@ -1101,6 +1155,9 @@ function stockShortageBaseSeed(
     severity,
     domain: ['stock', 'customers'],
     toneHints: [...toneHints],
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'ale stock',
       sensoryDetails: ['empty kegs'],
@@ -1288,6 +1345,7 @@ function debtRentBaseSeed(
   toneHints: readonly string[],
   severity: number,
 ): IssueSeed {
+  const shape = DEBT_RENT_SHAPE()
   return makeSeed({
     id,
     family: 'debt_rent',
@@ -1296,6 +1354,9 @@ function debtRentBaseSeed(
     severity,
     domain: ['economy', 'monthly', 'landlord'],
     toneHints: [...toneHints],
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'rent due',
       sensoryDetails: ['scratched ledger'],
@@ -1782,6 +1843,7 @@ function installFactionCast(
 }
 
 function factionRequestSeedFor(factionId: string, id: string): IssueSeed {
+  const shape = FACTION_REQUEST_SHAPE()
   return makeSeed({
     id,
     family: 'faction_request',
@@ -1790,6 +1852,9 @@ function factionRequestSeedFor(factionId: string, id: string): IssueSeed {
     severity: 45,
     domain: ['factions', 'social'],
     primaryActor: factionRef(factionId),
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'a delegation visit',
       sensoryDetails: ['folded arms', 'measured glances'],
@@ -1882,6 +1947,7 @@ function cultureConflictBaseSeed(
   toneHints: readonly string[],
   severity: number,
 ): IssueSeed {
+  const shape = CULTURE_CONFLICT_SHAPE()
   return makeSeed({
     id,
     family: 'culture_conflict',
@@ -1891,6 +1957,9 @@ function cultureConflictBaseSeed(
     domain: ['cultures', 'social'],
     primaryActor: cultureRef(cultureId),
     toneHints: [...toneHints],
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'cultural friction',
       sensoryDetails: ['drawn breath', 'shifted seat'],
@@ -2352,6 +2421,7 @@ function maintenanceBaseSeed(
   toneHints: readonly string[],
   severity: number,
 ): IssueSeed {
+  const shape = MAINTENANCE_SHAPE()
   return makeSeed({
     id,
     family: 'maintenance',
@@ -2361,6 +2431,9 @@ function maintenanceBaseSeed(
     domain: ['areas', 'maintenance'],
     location: { kind: 'area', id: areaId },
     toneHints: [...toneHints],
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'visible damage',
       sensoryDetails: ['cracked plank'],
@@ -2548,6 +2621,7 @@ function areaAtmosphereBaseSeed(
   toneHints: readonly string[],
   severity: number,
 ): IssueSeed {
+  const shape = AREA_ATMOSPHERE_SHAPE()
   return makeSeed({
     id,
     family: 'area_atmosphere',
@@ -2558,6 +2632,9 @@ function areaAtmosphereBaseSeed(
     location: { kind: 'area', id: areaId },
     affectedActors: [{ kind: 'area', id: areaId }],
     toneHints: [...toneHints],
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'sour atmosphere',
       sensoryDetails: ['dim light'],
@@ -2974,6 +3051,7 @@ export function buildAreaAtmosphereEffectPreviewContext(
 // ---- foodSafety (cook-voiced) ----
 
 function foodSafetyCrisisSeedFor(staffId: string, id: string): IssueSeed {
+  const shape = FOOD_SAFETY_SHAPE()
   return makeSeed({
     id,
     family: 'food_safety',
@@ -2984,6 +3062,9 @@ function foodSafetyCrisisSeedFor(staffId: string, id: string): IssueSeed {
     primaryActor: staffRef(staffId),
     location: { kind: 'area', id: 'kitchen' },
     toneHints: ['risk', 'kitchen', 'urgent'],
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'the kitchen',
       sensoryDetails: ['greasy floor'],
@@ -3039,6 +3120,7 @@ export function buildFoodSafetyDiversitySampler(
 // ---- violence (customer-group-voiced) ----
 
 function violenceSeedFor(groupId: string, id: string): IssueSeed {
+  const shape = VIOLENCE_SHAPE()
   return makeSeed({
     id,
     family: 'violence',
@@ -3049,6 +3131,9 @@ function violenceSeedFor(groupId: string, id: string): IssueSeed {
     primaryActor: customerGroupRef(groupId),
     location: { kind: 'area', id: 'main_room' },
     toneHints: ['violence', 'rowdy'],
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'main room',
       sensoryDetails: ['shouting voices'],
@@ -3104,6 +3189,7 @@ export function buildViolenceDiversitySampler(
 // ---- inspection (faction-voiced) ----
 
 function inspectionSeedFor(factionId: string, id: string): IssueSeed {
+  const shape = INSPECTION_SHAPE()
   return makeSeed({
     id,
     family: 'inspection',
@@ -3114,6 +3200,9 @@ function inspectionSeedFor(factionId: string, id: string): IssueSeed {
     primaryActor: factionRef(factionId),
     location: { kind: 'area', id: 'main_room' },
     toneHints: ['inspection', 'urgent'],
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'the tavern',
       sensoryDetails: ['privy stench'],
@@ -3536,6 +3625,7 @@ function reputationShiftBaseSeed(
   toneHints: readonly string[],
   severity: number,
 ): IssueSeed {
+  const shape = REPUTATION_SHIFT_SHAPE()
   return makeSeed({
     id,
     family: 'reputation_shift',
@@ -3545,6 +3635,9 @@ function reputationShiftBaseSeed(
     domain: [...domain],
     toneHints: [...toneHints],
     location: { kind: 'area', id: 'main_room' },
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'the tavern',
       sensoryDetails: ['regulars settle in'],
@@ -3679,6 +3772,7 @@ export function buildReputationShiftDiversitySampler(
 // ---- rumourCrisis sampler (actor-perturbation on supplier cast) ----
 
 function rumourCrisisSeedFor(supplierId: string, id: string): IssueSeed {
+  const shape = RUMOUR_CRISIS_SHAPE()
   return makeSeed({
     id,
     family: 'rumour_crisis',
@@ -3694,6 +3788,9 @@ function rumourCrisisSeedFor(supplierId: string, id: string): IssueSeed {
     ],
     primaryActor: supplierRef(supplierId),
     toneHints: ['rumour', 'reputation'],
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'a story doing rounds',
       sensoryDetails: ['whispered word'],
@@ -3763,6 +3860,13 @@ function rivalTavernBaseSeed(
   severity: number,
   primaryActor: EntityRef,
 ): IssueSeed {
+  // Phase 163 — Slot shape differs between the arc and system activation
+  // paths (host_counter_event's targetOptions point at a `local_event`
+  // ref or a `system` ref). Pick the matching captured shape.
+  const shape =
+    primaryActor.kind === 'local_event'
+      ? RIVAL_TAVERN_ARC_SHAPE()
+      : RIVAL_TAVERN_SYSTEM_SHAPE()
   return makeSeed({
     id,
     family: 'rival_tavern',
@@ -3772,6 +3876,9 @@ function rivalTavernBaseSeed(
     domain: [...domain],
     toneHints: [...toneHints],
     primaryActor,
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'the rival tavern',
       sensoryDetails: ['emptier seats tonight'],
@@ -4336,6 +4443,7 @@ function monthlyReviewBaseSeed(
   toneHints: readonly string[],
   severity: number,
 ): IssueSeed {
+  const shape = MONTHLY_REVIEW_SHAPE()
   return makeSeed({
     id,
     family: 'monthly_review',
@@ -4345,6 +4453,9 @@ function monthlyReviewBaseSeed(
     domain: ['monthly', 'economy', 'reputation'],
     toneHints: [...toneHints],
     primaryActor: { kind: 'other', id: 'month:1' },
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'month 1',
       sensoryDetails: ['ledger closed'],
@@ -4540,6 +4651,7 @@ function seasonalArcBaseSeed(
   severity: number,
   extraToneHints: readonly string[] = [],
 ): IssueSeed {
+  const shape = SEASONAL_ARC_SHAPE()
   return makeSeed({
     id,
     family: 'seasonal_arc',
@@ -4549,6 +4661,9 @@ function seasonalArcBaseSeed(
     domain: ['arcs', 'calendar'],
     toneHints: ['arc', 'calendar', theme, ...extraToneHints],
     ...(primaryActor ? { primaryActor } : {}),
+    responseSlots: shape.responseSlots,
+    consequenceProfiles: shape.consequenceProfiles,
+    stakes: shape.stakes,
     textIngredients: {
       subject: 'the arc',
       sensoryDetails: ['flags rising'],

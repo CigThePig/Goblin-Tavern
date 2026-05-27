@@ -96,3 +96,13 @@ export {
   type ReportLegibilityReason,
   type ReportTagBand,
 } from './reportLegibility'
+export {
+  checkLegibility,
+  LEGIBILITY_REASONS,
+  type LegibilityConfig,
+  type LegibilityReason,
+  type LegibilityReport,
+  type LegibilitySample,
+  type LegibilitySituation,
+  type LegibilitySituationObservation,
+} from './legibility'

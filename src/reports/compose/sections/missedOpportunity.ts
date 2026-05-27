@@ -35,7 +35,10 @@ import {
 } from '../pools/missedOpportunity'
 
 const READABLE_BUDGET = 4
-const SECONDARY_BUDGET = 2
+// Phase 160 / ISSUE-128 — Legible Surface arc, Phase 15. Bumped from 2
+// to 4 so verb snippets can carry MAGNITUDE_LEXICON tokens like
+// "ticked a notch" (trend_small) or "surged a strong climb" (trend_large).
+const SECONDARY_BUDGET = 4
 
 /** Slot list for the pressure-remedy readable line. One slot — the
  *  connector verb phrase. Routed by action category. */

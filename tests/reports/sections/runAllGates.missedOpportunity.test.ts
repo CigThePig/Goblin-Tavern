@@ -21,6 +21,18 @@ import {
 import { createInitialTavernState } from '../../../src/sim/state/defaults'
 import type { DeterminismSample } from '../../../src/cards/compose/gates/determinism'
 import type { DiversitySampler } from '../../../src/cards/compose/gates/diversity'
+import type { ReportLegibilityConfig } from '../../../src/cards/compose/gates'
+
+// Phase 160 / ISSUE-128 — Legible Surface arc, Phase 15. The secondary
+// pool routes by absolute-delta tier (trend_small / mid / large) and
+// every banded snippet carries a MAGNITUDE_LEXICON.positive.* token.
+// (Pressure rises in this surface are always positive direction = bad;
+// see `pools/missedOpportunity/secondaryVerb.ts`.)
+const TREND_TAG_TO_BAND: ReportLegibilityConfig['tagToBand'] = {
+  trend_small: { direction: 'positive', band: 'small' },
+  trend_mid: { direction: 'positive', band: 'medium' },
+  trend_large: { direction: 'positive', band: 'large' },
+}
 
 const STATE = createInitialTavernState()
 
@@ -121,7 +133,7 @@ describe('runAllGates — daily.missed_opportunity.readable section', () => {
 })
 
 describe('runAllGates — daily.missed_opportunity.secondary section', () => {
-  it('passes all seven gates', () => {
+  it('passes all ten gates (incl. reportLegibility on trend_* tags)', () => {
     const template = reportSectionAsTemplate(missedOpportunitySecondarySection)
     const report = runAllGates(template, {
       simCoherence: { bannedDisplayNames: [] },
@@ -133,6 +145,7 @@ describe('runAllGates — daily.missed_opportunity.secondary section', () => {
           config: { sampleSize: 60, minDistinct: 3 },
         },
       ],
+      reportLegibility: { tagToBand: TREND_TAG_TO_BAND },
     })
     expect(report.coverage.pass).toBe(true)
     expect(report.specificity.pass).toBe(true)
@@ -141,6 +154,9 @@ describe('runAllGates — daily.missed_opportunity.secondary section', () => {
     expect(report.determinism.pass).toBe(true)
     expect(report.dedupe.pass).toBe(true)
     expect(report.diversity.every((d) => d.pass)).toBe(true)
+    expect(report.reportLegibility.pass).toBe(true)
+    expect(report.reportLegibility.skipped).toBe(false)
+    expect(report.reportLegibility.observed.bandedSnippets).toBeGreaterThan(0)
     expect(report.pass).toBe(true)
   })
 })

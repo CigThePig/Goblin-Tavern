@@ -140,7 +140,7 @@ describe('composePressureReadableVoiced', () => {
 })
 
 describe('composePressureSecondaryVoiced', () => {
-  it('composes the structured secondary line with a voiced verb', () => {
+  it('composes the structured secondary line with a banded voiced verb', () => {
     const line = composePressureSecondaryVoiced({
       state: STATE,
       closedDay: 3,
@@ -151,7 +151,10 @@ describe('composePressureSecondaryVoiced', () => {
       pressureValue: 67,
     })
     expect(line).toContain('Food safety')
-    expect(line).toMatch(/(rose|climbed|ticked up|crept up|surged|spiked)/)
+    // Phase 160 / ISSUE-128 — verb now carries MAGNITUDE_LEXICON tokens.
+    expect(line).toMatch(
+      /(rose|ticked a notch|crept a step|rose a real step|climbed a marked rise|surged a strong climb|spiked a wide leap)/,
+    )
     expect(line).toContain('+5 to 67.')
   })
 
@@ -168,13 +171,14 @@ describe('composePressureSecondaryVoiced', () => {
     expect(line).toContain('-2 to 30.')
   })
 
-  it('routes large deltas to the surged/spiked rung', () => {
-    // Vary closedDay across realistic stable target ids — production
-    // uses fixed labels like 'kitchen' / 'cellar', not parameterised
-    // strings. With a large-delta tag, only the two trend_large
-    // condition-gated snippets are reachable (specificity 1 wins over
-    // the 2 unconditional rung-0 voicings); FNV tie-break across days
-    // produces both.
+  it('routes large deltas to the lexicon-bound large rung', () => {
+    // Phase 160 / ISSUE-128 — large-band snippets all carry a
+    // `MAGNITUDE_LEXICON.positive.large` token ("a strong climb" /
+    // "a wide leap"). Vary closedDay across realistic stable target ids
+    // — production uses fixed labels like 'kitchen' / 'cellar', not
+    // parameterised strings. With a large-delta tag, only the two
+    // trend_large condition-gated snippets are reachable; FNV tie-break
+    // across days produces both.
     const verbs = new Set<string>()
     const realisticTargets = ['kitchen', 'cellar', 'main room', 'privy']
     for (let i = 1; i <= 30; i++) {
@@ -190,7 +194,7 @@ describe('composePressureSecondaryVoiced', () => {
       const m = line.match(/^X (.+) \+15 to 80\.$/)
       if (m) verbs.add(m[1]!)
     }
-    const allowed = new Set(['surged', 'spiked'])
+    const allowed = new Set(['surged a strong climb', 'spiked a wide leap'])
     for (const v of verbs) {
       expect(allowed.has(v)).toBe(true)
     }

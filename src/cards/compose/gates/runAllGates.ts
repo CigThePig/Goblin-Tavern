@@ -32,6 +32,11 @@ import {
   type ChoiceDistinctnessObservation,
   type ChoiceDistinctnessSampler,
 } from './choiceDistinctness'
+import {
+  checkReportLegibility,
+  type ReportLegibilityConfig,
+  type ReportLegibilityObservation,
+} from './reportLegibility'
 import { passReport, type GateReport } from './types'
 
 export type DiversitySlotConfig = {
@@ -71,6 +76,19 @@ export type AllGatesConfig = {
     sampler: ChoiceDistinctnessSampler
     config: ChoiceDistinctnessConfig
   }
+  /**
+   * Phase 160 / ISSUE-128 — Legible Surface arc, Phase 15. Optional 10th
+   * gate that checks report-section snippet pools whose magnitude band
+   * lives in the routing tag rather than in a sim-classified
+   * `EffectPreview`. Sibling to `previewVariety`'s `requireMagnitude`
+   * rule (which reads `EffectPreview.magnitudeBand`); this one reads a
+   * per-tag `tagToBand` mapping declared at config time. When absent,
+   * the gate is skipped and reports a pass — the seven framework gates
+   * and the two Phase-V sibling gates ignore this config field. Card
+   * templates whose snippets never gate on band-bearing tags omit it;
+   * report sections whose pools route by magnitude band configure it.
+   */
+  reportLegibility?: ReportLegibilityConfig
 }
 
 export type DiversityReportEntry = GateReport & {
@@ -88,6 +106,11 @@ export type ChoiceDistinctnessReportEntry = GateReport & {
   skipped: boolean
 }
 
+export type ReportLegibilityReportEntry = GateReport & {
+  observed: ReportLegibilityObservation
+  skipped: boolean
+}
+
 export type AllGatesReport = {
   pass: boolean
   coverage: GateReport
@@ -99,6 +122,7 @@ export type AllGatesReport = {
   dedupe: GateReport
   previewVariety: PreviewVarietyReportEntry
   choiceDistinctness: ChoiceDistinctnessReportEntry
+  reportLegibility: ReportLegibilityReportEntry
 }
 
 export function runAllGates(
@@ -186,6 +210,26 @@ export function runAllGates(
       skipped: true,
     }
   }
+  const reportLegibilityConfig = config.reportLegibility
+  let reportLegibility: ReportLegibilityReportEntry
+  if (reportLegibilityConfig) {
+    const result = checkReportLegibility(template, reportLegibilityConfig)
+    reportLegibility = {
+      pass: result.pass,
+      violations: result.violations,
+      observed: result.observed,
+      skipped: false,
+    }
+    if (result.warnings && result.warnings.length > 0) {
+      reportLegibility.warnings = result.warnings
+    }
+  } else {
+    reportLegibility = {
+      ...passReport(),
+      observed: { bandedSnippets: 0, magnitudeOkSnippets: 0 },
+      skipped: true,
+    }
+  }
   const pass =
     coverage.pass &&
     specificity.pass &&
@@ -195,7 +239,8 @@ export function runAllGates(
     diversity.every((d) => d.pass) &&
     dedupe.pass &&
     previewVariety.pass &&
-    choiceDistinctness.pass
+    choiceDistinctness.pass &&
+    reportLegibility.pass
   return {
     pass,
     coverage,
@@ -207,5 +252,6 @@ export function runAllGates(
     dedupe,
     previewVariety,
     choiceDistinctness,
+    reportLegibility,
   }
 }

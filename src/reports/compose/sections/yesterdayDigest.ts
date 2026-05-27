@@ -18,8 +18,14 @@ import {
   yesterdayDigestSecondaryVerbPool,
 } from '../pools/yesterdayDigest'
 
-const SECONDARY_BUDGET = 2
-const COIN_VERB_BUDGET = 1
+// Phase 160 / ISSUE-128 — Legible Surface arc, Phase 15. Bumped from 2
+// to 4 so verb snippets can carry MAGNITUDE_LEXICON tokens like
+// "rose a notch" (small) or "surged a strong climb" (large).
+const SECONDARY_BUDGET = 4
+// Phase 160 — coin verb similarly grows to fit "earned a step" /
+// "pulled in a surge" / "took a heavy fall". The legacy single-word
+// fallback "shifted" still fits.
+const COIN_VERB_BUDGET = 4
 
 export const yesterdayDigestSecondarySlots: readonly SlotSpec[] = [
   {
@@ -75,23 +81,44 @@ export type YesterdayCoinInput = {
   delta: number
 }
 
-function reputationTag(delta: number): string {
-  if (delta > 0) return 'reputation_gain'
-  if (delta < 0) return 'reputation_loss'
-  return 'reputation_hold'
-}
+// Phase 160 / ISSUE-128 — Legible Surface arc, Phase 15. The three tag
+// helpers each return an array of routing tags. The first entry is the
+// pre-Phase-160 direction-only tag (back-compat: existing snippets
+// gated on `reputation_gain` / `coin_loss` / `pressure_rise_mid` keep
+// firing as fallback). When a magnitude band applies, the second entry
+// is the new band-bearing tag (`reputation_gain_small`,
+// `coin_loss_large`, …) that lexicon-calibrated snippets gate on. The
+// `checkReportLegibility` gate's tagToBand map keys on the new tags.
+//
+// Cutoffs are local to the report layer — they don't have to match the
+// sim's `MAGNITUDE_BAND_CUTOFFS` (which classify EffectPreview amounts,
+// a different domain). Tuned so a typical day's deltas spread across
+// the three tiers instead of bunching at one extreme.
 
-function pressureRiseTag(delta: number): string {
+function reputationTags(delta: number): readonly string[] {
+  if (delta === 0) return ['reputation_hold']
   const abs = Math.abs(delta)
-  if (abs <= 3) return 'pressure_rise_small'
-  if (abs > 8) return 'pressure_rise_large'
-  return 'pressure_rise_mid'
+  const direction = delta > 0 ? 'reputation_gain' : 'reputation_loss'
+  const band = abs <= 3 ? 'small' : abs > 8 ? 'large' : 'mid'
+  return [direction, `${direction}_${band}`]
 }
 
-function coinTag(delta: number): string {
-  if (delta > 0) return 'coin_gain'
-  if (delta < 0) return 'coin_loss'
-  return 'coin_flat'
+function pressureRiseTags(delta: number): readonly string[] {
+  const abs = Math.abs(delta)
+  if (abs <= 3) return ['pressure_rise_small']
+  if (abs > 8) return ['pressure_rise_large']
+  return ['pressure_rise_mid']
+}
+
+function coinTags(delta: number): readonly string[] {
+  if (delta === 0) return ['coin_flat']
+  const abs = Math.abs(delta)
+  const direction = delta > 0 ? 'coin_gain' : 'coin_loss'
+  // Coin deltas can be much larger than reputation/pressure (sales can
+  // be 30-200+); use cutoffs that align with the service-log binning at
+  // 30 / 100 so coin verb vocabulary calibrates consistently.
+  const band = abs <= 30 ? 'small' : abs > 100 ? 'large' : 'mid'
+  return [direction, `${direction}_${band}`]
 }
 
 /** Picks the voiced verb for a reputation secondary line. The
@@ -103,7 +130,7 @@ export function pickYesterdayReputationVerb(
     sectionId: 'morning.yesterday_digest.secondary',
     periodKey: `d${input.closedDayOrdinal}.rep.${input.axis}`,
     timing: 'morning_prep',
-    domain: [reputationTag(input.delta)],
+    domain: reputationTags(input.delta),
   })
   const filled = assembleSlots(yesterdayDigestSecondarySlots, seed, input.state)
   return filled['verb'] ?? 'shifted'
@@ -118,7 +145,7 @@ export function pickYesterdayPressureVerb(
     sectionId: 'morning.yesterday_digest.secondary',
     periodKey: `d${input.closedDayOrdinal}.pres.${input.pressureId}`,
     timing: 'morning_prep',
-    domain: [pressureRiseTag(input.delta)],
+    domain: pressureRiseTags(input.delta),
   })
   const filled = assembleSlots(yesterdayDigestSecondarySlots, seed, input.state)
   return filled['verb'] ?? 'rising'
@@ -133,7 +160,7 @@ export function pickYesterdayCoinVerb(input: YesterdayCoinInput): string {
     sectionId: 'morning.yesterday_digest.coin',
     periodKey: `d${input.closedDayOrdinal}.coin`,
     timing: 'morning_prep',
-    domain: [coinTag(input.delta)],
+    domain: coinTags(input.delta),
   })
   const filled = assembleSlots(yesterdayDigestCoinSlots, seed, input.state)
   return filled['verb'] ?? 'shifted'

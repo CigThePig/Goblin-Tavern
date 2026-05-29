@@ -123,6 +123,55 @@ describe('classifyDirection — sign rules', () => {
   })
 })
 
+describe('classifyDirection — valence-aware (target form)', () => {
+  // Phase 164 / ISSUE-132 — lower-is-better meters invert the sign so a
+  // decrease reads "positive" (good for the player).
+  it('inverts lower-is-better staff meters (stress / fatigue)', () => {
+    expect(classifyDirection(-8, 'staff.mira.stress')).toBe('positive')
+    expect(classifyDirection(8, 'staff.x.stress')).toBe('negative')
+    expect(classifyDirection(-3, 'staff.cook.fatigue')).toBe('positive')
+    expect(classifyDirection(4, 'staff.runner.fatigue')).toBe('negative')
+  })
+
+  it('inverts lower-is-better area hygiene/decay meters', () => {
+    expect(classifyDirection(6, 'areas.kitchen.damage')).toBe('negative')
+    expect(classifyDirection(-20, 'areas.privy.damage')).toBe('positive')
+    expect(classifyDirection(-10, 'areas.kitchen.smell')).toBe('positive')
+    expect(classifyDirection(8, 'areas.main_room.mess')).toBe('negative')
+    expect(classifyDirection(5, 'areas.privy.risk')).toBe('negative')
+  })
+
+  it('inverts lower-is-better culture tension', () => {
+    expect(classifyDirection(-10, 'cultures.dwarven.tension')).toBe('positive')
+    expect(classifyDirection(12, 'cultures.dwarven.tension')).toBe('negative')
+  })
+
+  it('leaves higher-is-better meters un-inverted (morale / loyalty / condition / cleanliness / comfort)', () => {
+    expect(classifyDirection(15, 'staff.cook.morale')).toBe('positive')
+    expect(classifyDirection(-8, 'staff.x.loyalty')).toBe('negative')
+    expect(classifyDirection(20, 'areas.cellar.condition')).toBe('positive')
+    // cleanliness is HIGHER-is-better — a cleaner kitchen is good. It must
+    // NOT invert (inverting it would re-introduce the Phase-2 bug class).
+    expect(classifyDirection(25, 'areas.kitchen.cleanliness')).toBe('positive')
+    expect(classifyDirection(-12, 'areas.kitchen.cleanliness')).toBe('negative')
+    expect(classifyDirection(10, 'cultures.elven.comfort')).toBe('positive')
+    expect(classifyDirection(15, 'cultures.human.familiarity')).toBe('positive')
+  })
+
+  it('excludes pressure.* from valence inversion (arithmetic sign retained)', () => {
+    // Pressure is stored rising = positive; its preview pool encodes
+    // threat-vs-relief in the verbs. It must stay on arithmetic sign.
+    expect(classifyDirection(12, 'pressure:food_safety')).toBe('positive')
+    expect(classifyDirection(-12, 'pressure:food_safety')).toBe('negative')
+    expect(classifyDirection(8, 'pressure:supplier_distrust')).toBe('positive')
+  })
+
+  it('the no-target form keeps raw arithmetic-sign behavior', () => {
+    expect(classifyDirection(-8)).toBe('negative')
+    expect(classifyDirection(5)).toBe('positive')
+  })
+})
+
 describe('classifyMagnitudeBand — per-targetKind cutoff table', () => {
   // Each row exercises the boundary of one band per targetKind. The
   // table here mirrors the cutoffs in MAGNITUDE_BAND_CUTOFFS — a
@@ -184,7 +233,7 @@ describe('effect() — emits classified metadata onto every preview', () => {
     expect(e.magnitudeBand).toBe('medium')
   })
 
-  it('classifies a pressure preview', () => {
+  it('classifies a pressure preview (pressure excluded from valence — arithmetic sign)', () => {
     const e = effect(
       'pressure',
       'pressure:food_safety',
@@ -195,6 +244,31 @@ describe('effect() — emits classified metadata onto every preview', () => {
     expect(e.targetKind).toBe('pressure')
     expect(e.direction).toBe('negative')
     expect(e.magnitudeBand).toBe('medium')
+  })
+
+  it('applies valence on a lower-is-better meter (staff.stress reduction reads positive)', () => {
+    const e = effect(
+      'state_change',
+      'staff.mira.stress',
+      -8,
+      'Comfort Mira',
+      ['staff'],
+    )
+    expect(e.targetKind).toBe('staff')
+    expect(e.direction).toBe('positive')
+    expect(e.magnitudeBand).toBe('medium')
+  })
+
+  it('applies valence on area.damage (accrual reads negative)', () => {
+    const e = effect(
+      'state_change',
+      'areas.kitchen.damage',
+      6,
+      'Wear accrues',
+      ['area'],
+    )
+    expect(e.targetKind).toBe('area')
+    expect(e.direction).toBe('negative')
   })
 
   it('omits magnitudeBand for a zero-amount cause preview but keeps direction', () => {

@@ -92,6 +92,56 @@ const BANDS: readonly EffectMagnitudeBand[] = [
   'large',
 ]
 
+// Phase 164 / ISSUE-132 — Faithful Surface arc, Phase 2 (Meter Valence).
+//
+// Effect `direction` is the surface contract the preview pools gate on, but
+// pre-Phase-164 it was the raw arithmetic sign of `amount` — so a kindness
+// that lowers `staff.stress` by 8 classified `negative` and rendered the
+// "things got worse" line. This map adds the missing polarity layer: which
+// meters are lower-is-better, so a *decrease* on them reads `positive` (good
+// for the player). Keyed on the meter sub-name — the last dot-segment of the
+// target string (`staff.mira.stress` → `stress`, `areas.kitchen.damage` →
+// `damage`) — because state-change targets carry the entity id in the middle.
+// Everything not listed defaults to higher-is-better.
+//
+// `cleanliness` / `condition` are HIGHER-is-better (a cleaner, sounder room is
+// good) and are intentionally absent. Only the area hygiene/decay meters
+// (`damage` / `smell` / `mess` / `risk`) invert.
+//
+// `pressure.*` is deliberately EXCLUDED. Pressure is stored rising = positive,
+// and its Phase-159 preview block already encodes threat-vs-relief in the verbs
+// ("build / mount / climb" for rising; "settle / ease / fall back" for relief)
+// keyed on arithmetic sign. It is valence-correct as-is and was never among the
+// audit's direction mismatches; adding it here would invert a correct signal
+// and break a faithful pool. Do not "fix" the omission.
+const METER_VALENCE: Record<string, 'lowerIsBetter'> = {
+  stress: 'lowerIsBetter', // staff
+  fatigue: 'lowerIsBetter', // staff
+  damage: 'lowerIsBetter', // area
+  smell: 'lowerIsBetter', // area
+  mess: 'lowerIsBetter', // area
+  risk: 'lowerIsBetter', // area
+  tension: 'lowerIsBetter', // culture
+  irritation: 'lowerIsBetter', // regular (defensive — may not be emitted today)
+  rowdiness: 'lowerIsBetter', // customer_group cohort (defensive)
+}
+
+/** Resolve the valence of the meter a `target` string points at. Reads the
+ *  last dot-segment against `METER_VALENCE`; colon-prefixed cause targets
+ *  (`staff:cook_1`, `pressure:landlord`) have no dot and fall through to the
+ *  higher-is-better default (cause effects carry amount 0 ⇒ neutral anyway). */
+export function resolveMeterValence(
+  target: string,
+): 'higherIsBetter' | 'lowerIsBetter' {
+  const lastDot = target.lastIndexOf('.')
+  if (
+    lastDot >= 0 &&
+    METER_VALENCE[target.slice(lastDot + 1)] === 'lowerIsBetter'
+  )
+    return 'lowerIsBetter'
+  return 'higherIsBetter'
+}
+
 /** Classify a `target` string into a structural target-kind. Order
  *  matters: `pressure:` colon-prefix must beat any later `pressure.`
  *  dot-path, etc. Unknown patterns fall to `'other'` rather than
@@ -129,10 +179,21 @@ export function classifyTargetKind(target: string): EffectTargetKind {
   return 'other'
 }
 
-/** Sign-only classification. `0` and `undefined` resolve to `'neutral'`. */
-export function classifyDirection(amount?: number): EffectDirection {
+/** Valence-aware direction classification. `0` and `undefined` resolve to
+ *  `'neutral'`. When `target` resolves to a lower-is-better meter (Phase 164 /
+ *  ISSUE-132), the sign is inverted before classifying so a decrease reads
+ *  `'positive'` (good for the player). The no-target form keeps the raw
+ *  arithmetic-sign behavior for callers that have no target context. */
+export function classifyDirection(
+  amount?: number,
+  target?: string,
+): EffectDirection {
   if (amount === undefined || amount === 0) return 'neutral'
-  return amount > 0 ? 'positive' : 'negative'
+  const signed =
+    target !== undefined && resolveMeterValence(target) === 'lowerIsBetter'
+      ? -amount
+      : amount
+  return signed > 0 ? 'positive' : 'negative'
 }
 
 /** Band the absolute amount against the per-targetKind cutoff table.
@@ -159,7 +220,7 @@ export function effect(
   tags: string[] = [],
 ): EffectPreview {
   const targetKind = classifyTargetKind(target)
-  const direction = classifyDirection(amount)
+  const direction = classifyDirection(amount, target)
   const magnitudeBand = classifyMagnitudeBand(targetKind, amount)
   const out: EffectPreview = {
     kind,

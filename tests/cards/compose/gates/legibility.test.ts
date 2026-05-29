@@ -60,28 +60,45 @@ describe('Phase 16 — Legibility gate (live, 20 migrated situations)', () => {
   // were structurally invisible.
   //
   // Phase 1 made every sampler emit production-shape seeds (Phase 163 /
-  // ISSUE-131). This test now surfaces ~295 real violations across the
-  // 20 migrated templates — the inputs to Phases 2-4:
-  //   - preview_magnitude_missing → Phase 2 (Meter Valence, ISSUE-132):
-  //     "the rota would slip a real step thinner" reads "slip" as
-  //     magnitude, but for staff.stress the polarity is inverted —
-  //     reduction is positive. The valence map flips direction so the
-  //     preview pool no longer renders the negative-staff line on a
-  //     kindness, and magnitude tokens land on banded effects.
-  //   - preview_cost_unsurfaced → Phase 3 (Distinguishable Choices,
-  //     ISSUE-133): pay_bonus carries `coin: -X` but the preview pool's
-  //     staff-cell snippet doesn't surface a coin keyword.
-  //   - choice_label_collision → Phase 3: same-verb slots
-  //     (e.g. comfort_staff vs publicly_back_staff in staff_identity)
-  //     render canonical-equal labels because the choiceLabel pools
-  //     gate on verb only.
+  // ISSUE-131), which surfaced ~295 real violations across the 20
+  // migrated templates. Phases 2-4 drove them to zero:
+  //   - preview_magnitude_missing → Phase 2 (Meter Valence, ISSUE-132)
+  //     flipped direction for lower-is-better meters so kindnesses stop
+  //     reading as losses; Phase 4 (this arc) exempted `future_hook` /
+  //     `cause` narrative effects (no player-facing magnitude) and fixed
+  //     the `world.regulars.*` → `customer` targetKind gap so the shared
+  //     banded snippets land a magnitude token.
+  //   - preview_cost_unsurfaced → Phase 4 added the cost-surfacing
+  //     policy in `composeChoicesFromSeed` (shared with this gate via
+  //     `selectPreviewEffects`): a coin-spend effect is pulled into the
+  //     preview cap so the player always sees a coin keyword.
+  //   - choice_label_collision → Phase 3 (Distinguishable Choices,
+  //     ISSUE-133): same-verb slots discriminate by slot id.
   //   - establishing_off_salient → Phase 4 (Flavor That Doesn't Lie,
-  //     ISSUE-134) when it surfaces; not in the current report but the
-  //     salience layer is in scope.
+  //     ISSUE-134): flavor lines that imply state are now state-gated, so
+  //     the salience layer never fires a non-covering snippet.
   //
-  // Restored when Phases 2-4 land. Until then this test would shadow
-  // the real defects under a meaningless "test is failing" signal.
-  it.todo('every migrated situation passes Q1 + Q2 [restore after Phases 2-4 / ISSUE-132/133/134]')
+  // Restored now that Phase 4 lands. This is the cross-template
+  // integration assertion the arc was built to keep green.
+  it('every migrated situation passes Q1 + Q2', () => {
+    const report = checkLegibility({ situations: LEGIBILITY_SITUATIONS })
+    if (!report.pass) {
+      const detail = report.violations
+        .slice(0, 8)
+        .map((v) => `${v.reason}: ${v.detail}`)
+        .join('\n')
+      throw new Error(
+        `legibility report failed with ${report.violations.length} violations:\n${detail}`,
+      )
+    }
+    expect(report.pass).toBe(true)
+    for (const obs of report.observed.situations) {
+      expect(obs.magnitudeChecksFailed).toBe(0)
+      expect(obs.costSurfacingChecksFailed).toBe(0)
+      expect(obs.labelCollisionsCount).toBe(0)
+      expect(obs.inactionBlankCount).toBe(0)
+    }
+  })
 
   it('records observed coverage for every migrated template', () => {
     const report = checkLegibility({ situations: LEGIBILITY_SITUATIONS })

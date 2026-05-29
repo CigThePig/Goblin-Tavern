@@ -64,6 +64,7 @@
 // deterministic.
 
 import { pickSnippetTrace, assembleSlots } from '../assemble'
+import { selectPreviewEffects } from '../previewSelect'
 import { evalCondition } from '../conditions'
 import { canonicaliseText } from './dedupe'
 import {
@@ -179,11 +180,6 @@ export const LEGIBILITY_REASONS = Object.freeze([
 
 export type LegibilityReason = (typeof LEGIBILITY_REASONS)[number]
 
-/** Default per-choice preview cap, mirroring
- *  `composeChoicesFromSeed`'s `MAX_PREVIEW`. Re-declared locally to
- *  keep the gate decoupled from `cardHelpers` import (cycles). */
-const DEFAULT_PREVIEW_MAX = 3
-
 export function checkLegibility(config: LegibilityConfig): LegibilityReport {
   const magnitudeLexicon = config.magnitudeLexicon ?? MAGNITUDE_LEXICON
   const coinKeywords = config.coinKeywords ?? DEFAULT_TARGET_KIND_KEYWORDS.coin
@@ -206,7 +202,6 @@ export function checkLegibility(config: LegibilityConfig): LegibilityReport {
     for (let i = 0; i < samples.length; i += 1) {
       const sample = samples[i]!
       samplesEvaluated += 1
-      const maxPreview = sample.maxPreview ?? DEFAULT_PREVIEW_MAX
 
       // ---- Q1: establishing-salience check ----
       // Two refinements on top of "fail when fired snippet covers no
@@ -292,7 +287,14 @@ export function checkLegibility(config: LegibilityConfig): LegibilityReport {
         const immediate = profile?.immediateEffects ?? []
         const delayed = profile?.delayedEffects ?? []
         const useDelayed = immediate.length === 0 && delayed.length > 0
-        const effects = (useDelayed ? delayed : immediate).slice(0, maxPreview)
+        // Phase 166 / ISSUE-134 — mirror the renderer's cost-surfacing
+        // selection exactly. `lineCount` is the number of lines the
+        // production renderer actually emitted (its own `maxPreview`);
+        // `selectPreviewEffects(source, lineCount)` reproduces the same
+        // effects in the same order, so `effects[lineIdx]` is the true
+        // backing effect for `choice.previewEffects[lineIdx]`.
+        const source = useDelayed ? delayed : immediate
+        const effects = selectPreviewEffects(source, lineCount)
 
         // forbidInactionBlank — a choice with NO rendered lines AND a
         // profile carrying no consequences at all (no immediate AND no
@@ -313,6 +315,15 @@ export function checkLegibility(config: LegibilityConfig): LegibilityReport {
           const line = choice.previewEffects[lineIdx]!
           const effect = effects[lineIdx]
           if (!effect) continue
+          // Phase 166 / ISSUE-134 — `future_hook` (a narrative recurrence
+          // hook, "a complaint loops back round") and `cause`
+          // (attribution writes) carry a classified magnitudeBand because
+          // `effect()` bands any non-zero amount, but their band is not
+          // player-facing magnitude the way a metered `state_change` /
+          // `pressure` is. The previewVariety design already treats such
+          // effects as band-less; the magnitude rule applies only to the
+          // metered kinds.
+          if (effect.kind === 'future_hook' || effect.kind === 'cause') continue
           const band = effect.magnitudeBand
           const direction = effect.direction
           if (band === undefined || direction === undefined) continue

@@ -53,7 +53,7 @@ export const reactionLinePool: SnippetPool = {
     },
     {
       id: 'rxn_florid',
-      text: "Sleep tasted like ash. The kettle's hot anyway.",
+      text: "The morning came up grey. The kettle's hot anyway.",
       conditions: [
         { kind: 'voiceAxis', role: 'primaryActor', axis: 'floridity', atLeast: 2 },
       ],
@@ -77,7 +77,7 @@ export const reactionLinePool: SnippetPool = {
     },
     {
       id: 'rxn_formal_restrained',
-      text: 'I shall serve, but the strain bears mention.',
+      text: 'I shall serve, as duty plainly holds.',
       conditions: [
         { kind: 'voiceAxis', role: 'primaryActor', axis: 'formality', atLeast: 2 },
         { kind: 'voiceAxis', role: 'primaryActor', axis: 'floridity', atMost: 0 },

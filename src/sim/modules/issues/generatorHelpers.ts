@@ -165,6 +165,13 @@ export function classifyTargetKind(target: string): EffectTargetKind {
   if (target.startsWith('customer_group:')) return 'cohort'
   if (target.startsWith('staff:')) return 'staff'
   if (target.startsWith('regular:')) return 'customer'
+  // Phase 166 / ISSUE-134 — the `state_change` form of a regular meter
+  // (`world.regulars.<id>.loyalty`) is a named customer, same as the
+  // `regular:` cause-prefix above. Without this it fell to `'other'`, so
+  // no shared `customer` banded preview snippet matched and the line
+  // dropped its magnitude.
+  if (target.startsWith('world.regulars.') || target.startsWith('regulars.'))
+    return 'customer'
   if (target.startsWith('rumour:')) return 'memory'
   if (target === 'coin' || target.startsWith('coin.')) return 'coin'
   if (target.startsWith('stock.')) return 'stock'

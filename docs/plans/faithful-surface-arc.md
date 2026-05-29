@@ -149,6 +149,18 @@ renderer's choice-meta line change. Wait for plan approval.
 
 ## Phase 4 — Flavor That Doesn't Lie
 
+**Status: done (phase 166 / ISSUE-134).** Shipped the `simCoherence`
+`unbacked_state_claim` detector (curated distress/calm lexicon, scoped to body
+flavor slots), state-gated the 5 genuinely-ungated voice-rung distress lines (the
+other ~636 flavor snippets were already gated or make no claim), added the
+multi-fact valence drop (`strictlyOpposed` pure-calm-vs-pure-distress SIGNAL
+pairs only; pressures neutral; mixed snippets preserved), and — folded in from
+the Phase-1/2/3 carry-over — restored the cross-template legibility `it.todo` to
+a live assertion by driving its 202 violations to zero (cost-surfacing via the
+shared `selectPreviewEffects`, `future_hook`/`cause` magnitude exemption, and the
+`world.regulars.*` → `customer` targetKind fix). See ISSUE-134 for the full
+record.
+
 **Provisional:** phase 166 / ISSUE-134.
 
 **Goal.** Stop flavor lines contradicting the sim. The arc-defining assumption — *"flavor slots make no checkable claims"* in `simCoherence.ts` line 4 — is wrong: a flavor line that asserts emotional or situational state ("I've been carrying a heavy hush since dawn") makes a claim about the sim even though it invents no name, history, or role. Flavor pools need state conditions where their content implies state, and the multi-fact join needs to refuse pairs that don't cohere.

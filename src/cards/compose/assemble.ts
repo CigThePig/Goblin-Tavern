@@ -19,6 +19,7 @@
 
 import { fnvIndex } from '../../sim/utils/fnv'
 import type { IssueSeed } from '../../sim/modules/issues/issueSeedTypes'
+import { resolveMeterValence } from '../../sim/modules/issues/generatorHelpers'
 import type { TavernState } from '../../sim/state/TavernState'
 import { evalCondition } from './conditions'
 import {
@@ -86,6 +87,71 @@ function pickByTopSalience(
   return top[idx]!
 }
 
+/** Phase 166 / ISSUE-134 — the player-facing valence of a resolved
+ *  salient read: `'distress'` (bad for the player), `'calm'` (good), or
+ *  `'neutral'`. Reuses the canonical `resolveMeterValence` map (Phase
+ *  164) so signal polarity matches the preview layer.
+ *
+ *  Only SIGNAL bands carry a calm/distress pole. A rising PRESSURE is a
+ *  systemic trend (burnout, market instability, debt) that orthogonally
+ *  co-occurs with any current mood — "the wagons run steady, but the
+ *  market's turning" is coherent, not a contradiction — so pressures are
+ *  neutral here. The multi-fact contradiction the join refuses is two
+ *  opposing current dispositions: a calm signal stapled to a distress
+ *  signal ("their patience snapped — they've never been steadier"). */
+function readValence(resolved: ResolvedRead): 'distress' | 'calm' | 'neutral' {
+  const read = resolved.read
+  if (read.kind === 'signal') {
+    const band = resolved.band
+    if (band === undefined || band === 'mid') return 'neutral'
+    const highIsBad = resolveMeterValence(read.signal) === 'lowerIsBetter'
+    if (band === 'high') return highIsBad ? 'distress' : 'calm'
+    return highIsBad ? 'calm' : 'distress' // band === 'low'
+  }
+  // pressure (a trend) / memory / repeat / hasTag / severity carry no
+  // contradicting current-disposition pole.
+  return 'neutral'
+}
+
+/** Phase 166 / ISSUE-134 — the valence profile a snippet expresses,
+ *  computed over EVERY read it covers (not just its most-salient one). A
+ *  snippet gated on `stress: low` + `fatigue: high` covers both a calm
+ *  and a distress read, so it is `{ calm: true, distress: true }` — a
+ *  deliberately nuanced line, not a pure pole. */
+function valenceProfile(
+  coveredReadIndices: readonly number[],
+  resolved: readonly ResolvedRead[],
+): { calm: boolean; distress: boolean } {
+  let calm = false
+  let distress = false
+  for (const i of coveredReadIndices) {
+    const r = resolved[i]
+    if (!r) continue
+    const v = readValence(r)
+    if (v === 'calm') calm = true
+    else if (v === 'distress') distress = true
+  }
+  return { calm, distress }
+}
+
+/** Phase 166 / ISSUE-134 — true when two valence profiles are strict
+ *  opposites: one expresses ONLY calm and the other ONLY distress. A
+ *  mixed snippet (carrying both, like "steady steps, but the long week
+ *  shows") is never a strict opposite — it already holds the tension, so
+ *  appending a same-direction secondary is coherent. Only the pure
+ *  calm-vs-distress pairing ("the week hasn't landed yet — and they're
+ *  drifting away") is the contradiction the multi-fact join must refuse. */
+function strictlyOpposed(
+  a: { calm: boolean; distress: boolean },
+  b: { calm: boolean; distress: boolean },
+): boolean {
+  const aPureCalm = a.calm && !a.distress
+  const aPureDistress = a.distress && !a.calm
+  const bPureCalm = b.calm && !b.distress
+  const bPureDistress = b.distress && !b.calm
+  return (aPureCalm && bPureDistress) || (aPureDistress && bPureCalm)
+}
+
 /** Find a secondary snippet for `'multi'` mode: one whose conditions
  *  cover the most-salient resolved read that the primary does NOT cover,
  *  and whose text appended to the primary stays within `wordBudget`.
@@ -104,6 +170,14 @@ function pickSecondaryForMulti(
   fnvKey: string,
 ): Snippet | undefined {
   const coveredByPrimary = new Set(primaryScore.coveredReadIndices)
+  // Phase 166 / ISSUE-134 — the primary's valence profile across every
+  // read it covers. The join refuses to staple a secondary that is the
+  // strict opposite (pure calm vs pure distress) — silence beats a
+  // contradictory "the week hasn't landed yet — and they're drifting
+  // away" line. A primary that already mixes both (e.g. "steady steps,
+  // but the long week shows") is not a pure pole, so a same-direction
+  // secondary stays coherent.
+  const primaryProfile = valenceProfile(primaryScore.coveredReadIndices, resolved)
   // Walk resolved reads in salience order; the first uncovered read that
   // has at least one matching, condition-satisfied snippet wins.
   for (let i = 0; i < resolved.length; i++) {
@@ -128,9 +202,18 @@ function pickSecondaryForMulti(
       if (spec > maxSpec) maxSpec = spec
     }
     const topSpec = matches.filter((m) => specificityOf(m) === maxSpec)
-    if (topSpec.length === 1) return topSpec[0]!
-    return pickByTopSalience(topSpec, resolved, `${fnvKey}::secondary::${i}`)
-      .snippet
+    const secondary =
+      topSpec.length === 1
+        ? topSpec[0]!
+        : pickByTopSalience(topSpec, resolved, `${fnvKey}::secondary::${i}`).snippet
+    // Drop the secondary when it is the strict valence opposite of the
+    // primary; try the next orthogonal read instead.
+    const secProfile = valenceProfile(
+      scoreCandidateSalience(secondary, resolved).coveredReadIndices,
+      resolved,
+    )
+    if (strictlyOpposed(primaryProfile, secProfile)) continue
+    return secondary
   }
   return undefined
 }

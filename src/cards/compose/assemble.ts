@@ -39,6 +39,22 @@ export function specificityOf(snippet: Snippet): number {
   return snippet.specificity ?? snippet.conditions.length
 }
 
+/** Shared empty set so the default `avoid` argument is a stable reference
+ *  (no per-call allocation, no behaviour change when unused). */
+const EMPTY_AVOID: ReadonlySet<string> = new Set<string>()
+
+/** Canonical form for within-card distinctness comparison. Mirrors
+ *  `gates/dedupe.canonicaliseText` (lowercase, strip punctuation, collapse
+ *  whitespace) so the selection layer avoids exactly what the faithfulness
+ *  gate flags. Inlined to keep `assemble.ts` free of gate-layer imports. */
+function canonicaliseForAvoid(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[.,!?—–\-:;"'()]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 /** Framework body cap (framework §4) — kept in sync with
  *  `voiceBounds.DEFAULT_BODY_WORD_BUDGET`. Used as the multi-fact
  *  combined-line budget when the slot omits `wordBudget`. */
@@ -239,6 +255,7 @@ export function pickSnippetTrace(
   seed: IssueSeed,
   state: TavernState,
   ctx: ConditionContext = {},
+  avoid: ReadonlySet<string> = EMPTY_AVOID,
 ): Snippet | undefined {
   const matches = slot.pool.snippets.filter((s) =>
     s.conditions.every((c) => evalCondition(c, seed, state, ctx)),
@@ -249,7 +266,26 @@ export function pickSnippetTrace(
     const s = specificityOf(m)
     if (s > maxSpec) maxSpec = s
   }
-  const top = matches.filter((s) => specificityOf(s) === maxSpec)
+  const allTop = matches.filter((s) => specificityOf(s) === maxSpec)
+  // Phase 167 / ISSUE-135 — within-card distinctness. When the caller
+  // passes an `avoid` set (the canonical forms of lines already emitted by
+  // earlier choices on this card), prefer a TOP-specificity candidate whose
+  // text is not already used, so two mechanically-distinct choices sharing
+  // a `(targetKind, direction, band)` cell render DIFFERENT lines instead
+  // of FNV-pigeonholing onto the same one. Distinctness stays WITHIN the
+  // top tier: dropping to a lower specificity would lose the magnitude
+  // token a banded effect needs (the legibility gate's contract), so when
+  // the top tier is exhausted the pick falls back to the full top tier +
+  // FNV (a coverage gap the faithfulness gate then flags — fixed by
+  // authoring more top-tier candidates, not by dropping specificity).
+  // Empty `avoid` ⇒ byte-identical pre-Phase-167 behaviour.
+  const top =
+    avoid.size > 0
+      ? (() => {
+          const unused = allTop.filter((s) => !avoid.has(canonicaliseForAvoid(s.text)))
+          return unused.length > 0 ? unused : allTop
+        })()
+      : allTop
   if (top.length === 1) return top[0]!
   const fnvKey = `${seed.id}::${slot.id}`
   if (slot.saliencePolicy) {
@@ -272,13 +308,16 @@ export function pickSnippet(
   seed: IssueSeed,
   state: TavernState,
   ctx: ConditionContext = {},
+  avoid: ReadonlySet<string> = EMPTY_AVOID,
 ): string | undefined {
   // Phase 146 / ISSUE-114 — slots with `saliencePolicy === 'multi'` may
   // join a primary + secondary snippet into one line. For all other
   // slots `pickComposedSlotText` collapses to the primary's text, so
   // callers outside the body builder (the choice helper's synthetic
   // slots, direct test calls on non-multi slots) see identical output.
-  return pickComposedSlotText(slot, seed, state, ctx)
+  // Phase 167 / ISSUE-135 — `avoid` threads through to the primary pick
+  // for within-card label / preview distinctness.
+  return pickComposedSlotText(slot, seed, state, ctx, avoid)
 }
 
 /** Phase 146 / ISSUE-114 — the assembler-side resolver for a slot. For
@@ -292,8 +331,9 @@ export function pickComposedSlotText(
   seed: IssueSeed,
   state: TavernState,
   ctx: ConditionContext = {},
+  avoid: ReadonlySet<string> = EMPTY_AVOID,
 ): string | undefined {
-  const primary = pickSnippetTrace(slot, seed, state, ctx)
+  const primary = pickSnippetTrace(slot, seed, state, ctx, avoid)
   if (!primary) return undefined
   if (slot.saliencePolicy !== 'multi') return primary.text
   const resolved = resolveSalientReads(seed, state)

@@ -471,6 +471,40 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'responseShape', anyOf: ['long_term_investment'] },
       ],
     },
+    // Phase 167 / ISSUE-135 — Faithful Surface arc, Phase 5. Sibling
+    // long_term variants so the within-card distinctness pass can spread
+    // several long-term repair choices (an inspection card carries up to
+    // four) onto distinct magnitude-bearing lines instead of repeating one.
+    {
+      id: 'shared_preview_area_pos_small_long_b',
+      text: 'fresh joinery would firm the floor a notch',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+        { kind: 'responseShape', anyOf: ['long_term_investment'] },
+      ],
+    },
+    {
+      id: 'shared_preview_area_pos_small_long_c',
+      text: 'a measure of new timber would brace the room',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+        { kind: 'responseShape', anyOf: ['long_term_investment'] },
+      ],
+    },
+    {
+      id: 'shared_preview_area_pos_small_long_d',
+      text: 'a step of real work would settle the kitchen',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+        { kind: 'responseShape', anyOf: ['long_term_investment'] },
+      ],
+    },
     {
       id: 'shared_preview_area_pos_small_patch',
       text: 'a quick patch would lift the corner a step',
@@ -847,6 +881,18 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
       ],
     },
+    // Phase 167 / ISSUE-135 — Faithful Surface arc, Phase 5. A complaint
+    // card carries up to three customer-positive-medium choices; a third
+    // sibling lets the distinctness pass keep all three distinct.
+    {
+      id: 'shared_preview_customer_pos_medium_c',
+      text: 'a marked rise would warm the regular to the bar',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
     {
       id: 'shared_preview_customer_pos_large_a',
       text: 'a surge of patronage would fill every regular seat',
@@ -1013,6 +1059,17 @@ export function narratorEffectPreviewBase(): Snippet[] {
     {
       id: 'shared_preview_staff_pos_large_a',
       text: 'a strong climb of loyalty would bind the crew',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    // Phase 167 / ISSUE-135 — Faithful Surface arc, Phase 5. Sibling so two
+    // staff-lifting choices on one card read distinctly.
+    {
+      id: 'shared_preview_staff_pos_large_b',
+      text: 'a wide leap of morale would lift the whole crew',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['staff'] },
         { kind: 'effectDirection', sign: 'positive' },
@@ -1389,6 +1446,17 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'effectMagnitudeBand', anyOf: ['large'] },
       ],
     },
+    // Phase 167 / ISSUE-135 — Faithful Surface arc, Phase 5. Sibling so two
+    // faction-souring choices on one card read distinctly.
+    {
+      id: 'shared_preview_faction_neg_large_b',
+      text: 'a sharp drop would freeze the guild against the bar',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['faction'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
     {
       id: 'shared_preview_faction_pos_tiny_a',
       text: 'a hair of warmth would reach the guild',
@@ -1542,6 +1610,26 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'effectMagnitudeBand', anyOf: ['small'] },
       ],
     },
+    // Phase 167 / ISSUE-135 — Faithful Surface arc, Phase 5. Sibling
+    // candidates so several culture choices on one card render distinctly.
+    {
+      id: 'shared_preview_culture_pos_small_b',
+      text: 'the folk would settle a notch into the night',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['culture'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_culture_pos_small_c',
+      text: 'a measure of ease would reach the gathered kin',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['culture'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
     {
       id: 'shared_preview_culture_pos_medium_a',
       text: 'a clear lift would warm the people gathered',
@@ -1554,6 +1642,15 @@ export function narratorEffectPreviewBase(): Snippet[] {
     {
       id: 'shared_preview_culture_pos_medium_b',
       text: 'a real step would knit the kin into the night',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['culture'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_culture_pos_medium_c',
+      text: 'a marked rise would steady the folk in the room',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['culture'] },
         { kind: 'effectDirection', sign: 'positive' },

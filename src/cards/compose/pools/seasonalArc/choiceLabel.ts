@@ -133,6 +133,21 @@ export const choiceLabelPool: SnippetPool = {
         { kind: 'responseVerb', anyOf: ['discard'] },
       ],
     },
+    // Phase 167 / ISSUE-135 — Faithful Surface arc, Phase 5. A
+    // miner_payday_boom seed carries two ignore-verb slots — `let_it_brawl`
+    // (shape `reputation_play`, a deliberate let-it-rip) and
+    // `ignore_warning` (shape `ignore`, simple inaction) — which both
+    // collapsed to `label_ignore_default`. Discriminate the louder one by
+    // shape so the two distinct choices read distinctly.
+    {
+      id: 'label_ignore_reputation_play',
+      text: 'Let the night run wild',
+      specificity: 2,
+      conditions: [
+        { kind: 'responseVerb', anyOf: ['ignore'] },
+        { kind: 'responseShape', anyOf: ['reputation_play'] },
+      ],
+    },
     {
       id: 'label_ignore_default',
       text: 'Let the moment pass quietly',

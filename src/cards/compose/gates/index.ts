@@ -106,3 +106,11 @@ export {
   type LegibilitySituation,
   type LegibilitySituationObservation,
 } from './legibility'
+export {
+  checkFaithfulness,
+  FAITHFULNESS_REASONS,
+  type FaithfulnessConfig,
+  type FaithfulnessReason,
+  type FaithfulnessReport,
+  type FaithfulnessSample,
+} from './faithfulness'

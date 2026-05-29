@@ -119,6 +119,23 @@ const DEFAULT_DISTRESS_PATTERNS: readonly RegExp[] = [
   /\bshoulders rounded\b/i,
   /\btired hand\b/i,
   /\bweight off (her|his|their) feet\b/i,
+  // Phase 167 / ISSUE-135 — Faithful Surface arc, Phase 5. The staff
+  // burnout / aside pools express exhaustion and strain through a wider
+  // idiom than the Phase-4 seed covered. Without these, a coherent
+  // concessive distress line ("Rested enough, and still wound tight at the
+  // rota") read as PURE calm (only "rested" matched), so the standing
+  // faithfulness audit's rule (d) false-flagged it on a high-stress actor.
+  // Adding them lets the audit (and the static detector) see the distress
+  // pole these lines actually carry. Same scope: first-person / close-third
+  // wellbeing, distinctive enough not to fire on gesture-only flavor.
+  /\bwound tight\b/i,
+  /\btight shoulders\b/i,
+  /\bset jaw\b/i,
+  /\btight as a wire\b/i,
+  /\bbone[- ]?tired\b/i,
+  /\bwearing (them|him|her|us) through\b/i,
+  /\bcrowding into\b/i,
+  /\bstill climbing\b/i,
 ]
 const DEFAULT_CALM_PATTERNS: readonly RegExp[] = [
   /\brested\b/i,

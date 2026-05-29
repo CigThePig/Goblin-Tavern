@@ -197,6 +197,29 @@ claim stay ungated. Wait for plan approval.
 
 ## Phase 5 — Close the Loop
 
+**Status: done (phase 167 / ISSUE-135).** Shipped the standing cross-sim
+`checkFaithfulness` gate (`src/cards/compose/gates/faithfulness.ts`, exported
+through `gates/index.ts`, NOT in `runAllGates`) + harness
+(`tests/cards/compose/gates/faithfulnessHarness.ts`, drives `runCardlessSim`
+across four policy bots → ~3,017 production-shape renders, memoised, one
+bot-run held at a time, routed to the vitest forks slow shard) + test
+(`faithfulness.test.ts`, 5 live + 4 failure fixtures). Four rules, one per
+defect class: `direction_mismatch` (opposite-direction medium/large magnitude
+vocab on a `METER_VALENCE`-resolving meter), `label_collision`,
+`duplicate_preview_line`, `distress_state_mismatch` (pure-distress flavor on a
+calm actor / vice-versa, computed from state via `querySignal` /
+`pressureIsRising`). The switch to real renders surfaced that #2/#3/#4 were not
+fully closed (2,953 dup previews / 27 label collisions / 73 distress
+false-positives); per the "full fixes, not bandaids" direction all four were
+driven to zero via (1) a within-card distinctness mechanism in
+`assemble.ts`/`cardHelpers.ts` (`pickSnippet` gains an optional `avoid` set;
+top-tier-only so magnitude/legibility is preserved; per-choice same-cell reuse),
+(2) 10 new magnitude-bearing sibling snippets in `_shared/effectPreviewBase.ts`
+for the thin cells, (3) a `responseShape`-discriminated seasonal_arc ignore
+label, and (4) a distress-lexicon expansion in `simCoherence` so coherent
+concessive lines register as mixed. `checkLegibility` stays beside it unchanged.
+Full suite 3,161/3,161 across 228 files + typecheck clean. See ISSUE-135.
+
 **Provisional:** phase 167 / ISSUE-135.
 
 **Goal.** Wire the audit into the standing bar so the structural blind spot that hid all four defects can't reopen. The Phase-16 legibility gate currently asserts on synthetic samples through 10 fixture tests; it needs to assert on **production-shape samples** for the four defect classes this arc fixed. This phase is small but critical — without it, the next Claude-Code session that adds a template will re-introduce the same pattern.

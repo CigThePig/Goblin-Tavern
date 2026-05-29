@@ -19,7 +19,10 @@ export default defineConfig({
     // the suite stays on the faster default threads pool.
     poolMatchGlobs: [
       [
-        '**/{phase20.cardlessPlaytest,phase40.expandedReadiness}.test.ts',
+        // Phase 167 / ISSUE-135 — `faithfulness.test.ts` drives
+        // runCardlessSim across four bots like phase20, so it belongs in
+        // the isolated forks pool for its own reclaimable process heap.
+        '**/{phase20.cardlessPlaytest,phase40.expandedReadiness,faithfulness}.test.ts',
         'forks',
       ],
     ],

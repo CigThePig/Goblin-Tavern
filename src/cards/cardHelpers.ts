@@ -19,6 +19,7 @@ import type {
 import type { EffectPreview } from '../sim/core/effect'
 import type { TavernState } from '../sim/state/TavernState'
 import { pickSnippet } from './compose/assemble'
+import { canonicaliseText } from './compose/gates/dedupe'
 import { selectPreviewEffects } from './compose/previewSelect'
 import { SALIENCE_TABLES, type SalienceRead } from './compose/salience'
 import type { SlotSpec, SnippetPool } from './compose/types'
@@ -372,6 +373,16 @@ export function composeChoicesFromSeed(
     profileFor,
     maxChoices,
   )
+  // Phase 167 / ISSUE-135 — within-card distinctness. Track the canonical
+  // form of every label and every preview line already emitted on this
+  // card, and feed them to `pickSnippet` so a later choice prefers an
+  // unused candidate over FNV-pigeonholing onto a line an earlier choice
+  // already used. The mechanical fields (verb / target / effects) are
+  // untouched; only WHICH equal-specificity snippet renders changes. When
+  // a pool genuinely lacks an unused candidate the pick falls back to the
+  // FNV choice (a coverage gap the faithfulness gate then flags).
+  const usedLabels = new Set<string>()
+  const usedPreviews = new Set<string>()
   return cappedSlots.map((slot) => {
     const profile = seed.consequenceProfiles.find(
       (p) => p.responseSlotId === slot.id,
@@ -384,9 +395,14 @@ export function composeChoicesFromSeed(
       wordBudget: 6,
       claimMode: 'flavor',
     }
-    const composedLabel = pickSnippet(labelSlot, seed, state, {
-      currentResponseSlot: slot,
-    })
+    const composedLabel = pickSnippet(
+      labelSlot,
+      seed,
+      state,
+      { currentResponseSlot: slot },
+      usedLabels,
+    )
+    if (composedLabel !== undefined) usedLabels.add(canonicaliseText(composedLabel))
     // Phase 147 / ISSUE-115 — when a response slot has no immediate
     // effects (e.g. the `ignore_area_problem` profile at
     // `expandedSeedGenerators.ts:2692`), the previous path rendered the
@@ -408,7 +424,24 @@ export function composeChoicesFromSeed(
     // which effects the preview RENDERS. Shared with the legibility gate
     // via `selectPreviewEffects` so the two never drift.
     const effects = selectPreviewEffects(source, previewMax)
+    // Phase 167 / ISSUE-135 — within a single choice, two effects landing
+    // in the SAME preview cell (e.g. customer satisfaction + loyalty, both
+    // positive/medium) reuse ONE line rather than each consuming a distinct
+    // candidate from the card's avoid budget. Repeating the same line
+    // within one choice is not a cross-choice lie (the gate only flags
+    // lines shared across DISTINCT choices); reusing it leaves more
+    // candidates for the cross-choice distinctness the gate enforces.
+    const cellLineThisChoice = new Map<string, string>()
     const composedPreview = effects.map((effect, idx) => {
+      const cellKey =
+        effect.targetKind !== undefined &&
+        effect.direction !== undefined &&
+        effect.magnitudeBand !== undefined
+          ? `${effect.targetKind}|${effect.direction}|${effect.magnitudeBand}`
+          : undefined
+      if (cellKey !== undefined && cellLineThisChoice.has(cellKey)) {
+        return cellLineThisChoice.get(cellKey)!
+      }
       const previewSlot: SlotSpec = {
         id: `effect_preview::${slot.id}::${idx}`,
         role: 'effect_preview',
@@ -417,12 +450,21 @@ export function composeChoicesFromSeed(
         wordBudget: 10,
         claimMode: 'flavor',
       }
-      const composed = pickSnippet(previewSlot, seed, state, {
-        currentResponseSlot: slot,
-        currentEffect: effect,
-        inactionPreview: useDelayed,
-      })
-      return composed ?? effect.readable
+      const composed = pickSnippet(
+        previewSlot,
+        seed,
+        state,
+        {
+          currentResponseSlot: slot,
+          currentEffect: effect,
+          inactionPreview: useDelayed,
+        },
+        usedPreviews,
+      )
+      const line = composed ?? effect.readable
+      usedPreviews.add(canonicaliseText(line))
+      if (cellKey !== undefined) cellLineThisChoice.set(cellKey, line)
+      return line
     })
     const extra = options.overrides?.(slot) ?? {}
     const overrides: ChoiceOverrides = {

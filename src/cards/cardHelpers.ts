@@ -19,6 +19,7 @@ import type {
 import type { EffectPreview } from '../sim/core/effect'
 import type { TavernState } from '../sim/state/TavernState'
 import { pickSnippet } from './compose/assemble'
+import { selectPreviewEffects } from './compose/previewSelect'
 import { SALIENCE_TABLES, type SalienceRead } from './compose/salience'
 import type { SlotSpec, SnippetPool } from './compose/types'
 
@@ -398,7 +399,15 @@ export function composeChoicesFromSeed(
     const immediate = profile?.immediateEffects ?? []
     const delayed = profile?.delayedEffects ?? []
     const useDelayed = immediate.length === 0 && delayed.length > 0
-    const effects = (useDelayed ? delayed : immediate).slice(0, previewMax)
+    const source = useDelayed ? delayed : immediate
+    // Phase 166 / ISSUE-134 — cost-surfacing policy. A choice that spends
+    // coin must show it: if a negative-direction coin effect would be
+    // dropped by the `previewMax` cap, pull it into the last previewed
+    // slot (keeping the leading, most-salient effects ahead of it).
+    // Mechanical order in the profile is untouched — this only reorders
+    // which effects the preview RENDERS. Shared with the legibility gate
+    // via `selectPreviewEffects` so the two never drift.
+    const effects = selectPreviewEffects(source, previewMax)
     const composedPreview = effects.map((effect, idx) => {
       const previewSlot: SlotSpec = {
         id: `effect_preview::${slot.id}::${idx}`,

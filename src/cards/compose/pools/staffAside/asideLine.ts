@@ -61,7 +61,7 @@ export const asideLinePool: SnippetPool = {
     },
     {
       id: 'aside_florid',
-      text: "Sleep tasted like ash. Still — the kettle's hot.",
+      text: "Morning came dressed in grey. Still — the kettle's hot.",
       conditions: [
         { kind: 'voiceAxis', role: 'primaryActor', axis: 'floridity', atLeast: 2 },
       ],
@@ -102,7 +102,7 @@ export const asideLinePool: SnippetPool = {
     },
     {
       id: 'aside_florid_open',
-      text: "I've been carrying a heavy hush since dawn.",
+      text: "I've a morning's worth of words saved up for you.",
       conditions: [
         { kind: 'voiceAxis', role: 'primaryActor', axis: 'floridity', atLeast: 2 },
         { kind: 'voiceAxis', role: 'primaryActor', axis: 'terseness', atMost: 0 },
@@ -126,7 +126,7 @@ export const asideLinePool: SnippetPool = {
     },
     {
       id: 'aside_tic_understates',
-      text: "A bit of strain, perhaps. Nothing the work won't sort.",
+      text: "A small matter, perhaps. Nothing the work won't sort.",
       conditions: [
         { kind: 'verbalTic', role: 'primaryActor', tic: 'understates' },
       ],

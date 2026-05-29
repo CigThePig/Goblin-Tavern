@@ -11,12 +11,15 @@ import { staffAsideTemplate } from '../../../../src/cards/templates/staffAside'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
 import {
   backedHistoryClaimSlot,
+  backedStateClaimSlot,
   bannedNameSlot,
   buildTemplate,
+  noStateClaimSlot,
   simBackedMissingLookupSlot,
   simBackedWithLookupSlot,
   unbackedHistoryClaimSlot,
   unbackedRoleClaimSlot,
+  unbackedStateClaimSlot,
 } from './fixtures'
 import { representativeBannedNames } from './samplers'
 
@@ -82,6 +85,30 @@ describe('sim-coherence gate — flavor failures', () => {
     expect(report.violations).toHaveLength(1)
     expect(report.violations[0]!.snippetId).toBe('unbacked_role')
     expect(report.violations[0]!.reason).toBe('unbacked_role_claim')
+  })
+
+  // Phase 166 / ISSUE-134 — Faithful Surface arc, Phase 4.
+  it('a flavor snippet implying state ("wrung out") with no state-lookup fails with unbacked_state_claim', () => {
+    const bad = buildTemplate('bad_unbacked_state', [unbackedStateClaimSlot()])
+    const report = checkSimCoherence(bad, { bannedDisplayNames: [] })
+    expect(report.pass).toBe(false)
+    expect(report.violations).toHaveLength(1)
+    expect(report.violations[0]!.snippetId).toBe('unbacked_state')
+    expect(report.violations[0]!.reason).toBe('unbacked_state_claim')
+  })
+
+  it('the same state-implying text WITH a signalEquals condition passes', () => {
+    const good = buildTemplate('good_backed_state', [backedStateClaimSlot()])
+    const report = checkSimCoherence(good, { bannedDisplayNames: [] })
+    expect(report.pass).toBe(true)
+    expect(report.violations).toEqual([])
+  })
+
+  it('a flavor snippet making no situational claim ("smooth their apron") stays silent', () => {
+    const good = buildTemplate('good_no_state', [noStateClaimSlot()])
+    const report = checkSimCoherence(good, { bannedDisplayNames: [] })
+    expect(report.pass).toBe(true)
+    expect(report.violations).toEqual([])
   })
 })
 

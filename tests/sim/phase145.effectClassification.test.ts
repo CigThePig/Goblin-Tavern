@@ -42,6 +42,10 @@ describe('classifyTargetKind — target string conventions', () => {
     ['customers.miners.satisfaction', 'customer'],
     ['customers.miners.loyalty', 'customer'],
     ['customers.merchants.patronage', 'customer'],
+    // Phase 166 / ISSUE-134 — the state_change form of a named regular's
+    // meter classifies as a customer (was falling to 'other').
+    ['world.regulars.tomek.loyalty', 'customer'],
+    ['regulars.tomek.irritation', 'customer'],
     // staff (dotted)
     ['staff.cook.fatigue', 'staff'],
     ['staff.cook.morale', 'staff'],

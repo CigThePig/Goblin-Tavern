@@ -168,6 +168,66 @@ export function unbackedRoleClaimSlot(): SlotSpec {
   )
 }
 
+/** Phase 166 / ISSUE-134 — a flavor slot whose pool contains a snippet
+ *  asserting an emotional state ("wrung out") with no state-lookup
+ *  condition. The state-claim detector must flag it. */
+export function unbackedStateClaimSlot(): SlotSpec {
+  return makeSlot(
+    'order_line',
+    [
+      { id: 'fallback', text: 'An ale.', conditions: [] },
+      {
+        id: 'unbacked_state',
+        text: "Ale. I'm wrung out, but I'll pour.",
+        conditions: [
+          { kind: 'voiceAxis', role: 'primaryActor', axis: 'floridity', atLeast: 2 },
+        ],
+      },
+    ],
+    { claimMode: 'flavor' },
+  )
+}
+
+/** Same text but with a `signalEquals` state condition added — the gate
+ *  should accept this version. */
+export function backedStateClaimSlot(): SlotSpec {
+  return makeSlot(
+    'order_line',
+    [
+      { id: 'fallback', text: 'An ale.', conditions: [] },
+      {
+        id: 'backed_state',
+        text: "Ale. I'm wrung out, but I'll pour.",
+        conditions: [
+          { kind: 'voiceAxis', role: 'primaryActor', axis: 'floridity', atLeast: 2 },
+          { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.fatigue', equals: 'high' },
+        ],
+      },
+    ],
+    { claimMode: 'flavor' },
+  )
+}
+
+/** A flavor snippet that makes a pure gesture / no-claim observation —
+ *  the state-claim detector must stay silent on it even with no
+ *  state-lookup condition. */
+export function noStateClaimSlot(): SlotSpec {
+  return makeSlot(
+    'order_line',
+    [
+      { id: 'fallback', text: 'An ale.', conditions: [] },
+      {
+        id: 'no_state',
+        text: 'They smooth their apron as if rehearsing.',
+        conditions: [
+          { kind: 'voiceAxis', role: 'primaryActor', axis: 'formality', atLeast: 2 },
+        ],
+      },
+    ],
+    { claimMode: 'flavor' },
+  )
+}
+
 /** A `claimMode: 'sim_backed'` slot whose non-fallback snippet has only
  *  `voiceAxis` conditions. Sim-coherence gate must flag the missing
  *  state-lookup condition. */

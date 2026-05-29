@@ -38,6 +38,16 @@ export const choiceLabelPool: SnippetPool = {
         { kind: 'voiceAxis', role: 'primaryActor', axis: 'terseness', atLeast: 2 },
       ],
     },
+    // Phase 165 / ISSUE-133 — Faithful Surface arc, Phase 3 (Distinguishable
+    // Choices). `negotiate_terms` (compromise) and `play_rival_faction`
+    // (deception) both carry verb `negotiate`, so they collapsed to the same
+    // `label_negotiate_*` line. Discriminate on the distinct `deception` shape.
+    {
+      id: 'label_play_rivals',
+      text: 'Set the factions against each other',
+      specificity: 3,
+      conditions: [{ kind: 'responseShape', anyOf: ['deception'] }],
+    },
     {
       id: 'label_blame_cold',
       text: 'Lay the fault at their door',

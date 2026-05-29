@@ -68,6 +68,28 @@ export const choiceLabelPool: SnippetPool = {
         { kind: 'responseVerb', anyOf: ['rebrand'] },
       ],
     },
+    // Phase 165 / ISSUE-133 — Faithful Surface arc, Phase 3 (Distinguishable
+    // Choices). `ask_supplier_help` (compromise) and `ask_faction_help`
+    // (relationship_sacrifice) both carry verb `negotiate` and collapsed to
+    // the single `label_negotiate_default`. Discriminate by shape.
+    {
+      id: 'label_negotiate_supplier',
+      text: 'Lean on a supplier for help',
+      specificity: 2,
+      conditions: [
+        { kind: 'responseVerb', anyOf: ['negotiate'] },
+        { kind: 'responseShape', anyOf: ['compromise'] },
+      ],
+    },
+    {
+      id: 'label_negotiate_faction',
+      text: "Call in a faction's favour",
+      specificity: 2,
+      conditions: [
+        { kind: 'responseVerb', anyOf: ['negotiate'] },
+        { kind: 'responseShape', anyOf: ['relationship_sacrifice'] },
+      ],
+    },
     {
       id: 'label_negotiate_default',
       text: 'Cut a quiet deal',

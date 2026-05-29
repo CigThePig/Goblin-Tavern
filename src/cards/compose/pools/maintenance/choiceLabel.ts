@@ -25,10 +25,16 @@ export const choiceLabelPool: SnippetPool = {
       ],
     },
     {
+      // Phase 165 / ISSUE-133 — Faithful Surface arc, Phase 3. Gated on the
+      // `long_term_investment` shape so the urgent line only fires for the
+      // full `repair` slot — without it the `patch` slot (verb `repair`,
+      // shape `short_term_patch`) also matched at high severity and both
+      // rendered "Fix it before it falls".
       id: 'label_repair_severity',
       text: 'Fix it before it falls',
       conditions: [
         { kind: 'responseVerb', anyOf: ['repair'] },
+        { kind: 'responseShape', anyOf: ['long_term_investment'] },
         { kind: 'severityAtLeast', value: 70 },
       ],
     },

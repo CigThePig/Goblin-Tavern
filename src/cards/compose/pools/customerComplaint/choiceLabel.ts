@@ -36,6 +36,20 @@ export const choiceLabelPool: SnippetPool = {
         { kind: 'voiceAxis', role: 'primaryActor', axis: 'formality', atLeast: 2 },
       ],
     },
+    // Phase 165 / ISSUE-133 — Faithful Surface arc, Phase 3 (Distinguishable
+    // Choices). `public_apology` and `side_with_regular` are both verb
+    // `appease`; at formality≥2 both matched `label_appease_formal`. They
+    // differ in shape (relationship_sacrifice vs safe_costly) — gate the
+    // apology on verb+shape so `side_with_regular` keeps the formal line.
+    {
+      id: 'label_public_apology',
+      text: 'Apologise to the whole room',
+      specificity: 3,
+      conditions: [
+        { kind: 'responseVerb', anyOf: ['appease'] },
+        { kind: 'responseShape', anyOf: ['relationship_sacrifice'] },
+      ],
+    },
     {
       id: 'label_blame_cold',
       text: 'Side with the house',

@@ -32,10 +32,6 @@
   // matcher path differs. Hide the generic button so the player must
   // pick the modeled choice and its real consequences.
   const hasIgnoreChoice = $derived(card.choices.some((c) => c.verb === 'ignore'))
-
-  function shapeLabel(s: string): string {
-    return s.replace(/_/g, ' ')
-  }
 </script>
 
 <article class="card rise-in" aria-label={card.title}>
@@ -81,9 +77,6 @@
         onclick={() => onchoose?.(c.slotId, c)}
       >
         <span class="choice-label">{c.label}</span>
-        <span class="choice-meta tag">
-          {c.verb} · {shapeLabel(c.shape)}
-        </span>
         {#if c.previewEffects.length > 0}
           <ul class="preview mono">
             {#each c.previewEffects as e, i (i)}

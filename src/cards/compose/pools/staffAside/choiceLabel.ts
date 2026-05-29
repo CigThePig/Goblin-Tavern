@@ -35,6 +35,18 @@ export const choiceLabelPool: SnippetPool = {
         { kind: 'voiceAxis', role: 'primaryActor', axis: 'formality', atLeast: 2 },
       ],
     },
+    // Phase 165 / ISSUE-133 — Faithful Surface arc, Phase 3 (Distinguishable
+    // Choices). `publicly_back_staff` carries verb `rebrand`/`appease` and so
+    // matched the `appease` voice snippets above, colliding with the
+    // `comfort_staff` (appease) slot on the same card. Discriminate on the
+    // distinct shape `reputation_play` at an explicit specificity that
+    // out-ranks the 2-condition `appease + voiceAxis` snippets.
+    {
+      id: 'label_publicly_back',
+      text: 'Back them in public',
+      specificity: 3,
+      conditions: [{ kind: 'responseShape', anyOf: ['reputation_play'] }],
+    },
     {
       id: 'label_ignore_terse',
       text: 'Let it sit',

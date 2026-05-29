@@ -43,6 +43,16 @@ export const choiceLabelPool: SnippetPool = {
         { kind: 'voiceAxis', role: 'primaryActor', axis: 'warmth', atMost: 0 },
       ],
     },
+    // Phase 165 / ISSUE-133 — Faithful Surface arc, Phase 3 (Distinguishable
+    // Choices). `refuse_request` (verb `blame`/`ignore`) matched the `ignore`
+    // snippet and collided with the `ignore_regular` slot. Discriminate on its
+    // distinct shape `relationship_sacrifice`.
+    {
+      id: 'label_refuse_request',
+      text: 'Turn the request down flat',
+      specificity: 3,
+      conditions: [{ kind: 'responseShape', anyOf: ['relationship_sacrifice'] }],
+    },
     {
       id: 'label_ban_cold',
       text: 'Show them the door',

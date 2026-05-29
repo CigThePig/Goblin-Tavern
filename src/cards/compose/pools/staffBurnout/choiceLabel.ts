@@ -43,6 +43,17 @@ export const choiceLabelPool: SnippetPool = {
         { kind: 'voiceAxis', role: 'primaryActor', axis: 'warmth', atLeast: 2 },
       ],
     },
+    // Phase 165 / ISSUE-133 — Faithful Surface arc, Phase 3 (Distinguishable
+    // Choices). `reduce_workload` and `reassign` are both verb `delegate`
+    // shape `compromise`, so they matched the same `delegate` voice snippets
+    // and collided. Same verb AND shape ⇒ shape can't discriminate; gate the
+    // peer on its slot id (the supplierReliability Phase-148 pattern).
+    {
+      id: 'label_reassign',
+      text: 'Move them to another post',
+      specificity: 3,
+      conditions: [{ kind: 'responseSlot', anyOf: ['reassign'] }],
+    },
     {
       id: 'label_ignore_terse',
       text: 'Push through',

@@ -459,6 +459,28 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'effectMagnitudeBand', anyOf: ['small'] },
       ],
     },
+    // Phase 165 / ISSUE-133 — Faithful Surface arc, Phase 3. Split same-band
+    // area slots (repair / patch / close) onto distinct lines by shape.
+    {
+      id: 'shared_preview_area_pos_small_long',
+      text: 'a measure of repair would steady the floor',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+        { kind: 'responseShape', anyOf: ['long_term_investment'] },
+      ],
+    },
+    {
+      id: 'shared_preview_area_pos_small_patch',
+      text: 'a quick patch would lift the corner a step',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['area'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+        { kind: 'responseShape', anyOf: ['short_term_patch'] },
+      ],
+    },
     {
       id: 'shared_preview_area_pos_medium_a',
       text: 'a clear lift would brighten the room',
@@ -550,6 +572,29 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'effectTargetKind', anyOf: ['pressure'] },
         { kind: 'effectDirection', sign: 'negative' },
         { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    // Phase 165 / ISSUE-133 — Faithful Surface arc, Phase 3. Several slots on
+    // one card relieve the same pressure in the same band (inspection,
+    // rumour_crisis, seasonal_arc all hit 3-way collapse here). Split by shape.
+    {
+      id: 'shared_preview_pressure_neg_medium_risky',
+      text: 'a marked fall would ease the risk taken',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+        { kind: 'responseShape', anyOf: ['risky_profitable'] },
+      ],
+    },
+    {
+      id: 'shared_preview_pressure_neg_medium_compromise',
+      text: 'a marked fall would settle the meter for now',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+        { kind: 'responseShape', anyOf: ['compromise'] },
       ],
     },
     {
@@ -938,6 +983,31 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'effectTargetKind', anyOf: ['staff'] },
         { kind: 'effectDirection', sign: 'positive' },
         { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    // Phase 165 / ISSUE-133 — Faithful Surface arc, Phase 3 (Distinguishable
+    // Choices). Several response slots on one staff card carry a same-band
+    // staff effect and so collapsed to one of the medium lines above. These
+    // `responseShape`-gated variants (4 conditions ⇒ specificity 4, out-ranking
+    // the 3-condition base) split distinct-shape slots onto distinct lines.
+    {
+      id: 'shared_preview_staff_pos_medium_relsac',
+      text: "the crew would feel a marked rise in trust",
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+        { kind: 'responseShape', anyOf: ['relationship_sacrifice'] },
+      ],
+    },
+    {
+      id: 'shared_preview_staff_pos_medium_repplay',
+      text: 'a marked rise would back the rota in public',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+        { kind: 'responseShape', anyOf: ['reputation_play'] },
       ],
     },
     {
@@ -1364,6 +1434,28 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
       ],
     },
+    // Phase 165 / ISSUE-133 — Faithful Surface arc, Phase 3. Split same-band
+    // faction slots (appease / negotiate / host) onto distinct lines by shape.
+    {
+      id: 'shared_preview_faction_pos_medium_safe',
+      text: "a marked rise would settle the guild's favour",
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['faction'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+        { kind: 'responseShape', anyOf: ['safe_costly'] },
+      ],
+    },
+    {
+      id: 'shared_preview_faction_pos_medium_compromise',
+      text: 'the order would warm a marked rise on terms',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['faction'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+        { kind: 'responseShape', anyOf: ['compromise'] },
+      ],
+    },
     {
       id: 'shared_preview_faction_pos_large_a',
       text: 'a surge would reshape standing with the faction',
@@ -1466,6 +1558,28 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'effectTargetKind', anyOf: ['culture'] },
         { kind: 'effectDirection', sign: 'positive' },
         { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    // Phase 165 / ISSUE-133 — Faithful Surface arc, Phase 3. Split same-band
+    // culture slots (honour / offer_discount) onto distinct lines by shape.
+    {
+      id: 'shared_preview_culture_pos_medium_long',
+      text: 'the kin would warm a marked rise for good',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['culture'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+        { kind: 'responseShape', anyOf: ['long_term_investment'] },
+      ],
+    },
+    {
+      id: 'shared_preview_culture_pos_medium_safe',
+      text: 'a marked rise would ease the gathered folk',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['culture'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+        { kind: 'responseShape', anyOf: ['safe_costly'] },
       ],
     },
     {

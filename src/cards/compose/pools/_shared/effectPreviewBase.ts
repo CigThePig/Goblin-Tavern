@@ -861,7 +861,7 @@ export function narratorEffectPreviewBase(): Snippet[] {
     },
     {
       id: 'shared_preview_staff_neg_medium_b',
-      text: 'the rota would slip a real step thinner',
+      text: 'the rota would wear thin by a real slip',
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['staff'] },
         { kind: 'effectDirection', sign: 'negative' },

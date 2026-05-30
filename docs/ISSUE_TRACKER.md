@@ -54,6 +54,13 @@ frontier; the **Tier 4 onboarding arc** is planned but not yet started.
    `docs/plans/progressive-onboarding.md`. Reframes Day 1 as "first time
    opening a tavern" and unlocks systems across the first ~10 in-game weeks.
 
+The **Choice-Preview Legibility arc** (Tier 6, `docs/plans/choice-preview-legibility-arc.md`)
+is otherwise complete: ISSUE-149…152 (contract → policy → prose → gate) are
+`done`; only **ISSUE-153** (Phase 5, the standing drive/tune/deepen tail) is
+`in-progress` — part (a), driving the three audit-unsampled families through the
+live gate, has landed; part (b), prose-deepening and band-cutoff recalibration,
+stays standing.
+
 The card-layer arcs ran Living Cast → Voiced → Legible → Faithful →
 Complete; each has a locked roadmap (`docs/plans/*-surface-arc.md`,
 `docs/plans/living-cast-arc.md`) over the framework contract
@@ -210,7 +217,7 @@ next.
 | ISSUE-150 | Choice-Preview Legibility Phase 2 — Selection Policy: show what matters | broken | done | 182 |
 | ISSUE-151 | Choice-Preview Legibility Phase 3 — Pool Vocabulary: name it, ground it | broken | done | 183 |
 | ISSUE-152 | Choice-Preview Legibility Phase 4 — The Legibility Gate, completed | broken | done | 184 |
-| ISSUE-153 | Choice-Preview Legibility Phase 5 — Drive, tune, deepen (standing) | thin | open | 185 |
+| ISSUE-153 | Choice-Preview Legibility Phase 5 — Drive, tune, deepen (standing) | thin | in-progress | 185 |
 | ISSUE-116 | Legible Surface Phase 3 — Choice Distinctness Gate & Legible Choice-Set Cap | broken | done | 148 |
 
 ---
@@ -3261,8 +3268,12 @@ records the motivating audit, Appendix B the re-runnable instruments at
 - **Test approach:** `tests/cards/compose/gates/legibility.test.ts` — the live 20-template suite asserts the three new failed-counters are 0 (proof Phases 1–3 landed) plus a guard that the meter/risk checks actually run; six new failure fixtures (an unnamed allowlisted-meter line fails / a meter-named line passes / an un-allowlisted meter is exempt; a within-choice duplicate fails / distinct lines pass; a risk dropped past a 2-line cap fails / surfaced at 3 lines passes). Full suite (3293 tests) + `npm run typecheck` green.
 
 ### ISSUE-153 — Choice-Preview Legibility Phase 5: Drive, tune, deepen (standing)
-- **Grade:** thin · **Status:** open · **Phase:** 185 · **Record:** `docs/plans/choice-preview-legibility-arc.md` (Phase 5)
+- **Grade:** thin · **Status:** in-progress · **Phase:** 185 · **Record:** `docs/plans/phase-185-drive-tune-deepen.md`
+- **Evidence:** the motivating sweep (arc Appendix A §2) left `food_safety`, `regular_customer`, `rumour_crisis` unverified — they never surfaced in a passive playthrough, so the legibility gate had only run against their synthetic determinism samples (`legibilityHarness.ts`), never a seed the live `simulateDay` pipeline actually emitted under adverse state.
+- **Scope (part a — landed):** drove all three families into existence from constructed adverse state through the real pipeline and confirmed the Phase-4 gate is clean for each. `tests/cards/compose/gates/drivenFamilies.ts` perturbs only the state each family's generator + backing pressure calculator read (food_safety: filthy kitchen + spoiled stew/mushrooms → `food_safety` ≥ 45; regular_customer: starter regulars at irritation 80 / loyalty 20 → `regular_customer_loss` ≥ 25, irritation > 60 routes to the `complaint` template; rumour_crisis: a strength-100 false rumour + a high-publicness false `suspicion` attribution targeting a real regular, so the dramatic target is an actor and the seed clears the "no actor, group, or location" validation contract), runs one day, harvests the surfaced production seed, and resolves its production template via the registry's `pickCardForSeed` over the 20 migrated templates. The gate rendered all three clean against the current `DEFAULT_NAMED_METERS` — no pool changes required.
+- **Scope (part b — standing, open):** deepen flat meter-named lines and recalibrate `MAGNITUDE_BAND_CUTOFFS` where playtest shows a cut-point reads wrong. No cutoff changed this session — none has been shown to read wrong, and changing one without play evidence would risk regressing the calibrated bands every gate depends on.
 - **Depends on:** ISSUE-152. Standing — never strictly done.
+- **Test approach:** `tests/cards/compose/gates/legibility.driven.test.ts` — for each of the three families, surface the driven sample, resolve its template, run `checkLegibility` on a single-situation config, and assert `report.pass` plus all per-situation counters are 0 (magnitude / cost / label-collision / inaction-blank / meter-naming / duplicate-line / risk-surfacing), with a guard that a real seed carrying consequence profiles and ≥1 playable choice was rendered. Deterministic (constructed state + seeded `runOneDay`); runs in the default `npm test` suite. Full suite + `npm run typecheck` green.
 
 ## Related notes
 

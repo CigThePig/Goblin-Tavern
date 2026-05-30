@@ -208,7 +208,7 @@ next.
 | ISSUE-148 | Complete Surface Phase 13 — Deepening, Pruning & Recalibration (standing) | thin | open | 180 |
 | ISSUE-149 | Choice-Preview Legibility Phase 1 — Effect Contract: carry the meter | broken | done | 181 |
 | ISSUE-150 | Choice-Preview Legibility Phase 2 — Selection Policy: show what matters | broken | done | 182 |
-| ISSUE-151 | Choice-Preview Legibility Phase 3 — Pool Vocabulary: name it, ground it | broken | open | 183 |
+| ISSUE-151 | Choice-Preview Legibility Phase 3 — Pool Vocabulary: name it, ground it | broken | done | 183 |
 | ISSUE-152 | Choice-Preview Legibility Phase 4 — The Legibility Gate, completed | broken | open | 184 |
 | ISSUE-153 | Choice-Preview Legibility Phase 5 — Drive, tune, deepen (standing) | thin | open | 185 |
 | ISSUE-116 | Legible Surface Phase 3 — Choice Distinctness Gate & Legible Choice-Set Cap | broken | done | 148 |
@@ -3247,8 +3247,11 @@ records the motivating audit, Appendix B the re-runnable instruments at
 - **Test approach:** `tests/cards/compose/phase182.selectionPolicy.test.ts` — risk-relief surfaced within the cap, coin-cost rescue still holds, source-order output, exported priority predicates, and card-wide de-dup (within-choice two-same-cell + cross-choice candidate exhaustion). `tests/cards/compose/phase147.inactionPreview.test.ts` updated for the de-dup. Full suite + `npm run typecheck` green; the live legibility + faithfulness gates pass at cap 3.
 
 ### ISSUE-151 — Choice-Preview Legibility Phase 3: Pool Vocabulary — name it, ground it
-- **Grade:** broken · **Status:** open · **Phase:** 183 · **Record:** `docs/plans/choice-preview-legibility-arc.md` (Phase 3)
+- **Grade:** broken · **Status:** done · **Phase:** 183 · **Record:** `docs/plans/phase-183-pool-vocabulary-name-it-ground-it.md`
+- **Evidence:** the shared `narratorEffectPreviewBase()` authored every banded line keyed only on `(effectTargetKind × effectDirection × effectMagnitudeBand)`, so the coarse bucket — not the meter — was the grammatical referent; the worst case named a meter that does not exist (the staff `relsac` variant rendered loyalty/morale/stress as *"the crew would feel a marked rise in trust"*, Appendix A §1). Snippets are static text (no glue substitution in `pickSnippet`/`assembleSlots`), so the meter name must be authored into the text.
+- **Scope:** added a meter-named, subject-first block to `_shared/effectPreviewBase.ts` gated on the Phase-1 `effectMeter` leaf **plus** `effectTargetKind` (4 conditions ⇒ specificity 4, out-ranking the coarse base and disambiguating same-named leaves across kinds — staff vs regular `loyalty`). Covers the high-traffic meters the sweep names: staff `loyalty`/`morale`/`stress`/`fatigue`; customer `satisfaction`/`patronage`/regular `loyalty`; reputation `respectable`/`dangerous`/`cheap`/`reliable`/`tasty`; headline pressures `staff_loyalty_risk`/`staff_burnout`/`rumour_pressure`/`inspection` (relief = negative sign, rise = positive). Each line names the meter, keeps a `MAGNITUDE_LEXICON[direction][band]` token and a `DEFAULT_TARGET_KIND_KEYWORDS` keyword, stays ≤10 words and clear of role-claim phrasing. Retired the superseded staff `responseShape` metaphor variants `_relsac` (the fictional "trust") and `_repplay`. The coarse base stays as the unlisted-meter fallback (coin, area sub-meters, long-tail reputation axes, supplier/faction/culture/cohort — Phase 5 deepens those).
 - **Depends on:** ISSUE-149 (authored against ISSUE-150's selection).
+- **Test approach:** standing gate suite — `previewVariety` (requireMagnitude + specificity), cross-template `legibility`, `voice-bounds`, `sim-coherence`, `dedupe` via `runAllGates` — all green; `npm test` + `npm run typecheck` green. The meter-naming guarantee itself becomes a standing assertion in ISSUE-152 (Phase 4).
 
 ### ISSUE-152 — Choice-Preview Legibility Phase 4: The Legibility Gate, completed
 - **Grade:** broken · **Status:** open · **Phase:** 184 · **Record:** `docs/plans/choice-preview-legibility-arc.md` (Phase 4)

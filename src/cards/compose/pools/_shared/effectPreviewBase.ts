@@ -1032,30 +1032,19 @@ export function narratorEffectPreviewBase(): Snippet[] {
       ],
     },
     // Phase 165 / ISSUE-133 — Faithful Surface arc, Phase 3 (Distinguishable
-    // Choices). Several response slots on one staff card carry a same-band
-    // staff effect and so collapsed to one of the medium lines above. These
-    // `responseShape`-gated variants (4 conditions ⇒ specificity 4, out-ranking
-    // the 3-condition base) split distinct-shape slots onto distinct lines.
-    {
-      id: 'shared_preview_staff_pos_medium_relsac',
-      text: "the crew would feel a marked rise in trust",
-      conditions: [
-        { kind: 'effectTargetKind', anyOf: ['staff'] },
-        { kind: 'effectDirection', sign: 'positive' },
-        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
-        { kind: 'responseShape', anyOf: ['relationship_sacrifice'] },
-      ],
-    },
-    {
-      id: 'shared_preview_staff_pos_medium_repplay',
-      text: 'a marked rise would back the rota in public',
-      conditions: [
-        { kind: 'effectTargetKind', anyOf: ['staff'] },
-        { kind: 'effectDirection', sign: 'positive' },
-        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
-        { kind: 'responseShape', anyOf: ['reputation_play'] },
-      ],
-    },
+    // Choices). The two `responseShape`-gated staff-pos-medium variants that
+    // lived here (`relsac` = "the crew would feel a marked rise in trust";
+    // `repplay` = "a marked rise would back the rota in public") were RETIRED
+    // in Phase 183 / ISSUE-151 (Choice-Preview Legibility, Pool Vocabulary):
+    // the first named a meter ("trust") that does not exist, and both cast the
+    // magnitude as the subject instead of naming the real staff meter. They are
+    // superseded by the meter-named `effectMeter`-gated staff block at the
+    // bottom of this file, which names loyalty / morale / stress / fatigue
+    // directly and out-ranks the coarse base. Distinct-shape staff-pos-medium
+    // slots now read distinctly because they move *different meters* (a comfort
+    // raises loyalty; a public defence raises morale), or — when two choices
+    // move the same meter+band — the Phase-167 within-card `avoid` set spreads
+    // them across the meter snippet's siblings.
     {
       id: 'shared_preview_staff_pos_large_a',
       text: 'a strong climb of loyalty would bind the crew',
@@ -1741,6 +1730,762 @@ export function narratorEffectPreviewBase(): Snippet[] {
       conditions: [
         { kind: 'effectTargetKind', anyOf: ['global'] },
         { kind: 'effectDirection', sign: 'negative' },
+      ],
+    },
+    // ====================================================================
+    // Phase 183 / ISSUE-151 — Choice-Preview Legibility arc, Phase 3
+    // (Pool Vocabulary: name it, ground it).
+    //
+    // Meter-NAMED, subject-first preview lines for the high-traffic meters
+    // the sweep names. Each gates on the Phase-1 `effectMeter` leaf PLUS its
+    // `effectTargetKind` (4 conditions ⇒ specificity 4), so it (a) out-ranks
+    // the coarse `(targetKind × direction × band)` base above for the meters
+    // it covers, and (b) disambiguates same-named leaves across kinds (staff
+    // `loyalty` keeps "crew"; regular `loyalty` keeps "regular"). Every line
+    // names the meter, keeps a `MAGNITUDE_LEXICON[direction][band]` token, and
+    // carries a `DEFAULT_TARGET_KIND_KEYWORDS` keyword for its kind so the
+    // specificity rule stays satisfied; all ≤ 10 words.
+    //
+    // Direction is the VALENCE-adjusted sign (`generatorHelpers.classifyDirection`):
+    // `stress`/`fatigue` are lower-is-better, so a decrease reads `positive`
+    // (good) and takes a positive token. Pressure is NOT valence-inverted —
+    // relief is the negative arithmetic sign and takes a negative token.
+    //
+    // The coarse base above stays in place as the fallback for the meters this
+    // block does not yet cover (coin, area sub-meters, the long-tail reputation
+    // axes, supplier/faction/culture/cohort leaves) — Phase 5 deepens those.
+
+    // ---- staff: loyalty ----
+    {
+      id: 'shared_preview_meter_loyalty_staff_pos_small_a',
+      text: 'loyalty would firm a step across the crew',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['loyalty'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_loyalty_staff_pos_small_b',
+      text: 'loyalty would gain a notch on the rota',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['loyalty'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_loyalty_staff_pos_medium_a',
+      text: 'loyalty would climb a real step with the crew',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['loyalty'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_loyalty_staff_pos_medium_b',
+      text: 'loyalty would deepen a clear lift across the rota',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['loyalty'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_loyalty_staff_pos_large_a',
+      text: 'loyalty would bind the crew, a strong climb',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['loyalty'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_loyalty_staff_neg_small_a',
+      text: 'loyalty would slip a step from the crew',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['loyalty'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_loyalty_staff_neg_medium_a',
+      text: 'loyalty would fall a clear drop across the rota',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['loyalty'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_loyalty_staff_neg_large_a',
+      text: 'loyalty would collapse a heavy fall in the crew',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['loyalty'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+
+    // ---- staff: morale ----
+    {
+      id: 'shared_preview_meter_morale_pos_small_a',
+      text: 'morale would lift a step across the rota',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['morale'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_morale_pos_small_b',
+      text: 'morale would warm a notch through the crew',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['morale'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_morale_pos_medium_a',
+      text: 'morale would climb a clear lift in the crew',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['morale'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_morale_pos_medium_b',
+      text: 'morale would brighten a real step across the rota',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['morale'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_morale_pos_large_a',
+      text: 'morale would surge through the whole crew, a wide leap',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['morale'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_morale_neg_small_a',
+      text: 'morale would dip a step in the kitchen crew',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['morale'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_morale_neg_medium_a',
+      text: 'morale would sink a clear drop in the crew',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['morale'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_morale_neg_large_a',
+      text: 'morale would crater a heavy fall across the crew',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['morale'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+
+    // ---- staff: stress (lower-is-better; positive = relief) ----
+    {
+      id: 'shared_preview_meter_stress_pos_small_a',
+      text: 'stress would ease a step off the crew',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['stress'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_stress_pos_medium_a',
+      text: 'stress would lift a real step off the crew',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['stress'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_stress_pos_medium_b',
+      text: 'stress would loosen a clear lift across the rota',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['stress'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_stress_neg_small_a',
+      text: 'stress would bite a step into the shift',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['stress'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_stress_neg_medium_a',
+      text: 'stress would weigh a marked fall onto the crew',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['stress'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+
+    // ---- staff: fatigue (lower-is-better; positive = relief) ----
+    {
+      id: 'shared_preview_meter_fatigue_pos_small_a',
+      text: 'fatigue would ease a step across the rota',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['fatigue'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_fatigue_pos_large_a',
+      text: 'fatigue would drop away, a wide leap for the crew',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['fatigue'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_fatigue_neg_small_a',
+      text: 'fatigue would creep a step across the shift',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['fatigue'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_fatigue_neg_medium_a',
+      text: 'fatigue would drag the crew down a real slip',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['fatigue'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+
+    // ---- customer: satisfaction ----
+    {
+      id: 'shared_preview_meter_satisfaction_neg_small_a',
+      text: 'satisfaction would slip a step from the regulars',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['satisfaction'] },
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_satisfaction_neg_medium_a',
+      text: 'satisfaction would sour a clear drop among the patrons',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['satisfaction'] },
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_satisfaction_pos_small_a',
+      text: 'satisfaction would warm a step with the regulars',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['satisfaction'] },
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_satisfaction_pos_medium_a',
+      text: 'satisfaction would rise a real step with the patrons',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['satisfaction'] },
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+
+    // ---- customer: patronage ----
+    {
+      id: 'shared_preview_meter_patronage_pos_small_a',
+      text: 'patronage would rise a step at the regular tables',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['patronage'] },
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_patronage_pos_medium_a',
+      text: 'patronage would climb a real step among the regulars',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['patronage'] },
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    // Siblings so a card carrying several patronage-positive-medium choices
+    // (rival_tavern's compete / host paths) spreads across distinct lines under
+    // the FNV tie-break instead of repeating one — the spread the coarse
+    // `customer_pos_medium` base used to give before this meter snippet
+    // out-ranked it.
+    {
+      id: 'shared_preview_meter_patronage_pos_medium_b',
+      text: 'patronage would swell a marked rise at the regular tables',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['patronage'] },
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_patronage_pos_medium_c',
+      text: 'patronage would deepen a clear lift among the patrons',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['patronage'] },
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_patronage_neg_small_a',
+      text: 'regular tables would thin a notch in patronage',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['patronage'] },
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_patronage_neg_medium_a',
+      text: 'patronage would fall a clear drop among the patrons',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['patronage'] },
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_patronage_neg_large_a',
+      text: 'patronage would collapse a heavy fall among the regulars',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['patronage'] },
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+
+    // ---- customer: regular loyalty (distinct from staff loyalty by kind) ----
+    {
+      id: 'shared_preview_meter_loyalty_customer_pos_small_a',
+      text: 'loyalty would warm a step with the regular',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['loyalty'] },
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_loyalty_customer_pos_medium_a',
+      text: 'loyalty would deepen a real step with the regular',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['loyalty'] },
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_loyalty_customer_neg_small_a',
+      text: 'loyalty would cool a step from the regular',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['loyalty'] },
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_loyalty_customer_neg_medium_a',
+      text: 'loyalty would chill a clear drop from the regular',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['loyalty'] },
+        { kind: 'effectTargetKind', anyOf: ['customer'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+
+    // ---- reputation axes (the axis word names the meter) ----
+    {
+      id: 'shared_preview_meter_rep_respectable_pos_small_a',
+      text: 'respectable standing would gain a step in talk',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['respectable'] },
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_rep_respectable_neg_small_a',
+      text: 'the respectable name would slip a notch in word',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['respectable'] },
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_rep_respectable_pos_medium_a',
+      text: 'respectable standing would climb a real step in talk',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['respectable'] },
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_rep_respectable_neg_medium_a',
+      text: 'the respectable name would fall a clear drop in word',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['respectable'] },
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_rep_dangerous_pos_small_a',
+      text: 'a dangerous name would spread a step through talk',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['dangerous'] },
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_rep_dangerous_neg_small_a',
+      text: 'the dangerous name would fade a notch from word',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['dangerous'] },
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_rep_dangerous_pos_medium_a',
+      text: 'a dangerous name would harden a marked rise in talk',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['dangerous'] },
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_rep_cheap_pos_small_a',
+      text: 'the cheap name would ease a step from word',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['cheap'] },
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_rep_cheap_neg_small_a',
+      text: 'the cheap name would creep a notch into talk',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['cheap'] },
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_rep_cheap_neg_medium_a',
+      text: 'the cheap name would sink a clear drop in talk',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['cheap'] },
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_rep_reliable_pos_small_a',
+      text: 'reliable standing would firm a step in word',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['reliable'] },
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_rep_reliable_pos_medium_a',
+      text: 'reliable standing would steady a real step in talk',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['reliable'] },
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_rep_reliable_neg_medium_a',
+      text: 'the reliable name would waver a clear drop in word',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['reliable'] },
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_rep_tasty_pos_small_a',
+      text: 'the tasty name would rise a step in talk',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['tasty'] },
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_rep_tasty_pos_medium_a',
+      text: 'the tasty name would spread a marked rise in word',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['tasty'] },
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+
+    // ---- headline pressures (relief = negative sign, rise = positive sign;
+    //      named via the pressureRegistry label token) ----
+    {
+      id: 'shared_preview_meter_p_loyalty_risk_neg_small_a',
+      text: 'the loyalty risk would ease a step off the crew',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['staff_loyalty_risk'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_loyalty_risk_neg_medium_a',
+      text: 'the loyalty risk would fall a clear drop tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['staff_loyalty_risk'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_loyalty_risk_pos_small_a',
+      text: 'the loyalty risk would climb a step higher tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['staff_loyalty_risk'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_loyalty_risk_pos_medium_a',
+      text: 'the loyalty risk would build a clear lift overnight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['staff_loyalty_risk'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_burnout_neg_small_a',
+      text: 'the burnout meter would settle a step lower tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['staff_burnout'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_burnout_neg_medium_a',
+      text: 'the burnout meter would ease a clear drop tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['staff_burnout'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_burnout_pos_small_a',
+      text: 'the burnout meter would climb a step higher tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['staff_burnout'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_burnout_pos_medium_a',
+      text: 'the burnout meter would build a clear lift overnight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['staff_burnout'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_rumour_neg_small_a',
+      text: 'the rumour pressure would ease a step from the room',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['rumour_pressure'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_rumour_neg_medium_a',
+      text: 'the rumour pressure would fall a real slip tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['rumour_pressure'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_rumour_pos_small_a',
+      text: 'the rumour pressure would spread a step through the room',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['rumour_pressure'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_rumour_pos_medium_a',
+      text: 'rumour pressure would mount a clear lift overnight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['rumour_pressure'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_inspection_neg_small_a',
+      text: 'the inspection risk would ease a step tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['inspection'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_inspection_neg_medium_a',
+      text: 'the inspection risk would fall a marked fall overhead',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['inspection'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_inspection_pos_small_a',
+      text: 'the inspection risk would climb a step overhead',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['inspection'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_inspection_pos_medium_a',
+      text: 'the inspection risk would loom a clear lift overhead',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['inspection'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
       ],
     },
   ]

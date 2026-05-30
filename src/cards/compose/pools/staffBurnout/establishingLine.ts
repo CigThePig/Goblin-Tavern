@@ -45,6 +45,18 @@ export const establishingLinePool: SnippetPool = {
         { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.fatigue', equals: 'high' },
       ],
     },
+    // Phase 172 / ISSUE-140 — Complete Surface arc, Phase 5 (Staff &
+    // Personnel matrix fill). The low-fatigue single rung the Legible-
+    // Phase-5 authoring left out (mirrors the staffAside fix): without it
+    // the (stress=mid, fatigue=low) matrix cell had no covering snippet
+    // and fell to the bare fallback.
+    {
+      id: 'est_low_fatigue',
+      text: 'Spry at the rota, the long shifts not catching them yet.',
+      conditions: [
+        { kind: 'signalEquals', role: 'primaryActor', signal: 'staff.fatigue', equals: 'low' },
+      ],
+    },
     {
       id: 'est_burnout_rising',
       text: "The load's been creeping into their mornings now.",

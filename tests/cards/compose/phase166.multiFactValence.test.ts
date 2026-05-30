@@ -16,6 +16,9 @@
 import { describe, expect, it } from 'vitest'
 
 import { pickSnippet } from '../../../src/cards/compose/assemble'
+import { staffBurnoutCard } from '../../../src/cards/templates/staffBurnout'
+import { createInitialTavernState } from '../../../src/sim/state/defaults'
+import type { CastAttributes } from '../../../src/sim/content/cast'
 import type { SlotSpec, SnippetPool } from '../../../src/cards/compose/types'
 import type { TavernState } from '../../../src/sim/state/TavernState'
 import type {
@@ -142,5 +145,117 @@ describe('Phase 166 — multi-fact join drops oppositely-signed secondaries', ()
     for (let i = 0; i < 20; i++) {
       expect(pickSnippet(slot, seed, state)).toBe(first)
     }
+  })
+})
+
+// Phase 172 / ISSUE-140 — Complete Surface arc, Phase 5. The Phase-166
+// join classifies SIGNAL bands by meter valence but classified ALL
+// pressures as neutral. That left a hole: `staff_burnout` rising IS the
+// staff actor's own wellbeing deteriorating (the faithfulness gate's
+// `actorDistressReading` already reads it as distress), so a calm signal
+// primary ("Spry at the rota, the long shifts not catching them yet") was
+// stapled to a `staff_burnout`-rising distress secondary ("the load's been
+// creeping into their mornings") — a within-line self-contradiction the
+// join's strictlyOpposed guard exists to refuse. The Phase-5 matrix fill
+// (adding the calm `est_low_fatigue` primary to both staff pools) widened
+// the surface enough to expose it on every staff card, but the
+// pre-existing `est_low_stress` calm primary already triggered it.
+//
+// `SUBJECT_DISTRESS_PRESSURES` (assemble.ts) now classifies `staff_burnout`
+// as a distress pole so the join refuses that staple. These cases pin the
+// behaviour against the real staff_burnout salience table + pools.
+
+const NEUTRAL_STAFF_CAST: CastAttributes = {
+  specialty: 'meat_dishes',
+  blindspot: 'pastry',
+  affinities: [],
+  voice: { axes: { terseness: 1, warmth: 1, formality: 1, floridity: 1 } },
+}
+
+function firstStaffId(state: TavernState): string {
+  const id = Object.keys(state.staff)[0]
+  if (!id) throw new Error('test state has no staff')
+  return id
+}
+
+function withStaffState(
+  state: TavernState,
+  staffId: string,
+  partial: { stress?: number; fatigue?: number },
+): TavernState {
+  return {
+    ...state,
+    staff: {
+      ...state.staff,
+      [staffId]: {
+        ...state.staff[staffId]!,
+        ...(partial.stress !== undefined ? { stress: partial.stress } : {}),
+        ...(partial.fatigue !== undefined ? { fatigue: partial.fatigue } : {}),
+        castAttributes: NEUTRAL_STAFF_CAST,
+      },
+    },
+  }
+}
+
+function withRisingPressure(
+  state: TavernState,
+  pressureId: string,
+  value = 50,
+): TavernState {
+  return {
+    ...state,
+    pressures: {
+      ...state.pressures,
+      [pressureId]: {
+        ...(state.pressures[pressureId] ?? {
+          id: pressureId,
+          label: pressureId,
+          tags: [],
+          topCauses: [],
+        }),
+        value,
+        trend: 1,
+        tags: state.pressures[pressureId]?.tags ?? [],
+        topCauses: state.pressures[pressureId]?.topCauses ?? [],
+      },
+    },
+  }
+}
+
+function staffBurnoutSeed(staffId: string): IssueSeed {
+  return makeSeed({
+    id: 'subj-distress-seed',
+    family: 'staff_burnout' as IssueSeedFamilyId,
+    type: 'staff_request',
+    timing: 'morning_prep',
+    severity: 55,
+    domain: ['staff'],
+    primaryActor: { kind: 'staff', id: staffId },
+  })
+}
+
+describe('Phase 172 — subject-wellbeing pressures carry a distress pole in the join', () => {
+  it('calm signal primary + rising staff_burnout ⇒ primary alone (no staple)', () => {
+    const base = createInitialTavernState()
+    const staffId = firstStaffId(base)
+    // mid stress, low fatigue → calm `est_low_fatigue` primary; burnout
+    // rising would otherwise staple a distress secondary onto it.
+    let state = withStaffState(base, staffId, { stress: 55, fatigue: 20 })
+    state = withRisingPressure(state, 'staff_burnout')
+    const body = staffBurnoutCard.render(staffBurnoutSeed(staffId), state).body[0]!
+    expect(body).not.toContain(' — ')
+    expect(body.toLowerCase()).not.toContain('creeping')
+    expect(body.toLowerCase()).not.toContain('climbing')
+  })
+
+  it('distress signal primary + rising staff_burnout ⇒ stapled (same sign, coherent)', () => {
+    const base = createInitialTavernState()
+    const staffId = firstStaffId(base)
+    // high stress + high fatigue → distress primary; a distress burnout
+    // secondary is the same sign, so the staple is coherent and kept.
+    let state = withStaffState(base, staffId, { stress: 85, fatigue: 85 })
+    state = withRisingPressure(state, 'staff_burnout')
+    const body = staffBurnoutCard.render(staffBurnoutSeed(staffId), state).body[0]!
+    expect(body).toContain(' — ')
   })
 })

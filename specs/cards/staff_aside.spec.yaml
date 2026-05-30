@@ -635,3 +635,14 @@ phase150:
     - manner_state_burnout
     - manner_state_warning
     - manner_state_repeat
+
+# Phase 172 / ISSUE-140 — Complete Surface arc, Phase 5 (Staff &
+# Personnel matrix fill). Added the est_low_fatigue single rung to the
+# establishing_line pool. Before this, the pool authored est_high_fatigue
+# but no est_low_fatigue, so the (stress=mid, fatigue=low) cell of the
+# 9-cell stress x fatigue matrix had no covering snippet and fell to the
+# bare fallback. With est_low_fatigue (and the pre-existing est_low_stress
+# / est_high_stress rungs + the four corner combos), all eight meaningful
+# cells now resolve to a covering line; the all-mid centre stays on the
+# unconditional fallback by design. Proven cell-by-cell in
+# tests/cards/compose/phase172.matrixCoverage.test.ts.

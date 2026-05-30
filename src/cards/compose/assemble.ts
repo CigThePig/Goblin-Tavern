@@ -103,18 +103,44 @@ function pickByTopSalience(
   return top[idx]!
 }
 
+/** Phase 172 / ISSUE-140 — Complete Surface arc, Phase 5. Pressures whose
+ *  rising trend IS the primary actor's own wellbeing deteriorating, not an
+ *  orthogonal systemic trend. A rising `staff_burnout` says "this staff
+ *  member is being worn down" — a distress pole about the very actor the
+ *  card voices — so a calm establishing clause ("Spry at the rota, the
+ *  long shifts not catching them yet") stapled to a `staff_burnout`-rising
+ *  clause ("the load's been creeping into their mornings") is a within-line
+ *  self-contradiction, exactly the staple the join's `strictlyOpposed`
+ *  guard exists to refuse. This mirrors the faithfulness gate's own
+ *  `actorDistressReading`, which already reads `pressureIsRising(
+ *  'staff_burnout')` as `'distressed'` — keeping the compose join and the
+ *  standing audit on one model of what makes a staff actor distressed.
+ *
+ *  Deliberately NARROW: `staff_loyalty_risk` (a staff member drifting away)
+ *  is NOT here — a content, well-rested person can still be quietly
+ *  deciding to leave, so "they walk in easy — something's pulling them
+ *  away" is two orthogonal facts, not a contradiction. Market / debt /
+ *  faction / rumour pressures stay neutral for the same reason the
+ *  original Phase-166 comment gives: they co-occur with any current mood. */
+const SUBJECT_DISTRESS_PRESSURES: ReadonlySet<string> = new Set([
+  'staff_burnout',
+])
+
 /** Phase 166 / ISSUE-134 — the player-facing valence of a resolved
  *  salient read: `'distress'` (bad for the player), `'calm'` (good), or
  *  `'neutral'`. Reuses the canonical `resolveMeterValence` map (Phase
  *  164) so signal polarity matches the preview layer.
  *
- *  Only SIGNAL bands carry a calm/distress pole. A rising PRESSURE is a
- *  systemic trend (burnout, market instability, debt) that orthogonally
- *  co-occurs with any current mood — "the wagons run steady, but the
- *  market's turning" is coherent, not a contradiction — so pressures are
- *  neutral here. The multi-fact contradiction the join refuses is two
- *  opposing current dispositions: a calm signal stapled to a distress
- *  signal ("their patience snapped — they've never been steadier"). */
+ *  SIGNAL bands carry a calm/distress pole from their meter valence. Most
+ *  rising PRESSURES are systemic trends (market instability, debt) that
+ *  orthogonally co-occur with any current mood — "the wagons run steady,
+ *  but the market's turning" is coherent, not a contradiction — so they
+ *  are neutral here. The exception (Phase 172) is the subject-wellbeing
+ *  set above: a rising `staff_burnout` is the actor's own deterioration,
+ *  so it carries a distress pole the join must not staple onto a calm
+ *  clause. The multi-fact contradiction the join refuses is two opposing
+ *  current dispositions: a calm read stapled to a distress read ("their
+ *  patience snapped — they've never been steadier"). */
 function readValence(resolved: ResolvedRead): 'distress' | 'calm' | 'neutral' {
   const read = resolved.read
   if (read.kind === 'signal') {
@@ -124,8 +150,14 @@ function readValence(resolved: ResolvedRead): 'distress' | 'calm' | 'neutral' {
     if (band === 'high') return highIsBad ? 'distress' : 'calm'
     return highIsBad ? 'calm' : 'distress' // band === 'low'
   }
-  // pressure (a trend) / memory / repeat / hasTag / severity carry no
+  // Phase 172 / ISSUE-140 — a rising subject-wellbeing pressure is the
+  // actor's own distress (see SUBJECT_DISTRESS_PRESSURES). A pressure read
+  // only resolves when it is rising (`evaluateRead`), so presence here ⇒
+  // rising. Other pressures / memory / repeat / hasTag / severity carry no
   // contradicting current-disposition pole.
+  if (read.kind === 'pressure' && SUBJECT_DISTRESS_PRESSURES.has(read.pressureId)) {
+    return 'distress'
+  }
   return 'neutral'
 }
 

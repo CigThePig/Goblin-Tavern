@@ -2488,5 +2488,612 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
       ],
     },
+
+    // Phase 186 / ISSUE-153 — Choice-Preview Legibility arc, Phase 5
+    // (Drive, tune, deepen). The Phase-3 (Phase 183) meter-named block above
+    // covered the four headline pressures the audit's passive sweep named
+    // (staff_loyalty_risk / staff_burnout / rumour_pressure / inspection).
+    // The remaining high-traffic pressures still fell through to the coarse
+    // `(pressure × direction × band)` base, which speaks of "the meter" / "the
+    // reading" / "a measure of risk" and names nothing — the flat lines the
+    // arc's §3 catalogued. This block deepens the next tier of pressures by
+    // emission count (`grep "'pressure:<id>'" src/sim/modules/issues/*.ts`):
+    // cultural_tension (19), regular handled via its own meter, food_safety
+    // (13), rival_tavern_pressure (11), faction_anger (11), stock_shortage
+    // (10), supplier_distrust (7), violence (6), debt (5). All are
+    // unambiguous threat pressures: positive arithmetic sign = rising (bad,
+    // "climb / mount"); negative = relief (good, "settle / ease / fall").
+    // Pressure is NOT valence-inverted (METER_VALENCE excludes it), so the
+    // direction token follows the raw sign exactly like the four above.
+    //
+    // Each line (a) gates on `effectMeter` + `effectTargetKind: pressure` +
+    // direction + band (specificity 4, out-ranking the coarse spec-3 base and
+    // the per-family targetKind-only pressure snippets), (b) names the meter,
+    // (c) carries a `DEFAULT_TARGET_KIND_KEYWORDS.pressure` token (pressure /
+    // meter / reading / risk / climb / settle) so the specificity rule passes,
+    // (d) keeps a `MAGNITUDE_LEXICON[direction][band]` token, (e) stays ≤ 10
+    // words, (f) is canonically distinct. The relief cells (neg small/medium)
+    // carry two siblings apiece because the "fix it" choices on social-conflict
+    // and crisis cards relieve the same pressure in the same band more than
+    // once per card — the within-card avoid-set (Phase 167) spreads them across
+    // the siblings instead of repeating one line. tiny / large bands stay on
+    // the coarse base (rare emissions), mirroring the four headline pressures.
+    // The inaction path keeps its own "would keep climbing / unchecked"
+    // framing: these carry no `inactionPreview` condition, so on the inaction
+    // path they tie at specificity 4 with the inaction block and the FNV
+    // tie-break decides — same coexistence the four headline pressures already
+    // have. Not added to `DEFAULT_NAMED_METERS` (gates/legibility.ts): tiny /
+    // large bands stay coarse, so these are not 100%-named across live samples
+    // — promotion waits on full-band coverage per that allowlist's contract.
+
+    // ---- pressure: cultural_tension ----
+    {
+      id: 'shared_preview_meter_p_cultural_tension_neg_small_a',
+      text: 'cultural tension would settle a notch tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['cultural_tension'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_cultural_tension_neg_small_b',
+      text: 'the tension reading would ease a step tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['cultural_tension'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_cultural_tension_neg_medium_a',
+      text: 'cultural tension would settle a clear drop tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['cultural_tension'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_cultural_tension_neg_medium_b',
+      text: 'the tension reading would fall a real slip tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['cultural_tension'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_cultural_tension_pos_small_a',
+      text: 'cultural tension would climb a step tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['cultural_tension'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_cultural_tension_pos_medium_a',
+      text: 'cultural tension would climb a marked rise tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['cultural_tension'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+
+    // ---- pressure: food_safety ----
+    {
+      id: 'shared_preview_meter_p_food_safety_neg_small_a',
+      text: 'the food-safety risk would settle a notch by morning',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['food_safety'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_food_safety_neg_small_b',
+      text: 'the kitchen risk would ease a step by morning',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['food_safety'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_food_safety_neg_medium_a',
+      text: 'the food-safety risk would ease a clear drop tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['food_safety'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_food_safety_neg_medium_b',
+      text: 'the kitchen risk would fall a real slip tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['food_safety'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_food_safety_pos_small_a',
+      text: 'the food-safety risk would climb a step higher',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['food_safety'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_food_safety_pos_medium_a',
+      text: 'the food-safety risk would spread a clear lift through service',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['food_safety'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+
+    // ---- pressure: rival_tavern_pressure ----
+    {
+      id: 'shared_preview_meter_p_rival_neg_small_a',
+      text: "the rival's pressure would settle a notch back",
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['rival_tavern_pressure'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_rival_neg_small_b',
+      text: "the rival's pressure would ease a step at the door",
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['rival_tavern_pressure'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_rival_neg_medium_a',
+      text: "the rival's pressure would recede a clear drop overnight",
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['rival_tavern_pressure'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_rival_neg_medium_b',
+      text: "the rival's pressure would fall a real slip back",
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['rival_tavern_pressure'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_rival_pos_small_a',
+      text: "the rival's pressure would climb a step overnight",
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['rival_tavern_pressure'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_rival_pos_medium_a',
+      text: "the rival's pressure would mount a clear lift overnight",
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['rival_tavern_pressure'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+
+    // ---- pressure: faction_anger ----
+    {
+      id: 'shared_preview_meter_p_faction_anger_neg_small_a',
+      text: "the faction's anger would settle a notch cooler",
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['faction_anger'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_faction_anger_neg_small_b',
+      text: "the faction's reading would ease a step by morning",
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['faction_anger'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_faction_anger_neg_medium_a',
+      text: "the faction's anger would settle a clear drop tonight",
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['faction_anger'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_faction_anger_neg_medium_b',
+      text: "the faction's reading would slacken a real slip overnight",
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['faction_anger'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_faction_anger_pos_small_a',
+      text: "the faction's anger would climb a step hotter",
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['faction_anger'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_faction_anger_pos_medium_a',
+      text: "the faction's anger would climb a marked rise tonight",
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['faction_anger'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+
+    // ---- pressure: stock_shortage ----
+    {
+      id: 'shared_preview_meter_p_stock_shortage_neg_small_a',
+      text: 'the shortage risk would settle a notch in the cellar',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['stock_shortage'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_stock_shortage_neg_small_b',
+      text: 'shortage risk would ease a step on the shelves',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['stock_shortage'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_stock_shortage_neg_medium_a',
+      text: 'the shortage risk would recede a clear drop overnight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['stock_shortage'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_stock_shortage_neg_medium_b',
+      text: 'the shortage risk would loosen a real slip overnight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['stock_shortage'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_stock_shortage_pos_small_a',
+      text: 'the shortage risk would bite a step deeper tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['stock_shortage'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_stock_shortage_pos_medium_a',
+      text: 'the shortage risk would climb a marked rise overnight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['stock_shortage'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+
+    // ---- pressure: supplier_distrust ----
+    {
+      id: 'shared_preview_meter_p_supplier_distrust_neg_small_a',
+      text: 'supplier distrust would settle a notch tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['supplier_distrust'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_supplier_distrust_neg_small_b',
+      text: 'the distrust reading would ease a step tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['supplier_distrust'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_supplier_distrust_neg_medium_a',
+      text: 'supplier distrust would settle a clear drop tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['supplier_distrust'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_supplier_distrust_neg_medium_b',
+      text: 'the distrust reading would fall a real slip tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['supplier_distrust'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_supplier_distrust_pos_small_a',
+      text: 'supplier distrust would climb a step tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['supplier_distrust'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_supplier_distrust_pos_medium_a',
+      text: 'supplier distrust would climb a marked rise tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['supplier_distrust'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+
+    // ---- pressure: violence ----
+    {
+      id: 'shared_preview_meter_p_violence_neg_small_a',
+      text: 'the violence risk would settle a notch tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['violence'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_violence_neg_small_b',
+      text: 'the violence risk would ease a step back',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['violence'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_violence_neg_medium_a',
+      text: 'the violence risk would drain a clear drop tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['violence'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_violence_neg_medium_b',
+      text: 'the violence risk would fall a real slip back',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['violence'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_violence_pos_small_a',
+      text: 'the violence risk would simmer a step hotter',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['violence'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_violence_pos_medium_a',
+      text: 'the violence risk would flare a marked rise tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['violence'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+
+    // ---- pressure: debt ----
+    {
+      id: 'shared_preview_meter_p_debt_neg_small_a',
+      text: 'debt pressure would settle a notch tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['debt'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_debt_neg_small_b',
+      text: 'the debt reading would ease a step lower',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['debt'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_debt_neg_medium_a',
+      text: 'debt pressure would ease a clear drop tonight',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['debt'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_debt_neg_medium_b',
+      text: 'the debt reading would fall a real slip lower',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['debt'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_debt_pos_small_a',
+      text: 'debt pressure would creep a step up the slate',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['debt'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_debt_pos_medium_a',
+      text: 'debt pressure would build a clear lift up the slate',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['debt'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+
+    // ---- pressure: landlord (the debt_rent / monthly_review headline; its
+    //      relief reaches the `large` band on a full pay-down — covered here,
+    //      unlike the others, because that is the choice's whole point) ----
+    {
+      id: 'shared_preview_meter_p_landlord_neg_small_a',
+      text: "the landlord's pressure would settle a notch tonight",
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['landlord'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_landlord_neg_small_b',
+      text: "the landlord's pressure would ease a step back",
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['landlord'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_landlord_neg_medium_a',
+      text: "the landlord's pressure would lift a clear drop overhead",
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['landlord'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_landlord_neg_medium_b',
+      text: "the landlord's pressure would sink a real slip overhead",
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['landlord'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_landlord_neg_large_a',
+      text: "the landlord's pressure would fall away, a sharp drop",
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['landlord'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_landlord_pos_small_a',
+      text: "the landlord's pressure would climb a step nearer",
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['landlord'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_p_landlord_pos_medium_a',
+      text: "the landlord's pressure would mount a marked rise overhead",
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['landlord'] },
+        { kind: 'effectTargetKind', anyOf: ['pressure'] },
+        { kind: 'effectDirection', sign: 'positive' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
   ]
 }

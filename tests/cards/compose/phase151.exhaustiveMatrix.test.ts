@@ -431,11 +431,14 @@ describe('customerComplaint — reaction_line varies with state', () => {
 
 // ─── drinkOrder state-keyed mannerNote proof ────────────────────────
 //
-// drinkOrder has no establishing_line slot (the order_line is the
-// regular's voice, not a fact-stating slot), but the relationship_test
-// branch still benefits from a manner that reflects the regular's
-// standing. Phase 6 adds 4 state-keyed snippets to its mannerNote pool;
-// these tests prove two of them fire on the expected meters.
+// Phase 169 / ISSUE-137 (Complete Surface arc, Phase 2) added an
+// establishing_line slot to drinkOrder, so the body is now
+// [establishing_line, order_line, manner_note?] — the manner_note shifts
+// to body[2]. The relationship_test branch still benefits from a manner
+// that reflects the regular's standing; Phase 6 added 4 state-keyed
+// snippets to its mannerNote pool. These tests prove two of them fire on
+// the expected meters (the establishing line at body[0] now also varies
+// with loyalty, but the manner_note proof is what this block guards).
 
 function drinkOrderSeed(
   regularId: string,
@@ -470,11 +473,12 @@ describe('drinkOrder — manner_note varies with the regular\'s standing', () =>
       drinkOrderSeed(regularId, 'drink-fading'),
       fading,
     )
-    // body shape for drinkOrder is [order_line, manner_note?]. The
-    // manner_note lives at body[1] when present.
-    expect(loyalView.body[1]).toBeDefined()
-    expect(fadingView.body[1]).toBeDefined()
-    expect(loyalView.body[1]).not.toBe(fadingView.body[1])
+    // Phase 169 / ISSUE-137 — body shape is now
+    // [establishing_line, order_line, manner_note?]; the manner_note
+    // lives at body[2] when present.
+    expect(loyalView.body[2]).toBeDefined()
+    expect(fadingView.body[2]).toBeDefined()
+    expect(loyalView.body[2]).not.toBe(fadingView.body[2])
   })
 })
 

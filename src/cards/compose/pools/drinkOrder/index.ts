@@ -3,14 +3,19 @@
 // `title` slot pool. Title composition moved from `formatTitle` to a
 // gated SlotSpec; template glue keeps prepending the actor display.
 //
-// Slot manifest for the drink_order template. The `sim_backed_hook`
-// slot from Phase B is intentionally absent — it gates on signals the
-// sim does not yet emit (no `repeatCount`/`subjectTag` tracking, no
-// confirmed `stock_shortage` pressure id). Wiring it now would create
-// dead pool entries or assert unbacked facts. Phase D / E re-enable it
-// per-snippet once backing signals exist.
+// Slot manifest for the drink_order template. The Phase-B `sim_backed_hook`
+// slot landed as the `establishing_line` slot in Phase 169 / ISSUE-137
+// (Complete Surface arc, Phase 2): a sim-backed matrix keyed on the
+// `regular_customer` salience reads (irritation × loyalty bands, the
+// family pressure, choice-affecting memories, the repeat-visit pattern).
+// It backs the slot's conditions against real signals rather than the
+// silence the spike-era manifest noted.
 
 export { titlePool as drinkOrderTitlePool } from './title'
+// Phase 169 / ISSUE-137 — Complete Surface arc, Phase 2 (drinkOrder Parity).
+// Sim-backed establishing line that opens the body on the regular's
+// standing, replacing the raw `recentContext` splice the body used to end on.
+export { establishingLinePool as drinkOrderEstablishingLinePool } from './establishingLine'
 export { orderLinePool } from './orderLine'
 export { mannerNotePool } from './mannerNote'
 // Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6.

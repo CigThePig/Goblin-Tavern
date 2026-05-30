@@ -44,20 +44,26 @@ slots:
       A tiny optional beat showing delivery, posture, impatience, or social
       texture. Omitted rather than weak.
 
-  - id: sim_backed_hook
-    required: false
+  - id: establishing_line
+    required: true
     claims: sim-backed
-    maxWords: 12
-    status: SIGNAL_AVAILABLE
+    maxWords: 14
+    status: LIVE
     description: >
-      Reserved for a line referencing a real seed/state condition (repeat
-      visit, named actor, rising pressure, memory). Phase 127 / ISSUE-096
-      (Voiced Surface, Phase 1) shipped the signal surface — `repeatCount`
-      is wired against memory tags; `signalEquals` reaches numeric band
-      signals; `pressureRising` is verified against the real pressure ids.
-      The slot stays empty in the live pool until Phase 3's establishing-
-      line spike (or a later migration) authors a snippet against those
-      signals.
+      Phase 169 / ISSUE-137 (Complete Surface arc, Phase 2 — drinkOrder
+      Parity). The Phase-B `sim_backed_hook` slot, realised. A sim-backed
+      line that STATES the regular's standing before they speak their order
+      — the slot drinkOrder lacked while the other nineteen migrated
+      templates all opened on a salient fact. `saliencePolicy: 'multi'`
+      ties top-specificity matches by the `regular_customer` salience
+      table (irritation × loyalty bands first, then the family pressure /
+      memories / repeat) and appends a secondary fact within the combined
+      budget. drink_order is the MILD branch (`relationship_test`,
+      irritation ≤ 60), so the pool authors only the reachable face of the
+      shared cube: irritation ∈ {low, mid} × loyalty ∈ {low, mid, high}.
+      The high-irritation row belongs to regularComplaint's complaint
+      branch. The mid × mid interior stays on the unconditional fallback.
+      Pool authored in `src/cards/compose/pools/drinkOrder/establishingLine.ts`.
 
   # Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6.
   # Choice & consequence voice. These two slots feed `composeChoicesFromSeed`
@@ -491,21 +497,41 @@ mustPass:
     current: proven by Phase D harness
 
 # ─── Phase 151 / ISSUE-119 — Legible Surface arc, Phase 6 ─────────────
-# Regulars & Complaints cluster. drinkOrder is the relationship_test
-# branch of the regular_customer family (irritation ≤ 60); the seed
-# has no establishing_line slot (order_line is the regular's voice,
-# not a fact-stating slot), so no `saliencePolicy` opt-in here. The
-# regular_customer salience table is shared with regularComplaint;
-# see `specs/cards/regular_complaint.spec.yaml` Phase 151 block for
-# the read ordering.
-#
-# Phase 6 deepens drinkOrder's mannerNote pool only — subtle by
-# design, since the regular hasn't escalated yet but their meter
-# standing still reads at the manner.
+# Regulars & Complaints cluster. At Phase 151 drinkOrder had no
+# establishing_line slot, so Phase 6 deepened its mannerNote pool only
+# — subtle by design, since the regular hasn't escalated yet but their
+# meter standing still reads at the manner. (Superseded by Phase 169 /
+# ISSUE-137 below, which adds the establishing_line slot proper; the
+# state-keyed manner notes stay as a complementary, quieter read.)
 phase151:
-  saliencePolicy: null  # no establishing_line slot to opt in
+  saliencePolicy: null  # no establishing_line slot YET (see phase169)
   newMannerNoteStateKeyed:
     - manner_state_mid_irritation   # signalEquals regular.irritation=mid
     - manner_state_high_loyalty     # signalEquals regular.loyalty=high
     - manner_state_low_loyalty      # signalEquals regular.loyalty=low
     - manner_state_grudge_memory    # memoryPresent grudge
+
+# ─── Phase 169 / ISSUE-137 — Complete Surface arc, Phase 2 ────────────
+# drinkOrder Parity. The establishing_line slot lands (see the slot
+# entry above): saliencePolicy:'multi' over the shared regular_customer
+# salience table. The pool authors only the relationship_test-reachable
+# face of the cube — irritation ∈ {low, mid} × loyalty ∈ {low, mid,
+# high} — leaving the high-irritation row to regularComplaint and the
+# mid × mid interior to the unconditional fallback. The full-cube
+# completeness pass belongs to Movement II, Phase 6 (Regulars &
+# Complaints). The raw `seed.textIngredients.recentContext[0]` splice
+# that used to end the body is deleted; the body is now fully composed:
+# [establishing_line, order_line, manner_note?].
+phase169:
+  saliencePolicy: multi
+  multiFactJoin: " — "
+  reachableFace:
+    irritation: [low, mid]   # never high — that's regularComplaint
+    loyalty: [low, mid, high]
+  matrixCorners:
+    - est_low_irritation_high_loyalty   # the default starter-regular standing
+    - est_low_irritation_low_loyalty
+    - est_mid_irritation_high_loyalty
+    - est_mid_irritation_low_loyalty
+  bodyShape: [establishing_line, order_line, manner_note?]
+  rawSpliceRemoved: seed.textIngredients.recentContext[0]

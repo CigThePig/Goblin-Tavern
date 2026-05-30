@@ -42,6 +42,7 @@ import type { TavernState } from '../../sim/state/TavernState'
 import {
   drinkOrderChoiceLabelPool,
   drinkOrderEffectPreviewPool,
+  drinkOrderEstablishingLinePool,
   drinkOrderTitlePool,
   mannerNotePool,
   orderLinePool,
@@ -82,6 +83,26 @@ export const drinkOrderTemplate: CompositionalCardTemplate = {
       wordBudget: 6,
       claimMode: 'flavor',
     },
+    // Phase 169 / ISSUE-137 — Complete Surface arc, Phase 2 (drinkOrder
+    // Parity). Sim-backed establishing line that STATES the regular's
+    // standing — the slot drinkOrder lacked while the other nineteen
+    // migrated templates all opened on a salient fact. Lands before the
+    // voiced `order_line` so the body reads "what's true of them" then
+    // "what they say" — the staffAside / supplier_reliability shape.
+    // `saliencePolicy: 'multi'` lets the assembler tie-break top-
+    // specificity matches by salience (the regular_customer table reads
+    // irritation × loyalty first) and append a secondary snippet covering
+    // the next orthogonal fact within the combined budget; the authored
+    // irritation × loyalty combo cells beat the join when both resolve.
+    {
+      id: 'establishing_line',
+      role: 'utterance',
+      pool: drinkOrderEstablishingLinePool,
+      wordBudget: 14,
+      claimMode: 'sim_backed',
+      saliencePolicy: 'multi',
+      multiFactJoin: ' — ',
+    },
     // Phase B budgets locked: order_line ≤ 12 words, manner_note ≤ 10 words
     // (`docs/plans/living-cast-arc-phase-b.md` §"Must-pass gates").
     // Phase D moves those numbers from the doc into the slot data so the
@@ -105,11 +126,13 @@ export const drinkOrderTemplate: CompositionalCardTemplate = {
   toCardView: (filled, seed, state) => {
     return makeCardView({
       title: buildDrinkOrderTitle(filled, seed, state),
-      // The order_line snippet IS the body's voice line (Phase B caps
-      // it at 12 words — body budget, not title budget). manner_note,
-      // when present, follows as a physical aside; sensory + recent
-      // ingredients ground the moment after.
-      body: buildDrinkOrderBody(filled, seed),
+      // Phase 169 / ISSUE-137 — body is now fully composed from slots:
+      // [establishing_line, order_line, manner_note?]. The sim-backed
+      // establishing_line carries the regular's standing, the order_line
+      // carries their voice, the optional manner_note carries the beat.
+      // The raw `seed.textIngredients.recentContext[0]` splice that used
+      // to end the body is gone (the un-composed fragment dump).
+      body: buildDrinkOrderBody(filled),
       stakes: buildStakes(seed, 2),
       // Phase 132 / ISSUE-101 — Voiced Surface arc, Phase 6. Choice
       // labels and effect-preview lines are composed through the
@@ -144,15 +167,18 @@ function buildDrinkOrderTitle(
   return `${display}: ${snippet}`
 }
 
-function buildDrinkOrderBody(filled: FilledSlots, seed: IssueSeed): string[] {
+function buildDrinkOrderBody(filled: FilledSlots): string[] {
+  // Phase 169 / ISSUE-137 — three composed slots, three voiced lines:
+  // sim-backed standing, then the voiced order, then the optional beat.
+  // No textIngredients splice — the cards-contract truth rule holds by
+  // sourcing every body line from a gated, state-checked slot.
   const lines: string[] = []
+  const establishing = filled['establishing_line']
+  if (establishing) lines.push(establishing)
   const order = filled['order_line']
   if (order) lines.push(order)
   const manner = filled['manner_note']
   if (manner) lines.push(manner)
-  if (seed.textIngredients.recentContext[0]) {
-    lines.push(seed.textIngredients.recentContext[0])
-  }
   return lines.slice(0, 3)
 }
 

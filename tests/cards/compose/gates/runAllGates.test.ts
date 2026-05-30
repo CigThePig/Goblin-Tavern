@@ -209,6 +209,18 @@ describe('runAllGates — happy path', () => {
           sampler: buildDiversitySampler({ rngSeed: 'run-all-title' }),
           config: { sampleSize: 100, minDistinct: 3 },
         },
+        // Phase 169 / ISSUE-137 — establishing_line is sim-backed; the
+        // voice-perturbation sampler doesn't vary signal state, so the
+        // achievable distinct count is small (the covering combo for the
+        // starter regular's irritation=low × loyalty=high standing). The
+        // simCoherence + coverage gates exercise the rest; minDistinct: 1
+        // holds the floor, matching the staffAside / regularComplaint
+        // establishing-line config.
+        {
+          slotId: 'establishing_line',
+          sampler: buildDiversitySampler({ rngSeed: 'run-all-establishing' }),
+          config: { sampleSize: 100, minDistinct: 1 },
+        },
         {
           slotId: 'order_line',
           sampler: buildDiversitySampler({ rngSeed: 'run-all-order' }),

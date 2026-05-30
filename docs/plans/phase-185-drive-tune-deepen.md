@@ -17,12 +17,36 @@ real `simulateDay` pipeline, renders the production seed through its production
 template, and confirms the Phase-4 legibility gate is clean for it — closing the gap
 with a standing regression test, not a one-off script.
 
-The arc's Phase 5 is explicitly standing. This session lands part (a) — the driven
-verification — as a permanent test. Part (b) — deepening flat meter-named lines and
-recalibrating `MAGNITUDE_BAND_CUTOFFS` — stays open: it requires playtest evidence
-that a specific cut-point reads wrong, and changing cutoffs without that evidence
-would risk regressing the calibrated bands every gate already depends on. No band
-cutoff is changed in this session; none has been shown to read wrong.
+The arc's Phase 5 is explicitly standing. The first session landed part (a) — the
+driven verification — as a permanent test.
+
+Part (b) — deepening flat meter-named lines and recalibrating
+`MAGNITUDE_BAND_CUTOFFS` — is standing. It splits cleanly:
+
+- **Prose deepening (landed, this session).** The Phase-3 (Phase 183) meter-named
+  block named only the four headline pressures the *passive* sweep surfaced
+  (`staff_loyalty_risk` / `staff_burnout` / `rumour_pressure` / `inspection`). Every
+  other pressure still fell through to the coarse `(pressure × direction × band)`
+  base — the flat "the meter would climb a notch on the reading" / "a measure of risk
+  would loosen its grip" lines the arc's §3 catalogued. A rendered-preview sweep over
+  all twenty templates (driven families included) confirmed these flat lines persist
+  across `culture_conflict`, `faction_request`, `rival_tavern`, `food_safety`,
+  `supplier_relationship`, `stock_shortage`, `violence`, `debt_rent`, and
+  `monthly_review`. This session authored meter-named, subject-first preview snippets
+  for the next tier of pressures by emission count — `cultural_tension`, `food_safety`,
+  `rival_tavern_pressure`, `faction_anger`, `stock_shortage`, `supplier_distrust`,
+  `violence`, `debt`, `landlord` — in the shared base
+  (`pools/_shared/effectPreviewBase.ts`), each gated on the Phase-1 `effectMeter` leaf
+  + `effectTargetKind: pressure` (specificity 4, out-ranking the coarse base). The
+  relief cells carry two siblings apiece so the within-card avoid-set (Phase 167)
+  spreads the multiple "fix it" choices on social-conflict / crisis cards across
+  distinct lines instead of repeating one. `landlord` additionally covers the `large`
+  band because its headline relief (a full rent pay-down, −25) lands there.
+
+- **Band-cutoff recalibration (still open).** Changing `MAGNITUDE_BAND_CUTOFFS`
+  requires playtest evidence that a specific cut-point reads wrong, and changing one
+  without that evidence would risk regressing the calibrated bands every gate already
+  depends on. No band cutoff is changed; none has been shown to read wrong.
 
 ## Why a driven test, not the `_audit/` scripts
 
@@ -86,20 +110,54 @@ the seed; the surfaced seed is paired with that day's `result.state` for renderi
   the three families render clean against the current `DEFAULT_NAMED_METERS`, so no
   pool change is required this session.)
 
+### The work — part (b) prose deepening (this session)
+
+- Author meter-named, subject-first preview snippets for the next tier of flat
+  pressures in `pools/_shared/effectPreviewBase.ts`, each gated on `effectMeter` +
+  `effectTargetKind: pressure` + direction + band (specificity 4). Constraints honoured
+  per the base header and the standing gates:
+  - every banded line keeps a `MAGNITUDE_LEXICON[direction][band]` token
+    (`requireMagnitude`);
+  - every line carries a `DEFAULT_TARGET_KIND_KEYWORDS.pressure` token — `pressure` /
+    `meter` / `reading` / `risk` / `climb` / `settle` (`preview_specificity_low`);
+  - every line stays ≤ 10 words (`voice-bounds`);
+  - no two lines exceed the `dedupe` gate's 0.85 character-Levenshtein similarity —
+    this forced genuinely distinct verb + tail vocabulary per pressure rather than a
+    shared template (a `notch tonight` / `clear drop tonight` skeleton swapping only the
+    meter noun trips the near-duplicate check at ~0.85+).
+- Pressure valence is the raw arithmetic sign (`METER_VALENCE` excludes pressure):
+  positive = rising (bad, "climb / mount / build / spread"); negative = relief (good,
+  "settle / ease / fall / recede / loosen"). Same convention as the four headline
+  pressures Phase 183 named.
+- Provide two siblings per relief cell (neg small/medium) so the within-card avoid-set
+  spreads the multiple "fix it" choices that relieve one pressure in one band on a
+  single social-conflict / crisis card. `tiny` (and, except for `landlord`, `large`)
+  bands stay on the coarse base — rare emissions, mirroring the four headline pressures.
+- Verify with a rendered-preview sweep over all twenty templates + the three driven
+  families that the targeted flat lines are now meter-named, and that the full gate
+  suite (`dedupe` / `voice-bounds` / `previewVariety` / `legibility` / `sim-coherence`)
+  stays green.
+
 ## Acceptance criteria
 
 - `food_safety`, `regular_customer`, `rumour_crisis` each surface from the driven
   harness and render previews the Phase-4 legibility gate passes — no family unverified.
 - The driven check runs in the default `npm test` suite and is deterministic
   (constructed state + seeded `runOneDay`).
+- Part (b) prose: the high-traffic flat pressures (`cultural_tension`, `food_safety`,
+  `rival_tavern_pressure`, `faction_anger`, `stock_shortage`, `supplier_distrust`,
+  `violence`, `debt`, `landlord`) render meter-named preview lines instead of the coarse
+  "the meter / the reading / a measure of risk" base, with the full gate suite green.
 - `npm test` and `npm run typecheck` green.
 
 ## Do Not Do
 
-- Do not change effect mechanics, selection policy, or pool prose except to author a
-  missing leaf-naming snippet the driven gate actually flags.
+- Do not change effect mechanics or selection policy — part (b) prose deepening only
+  adds higher-specificity preview snippets; the coarse base stays as the fallback for
+  the unlisted pressures and the tiny/large bands.
 - Do not change `MAGNITUDE_BAND_CUTOFFS` without playtest evidence that a specific
-  cut-point reads wrong (part (b) stays standing; none is changed here).
+  cut-point reads wrong (the recalibration half of part (b) stays standing; no cutoff
+  is changed here).
 - Do not fold the driven check into `runAllGates` — the legibility gate is
   cross-template by construction.
 - Do not grow `DEFAULT_NAMED_METERS` unless the corresponding leaf prose is verified

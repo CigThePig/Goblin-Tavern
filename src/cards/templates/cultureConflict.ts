@@ -119,7 +119,6 @@ export const cultureConflictTemplate: CompositionalCardTemplate = {
       choices: composeChoicesFromSeed(seed, state, {
         labelPool: cultureConflictChoiceLabelPool,
         previewPool: cultureConflictEffectPreviewPool,
-        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

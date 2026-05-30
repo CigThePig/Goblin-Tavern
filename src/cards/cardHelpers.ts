@@ -20,12 +20,19 @@ import type { EffectPreview } from '../sim/core/effect'
 import type { TavernState } from '../sim/state/TavernState'
 import { pickSnippet } from './compose/assemble'
 import { canonicaliseText } from './compose/gates/dedupe'
-import { selectPreviewEffects } from './compose/previewSelect'
+import { selectPreviewEffects, isCostEffect } from './compose/previewSelect'
 import { SALIENCE_TABLES, type SalienceRead } from './compose/salience'
 import type { SlotSpec, SnippetPool } from './compose/types'
 
 const MAX_TITLE_WORDS = 6
 const MAX_STAKES = 3
+// Phase 182 / ISSUE-150 — Choice-Preview Legibility arc, Phase 2. The
+// single source of truth for the choice-preview cap. Three is the small,
+// phone-scannable ceiling that always fits the three decision-relevance
+// categories `selectPreviewEffects` guarantees (headline meter + coin
+// cost + headline risk). Templates no longer pass their own `maxPreview`
+// — they all converge on this default. The `maxPreview` override remains
+// on `ComposeChoicesOptions` for genuine future exceptions.
 const MAX_PREVIEW = 3
 const MAX_BODY = 3
 
@@ -403,6 +410,19 @@ export function composeChoicesFromSeed(
   // FNV choice (a coverage gap the faithfulness gate then flags).
   const usedLabels = new Set<string>()
   const usedPreviews = new Set<string>()
+  // Phase 182 / ISSUE-150 — Choice-Preview Legibility arc, Phase 2. Card-wide
+  // preview-line uniqueness. `usedPreviews` STEERS `pickSnippet` toward unused
+  // candidates; this set is the guarantee for when the pool runs out of them.
+  // It tracks the canonical form of every FINAL preview line already emitted
+  // ANYWHERE on this card. A composed line that would repeat one already shown
+  // — within a choice via the coarse-cell reuse below, or on an earlier choice
+  // once the candidate pool is exhausted — falls back to the effect's distinct
+  // sim `readable`, so no choice ever renders a literal duplicate and no line
+  // collides across choices. Cost lines are exempt: their coin keyword must
+  // survive for the cost-surfacing gate, and the rich coin pool keeps them
+  // distinct without this fallback. Phase 3 retires the readable stopgaps by
+  // authoring meter-named composed prose that is distinct by construction.
+  const emittedLines = new Set<string>()
   return cappedSlots.map((slot) => {
     const profile = seed.consequenceProfiles.find(
       (p) => p.responseSlotId === slot.id,
@@ -453,62 +473,79 @@ export function composeChoicesFromSeed(
     // candidates for the cross-choice distinctness the gate enforces.
     //
     // Phase 181 / ISSUE-149 — Choice-Preview Legibility arc, Phase 1. The
-    // within-choice de-dup map (`cellLineThisChoice`) is now keyed meter-aware
-    // via `previewCellKey` (`targetKind|meterId|direction|magnitudeBand`), so
-    // two DISTINCT meters in the same coarse bucket and band (loyalty +10 and
-    // stress −8, both `staff|positive|medium`) no longer share a cell — the
-    // false collapse the player saw as a duplicate. But until Phase 3 teaches
-    // the pool meter-named prose, the only candidates a distinct meter can draw
-    // are the same coarse-cell lines (and `pickSnippet` keys its tie-break on
-    // the effect index, so two un-collapsed effects would draw DIFFERENT coarse
-    // lines, draining the small candidate pool and starving later choices into
-    // cross-choice duplicates). The arc anticipates this — "the duplicate text
-    // may persist until Phase 3." So a new meter that shares a COARSE cell with
-    // an already-rendered line reuses that line: the duplicate text persists
-    // within the choice (gates permit same-choice repeats) and the cross-choice
-    // candidate budget is untouched. Phase 3 swaps this coarse reuse for
-    // meter-specific composition once meter-named snippets exist.
+    // within-choice de-dup map (`cellLineThisChoice`) is keyed meter-aware via
+    // `previewCellKey` (`targetKind|meterId|direction|magnitudeBand`), so two
+    // DISTINCT meters in the same coarse bucket and band (loyalty +10 and
+    // stress −8, both `staff|positive|medium`) no longer share a cell. The
+    // `coarseCellLine` map below still reuses one coarse line for two distinct
+    // meters when the pool has no meter-specific candidate (kept on purpose so
+    // distinct meters don't each drain the cross-choice candidate budget before
+    // Phase 3's meter-named prose exists). That reuse can repeat a line — which
+    // Phase 182's card-wide `emittedLines` de-dup then resolves by falling the
+    // repeat back to the effect's distinct sim `readable`, so the candidate
+    // budget is preserved AND no literal duplicate survives.
     const cellLineThisChoice = new Map<string, string>()
     const coarseCellLine = new Map<string, string>()
+    // Phase 181 made the de-dup cell key meter-aware, but the `coarseCellLine`
+    // reuse below still hands one coarse line to two distinct meters (kept on
+    // purpose so distinct meters don't each drain the candidate budget). The
+    // card-wide `emittedLines` set (above) turns any such repeat — within this
+    // choice or across choices — into the effect's distinct sim `readable`.
+    // Falling back to `readable` rather than dropping the entry keeps
+    // `previewEffects` 1:1 with the selected effects, so the legibility /
+    // faithfulness gates' line→effect re-derivation stays aligned and the
+    // readable already counts as legible under their `line === effect.readable`
+    // sim-authority carve-out.
     const composedPreview = effects.map((effect, idx) => {
       const cellKey = previewCellKey(effect)
-      if (cellKey !== undefined && cellLineThisChoice.has(cellKey)) {
-        return cellLineThisChoice.get(cellKey)!
-      }
+      // Compose (or cell-reuse) the line exactly as before — this still
+      // populates the cross-choice `usedPreviews` avoid-set and the cell
+      // maps, so the candidate budget is untouched.
+      let composedLine: string
       const coarseKey =
         effect.targetKind !== undefined &&
         effect.direction !== undefined &&
         effect.magnitudeBand !== undefined
           ? `${effect.targetKind}|${effect.direction}|${effect.magnitudeBand}`
           : undefined
-      if (coarseKey !== undefined && coarseCellLine.has(coarseKey)) {
-        const reused = coarseCellLine.get(coarseKey)!
-        if (cellKey !== undefined) cellLineThisChoice.set(cellKey, reused)
-        return reused
+      if (cellKey !== undefined && cellLineThisChoice.has(cellKey)) {
+        composedLine = cellLineThisChoice.get(cellKey)!
+      } else if (coarseKey !== undefined && coarseCellLine.has(coarseKey)) {
+        composedLine = coarseCellLine.get(coarseKey)!
+        if (cellKey !== undefined) cellLineThisChoice.set(cellKey, composedLine)
+      } else {
+        const previewSlot: SlotSpec = {
+          id: `effect_preview::${slot.id}::${idx}`,
+          role: 'effect_preview',
+          pool: options.previewPool,
+          optional: true,
+          wordBudget: 10,
+          claimMode: 'flavor',
+        }
+        const composed = pickSnippet(
+          previewSlot,
+          seed,
+          state,
+          {
+            currentResponseSlot: slot,
+            currentEffect: effect,
+            inactionPreview: useDelayed,
+          },
+          usedPreviews,
+        )
+        composedLine = composed ?? effect.readable
+        usedPreviews.add(canonicaliseText(composedLine))
+        if (cellKey !== undefined) cellLineThisChoice.set(cellKey, composedLine)
+        if (coarseKey !== undefined) coarseCellLine.set(coarseKey, composedLine)
       }
-      const previewSlot: SlotSpec = {
-        id: `effect_preview::${slot.id}::${idx}`,
-        role: 'effect_preview',
-        pool: options.previewPool,
-        optional: true,
-        wordBudget: 10,
-        claimMode: 'flavor',
+      // De-dup: a line that exactly repeats one already emitted anywhere on
+      // this card falls back to the effect's distinct sim `readable`. Cost
+      // lines are exempt so their coin keyword survives for the gate.
+      let line = composedLine
+      if (emittedLines.has(canonicaliseText(line)) && !isCostEffect(effect)) {
+        line = effect.readable
       }
-      const composed = pickSnippet(
-        previewSlot,
-        seed,
-        state,
-        {
-          currentResponseSlot: slot,
-          currentEffect: effect,
-          inactionPreview: useDelayed,
-        },
-        usedPreviews,
-      )
-      const line = composed ?? effect.readable
-      usedPreviews.add(canonicaliseText(line))
-      if (cellKey !== undefined) cellLineThisChoice.set(cellKey, line)
-      if (coarseKey !== undefined) coarseCellLine.set(coarseKey, line)
+      emittedLines.add(canonicaliseText(line))
       return line
     })
     const extra = options.overrides?.(slot) ?? {}

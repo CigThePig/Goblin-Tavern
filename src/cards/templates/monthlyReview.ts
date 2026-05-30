@@ -112,7 +112,6 @@ export const monthlyReviewTemplate: CompositionalCardTemplate = {
       choices: composeChoicesFromSeed(seed, state, {
         labelPool: monthlyReviewChoiceLabelPool,
         previewPool: monthlyReviewEffectPreviewPool,
-        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

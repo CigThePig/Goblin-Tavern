@@ -207,7 +207,7 @@ next.
 | ISSUE-147 | Complete Surface Phase 12 — The Coverage Gate (centrepiece) | thin | open | 179 |
 | ISSUE-148 | Complete Surface Phase 13 — Deepening, Pruning & Recalibration (standing) | thin | open | 180 |
 | ISSUE-149 | Choice-Preview Legibility Phase 1 — Effect Contract: carry the meter | broken | done | 181 |
-| ISSUE-150 | Choice-Preview Legibility Phase 2 — Selection Policy: show what matters | broken | open | 182 |
+| ISSUE-150 | Choice-Preview Legibility Phase 2 — Selection Policy: show what matters | broken | done | 182 |
 | ISSUE-151 | Choice-Preview Legibility Phase 3 — Pool Vocabulary: name it, ground it | broken | open | 183 |
 | ISSUE-152 | Choice-Preview Legibility Phase 4 — The Legibility Gate, completed | broken | open | 184 |
 | ISSUE-153 | Choice-Preview Legibility Phase 5 — Drive, tune, deepen (standing) | thin | open | 185 |
@@ -3240,8 +3240,11 @@ records the motivating audit, Appendix B the re-runnable instruments at
 - **Test approach:** `tests/sim/phase181.effectMeter.test.ts` + `tests/cards/compose/phase181.effectMeter.test.ts` — leaf extraction, label resolution, `effect()` emission, the `effectMeter` condition, and the loyalty-vs-stress distinct-cell-key proof.
 
 ### ISSUE-150 — Choice-Preview Legibility Phase 2: Selection Policy — show what matters
-- **Grade:** broken · **Status:** open · **Phase:** 182 · **Record:** `docs/plans/choice-preview-legibility-arc.md` (Phase 2)
+- **Grade:** broken · **Status:** done · **Phase:** 182 · **Record:** `docs/plans/phase-182-selection-policy-show-what-matters.md`
+- **Evidence:** `selectPreviewEffects` returned the first `previewMax` effects with only a negative-`coin` rescue; the flat `maxPreview: 2` (duplicated across all 20 templates) hid 37% of authored effects, including the `pressure` risk relief/escalation that is often the deciding fact (`publicly_back_staff_profile` hid `pressure:staff_loyalty_risk −8` at index 3). Phase 181's meter-aware cell key still let the renderer's coarse-cell reuse hand one line to two distinct meters, leaving visible duplicates.
+- **Scope:** rebuilt `selectPreviewEffects` as a decision-relevance selection guaranteeing three priority categories within the cap — headline `state_change` > coin cost > headline `pressure`/risk — exposed as enumerable exported predicates (`isHeadlineStateChange`/`isCostEffect`/`isRiskEffect`/`MUST_SURFACE_PREDICATES`) the gate reuses; converged the cap to one source of truth (`MAX_PREVIEW` = 3) by deleting `maxPreview: 2` from all 20 templates; added a card-wide preview-line de-dup in `composeChoicesFromSeed` that falls any repeated line (within a choice or across choices, once the candidate pool is exhausted) back to the effect's distinct sim `readable` (cost lines exempt so their coin keyword survives the cost-surfacing gate). Mechanics (verb/target/amount/order) untouched; no prose changes; `selectPreviewEffects` stays pure and shared with the legibility + faithfulness gates.
 - **Depends on:** ISSUE-149.
+- **Test approach:** `tests/cards/compose/phase182.selectionPolicy.test.ts` — risk-relief surfaced within the cap, coin-cost rescue still holds, source-order output, exported priority predicates, and card-wide de-dup (within-choice two-same-cell + cross-choice candidate exhaustion). `tests/cards/compose/phase147.inactionPreview.test.ts` updated for the de-dup. Full suite + `npm run typecheck` green; the live legibility + faithfulness gates pass at cap 3.
 
 ### ISSUE-151 — Choice-Preview Legibility Phase 3: Pool Vocabulary — name it, ground it
 - **Grade:** broken · **Status:** open · **Phase:** 183 · **Record:** `docs/plans/choice-preview-legibility-arc.md` (Phase 3)

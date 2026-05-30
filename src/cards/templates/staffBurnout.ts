@@ -110,7 +110,6 @@ export const staffBurnoutTemplate: CompositionalCardTemplate = {
       choices: composeChoicesFromSeed(seed, state, {
         labelPool: staffBurnoutChoiceLabelPool,
         previewPool: staffBurnoutEffectPreviewPool,
-        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

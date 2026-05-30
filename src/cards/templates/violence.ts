@@ -112,7 +112,6 @@ export const violenceTemplate: CompositionalCardTemplate = {
       choices: composeChoicesFromSeed(seed, state, {
         labelPool: violenceChoiceLabelPool,
         previewPool: violenceEffectPreviewPool,
-        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

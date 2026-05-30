@@ -113,7 +113,6 @@ export const supplierReliabilityTemplate: CompositionalCardTemplate = {
       choices: composeChoicesFromSeed(seed, state, {
         labelPool: supplierReliabilityChoiceLabelPool,
         previewPool: supplierReliabilityEffectPreviewPool,
-        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

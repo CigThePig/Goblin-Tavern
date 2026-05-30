@@ -122,7 +122,6 @@ export const factionRequestTemplate: CompositionalCardTemplate = {
       choices: composeChoicesFromSeed(seed, state, {
         labelPool: factionRequestChoiceLabelPool,
         previewPool: factionRequestEffectPreviewPool,
-        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

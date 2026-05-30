@@ -114,7 +114,6 @@ export const regularComplaintTemplate: CompositionalCardTemplate = {
       choices: composeChoicesFromSeed(seed, state, {
         labelPool: regularComplaintChoiceLabelPool,
         previewPool: regularComplaintEffectPreviewPool,
-        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

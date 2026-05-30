@@ -112,7 +112,6 @@ export const rivalTavernTemplate: CompositionalCardTemplate = {
       choices: composeChoicesFromSeed(seed, state, {
         labelPool: rivalTavernChoiceLabelPool,
         previewPool: rivalTavernEffectPreviewPool,
-        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

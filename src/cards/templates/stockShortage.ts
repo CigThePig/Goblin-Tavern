@@ -100,7 +100,6 @@ export const stockShortageTemplate: CompositionalCardTemplate = {
       choices: composeChoicesFromSeed(seed, state, {
         labelPool: stockShortageChoiceLabelPool,
         previewPool: stockShortageEffectPreviewPool,
-        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

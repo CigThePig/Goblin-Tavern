@@ -259,6 +259,16 @@ export function evalCondition(
       )
     }
 
+    case 'effectMeter': {
+      // Phase 181 / ISSUE-149 — reads the distinguishing meter leaf that
+      // `effect()` in `generatorHelpers.ts` writes onto every preview.
+      // Older serialized seeds that pre-date the field return false here
+      // (graceful degradation), same as the sibling effect* arms.
+      const effect = ctx.currentEffect
+      if (!effect || effect.meterId === undefined) return false
+      return condition.anyOf.includes(effect.meterId)
+    }
+
     case 'inactionPreview': {
       // Phase 147 / ISSUE-115 — true when `composeChoicesFromSeed`
       // routed the preview through `delayedEffects` (immediate was

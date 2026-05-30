@@ -32,6 +32,7 @@ import type { MemoryState } from '../memories/memoryTypes'
 import {
   attributionsByTarget,
 } from '../attribution/attributionQueries'
+import { pressureRegistry } from '../pressures/pressureRegistry'
 import type {
   AttributionState,
   AttributionType,
@@ -219,6 +220,91 @@ export function classifyMagnitudeBand(
   return 'large'
 }
 
+// Phase 181 / ISSUE-149 — Choice-Preview Legibility arc, Phase 1.
+//
+// `targetKind` collapses every staff meter to `staff`, every pressure id to
+// `pressure`, every reputation axis to `reputation`. The distinguishing leaf
+// of the target string is the meter the player actually cares about. These
+// two helpers recover it: `classifyMeterId` peels the leaf off `target`, and
+// `resolveMeterLabel` maps the leaf to a player-facing name. Both run inside
+// `effect()` so the leaf rides on every emission, where the card layer's
+// preview pools (Phase 3) and the within-choice de-dup key (below) can read
+// it without re-parsing the target string.
+
+/** The distinguishing leaf of a `target` string: the segment after the final
+ *  `.` or `:`. `staff.server.loyalty` → `'loyalty'`,
+ *  `pressure:staff_loyalty_risk` → `'staff_loyalty_risk'`,
+ *  `reputation.respectable` → `'respectable'`, `coin` → `'coin'`. */
+export function classifyMeterId(target: string): string {
+  const cut = Math.max(target.lastIndexOf('.'), target.lastIndexOf(':'))
+  return cut >= 0 ? target.slice(cut + 1) : target
+}
+
+// Player-facing names for the meter leaves that recur on choices. Keyed on
+// the leaf so it serves staff / customer / faction `loyalty` alike. This is a
+// colocated, enumerable source — NOT an import from `src/reports/` (the card
+// layer that reads `meterLabel` must stay free of report-layer deps, and the
+// sim must not depend backwards on reports either). Pressure labels are NOT
+// listed here; they come from `pressureRegistry` so the two never drift.
+const METER_LABELS: Record<string, string> = {
+  // staff meters
+  loyalty: 'loyalty',
+  morale: 'morale',
+  stress: 'stress',
+  fatigue: 'fatigue',
+  // reputation axes (mirrors src/reports/labels/idLabel.ts REPUTATION_LABELS,
+  // lower-cased for mid-sentence preview prose)
+  cheap: 'cheap',
+  tasty: 'tasty',
+  filthy: 'filthy',
+  dangerous: 'dangerous',
+  cozy: 'cozy',
+  strange: 'strange',
+  reliable: 'reliable',
+  goblinAuthentic: 'goblin-authentic',
+  respectable: 'respectable',
+  culinary_renown: 'culinary renown',
+  // currency
+  coin: 'coin',
+}
+
+/** Lower-cased, space-separated humanisation of a meter leaf, used as the
+ *  fallback for dotted state-change meters not in `METER_LABELS`
+ *  (`satisfaction`, `cleanliness`, `tension`, …). Mid-sentence casing so the
+ *  Phase-3 preview prose can read "satisfaction would rise" directly. */
+function humanizeMeterLeaf(meterId: string): string {
+  return meterId
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/_/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+/** Resolve a player-facing name for a meter, or `undefined` when the leaf is
+ *  not a meter the player reads about (entity-id leaves on colon-prefixed
+ *  cause effects, `global`/`tavern` markers). Pressure leaves reuse the
+ *  registry label; known leaves use `METER_LABELS`; any other dotted
+ *  state-change leaf falls back to a humanised form. */
+export function resolveMeterLabel(
+  targetKind: EffectTargetKind,
+  target: string,
+  meterId: string,
+): string | undefined {
+  if (targetKind === 'pressure') {
+    return pressureRegistry.has(meterId)
+      ? pressureRegistry.get(meterId).label
+      : humanizeMeterLeaf(meterId)
+  }
+  const known = METER_LABELS[meterId]
+  if (known !== undefined) return known
+  // Dotted targets carry a real meter leaf (`areas.kitchen.cleanliness`,
+  // `customers.miners.satisfaction`). Colon-prefixed non-pressure targets are
+  // entity refs on cause effects (`staff:cook_1`) — not meters — so leave the
+  // label undefined for them rather than humanising an entity id.
+  if (target.includes('.')) return humanizeMeterLeaf(meterId)
+  return undefined
+}
+
 export function effect(
   kind: EffectPreview['kind'],
   target: string,
@@ -229,6 +315,8 @@ export function effect(
   const targetKind = classifyTargetKind(target)
   const direction = classifyDirection(amount, target)
   const magnitudeBand = classifyMagnitudeBand(targetKind, amount)
+  const meterId = classifyMeterId(target)
+  const meterLabel = resolveMeterLabel(targetKind, target, meterId)
   const out: EffectPreview = {
     kind,
     target,
@@ -237,8 +325,10 @@ export function effect(
     tags,
     targetKind,
     direction,
+    meterId,
   }
   if (magnitudeBand !== undefined) out.magnitudeBand = magnitudeBand
+  if (meterLabel !== undefined) out.meterLabel = meterLabel
   return out
 }
 

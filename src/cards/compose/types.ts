@@ -134,6 +134,14 @@ export type SnippetCondition =
   | { kind: 'effectTargetKind'; anyOf: readonly EffectTargetKind[] }
   | { kind: 'effectDirection'; sign: EffectDirection }
   | { kind: 'effectMagnitudeBand'; anyOf: readonly EffectMagnitudeBand[] }
+  // — Phase 181 / ISSUE-149 — Choice-Preview Legibility arc, Phase 1.
+  //   Reads `ctx.currentEffect.meterId` — the distinguishing leaf of the
+  //   target string (`loyalty`, `respectable`, `staff_loyalty_risk`) that
+  //   `effectTargetKind` collapses away. Lets a snippet name the specific
+  //   meter that moved rather than its coarse bucket. Returns false when
+  //   there is no current effect or the leaf is missing (older serialized
+  //   seeds) — same graceful-degradation pattern as the sibling effect arms.
+  | { kind: 'effectMeter'; anyOf: readonly string[] }
   // — Phase 147 / ISSUE-115 — Legible Surface arc, Phase 2. Reads
   //   `ctx.inactionPreview`, set by `composeChoicesFromSeed` when the
   //   choice has no immediate effects and the preview is being sourced

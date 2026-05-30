@@ -209,7 +209,7 @@ next.
 | ISSUE-149 | Choice-Preview Legibility Phase 1 — Effect Contract: carry the meter | broken | done | 181 |
 | ISSUE-150 | Choice-Preview Legibility Phase 2 — Selection Policy: show what matters | broken | done | 182 |
 | ISSUE-151 | Choice-Preview Legibility Phase 3 — Pool Vocabulary: name it, ground it | broken | done | 183 |
-| ISSUE-152 | Choice-Preview Legibility Phase 4 — The Legibility Gate, completed | broken | open | 184 |
+| ISSUE-152 | Choice-Preview Legibility Phase 4 — The Legibility Gate, completed | broken | done | 184 |
 | ISSUE-153 | Choice-Preview Legibility Phase 5 — Drive, tune, deepen (standing) | thin | open | 185 |
 | ISSUE-116 | Legible Surface Phase 3 — Choice Distinctness Gate & Legible Choice-Set Cap | broken | done | 148 |
 
@@ -3254,8 +3254,11 @@ records the motivating audit, Appendix B the re-runnable instruments at
 - **Test approach:** standing gate suite — `previewVariety` (requireMagnitude + specificity), cross-template `legibility`, `voice-bounds`, `sim-coherence`, `dedupe` via `runAllGates` — all green; `npm test` + `npm run typecheck` green. The meter-naming guarantee itself becomes a standing assertion in ISSUE-152 (Phase 4).
 
 ### ISSUE-152 — Choice-Preview Legibility Phase 4: The Legibility Gate, completed
-- **Grade:** broken · **Status:** open · **Phase:** 184 · **Record:** `docs/plans/choice-preview-legibility-arc.md` (Phase 4)
+- **Grade:** broken · **Status:** done · **Phase:** 184 · **Record:** `docs/plans/phase-184-the-legibility-gate-completed.md`
+- **Evidence:** the cross-template `legibility` gate (`src/cards/compose/gates/legibility.ts` Q2) checked magnitude / cost / inaction-blank / label-collision but never that a preview line names the *meter* (the Appendix A §1 "trust" defect), never that a choice avoids a literal duplicate line (Appendix A §3), and never that a decision-relevant pressure/risk is surfaced (the Phase-2 risk rescue had no standing assertion). So the Phase-1–3 fixes were un-locked.
+- **Scope:** added three Q2 reasons. `preview_meter_unnamed` — a previewed `state_change` line whose `meterId` is in a contracted, enumerable leaf-named allowlist (`DEFAULT_NAMED_METERS` = loyalty/morale/stress/fatigue/satisfaction/patronage/reliable/tasty — the meters Phase 3 authored leaf-naming prose for AND verified 100%-named across every live sample; `lineNamesMeter` substring/token check, `line === readable` sim-authority carve-out) must name its meter; a blanket "every meter" rule was rejected because ~49% of live lines legitimately name only the kind (coin→silver/till, stock→shelves) and a kind-keyword carve-out would be toothless against the defining defect — Phase 5 grows the allowlist as it band-completes cheap/dangerous/respectable/relationship/trust. `preview_duplicate_line` — no choice renders two `canonicaliseText`-identical lines (the rule `previewVariety` deliberately omits; the Phase-2 renderer collapses repeats to `readable`, so this is the regression guard). `preview_risk_unsurfaced` — a choice whose source carries `isRiskEffect` must surface it via the shared `selectPreviewEffects` (reuses the Phase-2 predicate + selection so gate and renderer agree on "shown"). Fallback template excluded from the meter rule via a local `FALLBACK_TEMPLATE_ID` constant (no `src/cards/templates/` import — layering). Added a `requireMeterNaming` config override (defaults to the allowlist) and five observation counters. Gate stays cross-template, out of `runAllGates`, runs in the default suite.
 - **Depends on:** ISSUE-149, ISSUE-150, ISSUE-151. The lock.
+- **Test approach:** `tests/cards/compose/gates/legibility.test.ts` — the live 20-template suite asserts the three new failed-counters are 0 (proof Phases 1–3 landed) plus a guard that the meter/risk checks actually run; six new failure fixtures (an unnamed allowlisted-meter line fails / a meter-named line passes / an un-allowlisted meter is exempt; a within-choice duplicate fails / distinct lines pass; a risk dropped past a 2-line cap fails / surfaced at 3 lines passes). Full suite (3293 tests) + `npm run typecheck` green.
 
 ### ISSUE-153 — Choice-Preview Legibility Phase 5: Drive, tune, deepen (standing)
 - **Grade:** thin · **Status:** open · **Phase:** 185 · **Record:** `docs/plans/choice-preview-legibility-arc.md` (Phase 5)

@@ -99,6 +99,7 @@ export {
 export {
   checkLegibility,
   LEGIBILITY_REASONS,
+  DEFAULT_NAMED_METERS,
   type LegibilityConfig,
   type LegibilityReason,
   type LegibilityReport,

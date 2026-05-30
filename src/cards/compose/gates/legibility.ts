@@ -56,6 +56,39 @@
 //            that forgets to wire `choiceDistinctness` into its own
 //            `runAllGates` config is still caught here.
 //
+// Phase 184 / ISSUE-152 — Choice-Preview Legibility arc, Phase 4 (the
+// lock). Three more Q2 reasons make the Phase-1–3 fixes un-regressable:
+//
+//          preview_meter_unnamed — a previewed `state_change` line whose
+//            backing effect's `meterId` is in the contracted leaf-named
+//            allowlist (`DEFAULT_NAMED_METERS`) and which carries a
+//            `meterLabel` must name that meter: the rendered line contains
+//            a token derived from `meterLabel`. Sim fallback
+//            (`line === effect.readable`) always counts as legible — same
+//            carve-out the magnitude rule applies. The allowlist (not
+//            "every meter") is load-bearing: Phase 3 only authored
+//            leaf-naming prose for the high-traffic meters, so coin /
+//            stock / area / long-tail-reputation lines that legitimately
+//            name only the KIND must not fail; the allowlist names exactly
+//            the meters proven leaf-named, and Phase 5 grows it. The
+//            fallback template is excluded (its no-preview state is a
+//            coverage matter owned by `complete-surface-arc.md`).
+//
+//          preview_duplicate_line — a single choice rendered two
+//            canonically-identical preview lines. This is the rule
+//            `previewVariety` deliberately omits (it permits within-choice
+//            duplicates); the omission is reversed here on purpose. The
+//            Phase-2 renderer collapses such repeats to the effect's
+//            distinct `readable`, so the live suite is clean — this is the
+//            belt-and-suspenders regression guard.
+//
+//          preview_risk_unsurfaced — a choice whose source effects carry a
+//            decision-relevant `pressure`/risk change (`isRiskEffect`, the
+//            Phase-2 priority-3 predicate) but whose shared
+//            `selectPreviewEffects(source, lineCount)` set surfaces no risk
+//            effect. Reuses the exact predicate + selection the renderer
+//            uses, so gate and renderer never disagree about "shown".
+//
 // `pass === violations.length === 0`. No warnings — every legibility
 // failure is a structural defect.
 //
@@ -64,7 +97,7 @@
 // deterministic.
 
 import { pickSnippetTrace, assembleSlots } from '../assemble'
-import { selectPreviewEffects } from '../previewSelect'
+import { selectPreviewEffects, isRiskEffect } from '../previewSelect'
 import { evalCondition } from '../conditions'
 import { canonicaliseText } from './dedupe'
 import {
@@ -150,6 +183,21 @@ export type LegibilitySituationObservation = {
   /** Count of `choice_label_collision` violations recorded for this
    *  situation across all its samples. */
   labelCollisionsCount: number
+  // Phase 184 / ISSUE-152 — Choice-Preview Legibility arc, Phase 4.
+  /** State-change preview lines whose `meterId` was in the allowlist and
+   *  carried a `meterLabel` (i.e. eligible for the meter-naming rule). */
+  meterNamingChecksRun: number
+  /** Count of those whose rendered line named neither the meter label nor
+   *  was the sim fallback. */
+  meterNamingChecksFailed: number
+  /** Count of `preview_duplicate_line` violations (a choice rendering two
+   *  canonically-identical preview lines). */
+  duplicateLineCount: number
+  /** Choices whose source effects carried a decision-relevant `pressure`
+   *  risk change (eligible for the risk-surfacing rule). */
+  riskSurfacingChecksRun: number
+  /** Count of those whose preview surfaced no risk effect. */
+  riskSurfacingChecksFailed: number
 }
 
 export type LegibilityConfig = {
@@ -162,6 +210,13 @@ export type LegibilityConfig = {
   /** Override the coin-keyword list used by `preview_cost_unsurfaced`.
    *  Defaults to `DEFAULT_TARGET_KIND_KEYWORDS.coin`. */
   coinKeywords?: readonly string[]
+  // Phase 184 / ISSUE-152 — Choice-Preview Legibility arc, Phase 4.
+  /** The set of meter leaves (`effect.meterId`) the `preview_meter_unnamed`
+   *  rule requires to be leaf-named in the rendered preview line. Defaults
+   *  to `DEFAULT_NAMED_METERS` — the meters Phase 3 authored leaf-naming
+   *  prose for and that are verified 100%-named across the live samples.
+   *  Phase 5 grows this as more meters gain band-complete leaf prose. */
+  requireMeterNaming?: readonly string[]
 }
 
 export type LegibilityReport = GateReport & {
@@ -176,13 +231,55 @@ export const LEGIBILITY_REASONS = Object.freeze([
   'preview_cost_unsurfaced',
   'preview_inaction_blank',
   'choice_label_collision',
+  // Phase 184 / ISSUE-152 — Choice-Preview Legibility arc, Phase 4.
+  'preview_meter_unnamed',
+  'preview_duplicate_line',
+  'preview_risk_unsurfaced',
 ] as const)
 
 export type LegibilityReason = (typeof LEGIBILITY_REASONS)[number]
 
+// Phase 184 / ISSUE-152 — Choice-Preview Legibility arc, Phase 4.
+//
+// The meters the `preview_meter_unnamed` rule requires to be leaf-named.
+// This is a CONTRACTED set, not "every meter": Phase 3 authored leaf-naming
+// preview prose only for the high-traffic meters the audit sweep named, and
+// the coarse base remains the fallback for the rest (coin renders as
+// silver/till, stock as shelves, reputation as repute — naming the KIND, not
+// the leaf, which is what the specificity rule governs). A blanket rule would
+// fail ~49% of live lines and, worse, a kind-keyword carve-out would make it
+// toothless against the defining defect (loyalty/morale/stress all rendered
+// as the fictional "trust", whose line still carried the staff keyword
+// "crew"). So the rule fires only for meters whose LEAF is contractually
+// named and verified named in every live sample. Phase 5 grows this set as it
+// completes band coverage for cheap / dangerous / respectable / relationship /
+// trust and the other shared-kind leaves. Plain enumerable data, mirroring
+// `DEFAULT_TARGET_KIND_KEYWORDS`.
+export const DEFAULT_NAMED_METERS: readonly string[] = Object.freeze([
+  'loyalty',
+  'morale',
+  'stress',
+  'fatigue',
+  'satisfaction',
+  'patronage',
+  'reliable',
+  'tasty',
+])
+
+// The fallback card is excluded from `preview_meter_unnamed` (its no-preview
+// state is a coverage matter owned by `complete-surface-arc.md`, not a
+// preview-legibility defect). Referenced as a local constant rather than
+// imported from `src/cards/templates/fallback.ts` because `compose/` must not
+// import `templates/` — that would invert the layering (`templates/` imports
+// `compose/`, never the reverse). Kept in lockstep with `FALLBACK_CARD_ID`
+// there. The fallback is not in `LEGIBILITY_SITUATIONS` anyway, so this is a
+// belt-and-suspenders decoupling guard.
+const FALLBACK_TEMPLATE_ID = 'fallback.everySeed'
+
 export function checkLegibility(config: LegibilityConfig): LegibilityReport {
   const magnitudeLexicon = config.magnitudeLexicon ?? MAGNITUDE_LEXICON
   const coinKeywords = config.coinKeywords ?? DEFAULT_TARGET_KIND_KEYWORDS.coin
+  const namedMeters = new Set(config.requireMeterNaming ?? DEFAULT_NAMED_METERS)
   const violations: GateViolation[] = []
   const situationObservations: LegibilitySituationObservation[] = []
 
@@ -198,6 +295,13 @@ export function checkLegibility(config: LegibilityConfig): LegibilityReport {
     let costSurfacingChecksFailed = 0
     let inactionBlankCount = 0
     let labelCollisionsCount = 0
+    let meterNamingChecksRun = 0
+    let meterNamingChecksFailed = 0
+    let duplicateLineCount = 0
+    let riskSurfacingChecksRun = 0
+    let riskSurfacingChecksFailed = 0
+    // Phase 184 — the meter rule is skipped for the fallback template.
+    const meterRuleApplies = situation.templateId !== FALLBACK_TEMPLATE_ID
 
     for (let i = 0; i < samples.length; i += 1) {
       const sample = samples[i]!
@@ -342,6 +446,70 @@ export function checkLegibility(config: LegibilityConfig): LegibilityReport {
           })
         }
 
+        // Phase 184 — preview_meter_unnamed. A previewed state_change line
+        // whose meter is in the contracted leaf-named allowlist must name
+        // that meter. Sim fallback (`line === effect.readable`) is always
+        // legible, mirroring the magnitude carve-out above. Skipped for the
+        // fallback template (coverage, not legibility — see
+        // FALLBACK_TEMPLATE_ID).
+        for (let lineIdx = 0; meterRuleApplies && lineIdx < lineCount; lineIdx += 1) {
+          const line = choice.previewEffects[lineIdx]!
+          const effect = effects[lineIdx]
+          if (!effect) continue
+          if (effect.kind !== 'state_change') continue
+          const meterId = effect.meterId
+          const meterLabel = effect.meterLabel
+          if (meterId === undefined || meterLabel === undefined) continue
+          if (!namedMeters.has(meterId)) continue
+          meterNamingChecksRun += 1
+          if (line === effect.readable) continue
+          if (lineNamesMeter(line, meterLabel)) continue
+          meterNamingChecksFailed += 1
+          violations.push({
+            slotId: choice.slotId,
+            reason: 'preview_meter_unnamed',
+            detail: `${situation.templateId} sample ${i}: choice "${choice.slotId}" effect #${lineIdx} moves "${meterId}" (label "${meterLabel}") but the line "${line}" names no token from it`,
+          })
+        }
+
+        // Phase 184 — preview_duplicate_line. No choice may render two
+        // canonically-identical preview lines. The Phase-2 renderer collapses
+        // such repeats to the effect's distinct `readable`, so the live suite
+        // is clean — this is the regression guard for that policy.
+        const seenLines = new Set<string>()
+        for (const previewLine of choice.previewEffects) {
+          const canonical = canonicaliseText(previewLine)
+          if (seenLines.has(canonical)) {
+            duplicateLineCount += 1
+            violations.push({
+              slotId: choice.slotId,
+              reason: 'preview_duplicate_line',
+              detail: `${situation.templateId} sample ${i}: choice "${choice.slotId}" rendered the line "${previewLine}" twice`,
+            })
+          }
+          seenLines.add(canonical)
+        }
+
+        // Phase 184 — preview_risk_unsurfaced. A choice whose source effects
+        // carry a decision-relevant pressure/risk change must surface it. The
+        // shared `selectPreviewEffects` force-includes risk (priority 3) within
+        // the cap, so `effects` (re-derived above) contains it whenever it fits;
+        // it falls out only when the render cap is too tight to hold it. Reusing
+        // `isRiskEffect` + `selectPreviewEffects` keeps the gate and renderer
+        // agreed on what "shown" means.
+        const sourceHasRisk = source.some(isRiskEffect)
+        if (sourceHasRisk) {
+          riskSurfacingChecksRun += 1
+          if (!effects.some(isRiskEffect)) {
+            riskSurfacingChecksFailed += 1
+            violations.push({
+              slotId: choice.slotId,
+              reason: 'preview_risk_unsurfaced',
+              detail: `${situation.templateId} sample ${i}: choice "${choice.slotId}" carries a decision-relevant pressure/risk change that no rendered preview line surfaced (source ${source.length} effects, ${lineCount} rendered)`,
+            })
+          }
+        }
+
         // requireCostSurfacing — per-choice check across all rendered lines.
         const spendsCoin = effects.some(
           (e) => e.targetKind === 'coin' && e.direction === 'negative',
@@ -400,6 +568,11 @@ export function checkLegibility(config: LegibilityConfig): LegibilityReport {
       costSurfacingChecksFailed,
       inactionBlankCount,
       labelCollisionsCount,
+      meterNamingChecksRun,
+      meterNamingChecksFailed,
+      duplicateLineCount,
+      riskSurfacingChecksRun,
+      riskSurfacingChecksFailed,
     })
   }
 
@@ -453,6 +626,31 @@ function lineContainsAny(line: string, tokens: readonly string[]): boolean {
   if (tokens.length === 0) return false
   const haystack = line.toLowerCase()
   return tokens.some((tok) => haystack.includes(tok.toLowerCase()))
+}
+
+// Phase 184 / ISSUE-152 — Choice-Preview Legibility arc, Phase 4.
+//
+// Split a meter label into its naming tokens — the ≥3-char words of the
+// label. Single-word labels (`loyalty`, `morale`, `tasty`) yield one token;
+// multi-word labels (`culinary renown`, `sale price`, `goblin-authentic`)
+// yield each significant word so a line naming any of them counts. Short
+// connective fragments (≤2 chars) are dropped so they can't match on noise.
+function meterLabelTokens(label: string): string[] {
+  return label
+    .toLowerCase()
+    .split(/[\s_-]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 3)
+}
+
+/** True when the rendered line names the meter: it contains the full label
+ *  as a case-insensitive substring, or any of the label's ≥3-char word
+ *  tokens. Substring matching mirrors `lineCarriesMagnitude` /
+ *  `lineContainsAny`. */
+function lineNamesMeter(line: string, meterLabel: string): boolean {
+  const haystack = line.toLowerCase()
+  if (haystack.includes(meterLabel.toLowerCase())) return true
+  return meterLabelTokens(meterLabel).some((tok) => haystack.includes(tok))
 }
 
 /** Short summary of the first few resolved reads, for failure-detail

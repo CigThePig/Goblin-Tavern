@@ -97,7 +97,31 @@ describe('Phase 16 — Legibility gate (live, 20 migrated situations)', () => {
       expect(obs.costSurfacingChecksFailed).toBe(0)
       expect(obs.labelCollisionsCount).toBe(0)
       expect(obs.inactionBlankCount).toBe(0)
+      // Phase 184 / ISSUE-152 — the three new Q2 rules. The live suite is
+      // the proof Phases 1-3 landed: every allowlisted-meter line names its
+      // meter, no choice renders a duplicate line, and every decision-relevant
+      // risk is surfaced.
+      expect(obs.meterNamingChecksFailed).toBe(0)
+      expect(obs.duplicateLineCount).toBe(0)
+      expect(obs.riskSurfacingChecksFailed).toBe(0)
     }
+  })
+
+  it('actually exercises the Phase-184 meter / risk rules on live templates', () => {
+    // Guard against the rules silently no-op-ing: across the 20 migrated
+    // templates the allowlisted meters and decision-relevant risks really do
+    // occur, so the checks run (and, per the assertions above, all pass).
+    const report = checkLegibility({ situations: LEGIBILITY_SITUATIONS })
+    const totalMeterChecks = report.observed.situations.reduce(
+      (n, s) => n + s.meterNamingChecksRun,
+      0,
+    )
+    const totalRiskChecks = report.observed.situations.reduce(
+      (n, s) => n + s.riskSurfacingChecksRun,
+      0,
+    )
+    expect(totalMeterChecks).toBeGreaterThan(0)
+    expect(totalRiskChecks).toBeGreaterThan(0)
   })
 
   it('records observed coverage for every migrated template', () => {
@@ -160,6 +184,9 @@ describe('Phase 16 — Legibility gate (live, 20 migrated situations)', () => {
       'preview_cost_unsurfaced',
       'preview_inaction_blank',
       'choice_label_collision',
+      'preview_meter_unnamed',
+      'preview_duplicate_line',
+      'preview_risk_unsurfaced',
     ])
     // The tuple is frozen.
     expect(Object.isFrozen(LEGIBILITY_REASONS)).toBe(true)
@@ -613,5 +640,294 @@ describe('Phase 16 — Legibility failure fixtures (each reason bites)', () => {
     )
     expect(collisions.length).toBeGreaterThan(0)
     expect(collisions[0]?.detail).toContain('Cut the terms shorter')
+  })
+
+  // -------------------------------------------------------------------
+  // Phase 184 / ISSUE-152 — the three new Q2 rules. Each fixture fails
+  // exactly one rule; each has a corrected counterpart that passes.
+  // -------------------------------------------------------------------
+
+  /** A `state_change` effect on staff loyalty — an allowlisted
+   *  (`DEFAULT_NAMED_METERS`) meter the `preview_meter_unnamed` rule
+   *  requires to be leaf-named. */
+  const loyaltyEffect: EffectPreview = {
+    kind: 'state_change',
+    target: 'staff.server.loyalty',
+    amount: 10,
+    readable: 'the crew would hold together',
+    tags: ['staff'],
+    targetKind: 'staff',
+    direction: 'positive',
+    magnitudeBand: 'medium',
+    meterId: 'loyalty',
+    meterLabel: 'loyalty',
+  }
+
+  it('preview_meter_unnamed fires when an allowlisted-meter line names no meter token', () => {
+    const seed = seedWithProfile({
+      id: 'meter-fixture',
+      family: 'staff_identity',
+      slotId: 'fix-meter-slot',
+      verb: 'appease',
+      immediate: [loyaltyEffect],
+    })
+    const state = createInitialTavernState()
+    // Carries a positive/medium magnitude token ("a marked rise") so the
+    // magnitude rule is satisfied, but names the fictional "trust" rather
+    // than the real meter — the Appendix A §1 defect.
+    const unnamed = 'the crew would feel a marked rise in trust'
+    const template = makeRenderedTemplate('phase184.meter-fixture', () =>
+      singleChoiceCardView({
+        choice: {
+          slotId: 'fix-meter-slot',
+          label: 'Comfort them',
+          verb: 'appease',
+          previewEffects: [unnamed],
+        },
+      }),
+    )
+    const report = runFixture(template, [{ seed, state }])
+    expect(report.pass).toBe(false)
+    const unnamedViolations = report.violations.filter(
+      (v) => v.reason === 'preview_meter_unnamed',
+    )
+    expect(unnamedViolations.length).toBeGreaterThan(0)
+    expect(unnamedViolations[0]?.slotId).toBe('fix-meter-slot')
+    expect(unnamedViolations[0]?.detail).toContain('loyalty')
+  })
+
+  it('preview_meter_unnamed passes when the line names the meter (corrected)', () => {
+    const seed = seedWithProfile({
+      id: 'meter-fixture-ok',
+      family: 'staff_identity',
+      slotId: 'fix-meter-slot',
+      verb: 'appease',
+      immediate: [loyaltyEffect],
+    })
+    const state = createInitialTavernState()
+    const named = 'loyalty would climb a marked rise across the crew'
+    const template = makeRenderedTemplate('phase184.meter-fixture-ok', () =>
+      singleChoiceCardView({
+        choice: {
+          slotId: 'fix-meter-slot',
+          label: 'Comfort them',
+          verb: 'appease',
+          previewEffects: [named],
+        },
+      }),
+    )
+    const report = runFixture(template, [{ seed, state }])
+    const unnamedViolations = report.violations.filter(
+      (v) => v.reason === 'preview_meter_unnamed',
+    )
+    expect(unnamedViolations.length).toBe(0)
+  })
+
+  it('preview_meter_unnamed does not fire for an un-allowlisted meter', () => {
+    // `relationship` is authored but not yet band-complete, so it stays out
+    // of DEFAULT_NAMED_METERS — the coarse-base line that names only the
+    // kind ("the merchant") must NOT fail until Phase 5 promotes it.
+    const relationshipEffect: EffectPreview = {
+      kind: 'state_change',
+      target: 'world.suppliers.s1.relationship',
+      amount: 6,
+      readable: 'the merchant warms to the bar',
+      tags: ['supplier'],
+      targetKind: 'supplier',
+      direction: 'positive',
+      magnitudeBand: 'medium',
+      meterId: 'relationship',
+      meterLabel: 'relationship',
+    }
+    const seed = seedWithProfile({
+      id: 'meter-fixture-offlist',
+      family: 'supplier_relationship',
+      slotId: 'fix-offlist-slot',
+      verb: 'appease',
+      immediate: [relationshipEffect],
+    })
+    const state = createInitialTavernState()
+    const kindOnly = 'the merchant would warm a marked rise'
+    const template = makeRenderedTemplate('phase184.meter-fixture-offlist', () =>
+      singleChoiceCardView({
+        choice: {
+          slotId: 'fix-offlist-slot',
+          label: 'Warm to them',
+          verb: 'appease',
+          previewEffects: [kindOnly],
+        },
+      }),
+    )
+    const report = runFixture(template, [{ seed, state }])
+    const unnamedViolations = report.violations.filter(
+      (v) => v.reason === 'preview_meter_unnamed',
+    )
+    expect(unnamedViolations.length).toBe(0)
+  })
+
+  it('preview_duplicate_line fires when a choice renders two identical lines', () => {
+    const seed = seedWithProfile({
+      id: 'dup-fixture',
+      family: 'area_atmosphere',
+      slotId: 'fix-dup-slot',
+      verb: 'appease',
+      // Empty profile: lineCount is driven purely by the hand-crafted
+      // CardView, so only the duplicate-line rule is in play.
+    })
+    const state = createInitialTavernState()
+    const line = 'the room would settle a step'
+    const template = makeRenderedTemplate('phase184.dup-fixture', () =>
+      singleChoiceCardView({
+        choice: {
+          slotId: 'fix-dup-slot',
+          label: 'Send the cleaning crew',
+          verb: 'appease',
+          previewEffects: [line, line],
+        },
+      }),
+    )
+    const report = runFixture(template, [{ seed, state }])
+    expect(report.pass).toBe(false)
+    const dupViolations = report.violations.filter(
+      (v) => v.reason === 'preview_duplicate_line',
+    )
+    expect(dupViolations.length).toBeGreaterThan(0)
+    expect(dupViolations[0]?.slotId).toBe('fix-dup-slot')
+  })
+
+  it('preview_duplicate_line passes when the choice renders distinct lines (corrected)', () => {
+    const seed = seedWithProfile({
+      id: 'dup-fixture-ok',
+      family: 'area_atmosphere',
+      slotId: 'fix-dup-slot',
+      verb: 'appease',
+    })
+    const state = createInitialTavernState()
+    const template = makeRenderedTemplate('phase184.dup-fixture-ok', () =>
+      singleChoiceCardView({
+        choice: {
+          slotId: 'fix-dup-slot',
+          label: 'Send the cleaning crew',
+          verb: 'appease',
+          previewEffects: [
+            'the room would settle a step',
+            'the floor would steady a notch',
+          ],
+        },
+      }),
+    )
+    const report = runFixture(template, [{ seed, state }])
+    const dupViolations = report.violations.filter(
+      (v) => v.reason === 'preview_duplicate_line',
+    )
+    expect(dupViolations.length).toBe(0)
+  })
+
+  // Source effects for the risk fixtures: a headline state_change on an
+  // un-allowlisted meter (so the meter rule stays out of it), a coin cost,
+  // and a decision-relevant rising pressure — in that priority order. With a
+  // 2-line render cap the pressure (priority 3) is dropped; with a 3-line cap
+  // it surfaces.
+  const respectableEffect: EffectPreview = {
+    kind: 'state_change',
+    target: 'reputation.respectable',
+    amount: 4,
+    readable: 'the name steadies',
+    tags: ['reputation'],
+    targetKind: 'reputation',
+    direction: 'positive',
+    magnitudeBand: 'small',
+    meterId: 'respectable',
+    meterLabel: 'respectable',
+  }
+  const coinCostEffect: EffectPreview = {
+    kind: 'state_change',
+    target: 'coin',
+    amount: -12,
+    readable: 'a notch of coin leaves the till',
+    tags: ['coin'],
+    targetKind: 'coin',
+    direction: 'negative',
+    magnitudeBand: 'small',
+    meterId: 'coin',
+    meterLabel: 'coin',
+  }
+  const risingRiskEffect: EffectPreview = {
+    kind: 'pressure',
+    target: 'pressure:inspection',
+    amount: 8,
+    readable: 'the inspection risk rises',
+    tags: ['pressure'],
+    targetKind: 'pressure',
+    direction: 'positive',
+    magnitudeBand: 'medium',
+    meterId: 'inspection',
+    meterLabel: 'inspection risk',
+  }
+
+  it('preview_risk_unsurfaced fires when a decision-relevant pressure is dropped past the cap', () => {
+    const seed = seedWithProfile({
+      id: 'risk-fixture',
+      family: 'inspection',
+      slotId: 'fix-risk-slot',
+      verb: 'pay',
+      immediate: [respectableEffect, coinCostEffect, risingRiskEffect],
+    })
+    const state = createInitialTavernState()
+    // Only two lines rendered: selectPreviewEffects(source, 2) force-includes
+    // the headline state_change and the coin cost (priorities 1+2), so the
+    // risk (priority 3) falls out — exactly the hidden-risk defect.
+    const template = makeRenderedTemplate('phase184.risk-fixture', () =>
+      singleChoiceCardView({
+        choice: {
+          slotId: 'fix-risk-slot',
+          label: 'Pay them off',
+          verb: 'pay',
+          previewEffects: [
+            'word of the name lifts a step',
+            'a notch of coin leaves the till',
+          ],
+        },
+      }),
+    )
+    const report = runFixture(template, [{ seed, state }])
+    expect(report.pass).toBe(false)
+    const riskViolations = report.violations.filter(
+      (v) => v.reason === 'preview_risk_unsurfaced',
+    )
+    expect(riskViolations.length).toBeGreaterThan(0)
+    expect(riskViolations[0]?.slotId).toBe('fix-risk-slot')
+  })
+
+  it('preview_risk_unsurfaced passes when the render cap holds the risk (corrected)', () => {
+    const seed = seedWithProfile({
+      id: 'risk-fixture-ok',
+      family: 'inspection',
+      slotId: 'fix-risk-slot',
+      verb: 'pay',
+      immediate: [respectableEffect, coinCostEffect, risingRiskEffect],
+    })
+    const state = createInitialTavernState()
+    // Three lines rendered: selectPreviewEffects(source, 3) holds all three
+    // priorities, so the rising risk is surfaced.
+    const template = makeRenderedTemplate('phase184.risk-fixture-ok', () =>
+      singleChoiceCardView({
+        choice: {
+          slotId: 'fix-risk-slot',
+          label: 'Pay them off',
+          verb: 'pay',
+          previewEffects: [
+            'word of the name lifts a step',
+            'a notch of coin leaves the till',
+            'the inspection risk would climb a marked rise',
+          ],
+        },
+      }),
+    )
+    const report = runFixture(template, [{ seed, state }])
+    const riskViolations = report.violations.filter(
+      (v) => v.reason === 'preview_risk_unsurfaced',
+    )
+    expect(riskViolations.length).toBe(0)
   })
 })

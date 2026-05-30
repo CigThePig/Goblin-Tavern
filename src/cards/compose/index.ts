@@ -46,6 +46,25 @@ export {
 // `requireMagnitude` rule on `checkPreviewVariety` reads the same table.
 export { MAGNITUDE_LEXICON, lineCarriesMagnitude } from './magnitudeLexicon'
 
+// Phase 170 / ISSUE-138 — Complete Surface arc, Phase 3. Enumerable
+// matrix-cell read over SALIENCE_TABLES + BAND_THRESHOLDS, and the
+// reachability allowlist Movement II authors against. Reads + scaffold
+// only — no gate yet (Phase 12 / ISSUE-147).
+export {
+  MAX_MATRIX_METERS,
+  matrixMetersForFamily,
+  matrixCellKey,
+  enumerateMatrixCells,
+  type MatrixMeter,
+  type MatrixCell,
+} from './matrixCells'
+export {
+  UNREACHABLE_CELLS,
+  isCellAllowlisted,
+  validateUnreachableCells,
+  type UnreachableCell,
+} from './unreachableCells'
+
 // Phase 124 / ISSUE-093 — structural gate harness (framework §6).
 export * from './gates'
 

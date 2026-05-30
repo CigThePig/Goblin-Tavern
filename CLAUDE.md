@@ -26,7 +26,6 @@ Run `npm test` and `npm run typecheck` to validate every change.
 
 - `docs/ISSUE_TRACKER.md` — authoritative tracker (current work, full per-issue detail, status legend, how to add an issue).
 - `docs/plans/phase-NNN-*.md` — one plan per phase, each with explicit "Acceptance Criteria" + "Do Not Do" sections. Read the matching plan before implementing.
-- `notebooklm-codebase-overview/` — narrative codebase tour (orientation, not a contract).
 
 **Locked design contracts** — read the relevant one before planning work in its scope:
 

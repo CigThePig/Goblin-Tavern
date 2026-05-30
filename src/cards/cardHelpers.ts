@@ -42,6 +42,26 @@ const MAX_BODY = 3
  */
 export const DEFAULT_LEGIBLE_CHOICE_CAP = 6
 
+// Phase 181 / ISSUE-149 — Choice-Preview Legibility arc, Phase 1. The
+// within-choice de-dup key for a preview cell. Two effects sharing a key reuse
+// one rendered line; distinct keys render independently. Carrying the meter
+// leaf (`meterId`) between targetKind and direction stops two DISTINCT meters
+// in the same coarse bucket and band (loyalty +10 and stress −8, both
+// `staff|positive|medium`) from collapsing into one cell. Returns `undefined`
+// for effects that can't be banded (cause / zero-amount), which never collapse.
+// Exported so the de-dup behaviour is testable without re-deriving the format.
+export function previewCellKey(effect: EffectPreview): string | undefined {
+  if (
+    effect.targetKind === undefined ||
+    effect.meterId === undefined ||
+    effect.direction === undefined ||
+    effect.magnitudeBand === undefined
+  ) {
+    return undefined
+  }
+  return `${effect.targetKind}|${effect.meterId}|${effect.direction}|${effect.magnitudeBand}`
+}
+
 export function clampWords(s: string, max: number): string {
   const words = s.trim().split(/\s+/).filter(Boolean)
   if (words.length <= max) return words.join(' ')
@@ -433,12 +453,12 @@ export function composeChoicesFromSeed(
     // candidates for the cross-choice distinctness the gate enforces.
     const cellLineThisChoice = new Map<string, string>()
     const composedPreview = effects.map((effect, idx) => {
-      const cellKey =
-        effect.targetKind !== undefined &&
-        effect.direction !== undefined &&
-        effect.magnitudeBand !== undefined
-          ? `${effect.targetKind}|${effect.direction}|${effect.magnitudeBand}`
-          : undefined
+      // Phase 181 / ISSUE-149 — Choice-Preview Legibility arc, Phase 1. The
+      // cell key now carries the meter leaf so two DISTINCT meters in the same
+      // coarse bucket and band (loyalty +10 and stress −8, both
+      // `staff|positive|medium`) no longer collapse into one cell — the false
+      // collapse the player saw as a duplicate line. See `previewCellKey`.
+      const cellKey = previewCellKey(effect)
       if (cellKey !== undefined && cellLineThisChoice.has(cellKey)) {
         return cellLineThisChoice.get(cellKey)!
       }

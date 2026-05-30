@@ -206,6 +206,11 @@ next.
 | ISSUE-146 | Complete Surface Phase 11 — Periodic & Narrative matrix fill | thin | open | 178 |
 | ISSUE-147 | Complete Surface Phase 12 — The Coverage Gate (centrepiece) | thin | open | 179 |
 | ISSUE-148 | Complete Surface Phase 13 — Deepening, Pruning & Recalibration (standing) | thin | open | 180 |
+| ISSUE-149 | Choice-Preview Legibility Phase 1 — Effect Contract: carry the meter | broken | done | 181 |
+| ISSUE-150 | Choice-Preview Legibility Phase 2 — Selection Policy: show what matters | broken | open | 182 |
+| ISSUE-151 | Choice-Preview Legibility Phase 3 — Pool Vocabulary: name it, ground it | broken | open | 183 |
+| ISSUE-152 | Choice-Preview Legibility Phase 4 — The Legibility Gate, completed | broken | open | 184 |
+| ISSUE-153 | Choice-Preview Legibility Phase 5 — Drive, tune, deepen (standing) | thin | open | 185 |
 | ISSUE-116 | Legible Surface Phase 3 — Choice Distinctness Gate & Legible Choice-Set Cap | broken | done | 148 |
 
 ---
@@ -3215,6 +3220,40 @@ Full design intent lives in the arc roadmaps (`docs/plans/living-cast-arc.md`, `
 
 ### ISSUE-109 — Voiced Surface Phase 14: Periodic & Narrative Beats cluster (closes Movement II)
 - **Grade:** thin · **Status:** done · **Phase:** 140 · **Record:** `docs/plans/phase-140-periodic-narrative-beats.md`
+
+## Tier 6 — Choice-Preview Legibility arc
+
+A defect arc, not a completeness arc. The choice-preview path (the bullet
+lines under each option) is shared verbatim by all twenty card templates, so
+its defects are uniform: previews duplicate lines, hide ~37% of authored
+effects, and name fictional meters ("trust") instead of the real ones. The fix
+is one pipeline, in order: contract → policy → prose → gate. Locked roadmap:
+`docs/plans/choice-preview-legibility-arc.md` (self-contained; Appendix A
+records the motivating audit, Appendix B the re-runnable instruments at
+`_audit/`).
+
+### ISSUE-149 — Choice-Preview Legibility Phase 1: Effect Contract — carry the meter
+- **Grade:** broken · **Status:** done · **Phase:** 181 · **Record:** `docs/plans/phase-181-effect-contract-carry-the-meter.md`
+- **Evidence:** `classifyTargetKind` collapses every staff meter to `staff`, every pressure id to `pressure`, every reputation axis to `reputation`; the de-dup key in `composeChoicesFromSeed` was `${targetKind}|${direction}|${magnitudeBand}`, so two distinct meters in one band collapsed into one cell (the duplicate-line mechanism, Appendix A §1/§3).
+- **Scope:** added optional `meterId` + `meterLabel` to `EffectPreview`, populated by `effect()` from the target leaf (pressure labels reused from `pressureRegistry`, known leaves from a colocated `METER_LABELS`, dotted leaves humanised, entity-id leaves left unlabelled — no `src/reports/` import); added the `effectMeter` snippet condition (`types.ts` + `conditions.ts`); made the de-dup key meter-aware via an exported `previewCellKey`. No prose / cap changes.
+- **Depends on:** none (root of the arc).
+- **Test approach:** `tests/sim/phase181.effectMeter.test.ts` + `tests/cards/compose/phase181.effectMeter.test.ts` — leaf extraction, label resolution, `effect()` emission, the `effectMeter` condition, and the loyalty-vs-stress distinct-cell-key proof.
+
+### ISSUE-150 — Choice-Preview Legibility Phase 2: Selection Policy — show what matters
+- **Grade:** broken · **Status:** open · **Phase:** 182 · **Record:** `docs/plans/choice-preview-legibility-arc.md` (Phase 2)
+- **Depends on:** ISSUE-149.
+
+### ISSUE-151 — Choice-Preview Legibility Phase 3: Pool Vocabulary — name it, ground it
+- **Grade:** broken · **Status:** open · **Phase:** 183 · **Record:** `docs/plans/choice-preview-legibility-arc.md` (Phase 3)
+- **Depends on:** ISSUE-149 (authored against ISSUE-150's selection).
+
+### ISSUE-152 — Choice-Preview Legibility Phase 4: The Legibility Gate, completed
+- **Grade:** broken · **Status:** open · **Phase:** 184 · **Record:** `docs/plans/choice-preview-legibility-arc.md` (Phase 4)
+- **Depends on:** ISSUE-149, ISSUE-150, ISSUE-151. The lock.
+
+### ISSUE-153 — Choice-Preview Legibility Phase 5: Drive, tune, deepen (standing)
+- **Grade:** thin · **Status:** open · **Phase:** 185 · **Record:** `docs/plans/choice-preview-legibility-arc.md` (Phase 5)
+- **Depends on:** ISSUE-152. Standing — never strictly done.
 
 ## Related notes
 

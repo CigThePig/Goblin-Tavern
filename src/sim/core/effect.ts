@@ -56,6 +56,25 @@ export type EffectPreview = {
   /** Banded magnitude (cutoffs vary by targetKind). `undefined` when
    *  amount is missing or 0. */
   magnitudeBand?: EffectMagnitudeBand
+  // Phase 181 / ISSUE-149 — Choice-Preview Legibility arc, Phase 1.
+  //
+  // `targetKind` is one of sixteen coarse buckets (`staff` covers loyalty
+  // AND morale AND stress AND fatigue; `pressure` covers every pressure id),
+  // so the distinguishing leaf of the target string was thrown away the
+  // moment `effect()` classified it — and the preview pools could no longer
+  // tell which meter actually moved. These two fields carry that leaf forward
+  // so a snippet can name the meter and the within-choice de-dup can tell two
+  // distinct meters apart. Both optional so older serialized seeds stay valid,
+  // same discipline as the classified fields above.
+  /** The distinguishing leaf of `target` (the segment after the final `.`
+   *  or `:`): `staff.server.loyalty` → `'loyalty'`,
+   *  `pressure:staff_loyalty_risk` → `'staff_loyalty_risk'`, `coin` → `'coin'`.
+   *  Populated by `effect()`. */
+  meterId?: string
+  /** Player-facing name for `meterId`, when a sensible one exists (pressure
+   *  registry label, a known meter leaf, or a humanised dotted-path leaf).
+   *  `undefined` for entity-id leaves (cause effects) and other non-meters. */
+  meterLabel?: string
 }
 
 export type EffectResult = EffectPreview & {

@@ -114,7 +114,6 @@ export const maintenanceTemplate: CompositionalCardTemplate = {
       choices: composeChoicesFromSeed(seed, state, {
         labelPool: maintenanceChoiceLabelPool,
         previewPool: maintenanceEffectPreviewPool,
-        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

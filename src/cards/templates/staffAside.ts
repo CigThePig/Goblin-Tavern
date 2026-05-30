@@ -147,7 +147,6 @@ export const staffAsideTemplate: CompositionalCardTemplate = {
       choices: composeChoicesFromSeed(seed, state, {
         labelPool: staffAsideChoiceLabelPool,
         previewPool: staffAsideEffectPreviewPool,
-        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

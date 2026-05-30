@@ -103,7 +103,6 @@ export const debtRentTemplate: CompositionalCardTemplate = {
       choices: composeChoicesFromSeed(seed, state, {
         labelPool: debtRentChoiceLabelPool,
         previewPool: debtRentEffectPreviewPool,
-        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

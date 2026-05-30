@@ -143,7 +143,6 @@ export const drinkOrderTemplate: CompositionalCardTemplate = {
       choices: composeChoicesFromSeed(seed, state, {
         labelPool: drinkOrderChoiceLabelPool,
         previewPool: drinkOrderEffectPreviewPool,
-        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

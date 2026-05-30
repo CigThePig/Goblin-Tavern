@@ -122,7 +122,6 @@ export const foodSafetyCrisisTemplate: CompositionalCardTemplate = {
       choices: composeChoicesFromSeed(seed, state, {
         labelPool: foodSafetyChoiceLabelPool,
         previewPool: foodSafetyEffectPreviewPool,
-        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

@@ -126,7 +126,6 @@ export const inspectionTemplate: CompositionalCardTemplate = {
       choices: composeChoicesFromSeed(seed, state, {
         labelPool: inspectionChoiceLabelPool,
         previewPool: inspectionEffectPreviewPool,
-        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

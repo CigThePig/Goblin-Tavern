@@ -142,12 +142,15 @@ describe('composeChoicesFromSeed — inaction wiring', () => {
     })
     expect(choices).toHaveLength(1)
     const ignore = choices[0]!
-    // Two delayed effects → two preview lines, both via the inaction path
-    // → both fire the inaction-gated snippet.
+    // Two delayed effects → two preview lines, both routed via the inaction
+    // path so both fire the inaction-gated snippet. Phase 182 / ISSUE-150 —
+    // the two would be a literal duplicate ('INACTION_PATH_LINE' twice), so
+    // the within-card de-dup keeps the first and falls the second back to its
+    // distinct sim `readable` ('condition drops'). The inaction routing is
+    // still proven by the first line firing the inaction-gated snippet.
     expect(ignore.previewEffects).toHaveLength(2)
-    for (const line of ignore.previewEffects) {
-      expect(line).toBe('INACTION_PATH_LINE')
-    }
+    expect(ignore.previewEffects[0]).toBe('INACTION_PATH_LINE')
+    expect(ignore.previewEffects[1]).toBe('condition drops')
   })
 
   it('uses immediateEffects when present, ignoring delayedEffects', () => {

@@ -130,7 +130,6 @@ export const seasonalArcTemplate: CompositionalCardTemplate = {
       choices: composeChoicesFromSeed(seed, state, {
         labelPool: seasonalArcChoiceLabelPool,
         previewPool: seasonalArcEffectPreviewPool,
-        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

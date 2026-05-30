@@ -135,7 +135,6 @@ export const rumourCrisisTemplate: CompositionalCardTemplate = {
       choices: composeChoicesFromSeed(seed, state, {
         labelPool: rumourCrisisChoiceLabelPool,
         previewPool: rumourCrisisEffectPreviewPool,
-        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

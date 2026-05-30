@@ -107,7 +107,6 @@ export const reputationShiftTemplate: CompositionalCardTemplate = {
       choices: composeChoicesFromSeed(seed, state, {
         labelPool: reputationShiftChoiceLabelPool,
         previewPool: reputationShiftEffectPreviewPool,
-        maxPreview: 2,
       }),
       severity: seed.severity,
       tag: familyTag(seed),

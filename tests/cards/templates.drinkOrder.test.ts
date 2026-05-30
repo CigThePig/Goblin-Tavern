@@ -190,15 +190,24 @@ describe('drinkOrderCard — appliesTo', () => {
 })
 
 describe('drinkOrderCard — render output', () => {
-  it('body[0] is one of the committed order_line snippet texts', () => {
+  // Phase 169 / ISSUE-137 — Complete Surface arc, Phase 2 (drinkOrder
+  // Parity). The body is now [establishing_line, order_line, manner_note?]:
+  // body[0] is the sim-backed establishing line, body[1] is the voiced
+  // order_line. The raw recentContext splice is gone.
+  it('body[1] is one of the committed order_line snippet texts', () => {
     const state = createInitialTavernState()
     const regularId = firstRegularId(state)
     const seed = drinkOrderSeed(regularId)
     const view = drinkOrderCard.render(seed, state)
+    expect(view.body[1]).toBeDefined()
+    expect(ORDER_LINE_TEXTS.has(view.body[1]!)).toBe(true)
+    // The order_line still respects the 12-word ingredient budget.
+    expect(wordCount(view.body[1]!)).toBeLessThanOrEqual(12)
+    // body[0] is the sim-backed establishing line (≤ 14-word budget),
+    // not an order_line snippet.
     expect(view.body[0]).toBeDefined()
-    expect(ORDER_LINE_TEXTS.has(view.body[0]!)).toBe(true)
-    // body lines must respect the 12-word ingredient budget Phase B locked.
-    expect(wordCount(view.body[0]!)).toBeLessThanOrEqual(12)
+    expect(ORDER_LINE_TEXTS.has(view.body[0]!)).toBe(false)
+    expect(wordCount(view.body[0]!)).toBeLessThanOrEqual(14)
   })
 
   it('title centres on the named regular and never truncates with "…"', () => {
@@ -241,7 +250,9 @@ describe('drinkOrderCard — render output', () => {
     const flat = withCast(state, regularId, neutral)
     const seed = drinkOrderSeed(regularId)
     const view = drinkOrderCard.render(seed, flat)
-    expect(view.body[0]).toBe('An ale, please. Whatever the house recommends.')
+    // Phase 169 / ISSUE-137 — the order_line is body[1] now; with neutral
+    // axes it falls back to the unconditional snippet.
+    expect(view.body[1]).toBe('An ale, please. Whatever the house recommends.')
   })
 
   it('picks a two-axis snippet when both extremes land', () => {
@@ -260,10 +271,13 @@ describe('drinkOrderCard — render output', () => {
     const sharp = withCast(state, regularId, cast)
     const seed = drinkOrderSeed(regularId, 'drink-sharp')
     const view = drinkOrderCard.render(seed, sharp)
-    expect(view.body[0]).toBe('Ale. Cold. No speech with it.')
+    // Phase 169 / ISSUE-137 — body[0] is the sim-backed establishing
+    // line; the voiced order_line shifts to body[1] and its companion
+    // manner_note to body[2].
+    expect(view.body[1]).toBe('Ale. Cold. No speech with it.')
     // The manner_note `manner_cold_coin` fires on the same conditions,
-    // landing as the second body line.
-    expect(view.body[1]).toBe('They tap two coins once.')
+    // landing as the third body line.
+    expect(view.body[2]).toBe('They tap two coins once.')
   })
 
   it('emits valid choices whose verbs are in seed.responseSlots.allowedVerbs', () => {

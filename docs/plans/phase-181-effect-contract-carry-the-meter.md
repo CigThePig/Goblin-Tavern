@@ -44,6 +44,7 @@ This phase makes the meter leaf travel on the effect so downstream code can name
 
 - Extracted the within-choice cell key into an exported, testable `previewCellKey(effect)`.
 - Key is now `${targetKind}|${meterId}|${direction}|${magnitudeBand}` — distinct meters get distinct keys (no false collapse); two effects on the **same** meter still share a cell (intended reuse). Returns `undefined` for un-bandable (cause/zero) effects, which never collapse.
+- **Phase-1 neutrality guard.** `pickSnippet` tie-breaks on the effect index, so simply un-collapsing two distinct meters in one coarse cell would draw two *different* coarse lines and drain the small candidate pool — starving later choices into cross-choice duplicates the pre-existing `faithfulness` gate (`duplicate_preview_line`) flags. The arc anticipates this ("the duplicate text may persist until Phase 3"). So the de-dup keeps a second, coarse `(targetKind|direction|magnitudeBand)` map: a new meter that shares a coarse cell with an already-rendered line **reuses that line** — the duplicate text persists within the choice (gates permit same-choice repeats) and the cross-choice candidate budget is untouched, leaving rendered output identical to pre-phase. Phase 3 swaps the coarse reuse for meter-specific composition once meter-named snippets exist.
 
 ### Tests
 

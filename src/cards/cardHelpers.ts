@@ -451,16 +451,40 @@ export function composeChoicesFromSeed(
     // within one choice is not a cross-choice lie (the gate only flags
     // lines shared across DISTINCT choices); reusing it leaves more
     // candidates for the cross-choice distinctness the gate enforces.
+    //
+    // Phase 181 / ISSUE-149 — Choice-Preview Legibility arc, Phase 1. The
+    // within-choice de-dup map (`cellLineThisChoice`) is now keyed meter-aware
+    // via `previewCellKey` (`targetKind|meterId|direction|magnitudeBand`), so
+    // two DISTINCT meters in the same coarse bucket and band (loyalty +10 and
+    // stress −8, both `staff|positive|medium`) no longer share a cell — the
+    // false collapse the player saw as a duplicate. But until Phase 3 teaches
+    // the pool meter-named prose, the only candidates a distinct meter can draw
+    // are the same coarse-cell lines (and `pickSnippet` keys its tie-break on
+    // the effect index, so two un-collapsed effects would draw DIFFERENT coarse
+    // lines, draining the small candidate pool and starving later choices into
+    // cross-choice duplicates). The arc anticipates this — "the duplicate text
+    // may persist until Phase 3." So a new meter that shares a COARSE cell with
+    // an already-rendered line reuses that line: the duplicate text persists
+    // within the choice (gates permit same-choice repeats) and the cross-choice
+    // candidate budget is untouched. Phase 3 swaps this coarse reuse for
+    // meter-specific composition once meter-named snippets exist.
     const cellLineThisChoice = new Map<string, string>()
+    const coarseCellLine = new Map<string, string>()
     const composedPreview = effects.map((effect, idx) => {
-      // Phase 181 / ISSUE-149 — Choice-Preview Legibility arc, Phase 1. The
-      // cell key now carries the meter leaf so two DISTINCT meters in the same
-      // coarse bucket and band (loyalty +10 and stress −8, both
-      // `staff|positive|medium`) no longer collapse into one cell — the false
-      // collapse the player saw as a duplicate line. See `previewCellKey`.
       const cellKey = previewCellKey(effect)
       if (cellKey !== undefined && cellLineThisChoice.has(cellKey)) {
         return cellLineThisChoice.get(cellKey)!
+      }
+      const coarseKey =
+        effect.targetKind !== undefined &&
+        effect.direction !== undefined &&
+        effect.magnitudeBand !== undefined
+          ? `${effect.targetKind}|${effect.direction}|${effect.magnitudeBand}`
+          : undefined
+      if (coarseKey !== undefined && coarseCellLine.has(coarseKey)) {
+        const reused = coarseCellLine.get(coarseKey)!
+        if (cellKey !== undefined) cellLineThisChoice.set(cellKey, reused)
+        return reused
       }
       const previewSlot: SlotSpec = {
         id: `effect_preview::${slot.id}::${idx}`,
@@ -484,6 +508,7 @@ export function composeChoicesFromSeed(
       const line = composed ?? effect.readable
       usedPreviews.add(canonicaliseText(line))
       if (cellKey !== undefined) cellLineThisChoice.set(cellKey, line)
+      if (coarseKey !== undefined) coarseCellLine.set(coarseKey, line)
       return line
     })
     const extra = options.overrides?.(slot) ?? {}

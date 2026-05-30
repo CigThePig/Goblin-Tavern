@@ -604,6 +604,46 @@ export const SALIENCE_TABLES: Partial<
       { kind: 'repeat', subjectTag: 'arc', atLeast: 3 },
     ],
   },
+
+  // Phase 170 / ISSUE-138 — Complete Surface arc, Phase 3 (Salience
+  // Completeness). The one tableless family with an active generator
+  // (`generatePolicyBacklash`, expandedSeedGenerators.ts:4495). It routes
+  // to `fallbackCard` today, so this entry has no live template — but the
+  // arc's coverage contract requires every active-generator family to
+  // declare its salient reads, so the first dedicated policy_backlash card
+  // opens on a fact rather than a bare mood line, and so the derived
+  // completeness test has no hole to skip over.
+  //
+  // Narrator-voiced: `primaryActor` is a policy ref
+  // (`{ kind: 'other', id: 'policy:<id>' }`) — no castAttributes, no banded
+  // signal on the subject. So reads are pressure / memory / severity /
+  // repeat only, in the Phase-149 / Phase-155 / Phase-156 narrator shape:
+  // the `severity >= 70` crisis floor leads (the generator sets
+  // `severity = max(35, backlash.severity)`, so a deep backlash crosses the
+  // threshold and there is no categorical what-is-this-about tag the way
+  // reputation_shift has). The two family pressures the generator embeds
+  // follow (`policy_backlash` primary, `faction_anger` secondary;
+  // expandedSeedGenerators.ts:4858). Memory order mirrors the response
+  // profiles' emitted tags: `warning` (the seed-created memory + the held
+  // / explain context), `grudge` (the punish path,
+  // expandedSeedGenerators.ts:4819), `reversal` (the repeal path,
+  // expandedSeedGenerators.ts:4722), `policy` (broad). The
+  // `repeat policy >= 3` read is the deepest rung; like seasonal_arc's
+  // `repeat arc` it may not always resolve in production but listing it
+  // preserves enumerability for the Phase-12 coverage gate. No new
+  // SalienceRead kinds — every read uses the six already shipped.
+  policy_backlash: {
+    reads: [
+      { kind: 'severity', atLeast: 70 },
+      { kind: 'pressure', pressureId: 'policy_backlash' },
+      { kind: 'pressure', pressureId: 'faction_anger' },
+      { kind: 'memory', tag: 'warning' },
+      { kind: 'memory', tag: 'grudge' },
+      { kind: 'memory', tag: 'reversal' },
+      { kind: 'memory', tag: 'policy' },
+      { kind: 'repeat', subjectTag: 'policy', atLeast: 3 },
+    ],
+  },
 }
 
 /**

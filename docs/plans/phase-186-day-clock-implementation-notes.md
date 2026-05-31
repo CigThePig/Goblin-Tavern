@@ -438,3 +438,127 @@ kept so `TermLabel term="action_points"` references keep resolving.
   `ActionQueueChip.svelte`, `QuickActions.svelte`, `DailyReport.svelte`.
 - tests: `phase13.ownerActions`, `phase92.toggleRecipeMenu`,
   `phase90.queueValidity`, `policyToggleRows`.
+
+---
+
+## Cluster 4 — what shipped (periodic-choice re-homing)
+
+The choice-bearing periodic seeds (`debt_rent`, `monthly_review`) moved from
+the **closing deck** to the **morning pause** (contract §3.5), and the
+generation that backs them moved with them — they are now *produced* in the
+morning pass, so under the Cluster-5 segment flow they will genuinely exist
+at the morning pause and not only "display there."
+
+### The taxonomy split: generation pass decoupled from render timing
+
+The load-bearing realization: a seed's `timing` field is used by the **card
+layer** (`appliesTo.timings` template matching, salience, voice) *and* by the
+engine to pick the generation pass. Cluster 1's table conflated the two.
+Retagging `debt_rent`/`monthly_review` from `end_month` → `morning_prep`
+would have cascaded into ~2 card templates' `appliesTo.timings` and ~20 test
+fixtures that assert `timing: 'end_month'`. So instead we **split the
+taxonomy at the generator, not the seed**:
+
+- New optional field `IssueSeedGenerator.generateWith?: IssueSeedTiming[]`
+  (`issueSeedRegistry.ts`) — the *generation pass(es)*, defaulting to the
+  generator's render `timing`. `runGenerationPass` now selects by
+  `(g.generateWith ?? g.timing)`.
+- `debt_rent_pressure` and `monthly_review` set
+  `generateWith: ['morning_prep']` while keeping `timing: ['end_month']`. The
+  emitted seed still carries `timing: 'end_month'`, so **the entire card
+  layer and its tests are untouched.**
+- The pass's seed-match guard changed from "seed timing ∈ pass timings" to
+  "seed timing ∈ `generator.timing`" — it now verifies a generator only
+  emits seeds of a timing it *declares*, which is the real invariant once
+  generation pass and render timing are decoupled.
+
+| Seed | render `timing` (card) | `generateWith` (pass) | Generated at |
+| --- | --- | --- | --- |
+| `debt_rent` | `end_month` | `morning_prep` | `startDay` (daily, on condition) |
+| `monthly_review` | `end_month` | `morning_prep` | `startDay`, first morning of the new month |
+
+### Generation-timing behaviour changes (the two that bite tests)
+
+- **`debt_rent` now has a one-day warm-up lag.** Produced at `startDay`, it
+  reads the **prior** day's closing pressure snapshot (the standing debt
+  condition known at sunrise, §3.1) — exactly like every other
+  `morning_prep` family. A single `runDay` from a hand-set base no longer
+  fires it; use the `seedDay` (warm-one-day) idiom. Tests updated:
+  `phase19.issueSeeds` (→ `seedDay`), `phase61.rentDueSoon` (warm-up, then
+  override the `rent_due_soon` tag on the warmed state so the snapshot is
+  shared and only the live tag differs).
+- **`monthly_review` fires on the first morning of the *next* month**
+  (`calendar.day === 1` + persisted `lastMonthlyResult`), not at `endMonth`
+  on day 28. Its contradiction guard (`contradictionGuards.ts`) was rewritten
+  from `isEndOfMonth()` to that pair. **This is the proper fix for the
+  Cluster-1 "monthly_review can't resolve same-day" limitation** — it now
+  resolves at that morning's pause like any other morning seed. The monthly
+  *digest* (the `'monthly'` report section, projected as `monthlyDigest`)
+  still builds at `endMonth` and lands in the **day-28 report**, so the
+  §3.5 split is honoured: read-only digest in the month-end aftermath,
+  actionable review the next morning.
+
+### The closing-pass scaffold is simplified
+
+Cluster 1 ran the periodic timings in **both** the `closing` pass and the
+`endWeek`/`endMonth` passes with id-dedupe to give `debt_rent` a daily
+cadence and `monthly_review` its post-rollup read. That dual-pass is gone:
+the `closing` hook now runs `['closing']` only. The `endWeek`/`endMonth`
+hooks are **retained but currently select no generator** (nothing has those
+in `generateWith`/`timing` any more) — kept as the opt-in home for a *future*
+boundary-rollup seed that truly cannot be read before its rollup settles.
+The id-dedupe inside `runGenerationPass` stays as cheap idempotency
+insurance but is no longer load-bearing.
+
+### UI re-homing (`DayScreen.svelte`)
+
+- Morning beat seeds = `todaysSeeds.filter(timing ∈ {morning_prep, end_week,
+  end_month})`. Filtering the already-rank-sorted `todaysSeeds` (rather than
+  concatenating per-timing slices) keeps morning cards in **global** rank, so
+  a high-severity `debt_rent` is not buried beneath low-severity standing
+  conditions.
+- Closing beat seeds = `seedsForTiming('closing')` only (was `closing +
+  end_week + end_month`).
+- The **informational** half of §3.5 needed no work: weekly/monthly digests
+  are already read-only report sections (`DailyReport.svelte` renders
+  `weeklyDigest`/`monthlyDigest`); no periodic *seed* is informational-only.
+
+### ⏭️ For Cluster 5 (store / UI flow)
+
+- The morning-pause routing is now **generation-backed**: `debt_rent` and
+  `monthly_review` are produced in Segment A (`startDay`), so they exist by
+  the time the morning beat renders. Drive the segments and the morning beat
+  will show them with no extra plumbing.
+- `monthly_review` is now resolvable **same-day** at the morning pause —
+  Cluster 5's same-day response flow should treat it like any morning seed.
+
+### ⏭️ For Cluster 7 (in-flight save migration)
+
+- A save written under the pre-Cluster-4 model can carry `debt_rent` /
+  `monthly_review` seeds in `seedsToday` that the old UI showed in the
+  *closing* deck. Post-update they route to the morning beat instead (purely
+  a render change; ids and resolution are unchanged). No state migration is
+  required for this — `startDay` regenerates the surface — but the in-flight
+  day a player updates *during* will reshuffle which beat its periodic cards
+  appear under. Fold this into the "finish under old rules or reset to next
+  morning" decision Cluster 7 already owns.
+
+### Files touched in Cluster 4
+
+- `src/sim/modules/issues/issueSeedRegistry.ts` — `generateWith` field.
+- `src/sim/modules/issues/issueSeedModule.ts` — pass selection via
+  `generateWith ?? timing`; seed-match guard checks `generator.timing`;
+  `closing` hook → `['closing']`; doc/comments.
+- `src/sim/modules/issues/issueSeedGenerators.ts` — `generateWith:
+  ['morning_prep']` on `debt_rent_pressure` and `monthly_review`.
+- `src/sim/modules/issues/contradictionGuards.ts` — `monthly_review` guard
+  (`lastMonthlyResult` + `calendar.day === 1`).
+- web: `web/src/lib/screens/DayScreen.svelte` — morning/closing seed slices
+  + header comment.
+- tests: `phase19.issueSeeds` (debt_rent → `seedDay`), `phase59.monthlyReview`
+  (`advanceToMonthlyReview` = 29 days; the unpaid-rent case runs one extra
+  day; comments), `phase61.rentDueSoon` (debt_rent warm-up),
+  `phase91.monthlyPersistence` (the day-1 test re-framed: a problem-free
+  tavern has nothing to review), `triggeringStates` +
+  `cards/compose/gates/realSeedShapes` (stale month-end comments; the
+  built-in capture warm-up already lands monthly_review on day 29).

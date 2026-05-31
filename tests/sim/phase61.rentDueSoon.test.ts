@@ -145,8 +145,20 @@ describe('Phase 61 / ISSUE-021 — debt_rent seed amplification', () => {
     base = withLandlordPressure(base, 50, 2)
     base = withRentArrears(base, 50, false)
 
-    const without = withCalendarTags(base, ['quiet_day'])
-    const withTag = withCalendarTags(base, ['quiet_day', 'rent_due_soon'])
+    // Phase 186 / Cluster 4 — `debt_rent` is now produced in the morning
+    // (`startDay`) pass and reads the PRIOR day's closing pressure
+    // snapshot — the standing debt condition known at sunrise (contract
+    // §3.1). Warm one day so the debt/landlord snapshot + causes exist;
+    // the comparison day then generates the seed at its morning. Both
+    // branches share that identical warmed snapshot, so the only
+    // differentiator is the live `rent_due_soon` calendar tag read at
+    // generation (its +10 severity/urgency bonus). The tag is overridden
+    // on the warmed state *after* the warm-up, so `advanceCalendar` (which
+    // already ran) does not recompute it before the comparison morning.
+    const warm = runDay(base).state
+
+    const without = withCalendarTags(warm, ['quiet_day'])
+    const withTag = withCalendarTags(warm, ['quiet_day', 'rent_due_soon'])
 
     const resultWithout = runDay(without)
     const resultWithTag = runDay(withTag)

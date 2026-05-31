@@ -1,9 +1,30 @@
 // Goblin Tavern — game store
 //
-// SOLE caller of `simulateDay` in the web layer. Every screen reads
-// from `gameStore.state`; mutation flows back through `runDay(input)`.
-// Keeping the engine call concentrated here is the boundary that makes
-// the rest of the UI reason-about-able.
+// SOLE caller of the engine in the web layer. Every screen reads from
+// `gameStore.state`; mutation flows back through the day-segment methods
+// (`beginDay` / `runService` / `endDay`, with `runDay` as the run-all
+// convenience). Keeping the engine call concentrated here is the
+// boundary that makes the rest of the UI reason-about-able.
+//
+// Phase 186 / Day-Clock Cluster 5 — the day is no longer one end-of-day
+// `simulateDay`. It runs as the three real engine segments the day-clock
+// contract defines (§2), each via `advanceDaySegment`:
+//
+//   beginDay()   → Segment A (setup + morning seed generation + forecast)
+//   ⏸ Pause 1 — morning plan (owner actions + staff priorities)
+//   runService() → Segment B (apply owner actions, service, closing)
+//   ⏸ Pause 2 — service react (response intents)
+//   endDay()     → Segment C (apply responses, rollups, build the report)
+//
+// This makes card placement honest: morning cards are produced by
+// Segment A, emergent service/closing cards by Segment B, and the player
+// resolves them the SAME day in Segment C (contract §1.9; Cluster 1 made
+// resolution same-day). The pre-Cluster-5 single `runDay` resolved
+// against the *previous* day's seeds, which Cluster 1 silently broke —
+// this is the fix. The `segment` field (persisted) tracks position so a
+// mid-day refresh resumes against the right segment; the start-of-day
+// `dayBaseline` is held so the daily report keeps reading one full-day
+// diff across the segment runtimes (GATE B, contract §4.2).
 //
 // Phase 92 lifted `picks` and `staffPriorities` out of `DayScreen`
 // local state. The picks queue is now a shared cross-screen surface so
@@ -17,7 +38,7 @@
 // position. The store remains storage-agnostic: `App.svelte` owns the
 // localStorage I/O via `persistence.ts`.
 
-import { simulateDay } from '../../../../src/sim/core/engine'
+import { advanceDaySegment } from '../../../../src/sim/core/engine'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
 import type { DifficultyConfig } from '../../../../src/sim/state/difficulty'
 import { FULL_PIPELINE } from '../../../../src/sim/testing/simRunner'
@@ -43,6 +64,7 @@ import {
   INITIAL_DAY_SESSION,
   MISSED_OPPORTUNITY_DISMISSAL_WINDOW_DAYS,
   type Beat,
+  type DaySegment,
   type PendingChoice,
 } from './daySession'
 import type {
@@ -83,6 +105,33 @@ class GameStore {
   pendingBySeedId: Record<string, PendingChoice> = $state({})
   serviceComplete: boolean = $state(INITIAL_DAY_SESSION.serviceComplete)
   closingComplete: boolean = $state(INITIAL_DAY_SESSION.closingComplete)
+
+  // Phase 186 / Day-Clock Cluster 5 — segment position for the in-progress
+  // (or just-closed) day. Persisted so a mid-day refresh resumes against
+  // the right segment without re-running one. See `DaySegment` doc.
+  segment: DaySegment = $state(INITIAL_DAY_SESSION.segment)
+
+  /**
+   * Phase 186 / Day-Clock Cluster 5 — the start-of-day `TavernState`
+   * (snapshot taken before Segment A). Held so Segments B and C can be
+   * passed it as `dayBaseline`, keeping the daily report's full-day diff
+   * bracketed start-of-day → end-of-day across the three per-segment
+   * runtimes (GATE B, contract §4.2). Persisted while a day is in
+   * progress (`segment` is 'A' or 'B') so the report stays whole after a
+   * mid-day refresh; cleared/overwritten at the next `beginDay`.
+   */
+  dayBaseline: TavernState | undefined = $state(undefined)
+
+  /**
+   * Phase 186 / Day-Clock Cluster 5 — accumulated logs across the day's
+   * segments. Each `advanceDaySegment` call has its own runtime and so
+   * its own `result.logs`; the daily report's `latestResult.logs` should
+   * read the whole day, so A's and B's logs are stashed here and prepended
+   * to C's when `endDay` builds the final result. In-memory only — a
+   * mid-day refresh loses A/B logs (cosmetic: only the debug-bundle log
+   * count is affected).
+   */
+  private dayLogs: SimResult['logs'] = []
 
   // Phase 96 — Last selected top-level route. The App restores this on
   // boot so a player who closed the app while reading the Tavern panel
@@ -129,53 +178,163 @@ class GameStore {
   dismissedMissedOpportunityIds: Set<string> = $state(new Set())
 
   /**
-   * Run one simulated day. Bundles the queued picks, sticky staff
-   * priorities, and any per-day response intents into a single
-   * `simulateDay` call. Picks are reset after the engine call; staff
-   * priorities persist. The day-session flags reset to a fresh
-   * morning — engine always advances the calendar, so the player
-   * lands on a new day.
+   * Build the per-day `SimInput`. The same input is valid for any
+   * segment — each segment only consumes the fields whose phase it runs
+   * (`ownerActions` in B, `responseIntents` in C); the rest are inert
+   * (Cluster 2 note). The seed embeds the absolute-day coordinate
+   * (`totalDaysElapsed`, Phase 91 / ISSUE-051), which is stable across a
+   * day's three segments — the calendar only advances in Segment C's
+   * `advanceCalendar` — so A, B, and C all derive the *same* seed string,
+   * which is required for the segmented run to match `simulateDay`.
    */
-  runDay(extra: Partial<Omit<SimInput, 'seed'>> = {}): SimResult {
-    // Phase 91 / ISSUE-051 — Use the absolute-day coordinate
-    // (`totalDaysElapsed`) instead of `calendar.day` (1–28). The old
-    // form repeated the same per-day RNG sequence every 28-day month,
-    // producing a non-stationary variance pattern. Expeditions store
-    // their own commission-time seed, so this change is determinism-safe
-    // for resolution of in-flight expeditions.
+  private dayInput(extra: Partial<Omit<SimInput, 'seed'>> = {}): SimInput {
     const seed = `${this.seedString}-d${this.state.calendar.totalDaysElapsed}`
-    const queuedActions = picksToInputs(this.picks)
-    const fullInput: SimInput = {
+    return {
       seed,
-      // `extra` wins so DayScreen can still override per-call for
-      // testing or special flows.
-      ownerActions: extra.ownerActions ?? queuedActions,
+      ownerActions: extra.ownerActions ?? picksToInputs(this.picks),
       staffPriorities: extra.staffPriorities ?? { ...this.staffPriorities },
       ...(extra.responseIntents ? { responseIntents: extra.responseIntents } : {}),
     }
-    this.previousCalendar = { ...this.state.calendar, tags: [...this.state.calendar.tags] }
-    // Phase 97 / ISSUE-057 — `$state.snapshot` returns a deep, plain
-    // (non-proxied) clone of the reactive state. Required so the
-    // engine's `structuredClone` in `cloneTavernState` doesn't choke
-    // on Svelte's deep proxy in environments where structuredClone
-    // is stricter than Chrome's (e.g. jsdom in component tests).
-    // The cost is one extra deep copy per day, which is negligible
-    // next to the rest of the day pipeline.
-    const stateSnapshot = $state.snapshot(this.state) as TavernState
-    const result = simulateDay(stateSnapshot, fullInput, FULL_PIPELINE)
+  }
+
+  /**
+   * Phase 97 / ISSUE-057 — `$state.snapshot` returns a deep, plain
+   * (non-proxied) clone of the reactive state. Required so the engine's
+   * `structuredClone` in `cloneTavernState` doesn't choke on Svelte's
+   * deep proxy in environments where structuredClone is stricter than
+   * Chrome's (e.g. jsdom in component tests).
+   */
+  private snapshotState(): TavernState {
+    return $state.snapshot(this.state) as TavernState
+  }
+
+  /**
+   * The start-of-day baseline as a plain (non-proxied) `TavernState`,
+   * ready to hand to the engine. `dayBaseline` is a `$state` field, so a
+   * direct read returns Svelte's deep proxy, which `structuredClone`
+   * rejects in stricter environments (jsdom). Falls back to the current
+   * state when no baseline is held (the documented post-reload edge).
+   */
+  private dayBaselineSnapshot(): TavernState {
+    return this.dayBaseline
+      ? ($state.snapshot(this.dayBaseline) as TavernState)
+      : this.snapshotState()
+  }
+
+  /**
+   * Segment A — open a new day. Runs setup (`startDay … forecastTraffic`):
+   * clears yesterday's surface, advances the world, generates the morning
+   * seeds (`morning_prep` + choice-bearing periodic seeds, Cluster 4), and
+   * forecasts today's traffic. Captures the start-of-day baseline for the
+   * full-day diff (GATE B) and resets the per-day session view state.
+   *
+   * Idempotent: only opens a day from the 'C' (ready) state, so a
+   * stray double-call (e.g. an effect firing twice) is a no-op. Returns
+   * `undefined` when it did not open a day.
+   */
+  beginDay(): SimResult | undefined {
+    if (this.segment !== 'C') return undefined
+    const baseline = this.snapshotState()
+    this.dayBaseline = baseline
+    const result = advanceDaySegment(baseline, this.dayInput(), FULL_PIPELINE, 'A')
     this.state = result.state
-    this.latestResult = result
-    // Per-day picks reset; staff priorities persist by design.
-    this.picks = []
-    // Day-session flags reset for the new day. The caller (DayScreen)
-    // sets `beat = 'report'` after this call to surface the daily
-    // report; subsequent beats land naturally on the new day.
+    this.dayLogs = [...result.logs]
+    this.segment = 'A'
+    // Per-day session view state resets for the new day. Picks are NOT
+    // reset here — a player can queue owner actions from the Tavern
+    // surfaces before the plan beat; they are consumed (and cleared) when
+    // Segment B applies them.
     this.pendingBySeedId = {}
     this.serviceComplete = false
     this.closingComplete = false
-    // Phase 97 — Prune stale dismissal entries so the set stays bounded.
-    this.pruneMissedOpportunityDismissals()
     return result
+  }
+
+  /**
+   * Segment B — the day happening. Applies the morning plan (queued owner
+   * actions + sticky staff priorities), runs service, and recomputes
+   * pressures/feedback at closing. Emergent `during_service`/`closing`
+   * seeds are produced here, at the moment service runs (contract §3.1).
+   * Owner-action picks are consumed and the queue is cleared.
+   *
+   * Only runs from the 'A' state; otherwise a no-op (returns `undefined`).
+   */
+  runService(extra: Partial<Omit<SimInput, 'seed'>> = {}): SimResult | undefined {
+    if (this.segment !== 'A') return undefined
+    const result = advanceDaySegment(
+      this.snapshotState(),
+      this.dayInput(extra),
+      FULL_PIPELINE,
+      'B',
+      { dayBaseline: this.dayBaselineSnapshot() },
+    )
+    this.state = result.state
+    this.dayLogs = [...this.dayLogs, ...result.logs]
+    this.segment = 'B'
+    // Owner actions have been applied — drain the queue. Staff priorities
+    // persist by design.
+    this.picks = []
+    return result
+  }
+
+  /**
+   * Segment C — wrap-up. Applies the day's response intents (the player's
+   * reactions to morning + service + closing cards), runs the rollups,
+   * builds the report, validates, and advances the calendar. Sets
+   * `latestResult` (with the full-day diff and the concatenated day logs)
+   * so the report beat can render. Leaves `segment` at 'C' — the
+   * "ready to begin the next day" state.
+   *
+   * Only runs from the 'B' state; otherwise returns the existing
+   * `latestResult` unchanged (so a stray call can't double-close a day).
+   */
+  endDay(extra: Partial<Omit<SimInput, 'seed'>> = {}): SimResult | undefined {
+    if (this.segment !== 'B') return this.latestResult
+    // The calendar BEFORE Segment C's `advanceCalendar` is the closing
+    // day's calendar — the daily report needs it to label the day that
+    // just closed (the post-C `state.calendar` is already tomorrow). This
+    // matches the pre-Cluster-5 `runDay`, which captured it before the
+    // single `simulateDay`; capturing it here (not at `beginDay`) keeps
+    // the prior day's report correctly labelled while the next day is in
+    // progress.
+    const closingCalendar = this.snapshotState().calendar
+    const result = advanceDaySegment(
+      this.snapshotState(),
+      this.dayInput(extra),
+      FULL_PIPELINE,
+      'C',
+      { dayBaseline: this.dayBaselineSnapshot() },
+    )
+    this.previousCalendar = {
+      ...closingCalendar,
+      tags: [...closingCalendar.tags],
+    }
+    this.state = result.state
+    // The report's `latestResult.logs` should read the whole day, so
+    // prepend A's and B's logs to C's.
+    this.latestResult = { ...result, logs: [...this.dayLogs, ...result.logs] }
+    this.dayLogs = []
+    this.segment = 'C'
+    // The day is closed; the baseline is no longer needed.
+    this.dayBaseline = undefined
+    // Phase 97 — Prune stale dismissal entries so the set stays bounded.
+    // Runs here (not beginDay) because the calendar has just advanced.
+    this.pruneMissedOpportunityDismissals()
+    return this.latestResult
+  }
+
+  /**
+   * Run-all convenience: advance from the current position to a closed
+   * day (Segments A → B → C). The cardless flows and tests use this to
+   * step one full day in a single call; the interactive DayScreen drives
+   * the three segments separately across the beats. Each step is guarded,
+   * so calling this mid-day finishes the in-progress day rather than
+   * starting a fresh one.
+   */
+  runDay(extra: Partial<Omit<SimInput, 'seed'>> = {}): SimResult {
+    this.beginDay()
+    this.runService(extra)
+    return this.endDay(extra) as SimResult
   }
 
   /**
@@ -194,6 +353,10 @@ class GameStore {
     this.pendingBySeedId = {}
     this.serviceComplete = INITIAL_DAY_SESSION.serviceComplete
     this.closingComplete = INITIAL_DAY_SESSION.closingComplete
+    // 'C' = ready to begin day one; the first `beginDay()` opens it.
+    this.segment = INITIAL_DAY_SESSION.segment
+    this.dayBaseline = undefined
+    this.dayLogs = []
     this.route = 'day'
     this.reportsSubview = 'today'
     this.tavernSubview = 'areas'
@@ -232,6 +395,15 @@ class GameStore {
     this.beat = save.daySession.beat
     this.serviceComplete = save.daySession.serviceComplete
     this.closingComplete = save.daySession.closingComplete
+    // Phase 186 / Cluster 5 — resume the segment position. The sanitiser
+    // guarantees a value (derived from `beat` for pre-Cluster-5 saves).
+    this.segment = save.daySession.segment ?? 'C'
+    // The start-of-day baseline is only present mid-day (segment 'A'/'B').
+    // Without it, a resumed end-of-day would produce a partial full-day
+    // diff — the segment methods fall back to the current state, which is
+    // the documented edge Cluster 7's migration will harden.
+    this.dayBaseline = save.dayBaseline
+    this.dayLogs = []
     this.route = save.route
     this.reportsSubview = save.subroutes?.reports ?? 'today'
     this.tavernSubview = save.subroutes?.tavern ?? 'areas'
@@ -280,7 +452,15 @@ class GameStore {
         beat: this.beat,
         serviceComplete: this.serviceComplete,
         closingComplete: this.closingComplete,
+        segment: this.segment,
       },
+      // Persist the start-of-day baseline only while a day is in progress
+      // (segment 'A'/'B') — at 'C' the day is closed and the next
+      // `beginDay` will snapshot a fresh one, so storing it would just
+      // bloat the save with a stale copy of state.
+      ...(this.dayBaseline && this.segment !== 'C'
+        ? { dayBaseline: this.dayBaseline }
+        : {}),
       route: this.route,
       subroutes: {
         reports: this.reportsSubview,

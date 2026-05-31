@@ -7,9 +7,15 @@
 // resulting daily report reflects that the pick was processed.
 //
 // Why this is meaningful: ISSUE-050's owner-action queue lives on the
-// store and is consumed by `gameStore.runDay`. A regression in the
-// reset-after-runDay path, the queue→input conversion, or the report
-// builder would all manifest here as a stale or missing report.
+// store and is consumed by Segment B (`gameStore.runService`). A
+// regression in the drain-after-service path, the queue→input
+// conversion, or the report builder would all manifest here as a stale
+// or missing report.
+//
+// Phase 186 / Day-Clock Cluster 5 — the day is now three engine
+// segments. The queued action is applied when "Run service" runs Segment
+// B; "End day" runs Segment C and builds the report. This test walks the
+// real beat buttons so the full segmented handoff is exercised.
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte'
@@ -43,9 +49,19 @@ describe('Cross-screen flow — queue → End Day → Report (Phase 119 / ISSUE-
     expect(result.ok).toBe(true)
     expect(gameStore.picks.length).toBe(1)
 
-    // Mount DayScreen, jump to closing, end the day. The endDay handler
-    // bundles gameStore.picks into `simulateDay`.
+    // Open the day (Segment A) and mount DayScreen at the morning beat.
+    gameStore.beginDay()
     render(DayScreen)
+
+    // Run service (Segment B) — this consumes the queued owner action.
+    // Driven via the store to skip the BeatTransition timer; the beat
+    // still lands on service.
+    gameStore.runService()
+    expect(gameStore.segment).toBe('B')
+    // The queue drains once Segment B has applied the actions.
+    expect(gameStore.picks.length).toBe(0)
+
+    // End the day (Segment C) from the closing beat → report.
     gameStore.setBeat('closing')
     const endDay = await screen.findByRole('button', { name: /^end day$/i })
     await fireEvent.click(endDay)
@@ -53,11 +69,8 @@ describe('Cross-screen flow — queue → End Day → Report (Phase 119 / ISSUE-
     // The day advanced — beat is now 'report' and runError is unset.
     expect(gameStore.beat).toBe('report')
     expect(gameStore.runError).toBeUndefined()
-    // Per the runDay contract, picks reset to empty after a successful
-    // day. (If the action failed validation the engine would have
-    // surfaced it via the result; the queue still drains.)
     expect(gameStore.picks.length).toBe(0)
-    // latestResult exists and was populated by simulateDay.
+    // latestResult exists and was populated by Segment C.
     expect(gameStore.latestResult).toBeDefined()
     // The day-report header renders, proving the report-projection path
     // is alive end-to-end.

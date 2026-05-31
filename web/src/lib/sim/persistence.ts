@@ -50,6 +50,7 @@ import type { SimResult } from '../../../../src/sim/core/result'
 import { sanitizePicks, type PickedAction } from './actionBuilder'
 import type {
   Beat,
+  DaySegment,
   DaySessionSnapshot,
   PendingChoice,
 } from './daySession'
@@ -98,6 +99,15 @@ export type PersistedSession = {
   savedAt: string
   simSeed: string
   state: TavernState
+  /**
+   * Phase 186 / Day-Clock Cluster 5 — the start-of-day `TavernState`,
+   * present only while a day is mid-flight (`daySession.segment` is 'A'
+   * or 'B'). The store threads it as the full-day-diff baseline (GATE B)
+   * so a mid-day refresh still produces a whole daily report. Runs
+   * through the same migration + validation pipeline as `state`; dropped
+   * if it fails (the segment methods fall back to the current state).
+   */
+  dayBaseline?: TavernState
   previousCalendar?: CalendarState
   latestResultLite?: LatestResultLite
   picks: PickedAction[]
@@ -331,41 +341,29 @@ export function validatePersistedSession(parsed: unknown): ValidationOutcome {
     return { kind: 'invalid', reason: 'state missing' }
   }
 
-  let migratedState: TavernState
-  try {
-    // Phase 89 / ISSUE-049 — additive migration chain. Each helper is
-    // idempotent and a no-op when the slice already matches the current
-    // shape. Order matters only where one helper depends on another's
-    // output; today that's just `ensureModuleSlices` running last after
-    // module-state-bearing slices are guaranteed.
-    const s0 = rawState as Partial<TavernState>
-    const s1 = ensureWorldBranch(s0)
-    const s2 = ensureAreaIdentityFields(s1)
-    const s3 = ensureStaffIdentityFields(s2)
-    const s4 = ensureRecipesSlice(s3)
-    const s4b = flipUpkeepRecipesOffMenu(s4)
-    const s5 = ensureExpeditionsSlice(s4b)
-    const s6 = ensureWeeklyHistoryField(s5)
-    const s7 = ensureMonthlyHistoryField(s6)
-    // Phase 121 / ISSUE-090 — Living Cast Phase A. Attaches cast
-    // attributes to pre-Phase-A staff + regulars; no-op when already
-    // present. Runs after the other ensure* helpers so that any
-    // identity/world slice it depends on is already populated, and
-    // before `ensureModuleSlices` for ordering symmetry with the rest
-    // of the chain.
-    const s8 = ensureCastAttributes(s7)
-    const s9 = ensureModuleSlices(s8)
-    const validation = safeValidateState(s9, { modules: FULL_PIPELINE })
-    if (!validation.success) {
-      const first = validation.errors[0]
-      return {
-        kind: 'invalid',
-        reason: `state failed validation: ${first?.path ?? ''} ${first?.message ?? ''}`.trim(),
-      }
+  const stateOutcome = migrateAndValidateState(rawState)
+  if (!stateOutcome.ok) {
+    return { kind: 'invalid', reason: stateOutcome.reason }
+  }
+  const migratedState = stateOutcome.state
+
+  // Phase 186 / Day-Clock Cluster 5 — the start-of-day baseline (present
+  // only mid-day) runs through the same pipeline. If it's missing or
+  // fails, drop it: the store's segment methods fall back to the current
+  // state, which only loses the full-day-diff bracket for the single
+  // resumed day (Cluster 7 hardens this).
+  const dayBaselineRaw = (parsed as { dayBaseline?: unknown }).dayBaseline
+  let dayBaseline: TavernState | undefined
+  if (isObject(dayBaselineRaw)) {
+    const baselineOutcome = migrateAndValidateState(dayBaselineRaw)
+    if (baselineOutcome.ok) {
+      dayBaseline = baselineOutcome.state
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `goblin-tavern: dropped invalid dayBaseline during load (${baselineOutcome.reason})`,
+      )
     }
-    migratedState = validation.state
-  } catch (err) {
-    return { kind: 'invalid', reason: `migration threw: ${describeErr(err)}` }
   }
 
   const simSeed = readString(parsed, 'simSeed') ?? 'crooked-keg'
@@ -441,11 +439,56 @@ export function validatePersistedSession(parsed: unknown): ValidationOutcome {
     route,
     dismissedMissedOpportunityIds,
     ...(Object.keys(subroutes).length > 0 ? { subroutes } : {}),
+    ...(dayBaseline ? { dayBaseline } : {}),
     ...(previousCalendar ? { previousCalendar } : {}),
     ...(latestResultLite ? { latestResultLite } : {}),
   }
 
   return { kind: 'loaded', save }
+}
+
+type StateMigrationOutcome =
+  | { ok: true; state: TavernState }
+  | { ok: false; reason: string }
+
+/**
+ * Phase 89 / ISSUE-049 — additive migration chain + validation, shared by
+ * `state` and (Cluster 5) `dayBaseline`. Each `ensure*` helper is
+ * idempotent and a no-op when the slice already matches the current
+ * shape. Order matters only where one helper depends on another's output;
+ * today that's just `ensureModuleSlices` running last after
+ * module-state-bearing slices are guaranteed.
+ */
+function migrateAndValidateState(rawState: Record<string, unknown>): StateMigrationOutcome {
+  try {
+    const s0 = rawState as Partial<TavernState>
+    const s1 = ensureWorldBranch(s0)
+    const s2 = ensureAreaIdentityFields(s1)
+    const s3 = ensureStaffIdentityFields(s2)
+    const s4 = ensureRecipesSlice(s3)
+    const s4b = flipUpkeepRecipesOffMenu(s4)
+    const s5 = ensureExpeditionsSlice(s4b)
+    const s6 = ensureWeeklyHistoryField(s5)
+    const s7 = ensureMonthlyHistoryField(s6)
+    // Phase 121 / ISSUE-090 — Living Cast Phase A. Attaches cast
+    // attributes to pre-Phase-A staff + regulars; no-op when already
+    // present. Runs after the other ensure* helpers so that any
+    // identity/world slice it depends on is already populated, and before
+    // `ensureModuleSlices` for ordering symmetry with the rest of the chain.
+    const s8 = ensureCastAttributes(s7)
+    const s9 = ensureModuleSlices(s8)
+    const validation = safeValidateState(s9, { modules: FULL_PIPELINE })
+    if (!validation.success) {
+      const first = validation.errors[0]
+      return {
+        ok: false,
+        reason: `state failed validation: ${first?.path ?? ''} ${first?.message ?? ''}`.trim(),
+      }
+    }
+    return { ok: true, state: validation.state }
+  } catch (err) {
+    return { ok: false, reason: `migration threw: ${describeErr(err)}` }
+  }
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -529,7 +572,12 @@ function sanitizeSubroutes(raw: Record<string, unknown>): SubroutesState {
 
 function sanitizeDaySession(raw: unknown): DaySessionSnapshot {
   if (!isObject(raw)) {
-    return { beat: 'morning', serviceComplete: false, closingComplete: false }
+    return {
+      beat: 'morning',
+      serviceComplete: false,
+      closingComplete: false,
+      segment: 'C',
+    }
   }
   const beatRaw = raw['beat']
   const beat: Beat =
@@ -540,6 +588,26 @@ function sanitizeDaySession(raw: unknown): DaySessionSnapshot {
     beat,
     serviceComplete: raw['serviceComplete'] === true,
     closingComplete: raw['closingComplete'] === true,
+    segment: sanitizeSegment(raw['segment'], beat),
+  }
+}
+
+// Phase 186 / Day-Clock Cluster 5 — restore the segment position. A
+// pre-Cluster-5 save has no `segment` field, so derive a consistent value
+// from the persisted beat: morning/plan ran Segment A, service/closing ran
+// Segment B, and a closed-day report sits at 'C'. Keeping (beat, segment)
+// consistent on resume is what stops the interactive flow from stalling.
+function sanitizeSegment(raw: unknown, beat: Beat): DaySegment {
+  if (raw === 'A' || raw === 'B' || raw === 'C') return raw
+  switch (beat) {
+    case 'morning':
+    case 'plan':
+      return 'A'
+    case 'service':
+    case 'closing':
+      return 'B'
+    case 'report':
+      return 'C'
   }
 }
 

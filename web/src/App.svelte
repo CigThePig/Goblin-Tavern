@@ -147,6 +147,11 @@
     // reactive read is what registers the dependency.
     void gameStore.state
     void gameStore.beat
+    // Phase 186 / Day-Clock Cluster 5 — persist the segment position so a
+    // mid-day refresh resumes against the right engine segment. (It always
+    // moves in lock-step with `state`, but listing it keeps the intent
+    // explicit.)
+    void gameStore.segment
     void gameStore.pendingBySeedId
     void gameStore.picks
     void gameStore.staffPriorities
@@ -173,6 +178,12 @@
     clearSession()
     const difficulty = DIFFICULTY_PRESETS[prefsStore.preferences.lastDifficulty]
     gameStore.reset(gameStore.seedString, difficulty)
+    // Phase 186 / Day-Clock Cluster 5 — open day one (Segment A: setup,
+    // morning seeds, forecast) so the first morning shows real Segment-A
+    // output. DayScreen's begin-day effect is the safety net for the
+    // next-day and hydration paths; doing it here keeps the fresh start
+    // explicit and flash-free.
+    gameStore.beginDay()
     bootOutcome = { kind: 'fresh' }
     view = 'day'
     gameStore.setRoute('day')

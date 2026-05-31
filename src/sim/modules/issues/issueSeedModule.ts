@@ -33,13 +33,21 @@ import { ISSUE_SEEDS_MODULE_ID } from './issueSeedQueries'
 // Responsibilities:
 //   - Self-register the required seed generators on module load.
 //   - Generate seeds *segment-locally*, at the phase that matches each
-//     generator's declared `timing`, instead of pre-baking the whole day's
-//     set during `generateReports` the evening before:
+//     generator's generation pass (`generateWith`, defaulting to its seed
+//     render `timing`), instead of pre-baking the whole day's set during
+//     `generateReports` the evening before:
 //       · `morning_prep`   → `startDay`     (the morning the player sees)
 //       · `during_service` → `afterService` (emergent from the service rush)
 //       · `closing`        → `closing`      (after pressures settle)
-//       · `end_week`       → `endWeek`      (weekly boundary only)
-//       · `end_month`      → `endMonth`     (monthly boundary only)
+//       · `end_week`       → `endWeek`      (future weekly-rollup seeds)
+//       · `end_month`      → `endMonth`     (future monthly-rollup seeds)
+//     Phase 186 / Cluster 4 — the choice-bearing periodic seeds
+//     (`debt_rent`, `monthly_review`) carry render timing `end_month` but
+//     set `generateWith: ['morning_prep']`, so they are *produced* in the
+//     morning pass and surface at the morning pause where the player can
+//     act on them (contract §3.5). `monthly_review` fires on the first
+//     morning of the new month (its guard reads the persisted
+//     `lastMonthlyResult` + `calendar.day === 1`).
 //     `startDay` clears `seedsToday` first, so the day owns its own surface;
 //     later passes append and re-rank the accumulated set. Generators are
 //     pure readers of state (no RNG), so relocating them does not perturb
@@ -112,9 +120,14 @@ function runGenerationPass(
   const baseTotalGenerated = slice.totalGenerated
   const baseTotalRejected = slice.totalRejected
 
+  // Phase 186 / Cluster 4 — select by the generator's *generation* pass
+  // (`generateWith`), which defaults to its seed render `timing`. This is
+  // how `debt_rent`/`monthly_review` (render timing `end_month`) are
+  // produced in the morning (`startDay`) pass so they reach the morning
+  // pause, while still carrying their `end_month` card timing.
   const generators = issueSeedGeneratorRegistry
     .all()
-    .filter((g) => g.timing.some((t) => timings.includes(t)))
+    .filter((g) => (g.generateWith ?? g.timing).some((t) => timings.includes(t)))
 
   const allCandidates: Array<{ generatorId: string; seed: IssueSeed }> = []
   const rejected: IssueSeedModuleState['rejectedToday'] = []
@@ -132,10 +145,14 @@ function runGenerationPass(
       continue
     }
     for (const seed of produced) {
-      // Defensive: a generator declared for this pass's timings must
-      // emit seeds of those timings. Skip any stray off-timing seed so a
-      // pass never stores a seed that belongs to another segment.
-      if (!timings.includes(seed.timing)) continue
+      // Defensive: a generator must only emit seeds of a timing it
+      // declares it produces (`generator.timing`). Skip any stray
+      // off-timing seed. Phase 186 / Cluster 4 — this checks the
+      // generator's declared render timings, NOT the pass's timings,
+      // because generation pass and render timing are now decoupled (a
+      // generator may run in the morning pass yet emit an `end_month`
+      // seed).
+      if (!generator.timing.includes(seed.timing)) continue
       // Idempotent passes: a generator that already produced this exact
       // seed in an earlier pass today (e.g. `debt_rent` fires in the
       // `closing` pass and would fire again in the `endMonth` pass since
@@ -237,33 +254,31 @@ const duringServiceHook: SimulationHook = (ctx: SimContext): void => {
   runGenerationPass(ctx, ['during_service'])
 }
 
-// Phase 186 / Cluster 1 — closing + standing-periodic surface. Depends on
-// `pressures`, so this hook runs after `calculatePressuresHook` and reads
-// this day's freshly settled pressures — the same settled read the retired
-// `generateReports` lump gave every late-timing seed.
+// Phase 186 / Cluster 1 — closing surface. Depends on `pressures`, so this
+// hook runs after `calculatePressuresHook` and reads this day's freshly
+// settled pressures — the same settled read the retired `generateReports`
+// lump gave every late-timing seed.
 //
-// The `end_week`/`end_month` timings are run here as well so the *standing-
-// condition* periodic seeds keep their daily cadence: `debt_rent` (an
-// `end_month` seed that fires whenever rent arrears / low coin hold, not
-// only on the 28th) stays available the day its condition holds. Periodic
-// seeds whose content depends on a weekly/monthly rollup self-guard out of
-// this pass — `monthly_review` returns nothing until `lastMonthlyResult`
-// exists, which is not written until `endMonth` — and are produced by the
-// boundary passes below instead. Re-homing the choice-bearing periodic
-// seeds to their proper pause/report surface is Cluster 4's job
-// (contract §3.5); Cluster 1 only relocates *where* they are produced.
+// Phase 186 / Cluster 4 — the choice-bearing periodic seeds
+// (`debt_rent`, `monthly_review`) were re-homed to the *morning* pass via
+// `generateWith: ['morning_prep']`, so they surface at the morning pause
+// where the player can act on them (contract §3.5). This pass therefore no
+// longer runs the `end_week`/`end_month` timings, and the Cluster-1
+// closing-pass/boundary-pass dual generation + id-dedupe scaffold that
+// kept `debt_rent` on a daily cadence is gone — each periodic-choice seed
+// now has a single generation home in the morning pass.
 const closingHook: SimulationHook = (ctx: SimContext): void => {
-  runGenerationPass(ctx, ['closing', 'end_week', 'end_month'])
+  runGenerationPass(ctx, ['closing'])
 }
 
-// Phase 186 / Cluster 1 — weekly/monthly boundary surfaces. The engine
-// only runs `endWeek`/`endMonth` on the matching calendar boundary and
-// (by pipeline order) AFTER the weekly/monthly modules settle their
-// rollups, so a rollup-dependent seed like `monthly_review` (which needs
-// `lastMonthlyResult`) reads correct, post-rollup state here. Any seed
-// already produced by the `closing` pass today (e.g. `debt_rent`) is
-// deduped by id inside `runGenerationPass`, so these passes only ADD the
-// boundary-only seeds.
+// Phase 186 / Cluster 4 — weekly/monthly boundary surfaces are retained for
+// any *future* rollup-dependent boundary seed that genuinely cannot be read
+// before its rollup settles. After the Cluster-4 re-homing, no registered
+// generator targets these passes (`debt_rent`/`monthly_review` use
+// `generateWith: ['morning_prep']`), so they currently produce nothing —
+// `runGenerationPass` returns early when no generator matches. A future
+// generator opts in by declaring `end_week`/`end_month` as its
+// `generateWith` (or, by default, its render `timing`).
 const endWeekHook: SimulationHook = (ctx: SimContext): void => {
   runGenerationPass(ctx, ['end_week'])
 }

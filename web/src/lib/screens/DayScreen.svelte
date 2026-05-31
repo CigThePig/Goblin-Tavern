@@ -2,11 +2,19 @@
   DayScreen — the 5-beat day loop.
 
   Beats:
-    1. morning   — at-a-glance + pressures + morning_prep cards
+    1. morning   — at-a-glance + pressures + morning_prep cards +
+                   choice-bearing periodic cards (debt_rent, monthly_review)
     2. plan      — owner action picker + staff priority sheet
     3. service   — during_service deck (or skip-light)
-    4. closing   — closing + end_week + end_month deck
-    5. report    — minimal diff dialog (Phase 89 owns the full report)
+    4. closing   — closing deck
+    5. report    — minimal diff dialog (Phase 89 owns the full report);
+                   weekly/monthly digests are read-only report sections
+
+  Phase 186 / Day-Clock Cluster 4 — periodic-choice re-homing (contract
+  §3.5): choice-bearing periodic seeds (end_week/end_month, e.g. debt_rent
+  and the month-end monthly_review) moved OUT of the closing deck and INTO
+  the morning beat, where the moment to act has not yet passed. Their
+  informational counterparts (weekly/monthly digests) stay in the report.
 
   Player decisions accumulate in `pendingByseedId` (response intents per
   seed) and `picks` (owner actions) plus `staffPriorities` (sticky
@@ -74,13 +82,26 @@
   let transitioning = $state(false)
 
   // ── Derived seed slices ───────────────────────────────────────────
-  const morningSeeds = $derived(gameStore.seedsForTiming('morning_prep'))
+  // Phase 186 / Day-Clock Cluster 4 — periodic-choice re-homing
+  // (contract §3.5). Choice-bearing periodic seeds (`end_week`/`end_month`,
+  // e.g. `debt_rent`, `monthly_review`) now surface at the MORNING pause —
+  // where the player can still act on "pay rent or risk eviction" or the
+  // month-end review — instead of being buried in the closing deck. They
+  // are produced in the engine's morning generation pass (issueSeedModule
+  // `generateWith: ['morning_prep']`), so they are present at the morning
+  // beat. Informational weekly/monthly digests remain read-only report
+  // sections (`weeklyDigest`/`monthlyDigest`, rendered by DailyReport).
+  //
+  // Filtering the already-rank-sorted `todaysSeeds` (rather than
+  // concatenating per-timing slices) keeps morning cards in global
+  // severity/urgency rank, so a high-severity `debt_rent` is not buried
+  // beneath lower-severity standing conditions.
+  const MORNING_TIMINGS = ['morning_prep', 'end_week', 'end_month']
+  const morningSeeds = $derived(
+    gameStore.todaysSeeds.filter((s) => MORNING_TIMINGS.includes(s.timing)),
+  )
   const serviceSeeds = $derived(gameStore.seedsForTiming('during_service'))
-  const closingSeeds = $derived([
-    ...gameStore.seedsForTiming('closing'),
-    ...gameStore.seedsForTiming('end_week'),
-    ...gameStore.seedsForTiming('end_month'),
-  ])
+  const closingSeeds = $derived(gameStore.seedsForTiming('closing'))
 
   // Phase 96 — Quick Day eligibility. The morning beat surfaces the
   // single-tap shortcut when the engine produced zero valid seeds

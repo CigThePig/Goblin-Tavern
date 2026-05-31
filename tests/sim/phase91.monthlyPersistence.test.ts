@@ -197,11 +197,19 @@ describe('Phase 91 — Monthly result persistence', () => {
     expect(slice.monthlyHistory[yearFlipIndex]!.yearNumber).toBe(2)
   })
 
-  it('monthly_review issue seed is NOT regenerated on day 1 of the next month', () => {
-    // With `lastMonthlyResult` persisted, the `generateMonthlyReview`
-    // generator could in principle re-fire — but its
-    // `CONTRADICTION_GUARDS.monthly_review` guard gates on end-of-month
-    // timing, so day 29 should produce zero monthly_review seeds.
+  it('a problem-free tavern surfaces no monthly_review on day 1 of the next month', () => {
+    // Phase 186 / Cluster 4 — `monthly_review` was re-homed to the first
+    // morning of the new month (contract §3.5): it is produced in the
+    // `startDay` morning pass, gated on `lastMonthlyResult` +
+    // `calendar.day === 1`. But the generator still only fires when the
+    // just-closed month left something worth reviewing — it needs recent
+    // monthly/rent/reputation causes. This `startingState()` tavern hoards
+    // 50,000 coin and 5,000 of every stock, so it pays rent on time and
+    // accrues no debt/reputation causes; day 29 (the first morning of
+    // month 2) therefore has nothing to review and produces zero
+    // monthly_review seeds. (The fired-on-day-1 path is covered by
+    // phase59.monthlyReview.) `lastMonthlyResult` persistence — this file's
+    // actual subject — is asserted by the surrounding tests.
     const month1End = runDays(startingState(), 28)
     const day29 = simulateDay(month1End, { seed: `${SEED}-d29` }, FULL_PIPELINE)
     const seedsReport = day29.reports.find((r) => r.id === 'issue_seeds')

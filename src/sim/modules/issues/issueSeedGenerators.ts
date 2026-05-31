@@ -3931,6 +3931,12 @@ export const REQUIRED_SEED_GENERATORS: IssueSeedGenerator[] = [
     family: 'debt_rent',
     domain: ['economy', 'monthly'],
     timing: ['end_month'],
+    // Phase 186 / Cluster 4 — a standing debt/rent condition, not a
+    // month-end rollup: fires whenever arrears / low coin / debt pressure
+    // hold, on any day. Produced in the morning pass so the "pay rent or
+    // risk eviction" choice reaches the morning pause (contract §3.5); the
+    // emitted seed keeps its `end_month` card timing.
+    generateWith: ['morning_prep'],
     generate: generateDebtRent,
   },
   {
@@ -3952,6 +3958,16 @@ export const REQUIRED_SEED_GENERATORS: IssueSeedGenerator[] = [
     family: 'monthly_review',
     domain: ['monthly', 'economy'],
     timing: ['end_month'],
+    // Phase 186 / Cluster 4 — the just-finalized month's review is a
+    // standing reflection the player acts on the first morning of the new
+    // month, not a card buried in the month-end closing deck (contract
+    // §3.5). Produced in the morning pass; the guard reads the persisted
+    // `lastMonthlyResult` and gates on `calendar.day === 1` so it fires
+    // once, the morning after `endMonth` wrote the rollup. This is the
+    // proper fix for the Cluster-1 "monthly_review can't resolve same-day"
+    // limitation — it now resolves at that morning's pause like any other
+    // morning seed.
+    generateWith: ['morning_prep'],
     generate: generateMonthlyReview,
   },
 ]

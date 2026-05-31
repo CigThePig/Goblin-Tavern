@@ -273,7 +273,13 @@ describe('Phase 19 §19.7 — Family generators (vertical slice)', () => {
     for (const id of Object.keys(base.stock)) {
       base = withStock(base, id, { quantity: 0 })
     }
-    const result = runDay(base)
+    // Phase 186 / Cluster 4 — `debt_rent` is now produced in the morning
+    // (`startDay`) pass, reading the PRIOR day's closing pressure snapshot
+    // (the standing debt condition known at sunrise, contract §3.1). Warm
+    // one day to populate that snapshot, then assert on the morning that
+    // surfaces the seed — the same `seedDay` idiom the other morning-timed
+    // families use.
+    const result = seedDay(base)
     const seeds = getIssueSeeds(result.state, { family: 'debt_rent' })
     expect(seeds.length).toBeGreaterThan(0)
     expect(seeds[0]!.causes.length).toBeGreaterThanOrEqual(1)

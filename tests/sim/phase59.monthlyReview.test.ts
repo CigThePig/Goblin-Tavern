@@ -53,30 +53,38 @@ function getResponsesSlice(state: TavernState): ResponsesModuleState {
 }
 
 /**
- * Advance the simulation to the end of month 1 — the day where
- * `isEndOfMonth(calendar) === true` and `monthlyModule.endDay` has
- * just finalized. Returns the state after day 28.
+ * Phase 186 / Day-Clock Cluster 4 — advance to the morning that surfaces
+ * month 1's review. `monthly_review` was re-homed from the month-end
+ * closing deck to the *first morning of the next month* (contract §3.5):
+ * it is produced in the `startDay` morning pass, gated on the persisted
+ * `lastMonthlyResult` + `calendar.day === 1`. So day 28 (`endMonth`) writes
+ * the rollup, and the 29th `runDay` — the first morning of month 2 —
+ * generates the seed at `startDay`. Returns state after 29 days, with the
+ * `monthly_review` seed sitting in `seedsToday`, resolvable at that
+ * morning's pause like any other morning seed.
  */
-function advanceToMonthEnd(): TavernState {
+function advanceToMonthlyReview(): TavernState {
   let state = plentyOfStock(createInitialTavernState())
-  for (let i = 0; i < 28; i += 1) {
+  for (let i = 0; i < 29; i += 1) {
     state = runDay(state).state
   }
   return state
 }
 
 describe('Phase 59 §ISSUE-019 — Monthly review surface', () => {
-  it('fires the seed at month-end and exposes it through the next-day carry-over', () => {
-    // After 28 runDay iterations the calendar has rolled into day 1
-    // of month 2. The Phase 41 carry-over keeps yesterday's
-    // `seedsToday` visible until the next `generateReports` runs.
-    const state = advanceToMonthEnd()
+  it('surfaces the review seed on the first morning of the next month', () => {
+    // Phase 186 / Cluster 4 — `monthly_review` is generated in the morning
+    // (`startDay`) pass and gated on `calendar.day === 1` + a persisted
+    // `lastMonthlyResult`, so it appears on the first morning of month 2
+    // (the 29th `runDay`), where the player can act on it at the morning
+    // pause.
+    const state = advanceToMonthlyReview()
     const seeds = getIssueSeeds(state, { family: 'monthly_review' })
     expect(seeds.length).toBe(1)
   })
 
   it('promoted seed carries 3 or 4 distinct response slots', () => {
-    const state = advanceToMonthEnd()
+    const state = advanceToMonthlyReview()
     const seed = getIssueSeeds(state, { family: 'monthly_review' })[0]
     expect(seed).toBeDefined()
     const slotIds = seed!.responseSlots.map((s) => s.id)
@@ -90,7 +98,7 @@ describe('Phase 59 §ISSUE-019 — Monthly review surface', () => {
   })
 
   it('the promoted seed validates against the contract WITHOUT the removed bypasses', () => {
-    const state = advanceToMonthEnd()
+    const state = advanceToMonthlyReview()
     const seed = getIssueSeeds(state, { family: 'monthly_review' })[0]
     expect(seed).toBeDefined()
     const validation = validateSeed(seed!)
@@ -115,22 +123,20 @@ describe('Phase 59 §ISSUE-019 — Monthly review surface', () => {
 
 describe('Phase 59 §ISSUE-019 — Per-slot mutations', () => {
   function setup(): { state: TavernState; seed: IssueSeed } {
-    const state = advanceToMonthEnd()
+    const state = advanceToMonthlyReview()
     const seed = getIssueSeeds(state, { family: 'monthly_review' })[0]
     expect(seed).toBeDefined()
     return { state, seed: seed! }
   }
 
-  // Phase 186 / Cluster 1 — `monthly_review` is generated at `endMonth`,
-  // AFTER the engine's `applyResponses` phase (the rollup writes
-  // `lastMonthlyResult` that the seed reads). A month-end choice therefore
-  // cannot resolve the same day in the single-call engine; re-homing it to
-  // the next morning's pause is Cluster 4's job (contract §3.5/§4.4).
-  // Until then these per-slot assertions exercise the consequence profile
-  // directly through the pure resolver, which applies exactly the response
-  // to the settled month-end state — isolating the response delta without
-  // the day's natural recalculation (so the pre-response `state` is the
-  // control).
+  // Phase 186 / Cluster 4 — `monthly_review` is now produced on the first
+  // morning of the new month (the `startDay` pass), so it *can* resolve
+  // same-day at the morning pause. These per-slot assertions still exercise
+  // the consequence profile directly through the pure resolver because that
+  // isolates the response delta cleanly — applying exactly the response to
+  // the settled state without the day's natural recalculation (so the
+  // pre-response `state` is an exact control). Same-day engine resolution
+  // is covered by the morning-pass generation test above.
   function compareSlot(
     slotId: string,
     verb: ResponseIntent['verb'],
@@ -172,6 +178,12 @@ describe('Phase 59 §ISSUE-019 — Per-slot mutations', () => {
       state = runDay(state).state
     }
     state = { ...state, coin: 5 }
+    // Day 28 — month-end: `resolveRent` runs and (coin drained) leaves the
+    // month unpaid, writing the `lastMonthlyResult` the review reads.
+    state = runDay(state).state
+    // Phase 186 / Cluster 4 — day 29 (first morning of month 2): the
+    // morning pass generates `monthly_review` reading that persisted,
+    // unpaid `lastMonthlyResult`.
     state = runDay(state).state
     const seed = getIssueSeeds(state, { family: 'monthly_review' })[0]
     expect(seed).toBeDefined()
@@ -226,7 +238,7 @@ describe('Phase 59 §ISSUE-019 — Per-slot mutations', () => {
   })
 
   it('settle_with_rival spends coin and lowers rival_tavern_pressure vs control (when rival_taverns is seeded)', () => {
-    const state = advanceToMonthEnd()
+    const state = advanceToMonthlyReview()
     const hasRival = Boolean(state.world.factions['rival_taverns'])
     if (!hasRival) {
       // The settle_with_rival slot only renders when the rival_taverns
@@ -257,7 +269,7 @@ describe('Phase 59 §ISSUE-019 — Delayed scheduling', () => {
       ['hold_reserves', 'delay', 'compromise'],
       ['settle_with_rival', 'negotiate', 'compromise'],
     ]
-    const baseAtMonthEnd = advanceToMonthEnd()
+    const baseAtMonthEnd = advanceToMonthlyReview()
     const seed = getIssueSeeds(baseAtMonthEnd, { family: 'monthly_review' })[0]
     expect(seed).toBeDefined()
     for (const [slotId, verb, shape] of slots) {

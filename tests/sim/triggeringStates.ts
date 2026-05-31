@@ -737,12 +737,16 @@ export function buildRivalTavernSystemTriggeringState(): TavernState {
 }
 
 export function buildMonthlyReviewTriggeringState(): TavernState {
-  // monthly_review fires only on the last day of the month (day === 28)
-  // AND requires `state.modules.monthly.lastMonthlyResult` populated by
-  // `monthlyModule.endMonth`. captureSeedShape itself runs one more
-  // `runOneDay` after this helper returns, so we advance exactly 27 days
-  // here — leaving calendar.day on 28 for the capture day to fire the
-  // generator. Cost: one-off at module load (~0.8s).
+  // Phase 186 / Cluster 4 — monthly_review was re-homed to the first
+  // morning of the new month: it is produced in the `startDay` pass, gated
+  // on a persisted `lastMonthlyResult` (written by `monthlyModule.endMonth`
+  // on day 28) AND `calendar.day === 1`. We advance exactly 27 days here;
+  // captureSeedShape then runs the capture day (day 28 — month-end, which
+  // writes `lastMonthlyResult` but does not yet fire the review) and, on
+  // finding nothing, runs its built-in one-day warm-up (day 29 — the first
+  // morning of month 2), where the morning pass fires the generator. So
+  // 27 + capture + warm-up lands exactly on day 29. Cost: one-off at module
+  // load (~0.8s).
   let state = plentyOfStock(createInitialTavernState())
   const seed: SimInput = { seed: 'phase163-monthly-review-trigger' }
   for (let i = 0; i < 27; i += 1) {

@@ -135,9 +135,26 @@ export const CONTRADICTION_GUARDS: Record<
     return { allowed: true }
   },
   monthly_review(ctx) {
-    // Only emits on end of month.
-    if (!ctx.isEndOfMonth()) {
-      return { allowed: false, reason: 'Not end of month' }
+    // Phase 186 / Cluster 4 — re-homed from the month-end closing deck to
+    // the first morning of the *next* month, where the player acts on the
+    // just-finalized month's review as a standing reflection (contract
+    // §3.5). Fires once per month: `lastMonthlyResult` must be present
+    // (written by the previous day's `endMonth` rollup and persisted), and
+    // the calendar must have ticked to day 1 of the new month. On day 1 of
+    // month 1 there is no prior month, so `lastMonthlyResult` is absent and
+    // the guard blocks; on days 2–28 `calendar.day !== 1` blocks
+    // regeneration.
+    const monthly = ctx.state.modules.monthly as
+      | { lastMonthlyResult?: unknown }
+      | undefined
+    if (!monthly?.lastMonthlyResult) {
+      return { allowed: false, reason: 'No finalized month to review yet' }
+    }
+    if (ctx.state.calendar.day !== 1) {
+      return {
+        allowed: false,
+        reason: 'Monthly review surfaces on the first morning of the new month',
+      }
     }
     return { allowed: true }
   },

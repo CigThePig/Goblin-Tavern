@@ -93,10 +93,14 @@ export function captureSeedShape(opts: CaptureOptions): CapturedSeedShape {
     // closing pressure snapshot, so a single day from a hand-built
     // triggering state has no snapshot yet and fires nothing. The first
     // day populates the snapshot; running one more day lets the
-    // snapshot-gated seed fire. Boundary families (e.g. `monthly_review`,
-    // which fires at `endMonth` on the month-end triggering state) already
-    // produced a seed above and skip this path — important, because a
-    // blind warm-up day would advance the calendar PAST the month boundary.
+    // snapshot-gated seed fire.
+    //
+    // Phase 186 / Cluster 4 — this warm-up day is also exactly what the
+    // re-homed `monthly_review` needs: its month-end triggering state stops
+    // on day 28 (the capture day writes `lastMonthlyResult` but the review
+    // no longer fires at `endMonth`), and this warm-up advances to day 29 —
+    // the first morning of the new month — where the morning pass fires it.
+    // Advancing past the month boundary is now correct, not a hazard.
     result = runOneDay(result.state, {
       seed: `phase163-capture-${opts.cacheKey}-warm`,
     })

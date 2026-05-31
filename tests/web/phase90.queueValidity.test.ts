@@ -15,7 +15,7 @@ import {
 } from '../../src/sim/modules/ownerActions/readonlyHelpers'
 import { actionRegistry } from '../../src/sim/registries/actionRegistry'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
-import { ACTION_POINT_BUDGET } from '../../web/src/lib/sim/actionBuilder'
+import { DAY_MINUTES } from '../../web/src/lib/sim/actionBuilder'
 
 describe('Phase 90 — owner-action queue gate', () => {
   it('rejects the action when budget is already full', () => {
@@ -37,7 +37,7 @@ describe('Phase 90 — owner-action queue gate', () => {
       def,
       state,
       'ghost_stock_item',
-      ACTION_POINT_BUDGET,
+      DAY_MINUTES,
     )
     expect(reason).toBe('invalid target')
   })
@@ -49,7 +49,7 @@ describe('Phase 90 — owner-action queue gate', () => {
       def,
       state,
       undefined,
-      ACTION_POINT_BUDGET,
+      DAY_MINUTES,
     )
     expect(reason).toBe('no target')
   })
@@ -62,7 +62,7 @@ describe('Phase 90 — owner-action queue gate', () => {
       def,
       state,
       stockId,
-      ACTION_POINT_BUDGET,
+      DAY_MINUTES,
     )
     expect(reason).toBeUndefined()
   })
@@ -78,8 +78,8 @@ describe('Phase 90 — owner-action queue gate', () => {
     expect(actionDisabledReason(def, state, 0)).toBe('budget full')
   })
 
-  it('ACTION_POINT_BUDGET is the canonical daily cap', () => {
-    expect(ACTION_POINT_BUDGET).toBeGreaterThan(0)
-    expect(Number.isInteger(ACTION_POINT_BUDGET)).toBe(true)
+  it('DAY_MINUTES is the canonical daily cap', () => {
+    expect(DAY_MINUTES).toBeGreaterThan(0)
+    expect(Number.isInteger(DAY_MINUTES)).toBe(true)
   })
 })

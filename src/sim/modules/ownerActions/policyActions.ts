@@ -1,6 +1,7 @@
 import type { SimContext } from '../../core/context'
 
 import {
+  TIME_COST_QUICK,
   getOwnerActionsModuleState,
   writePoliciesSlice,
 } from './stateHelpers'
@@ -172,7 +173,7 @@ function recordPolicyChange(
     actionId: `${enabled ? 'enable' : 'disable'}_${starter.policyType}`,
     label: `${enabled ? 'Enable' : 'Disable'} ${starter.label}`,
     targetId: starter.id,
-    actionPointCost: 1,
+    actionPointCost: TIME_COST_QUICK,
     effects,
     data: {
       policyId: starter.id,
@@ -192,7 +193,7 @@ function buildEnableDefinition(
     category: 'policy',
     tags: [...starter.tags, 'enable'],
     targetType: 'policy',
-    actionPointCost: 1,
+    actionPointCost: TIME_COST_QUICK,
     getValidTargets: listPolicies,
     canApply: (ctx) => {
       const slice = getOwnerActionsModuleState(ctx.state)
@@ -225,7 +226,7 @@ function buildDisableDefinition(
     category: 'policy',
     tags: [...starter.tags, 'disable'],
     targetType: 'policy',
-    actionPointCost: 1,
+    actionPointCost: TIME_COST_QUICK,
     getValidTargets: listPolicies,
     canApply: (ctx) => {
       const slice = getOwnerActionsModuleState(ctx.state)

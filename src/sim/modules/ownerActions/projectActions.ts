@@ -3,6 +3,9 @@ import type { SimContext } from '../../core/context'
 import { spendCoin } from '../stock/ledger'
 
 import {
+  TIME_COST_QUICK,
+  TIME_COST_SHORT,
+  TIME_COST_STANDARD,
   getOwnerActionsModuleState,
   writeProjectsSlice,
 } from './stateHelpers'
@@ -21,7 +24,7 @@ import type {
 // with a required progress count and an effects preview. The project
 // progress hook (`endDay` in ownerActionsModule) advances active
 // projects by one progress point per day; players may also spend extra
-// action points via `fund_active_project` for a faster build.
+// time (and coin) via `fund_active_project` for a faster build.
 //
 // When a project completes the project tick applies a structural effect —
 // adding a trait to the targeted area when the Phase 28 trait registry
@@ -172,7 +175,7 @@ function buildStartProjectDefinition(
     category: 'project',
     tags: starter.tags,
     targetType: 'area',
-    actionPointCost: 1,
+    actionPointCost: TIME_COST_STANDARD,
     getValidTargets: () => [
       {
         id: starter.targetAreaId,
@@ -252,7 +255,7 @@ function buildStartProjectDefinition(
         actionId: starter.id,
         label: starter.label,
         targetId: starter.targetAreaId,
-        actionPointCost: 1,
+        actionPointCost: TIME_COST_STANDARD,
         effects: [
           `project ${starter.projectType} started`,
           `coin -${starter.initialCoinCost}`,
@@ -280,7 +283,7 @@ const fundActiveProject: OwnerActionDefinition = {
   category: 'project',
   tags: ['project', 'fund'],
   targetType: 'project',
-  actionPointCost: 1,
+  actionPointCost: TIME_COST_SHORT,
   getValidTargets: (ctx: SimContext) => {
     const slice = getOwnerActionsModuleState(ctx.state)
     return Object.values(slice.projects)
@@ -331,7 +334,7 @@ const fundActiveProject: OwnerActionDefinition = {
       actionId: fundActiveProject.id,
       label: `Funded ${project.label}`,
       targetId: project.id,
-      actionPointCost: 1,
+      actionPointCost: TIME_COST_SHORT,
       effects: [
         `progress ${beforeProgress} → ${updated.progress}`,
         `coinInvested ${beforeCoin} → ${updated.coinInvested}`,
@@ -353,7 +356,7 @@ const cancelProject: OwnerActionDefinition = {
   category: 'project',
   tags: ['project', 'cancel'],
   targetType: 'project',
-  actionPointCost: 1,
+  actionPointCost: TIME_COST_QUICK,
   getValidTargets: (ctx: SimContext) => {
     const slice = getOwnerActionsModuleState(ctx.state)
     return Object.values(slice.projects)
@@ -390,7 +393,7 @@ const cancelProject: OwnerActionDefinition = {
       actionId: cancelProject.id,
       label: `Cancelled ${project.label}`,
       targetId: project.id,
-      actionPointCost: 1,
+      actionPointCost: TIME_COST_QUICK,
       effects: [`project ${project.projectType} cancelled`],
       data: {
         projectId: project.id,

@@ -11,6 +11,7 @@ import type {
   OwnerActionDefinition,
   OwnerActionInput,
 } from './types'
+import { TIME_COST_STANDARD, TIME_COST_HEAVY } from './stateHelpers'
 
 // Phase 86 / ISSUE-046 — staff-management owner actions.
 //
@@ -72,7 +73,9 @@ const hireStaffAction: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['staff', 'hire'],
   targetType: 'staff',
-  actionPointCost: 1,
+  // Hiring is a big commitment — interviewing and onboarding a new hand
+  // eats most of the day.
+  actionPointCost: TIME_COST_HEAVY,
   getValidTargets: listHireableRoles,
   canApply: (ctx, input) => {
     if (!input.targetId) {
@@ -168,7 +171,7 @@ const hireStaffAction: OwnerActionDefinition = {
       actionId: HIRE_STAFF_ACTION_ID,
       label: 'Hired Staff',
       targetId: hireId,
-      actionPointCost: 1,
+      actionPointCost: TIME_COST_HEAVY,
       effects: [
         `Hired ${generatedName.display} (${def.label}).`,
         `coin -${HIRE_STAFF_COST}`,
@@ -204,7 +207,7 @@ const fireStaffAction: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['staff', 'fire'],
   targetType: 'staff',
-  actionPointCost: 1,
+  actionPointCost: TIME_COST_STANDARD,
   getValidTargets: listFireableStaff,
   canApply: (ctx, input) => {
     if (!input.targetId) {
@@ -277,7 +280,7 @@ const fireStaffAction: OwnerActionDefinition = {
       actionId: FIRE_STAFF_ACTION_ID,
       label: 'Fired Staff',
       targetId: firedId,
-      actionPointCost: 1,
+      actionPointCost: TIME_COST_STANDARD,
       effects: [
         `Fired ${firedName} (${firedRole}).`,
         `Remaining staff morale -${FIRE_MORALE_HIT} each.`,
@@ -311,7 +314,7 @@ const banCustomerGroupAction: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['customers', 'ban', 'social'],
   targetType: 'customer_group',
-  actionPointCost: 1,
+  actionPointCost: TIME_COST_STANDARD,
   getValidTargets: listCustomerGroups,
   canApply: (ctx, input) => {
     if (!input.targetId) {
@@ -396,7 +399,7 @@ const banCustomerGroupAction: OwnerActionDefinition = {
       actionId: BAN_CUSTOMER_GROUP_ACTION_ID,
       label: 'Banned Customer Group',
       targetId: groupId,
-      actionPointCost: 1,
+      actionPointCost: TIME_COST_STANDARD,
       effects: [
         `${group.label} patronage ${beforePatronage} → 0.`,
         `${group.label} loyalty ${beforeLoyalty} → ${Math.max(0, beforeLoyalty - 10)}.`,

@@ -14,7 +14,7 @@
   import MissedOpportunities from './MissedOpportunities.svelte'
   import PressureCard from './PressureCard.svelte'
   import TermLabel from './TermLabel.svelte'
-  import { gameStore } from '../sim/gameStore.svelte'
+  import { gameStore, formatDuration } from '../sim/gameStore.svelte'
   import type {
     DailyReportData,
     ReportDiffLine,
@@ -219,7 +219,9 @@
             <div class="ledger-body">
               <span class="ledger-line">
                 {a.label}{#if a.targetLabel || a.targetId} · {a.targetLabel ?? a.targetId}{/if}
-                <span class="ledger-cost tag">({a.actionPointCost} pt)</span>
+                {#if a.actionPointCost > 0}
+                  <span class="ledger-cost tag">({formatDuration(a.actionPointCost)})</span>
+                {/if}
               </span>
               {#if a.effects.length > 0}
                 <span class="ledger-sub tag">{a.effects.slice(0, 2).join(' · ')}</span>

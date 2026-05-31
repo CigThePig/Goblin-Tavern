@@ -114,11 +114,11 @@ describe('Phase 92 — toggle_recipe_menu owner action', () => {
     }
   })
 
-  it('does not consume an action point against the daily budget', () => {
+  it('does not consume time against the daily budget', () => {
     let state = createInitialTavernState()
     const recipeId = findOnMenuRecipe(state)
     // Queue three regular actions plus a toggle in one day; only the
-    // three should consume action points. The toggle should still apply.
+    // three should consume owner time. The toggle (zero-time) still applies.
     const result = runOneDay(state, {
       seed: `${SEED}-budget`,
       ownerActions: [
@@ -129,7 +129,7 @@ describe('Phase 92 — toggle_recipe_menu owner action', () => {
       ],
     })
     state = result.state
-    // All four should land — toggle costs 0, three cleans cost 3 (the cap).
+    // All four should land — toggle costs 0m, three cleans cost 360m (the cap).
     expect(state.recipes[recipeId]?.onMenu).toBe(false)
   })
 })

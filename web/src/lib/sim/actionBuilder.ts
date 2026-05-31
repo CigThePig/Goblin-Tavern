@@ -4,8 +4,8 @@
 //   - list available actions by category,
 //   - query a definition's valid targets against the current state,
 //   - format a SimInputOwnerAction for `gameStore.runDay`,
-//   - track the running action-point total so the 3-point cap can be
-//     enforced before submission.
+//   - track the running time total (minutes) so the daily time budget
+//     (`DAY_MINUTES`) can be enforced before submission.
 //
 // Phase 92 moved the read-only ctx + canApply / disabledReason / target
 // helpers down into `src/sim/modules/ownerActions/readonlyHelpers.ts`
@@ -35,8 +35,16 @@ import type {
 } from '../../../../src/sim/modules/ownerActions/types'
 import type { SimInputOwnerAction } from '../../../../src/sim/core/context'
 import type { TavernState } from '../../../../src/sim/state/TavernState'
+import {
+  DAY_MINUTES,
+  TIME_COST_QUICK,
+  formatDuration,
+} from '../../../../src/sim/modules/ownerActions/stateHelpers'
 
-export const ACTION_POINT_BUDGET = 3
+// Phase 186 Cluster 3 — the daily owner budget is now MINUTES, sourced
+// from the single sim-side constant so the web cannot drift from the
+// engine's gate. Re-exported under its time-denominated name.
+export { DAY_MINUTES, formatDuration }
 
 export type PickedAction = {
   /** Unique per pick; the picker uses this to dedupe and remove. */
@@ -85,7 +93,12 @@ export function picksToInputs(
   })
 }
 
-export function totalActionPoints(picks: ReadonlyArray<PickedAction>): number {
+/**
+ * Total minutes across the queued picks. Phase 186 Cluster 3 — the queue
+ * budget is time now; `actionPointCost` holds minutes (serialized field
+ * name retained, rename deferred to Cluster 7).
+ */
+export function totalQueuedMinutes(picks: ReadonlyArray<PickedAction>): number {
   return picks.reduce((n, p) => n + p.actionPointCost, 0)
 }
 
@@ -292,7 +305,7 @@ function buildPolicyToggleRow(
     effects: starter.effects[0] ?? '',
     enabled,
     actionId,
-    actionPointCost: 1,
+    actionPointCost: TIME_COST_QUICK,
     queued,
   }
 
@@ -305,7 +318,7 @@ function buildPolicyToggleRow(
   // already queued, tapping cancels the pick so the budget check is
   // skipped for the queued state.
   if (!queued && !inverseQueued && pointsLeft < row.actionPointCost) {
-    row.disabledReason = `${row.actionPointCost} pt — out of action points`
+    row.disabledReason = `${formatDuration(row.actionPointCost)} — out of time`
   }
 
   if (starter.conflictsWith && starter.conflictsWith.length > 0) {

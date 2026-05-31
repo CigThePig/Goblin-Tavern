@@ -128,7 +128,7 @@
       options['targetIngredientId'] = ingredientId
     }
     // Phase 90 / ISSUE-050 — Commission goes through tryAddPick so the
-    // action-point budget gate matches the central picker. Surface the
+    // time budget gate matches the central picker. Surface the
     // reason inline if it fails (typically a budget conflict).
     const result = gameStore.tryAddPick({
       actionId: COMMISSION_EXPEDITION_ACTION_ID,

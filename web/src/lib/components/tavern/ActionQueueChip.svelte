@@ -3,17 +3,21 @@
   queue from the Tavern screen. Tap to open the ActionPicker.
 
   Only renders when gameStore.picks is non-empty. Turns blood-tinted
-  when over the action-point budget (the engine rejects overflow on
+  when over the daily time budget (the engine rejects overflow on
   apply, but the player should see it coming).
 -->
 <script lang="ts">
-  import { gameStore, ACTION_POINT_BUDGET } from '../../sim/gameStore.svelte'
+  import {
+    gameStore,
+    DAY_MINUTES,
+    formatDuration,
+  } from '../../sim/gameStore.svelte'
 
   let { onopen }: { onopen: () => void } = $props()
 
   const count = $derived(gameStore.picks.length)
-  const points = $derived(gameStore.actionPointsQueued)
-  const overBudget = $derived(points > ACTION_POINT_BUDGET)
+  const minutes = $derived(gameStore.minutesQueued)
+  const overBudget = $derived(minutes > DAY_MINUTES)
 </script>
 
 {#if count > 0}
@@ -23,17 +27,15 @@
     class:over={overBudget}
     onclick={onopen}
     aria-label={overBudget
-      ? 'Over the daily action budget — open action queue to trim'
+      ? 'Over the daily time budget — open action queue to trim'
       : 'Open action queue'}
   >
     <span class="label tag">
       {overBudget ? 'Over budget' : 'Action queue'}
     </span>
     <span class="counts mono">
-      {points} / {ACTION_POINT_BUDGET}
-      {#if count !== points}
-        <span class="extra">({count} picks)</span>
-      {/if}
+      {formatDuration(minutes)} / {formatDuration(DAY_MINUTES)}
+      <span class="extra">({count} {count === 1 ? 'pick' : 'picks'})</span>
     </span>
   </button>
 {/if}

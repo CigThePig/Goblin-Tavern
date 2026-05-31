@@ -11,7 +11,7 @@
 export {
   ownerActionsModule,
   OWNER_ACTIONS_MODULE_ID,
-  DEFAULT_ACTION_POINT_BUDGET,
+  DAY_MINUTES,
   createInitialOwnerActionsModuleState,
   getOwnerActionsModuleState,
   actionRegistry,

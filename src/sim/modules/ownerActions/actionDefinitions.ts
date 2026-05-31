@@ -17,12 +17,19 @@ import type {
   OwnerActionDefinition,
   OwnerActionInput,
 } from './types'
+import {
+  TIME_COST_TRIVIAL,
+  TIME_COST_QUICK,
+  TIME_COST_SHORT,
+  TIME_COST_STANDARD,
+  TIME_COST_HEAVY,
+} from './stateHelpers'
 
 // Phase 13 §13.3–13.12 — Owner action definitions.
 //
 // Each definition is data-driven (§13.1 — registry-shaped): an id, label,
-// tags, action-point cost, target enumerator, validator, and apply
-// function. `apply` routes mutations through `ctx.modify*` helpers; coin
+// tags, time cost (in minutes; Phase 186 Cluster 3), target enumerator,
+// validator, and apply function. `apply` routes mutations through `ctx.modify*` helpers; coin
 // flows through the Phase 9 ledger (`spendCoin` / `restockItem`) so the
 // daily ledger captures every coin movement caused by player intervention.
 
@@ -64,7 +71,7 @@ const cleanArea: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['cleanliness', 'maintenance'],
   targetType: 'area',
-  actionPointCost: 1,
+  actionPointCost: TIME_COST_STANDARD,
   getValidTargets: listAreas,
   canApply: (ctx, input) => {
     if (!input.targetId) return reject('missing_target', 'clean_area requires targetId')
@@ -163,7 +170,7 @@ const repairArea: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['repair', 'maintenance'],
   targetType: 'area',
-  actionPointCost: 1,
+  actionPointCost: TIME_COST_STANDARD,
   getValidTargets: listAreas,
   canApply: (ctx, input) => {
     if (!input.targetId) return reject('missing_target', 'repair_area requires targetId')
@@ -274,7 +281,7 @@ const restockItemAction: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['supply', 'stock'],
   targetType: 'stock',
-  actionPointCost: 1,
+  actionPointCost: TIME_COST_SHORT,
   getValidTargets: listStock,
   canApply: (ctx, input) => {
     if (!input.targetId) return reject('missing_target', 'restock_item requires targetId')
@@ -393,7 +400,7 @@ const adjustPrices: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['pricing', 'economy'],
   targetType: 'stock',
-  actionPointCost: 1,
+  actionPointCost: TIME_COST_QUICK,
   getValidTargets: listStock,
   canApply: (ctx, input) => {
     if (!input.targetId) return reject('missing_target', 'adjust_prices requires targetId')
@@ -443,7 +450,7 @@ const payStaffBonus: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['staff', 'wages'],
   targetType: 'staff',
-  actionPointCost: 1,
+  actionPointCost: TIME_COST_QUICK,
   getValidTargets: listStaff,
   canApply: (ctx, input) => {
     if (!input.targetId) return reject('missing_target', 'pay_staff_bonus requires targetId')
@@ -529,7 +536,7 @@ const waterDownAle: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['stock', 'cheat', 'risk'],
   targetType: 'stock',
-  actionPointCost: 1,
+  actionPointCost: TIME_COST_SHORT,
   getValidTargets: (ctx) => {
     const ale = ctx.state.stock['ale']
     return ale ? [{ id: ale.id, label: ale.label, hint: `qty ${ale.quantity}` }] : []
@@ -618,7 +625,7 @@ const improveStew: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['stock', 'food_quality'],
   targetType: 'stock',
-  actionPointCost: 1,
+  actionPointCost: TIME_COST_SHORT,
   getValidTargets: (ctx) => {
     const stew = ctx.state.stock['stew']
     return stew ? [{ id: stew.id, label: stew.label }] : []
@@ -704,7 +711,7 @@ const patchRoof: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['repair', 'roof', 'weather'],
   targetType: 'area',
-  actionPointCost: 1,
+  actionPointCost: TIME_COST_HEAVY,
   getValidTargets: (ctx) => {
     const roof = ctx.state.areas['roof']
     return roof
@@ -793,7 +800,7 @@ const fumigateCellar: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['cellar', 'pests', 'sanitation'],
   targetType: 'area',
-  actionPointCost: 1,
+  actionPointCost: TIME_COST_HEAVY,
   getValidTargets: (ctx) => {
     const cellar = ctx.state.areas['cellar']
     return cellar
@@ -873,7 +880,7 @@ const buyMugs: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['stock', 'supply', 'service_capacity'],
   targetType: 'stock',
-  actionPointCost: 1,
+  actionPointCost: TIME_COST_QUICK,
   getValidTargets: (ctx) => {
     const mugs = ctx.state.stock['mugs']
     return mugs ? [{ id: mugs.id, label: mugs.label, hint: `qty ${mugs.quantity}` }] : []
@@ -923,18 +930,17 @@ const buyMugs: OwnerActionDefinition = {
 // ---------- 13.13 toggle_recipe_menu ----------
 
 // Phase 92 — Recipes panel needs a player-driven way to flip the
-// `RecipeState.onMenu` flag. Zero AP cost: this is a logistical toggle,
+// `RecipeState.onMenu` flag. Zero time cost: this is a logistical toggle,
 // not a labor action. If the cook lacks the skill or the kitchen lacks
 // the ingredients, the service code already refuses to serve the dish;
-// charging an action point for the toggle itself would punish menu
-// experimentation.
+// charging time for the toggle itself would punish menu experimentation.
 const toggleRecipeMenu: OwnerActionDefinition = {
   id: 'toggle_recipe_menu',
   label: 'Toggle Recipe On/Off Menu',
   category: 'immediate',
   tags: ['recipe', 'menu', 'logistics'],
   targetType: 'recipe',
-  actionPointCost: 0,
+  actionPointCost: TIME_COST_TRIVIAL,
   getValidTargets: (ctx) =>
     Object.values(ctx.state.recipes).map((r) => ({
       id: r.id,

@@ -63,10 +63,11 @@ export type SimInput = {
   /** Seed for the deterministic RNG threaded through `ctx.rng`. */
   seed: string
   /**
-   * Phase 13 §13.2 — per-day owner action input. Up to 3 action points
-   * may be consumed per day; the owner-actions module enforces the
-   * budget and rejects entries that overflow it, reference an unknown
-   * action id, or fail the action's `canApply`.
+   * Phase 13 §13.2 — per-day owner action input. Owner actions draw from
+   * a daily time budget (`DAY_MINUTES`; Phase 186 Cluster 3 converted the
+   * old 3-slot action-point budget into minutes); the owner-actions
+   * module enforces the budget and rejects entries that overflow it,
+   * reference an unknown action id, or fail the action's `canApply`.
    */
   ownerActions?: ReadonlyArray<SimInputOwnerAction>
   /**

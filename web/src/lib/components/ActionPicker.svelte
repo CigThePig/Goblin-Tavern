@@ -2,12 +2,12 @@
   ActionPicker — owner-action picker bottom sheet.
 
   Tabbed by category (immediate / project / policy / social). Per-row:
-  label, action-point cost, tap-to-pick. Actions targeting a specific
+  label, time cost, tap-to-pick. Actions targeting a specific
   entity (area, staff, supplier, ...) push a second-level target picker.
   Global actions add immediately.
 
-  Picked actions appear as chips at the top; tap to remove. The 3-point
-  budget is the sticky chip at the bottom. Submitting calls `onsubmit`
+  Picked actions appear as chips at the top; tap to remove. The daily
+  time budget is the sticky chip at the bottom. Submitting calls `onsubmit`
   with the SimInputOwnerAction[] for `gameStore.runDay`.
 -->
 <script lang="ts">
@@ -15,15 +15,16 @@
   import TermLabel from './TermLabel.svelte'
   import { gameStore } from '../sim/gameStore.svelte'
   import {
-    ACTION_POINT_BUDGET,
+    DAY_MINUTES,
     actionDisabledReason,
     categoryLabel,
+    formatDuration,
     getActionCategories,
     listActionsByCategory,
     listPolicyToggleRows,
     listValidTargets,
     nextPickId,
-    totalActionPoints,
+    totalQueuedMinutes,
     type PickedAction,
     type PolicyToggleRow,
   } from '../sim/actionBuilder'
@@ -50,8 +51,8 @@
 
   // Phase 92 — picks live on gameStore so any screen can read/write them.
   const picks = $derived(gameStore.picks)
-  const pointsUsed = $derived(totalActionPoints(picks))
-  const pointsLeft = $derived(ACTION_POINT_BUDGET - pointsUsed)
+  const minutesUsed = $derived(totalQueuedMinutes(picks))
+  const pointsLeft = $derived(DAY_MINUTES - minutesUsed)
 
   const actionsForTab = $derived(listActionsByCategory(tab))
 
@@ -225,7 +226,7 @@
         </div>
       {:else}
         <p class="unspent tag" aria-live="polite">
-          Your action points are unspent. Tap Done to skip planning.
+          Your day is unspent. Tap Done to skip planning.
         </p>
       {/if}
 
@@ -296,7 +297,11 @@
               >
                 <span class="action-head">
                   <span class="action-label">{def.label}</span>
-                  <span class="action-cost mono">{def.actionPointCost} pt</span>
+                  <span class="action-cost mono">
+                    {def.actionPointCost === 0
+                      ? 'free'
+                      : formatDuration(def.actionPointCost)}
+                  </span>
                 </span>
                 {#if reason}
                   <span class="action-reason tag">{reason}</span>
@@ -312,7 +317,9 @@
   {#snippet footer()}
     <div class="foot-row">
       <span class="budget mono" aria-live="polite">
-        <TermLabel term="action_points" label="action points" />: {pointsUsed} / {ACTION_POINT_BUDGET}
+        <TermLabel term="action_points" label="time" />: {formatDuration(
+          minutesUsed,
+        )} / {formatDuration(DAY_MINUTES)}
       </span>
       <button class="confirm" type="button" onclick={onclose}>
         Done

@@ -18,9 +18,55 @@ import type {
 
 export const OWNER_ACTIONS_MODULE_ID = 'ownerActions'
 
-// Phase 13 §"Action Point Limit" — 3 slots per day. Re-exported here so
-// the action-files do not depend on `ownerActionsModule.ts`.
-export const DEFAULT_ACTION_POINT_BUDGET = 3
+// Phase 186 (Cluster 3) — Day-clock time economy.
+//
+// The owner's day is a budget of MINUTES, not abstract "action points".
+// `DAY_MINUTES` is the length of the owner's working day; every owner
+// action draws minutes down from it through the same additive gate the
+// 3-slot action-point budget used (`used + cost > budget`). Only the
+// constants and their unit change — the gate structure is untouched
+// (contract §1.6, §3.8).
+//
+// 360 minutes == a six-hour owner workday, calibrated so three "standard"
+// chores (TIME_COST_STANDARD) fill the day — the same coarse ceiling the
+// old 3-slot budget gave, now denominated in time so costs can be
+// expressive. The exact value is a calibration decision deferred to
+// playtest (contract §6); keep it a single constant.
+//
+// NAMING DEBT (deliberate, documented): the *serialized* fields are still
+// named `actionPoint*` —
+// `OwnerActionsModuleState.actionPointsUsed`/`actionPointBudget`,
+// `OwnerActionApplied.actionPointCost`, and the persisted web
+// `PickedAction.actionPointCost`. They now hold MINUTES. Renaming those
+// identifiers would change the save shape and force a state migration,
+// which belongs with the in-flight save migration in Cluster 7 — so the
+// rename is deferred there (see phase-186 implementation notes). Until
+// then, read every `actionPoint*` field as "minutes".
+export const DAY_MINUTES = 360
+
+// Expressive minute-cost tiers for owner actions (starting calibration —
+// the contract §6 defers precise per-action tuning to playtest, so these
+// are coarse tiers, not finely-engineered numbers). A quiet word is
+// cheap; re-flagging the cellar eats most of the day (contract §3.8).
+export const TIME_COST_TRIVIAL = 0 // a pure logistics toggle (no labour)
+export const TIME_COST_QUICK = 30 // a quiet word, a chalkboard change
+export const TIME_COST_SHORT = 60 // a light hands-on task
+export const TIME_COST_STANDARD = 120 // a solid chore — a third of the day
+export const TIME_COST_HEAVY = 240 // a big job that eats most of the day
+
+/**
+ * Format a minute count as a short, human-readable duration for display
+ * (`0m`, `30m`, `2h`, `2h 30m`). Pure — safe to call from the report
+ * projection layer and the web UI alike.
+ */
+export function formatDuration(minutes: number): string {
+  const safe = Math.max(0, Math.round(minutes))
+  const hours = Math.floor(safe / 60)
+  const mins = safe % 60
+  if (hours === 0) return `${mins}m`
+  if (mins === 0) return `${hours}h`
+  return `${hours}h ${mins}m`
+}
 
 // Bounded ring for the social-action audit trail. Phase 33 §33.3 calls
 // out that `recentSocialActions` must not grow unbounded; the weekly
@@ -30,7 +76,7 @@ export const RECENT_SOCIAL_ACTIONS_LIMIT = 20
 export function createInitialOwnerActionsModuleState(): OwnerActionsModuleState {
   return {
     actionPointsUsed: 0,
-    actionPointBudget: DEFAULT_ACTION_POINT_BUDGET,
+    actionPointBudget: DAY_MINUTES,
     applied: [],
     rejected: [],
     projects: {},

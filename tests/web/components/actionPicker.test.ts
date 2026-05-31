@@ -1,8 +1,8 @@
 // Phase 119 / ISSUE-058 — ActionPicker smoke tests.
 //
 // Coverage:
-// 1. Renders the action-category tabs when open; the action-points budget
-//    chip displays "0 / 3" on a fresh start.
+// 1. Renders the action-category tabs when open; the daily time budget
+//    chip displays "0m / 6h" on a fresh start (Phase 186 Cluster 3).
 // 2. Tapping an action row updates gameStore.picks (either adds the
 //    action immediately or — for single-target actions like patch_roof —
 //    auto-adds the single valid target).
@@ -34,8 +34,8 @@ describe('ActionPicker — smoke (Phase 119 / ISSUE-058)', () => {
     expect(tabs.length).toBe(4)
     const immediate = screen.getByRole('tab', { name: /immediate/i })
     expect(immediate.getAttribute('aria-selected')).toBe('true')
-    // Budget chip shows 0 / 3 initially.
-    expect(screen.getByText(/0 \/ 3/)).toBeTruthy()
+    // Budget chip shows 0m / 6h initially (DAY_MINUTES = 360).
+    expect(screen.getByText(/0m \/ 6h/)).toBeTruthy()
   })
 
   it('tapping a single-target action (Buy Mugs) auto-adds the pick', async () => {

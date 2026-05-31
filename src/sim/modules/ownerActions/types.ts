@@ -66,6 +66,12 @@ export type OwnerActionApplied = {
   actionId: OwnerActionId
   label: string
   targetId?: string
+  /**
+   * Time this action drew from the daily budget, in MINUTES. Phase 186
+   * Cluster 3 converted the action-point economy to time; the field name
+   * is retained (serialized — renaming it is deferred to Cluster 7's save
+   * migration). Read as "minutes".
+   */
   actionPointCost: number
   /** Lines describing what changed. Surfaced in the owner-action report. */
   effects: string[]
@@ -132,9 +138,16 @@ export type OwnerSocialActionRecord = {
 }
 
 export type OwnerActionsModuleState = {
-  /** Action points consumed by `applied` this day. */
+  /**
+   * Minutes consumed by `applied` this day. Phase 186 Cluster 3 — the
+   * field name is retained for save compatibility (rename deferred to
+   * Cluster 7); read as "minutes spent".
+   */
   actionPointsUsed: number
-  /** Maximum action points the engine accepted for this day. */
+  /**
+   * The day's time budget in minutes (`DAY_MINUTES`). Name retained for
+   * save compatibility; read as "minute budget".
+   */
   actionPointBudget: number
   applied: OwnerActionApplied[]
   rejected: OwnerActionRejected[]
@@ -160,6 +173,11 @@ export type OwnerActionDefinition = {
   /** Free-form tags for future card metadata and report grouping. */
   tags: string[]
   targetType?: OwnerActionTargetType
+  /**
+   * Minutes this action costs against the daily time budget
+   * (`DAY_MINUTES`). Phase 186 Cluster 3 — see the note on
+   * `OwnerActionApplied.actionPointCost`; read as "minutes".
+   */
   actionPointCost: number
   /** Targets the action can be applied to. Empty array for global actions. */
   getValidTargets: (ctx: SimContext) => ActionTarget[]

@@ -26,7 +26,7 @@ import {
   listValidTargets,
 } from '../sim/modules/ownerActions/readonlyHelpers'
 import { getOwnerActionsModuleState } from '../sim/modules/ownerActions/stateHelpers'
-import { DEFAULT_ACTION_POINT_BUDGET as ACTION_POINT_BUDGET } from '../sim/modules/ownerActions/stateHelpers'
+import { DAY_MINUTES } from '../sim/modules/ownerActions/stateHelpers'
 import { POLICY_STARTERS } from '../sim/modules/ownerActions/policyActions'
 import { PROJECT_STARTERS } from '../sim/modules/ownerActions/projectActions'
 import type { AreaConditionKey } from '../sim/content/text/descriptors'
@@ -534,7 +534,7 @@ function projectSupplyPipeline(state: TavernState): SupplyPipelineData {
   const commissionDef = actionRegistry.get(COMMISSION_EXPEDITION_ACTION_ID)
   let canCommission: SupplyPipelineData['canCommission'] = { eligible: true }
   if (commissionDef) {
-    const reason = actionDisabledReason(commissionDef, state, ACTION_POINT_BUDGET)
+    const reason = actionDisabledReason(commissionDef, state, DAY_MINUTES)
     canCommission = reason ? { eligible: false, reason } : { eligible: true }
   } else {
     canCommission = { eligible: false, reason: 'commission action missing' }
@@ -762,7 +762,7 @@ function projectProjectRow(
       fundDef,
       state,
       project.id,
-      ACTION_POINT_BUDGET,
+      DAY_MINUTES,
     )
     applicableActions.push(makeRef(fundDef, reason))
   }
@@ -771,7 +771,7 @@ function projectProjectRow(
       cancelDef,
       state,
       project.id,
-      ACTION_POINT_BUDGET,
+      DAY_MINUTES,
     )
     applicableActions.push(makeRef(cancelDef, reason))
   }
@@ -803,7 +803,7 @@ function projectAvailableProject(
   const def = actionRegistry.get(starter.id)
   const validTargets = def ? listValidTargets(def, state) : []
   const disabledReason = def
-    ? actionDisabledReason(def, state, ACTION_POINT_BUDGET)
+    ? actionDisabledReason(def, state, DAY_MINUTES)
     : 'unknown action'
   const row: AvailableProjectRow = {
     actionId: starter.id,
@@ -844,7 +844,7 @@ function projectPolicies(
     const toggleDef = actionRegistry.get(toggleActionId)
     const toggleActionLabel = toggleDef?.label
     const toggleDisabledReason = toggleDef
-      ? actionDisabledReason(toggleDef, state, ACTION_POINT_BUDGET)
+      ? actionDisabledReason(toggleDef, state, DAY_MINUTES)
       : 'toggle action missing'
 
     const row: PolicyRow = {
@@ -909,7 +909,7 @@ function applicableActionsForRow(
       def,
       state,
       targetId,
-      ACTION_POINT_BUDGET,
+      DAY_MINUTES,
     )
     return makeRef(def, reason)
   })

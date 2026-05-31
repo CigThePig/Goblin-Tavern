@@ -9,7 +9,7 @@
 <script lang="ts">
   import TermLabel from '../TermLabel.svelte'
   import MeterBar from './MeterBar.svelte'
-  import { gameStore } from '../../sim/gameStore.svelte'
+  import { gameStore, formatDuration } from '../../sim/gameStore.svelte'
   import { actionRegistry } from '../../../../../src/sim/registries/actionRegistry'
   import { categoryLabel } from '../../sim/actionBuilder'
   import { idLabel } from '../../../../../src/reports/labels/idLabel'
@@ -57,13 +57,17 @@
 
   function queueAvailableProject(row: AvailableProjectRow) {
     if (row.disabledReason !== undefined) return
+    // Phase 186 Cluster 3 — read the real minute cost from the registry
+    // so the queued-time total stays honest (start_* projects cost
+    // TIME_COST_STANDARD).
+    const timeCost = actionRegistry.get(row.actionId)?.actionPointCost ?? 0
     if (row.validTargets.length === 0) {
       tryQueue({
         actionId: row.actionId,
         label: row.label,
         category: 'project',
         targetType: row.targetType as never,
-        actionPointCost: 1,
+        actionPointCost: timeCost,
       })
       return
     }
@@ -75,7 +79,7 @@
       targetType: row.targetType as never,
       targetId: target.id,
       targetLabel: target.label,
-      actionPointCost: 1,
+      actionPointCost: timeCost,
     })
   }
 
@@ -155,7 +159,7 @@
                   >
                     {ref.label}
                     {#if ref.actionPointCost > 0}
-                      <span class="cost mono">{ref.actionPointCost}p</span>
+                      <span class="cost mono">{formatDuration(ref.actionPointCost)}</span>
                     {/if}
                     {#if queued}
                       <span class="q">·queued</span>

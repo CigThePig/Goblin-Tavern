@@ -289,10 +289,10 @@ const MECHANIC_TERMS: GlossaryTerm[] = [
   },
   {
     id: 'action_point',
-    label: 'Action Point',
+    label: 'Owner Time',
     category: 'mechanic',
-    oneLine: 'A unit of owner attention; you have 3 per day.',
-    longer: 'Owner actions cost 1–3 points. The cap is the day\'s most important constraint.',
+    oneLine: 'The minutes in your owner workday; you spend them on owner actions.',
+    longer: 'Each owner action costs a span of time — a quiet word is cheap, re-flagging the cellar eats most of the day. How you spend the day is its most important constraint.',
   },
   // Phase 90 — terms surfaced by the Weekly overview screen.
   {
@@ -462,7 +462,7 @@ const MECHANIC_TERMS: GlossaryTerm[] = [
     id: 'on_menu',
     label: 'On Menu',
     category: 'mechanic',
-    oneLine: 'Whether a recipe is currently offered to customers. Player-controlled, zero action-point toggle.',
+    oneLine: 'Whether a recipe is currently offered to customers. Player-controlled, costs no owner time.',
     longer: 'Recipes off the menu still consume freshness in storage. Toggling does not retroactively undo a service that already happened.',
   },
   {
@@ -512,7 +512,7 @@ const MECHANIC_TERMS: GlossaryTerm[] = [
     label: 'Project Progress',
     category: 'mechanic',
     oneLine: 'How close a long-running owner project is to completion. Ticks daily; funding speeds it up.',
-    longer: 'Projects auto-progress by 1 per day. Fund Active Project consumes coin and an action point to add extra progress. Cancel returns nothing.',
+    longer: 'Projects auto-progress by 1 per day. Fund Active Project consumes coin and a little owner time to add extra progress. Cancel returns nothing.',
   },
   {
     id: 'policy',
@@ -730,15 +730,15 @@ const MECHANIC_TERMS: GlossaryTerm[] = [
     id: 'queued_action',
     label: 'Queued Action',
     category: 'mechanic',
-    oneLine: 'A pick from Plan the Day that costs action points but applies tomorrow morning.',
+    oneLine: 'A pick from Plan the Day that costs owner time but applies tomorrow morning.',
     longer: 'Action chips are queued during planning, not applied immediately. Tap one to cancel before ending the day. They run in order at the start of the next sim day.',
   },
   {
     id: 'action_points',
-    label: 'Action Points',
+    label: 'Owner Time',
     category: 'mechanic',
-    oneLine: 'A unit of owner attention; you have 3 per day.',
-    longer: 'Owner actions cost 1–3 points. The cap is the day\'s most important constraint. Unspent points do not carry over.',
+    oneLine: 'The minutes in your owner workday, spent on owner actions.',
+    longer: 'Every owner action costs a span of time; cheap chores leave room for more, big jobs eat the day. Time not spent does not carry over to tomorrow.',
   },
   {
     id: 'shortage',
@@ -837,7 +837,7 @@ const LOG_TERMS: GlossaryTerm[] = [
     label: 'Owner Action',
     category: 'log',
     oneLine: 'An action you took, queued, funded, or had auto-applied.',
-    longer: 'Includes immediate actions, project funding and progress, policy toggles, and social actions. Every action point you spend leaves an owner-action entry.',
+    longer: 'Includes immediate actions, project funding and progress, policy toggles, and social actions. Every block of owner time you spend leaves an owner-action entry.',
   },
   {
     id: 'history_service',

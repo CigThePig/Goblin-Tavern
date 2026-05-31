@@ -52,13 +52,20 @@ import type {
 import { ageCauses } from '../modules/causes/causeAging'
 
 import { createRngStreams } from './rng'
+import type { SimRngStreams } from './rng'
 import type {
   AddLogInput,
   MutationMeta,
   SimContext,
   SimInput,
 } from './context'
-import { SIMULATION_PHASES, type SimulationPhase } from './phases'
+import { type SimulationPhase } from './phases'
+import {
+  DAY_SEGMENTS,
+  phasesForSegment,
+  segmentSeed,
+  type DaySegment,
+} from './segments'
 import type { ReportSection, SimLog, SimLogLevel } from './reports'
 import type { SimulationModule } from './module'
 import type { SimResult } from './result'
@@ -224,6 +231,41 @@ type EngineRuntime = {
   validationWarnings: ValidationIssue[]
   changeTracker: ChangeTracker
   causeCounter: number
+  // Phase 186 (Cluster 2) — the active RNG stream set. Swapped per
+  // segment (`reseedSegmentRng`) so each segment derives deterministic,
+  // isolated rolls from its sub-seed without any RNG serialization
+  // crossing a pause. `ctx` reads it through getters, so a swap is seen
+  // by every later hook.
+  rngStreams: SimRngStreams
+}
+
+// Phase 186 (Cluster 2) — point the runtime's RNG at a segment's sub-seed.
+// Called at each segment boundary in `simulateDay` and once per
+// `advanceDaySegment` call. Recreating the stream set resets every named
+// stream to calls=0 under the segment seed.
+function reseedSegmentRng(
+  runtime: EngineRuntime,
+  baseSeed: string,
+  segment: DaySegment,
+): void {
+  runtime.rngStreams = createRngStreams(segmentSeed(baseSeed, segment))
+}
+
+// Phase 186 (Cluster 2) — derive the next per-day counter value from
+// already-recorded ids so cause/history numbering is *resumable* from
+// `TavernState` alone. A segment run starts a fresh runtime, so without
+// this the counter would reset to 0 mid-day and collide with ids an
+// earlier segment already wrote (`c-<day>-1` twice). Scanning for the
+// highest existing `<prefix><n>` and continuing from there reproduces the
+// continuous numbering a single `simulateDay` call would have produced.
+function deriveDayCounter(ids: Iterable<string>, prefix: string): number {
+  let max = 0
+  for (const id of ids) {
+    if (!id.startsWith(prefix)) continue
+    const n = Number(id.slice(prefix.length))
+    if (Number.isInteger(n) && n > max) max = n
+  }
+  return max
 }
 
 // Phase 17 §"Cause Shape" — helpers to infer the `sourceType` and
@@ -292,8 +334,10 @@ function createContext(
   // `createRngStreams` builds isolated, deterministic streams keyed by
   // `RngStreamId`. Existing call sites that reach for `ctx.rng` get the
   // `service` stream so per-day, ad-hoc rolls keep their old behaviour.
-  const rngStreams = createRngStreams(input.seed)
-  const rng = rngStreams.get('service')
+  //
+  // Phase 186 (Cluster 2) — the stream set lives on the runtime and is
+  // swapped per segment, so `ctx.rng` / `ctx.rngStreams` / `getRngStream`
+  // read it lazily rather than capturing a fixed reference.
 
   const requireRecord = <T>(record: Record<string, T>, id: string, kind: string): T => {
     const value = record[id]
@@ -604,7 +648,21 @@ function createContext(
 
   // ---------- Phase 16 §16.8 — history helpers ----------
 
-  let historyCounter = 0
+  // Phase 186 (Cluster 2) — resume cause/history numbering from ids
+  // already stamped for today, so a per-segment runtime continues the
+  // day's sequence instead of restarting at 1 and colliding. `today` is
+  // the pre-`advanceCalendar` absolute day every id this run is stamped
+  // with. For a fresh day (or a single `simulateDay` call) nothing matches
+  // yet, so both counters start at 0 exactly as before.
+  const todayAbsolute = runtime.current.calendar.totalDaysElapsed
+  runtime.causeCounter = deriveDayCounter(
+    runtime.current.causes.map((c) => c.id),
+    `c-${todayAbsolute}-`,
+  )
+  let historyCounter = deriveDayCounter(
+    runtime.current.history.map((h) => h.id),
+    `h-${todayAbsolute}-`,
+  )
 
   const addHistoryInternal = (draft: HistoryEntryDraft): HistoryEntry => {
     const stamp = stampFromCalendar(runtime.current.calendar)
@@ -641,14 +699,20 @@ function createContext(
       return runtime.current
     },
     input,
-    rng,
-    rngStreams,
+    // Phase 186 (Cluster 2) — read the active (per-segment) stream set
+    // from the runtime so a mid-day segment swap is seen by every hook.
+    get rng() {
+      return runtime.rngStreams.get('service')
+    },
+    get rngStreams() {
+      return runtime.rngStreams
+    },
     getRngStream(streamId) {
-      return rngStreams.get(streamId)
+      return runtime.rngStreams.get(streamId)
     },
     // Phase 70 / ISSUE-030 §6.3 — dynamic named stream.
     getRngStreamByName(name) {
-      return rngStreams.getByName(name)
+      return runtime.rngStreams.getByName(name)
     },
     get reports() {
       return runtime.reports
@@ -1457,14 +1521,8 @@ function collectModuleValidations(
   }
 }
 
-export function simulateDay(
-  state: TavernState,
-  input: SimInput,
-  modules: ReadonlyArray<SimulationModule>,
-): SimResult {
-  const sortedModules = topologicallySortModules(modules)
-
-  const runtime: EngineRuntime = {
+function createRuntime(state: TavernState): EngineRuntime {
+  return {
     current: cloneTavernState(state),
     reports: [],
     logs: [],
@@ -1473,19 +1531,24 @@ export function simulateDay(
     validationWarnings: [],
     changeTracker: new ChangeTracker(),
     causeCounter: 0,
+    // Placeholder seed; `reseedSegmentRng` overwrites this before any hook
+    // runs in either entry path, so the value is never observed.
+    rngStreams: createRngStreams('__unseeded__'),
   }
+}
 
-  const ctx = createContext(runtime, input, sortedModules)
-
-  // Phase 17 §17.8 — Snapshot the full-day baseline up front. Phase 76
-  // (ISSUE-036) dropped the `owner_actions` / `service` / `end_week` /
-  // `end_month` tagged boundaries: the only consumers were two phase-17
-  // test asserts (now reading `'day'`), no production code read them,
-  // and the `service` boundary was finalized five phase slots before
-  // `generateReports`, leaving any future consumer reading stale state.
-  runtime.changeTracker.snapshot('day', runtime.current)
-
-  for (const phase of SIMULATION_PHASES) {
+// Phase 186 (Cluster 2) — run one contiguous slice of the pipeline. Shared
+// by `simulateDay` (all three segments back-to-back) and
+// `advanceDaySegment` (one segment in isolation), so the two paths are the
+// same code and cannot drift. The caller is responsible for reseeding the
+// runtime's RNG before the slice and for the day-diff bracketing around it.
+function runSegmentPhases(
+  phases: ReadonlyArray<SimulationPhase>,
+  sortedModules: ReadonlyArray<SimulationModule>,
+  ctx: SimContext,
+  runtime: EngineRuntime,
+): void {
+  for (const phase of phases) {
     if (phase === 'endWeek' && !isEndOfWeek(runtime.current.calendar)) {
       continue
     }
@@ -1519,11 +1582,9 @@ export function simulateDay(
       }
     }
   }
+}
 
-  // Phase 17 §17.8 — Close the day-level diff after the calendar tick.
-  // The diff captures the full mechanical movement of the simulated day.
-  runtime.changeTracker.finalize('day', runtime.current)
-
+function runtimeToResult(runtime: EngineRuntime): SimResult {
   return {
     state: runtime.current,
     reports: runtime.reports,
@@ -1534,6 +1595,92 @@ export function simulateDay(
     },
     diffs: [...runtime.changeTracker.all()],
   }
+}
+
+export function simulateDay(
+  state: TavernState,
+  input: SimInput,
+  modules: ReadonlyArray<SimulationModule>,
+): SimResult {
+  const sortedModules = topologicallySortModules(modules)
+  const runtime = createRuntime(state)
+  const ctx = createContext(runtime, input, sortedModules)
+
+  // Phase 17 §17.8 — Snapshot the full-day baseline up front. Phase 76
+  // (ISSUE-036) dropped the `owner_actions` / `service` / `end_week` /
+  // `end_month` tagged boundaries: the only consumers were two phase-17
+  // test asserts (now reading `'day'`), no production code read them,
+  // and the `service` boundary was finalized five phase slots before
+  // `generateReports`, leaving any future consumer reading stale state.
+  runtime.changeTracker.snapshot('day', runtime.current)
+
+  // Phase 186 (Cluster 2) — run the three segments in order, reseeding the
+  // RNG at each boundary. This is exactly what `advanceDaySegment` does one
+  // segment at a time, so the run-all and run-one paths produce identical
+  // final state (asserted by the segmented-equivalence tests).
+  for (const segment of DAY_SEGMENTS) {
+    reseedSegmentRng(runtime, input.seed, segment)
+    runSegmentPhases(phasesForSegment(segment), sortedModules, ctx, runtime)
+  }
+
+  // Phase 17 §17.8 — Close the day-level diff after the calendar tick.
+  // The diff captures the full mechanical movement of the simulated day.
+  runtime.changeTracker.finalize('day', runtime.current)
+
+  return runtimeToResult(runtime)
+}
+
+/**
+ * Phase 186 (Cluster 2) — run a single day segment and yield a serializable
+ * checkpoint (`result.state` — `TavernState` only; §1.2/§1.3).
+ *
+ * The three segments compose to exactly one `simulateDay`:
+ *
+ *   const a = advanceDaySegment(state, input, modules, 'A')
+ *   const b = advanceDaySegment(a.state, input, modules, 'B', { dayBaseline: state })
+ *   const c = advanceDaySegment(b.state, input, modules, 'C', { dayBaseline: state })
+ *   // c.state deep-equals simulateDay(state, input, modules).state
+ *
+ * GATE B (contract §4.2): the daily report and missed-opportunity
+ * projections read a *single* full-day diff (`diffs.find(d => d.boundary ===
+ * 'day')`). Running segments in isolation would shatter that into partial
+ * per-segment diffs. Pass `dayBaseline` — the start-of-day `TavernState` —
+ * so the diff is always bracketed start-of-day → end-of-this-segment; the
+ * final segment (C) therefore carries the true full-day diff. The store
+ * holds the baseline as one field (state is already persisted).
+ */
+export type AdvanceDaySegmentOptions = {
+  /**
+   * Start-of-day `TavernState` for the full-day diff (GATE B). Defaults to
+   * `state`, which is correct for Segment A (its input *is* start-of-day).
+   * Segments B and C must pass the original Segment-A input state.
+   */
+  dayBaseline?: TavernState
+}
+
+export function advanceDaySegment(
+  state: TavernState,
+  input: SimInput,
+  modules: ReadonlyArray<SimulationModule>,
+  segment: DaySegment,
+  options: AdvanceDaySegmentOptions = {},
+): SimResult {
+  const sortedModules = topologicallySortModules(modules)
+  const runtime = createRuntime(state)
+  const ctx = createContext(runtime, input, sortedModules)
+
+  reseedSegmentRng(runtime, input.seed, segment)
+
+  // GATE B — bracket the day-diff from the start-of-day baseline (defaults
+  // to this segment's input, i.e. Segment A) to the end of this segment.
+  const baseline = options.dayBaseline ?? state
+  runtime.changeTracker.snapshot('day', baseline)
+
+  runSegmentPhases(phasesForSegment(segment), sortedModules, ctx, runtime)
+
+  runtime.changeTracker.finalize('day', runtime.current)
+
+  return runtimeToResult(runtime)
 }
 
 // Phase 2 placeholder name kept around for any callers that imported it

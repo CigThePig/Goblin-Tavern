@@ -37,6 +37,7 @@ function baseReport(overrides: Partial<DailyReportData> = {}): DailyReportData {
     ownerActionsApplied: [],
     resolvedIntents: [],
     serviceLines: [],
+    dayArc: [],
     risingPressures: [],
     futureHooks: [],
     isQuiet: false,

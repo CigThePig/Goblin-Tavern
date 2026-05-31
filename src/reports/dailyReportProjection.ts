@@ -29,6 +29,7 @@ import { closedDayAbsolute } from './causeLookup'
 import {
   composeDailyHeaderLine,
   composeDailyQuietLine,
+  composeDayArcLine,
   composeDriverLine,
   composeServiceLine,
   composeTrafficLine,
@@ -39,6 +40,7 @@ import { idLabel, humanizeId } from './labels/idLabel'
 import { actionRegistry } from '../sim/registries/actionRegistry'
 import type {
   DailyReportData,
+  DayArcMovement,
   GroupedDiffs,
   MissedOpportunityLine,
   ReportCalendarHeader,
@@ -103,7 +105,6 @@ export function buildDailyReport(
   const allChanges = dayDiff?.changes ?? []
   const closedDay = closedDayAbsolute(state)
 
-  const header = buildHeader(state, allChanges, options.previousCalendar)
   const { coinBefore, coinAfter, coinDelta } = coinBeforeAfter(allChanges, state)
   const reputationDeltas = projectReputationDeltas(significant)
   const topDiffs = projectTopDiffs(significant)
@@ -111,6 +112,26 @@ export function buildDailyReport(
   const ownerActionsApplied = projectOwnerActions(result, state)
   const resolvedIntents = projectResolvedIntents(state)
   const serviceLines = projectServiceLines(result, state, closedDay)
+  // Phase 186 / Cluster 6 — the day's story, ordered by the engine's
+  // real segments. Built from the rich lines above, so it carries no
+  // facts the projection didn't already derive from the sim.
+  const dayArc = projectDayArc(
+    { ownerActionsApplied, serviceLines, resolvedIntents },
+    state,
+    closedDay,
+  )
+  // A "heavy" day — lots of moves, decisions, or threshold-crossing
+  // changes — lets the header voice reach for its busier lines. Computed
+  // from the same projected pieces the arc reads.
+  const isHeavyDay =
+    ownerActionsApplied.length + resolvedIntents.length >= 3 ||
+    topDiffs.length >= 6
+  const header = buildHeader(
+    state,
+    allChanges,
+    options.previousCalendar,
+    isHeavyDay,
+  )
   const risingPressures = projectRisingPressures(result, state)
   const futureHooks = projectFutureHooks(state, closedDay)
   const missedOpportunities: MissedOpportunityLine[] = projectMissedOpportunities(
@@ -156,6 +177,7 @@ export function buildDailyReport(
     ownerActionsApplied,
     resolvedIntents,
     serviceLines,
+    dayArc,
     risingPressures,
     futureHooks,
     ...(missedOpportunities.length > 0 ? { missedOpportunities } : {}),
@@ -172,6 +194,7 @@ function buildHeader(
   state: TavernState,
   _changes: StateChange[],
   previousCalendar: CalendarState | undefined,
+  isHeavyDay: boolean,
 ): ReportCalendarHeader {
   const totalElapsed = state.calendar.totalDaysElapsed
   // The calendar diff is filtered out of the day-boundary diff (the
@@ -196,6 +219,7 @@ function buildHeader(
     calendar: cal,
     isEndOfWeek,
     isEndOfMonth,
+    isHeavyDay,
   })
 
   return {
@@ -526,6 +550,85 @@ function projectServiceLines(
     })
   }
   return lines.slice(0, SERVICE_LINE_CAP)
+}
+
+// ---------- Day arc (Phase 186 / Cluster 6) ----------
+
+/**
+ * Order the day's already-projected rich lines into the three movements
+ * the engine's segments actually produce, so the report reads as the
+ * day's story rather than a flat category dump:
+ *
+ *   opening   — the owner actions you committed at the morning plan
+ *               (Segment B `applyOwnerActions`), the day's first moves.
+ *   service   — the service outcome (Segment B service resolution),
+ *               the day playing out.
+ *   reckoning — the cards you answered at the service-react pause
+ *               (Segment C `applyResponses`), the calls you made.
+ *
+ * No new facts are invented — each movement re-homes lines the
+ * projection already derived. Empty movements are omitted so a quiet
+ * day shows a short arc (or none) rather than empty headings. The
+ * per-movement connective is composed deterministically per
+ * (closedDay, movementId).
+ */
+function projectDayArc(
+  pieces: {
+    ownerActionsApplied: ReportOwnerActionLine[]
+    serviceLines: ReportServiceLine[]
+    resolvedIntents: ReportResolvedIntent[]
+  },
+  state: TavernState,
+  closedDay: number,
+): DayArcMovement[] {
+  const movements: DayArcMovement[] = []
+
+  if (pieces.ownerActionsApplied.length > 0) {
+    movements.push({
+      id: 'opening',
+      title: 'You set the day in motion',
+      ...arcVoice(state, closedDay, 'opening'),
+      entries: pieces.ownerActionsApplied.map((action) => ({
+        kind: 'owner_action' as const,
+        action,
+      })),
+    })
+  }
+
+  if (pieces.serviceLines.length > 0) {
+    movements.push({
+      id: 'service',
+      title: 'Service ran',
+      ...arcVoice(state, closedDay, 'service'),
+      entries: pieces.serviceLines.map((line) => ({
+        kind: 'service' as const,
+        line,
+      })),
+    })
+  }
+
+  if (pieces.resolvedIntents.length > 0) {
+    movements.push({
+      id: 'reckoning',
+      title: 'You answered the day',
+      ...arcVoice(state, closedDay, 'reckoning'),
+      entries: pieces.resolvedIntents.map((intent) => ({
+        kind: 'resolved_intent' as const,
+        intent,
+      })),
+    })
+  }
+
+  return movements
+}
+
+function arcVoice(
+  state: TavernState,
+  closedDay: number,
+  movementId: 'opening' | 'service' | 'reckoning',
+): { voice?: string } {
+  const voice = composeDayArcLine({ state, closedDayOrdinal: closedDay, movementId })
+  return voice ? { voice } : {}
 }
 
 // ---------- Pressures ----------

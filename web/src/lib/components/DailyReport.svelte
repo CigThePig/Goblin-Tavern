@@ -17,6 +17,7 @@
   import { gameStore, formatDuration } from '../sim/gameStore.svelte'
   import type {
     DailyReportData,
+    DayArcEntry,
     ReportDiffLine,
     ReportReputationDelta,
     ReportResolvedIntent,
@@ -70,6 +71,15 @@
   function verbReadable(intent: ReportResolvedIntent): string {
     return `${intent.verb} · ${intent.subject}`
   }
+
+  // Phase 186 / Cluster 6 — stable per-entry key for the day-arc list.
+  function arcEntryKey(entry: DayArcEntry, i: number): string {
+    if (entry.kind === 'owner_action') {
+      return `oa-${entry.action.actionId}-${entry.action.targetId ?? ''}`
+    }
+    if (entry.kind === 'resolved_intent') return `ri-${entry.intent.intentId}`
+    return `sv-${i}`
+  }
 </script>
 
 <section class="report" aria-label="Daily report">
@@ -104,27 +114,53 @@
     </div>
   </header>
 
-  <!-- ── Weekly digest (boundary days only) ─────────────────────── -->
-  {#if report.weeklyDigest}
+  <!-- ── The day's story (Phase 186 / Cluster 6) ─────────────────── -->
+  <!-- The day runs as three real engine segments; the arc narrates it
+       in that order — your morning moves, service running, the calls you
+       made when the day asked — instead of a flat "what happened" lump.
+       Movements with no entries are omitted upstream. -->
+  {#each report.dayArc as movement (movement.id)}
     <section class="block">
-      <h2 class="block-label tag">Week digest</h2>
-      <details class="digest">
-        <summary class="digest-summary">{report.weeklyDigest.title}</summary>
-        <pre class="digest-body mono">{report.weeklyDigest.lines.join('\n')}</pre>
-      </details>
+      <h2 class="block-label tag">{movement.title}</h2>
+      {#if movement.voice}
+        <p class="arc-voice">{movement.voice}</p>
+      {/if}
+      <ul class="ledger">
+        {#each movement.entries as entry, i (arcEntryKey(entry, i))}
+          {#if entry.kind === 'owner_action'}
+            <li class="ledger-row">
+              <span class="ledger-mark accent">★</span>
+              <div class="ledger-body">
+                <span class="ledger-line">
+                  {entry.action.label}{#if entry.action.targetLabel || entry.action.targetId} · {entry.action.targetLabel ?? entry.action.targetId}{/if}
+                  {#if entry.action.actionPointCost > 0}
+                    <span class="ledger-cost tag">({formatDuration(entry.action.actionPointCost)})</span>
+                  {/if}
+                </span>
+                {#if entry.action.effects.length > 0}
+                  <span class="ledger-sub tag">{entry.action.effects.slice(0, 2).join(' · ')}</span>
+                {/if}
+              </div>
+            </li>
+          {:else if entry.kind === 'resolved_intent'}
+            <li class="ledger-row">
+              <span class="ledger-mark">→</span>
+              <div class="ledger-body">
+                <span class="ledger-line">you chose: {verbReadable(entry.intent)}</span>
+              </div>
+            </li>
+          {:else}
+            <li class="ledger-row">
+              <span class="ledger-mark dim">·</span>
+              <div class="ledger-body">
+                <span class="ledger-line dim">{entry.line.readable}</span>
+              </div>
+            </li>
+          {/if}
+        {/each}
+      </ul>
     </section>
-  {/if}
-
-  <!-- ── Monthly digest (boundary days only) ────────────────────── -->
-  {#if report.monthlyDigest}
-    <section class="block">
-      <h2 class="block-label tag">Month digest</h2>
-      <details class="digest">
-        <summary class="digest-summary">{report.monthlyDigest.title}</summary>
-        <pre class="digest-body mono">{report.monthlyDigest.lines.join('\n')}</pre>
-      </details>
-    </section>
-  {/if}
+  {/each}
 
   <!-- ── Significant changes ────────────────────────────────────── -->
   {#if report.groupedDiffs.coinAndReputation.length > 0}
@@ -208,47 +244,6 @@
     </section>
   {/if}
 
-  <!-- ── What happened ──────────────────────────────────────────── -->
-  {#if report.ownerActionsApplied.length > 0 || report.resolvedIntents.length > 0 || report.serviceLines.length > 0}
-    <section class="block">
-      <h2 class="block-label tag">What happened</h2>
-      <ul class="ledger">
-        {#each report.ownerActionsApplied as a (a.actionId + '-' + (a.targetId ?? ''))}
-          <li class="ledger-row">
-            <span class="ledger-mark accent">★</span>
-            <div class="ledger-body">
-              <span class="ledger-line">
-                {a.label}{#if a.targetLabel || a.targetId} · {a.targetLabel ?? a.targetId}{/if}
-                {#if a.actionPointCost > 0}
-                  <span class="ledger-cost tag">({formatDuration(a.actionPointCost)})</span>
-                {/if}
-              </span>
-              {#if a.effects.length > 0}
-                <span class="ledger-sub tag">{a.effects.slice(0, 2).join(' · ')}</span>
-              {/if}
-            </div>
-          </li>
-        {/each}
-        {#each report.resolvedIntents as r (r.intentId)}
-          <li class="ledger-row">
-            <span class="ledger-mark">→</span>
-            <div class="ledger-body">
-              <span class="ledger-line">you chose: {verbReadable(r)}</span>
-            </div>
-          </li>
-        {/each}
-        {#each report.serviceLines as s, i (i)}
-          <li class="ledger-row">
-            <span class="ledger-mark dim">·</span>
-            <div class="ledger-body">
-              <span class="ledger-line dim">{s.readable}</span>
-            </div>
-          </li>
-        {/each}
-      </ul>
-    </section>
-  {/if}
-
   <!-- ── What you could have done (Phase 97) ───────────────────── -->
   {#if report.missedOpportunities && report.missedOpportunities.length > 0}
     <MissedOpportunities
@@ -281,6 +276,29 @@
           </li>
         {/each}
       </ul>
+    </section>
+  {/if}
+
+  <!-- ── Week / month coda (boundary days only) ──────────────────── -->
+  <!-- The longer-horizon digests close the report — the day's story
+       first, then the zoom-out. Read-only by design (contract §3.5);
+       choice-bearing periodic seeds surface at the morning pause. -->
+  {#if report.weeklyDigest}
+    <section class="block">
+      <h2 class="block-label tag">Week digest</h2>
+      <details class="digest">
+        <summary class="digest-summary">{report.weeklyDigest.title}</summary>
+        <pre class="digest-body mono">{report.weeklyDigest.lines.join('\n')}</pre>
+      </details>
+    </section>
+  {/if}
+  {#if report.monthlyDigest}
+    <section class="block">
+      <h2 class="block-label tag">Month digest</h2>
+      <details class="digest">
+        <summary class="digest-summary">{report.monthlyDigest.title}</summary>
+        <pre class="digest-body mono">{report.monthlyDigest.lines.join('\n')}</pre>
+      </details>
     </section>
   {/if}
 
@@ -327,6 +345,15 @@
     font-size: 14px;
     line-height: 1.4;
     margin-top: -2px;
+  }
+
+  /* Phase 186 / Cluster 6 — day-arc movement connective. */
+  .arc-voice {
+    color: var(--text-faint);
+    font-style: italic;
+    font-size: 14px;
+    line-height: 1.4;
+    margin-bottom: var(--sp-xs);
   }
 
   .head-stats {

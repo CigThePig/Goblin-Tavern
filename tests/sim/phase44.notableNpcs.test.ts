@@ -241,7 +241,10 @@ describe('Phase 44 §ISSUE-004 — Inspection generator binds to notable_npc', (
     )
     expect(watchNpcIds.size).toBeGreaterThan(0)
 
-    const result = simulateDay(base, input(), FULL_PIPELINE)
+    // Phase 186 / Cluster 1 — `inspection` is a morning seed reading the
+    // prior day's closing pressure snapshot; warm one day to populate it.
+    const warm = simulateDay(base, input(), FULL_PIPELINE)
+    const result = simulateDay(warm.state, input(), FULL_PIPELINE)
     const seeds = getIssueSeeds(result.state, { family: 'inspection' })
     expect(seeds.length).toBeGreaterThan(0)
 
@@ -264,7 +267,10 @@ describe('Phase 44 §ISSUE-004 — Inspection generator binds to notable_npc', (
         .map((npc) => npc.id),
     )
 
-    const result = simulateDay(base, input(), FULL_PIPELINE)
+    // Phase 186 / Cluster 1 — `inspection` is a morning seed reading the
+    // prior day's closing pressure snapshot; warm one day to populate it.
+    const warm = simulateDay(base, input(), FULL_PIPELINE)
+    const result = simulateDay(warm.state, input(), FULL_PIPELINE)
     const seeds = getIssueSeeds(result.state, { family: 'inspection' })
     expect(seeds.length).toBeGreaterThan(0)
 

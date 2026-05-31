@@ -660,7 +660,9 @@ describe('Phase 20 — Required tests', () => {
     base = withArea(base, 'kitchen', { cleanliness: 10, smell: 80 })
     base = withStock(base, 'mushrooms', { spoilage: 90 })
     base = withStock(base, 'stew', { spoilage: 80, quantity: 400 })
-    const result = runOneDay(base, { seed: SEED })
+    // Phase 186 / Cluster 1 — `food_safety` is a morning seed reading the
+    // prior day's closing pressure snapshot; warm one day to populate it.
+    const result = runOneDay(runOneDay(base, { seed: SEED }).state, { seed: SEED })
     const seed = getIssueSeeds(result.state, { family: 'food_safety' })[0]!
     const resolution = resolveResponseIntent(result.state, seed, {
       id: 'r-test',

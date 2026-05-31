@@ -39,6 +39,18 @@ quantity drawn down as the player spends it — identical in shape to the
 current action-point budget, only denominated in minutes instead of
 points.
 
+> **Build companion — read before starting any later cluster:**
+> [`phase-186-day-clock-implementation-notes.md`](./phase-186-day-clock-implementation-notes.md)
+> records cross-cluster findings discovered while building Cluster 1: what
+> actually shipped, corrections to assumptions in §1.8 (there are **five**
+> during-service generators, not three) and §3.8/§4.4 (the `end_month`
+> timing conflates a standing `debt_rent` choice with a rollup-dependent
+> `monthly_review`), the new **same-day** response-resolution behaviour
+> and the interim web-store breakage it implies for Cluster 5, the save
+> migration it implies for Cluster 7, and the test patterns to use. That
+> document is the authoritative record of the *code*; this one remains the
+> record of the *design*.
+
 **Explicitly out of scope for this phase:** turning the day into a genuine
 timeline — events arriving at specific clock times, service resolving
 *over* time rather than in one step, or an action and an event competing

@@ -87,14 +87,19 @@ describe('Phase 55 §ISSUE-015 — Axis rotation', () => {
 })
 
 describe('Phase 55 §ISSUE-015 — Per-slot mutations', () => {
-  function setup(): { baseAfterDay1: TavernState; seedId: string; axisId: string } {
-    const base = reputationShiftState()
-    const day1 = runDay(base)
-    const seed = getIssueSeeds(day1.state, { family: 'reputation_shift' })[0]
+  // Phase 186 / Cluster 1 — `reputation_shift` is a closing seed: it is
+  // generated at `closing` (after pressures settle) and resolved at
+  // `applyResponses` the SAME day. So control/treatment run from the
+  // pre-day `seedState`; re-running it regenerates the identical seed and
+  // the response — referencing that seed id — resolves within the call.
+  function setup(): { seedState: TavernState; seedId: string; axisId: string } {
+    const seedState = reputationShiftState()
+    const probe = runDay(seedState)
+    const seed = getIssueSeeds(probe.state, { family: 'reputation_shift' })[0]
     expect(seed).toBeDefined()
     const match = seed!.id.match(/seed-reputation_shift-([a-zA-Z_]+)-d/)
     return {
-      baseAfterDay1: day1.state,
+      seedState,
       seedId: seed!.id,
       axisId: match![1]!,
     }
@@ -105,7 +110,7 @@ describe('Phase 55 §ISSUE-015 — Per-slot mutations', () => {
     verb: ResponseIntent['verb'],
     shape: ResponseIntent['shape'],
   ) {
-    const { baseAfterDay1, seedId, axisId } = setup()
+    const { seedState, seedId, axisId } = setup()
     const intent: ResponseIntent = {
       id: `r-${slotId}`,
       seedId,
@@ -115,8 +120,8 @@ describe('Phase 55 §ISSUE-015 — Per-slot mutations', () => {
       intensity: 50,
       metadata: { responseSlotId: slotId },
     }
-    const control = runDay(baseAfterDay1).state
-    const treatment = runDay(baseAfterDay1, { responseIntents: [intent] }).state
+    const control = runDay(seedState).state
+    const treatment = runDay(seedState, { responseIntents: [intent] }).state
     return { control, treatment, axisId }
   }
 
@@ -162,9 +167,10 @@ describe('Phase 55 §ISSUE-015 — Delayed scheduling', () => {
       ['diversify', 'rebrand', 'compromise'],
     ]
     for (const [slotId, verb, shape] of slots) {
-      const base = reputationShiftState()
-      const day1 = runDay(base)
-      const seed = getIssueSeeds(day1.state, { family: 'reputation_shift' })[0]
+      const seedState = reputationShiftState()
+      const seed = getIssueSeeds(runDay(seedState).state, {
+        family: 'reputation_shift',
+      })[0]
       expect(seed).toBeDefined()
       const intent: ResponseIntent = {
         id: `r-${slotId}`,
@@ -175,7 +181,7 @@ describe('Phase 55 §ISSUE-015 — Delayed scheduling', () => {
         intensity: 50,
         metadata: { responseSlotId: slotId },
       }
-      const day2 = runDay(day1.state, { responseIntents: [intent] })
+      const day2 = runDay(seedState, { responseIntents: [intent] })
       const slice = getResponsesSlice(day2.state)
       expect(
         slice.pending.length,

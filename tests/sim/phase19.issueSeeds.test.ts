@@ -84,6 +84,18 @@ function runDay(state: TavernState, overrides: Partial<SimInput> = {}) {
   return simulateDay(state, input(overrides), FULL_PIPELINE)
 }
 
+// Phase 186 / Cluster 1 — Seeds are now generated segment-locally. A
+// `morning_prep` seed (and any `during_service` seed gated on a pressure
+// snapshot, e.g. violence) is produced at `startDay`/`afterService`
+// reading the PRIOR day's closing pressure snapshot. A single day from a
+// hand-set base has no prior snapshot yet, so warm exactly one day to
+// populate it, then return the assertion day. Closing-timed seeds read
+// this day's settled pressures and so still appear on the first day.
+function seedDay(state: TavernState, overrides: Partial<SimInput> = {}) {
+  const warm = runDay(state, overrides)
+  return runDay(warm.state, overrides)
+}
+
 function plentyOfStock(state: TavernState): TavernState {
   return {
     ...state,
@@ -139,8 +151,14 @@ function withRentArrears(
 describe('Phase 19 — Module shape', () => {
   it('issueSeedsModule exposes id, hooks, schema, report, validator', () => {
     expect(issueSeedsModule.id).toBe(ISSUE_SEEDS_MODULE_ID)
+    // Phase 186 / Cluster 1 — generation is segment-local: morning at
+    // `startDay`, during-service at `afterService`, closing+periodic at
+    // `closing`. The end-of-day `generateReports` generation lump is
+    // retired (the report itself is still built via `buildReport`).
     expect(issueSeedsModule.hooks?.startDay).toBeDefined()
-    expect(issueSeedsModule.hooks?.generateReports).toBeDefined()
+    expect(issueSeedsModule.hooks?.afterService).toBeDefined()
+    expect(issueSeedsModule.hooks?.closing).toBeDefined()
+    expect(issueSeedsModule.hooks?.generateReports).toBeUndefined()
     expect(issueSeedsModule.buildReport).toBeTypeOf('function')
     expect(issueSeedsModule.validate).toBeTypeOf('function')
     expect(issueSeedsModule.stateSchema).toBeDefined()
@@ -176,7 +194,7 @@ describe('Phase 19 §19.7 — Family generators (vertical slice)', () => {
     base = withArea(base, 'kitchen', { cleanliness: 10, smell: 80 })
     base = withStock(base, 'mushrooms', { spoilage: 90 })
     base = withStock(base, 'stew', { spoilage: 80, quantity: 400 })
-    const result = runDay(base)
+    const result = seedDay(base)
     const seeds = getIssueSeeds(result.state, { family: 'food_safety' })
     expect(seeds.length).toBeGreaterThan(0)
     const seed = seeds[0]!
@@ -190,7 +208,7 @@ describe('Phase 19 §19.7 — Family generators (vertical slice)', () => {
     let base = plentyOfStock(createInitialTavernState())
     base = withStock(base, 'ale', { quantity: 10 })
     base = withDayType(base, 'payday')
-    const result = runDay(base)
+    const result = seedDay(base)
     const seeds = getIssueSeeds(result.state, { family: 'stock_shortage' })
     expect(seeds.length).toBeGreaterThan(0)
     expect(seeds[0]!.responseSlots.length).toBeGreaterThanOrEqual(2)
@@ -201,7 +219,7 @@ describe('Phase 19 §19.7 — Family generators (vertical slice)', () => {
     base = withArea(base, 'main_room', { damage: 80, condition: 15 })
     base = withArea(base, 'roof', { damage: 85, condition: 15 })
     base = withArea(base, 'privy', { condition: 25 })
-    const result = runDay(base)
+    const result = seedDay(base)
     const seeds = getIssueSeeds(result.state, { family: 'maintenance' })
     expect(seeds.length).toBeGreaterThan(0)
   })
@@ -216,7 +234,7 @@ describe('Phase 19 §19.7 — Family generators (vertical slice)', () => {
         morale: 25,
       })
     }
-    const result = runDay(base)
+    const result = seedDay(base)
     const seeds = getIssueSeeds(result.state, { family: 'staff_burnout' })
     expect(seeds.length).toBeGreaterThan(0)
     expect(seeds[0]!.primaryActor).toBeDefined()
@@ -240,7 +258,7 @@ describe('Phase 19 §19.7 — Family generators (vertical slice)', () => {
     base = withCustomerGroup(base, 'ogres', { patronage: 85, rowdiness: 90 })
     base = withCustomerGroup(base, 'adventurers', { patronage: 60, rowdiness: 80 })
     base = withArea(base, 'main_room', { damage: 60 })
-    const result = runDay(base)
+    const result = seedDay(base)
     const seeds = getIssueSeeds(result.state, { family: 'violence' })
     expect(seeds.length).toBeGreaterThan(0)
   })
@@ -269,7 +287,7 @@ describe('Phase 19 §19.7 — Family generators (vertical slice)', () => {
     base = withStock(base, 'stew', { spoilage: 80, quantity: 400 })
     base = withCustomerGroup(base, 'merchants', { satisfaction: 15 })
     base = { ...base, reputation: { ...base.reputation, filthy: 90 } }
-    const result = runDay(base)
+    const result = seedDay(base)
     const seeds = getIssueSeeds(result.state, { family: 'inspection' })
     expect(seeds.length).toBeGreaterThan(0)
   })
@@ -456,7 +474,7 @@ describe('Phase 19 §19.3/§19.4 — Ranking, novelty, cooldown', () => {
     base = withArea(base, 'kitchen', { cleanliness: 10, smell: 80 })
     base = withStock(base, 'mushrooms', { spoilage: 90 })
     base = withStock(base, 'stew', { spoilage: 80, quantity: 400 })
-    const result = runDay(base)
+    const result = seedDay(base)
     const entry = getCooldown(result.state, 'food_safety_kitchen_risk')
     expect(entry).toBeDefined()
     expect(entry!.timesGenerated).toBeGreaterThanOrEqual(1)
@@ -469,7 +487,7 @@ describe('Phase 19 §19.10/§19.11 — Response resolver', () => {
     base = withArea(base, 'kitchen', { cleanliness: 10, smell: 80 })
     base = withStock(base, 'mushrooms', { spoilage: 90 })
     base = withStock(base, 'stew', { spoilage: 80, quantity: 400 })
-    const result = runDay(base)
+    const result = seedDay(base)
     const seed = getIssueSeeds(result.state, { family: 'food_safety' })[0]!
     const intent: ResponseIntent = {
       id: 'r1',
@@ -493,7 +511,7 @@ describe('Phase 19 §19.10/§19.11 — Response resolver', () => {
     base = withArea(base, 'kitchen', { cleanliness: 10, smell: 80 })
     base = withStock(base, 'mushrooms', { spoilage: 90 })
     base = withStock(base, 'stew', { spoilage: 80, quantity: 400 })
-    const result = runDay(base)
+    const result = seedDay(base)
     const seed = getIssueSeeds(result.state, { family: 'food_safety' })[0]!
     const intent: ResponseIntent = {
       id: 'r2',
@@ -514,7 +532,7 @@ describe('Phase 19 §19.10/§19.11 — Response resolver', () => {
     base = withArea(base, 'kitchen', { cleanliness: 10, smell: 80 })
     base = withStock(base, 'mushrooms', { spoilage: 90 })
     base = withStock(base, 'stew', { spoilage: 80, quantity: 400 })
-    const result = runDay(base)
+    const result = seedDay(base)
     const seed = getIssueSeeds(result.state, { family: 'food_safety' })[0]!
     const intent: ResponseIntent = {
       id: 'r3',
@@ -534,7 +552,7 @@ describe('Phase 19 §19.10/§19.11 — Response resolver', () => {
     base = withArea(base, 'kitchen', { cleanliness: 10, smell: 80 })
     base = withStock(base, 'mushrooms', { spoilage: 90 })
     base = withStock(base, 'stew', { spoilage: 80, quantity: 400 })
-    const result = runDay(base)
+    const result = seedDay(base)
     const seed = getIssueSeeds(result.state, { family: 'food_safety' })[0]!
     const intent: ResponseIntent = {
       id: 'r4',

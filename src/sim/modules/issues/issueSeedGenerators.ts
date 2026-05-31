@@ -953,7 +953,7 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
   const responseSlots: ResponseSlot[] = [
     {
       id: 'pay_bonus',
-      labelHint: `Pay ${worst.name} a bonus`,
+      labelHint: `Pay ${worst.name.display} a bonus`,
       allowedVerbs: ['pay'],
       shape: 'safe_costly',
       targetOptions: [staffRef(worst.id)],
@@ -961,7 +961,7 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
     },
     {
       id: 'reduce_workload',
-      labelHint: `Lighten ${worst.name}'s load`,
+      labelHint: `Lighten ${worst.name.display}'s load`,
       allowedVerbs: ['delegate'],
       shape: 'compromise',
       targetOptions: [staffRef(worst.id)],
@@ -995,7 +995,7 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
       id: 'pay_bonus_profile',
       responseSlotId: 'pay_bonus',
       immediateEffects: [
-        effect('state_change', `staff.${worst.id}.morale`, 15, `Boost ${worst.name} morale`, [
+        effect('state_change', `staff.${worst.id}.morale`, 15, `Boost ${worst.name.display} morale`, [
           'staff',
         ]),
         effect('state_change', `staff.${worst.id}.stress`, -10, 'Lower stress', ['staff']),
@@ -1013,7 +1013,7 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
           'future_hook',
           `staff_bonus_expected_${worst.id}`,
           30,
-          `${worst.name} may expect another bonus`,
+          `${worst.name.display} may expect another bonus`,
           ['future_hook', 'staff'],
         ),
       ],
@@ -1051,7 +1051,7 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
           'future_hook',
           `coverage_gap_${worst.id}`,
           7,
-          `Coverage gap may resurface when ${worst.name} returns`,
+          `Coverage gap may resurface when ${worst.name.display} returns`,
           ['future_hook', 'staff', 'coverage'],
         ),
       ],
@@ -1080,7 +1080,7 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
           'future_hook',
           `staff_quit_risk_${worst.id}`,
           14,
-          `${worst.name} may quit`,
+          `${worst.name.display} may quit`,
           ['future_hook'],
         ),
       ],
@@ -1158,7 +1158,7 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
       affectedActors: [staffRef(worst.id)],
       causes,
       stakes: [
-        stake('quit_stake', `staff:${worst.id}`, `${worst.name} may quit`, 'loss', ['staff']),
+        stake('quit_stake', `staff:${worst.id}`, `${worst.name.display} may quit`, 'loss', ['staff']),
         stake(
           'service_stake',
           'service:capacity',

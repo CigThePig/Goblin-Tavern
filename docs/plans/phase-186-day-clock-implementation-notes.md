@@ -179,6 +179,107 @@ converted `tests/sim/phase{19,41,53,54,55,56,57,59}` to these patterns.
 
 ---
 
+## Cluster 2 — what shipped (segmented engine entry + full-day diff thread)
+
+`src/sim/core/segments.ts` (new) partitions `SIMULATION_PHASES` into three
+contiguous slices on the two player-input seams:
+
+| Segment | First phase | Phases | Pause it follows |
+| --- | --- | --- | --- |
+| A | `startDay` | `startDay … forecastTraffic` | — (opens the day) |
+| B | `beforeOwnerActions` | `beforeOwnerActions … closing` | Pause 1 (morning plan → `ownerActions` + `staffPriorities`) |
+| C | `applyResponses` | `applyResponses … advanceCalendar` | Pause 2 (service react → `responseIntents`) |
+
+`src/sim/core/engine.ts` gains a public **`advanceDaySegment(state, input,
+modules, segment, { dayBaseline? })`** that runs one slice in its own fresh
+runtime and returns a normal `SimResult` whose `state` is the serializable
+checkpoint. `simulateDay` is **reimplemented as the three segments run
+back-to-back through the same `runSegmentPhases` helper**, so the run-all and
+run-one paths are literally the same code and cannot drift. The invariant
+(segmented A→B→C === `simulateDay` final state + full-day diff) is asserted in
+`tests/sim/phase186.segmentedEngine.test.ts`.
+
+### ⚠️ Correction to the contract: `simulateDay` is **not** byte-unchanged
+
+§4.2 says "keep `simulateDay` … unchanged." Its **signature, role, and
+callers are unchanged** (the cardless runner and every determinism test still
+call it and still get one full day). But its **internal RNG threading
+changed**: it now rebuilds the RNG stream set at each segment boundary
+(`reseedSegmentRng`). This is *forced* by the other three Cluster-2
+requirements taken together — per-segment sub-seeds (§1.3) + "only TavernState
+crosses a pause" (no RNG serialization, §1.2/§1.3) + "segmented run produces
+identical final state to `simulateDay`." A segmented run cannot carry RNG
+call-counts across a pause, so each segment re-derives its RNG from a
+segment-scoped seed; for the run-all path to match, it must reseed the same
+way. The three constraints can only co-exist if `simulateDay` adopts the
+segment reseed. So "unchanged" is a contract gap; the stronger, repeated
+requirements win.
+
+### ⚠️ Segment A keeps the per-day seed (refinement of `:seg-{A,B,C}`)
+
+`segmentSeed(seed, 'A') === seed`; only B and C take a `:seg-{B,C}` suffix.
+Rationale: Segment A runs first, so its streams can never *replay* a prior
+segment (the whole reason sub-seeds exist — see the RNG map below), and
+leaving A on the per-day seed keeps **all of Segment A's RNG identical to the
+pre-Cluster-2 behaviour**. Segment A owns identity/name generation
+(`regular_identity`, the daily `supplier_delivery` diagnostic, forecast
+jitter), which is the most brittle thing to re-baseline in tests. This is a
+deliberate, documented deviation from the literal `:seg-{A,B,C}` notation,
+taken to bound test churn and protect name determinism. The contract's intent
+(deterministic, isolated, serialization-free segments) is fully met: A↔B↔C
+are pairwise seed-isolated.
+
+### RNG stream → segment map (why the churn was bounded to B/C)
+
+Only **`service`** (`ctx.rng`) is consumed in all three segments — forecast
+jitter (A), turnout variation (B), area decay + spoilage (C). `supplier_delivery`
+spans A (daily supplier cycle) + B (player restock). Every other named stream
+is single-segment. Because Segment A keeps the per-day seed, the values that
+*changed* under the reseed are only the **Segment B and C** rolls
+(`service` turnout/decay/spoilage, `incidents`, `attribution_perceiver`,
+`seasonal_events`, `adventurer_roster`/`npc_identity` on week/month
+boundaries, and `staff_identity`/`supplier_delivery` only when the player
+hires/restocks). The full suite stayed green with **no test edits** — the
+sim's value-sensitive tests use relative/threshold/warm-up assertions, not
+golden numbers.
+
+### Cause/history numbering is now resumable from state
+
+A per-segment runtime starts fresh (counter 0), which would re-mint `c-<day>-1`
+mid-day and corrupt state. `createContext` now **derives the starting
+cause/history counter from the ids already stamped for today**
+(`deriveDayCounter`, scanning for the max `c-<absoluteDay>-<n>` /
+`h-<absoluteDay>-<n>`). For a single `simulateDay` call or a fresh day this is
+0 (no match yet), so it reproduces the old continuous numbering exactly; for a
+later segment it continues where the earlier segment left off. This is the
+"only TavernState crosses" property applied to the cause counter.
+
+### Expedition seed capture moved off `baseSeed`
+
+`commissionExpedition` captured `ctx.rngStreams.baseSeed`. After the reseed,
+`baseSeed` is the *segment* seed (commissioning runs in Segment B), so the
+capture now reads **`ctx.input.seed`** — the unsegmented per-day seed, which
+is exactly what `baseSeed` was before Cluster 2. Expedition resolution
+determinism is therefore unchanged. (`getRngStreamByName`/`baseSeed` have no
+other in-sim caller.)
+
+### ⏭️ For Cluster 5 (store / UI flow)
+
+- Drive the three segments with `advanceDaySegment`. Hold the **start-of-day
+  `TavernState`** as one store field and pass it as `dayBaseline` to the B and
+  C calls so the daily report keeps reading a single full-day diff (GATE B).
+  Segment A may omit `dayBaseline` (defaults to its input).
+- The **same `SimInput`** can be passed to all three segments — each segment
+  only consumes the input fields whose phase it runs (`ownerActions`/
+  `staffPriorities` in B, `responseIntents` in C); the others are inert.
+- **Reports are only built in Segment C** (`generateReports` lives in C), so
+  `buildDailyReport` should run against the Segment-C result. **Logs, however,
+  accumulate per segment** — A and B produce `result.logs` of their own. If
+  the store needs the full day's logs (e.g. debug bundle), concatenate
+  `a.logs ++ b.logs ++ c.logs`. Validation runs only in C.
+- `latestResult` for the report = the Segment-C `SimResult`. Its `diffs` hold
+  the full-day diff; its `reports` hold the day's report sections.
+
 ## Determinism notes (why the churn was bounded)
 
 - **Generators consume no RNG.** A grep across `issueSeedGenerators.ts`,

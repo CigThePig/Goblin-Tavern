@@ -224,10 +224,15 @@ export const commissionExpedition: OwnerActionDefinition = {
       costPaid: cost,
       startedDay: today,
       status: 'in_progress',
-      // Capture the run's base seed so resolution can rebuild the
-      // expedition's named streams independent of the resolution
-      // day's input seed.
-      seed: ctx.rngStreams.baseSeed,
+      // Capture the commission day's per-day input seed so resolution can
+      // rebuild the expedition's named streams independent of the
+      // resolution day's input seed. Phase 186 (Cluster 2): read
+      // `ctx.input.seed` rather than `ctx.rngStreams.baseSeed` — the stream
+      // set is now reseeded per segment, so `baseSeed` would be the
+      // segment-scoped seed (commissioning runs in Segment B). `input.seed`
+      // is the unsegmented per-day seed, which is exactly what `baseSeed`
+      // was before segmentation, keeping expedition resolution stable.
+      seed: ctx.input.seed,
     }
     addExpedition(ctx, expedition)
 

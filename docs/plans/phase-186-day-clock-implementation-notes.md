@@ -712,3 +712,95 @@ segmented flow removes.
   tavern has nothing to review), `triggeringStates` +
   `cards/compose/gates/realSeedShapes` (stale month-end comments; the
   built-in capture warm-up already lands monthly_review on day 29).
+
+## Cluster 6 — what shipped (report-as-unfolding)
+
+The daily report now narrates the day as the **three real engine
+segments** instead of one flat end-of-day "What happened" lump. The
+report's narrative spine is a new ordered **day arc** (contract §4.6):
+
+| Movement | id | Source lines | Engine moment |
+| --- | --- | --- | --- |
+| You set the day in motion | `opening` | `ownerActionsApplied` | Segment B `applyOwnerActions` |
+| Service ran | `service` | `serviceLines` | Segment B service resolution |
+| You answered the day | `reckoning` | `resolvedIntents` | Segment C `applyResponses` |
+
+### The load-bearing design choice: re-home, don't re-derive
+
+The arc is built **from the already-projected rich lines**
+(`ownerActionsApplied` / `serviceLines` / `resolvedIntents`), not from a
+fresh read of state or diffs. `projectDayArc` runs *after* those three
+projectors and maps each into a `DayArcEntry` discriminated union. This
+keeps the Core Design Rule intact — the report invents **zero** new
+facts; it only **orders and frames** what the projection already derived
+from the sim. A test (`phase186.dayArc.test.ts`) asserts the arc entries
+are `.toEqual` the flat fields, so the two can never drift.
+
+- **The flat fields are retained**, not removed. `ownerActionsApplied` /
+  `serviceLines` / `resolvedIntents` stay on `DailyReportData` because
+  (a) snapshot stability and (b) `projectYesterdayDigest` and other
+  non-narrative consumers read them. The arc is **additive** — a new
+  `dayArc: DayArcMovement[]` field. The old "What happened" block in
+  `DailyReport.svelte` was **replaced** by the per-movement rendering
+  (the flat fields are no longer rendered there, but the data remains).
+- **Empty movements are omitted.** A movement with no source entries is
+  not pushed, so a quiet day shows a short arc (or none) rather than
+  empty headings. `isQuiet` is unchanged — still computed from the flat
+  fields, so the quiet-line path is untouched.
+
+### Voice: a new connective pool, plus a now-reachable header snippet
+
+- New compose section `daily.arc` (`src/reports/compose/sections/dayArc.ts`)
+  + pool `report.daily.arc.line` (`src/reports/compose/pools/dayArc/`).
+  One optional `aside` slot, `tavern_floor` register, ≤ 8 words. Three
+  snippets per movement, each gated on a single `hasTag` of the movement
+  id (**data conditions, not closures** — framework §2.3; this was the
+  one mistake to avoid). Keyed `d{closedDay}.{movementId}` so the same
+  movement on the same day reads the same connective across rebuilds.
+  Connector-only: the figures stay structural in the entry lines.
+- ⚠️ **`composeDailyHeaderLine` gained its `isHeavyDay` argument for
+  real.** The header pool has shipped a `hdr_heavy_day` snippet gated on
+  `heavy_day` since Phase 141, but **no caller ever passed
+  `isHeavyDay`**, so it was unreachable dead content. Cluster 6 computes
+  `isHeavyDay` in `buildDailyReport` (≥3 owner-actions+intents, or ≥6
+  top diffs) and threads it through `buildHeader`. This **changes header
+  voice on busy days** — deterministically, and only toward a snippet
+  that was always meant to be reachable. No test asserted a specific
+  header string, so the suite stayed green.
+
+### Report ordering changed (digests moved to the coda)
+
+The weekly/monthly digests **moved from the top of the report to the
+bottom** (`DailyReport.svelte`). The day's own story reads first; the
+longer-horizon zoom-out closes it. This honours the §3.5 split
+(digests are read-only aftermath; choice-bearing periodic seeds already
+surface at the morning pause via Cluster 4) and reads as a natural
+narrative wind-down. Purely a render reordering — no projection change.
+
+### ⏭️ For Cluster 7 (in-flight save migration)
+
+- `dayArc` is a **pure projection field**, recomputed from
+  `latestResult` + `state` on every render — it is **never persisted**.
+  A pre-Cluster-6 save loads and renders fine: the next `buildDailyReport`
+  produces the arc. No migration is required for the report layer.
+- The flat `actionPointCost` field on `ReportOwnerActionLine` still holds
+  **minutes** (Cluster 3 naming debt); the arc's `owner_action` entries
+  carry the same field unchanged, so the Cluster-7 rename covers both.
+
+### Files touched in Cluster 6
+
+- `src/reports/types.ts` — `DayArcMovementId`, `DayArcEntry`,
+  `DayArcMovement`; `dayArc` on `DailyReportData`.
+- `src/reports/dailyReportProjection.ts` — `projectDayArc` + `arcVoice`;
+  `isHeavyDay` computation; `buildHeader` gains `isHeavyDay` param.
+- `src/reports/compose/sections/dayArc.ts` (new),
+  `src/reports/compose/pools/dayArc/{index,line}.ts` (new),
+  `src/reports/compose/sections/index.ts` (re-export).
+- `src/reports/index.ts` — export the three new arc types.
+- web: `web/src/lib/components/DailyReport.svelte` — render the arc as the
+  report's spine, replace the flat "What happened" block, move digests to
+  the coda, `arc-voice` style + `arcEntryKey` helper.
+- tests: `tests/reports/phase186.dayArc.test.ts` (new — order, entry
+  re-homing equivalence, empty-movement omission, voice routing +
+  determinism, purity); `tests/reports/yesterdayDigest.test.ts` (fixture
+  gains `dayArc: []`).

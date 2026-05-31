@@ -26,6 +26,14 @@ export {
 } from './dailyQuiet'
 
 export {
+  composeDayArcLine,
+  dayArcSection,
+  dayArcSlots,
+  type DayArcLineInput,
+  type DayArcMovementId,
+} from './dayArc'
+
+export {
   composeMorningEmptyLine,
   morningEmptySection,
   morningEmptySlots,

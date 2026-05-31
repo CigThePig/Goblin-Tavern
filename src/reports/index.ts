@@ -50,6 +50,9 @@ export {
 export type { BuildDailyReportOptions } from './dailyReportProjection'
 export type {
   DailyReportData,
+  DayArcEntry,
+  DayArcMovement,
+  DayArcMovementId,
   ReportCalendarHeader,
   ReportDiffLine,
   ReportDirection,

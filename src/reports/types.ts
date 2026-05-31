@@ -127,6 +127,34 @@ export type ReportDigest = {
   lines: string[]
 }
 
+// Phase 186 / Day-Clock Cluster 6 — Report-as-unfolding.
+//
+// The day now runs as three real engine segments (A: setup → morning,
+// B: owner actions + service, C: responses → wrap). The day arc narrates
+// the day in that true temporal order instead of as flat category
+// buckets: the morning moves you committed (`opening`), service running
+// (`service`), and the cards you answered at the service-react pause
+// (`reckoning`). Each movement carries the already-projected rich lines —
+// no new sim facts are invented; this is purely an ordering + framing
+// layer over `ownerActionsApplied` / `serviceLines` / `resolvedIntents`.
+export type DayArcMovementId = 'opening' | 'service' | 'reckoning'
+
+export type DayArcEntry =
+  | { kind: 'owner_action'; action: ReportOwnerActionLine }
+  | { kind: 'service'; line: ReportServiceLine }
+  | { kind: 'resolved_intent'; intent: ReportResolvedIntent }
+
+export type DayArcMovement = {
+  id: DayArcMovementId
+  /** Player-facing heading for the movement. */
+  title: string
+  /** Composed narrator connective; deterministic per (day, movement). */
+  voice?: string
+  /** The movement's rich lines, in projection order. Never empty — a
+   *  movement with no entries is omitted from the arc entirely. */
+  entries: DayArcEntry[]
+}
+
 // Phase 97 — Missed-opportunity projection. The daily report surfaces
 // up to three "you could have done X" hints between "What happened" and
 // "What's building". Computed purely from existing sim outputs (causes,
@@ -199,6 +227,15 @@ export type DailyReportData = {
   ownerActionsApplied: ReportOwnerActionLine[]
   resolvedIntents: ReportResolvedIntent[]
   serviceLines: ReportServiceLine[]
+  /**
+   * Phase 186 / Day-Clock Cluster 6 — the day's story, ordered by the
+   * engine's real segments (opening → service → reckoning). The view
+   * layer renders this as the report's narrative spine; the flat
+   * `ownerActionsApplied` / `serviceLines` / `resolvedIntents` fields are
+   * retained for snapshot stability and non-narrative consumers
+   * (e.g. yesterdayDigest). Movements with no entries are omitted.
+   */
+  dayArc: DayArcMovement[]
   risingPressures: ReportPressureLine[]
   futureHooks: ReportHookLine[]
   /** Phase 97 — "What you could have done" block. Up to 3 lines. */

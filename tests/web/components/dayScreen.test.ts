@@ -1,27 +1,25 @@
 // Phase 97 / ISSUE-057 — DayScreen component tests.
-//
-// These are the first Svelte component tests in this repo (everything
-// else under `tests/web/` is data-layer). They live under
-// `tests/web/components/` so vitest's `environmentMatchGlobs` config
-// routes them through jsdom while the rest of the suite stays on the
-// faster node default.
+// Phase 186 / Day-Clock Cluster 5 — rewired for the segmented day. The
+// day now advances as three engine segments (`advanceDaySegment`) driven
+// by the beats: Segment A opens the morning, Segment B runs at "Run
+// service", Segment C runs at "End day". These tests still guard the
+// error-recovery behaviour ISSUE-057 introduced, now against the
+// per-segment engine calls.
 //
 // What we're covering:
 //
-// 1. Happy path — fresh game, walk the beats, click End Day, assert
-//    the beat advances to 'report' and the DailyReport renders.
+// 1. Happy path — open the day, run service, End day at closing → beat
+//    advances to 'report' and the DailyReport renders.
 //
-// 2. `simulateDay` throws — assert the run-error banner appears with
-//    the error message, beat does NOT advance, Retry clears the error.
+// 2. Segment C (End day) throws — assert the run-error banner appears,
+//    beat does NOT advance, Retry clears the error and recovers.
 //
-// 3. `buildDailyReport` throws AFTER a successful sim — assert beat
-//    advances but the fallback "Report unavailable" panel renders
-//    instead of a blank screen, and Next day still works.
+// 3. `projectYesterdayDigest` throws — morning beat renders the inline
+//    digest fallback without unmounting the rest of the morning.
 //
-// The DayScreen → gameStore → simulateDay path is the entire end-of-day
-// loop. Before ISSUE-057, any throw on that path looked exactly the
-// same to the user: "the button did nothing". These tests guarantee
-// the symptom is now an error message + recovery path, not silence.
+// 4. `buildDailyReport` throws AFTER a successful Segment C — beat
+//    advances but the "Report unavailable" fallback renders, and Next
+//    day still works.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte'
@@ -30,10 +28,10 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/svelte'
 // vitest 1.x escape hatch that makes the function reference available
 // to the mock factory below.
 const mocks = vi.hoisted(() => ({
-  simulateDay: vi.fn(),
+  advanceDaySegment: vi.fn(),
   buildDailyReport: vi.fn(),
   projectYesterdayDigest: vi.fn(),
-  realSimulateDay: undefined as undefined | ((...args: unknown[]) => unknown),
+  realAdvanceDaySegment: undefined as undefined | ((...args: unknown[]) => unknown),
   realBuildDailyReport: undefined as undefined | ((...args: unknown[]) => unknown),
   realProjectYesterdayDigest: undefined as
     | undefined
@@ -42,11 +40,15 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../../../src/sim/core/engine', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
-  mocks.realSimulateDay = actual['simulateDay'] as (...args: unknown[]) => unknown
+  mocks.realAdvanceDaySegment = actual['advanceDaySegment'] as (
+    ...args: unknown[]
+  ) => unknown
   // Default: pass through to the real engine. Tests override via
-  // mocks.simulateDay.mockImplementation(...) when they want a throw.
-  mocks.simulateDay.mockImplementation((...args) => mocks.realSimulateDay!(...args))
-  return { ...actual, simulateDay: mocks.simulateDay }
+  // mocks.advanceDaySegment.mockImplementationOnce(...) when they want a throw.
+  mocks.advanceDaySegment.mockImplementation((...args) =>
+    mocks.realAdvanceDaySegment!(...args),
+  )
+  return { ...actual, advanceDaySegment: mocks.advanceDaySegment }
 })
 
 vi.mock('../../../src/reports/index', async (importOriginal) => {
@@ -76,10 +78,21 @@ vi.mock('../../../src/reports/yesterdayDigest', async (importOriginal) => {
 const { default: DayScreen } = await import('../../../web/src/lib/screens/DayScreen.svelte')
 const { gameStore } = await import('../../../web/src/lib/sim/gameStore.svelte')
 
-describe('DayScreen — end-of-day flow (Phase 97 / ISSUE-057)', () => {
+// Walk the day's first two segments so the player sits at the closing
+// beat ready to End day (Segment C). Done programmatically rather than
+// clicking "Run service" to avoid the 600ms BeatTransition timer.
+function advanceToClosing(): void {
+  gameStore.beginDay() // Segment A
+  gameStore.runService() // Segment B
+  gameStore.setBeat('closing')
+}
+
+describe('DayScreen — segmented day flow (Phase 97 / ISSUE-057, Phase 186 / Cluster 5)', () => {
   beforeEach(() => {
     gameStore.reset('test-seed')
-    mocks.simulateDay.mockImplementation((...args) => mocks.realSimulateDay!(...args))
+    mocks.advanceDaySegment.mockImplementation((...args) =>
+      mocks.realAdvanceDaySegment!(...args),
+    )
     mocks.buildDailyReport.mockImplementation((...args) =>
       mocks.realBuildDailyReport!(...args),
     )
@@ -92,36 +105,36 @@ describe('DayScreen — end-of-day flow (Phase 97 / ISSUE-057)', () => {
     cleanup()
   })
 
-  it('happy path: walks to closing, clicks End day, beat advances to report', async () => {
+  it('happy path: open day, run service, End day at closing → report', async () => {
+    advanceToClosing()
+    expect(gameStore.segment).toBe('B')
     render(DayScreen)
-
-    // Skip the picker/service beats — they're not the point of this
-    // test. The engine accepts an empty intent set on any beat.
-    gameStore.setBeat('closing')
 
     const endDayButton = await screen.findByRole('button', { name: /^end day$/i })
     await fireEvent.click(endDayButton)
 
     expect(gameStore.beat).toBe('report')
+    expect(gameStore.segment).toBe('C')
     expect(gameStore.runError).toBeUndefined()
     // The DailyReport renders a header with "Day N closed" — match
     // loosely so we don't couple to copy.
     expect(screen.getByText(/day\s+\d+\s+closed/i)).toBeTruthy()
   })
 
-  it('simulateDay throws: banner renders, beat does NOT advance, Retry recovers', async () => {
+  it('Segment C throws: banner renders, beat does NOT advance, Retry recovers', async () => {
+    advanceToClosing()
     render(DayScreen)
-    gameStore.setBeat('closing')
 
-    mocks.simulateDay.mockImplementationOnce(() => {
+    mocks.advanceDaySegment.mockImplementationOnce(() => {
       throw new Error('boom from test')
     })
 
     const endDayButton = await screen.findByRole('button', { name: /^end day$/i })
     await fireEvent.click(endDayButton)
 
-    // Beat did not advance.
+    // Beat did not advance; the day is still mid-flight at Segment B.
     expect(gameStore.beat).toBe('closing')
+    expect(gameStore.segment).toBe('B')
 
     // runError is pinned and the banner is visible.
     expect(gameStore.runError?.message).toBe('boom from test')
@@ -134,10 +147,11 @@ describe('DayScreen — end-of-day flow (Phase 97 / ISSUE-057)', () => {
 
     expect(gameStore.runError).toBeUndefined()
     expect(gameStore.beat).toBe('report')
+    expect(gameStore.segment).toBe('C')
   })
 
   it('projectYesterdayDigest throws: morning beat renders the digest fallback panel', async () => {
-    // Run a real day so the morning beat has yesterday's report to digest.
+    // Run a real full day so the morning beat has yesterday's report to digest.
     gameStore.runDay({ responseIntents: [] })
     expect(gameStore.latestResult).toBeDefined()
 
@@ -165,10 +179,10 @@ describe('DayScreen — end-of-day flow (Phase 97 / ISSUE-057)', () => {
   })
 
   it('buildDailyReport throws: beat advances, fallback panel renders with Next day button', async () => {
+    advanceToClosing()
     render(DayScreen)
-    gameStore.setBeat('closing')
 
-    // Make the *projection* fail. simulateDay still succeeds — the day
+    // Make the *projection* fail. Segment C still succeeds — the day
     // really did advance — but the report cannot be built.
     mocks.buildDailyReport.mockImplementation(() => {
       throw new Error('projection failed')

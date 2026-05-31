@@ -543,6 +543,156 @@ insurance but is no longer load-bearing.
   appear under. Fold this into the "finish under old rules or reset to next
   morning" decision Cluster 7 already owns.
 
+## Cluster 5 — what shipped (store / UI flow integration)
+
+The web layer now drives the day as the **three real engine segments**
+instead of one end-of-day `simulateDay`. This is the fix for the
+interim breakage Cluster 1 flagged: the old `runDay` resolved the
+player's responses against the *previous* day's seeds (which `startDay`
+now clears + regenerates) and silently no-op'd. Responses are now
+produced and resolved within the same day.
+
+### The store API (`gameStore.svelte.ts`)
+
+`simulateDay` is gone from the store; it calls `advanceDaySegment`
+(Cluster 2). Three guarded segment methods plus a run-all convenience:
+
+| Method | Segment | Runs phases | Guard (only acts when) |
+| --- | --- | --- | --- |
+| `beginDay()` | A | `startDay … forecastTraffic` | `segment === 'C'` |
+| `runService(extra)` | B | `beforeOwnerActions … closing` | `segment === 'A'` |
+| `endDay(extra)` | C | `applyResponses … advanceCalendar` | `segment === 'B'` |
+| `runDay(extra)` | A→B→C | full day | — (composes the three) |
+
+- The **guards make the methods idempotent**: a stray repeat (an effect
+  firing twice, a double tap) is a no-op, so a day can't double-open or
+  double-close. `runDay` composes the three guarded calls, so calling it
+  mid-day *finishes* the in-progress day rather than starting a new one —
+  which is what keeps the old `runDay`-based tests (reportsScreen,
+  cardless callers) working unchanged.
+- **`segment` is the position field** added to `DaySessionSnapshot`
+  (`daySession.ts`), persisted. Values `'A' | 'B' | 'C'`; `'C'` doubles
+  as the "ready to begin the next day" state (so `reset()` and a closed
+  day share one resume rule). Kept in lock-step with `beat` — the
+  (beat, segment) pair is always written together, so resume never
+  stalls on a disagreement.
+- **`dayBaseline`** (a `TavernState` store field) holds the start-of-day
+  snapshot and is threaded as `advanceDaySegment(..., { dayBaseline })`
+  into B and C so the daily report keeps reading one full-day diff across
+  the three per-segment runtimes (**GATE B**). ⚠️ **A `$state`-stored
+  TavernState is re-proxied by Svelte**, and the engine's
+  `structuredClone` rejects the proxy in jsdom — read it back through
+  `$state.snapshot` before handing it to the engine (`dayBaselineSnapshot`).
+  Same hazard applies to any future TavernState held in `$state`.
+- **Logs accumulate across segments** in an in-memory `dayLogs`; `endDay`
+  prepends A+B's logs to C's for `latestResult.logs`. A mid-day refresh
+  loses A/B logs (cosmetic — only the debug-bundle log count).
+- **Picks are consumed by Segment B**, not end-of-day. `runService`
+  drains the queue; `beginDay` does NOT (a player can queue from the
+  Tavern surfaces before the plan beat, and those carry into the day's
+  Segment B). `pendingBySeedId` + the deck-complete flags reset in
+  `beginDay`.
+
+### Persistence (`persistence.ts`)
+
+- `PersistedSession` gains optional `dayBaseline?: TavernState`,
+  serialized **only while a day is in progress** (`segment` 'A'/'B') to
+  avoid bloating closed-day saves with a stale state copy. It runs
+  through the **same migration + validation pipeline as `state`** —
+  extracted into a shared `migrateAndValidateState` helper — and is
+  dropped (with a console.warn) if it fails.
+- `sanitizeDaySession` derives `segment` from `beat` when the field is
+  absent, so a **pre-Cluster-5 save** (no segment) resumes at a
+  consistent position (morning/plan→A, service/closing→B, report→C).
+
+### DayScreen (`DayScreen.svelte`)
+
+- The five beats now **bracket the segments**: opening the morning runs
+  Segment A (via a `$effect` that calls `beginDay` when
+  `beat === 'morning' && segment === 'C'`, `untrack`-wrapped so the
+  engine's state writes don't re-fire it); "Run service" runs Segment B;
+  "End day" runs Segment C. `nextDay` just sets `beat = 'morning'` and
+  lets the effect open the new day. `App.startGame` calls `beginDay`
+  once up front to avoid a first-frame flash (effect is the safety net).
+- **Forecast-as-expected** (contract §3.6) added to the morning glance:
+  the summed `customers.forecasts[].expected`, framed "~N guests expected
+  · before your moves." This is newly *honest* only because Segment A
+  now runs before the morning — pre-Cluster-5 the morning showed the
+  prior day's forecast.
+- **Quick Day** is now honest about emergence: it runs Segment B and, if
+  service surfaced any `during_service`/`closing` seeds, drops the player
+  into the service beat instead of burying them; otherwise it runs
+  Segment C to the report.
+- Swept two stale Cluster-3 display strings in the touched file: the
+  plan-beat lede ("up to 3 owner actions" → time framing) and the queued
+  pick cost (`{actionPointCost} pt` → `formatDuration(...)`, since that
+  field now holds minutes).
+
+### ⏭️ For Cluster 6 (report-as-unfolding)
+
+- `latestResult` for the report is the **Segment-C** `SimResult`: its
+  `diffs` carry the full-day diff, its `reports` carry every section
+  (all report sections are built in `generateReports`, which lives in C,
+  reading the final state — so B's owner-action/service/pressure data is
+  present). `previousCalendar` is the start-of-day calendar captured at
+  `beginDay`, so the report still labels the day it closes.
+- The segments are real now, so "narrate what happened across the
+  segments" has genuine per-segment boundaries to lean on if wanted
+  (A's logs vs B's logs vs C's logs are separable before `endDay`
+  concatenates them).
+
+### ⏭️ For Cluster 7 (in-flight save migration)
+
+- The interim breakage Cluster 1 described is **resolved** for
+  Cluster-5+ saves. The remaining migration concern is a **pre-Cluster-5
+  save resumed mid-day**: `sanitizeDaySession` derives a `segment` from
+  the beat, which keeps the flow functional, but such a save's
+  `seedsToday` was generated by the *old* end-of-day model and its state
+  never had this day's Segment A run. Resuming it at morning/plan and
+  then running Segment B skips Segment A's setup for that one day.
+  Cluster 7 owns the proper "finish under old rules or reset to next
+  morning" ruling (contract §4.7). The `actionPoint*` serialized-field
+  rename (Cluster 3 naming debt) still belongs to Cluster 7 too.
+- The new `dayBaseline` envelope field is additive and optional — old
+  saves load fine without it; the segment methods fall back to the
+  current state (one resumed day's report carries a Segment-C-only diff
+  in that fallback, the documented edge).
+
+### One card surface (scope note)
+
+Card *placement* is now singular and honest via the segments: foreseeable
+standing conditions + periodic choices in the morning (Segment A),
+emergent events only once service runs (Segment B), aftermath in the
+report (Segment C). The two rendering *components* are intentionally kept
+distinct and were **not** merged: `CardRenderer` is the morning
+review-list (all cards visible, per-card pending state), `CardDeck` is
+the service/closing swipe-through react deck. That split is a UX choice
+(review vs react), not the "inconsistent placement" problem the contract
+named — which was pre-baked seeds shown at arbitrary beats, and which the
+segmented flow removes.
+
+### Files touched in Cluster 5
+
+- `web/src/lib/sim/daySession.ts` — `DaySegment` type; `segment` on
+  `DaySessionSnapshot` + `INITIAL_DAY_SESSION`.
+- `web/src/lib/sim/gameStore.svelte.ts` — `beginDay`/`runService`/`endDay`
+  segment methods, `runDay` recomposed, `segment`/`dayBaseline`/`dayLogs`
+  fields, `dayInput`/`snapshotState`/`dayBaselineSnapshot` helpers,
+  reset/hydrate/serialize updates.
+- `web/src/lib/sim/persistence.ts` — `dayBaseline` envelope field +
+  validation, `migrateAndValidateState` extraction, `sanitizeSegment`.
+- `web/src/lib/screens/DayScreen.svelte` — begin-day effect, segment-
+  driven handlers, forecast-as-expected, Quick Day emergence, stale-copy
+  sweep, plan-beat run-error banner.
+- `web/src/App.svelte` — `startGame` opens day one; `segment` in the
+  autosave deps.
+- tests: `tests/web/phase186.daySegments.test.ts` (new — store flow,
+  GATE B, mid-day resume, old-save derivation), rewrote
+  `tests/web/components/dayScreen.test.ts` and
+  `tests/web/components/crossScreen.flow.test.ts` for the segmented flow.
+
+---
+
 ### Files touched in Cluster 4
 
 - `src/sim/modules/issues/issueSeedRegistry.ts` — `generateWith` field.

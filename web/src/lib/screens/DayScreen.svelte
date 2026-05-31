@@ -1,35 +1,43 @@
 <!--
-  DayScreen — the 5-beat day loop.
+  DayScreen — the 5-beat day loop, now bracketing three real engine
+  segments (Phase 186 / Day-Clock Cluster 5).
 
-  Beats:
-    1. morning   — at-a-glance + pressures + morning_prep cards +
-                   choice-bearing periodic cards (debt_rent, monthly_review)
-    2. plan      — owner action picker + staff priority sheet
-    3. service   — during_service deck (or skip-light)
-    4. closing   — closing deck
-    5. report    — minimal diff dialog (Phase 89 owns the full report);
-                   weekly/monthly digests are read-only report sections
+  Beats → segments:
+    1. morning   — Segment A output: at-a-glance + forecast-as-expected +
+                   pressures + morning_prep cards + choice-bearing periodic
+                   cards (debt_rent, monthly_review). Opening the morning
+                   RUNS Segment A (`gameStore.beginDay`).
+    2. plan      — Pause 1: owner action picker + staff priority sheet.
+    3. service   — "Run service" RUNS Segment B (`gameStore.runService`);
+                   during_service deck shows emergent cards as produced.
+    4. closing   — Pause 2 continues: closing deck.
+    5. report    — "End day" RUNS Segment C (`gameStore.endDay`), applying
+                   the day's responses and building the report. Weekly/
+                   monthly digests are read-only report sections.
 
-  Phase 186 / Day-Clock Cluster 4 — periodic-choice re-homing (contract
-  §3.5): choice-bearing periodic seeds (end_week/end_month, e.g. debt_rent
-  and the month-end monthly_review) moved OUT of the closing deck and INTO
-  the morning beat, where the moment to act has not yet passed. Their
-  informational counterparts (weekly/monthly digests) stay in the report.
+  Phase 186 / Day-Clock Cluster 5 — the day used to be one end-of-day
+  `simulateDay`, which (after Cluster 1 made seed generation segment-local)
+  resolved the player's responses against the PREVIOUS day's seeds and
+  silently no-op'd. The beats now bracket the engine's real segments, so
+  morning/service/closing cards are produced this day and resolved this
+  day. Card placement is honest: foreseeable standing conditions in the
+  morning, emergent events only once service has run (contract §3.1).
 
-  Player decisions accumulate in `pendingByseedId` (response intents per
-  seed) and `picks` (owner actions) plus `staffPriorities` (sticky
-  across days). All three flush into a single `gameStore.runDay(...)`
-  call when the player taps End Day. The engine sees one
-  `simulateDay` per game-day.
+  Player decisions accumulate in `pendingBySeedId` (response intents per
+  seed), `picks` (owner actions, consumed by Segment B), and
+  `staffPriorities` (sticky). Morning + service + closing responses flush
+  into Segment C when the player taps End Day.
 
   Phase 96 lifted `beat`, `pendingBySeedId`, and the two deck-complete
   flags onto `gameStore` so a refresh resumes on the same beat with
-  intents preserved. The morning beat also offers a Quick Day shortcut
-  when the sim produced zero valid seeds across all five timing slots
-  (game-loop §3.7), and a "Yesterday" digest when a previous day's
-  report exists (game-loop §2.3).
+  intents preserved; Cluster 5 adds the `segment` position so the resume
+  lands on the right engine segment. The morning beat also offers a Quick
+  Day shortcut when Segment A produced zero morning seeds (game-loop
+  §3.7), and a "Yesterday" digest when a previous day's report exists
+  (game-loop §2.3).
 -->
 <script lang="ts">
+  import { untrack } from 'svelte'
   import PressureRibbon from '../components/PressureRibbon.svelte'
   import Icon from '../components/Icon.svelte'
   import CardRenderer from '../cards/CardRenderer.svelte'
@@ -40,6 +48,7 @@
   import DailyReport from '../components/DailyReport.svelte'
   import YesterdayDigest from '../components/YesterdayDigest.svelte'
   import { renderCard } from '../cards/realCardRegistry'
+  import { formatDuration } from '../sim/actionBuilder'
   import { gameStore } from '../sim/gameStore.svelte'
   import { prefsStore } from '../prefs/prefsStore.svelte'
   import { buildIntent, buildIgnoreIntent } from '../sim/intentBuilder'
@@ -67,12 +76,38 @@
   import { safeProject, type ProjectionSlot } from '../sim/projectionSlot'
 
   // Phase 96 — Beat & pending state read from the store so they survive
-  // a reload. The store also resets these on `runDay()`.
+  // a reload. The store resets the per-day session state when a new day
+  // opens in Segment A (`beginDay`).
   const beat = $derived(gameStore.beat)
   const picks = $derived(gameStore.picks)
   const staffPriorities = $derived(gameStore.staffPriorities)
   const pendingBySeedId = $derived(gameStore.pendingBySeedId)
   const serviceComplete = $derived(gameStore.serviceComplete)
+
+  // Phase 186 / Day-Clock Cluster 5 — open the day whenever the morning
+  // beat is shown but no day is in progress (`segment === 'C'`, the
+  // "ready" state). `beginDay` runs Segment A — setup, world advance,
+  // morning seed generation, traffic forecast — and is idempotent (only
+  // opens from 'C'), so this fires exactly once per day: on fresh start,
+  // after Next day, and on a hydrated save that resumed at a brand-new
+  // morning. `untrack` keeps the engine's state writes from re-triggering
+  // the effect; the guard read of `beat`/`segment` is the only dependency.
+  // A Segment-A throw is pinned to `runError` so the morning beat's
+  // existing banner surfaces it instead of bubbling to the App boundary.
+  $effect(() => {
+    if (gameStore.beat === 'morning' && gameStore.segment === 'C') {
+      untrack(() => {
+        try {
+          gameStore.beginDay()
+        } catch (err) {
+          gameStore.runError = {
+            message: err instanceof Error ? err.message : String(err),
+            ...(err instanceof Error && err.stack ? { stack: err.stack } : {}),
+          }
+        }
+      })
+    }
+  })
 
   let pickerOpen = $state(false)
   let staffSheetOpen = $state(false)
@@ -127,6 +162,22 @@
   )
 
   const staffCount = $derived(Object.keys(gameStore.state.staff).length)
+
+  // Phase 186 / Day-Clock Cluster 5 — forecast-as-expected (contract
+  // §3.6). `forecastTraffic` runs at the end of Segment A, so by the
+  // morning beat the day's projected turnout genuinely exists — "expected,
+  // before your moves," not a settled number. The player's Pause-1 owner
+  // actions then change actual turnout in Segment B. Summed across groups;
+  // `undefined` until a forecast exists (e.g. before the day is opened).
+  const forecastExpected = $derived.by(() => {
+    const slot = gameStore.state.modules['customers'] as
+      | { forecasts?: { expected?: number }[] }
+      | undefined
+    const forecasts = slot?.forecasts
+    if (!forecasts || forecasts.length === 0) return undefined
+    return forecasts.reduce((n, f) => n + (f.expected ?? 0), 0)
+  })
+
   const stockSummary = $derived.by(() => {
     const entries = Object.values(gameStore.state.stock)
     const shown = entries.slice(0, 3)
@@ -212,11 +263,30 @@
   )
 
   // ── Beat transitions ──────────────────────────────────────────────
+  function captureRunError(err: unknown) {
+    gameStore.runError = {
+      message: err instanceof Error ? err.message : String(err),
+      ...(err instanceof Error && err.stack ? { stack: err.stack } : {}),
+    }
+  }
+
   function startPlanning() {
     gameStore.setBeat('plan')
   }
 
   function startService() {
+    // Pause 1 → commit the morning plan and RUN Segment B: apply the
+    // queued owner actions + staff priorities, run service, recompute
+    // closing. Emergent during_service/closing cards are produced here.
+    // On a sim throw, pin the error and stay on the plan beat (the plan
+    // beat renders the run-error banner) rather than advancing into an
+    // empty service.
+    try {
+      gameStore.runService()
+    } catch (err) {
+      captureRunError(err)
+      return
+    }
     // Pacing transition; 600ms feels like "service runs" without being
     // a loading screen. Reduced-motion users skip the wait.
     transitioning = true
@@ -241,9 +311,11 @@
       return
     }
     confirmingEndDay = false
-    // Bundle every player input into one simulateDay call. This is the
-    // single mutation point per game-day. Picks and staffPriorities are
-    // already on the store; runDay reads them automatically.
+    // Pause 2 → RUN Segment C. Bundle the day's responses — to morning,
+    // service, AND closing cards (Cluster 1 made resolution same-day;
+    // these all resolve against seeds produced earlier today). Segment C
+    // applies them, runs the rollups, and builds the report. Picks and
+    // staffPriorities were already consumed by Segment B.
     const intents: ResponseIntent[] = []
     for (const seed of [...morningSeeds, ...serviceSeeds, ...closingSeeds]) {
       const pending = pendingBySeedId[seed.id]
@@ -254,19 +326,16 @@
         intents.push(buildIntent(seed, pending.choice))
       }
     }
-    // Phase 97 / ISSUE-057 — Catch any throw from `simulateDay` (engine
-    // invariants, validation, hook crashes). Without this the click
-    // handler dies before `setBeat('report')` runs and the button
-    // appears to do nothing. On error: pin the message to the store so
-    // the banner renders; do NOT advance the beat. On success: advance.
+    // Phase 97 / ISSUE-057 — Catch any throw from the engine (invariants,
+    // validation, hook crashes). Without this the click handler dies
+    // before `setBeat('report')` runs and the button appears to do
+    // nothing. On error: pin the message so the banner renders; do NOT
+    // advance the beat. On success: advance.
     try {
-      gameStore.runDay({ responseIntents: intents })
+      gameStore.endDay({ responseIntents: intents })
       gameStore.setBeat('report')
     } catch (err) {
-      gameStore.runError = {
-        message: err instanceof Error ? err.message : String(err),
-        ...(err instanceof Error && err.stack ? { stack: err.stack } : {}),
-      }
+      captureRunError(err)
     }
   }
 
@@ -274,20 +343,27 @@
     confirmingEndDay = false
   }
 
-  // Phase 96 — Quick Day path. Skips Beats 2-4 entirely. Submits any
-  // picks the player queued from other surfaces (Tavern panels, etc.)
-  // along with sticky staff priorities.
+  // Phase 96 / Day-Clock Cluster 5 — Quick Day path. Runs Segment B
+  // (applying any picks queued from other surfaces + sticky staff
+  // priorities), then: if service surfaced emergent cards, drop the
+  // player into the service beat so the moment isn't buried (contract
+  // §3.1); otherwise run Segment C and jump to the report. Honest about
+  // emergence — Quick Day can no longer promise a card-free day, because
+  // service produces its cards when it runs, not the night before.
   function runQuickDay() {
-    // Phase 97 / ISSUE-057 — Same try/catch wrap as `endDay` so a sim
-    // throw from the Quick Day path is visible too.
     try {
-      gameStore.runDay({ responseIntents: [] })
+      gameStore.runService()
+      const emergent =
+        gameStore.seedsForTiming('during_service').length > 0 ||
+        gameStore.seedsForTiming('closing').length > 0
+      if (emergent) {
+        gameStore.setBeat('service')
+        return
+      }
+      gameStore.endDay({ responseIntents: [] })
       gameStore.setBeat('report')
     } catch (err) {
-      gameStore.runError = {
-        message: err instanceof Error ? err.message : String(err),
-        ...(err instanceof Error && err.stack ? { stack: err.stack } : {}),
-      }
+      captureRunError(err)
     }
   }
 
@@ -300,6 +376,8 @@
     gameStore.clearRunError()
   }
 
+  // Next day — just show the morning beat. The begin-day `$effect` opens
+  // the new day (Segment A) since `segment` is 'C' here.
   function nextDay() {
     gameStore.setBeat('morning')
   }
@@ -347,6 +425,14 @@
         <span><Icon name="staff" size={13} /> {staffCount} staff</span>
         <span><Icon name="stock" size={13} /> {stockSummary}</span>
       </div>
+      {#if forecastExpected !== undefined}
+        <!-- Phase 186 / Cluster 5 — forecast-as-expected (§3.6). Framed
+             as a guess that the morning plan will move, never a settled
+             number. -->
+        <p class="forecast tag">
+          ~{forecastExpected} guests expected · before your moves
+        </p>
+      {/if}
     </section>
 
     {#if yesterdayDigest.ok === 'success'}
@@ -422,7 +508,7 @@
     <section class="block" aria-label="Planning summary">
       <h2 class="block-label tag">Plan the day</h2>
       <p class="lede">
-        Pick up to 3 owner actions, set staff priorities. Service runs after.
+        Spend your day on owner actions, set staff priorities. Service runs after.
       </p>
     </section>
 
@@ -464,12 +550,24 @@
           {#each picks as p (p.pickId)}
             <li>
               · {p.label}{#if p.targetLabel}: {p.targetLabel}{/if}
-              <span class="picks-cost">({p.actionPointCost} pt)</span>
+              <span class="picks-cost">({formatDuration(p.actionPointCost)})</span>
             </li>
           {/each}
         </ul>
       {/if}
     </section>
+
+    {#if gameStore.runError}
+      <!-- Phase 186 / Cluster 5 — Segment B (Run service) runs from the
+           plan beat, so surface a sim throw here too. -->
+      <section class="block run-error-banner" role="alert" aria-label="Run service failed">
+        <p class="banner-title">Couldn't run service.</p>
+        <p class="banner-message mono">{gameStore.runError.message}</p>
+        <div class="banner-actions">
+          <button class="secondary" type="button" onclick={dismissRunError}>Dismiss</button>
+        </div>
+      </section>
+    {/if}
 
     <section class="block actions">
       <button class="ghost" type="button" onclick={() => gameStore.setBeat('morning')}>
@@ -630,6 +728,12 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
+  }
+
+  .forecast {
+    color: var(--text-faint);
+    font-style: italic;
+    margin-top: var(--sp-xs);
   }
 
   .lede {

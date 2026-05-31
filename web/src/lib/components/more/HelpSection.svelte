@@ -10,7 +10,7 @@
   import { gameStore } from '../../sim/gameStore.svelte'
 
   const helpAnchors: { id: string; label: string }[] = [
-    { id: 'action_points', label: 'Action points' },
+    { id: 'action_points', label: 'Owner time' },
     { id: 'pressure', label: 'Pressures' },
     { id: 'autosave', label: 'Autosave' },
     { id: 'save_slots', label: 'Save slots' },

@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  DAY_MINUTES,
   listPolicyToggleRows,
 } from '../../web/src/lib/sim/actionBuilder'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
@@ -16,7 +17,7 @@ import { POLICY_STARTERS } from '../../src/sim/modules/ownerActions/policyAction
 describe('listPolicyToggleRows', () => {
   it('returns one row per starter policy (no enable/disable pairs)', () => {
     const state = createInitialTavernState()
-    const rows = listPolicyToggleRows({ state, pointsLeft: 3, picks: [] })
+    const rows = listPolicyToggleRows({ state, pointsLeft: DAY_MINUTES, picks: [] })
     expect(rows).toHaveLength(POLICY_STARTERS.length)
     // No row's actionId duplicates another's policy.
     const policyIds = new Set(rows.map((r) => r.policyId))
@@ -25,7 +26,7 @@ describe('listPolicyToggleRows', () => {
 
   it('each row uses the registry label, never the raw policyType id', () => {
     const state = createInitialTavernState()
-    const rows = listPolicyToggleRows({ state, pointsLeft: 3, picks: [] })
+    const rows = listPolicyToggleRows({ state, pointsLeft: DAY_MINUTES, picks: [] })
     for (const row of rows) {
       expect(row.label).not.toContain('_')
       const starter = POLICY_STARTERS.find((p) => p.id === row.policyId)
@@ -50,7 +51,7 @@ describe('listPolicyToggleRows', () => {
         effects: [],
       }
     }
-    const rows = listPolicyToggleRows({ state, pointsLeft: 3, picks: [] })
+    const rows = listPolicyToggleRows({ state, pointsLeft: DAY_MINUTES, picks: [] })
     const banRow = rows.find((r) => r.policyId === 'ban_weapons_inside')
     expect(banRow?.enabled).toBe(true)
     expect(banRow?.actionId).toBe('disable_ban_weapons_inside')
@@ -58,7 +59,7 @@ describe('listPolicyToggleRows', () => {
 
   it('action id resolves to enable_X when the policy is disabled', () => {
     const state = createInitialTavernState()
-    const rows = listPolicyToggleRows({ state, pointsLeft: 3, picks: [] })
+    const rows = listPolicyToggleRows({ state, pointsLeft: DAY_MINUTES, picks: [] })
     const tabsRow = rows.find((r) => r.policyId === 'allow_tabs_for_regulars')
     expect(tabsRow?.enabled).toBe(false)
     expect(tabsRow?.actionId).toBe('enable_allow_tabs_for_regulars')
@@ -106,7 +107,7 @@ describe('listPolicyToggleRows', () => {
     }
     const rows = listPolicyToggleRows({
       state,
-      pointsLeft: 1,
+      pointsLeft: DAY_MINUTES,
       picks: [queuedPick],
     })
     const tabsRow = rows.find((r) => r.policyId === 'allow_tabs_for_regulars')

@@ -12,9 +12,10 @@ import {
 
 import { describeTargetLabel } from './actionDefinitions'
 import {
-  DEFAULT_ACTION_POINT_BUDGET,
+  DAY_MINUTES,
   OWNER_ACTIONS_MODULE_ID,
   createInitialOwnerActionsModuleState,
+  formatDuration,
   getOwnerActionsModuleState,
 } from './stateHelpers'
 import { tickProjects } from './projectProgress'
@@ -31,11 +32,12 @@ import type {
 //   - Reset the per-day owner-action slice on `startDay`.
 //   - Read `ctx.input.ownerActions` during the `applyOwnerActions`
 //     phase (Phase 7 §7.1 — runs before `beforeService`/`service`).
-//   - Enforce the 3-slot daily budget (§"Action Point Limit"). Inputs
+//   - Enforce the daily time budget (`DAY_MINUTES`; Phase 186 Cluster 3
+//     converted the old 3-slot action-point budget into minutes). Inputs
 //     that would push the day over the budget are rejected with code
 //     `over_budget`; everything before that applies.
 //   - Validate each action via its `canApply`. Rejections do not
-//     consume action points.
+//     consume time.
 //   - Apply each accepted action via its `apply`, accumulating the
 //     applied summary in the module slice.
 //   - Build the OWNER ACTION REPORT during `generateReports`.
@@ -55,7 +57,7 @@ import type {
 
 const SOURCE = OWNER_ACTIONS_MODULE_ID
 
-export { DEFAULT_ACTION_POINT_BUDGET, OWNER_ACTIONS_MODULE_ID }
+export { DAY_MINUTES, OWNER_ACTIONS_MODULE_ID }
 
 export { createInitialOwnerActionsModuleState, getOwnerActionsModuleState }
 
@@ -98,13 +100,13 @@ function readOwnerActionInput(ctx: SimContext): ReadonlyArray<OwnerActionInput> 
 const startDayHook: SimulationHook = (ctx: SimContext): void => {
   ensureRequiredOwnerActionsRegistered()
   // Phase 33 §33.3 — preserve persistent fields across the daily reset.
-  // Only the daily audit (applied / rejected / action points) is wiped.
+  // Only the daily audit (applied / rejected / time spent) is wiped.
   writeSlice(
     ctx,
     (current) => ({
       ...current,
       actionPointsUsed: 0,
-      actionPointBudget: DEFAULT_ACTION_POINT_BUDGET,
+      actionPointBudget: DAY_MINUTES,
       applied: [],
       rejected: [],
     }),
@@ -119,7 +121,7 @@ const applyOwnerActionsHook: SimulationHook = (ctx: SimContext): void => {
   const applied: OwnerActionApplied[] = []
   const rejected: OwnerActionRejected[] = []
   let actionPointsUsed = 0
-  const budget = DEFAULT_ACTION_POINT_BUDGET
+  const budget = DAY_MINUTES
 
   for (const input of inputs) {
     if (!actionRegistry.has(input.actionId)) {
@@ -137,7 +139,7 @@ const applyOwnerActionsHook: SimulationHook = (ctx: SimContext): void => {
         actionId: input.actionId,
         ...(input.targetId !== undefined ? { targetId: input.targetId } : {}),
         code: 'over_budget',
-        reason: `Action would exceed the ${budget}-slot daily budget`,
+        reason: `Action would exceed the ${formatDuration(budget)} daily time budget`,
       })
       continue
     }
@@ -181,7 +183,9 @@ const endDayHook: SimulationHook = (ctx: SimContext): void => {
 function buildOwnerActionsReport(ctx: SimContext): ReportSection {
   const slice = getOwnerActionsModuleState(ctx.state)
   const lines: string[] = []
-  lines.push(`Actions Used: ${slice.actionPointsUsed}/${slice.actionPointBudget}`)
+  lines.push(
+    `Time Spent: ${formatDuration(slice.actionPointsUsed)} / ${formatDuration(slice.actionPointBudget)}`,
+  )
   lines.push('')
 
   if (slice.applied.length === 0) {
@@ -311,7 +315,7 @@ function validateOwnerActions(ctx: SimContext): ValidationIssue[] {
   if (slice.actionPointsUsed > slice.actionPointBudget) {
     issues.push({
       path: `modules.${OWNER_ACTIONS_MODULE_ID}.actionPointsUsed`,
-      message: `Action points used (${slice.actionPointsUsed}) exceeds budget (${slice.actionPointBudget})`,
+      message: `Time spent (${slice.actionPointsUsed}m) exceeds daily budget (${slice.actionPointBudget}m)`,
       code: 'over_action_budget',
     })
   }

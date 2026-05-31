@@ -315,5 +315,126 @@ other in-sim caller.)
   `phase53.policyBacklash.test.ts`, `phase54.regularCustomer.test.ts`,
   `phase55.reputationShift.test.ts`, `phase56.violence.test.ts`,
   `phase57.staffBurnout.test.ts`, `phase59.monthlyReview.test.ts`.
-</content>
-</invoke>
+
+---
+
+## Cluster 3 — what shipped (AP → time recalibration)
+
+The daily **action-point budget became a daily MINUTES budget**. The gate
+is byte-for-byte the same additive `used + cost > budget` it always was
+(contract §1.6); only the constants and their unit changed.
+
+### The numbers (starting calibration — §6 defers tuning to playtest)
+
+`src/sim/modules/ownerActions/stateHelpers.ts` is the single source of
+truth:
+
+| Constant | Value | Meaning |
+| --- | --- | --- |
+| `DAY_MINUTES` | `360` | the owner's working day (six hours) |
+| `TIME_COST_TRIVIAL` | `0` | a pure logistics toggle |
+| `TIME_COST_QUICK` | `30` | a quiet word / chalkboard change |
+| `TIME_COST_SHORT` | `60` | a light hands-on task |
+| `TIME_COST_STANDARD` | `120` | a solid chore — a third of the day |
+| `TIME_COST_HEAVY` | `240` | a big job that eats most of the day |
+
+`DAY_MINUTES = 360` with `STANDARD = 120` means **three standard chores
+fill the day** — a deliberate, faithful re-statement of the old 3-slot
+budget, now expressive (cheap social moves let you fit more small things;
+a cellar/roof job eats two-thirds of the day). These are coarse tiers, not
+finely-engineered numbers; tune them in playtest, not by argument.
+
+Per-action map (every owner action, including the project/policy/social
+builders and `commissionExpedition`):
+
+- HEAVY (240): `patch_roof`, `fumigate_cellar` (the contract's own "eats
+  the day" example, §3.8), `hire_staff`.
+- STANDARD (120): `clean_area`, `repair_area`, `fire_staff`,
+  `ban_customer_group`, `host_faction_night`, `commission_expedition`,
+  project `start_*`, `buy_candles` (test fixture).
+- SHORT (60): `restock_item`, `water_down_ale`, `improve_stew`,
+  `negotiate_with_supplier`, `fund_active_project`.
+- QUICK (30): `adjust_prices`, `pay_staff_bonus`, `buy_mugs`,
+  `comfort_stressed_staff`, `apologize_to_regular`, `warn_rowdy_group`,
+  `cancel_project`, every `enable_*`/`disable_*` policy toggle (and the
+  web policy-toggle row).
+- TRIVIAL (0): `toggle_recipe_menu`.
+
+`formatDuration(minutes)` (also in `stateHelpers.ts`, re-exported through
+the web `actionBuilder` → `gameStore`) renders `0m` / `30m` / `2h` / `2h
+30m` for every player-facing surface.
+
+### ⚠️ The amount → time design choice is DEFERRED (contract §3.8 / §6)
+
+Time does **not** scale with `amount` (e.g. "restock 40 vs 10 barrels"
+costs the same minutes). The engine has zero amount→AP coupling today
+(§1.7), so this is a free future choice with no hidden breakage. If a later
+calibration pass takes it, the budget gate must compute cost dynamically
+from `amount` and the plan UI must show a cost that updates live as the
+player sets the amount. Recorded here so it's an open choice, not an
+oversight.
+
+### ⚠️ NAMING DEBT — serialized `actionPoint*` fields kept (rename is Cluster 7's)
+
+This is the load-bearing cross-cluster note. Four **serialized** fields
+were left named `actionPoint*` even though they now hold **minutes**:
+
+- `OwnerActionsModuleState.actionPointsUsed` / `.actionPointBudget`
+  (`state.modules.ownerActions`)
+- `OwnerActionApplied.actionPointCost` (inside the persisted `applied[]`)
+- the web `PickedAction.actionPointCost` (persisted in the save's `picks[]`)
+
+They were **not** renamed because renaming serialized fields changes the
+save shape and forces a state migration — which is exactly Cluster 7's
+job (in-flight save migration). Renaming them now would split that
+migration across two clusters. So:
+
+- **Read every `actionPoint*` field as "minutes."** Each one carries a
+  doc comment saying so.
+- **Cluster 7 should rename them** (suggested: `timeSpent` / `timeBudget`
+  / `timeCost`) as part of the save migration it already owns, with an
+  additive `ensure*` helper in `src/sim/state/migrations.ts` that renames
+  the keys (and, if it wants the magnitudes right, scales an in-flight
+  pre-upgrade `actionPointsUsed`/`applied[].actionPointCost` — old saves
+  carry AP magnitudes like `1`, not minutes, for the last pre-upgrade
+  day; cosmetic only, since `startDay` resets the daily fields).
+- A day-boundary save needs **no** migration today: `actionPointBudget`
+  holds a stale `3` (or `360`) but is reset to `DAY_MINUTES` at the next
+  `startDay`, and `applied[]` is empty between days. The only visible
+  artefact is a just-closed day's owner-action report showing tiny
+  durations for a save written under the old model — harmless.
+
+### Web no longer duplicates the budget constant
+
+`web/src/lib/sim/actionBuilder.ts` previously hardcoded its own
+`ACTION_POINT_BUDGET = 3`, a latent second source of truth. It now imports
+`DAY_MINUTES` from the sim `stateHelpers` and re-exports it, so the UI cap
+can never drift from the engine's gate. `ACTION_POINT_BUDGET` is gone
+everywhere; the web budget identifier is `DAY_MINUTES`, the queued-time
+getter is `gameStore.minutesQueued`, and the pure summer is
+`totalQueuedMinutes`. (Internal locals like `pointsLeft` were left as-is —
+they hold minutes; renaming them buys nothing.)
+
+### Glossary
+
+The `action_point` / `action_points` terms were repurposed to "Owner Time"
+(minutes), and `queued_action` / `on_menu` / `project_progress` /
+`history_owner_action` lost their "action point" wording. Term **ids** were
+kept so `TermLabel term="action_points"` references keep resolving.
+
+### Files touched in Cluster 3
+
+- `src/sim/modules/ownerActions/stateHelpers.ts` — `DAY_MINUTES`, the five
+  `TIME_COST_*` tiers, `formatDuration`.
+- `ownerActionsModule.ts` — gate constant, report line ("Time Spent:
+  …"), validation message, comments.
+- `actionDefinitions.ts`, `staffManagementActions.ts`, `socialActions.ts`,
+  `projectActions.ts`, `policyActions.ts`, `commissionExpedition.ts`,
+  `testing/expansions/candleShortage.ts` — per-action minute costs.
+- `types.ts`, `core/context.ts` — field/param doc comments (minutes).
+- `src/reports/{worldOverview,tavernOverview}Projection.ts` — import
+  `DAY_MINUTES`; `src/reports/glossary.ts` — term rewording.
+- web: `actionBuilder.ts`, `gameStore.svelte.ts`, `ActionPicker.svelte`,
+  `ActionQueueChip.svelte`, `QuickActions.svelte`, `DailyReport.svelte`.
+- tests: `phase13.ownerActions`, `phase92.toggleRecipeMenu`,
+  `phase90.queueValidity`, `policyToggleRows`.

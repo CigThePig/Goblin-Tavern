@@ -3,10 +3,10 @@
 
   Used inside detail sheets. Tapping queues the action via gameStore.addPick;
   tapping an already-queued action removes it. Disabled actions render with
-  their reason italicized. Action point cost is shown on the right.
+  their reason italicized. Time cost is shown on the right.
 -->
 <script lang="ts">
-  import { gameStore } from '../../sim/gameStore.svelte'
+  import { gameStore, formatDuration } from '../../sim/gameStore.svelte'
   import { actionRegistry } from '../../../../../src/sim/registries/actionRegistry'
   import { categoryLabel } from '../../sim/actionBuilder'
   import type { ApplicableActionRef } from '../../../../../src/reports/tavernOverviewProjection'
@@ -38,8 +38,8 @@
     if (ref.disabledReason !== undefined) return
     const def = actionRegistry.get(ref.actionId)
     // Phase 90 / ISSUE-050 — Funnel through tryAddPick so the daily
-    // action-point budget and live canApply check gate quick actions
-    // the same way the central picker does.
+    // time budget and live canApply check gate quick actions the same
+    // way the central picker does.
     const result = gameStore.tryAddPick({
       actionId: ref.actionId,
       label: ref.label,
@@ -73,7 +73,7 @@
                 {#if ref.actionPointCost === 0}
                   free
                 {:else}
-                  {ref.actionPointCost} pt
+                  {formatDuration(ref.actionPointCost)}
                 {/if}
               </span>
             </span>

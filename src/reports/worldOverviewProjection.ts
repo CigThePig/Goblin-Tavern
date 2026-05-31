@@ -18,7 +18,7 @@ import {
   applicableActionsForTarget,
   actionDisabledReasonForTarget,
 } from '../sim/modules/ownerActions/readonlyHelpers'
-import { DEFAULT_ACTION_POINT_BUDGET as ACTION_POINT_BUDGET } from '../sim/modules/ownerActions/stateHelpers'
+import { DAY_MINUTES } from '../sim/modules/ownerActions/stateHelpers'
 import {
   attributionsByTarget,
   attributionsHeldBy,
@@ -906,7 +906,7 @@ function applicableActionsForRow(
       def,
       state,
       targetId,
-      ACTION_POINT_BUDGET,
+      DAY_MINUTES,
     )
     const ref: ApplicableActionRef = {
       actionId: def.id,

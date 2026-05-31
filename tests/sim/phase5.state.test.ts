@@ -170,9 +170,11 @@ describe('Phase 5 — Base Tavern State', () => {
     // single starter policy so the policy-backlash pipeline has
     // something to bite at day 0. Other fields remain at the Phase 33
     // defaults.
+    // Phase 186 Cluster 3 — the daily budget is now minutes (DAY_MINUTES
+    // = 360); the field name is retained for save compatibility.
     expect(state.modules.ownerActions).toMatchObject({
       actionPointsUsed: 0,
-      actionPointBudget: 3,
+      actionPointBudget: 360,
       applied: [],
       rejected: [],
       projects: {},

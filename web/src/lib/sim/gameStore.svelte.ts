@@ -27,7 +27,8 @@ import type { SimInput } from '../../../../src/sim/core/context'
 import type { SimResult } from '../../../../src/sim/core/result'
 import type { IssueSeed } from '../../../../src/sim/modules/issues/issueSeedTypes'
 import {
-  ACTION_POINT_BUDGET,
+  DAY_MINUTES,
+  formatDuration,
   nextPickId,
   picksToInputs,
   sanitizePicks,
@@ -316,7 +317,7 @@ class GameStore {
    * Phase 90 / ISSUE-050 — Budget- and canApply-aware variant of
    * `addPick`. Every UI entry point (central picker, Tavern quick
    * actions, projects/policies, expedition sheet) should funnel through
-   * this so the queue cannot overflow the daily action-point budget or
+   * this so the queue cannot overflow the daily time budget or
    * carry an invalid (action, target) pair into `runDay`.
    *
    * Returns the actual `PickedAction` on success, or a typed failure
@@ -333,7 +334,7 @@ class GameStore {
       return { ok: false, reason: 'unknown action' }
     }
     const def = actionRegistry.get(pick.actionId)
-    const pointsLeft = ACTION_POINT_BUDGET - this.actionPointsQueued
+    const pointsLeft = DAY_MINUTES - this.minutesQueued
     const reason =
       def.targetType && def.targetType !== 'global'
         ? actionDisabledReasonForTarget(def, this.state, pick.targetId, pointsLeft)
@@ -354,8 +355,12 @@ class GameStore {
     this.picks = []
   }
 
-  /** Total action points across queued picks. Sticky chip reads this. */
-  get actionPointsQueued(): number {
+  /**
+   * Total minutes across queued picks. Sticky chip reads this. Phase 186
+   * Cluster 3 — the queue budget is time now; `p.actionPointCost` holds
+   * minutes (serialized field name retained, rename deferred to Cluster 7).
+   */
+  get minutesQueued(): number {
     return this.picks.reduce((n, p) => n + p.actionPointCost, 0)
   }
 
@@ -486,4 +491,4 @@ function parseClosedDay(id: string): number | undefined {
 }
 
 export const gameStore = new GameStore()
-export { ACTION_POINT_BUDGET }
+export { DAY_MINUTES, formatDuration }

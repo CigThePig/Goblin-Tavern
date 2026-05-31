@@ -11,6 +11,7 @@ import type {
   OwnerActionDefinition,
   OwnerActionInput,
 } from '../ownerActions/types'
+import { TIME_COST_STANDARD } from '../ownerActions/stateHelpers'
 
 // Phase 70 / ISSUE-030 §6.3 — `commissionExpedition` owner action.
 //
@@ -85,7 +86,7 @@ export const commissionExpedition: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['expedition', 'world', 'adventurer'],
   targetType: 'global',
-  actionPointCost: 1,
+  actionPointCost: TIME_COST_STANDARD,
   getValidTargets: (ctx: SimContext) => {
     return Object.values(ctx.state.world.hireableAdventurers)
       .filter(
@@ -271,7 +272,7 @@ export const commissionExpedition: OwnerActionDefinition = {
       actionId: COMMISSION_EXPEDITION_ACTION_ID,
       label: 'Commission Expedition',
       targetId: runner.id,
-      actionPointCost: 1,
+      actionPointCost: TIME_COST_STANDARD,
       effects,
       data: {
         expeditionId: expedition.id,

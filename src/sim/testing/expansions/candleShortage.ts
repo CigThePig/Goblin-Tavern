@@ -10,6 +10,7 @@ import {
 } from '../../registries/stockRegistry'
 
 import type { OwnerActionDefinition } from '../../modules/ownerActions/types'
+import { TIME_COST_STANDARD } from '../../modules/ownerActions/stateHelpers'
 import { spendCoin } from '../../modules/stock/ledger'
 import { restockItem } from '../../modules/stock/sales'
 
@@ -99,7 +100,7 @@ const buyCandles: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['stock', 'supply', 'lighting'],
   targetType: 'stock',
-  actionPointCost: 1,
+  actionPointCost: TIME_COST_STANDARD,
   getValidTargets: (ctx) => {
     const candles = ctx.state.stock[CANDLE_STOCK_ID]
     return candles

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { actionRegistry } from '../../src/sim/registries/actionRegistry'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import { withArea, withCoin } from '../../src/sim/testing/stateFactories'
-import { actionDisabledReason } from '../../web/src/lib/sim/actionBuilder'
+import { DAY_MINUTES, actionDisabledReason } from '../../web/src/lib/sim/actionBuilder'
 
 // ISSUE-048 — the owner-action picker (`web/src/lib/components/ActionPicker.svelte`)
 // previously enabled any action whose budget fit and whose target list
@@ -13,7 +13,9 @@ import { actionDisabledReason } from '../../web/src/lib/sim/actionBuilder'
 // `canApply` validation the engine runs, so the picker can surface a
 // reason and disable the row.
 
-const FULL_BUDGET = 3
+// Phase 186 Cluster 3 — a full day's time budget in minutes (patch_roof
+// costs 240m, so the old `3` would short-circuit as "budget full").
+const FULL_BUDGET = DAY_MINUTES
 
 describe('ISSUE-048 — actionDisabledReason mirrors engine canApply', () => {
   it('patch_roof on damaged roof with no coin surfaces a coin-related reason', () => {

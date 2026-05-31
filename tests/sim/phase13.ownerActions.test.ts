@@ -8,7 +8,7 @@ import {
 } from '../../src/sim/modules/customers/index'
 import {
   actionRegistry,
-  DEFAULT_ACTION_POINT_BUDGET,
+  DAY_MINUTES,
   ensureRequiredOwnerActionsRegistered,
   getOwnerActionsModuleState,
   ownerActionsModule,
@@ -123,9 +123,10 @@ describe('Phase 13 — Owner action registry', () => {
       expect(ids.has(id)).toBe(true)
     }
     for (const def of actionRegistry.all()) {
-      // Phase 92 added `toggle_recipe_menu` as a 0 AP logistical toggle
-      // (flipping `RecipeState.onMenu` doesn't represent owner labor).
-      // Every other action still costs at least 1 AP.
+      // Phase 92 added `toggle_recipe_menu` as a zero-time logistical
+      // toggle (flipping `RecipeState.onMenu` doesn't represent owner
+      // labor). Every other action costs a positive span of minutes
+      // (Phase 186 Cluster 3 — the AP economy is now time).
       if (def.id === 'toggle_recipe_menu') {
         expect(def.actionPointCost).toBe(0)
       } else {
@@ -139,13 +140,15 @@ describe('Phase 13 — Owner action registry', () => {
     }
   })
 
-  it('default action-point budget is 3', () => {
-    expect(DEFAULT_ACTION_POINT_BUDGET).toBe(3)
+  it('default day length is 360 minutes', () => {
+    expect(DAY_MINUTES).toBe(360)
   })
 })
 
-describe('Phase 13 — Action point budget (§"Action Point Limit")', () => {
-  it('only 3 action points can be spent per day', () => {
+describe('Phase 186 Cluster 3 — Daily time budget (§3.8)', () => {
+  it('owner actions cannot exceed the daily time budget', () => {
+    // clean_area costs TIME_COST_STANDARD (120m); three fill the
+    // 360m day exactly, the fourth is rejected over-budget.
     const base = createInitialTavernState()
     const actions: SimInputOwnerAction[] = [
       { actionId: 'clean_area', targetId: 'kitchen' },
@@ -155,17 +158,17 @@ describe('Phase 13 — Action point budget (§"Action Point Limit")', () => {
     ]
     const result = runDay(base, actions)
     const slice = getOwnerActionsModuleState(result.state)
-    expect(slice.actionPointsUsed).toBe(3)
+    expect(slice.actionPointsUsed).toBe(360)
     expect(slice.applied).toHaveLength(3)
     expect(slice.rejected).toHaveLength(1)
     expect(slice.rejected[0]!.code).toBe('over_budget')
     expect(slice.rejected[0]!.targetId).toBe('cellar')
   })
 
-  it('action points reset between days', () => {
+  it('time spent resets between days', () => {
     const base = createInitialTavernState()
     const day1 = runDay(base, [{ actionId: 'clean_area', targetId: 'kitchen' }])
-    expect(getOwnerActionsModuleState(day1.state).actionPointsUsed).toBe(1)
+    expect(getOwnerActionsModuleState(day1.state).actionPointsUsed).toBe(120)
     const day2 = runDay(day1.state)
     expect(getOwnerActionsModuleState(day2.state).actionPointsUsed).toBe(0)
   })
@@ -397,7 +400,7 @@ describe('Phase 13 — Validation errors', () => {
     expect(slice.actionPointsUsed).toBe(0)
   })
 
-  it('rejected actions do not consume action points', () => {
+  it('rejected actions do not consume time', () => {
     const base = createInitialTavernState()
     const result = runDay(base, [
       { actionId: 'clean_area', targetId: 'nonexistent' },
@@ -407,7 +410,7 @@ describe('Phase 13 — Validation errors', () => {
     ])
     const slice = getOwnerActionsModuleState(result.state)
     expect(slice.applied).toHaveLength(2)
-    expect(slice.actionPointsUsed).toBe(2)
+    expect(slice.actionPointsUsed).toBe(240) // two clean_area chores at 120m
     expect(slice.rejected).toHaveLength(2)
   })
 })
@@ -423,7 +426,7 @@ describe('Phase 13 — Owner action report (§13.13)', () => {
     expect(report).toBeDefined()
     expect(report!.title).toMatch(/OWNER ACTION REPORT/)
     const text = report!.lines.join('\n')
-    expect(text).toMatch(/Actions Used: 1\/3/)
+    expect(text).toMatch(/Time Spent: 2h \/ 6h/)
     expect(text).toMatch(/Cleaned Kitchen/)
     expect(text).toMatch(/Rejected/)
     expect(text).toMatch(/summon_dragon/)
@@ -575,7 +578,7 @@ describe('Phase 13 — Module shape', () => {
     const state = createInitialTavernState()
     const slice = getOwnerActionsModuleState(state)
     expect(slice.actionPointsUsed).toBe(0)
-    expect(slice.actionPointBudget).toBe(DEFAULT_ACTION_POINT_BUDGET)
+    expect(slice.actionPointBudget).toBe(DAY_MINUTES)
     expect(slice.applied).toEqual([])
     expect(slice.rejected).toEqual([])
   })

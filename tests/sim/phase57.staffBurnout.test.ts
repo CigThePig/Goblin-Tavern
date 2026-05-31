@@ -166,6 +166,31 @@ describe('Phase 57 §ISSUE-017 — Per-slot mutations', () => {
   })
 })
 
+describe('Choice-Preview Legibility Phase 5 — label composition', () => {
+  // Regression: `staff.name` is a GeneratedName object; the labelHints
+  // (and effect/stake readables) must interpolate `name.display`, not the
+  // object itself — otherwise the rendered choice reads "Pay [object
+  // Object] a bonus".
+  it('pay_bonus and reduce_workload labels name the staff member, not [object Object]', () => {
+    const base = burnoutState()
+    const day1 = runDay(base)
+    const seed = getIssueSeeds(day1.state, { family: 'staff_burnout' })[0]
+    expect(seed).toBeDefined()
+    const targetId = seed!.primaryActor!.id
+    const display = day1.state.staff[targetId]!.name.display
+    expect(display).toBeTruthy()
+
+    const labelFor = (slotId: string) =>
+      seed!.responseSlots.find((s) => s.id === slotId)?.labelHint ?? ''
+
+    for (const slotId of ['pay_bonus', 'reduce_workload']) {
+      const label = labelFor(slotId)
+      expect(label).not.toContain('[object Object]')
+      expect(label).toContain(display)
+    }
+  })
+})
+
 describe('Phase 57 §ISSUE-017 — Delayed scheduling', () => {
   it('every slot enqueues at least one pending entry', () => {
     const slots: Array<[string, ResponseIntent['verb'], ResponseIntent['shape']]> = [

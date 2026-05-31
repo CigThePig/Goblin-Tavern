@@ -90,6 +90,14 @@ function runDay(state: TavernState, overrides: Partial<SimInput> = {}) {
   return simulateDay(state, input(overrides), FULL_PIPELINE)
 }
 
+// Phase 186 / Cluster 1 — generation is segment-local. `morning_prep` and
+// snapshot-gated `during_service` generators read the PRIOR day's closing
+// pressure snapshot, so a single day from a hand-built state fires nothing.
+// Warm one day to populate the snapshot, then return the assertion day.
+function seedDay(state: TavernState, overrides: Partial<SimInput> = {}) {
+  return runDay(runDay(state, overrides).state, overrides)
+}
+
 function plentyOfStock(state: TavernState): TavernState {
   return {
     ...state,
@@ -288,7 +296,7 @@ describe('Phase 39 §39.5 — Staff identity seed', () => {
         label: 'scapegoat memory',
       },
     ])
-    const result = runDay(withMemory)
+    const result = seedDay(withMemory)
     const seeds = getIssueSeeds(result.state, { family: 'staff_identity' })
     expect(seeds.length).toBeGreaterThan(0)
     const seed = seeds[0]!
@@ -325,7 +333,7 @@ describe('Phase 39 §39.6 — Regular customer seed', () => {
         label: 'ignored regular complaint',
       },
     ])
-    const result = runDay(state)
+    const result = seedDay(state)
     const seeds = getIssueSeeds(result.state, { family: 'regular_customer' })
     expect(seeds.length).toBeGreaterThan(0)
     const seed = seeds[0]!
@@ -371,7 +379,7 @@ describe('Phase 39 §39.7 — Supplier relationship seed', () => {
         label: 'supplier late payment',
       },
     ])
-    const result = runDay(state)
+    const result = seedDay(state)
     const seeds = getIssueSeeds(result.state, { family: 'supplier_relationship' })
     expect(seeds.length).toBeGreaterThan(0)
     const seed = seeds[0]!
@@ -408,7 +416,7 @@ describe('Phase 39 §39.9 — Cultural conflict seed', () => {
         },
       },
     }
-    const result = runDay(elevated)
+    const result = seedDay(elevated)
     const seeds = getIssueSeeds(result.state, { family: 'culture_conflict' })
     expect(seeds.length).toBeGreaterThan(0)
     expect(seeds[0]!.primaryActor?.kind).toBe('culture')
@@ -457,7 +465,7 @@ describe('Phase 39 §39.11 — Seasonal arc seed', () => {
         },
       },
     }
-    const result = runDay(seeded)
+    const result = seedDay(seeded)
     const seeds = getIssueSeeds(result.state, { family: 'seasonal_arc' })
     expect(seeds.length).toBeGreaterThan(0)
     const seed = seeds[0]!
@@ -587,7 +595,7 @@ describe('Phase 39 §39.15 — Contradiction guards reject missing refs', () => 
         publicness: 90,
       }),
     ])
-    const result = runDay(seeded)
+    const result = seedDay(seeded)
     const seeds = getIssueSeeds(result.state, { family: 'supplier_relationship' })
     // No seed should reference the ghost supplier id.
     for (const seed of seeds) {
@@ -615,7 +623,7 @@ describe('Phase 39 §39.15 — Contradiction guards reject missing refs', () => 
         },
       },
     }
-    const result = runDay(seeded)
+    const result = seedDay(seeded)
     const seeds = getIssueSeeds(result.state, { family: 'seasonal_arc' })
     for (const seed of seeds) {
       if (seed.primaryActor?.kind === 'local_event') {
@@ -863,7 +871,7 @@ describe('Phase 39 §39.18 — Report summary includes expanded families', () =>
         cultural_tension: { ...base.pressures['cultural_tension']!, value: 60 },
       },
     }
-    const result = runDay(elevated)
+    const result = seedDay(elevated)
     const ctxLike = {
       state: result.state,
     } as unknown as Parameters<typeof buildIssueSeedReport>[0]

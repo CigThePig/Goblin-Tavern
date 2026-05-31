@@ -81,12 +81,16 @@ describe('Phase 56 §ISSUE-016 — Group rotation', () => {
 })
 
 describe('Phase 56 §ISSUE-016 — Per-slot mutations', () => {
+  // Phase 186 / Cluster 1 — `violence` is a during-service seed gated on
+  // the prior day's closing pressure snapshot, so warm one day to populate
+  // it. `warmState` is the day FROM which the response is issued.
   function setup() {
     const base = violenceState()
-    const day1 = runDay(base)
-    const seed = getIssueSeeds(day1.state, { family: 'violence' })[0]
+    const warm = runDay(base)
+    const probe = runDay(warm.state)
+    const seed = getIssueSeeds(probe.state, { family: 'violence' })[0]
     expect(seed).toBeDefined()
-    return { baseAfterDay1: day1.state, seed: seed!, targetId: seed!.primaryActor!.id }
+    return { warmState: warm.state, seed: seed!, targetId: seed!.primaryActor!.id }
   }
 
   function compareSlot(
@@ -94,7 +98,7 @@ describe('Phase 56 §ISSUE-016 — Per-slot mutations', () => {
     verb: ResponseIntent['verb'],
     shape: ResponseIntent['shape'],
   ) {
-    const { baseAfterDay1, seed, targetId } = setup()
+    const { warmState, seed, targetId } = setup()
     const intent: ResponseIntent = {
       id: `r-${slotId}`,
       seedId: seed.id,
@@ -104,8 +108,8 @@ describe('Phase 56 §ISSUE-016 — Per-slot mutations', () => {
       intensity: 50,
       metadata: { responseSlotId: slotId },
     }
-    const control = runDay(baseAfterDay1).state
-    const treatment = runDay(baseAfterDay1, { responseIntents: [intent] }).state
+    const control = runDay(warmState).state
+    const treatment = runDay(warmState, { responseIntents: [intent] }).state
     return { control, treatment, targetId }
   }
 
@@ -155,8 +159,8 @@ describe('Phase 56 §ISSUE-016 — Delayed scheduling', () => {
     ]
     for (const [slotId, verb, shape] of slots) {
       const base = violenceState()
-      const day1 = runDay(base)
-      const seed = getIssueSeeds(day1.state, { family: 'violence' })[0]
+      const warm = runDay(base).state
+      const seed = getIssueSeeds(runDay(warm).state, { family: 'violence' })[0]
       expect(seed).toBeDefined()
       const intent: ResponseIntent = {
         id: `r-${slotId}`,
@@ -167,7 +171,7 @@ describe('Phase 56 §ISSUE-016 — Delayed scheduling', () => {
         intensity: 50,
         metadata: { responseSlotId: slotId },
       }
-      const day2 = runDay(day1.state, { responseIntents: [intent] })
+      const day2 = runDay(warm, { responseIntents: [intent] })
       const slice = getResponsesSlice(day2.state)
       expect(
         slice.pending.length,

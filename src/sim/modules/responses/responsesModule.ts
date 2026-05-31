@@ -157,10 +157,15 @@ const startDayHook: SimulationHook = (ctx: SimContext): void => {
 }
 
 function findSeed(ctx: SimContext, seedId: string): IssueSeed | undefined {
-  // The issueSeedsModule no longer clears `seedsToday` on `startDay`
-  // (see Phase 41 note there), so today's `applyResponses` sees the
-  // seeds generated yesterday (or earlier today if seeds have already
-  // been regenerated, which doesn't happen in the default phase order).
+  // Phase 186 / Cluster 1 — the issueSeedsModule now clears `seedsToday`
+  // at `startDay` and regenerates the day's seeds segment-locally
+  // (morning at `startDay`, during-service at `afterService`, closing at
+  // `closing`). By the time `applyResponses` runs, `seedsToday` holds
+  // THIS day's accumulated surface, so a response resolves against a seed
+  // generated *earlier the same day* across the preceding passes — the
+  // two-pause model the day-clock contract is moving toward. (The seam
+  // is timing-agnostic, so morning/service/closing seeds all resolve
+  // through this one path — contract §1.9.)
   return getAllSeedsToday(ctx.state).find((s) => s.id === seedId)
 }
 

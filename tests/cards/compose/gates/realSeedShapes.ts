@@ -78,11 +78,29 @@ export function captureSeedShape(opts: CaptureOptions): CapturedSeedShape {
   const cached = CACHE.get(opts.cacheKey)
   if (cached) return cached
 
+  const selectSeeds = (state: TavernState): IssueSeed[] => {
+    let seeds = getIssueSeeds(state, { family: opts.family })
+    if (opts.type) seeds = seeds.filter((s) => s.type === opts.type)
+    return seeds
+  }
+
   const state = opts.buildTriggeringState()
-  const result = runOneDay(state, { seed: `phase163-capture-${opts.cacheKey}` })
-  let seeds = getIssueSeeds(result.state, { family: opts.family })
-  if (opts.type) {
-    seeds = seeds.filter((s) => s.type === opts.type)
+  let result = runOneDay(state, { seed: `phase163-capture-${opts.cacheKey}` })
+  let seeds = selectSeeds(result.state)
+  if (seeds.length === 0) {
+    // Phase 186 / Cluster 1 — generation is now segment-local.
+    // `morning_prep` / `during_service` generators read the PRIOR day's
+    // closing pressure snapshot, so a single day from a hand-built
+    // triggering state has no snapshot yet and fires nothing. The first
+    // day populates the snapshot; running one more day lets the
+    // snapshot-gated seed fire. Boundary families (e.g. `monthly_review`,
+    // which fires at `endMonth` on the month-end triggering state) already
+    // produced a seed above and skip this path — important, because a
+    // blind warm-up day would advance the calendar PAST the month boundary.
+    result = runOneDay(result.state, {
+      seed: `phase163-capture-${opts.cacheKey}-warm`,
+    })
+    seeds = selectSeeds(result.state)
   }
   if (seeds.length === 0) {
     throw new Error(

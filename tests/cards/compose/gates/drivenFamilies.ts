@@ -163,8 +163,18 @@ const MIGRATED_CARD_DEFS = MIGRATED_TEMPLATES.map((t) => defineCompositionalCard
  *  future generator change that stops emitting it fails loudly. */
 export function surfaceDrivenSample(family: DrivenFamily): LegibilitySample {
   const adverse = ADVERSE_STATE_BUILDERS[family](createInitialTavernState())
-  const result = runOneDay(adverse, { seed: `driven-${family}` })
-  const seed = getAllSeedsToday(result.state).find((s) => s.family === family)
+  let result = runOneDay(adverse, { seed: `driven-${family}` })
+  let seed = getAllSeedsToday(result.state).find((s) => s.family === family)
+  if (!seed) {
+    // Phase 186 / Cluster 1 — generation is segment-local. A `morning_prep`
+    // family (food_safety) or a snapshot-gated `during_service` family
+    // (regular_customer) reads the PRIOR day's closing pressure snapshot,
+    // so a single day from a hand-built adverse state has none yet. The
+    // first day populates the snapshot; run one more day so it surfaces.
+    // Closing families (rumour_crisis) already surfaced above.
+    result = runOneDay(result.state, { seed: `driven-${family}-warm` })
+    seed = getAllSeedsToday(result.state).find((s) => s.family === family)
+  }
   if (!seed) {
     const surfaced = getAllSeedsToday(result.state)
       .map((s) => s.family)

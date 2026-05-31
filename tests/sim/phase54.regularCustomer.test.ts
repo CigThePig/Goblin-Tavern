@@ -94,7 +94,10 @@ describe('Phase 54 §ISSUE-014 — Relaxed gate', () => {
       plentyOfStock(createInitialTavernState()),
       [makeRegular('test_regular_1', { irritation: 70, loyalty: 30 })],
     )
-    const day1 = runDay(base)
+    // Phase 186 / Cluster 1 — during-service seed reads the prior day's
+    // closing pressure snapshot; warm one day to populate it.
+    const warm = runDay(base)
+    const day1 = runDay(warm.state)
     const seeds = getIssueSeeds(day1.state, { family: 'regular_customer' })
     expect(seeds.length).toBeGreaterThan(0)
     expect(seeds[0]!.primaryActor?.id).toBe('test_regular_1')
@@ -143,15 +146,18 @@ describe('Phase 54 §ISSUE-014 — Rotation', () => {
 })
 
 describe('Phase 54 §ISSUE-014 — Per-slot distinct mutations', () => {
-  function setup(): { baseAfterDay1: TavernState; seedId: string; regularId: string } {
+  function setup(): { warmState: TavernState; seedId: string; regularId: string } {
     const regularId = 'test_regular_distinct'
     const base = injectRegulars(plentyOfStock(createInitialTavernState()), [
       makeRegular(regularId, { irritation: 75, loyalty: 25 }),
     ])
-    const day1 = runDay(base)
-    const seed = getIssueSeeds(day1.state, { family: 'regular_customer' })[0]
+    // Phase 186 / Cluster 1 — warm one day so the during-service seed
+    // regenerates the same day the response is issued (see setup notes).
+    const warm = runDay(base)
+    const probe = runDay(warm.state)
+    const seed = getIssueSeeds(probe.state, { family: 'regular_customer' })[0]
     expect(seed).toBeDefined()
-    return { baseAfterDay1: day1.state, seedId: seed!.id, regularId }
+    return { warmState: warm.state, seedId: seed!.id, regularId }
   }
 
   function compareSlot(
@@ -159,7 +165,7 @@ describe('Phase 54 §ISSUE-014 — Per-slot distinct mutations', () => {
     verb: ResponseIntent['verb'],
     shape: ResponseIntent['shape'],
   ) {
-    const { baseAfterDay1, seedId } = setup()
+    const { warmState, seedId } = setup()
     const intent: ResponseIntent = {
       id: `r-${slotId}`,
       seedId,
@@ -169,8 +175,8 @@ describe('Phase 54 §ISSUE-014 — Per-slot distinct mutations', () => {
       intensity: 50,
       metadata: { responseSlotId: slotId },
     }
-    const control = runDay(baseAfterDay1).state
-    const treatment = runDay(baseAfterDay1, { responseIntents: [intent] }).state
+    const control = runDay(warmState).state
+    const treatment = runDay(warmState, { responseIntents: [intent] }).state
     return { control, treatment, regularId: 'test_regular_distinct' }
   }
 

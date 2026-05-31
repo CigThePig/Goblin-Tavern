@@ -23,20 +23,38 @@ import {
   createInitialIssueSeedModuleState,
   type IssueSeed,
   type IssueSeedModuleState,
+  type IssueSeedTiming,
 } from './issueSeedTypes'
 import { ISSUE_SEEDS_MODULE_ID } from './issueSeedQueries'
 
 // Phase 19 — Issue seed module.
+// Phase 186 / Day-Clock Cluster 1 — Seed lifecycle rewrite.
 //
 // Responsibilities:
 //   - Self-register the required seed generators on module load.
-//   - Run all generators during the `generateReports` phase, after
-//     pressures and causes have settled. The generators are pure-ish
-//     readers of state; they emit seed candidates which the module then
-//     validates, ranks, and stores in `state.modules.issueSeeds`.
-//   - Maintain cooldown/novelty tracking across days.
-//   - Emit the ISSUE SEED REPORT during `generateReports`.
+//   - Generate seeds *segment-locally*, at the phase that matches each
+//     generator's declared `timing`, instead of pre-baking the whole day's
+//     set during `generateReports` the evening before:
+//       · `morning_prep`   → `startDay`     (the morning the player sees)
+//       · `during_service` → `afterService` (emergent from the service rush)
+//       · `closing`        → `closing`      (after pressures settle)
+//       · `end_week`       → `endWeek`      (weekly boundary only)
+//       · `end_month`      → `endMonth`     (monthly boundary only)
+//     `startDay` clears `seedsToday` first, so the day owns its own surface;
+//     later passes append and re-rank the accumulated set. Generators are
+//     pure readers of state (no RNG), so relocating them does not perturb
+//     the shared RNG sequence — only *which* state values they read.
+//   - Maintain cooldown/novelty tracking across days (now threaded in
+//     temporal order across the passes, which is strictly more correct:
+//     a morning seed's generation informs the novelty of a later
+//     same-day during-service seed — see phase-186 contract §1.4/§1.5).
+//   - Emit the ISSUE SEED REPORT during `generateReports` (the report
+//     still reads the fully-accumulated `seedsToday`).
 //   - Validate module slice shape on `validate`.
+//
+// See docs/plans/phase-186-day-clock-implementation-notes.md for the
+// grounded findings that shaped this (esp. the during-service generator
+// set and the pressure-snapshot timing that GATE A turns on).
 
 const SOURCE = ISSUE_SEEDS_MODULE_ID
 
@@ -61,45 +79,47 @@ function getSlice(ctx: SimContext): IssueSeedModuleState {
     | undefined) ?? createInitialIssueSeedModuleState()
 }
 
-const startDayHook: SimulationHook = (ctx: SimContext): void => {
+// Phase 186 / Cluster 1 — run one segment-local generation pass.
+//
+// Generates only the generators whose declared `timing` intersects
+// `timings`, scores/validates them against the *current* (mid-day) state,
+// threads cooldown/novelty forward, then APPENDS the survivors to the
+// day's accumulating `seedsToday` and re-ranks the union. Re-ranking the
+// union each pass yields the same canonical order as ranking the whole
+// day at once, because `rankSeeds` is a pure sort over already-scored
+// seeds.
+function runGenerationPass(
+  ctx: SimContext,
+  timings: readonly IssueSeedTiming[],
+): void {
   ensureRequiredSeedGeneratorsRegistered(issueSeedGeneratorRegistry)
-  // Phase 41 / ISSUE-001 — only clear `rejectedToday` here. `seedsToday`
-  // is left in place so the responses pipeline (which runs during the
-  // day BEFORE `generateReports` regenerates seeds) can still resolve
-  // response intents against seeds generated yesterday. The day's
-  // `generateReports` hook overwrites `seedsToday` with the fresh set
-  // a few phases later, so the carry-over window is exactly one day.
-  writeSlice(
-    ctx,
-    {
-      rejectedToday: [],
-    },
-    'day_initialize',
-  )
-}
 
-// Phase 19 generators run during `generateReports` so they see the
-// fully settled pressures/causes from the day, before the issue-seed
-// report is built.
-const generateSeedsHook: SimulationHook = (ctx: SimContext): void => {
-  ensureRequiredSeedGeneratorsRegistered(issueSeedGeneratorRegistry)
-  const allCandidates: Array<{ generatorId: string; seed: IssueSeed }> = []
-  const rejected: IssueSeedModuleState['rejectedToday'] = []
-
-  // Read previous slice now; we'll write all changes once at the end so
-  // every generator sees the same starting cooldown state.
-  let slice = getSlice(ctx)
   const absoluteDay = ctx.state.calendar.totalDaysElapsed
 
   // Phase 60 / ISSUE-020 — read the arc-emitted issue-seed tags once
-  // for the whole batch so ranking can amplify seeds whose domain or
+  // for the whole pass so ranking can amplify seeds whose domain or
   // cause tags intersect the active arc signal.
   const activeIssueSeedTags =
     (ctx.state.modules.localArcs as
       | { activeIssueSeedTags?: string[] }
       | undefined)?.activeIssueSeedTags ?? []
 
-  for (const generator of issueSeedGeneratorRegistry.all()) {
+  // Snapshot the accumulating-day state up front; cooldown bumps thread
+  // through `slice` as we go.
+  let slice = getSlice(ctx)
+  const existingSeeds = slice.seedsToday
+  const baseRejected = slice.rejectedToday
+  const baseTotalGenerated = slice.totalGenerated
+  const baseTotalRejected = slice.totalRejected
+
+  const generators = issueSeedGeneratorRegistry
+    .all()
+    .filter((g) => g.timing.some((t) => timings.includes(t)))
+
+  const allCandidates: Array<{ generatorId: string; seed: IssueSeed }> = []
+  const rejected: IssueSeedModuleState['rejectedToday'] = []
+
+  for (const generator of generators) {
     let produced: IssueSeed[] = []
     try {
       produced = generator.generate(ctx)
@@ -112,11 +132,24 @@ const generateSeedsHook: SimulationHook = (ctx: SimContext): void => {
       continue
     }
     for (const seed of produced) {
+      // Defensive: a generator declared for this pass's timings must
+      // emit seeds of those timings. Skip any stray off-timing seed so a
+      // pass never stores a seed that belongs to another segment.
+      if (!timings.includes(seed.timing)) continue
+      // Idempotent passes: a generator that already produced this exact
+      // seed in an earlier pass today (e.g. `debt_rent` fires in the
+      // `closing` pass and would fire again in the `endMonth` pass since
+      // both carry the `end_month` timing) is not double-counted. The
+      // first pass to produce it wins; later identical re-emissions are
+      // skipped so cooldown/novelty bumps and ranking stay correct.
+      if (existingSeeds.some((e) => e.id === seed.id)) continue
       allCandidates.push({ generatorId: generator.id, seed })
     }
   }
 
-  // Score, validate, and rank.
+  if (allCandidates.length === 0 && rejected.length === 0) return
+
+  // Score, validate, thread cooldowns.
   const accepted: IssueSeed[] = []
   for (const { generatorId, seed } of allCandidates) {
     const novelty = computeNovelty(generatorId, slice.cooldowns, absoluteDay)
@@ -166,21 +199,77 @@ const generateSeedsHook: SimulationHook = (ctx: SimContext): void => {
     )
   }
 
-  const ranked = rankSeeds(accepted)
+  const ranked = rankSeeds([...existingSeeds, ...accepted])
 
   writeSlice(
     ctx,
     {
       seedsToday: ranked,
-      rejectedToday: rejected,
+      rejectedToday: [...baseRejected, ...rejected],
       cooldowns: slice.cooldowns,
-      totalGenerated:
-        getSlice(ctx).totalGenerated + allCandidates.length,
-      totalRejected: getSlice(ctx).totalRejected + rejected.length,
+      totalGenerated: baseTotalGenerated + allCandidates.length,
+      totalRejected: baseTotalRejected + rejected.length,
       lastGeneratedDay: absoluteDay,
     },
-    'generate_seeds',
+    `generate_seeds_${timings.join('_')}`,
   )
+}
+
+// Phase 186 / Cluster 1 — Segment A entry. Clear the day's seed surface
+// so the day owns its own seeds (no carry-over of yesterday's set), then
+// generate the morning surface. Morning generators read the prior day's
+// settled (closing) pressure snapshot — the standing conditions known at
+// sunrise (phase-186 contract §3.1). On day 0 there is no prior snapshot,
+// so the morning surface is legitimately empty until a closing has run.
+const startDayHook: SimulationHook = (ctx: SimContext): void => {
+  ensureRequiredSeedGeneratorsRegistered(issueSeedGeneratorRegistry)
+  writeSlice(ctx, { seedsToday: [], rejectedToday: [] }, 'day_initialize')
+  runGenerationPass(ctx, ['morning_prep'])
+}
+
+// Phase 186 / Cluster 1 — during-service surface. Runs at `afterService`
+// so it reads the day's *settled* customer satisfaction (the customers
+// module writes satisfaction in its own `afterService` hook, which — by
+// pipeline registration order — precedes this one), while still running
+// before this day's `closing` pressure recompute, so the pressure-based
+// guards read the prior-closing snapshot (GATE A / contract §1.8).
+const duringServiceHook: SimulationHook = (ctx: SimContext): void => {
+  runGenerationPass(ctx, ['during_service'])
+}
+
+// Phase 186 / Cluster 1 — closing + standing-periodic surface. Depends on
+// `pressures`, so this hook runs after `calculatePressuresHook` and reads
+// this day's freshly settled pressures — the same settled read the retired
+// `generateReports` lump gave every late-timing seed.
+//
+// The `end_week`/`end_month` timings are run here as well so the *standing-
+// condition* periodic seeds keep their daily cadence: `debt_rent` (an
+// `end_month` seed that fires whenever rent arrears / low coin hold, not
+// only on the 28th) stays available the day its condition holds. Periodic
+// seeds whose content depends on a weekly/monthly rollup self-guard out of
+// this pass — `monthly_review` returns nothing until `lastMonthlyResult`
+// exists, which is not written until `endMonth` — and are produced by the
+// boundary passes below instead. Re-homing the choice-bearing periodic
+// seeds to their proper pause/report surface is Cluster 4's job
+// (contract §3.5); Cluster 1 only relocates *where* they are produced.
+const closingHook: SimulationHook = (ctx: SimContext): void => {
+  runGenerationPass(ctx, ['closing', 'end_week', 'end_month'])
+}
+
+// Phase 186 / Cluster 1 — weekly/monthly boundary surfaces. The engine
+// only runs `endWeek`/`endMonth` on the matching calendar boundary and
+// (by pipeline order) AFTER the weekly/monthly modules settle their
+// rollups, so a rollup-dependent seed like `monthly_review` (which needs
+// `lastMonthlyResult`) reads correct, post-rollup state here. Any seed
+// already produced by the `closing` pass today (e.g. `debt_rent`) is
+// deduped by id inside `runGenerationPass`, so these passes only ADD the
+// boundary-only seeds.
+const endWeekHook: SimulationHook = (ctx: SimContext): void => {
+  runGenerationPass(ctx, ['end_week'])
+}
+
+const endMonthHook: SimulationHook = (ctx: SimContext): void => {
+  runGenerationPass(ctx, ['end_month'])
 }
 
 function buildReport(ctx: SimContext): ReportSection {
@@ -226,14 +315,30 @@ const IssueSeedModuleStateSchema = z.object({
 export const issueSeedsModule: SimulationModule = {
   id: ISSUE_SEEDS_MODULE_ID,
   version: '0.1.0',
-  dependsOn: ['causes', 'memories', 'pressures'],
+  // Phase 186 / Cluster 1 — `customers` added so the during-service
+  // (`afterService`) generation pass runs AFTER the customers module
+  // settles satisfaction in its own `afterService` hook; `weekly`/`monthly`
+  // added so the `endWeek`/`endMonth` passes run AFTER their rollups settle
+  // (e.g. `monthly_review` can read `lastMonthlyResult`). The pre-existing
+  // causes/memories/pressures deps keep generation after the analysis
+  // stack, including the `closing` pressure recompute.
+  dependsOn: [
+    'causes',
+    'memories',
+    'pressures',
+    'customers',
+    'weekly',
+    'monthly',
+  ],
   hooks: {
+    // Phase 186 / Cluster 1 — generation is segment-local: each pass runs
+    // at the phase matching its seeds' `timing`, replacing the single
+    // end-of-day `generateReports` lump. See the hook comments above.
     startDay: [startDayHook],
-    // Seeds are generated after pressures finalise during `closing`, but
-    // before `generateReports` collects sections. Placing the hook in
-    // `generateReports` ensures the seed report can include the freshly
-    // generated seeds.
-    generateReports: [generateSeedsHook],
+    afterService: [duringServiceHook],
+    closing: [closingHook],
+    endWeek: [endWeekHook],
+    endMonth: [endMonthHook],
   },
   buildReport: buildReport,
   validate: validateIssueSeeds,

@@ -7,10 +7,12 @@ import { FULL_PIPELINE } from '../../src/sim/testing/simRunner'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import type { TavernState } from '../../src/sim/state/TavernState'
 import type {
+  IssueSeed,
   ResponseIntent,
 } from '../../src/sim/modules/issues/issueSeedTypes'
 import { getIssueSeeds } from '../../src/sim/modules/issues/issueSeedQueries'
 import { validateSeed } from '../../src/sim/modules/issues/issueSeedValidation'
+import { resolveResponseIntent } from '../../src/sim/modules/responses/responseResolver'
 import type { ResponsesModuleState } from '../../src/sim/modules/responses/types'
 import { RESPONSES_MODULE_ID } from '../../src/sim/modules/responses/types'
 
@@ -112,36 +114,40 @@ describe('Phase 59 §ISSUE-019 — Monthly review surface', () => {
 })
 
 describe('Phase 59 §ISSUE-019 — Per-slot mutations', () => {
-  function setup(): { baseAtMonthEnd: TavernState; seedId: string } {
-    const baseAtMonthEnd = advanceToMonthEnd()
-    const seed = getIssueSeeds(baseAtMonthEnd, { family: 'monthly_review' })[0]
+  function setup(): { state: TavernState; seed: IssueSeed } {
+    const state = advanceToMonthEnd()
+    const seed = getIssueSeeds(state, { family: 'monthly_review' })[0]
     expect(seed).toBeDefined()
-    return { baseAtMonthEnd, seedId: seed!.id }
+    return { state, seed: seed! }
   }
 
+  // Phase 186 / Cluster 1 — `monthly_review` is generated at `endMonth`,
+  // AFTER the engine's `applyResponses` phase (the rollup writes
+  // `lastMonthlyResult` that the seed reads). A month-end choice therefore
+  // cannot resolve the same day in the single-call engine; re-homing it to
+  // the next morning's pause is Cluster 4's job (contract §3.5/§4.4).
+  // Until then these per-slot assertions exercise the consequence profile
+  // directly through the pure resolver, which applies exactly the response
+  // to the settled month-end state — isolating the response delta without
+  // the day's natural recalculation (so the pre-response `state` is the
+  // control).
   function compareSlot(
     slotId: string,
     verb: ResponseIntent['verb'],
     shape: ResponseIntent['shape'],
   ) {
-    const { baseAtMonthEnd, seedId } = setup()
+    const { state, seed } = setup()
     const intent: ResponseIntent = {
       id: `r-${slotId}`,
-      seedId,
+      seedId: seed.id,
       verb,
       shape,
       tags: [],
       intensity: 50,
       metadata: { responseSlotId: slotId },
     }
-    // The seed needs to be on `seedsToday` for the response to apply
-    // — that means we need to issue the intent ON day 28 itself. The
-    // simRunner pattern: advance to day 28, then run ONE more day
-    // with the intent referencing yesterday's seedId. The Phase 41
-    // pipeline preserves yesterday's seedsToday into the next day's
-    // applyResponses.
-    const control = runDay(baseAtMonthEnd).state
-    const treatment = runDay(baseAtMonthEnd, { responseIntents: [intent] }).state
+    const control = state
+    const treatment = resolveResponseIntent(state, seed, intent).state
     return { control, treatment }
   }
 
@@ -182,8 +188,14 @@ describe('Phase 59 §ISSUE-019 — Per-slot mutations', () => {
       intensity: 50,
       metadata: { responseSlotId: 'pay_landlord_on_time' },
     }
-    const control = runDay(state).state
-    const treatment = runDay(state, { responseIntents: [intent] }).state
+    // Pure-resolver path (see compareSlot note). The month-end rollup left
+    // the tavern unable to pay (asserted above via `rentResult.paid`). The
+    // engine flow would let a day of service income fund the late payment;
+    // the pure resolver has no day income, so fund the control state enough
+    // to make the full `amountDue` deduction observable (the point under
+    // test is that the response settles the *entire* outstanding amount).
+    const control = { ...state, coin: rentResult.amountDue + 50 }
+    const treatment = resolveResponseIntent(control, seed!, intent).state
     expect(control.coin - treatment.coin).toBe(rentResult.amountDue)
     expect(treatment.pressures.landlord!.value).toBeLessThan(
       control.pressures.landlord!.value,
@@ -258,8 +270,10 @@ describe('Phase 59 §ISSUE-019 — Delayed scheduling', () => {
         intensity: 50,
         metadata: { responseSlotId: slotId },
       }
-      const control = runDay(baseAtMonthEnd).state
-      const treatment = runDay(baseAtMonthEnd, { responseIntents: [intent] }).state
+      // Pure-resolver path (see compareSlot note): the delayed effects of
+      // each slot park in the resolved state's pending queue.
+      const control = baseAtMonthEnd
+      const treatment = resolveResponseIntent(baseAtMonthEnd, seed!, intent).state
       const treatmentPending = getResponsesSlice(treatment).pending.length
       const controlPending = getResponsesSlice(control).pending.length
       expect(

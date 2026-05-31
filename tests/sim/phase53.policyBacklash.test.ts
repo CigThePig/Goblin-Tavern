@@ -89,22 +89,29 @@ function policyBacklashState(): TavernState {
   }
 }
 
+// Phase 186 / Cluster 1 — `policy_backlash` is a morning seed reading the
+// prior day's closing pressure snapshot, so warm one day to populate it.
+// `warmState` is the day FROM which the response is issued: re-running it
+// regenerates the identical seed at `startDay`, so the response resolves
+// the same day.
 function setupPolicyBacklashSeed(): {
-  baseAfterDay1: TavernState
+  warmState: TavernState
   seedId: string
 } {
   const base = policyBacklashState()
-  const day1 = runDay(base)
-  expect(pressureValue(day1.state, 'policy_backlash')).toBeGreaterThanOrEqual(25)
-  const seeds = getIssueSeeds(day1.state, { family: 'policy_backlash' })
+  const warm = runDay(base)
+  const probe = runDay(warm.state)
+  expect(pressureValue(probe.state, 'policy_backlash')).toBeGreaterThanOrEqual(25)
+  const seeds = getIssueSeeds(probe.state, { family: 'policy_backlash' })
   expect(seeds.length).toBeGreaterThan(0)
-  return { baseAfterDay1: day1.state, seedId: seeds[0]!.id }
+  return { warmState: warm.state, seedId: seeds[0]!.id }
 }
 
 describe('Phase 53 §ISSUE-013 — Seed contract', () => {
   it('surfaces 6 distinct response slots and 6 distinct consequence profile ids', () => {
     const base = policyBacklashState()
-    const day1 = runDay(base)
+    const warm = runDay(base)
+    const day1 = runDay(warm.state)
     const seed = getIssueSeeds(day1.state, { family: 'policy_backlash' })[0]
     expect(seed).toBeDefined()
     const slotIds = seed!.responseSlots.map((s) => s.id).sort()
@@ -140,7 +147,7 @@ describe('Phase 53 §ISSUE-013 — Per-slot distinct mutations', () => {
     verb: ResponseIntent['verb'],
     shape: ResponseIntent['shape'],
   ) {
-    const { baseAfterDay1, seedId } = setupPolicyBacklashSeed()
+    const { warmState, seedId } = setupPolicyBacklashSeed()
     const intent: ResponseIntent = {
       id: `r-${slotId}`,
       seedId,
@@ -153,8 +160,8 @@ describe('Phase 53 §ISSUE-013 — Per-slot distinct mutations', () => {
     // Control run — same state, no response intent. Treatment — same
     // state, with response intent. Comparing the two isolates the
     // response effect from the day's natural pressure recalculation.
-    const control = runDay(baseAfterDay1).state
-    const treatment = runDay(baseAfterDay1, { responseIntents: [intent] }).state
+    const control = runDay(warmState).state
+    const treatment = runDay(warmState, { responseIntents: [intent] }).state
     return { control, treatment }
   }
 
@@ -225,7 +232,7 @@ describe('Phase 53 §ISSUE-013 — Per-slot distinct mutations', () => {
 
 describe('Phase 53 §ISSUE-013 — Delayed scheduling', () => {
   it('keep_policy parks delayed pressure + future hook entries', () => {
-    const { baseAfterDay1, seedId } = setupPolicyBacklashSeed()
+    const { warmState, seedId } = setupPolicyBacklashSeed()
     const intent: ResponseIntent = {
       id: 'r-keep',
       seedId,
@@ -235,7 +242,7 @@ describe('Phase 53 §ISSUE-013 — Delayed scheduling', () => {
       intensity: 50,
       metadata: { responseSlotId: 'keep_policy' },
     }
-    const day2 = runDay(baseAfterDay1, { responseIntents: [intent] })
+    const day2 = runDay(warmState, { responseIntents: [intent] })
     const slice = getResponsesSlice(day2.state)
     expect(slice.pending.length).toBeGreaterThanOrEqual(1)
     const today = day2.state.calendar.totalDaysElapsed
@@ -243,7 +250,7 @@ describe('Phase 53 §ISSUE-013 — Delayed scheduling', () => {
   })
 
   it('repeal_policy parks at least one delayed entry and one future hook', () => {
-    const { baseAfterDay1, seedId } = setupPolicyBacklashSeed()
+    const { warmState, seedId } = setupPolicyBacklashSeed()
     const intent: ResponseIntent = {
       id: 'r-repeal',
       seedId,
@@ -253,7 +260,7 @@ describe('Phase 53 §ISSUE-013 — Delayed scheduling', () => {
       intensity: 50,
       metadata: { responseSlotId: 'repeal_policy' },
     }
-    const day2 = runDay(baseAfterDay1, { responseIntents: [intent] })
+    const day2 = runDay(warmState, { responseIntents: [intent] })
     const slice = getResponsesSlice(day2.state)
     expect(slice.pending.length).toBeGreaterThanOrEqual(2)
   })

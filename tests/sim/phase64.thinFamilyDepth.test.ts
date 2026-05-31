@@ -92,7 +92,13 @@ describe('Phase 64 / ISSUE-024 — per-profile depth', () => {
     base = withArea(base, 'kitchen', { cleanliness: 10, smell: 80 })
     base = withStock(base, 'mushrooms', { spoilage: 90 })
     base = withStock(base, 'stew', { spoilage: 80, quantity: 400 })
-    const result = simulateDay(base, input(), PIPELINE)
+    // Phase 186 / Cluster 1 — morning/during-service seeds read the prior
+    // day's closing pressure snapshot; warm one day to populate it.
+    const result = simulateDay(
+      simulateDay(base, input(), PIPELINE).state,
+      input(),
+      PIPELINE,
+    )
     const seeds = getIssueSeeds(result.state, { family: 'food_safety' })
     expect(seeds.length).toBeGreaterThan(0)
     const ratios = profileDepthRatios(seeds)
@@ -103,7 +109,13 @@ describe('Phase 64 / ISSUE-024 — per-profile depth', () => {
   it('stock_shortage profiles meet the 0.66 / 0.31 ratios', () => {
     let base = createInitialTavernState()
     base = withStock(base, 'ale', { quantity: 5 })
-    const result = simulateDay(base, input(), PIPELINE)
+    // Phase 186 / Cluster 1 — morning/during-service seeds read the prior
+    // day's closing pressure snapshot; warm one day to populate it.
+    const result = simulateDay(
+      simulateDay(base, input(), PIPELINE).state,
+      input(),
+      PIPELINE,
+    )
     const seeds = getIssueSeeds(result.state, { family: 'stock_shortage' })
     expect(seeds.length).toBeGreaterThan(0)
     const ratios = profileDepthRatios(seeds)
@@ -114,7 +126,13 @@ describe('Phase 64 / ISSUE-024 — per-profile depth', () => {
   it('maintenance profiles meet the 0.66 / 0.31 ratios', () => {
     let base = createInitialTavernState()
     base = withArea(base, 'main_room', { damage: 90, condition: 10 })
-    const result = simulateDay(base, input(), PIPELINE)
+    // Phase 186 / Cluster 1 — morning/during-service seeds read the prior
+    // day's closing pressure snapshot; warm one day to populate it.
+    const result = simulateDay(
+      simulateDay(base, input(), PIPELINE).state,
+      input(),
+      PIPELINE,
+    )
     const seeds = getIssueSeeds(result.state, { family: 'maintenance' })
     expect(seeds.length).toBeGreaterThan(0)
     const ratios = profileDepthRatios(seeds)
@@ -227,7 +245,13 @@ describe('Phase 64 / ISSUE-024 — culture_conflict future hook depth', () => {
         },
       },
     } as TavernState
-    const result = simulateDay(base, input(), PIPELINE)
+    // Phase 186 / Cluster 1 — morning/during-service seeds read the prior
+    // day's closing pressure snapshot; warm one day to populate it.
+    const result = simulateDay(
+      simulateDay(base, input(), PIPELINE).state,
+      input(),
+      PIPELINE,
+    )
     const seeds = getIssueSeeds(result.state, { family: 'culture_conflict' })
     if (seeds.length === 0) return
     const fhProfiles = seeds.flatMap((s) =>

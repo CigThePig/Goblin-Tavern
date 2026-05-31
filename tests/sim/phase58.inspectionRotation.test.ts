@@ -99,7 +99,9 @@ describe('Phase 58 §ISSUE-018 — Primary faction rotation', () => {
 
 describe('Phase 58 §ISSUE-018 — Non-regression on existing semantics', () => {
   it('the inspection seed still surfaces the canonical 8 response slots', () => {
-    const day1 = runDay(inspectionState())
+    // Phase 186 / Cluster 1 — `inspection` is a morning seed that reads the
+    // prior day's closing pressure snapshot, so warm one day to populate it.
+    const day1 = runDay(runDay(inspectionState()).state)
     const seed = getIssueSeeds(day1.state, { family: 'inspection' })[0]
     expect(seed).toBeDefined()
     expect(seed!.responseSlots.length).toBe(8)

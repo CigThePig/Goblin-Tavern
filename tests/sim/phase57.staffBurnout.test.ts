@@ -70,13 +70,19 @@ describe('Phase 57 §ISSUE-017 — Staff rotation', () => {
 })
 
 describe('Phase 57 §ISSUE-017 — Per-slot mutations', () => {
+  // Phase 186 / Cluster 1 — `staff_burnout` is a morning seed that reads
+  // the prior day's closing pressure snapshot, so warm one day to populate
+  // it. `warmState` is the day FROM which the response is issued:
+  // re-running it regenerates the identical seed at `startDay`, so the
+  // response resolves the same day (control vs treatment isolates it).
   function setup() {
     const base = burnoutState()
-    const day1 = runDay(base)
-    const seed = getIssueSeeds(day1.state, { family: 'staff_burnout' })[0]
+    const warm = runDay(base)
+    const probe = runDay(warm.state)
+    const seed = getIssueSeeds(probe.state, { family: 'staff_burnout' })[0]
     expect(seed).toBeDefined()
     return {
-      baseAfterDay1: day1.state,
+      warmState: warm.state,
       seed: seed!,
       targetId: seed!.primaryActor!.id,
     }
@@ -87,7 +93,7 @@ describe('Phase 57 §ISSUE-017 — Per-slot mutations', () => {
     verb: ResponseIntent['verb'],
     shape: ResponseIntent['shape'],
   ) {
-    const { baseAfterDay1, seed, targetId } = setup()
+    const { warmState, seed, targetId } = setup()
     const intent: ResponseIntent = {
       id: `r-${slotId}`,
       seedId: seed.id,
@@ -97,8 +103,8 @@ describe('Phase 57 §ISSUE-017 — Per-slot mutations', () => {
       intensity: 50,
       metadata: { responseSlotId: slotId },
     }
-    const control = runDay(baseAfterDay1).state
-    const treatment = runDay(baseAfterDay1, { responseIntents: [intent] }).state
+    const control = runDay(warmState).state
+    const treatment = runDay(warmState, { responseIntents: [intent] }).state
     return { control, treatment, targetId }
   }
 
@@ -173,7 +179,8 @@ describe('Choice-Preview Legibility Phase 5 — label composition', () => {
   // Object] a bonus".
   it('pay_bonus and reduce_workload labels name the staff member, not [object Object]', () => {
     const base = burnoutState()
-    const day1 = runDay(base)
+    const warm = runDay(base)
+    const day1 = runDay(warm.state)
     const seed = getIssueSeeds(day1.state, { family: 'staff_burnout' })[0]
     expect(seed).toBeDefined()
     const targetId = seed!.primaryActor!.id
@@ -201,8 +208,10 @@ describe('Phase 57 §ISSUE-017 — Delayed scheduling', () => {
     ]
     for (const [slotId, verb, shape] of slots) {
       const base = burnoutState()
-      const day1 = runDay(base)
-      const seed = getIssueSeeds(day1.state, { family: 'staff_burnout' })[0]
+      const warm = runDay(base).state
+      const seed = getIssueSeeds(runDay(warm).state, {
+        family: 'staff_burnout',
+      })[0]
       expect(seed).toBeDefined()
       const intent: ResponseIntent = {
         id: `r-${slotId}`,
@@ -213,8 +222,8 @@ describe('Phase 57 §ISSUE-017 — Delayed scheduling', () => {
         intensity: 50,
         metadata: { responseSlotId: slotId },
       }
-      const control = runDay(day1.state).state
-      const treatment = runDay(day1.state, { responseIntents: [intent] }).state
+      const control = runDay(warm).state
+      const treatment = runDay(warm, { responseIntents: [intent] }).state
       const treatmentPending = getResponsesSlice(treatment).pending.length
       const controlPending = getResponsesSlice(control).pending.length
       expect(

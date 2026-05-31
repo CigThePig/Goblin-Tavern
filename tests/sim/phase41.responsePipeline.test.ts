@@ -57,26 +57,36 @@ function getResponsesSlice(state: TavernState): ResponsesModuleState {
   return state.modules[RESPONSES_MODULE_ID] as ResponsesModuleState
 }
 
+// Phase 186 / Cluster 1 — Seeds are now generated segment-locally and a
+// response resolves against a seed generated *the same day*. A morning
+// (`food_safety`) seed reads the PRIOR day's closing pressure snapshot, so
+// we warm one day to populate it. `warmState` is the day FROM which a
+// response is issued: re-running it regenerates the identical food_safety
+// seed at `startDay`, and the response intent — referencing that seed id —
+// resolves within the same `simulateDay` call (the response does not
+// perturb generation, which completes before `applyResponses`). `seed` is
+// observed from a no-response probe of that same day.
 function setupFoodSafetyDay(): {
-  baseAfterDay1: TavernState
+  warmState: TavernState
+  probeState: TavernState
   seed: IssueSeed
 } {
   let base = plentyOfStock(createInitialTavernState())
   base = withArea(base, 'kitchen', { cleanliness: 10, smell: 80 })
   base = withStock(base, 'mushrooms', { spoilage: 90 })
   base = withStock(base, 'stew', { spoilage: 80, quantity: 400 })
-  const day1 = runDay(base)
-  const seed = getIssueSeeds(day1.state, { family: 'food_safety' })[0]
+  const warm = runDay(base)
+  const probe = runDay(warm.state)
+  const seed = getIssueSeeds(probe.state, { family: 'food_safety' })[0]
   if (!seed) {
     throw new Error('test setup failed: no food_safety seed generated')
   }
-  return { baseAfterDay1: day1.state, seed }
+  return { warmState: warm.state, probeState: probe.state, seed }
 }
 
 describe('Phase 41 §ISSUE-001 — Response pipeline (engine path)', () => {
   it('immediate effects from a response intent land in state', () => {
-    const { baseAfterDay1, seed } = setupFoodSafetyDay()
-    const cleanlinessBefore = baseAfterDay1.areas.kitchen!.cleanliness
+    const { warmState, seed } = setupFoodSafetyDay()
 
     const intent: ResponseIntent = {
       id: 'r-clean',
@@ -88,24 +98,27 @@ describe('Phase 41 §ISSUE-001 — Response pipeline (engine path)', () => {
       metadata: { responseSlotId: 'clean_kitchen' },
     }
 
-    const day2 = runDay(baseAfterDay1, { responseIntents: [intent] })
+    // Run the same day with and without the response and isolate the
+    // response's effect: `clean_kitchen` raises kitchen cleanliness.
+    const baseline = runDay(warmState)
+    const day = runDay(warmState, { responseIntents: [intent] })
 
-    expect(day2.state.areas.kitchen!.cleanliness).toBeGreaterThan(
-      cleanlinessBefore,
+    expect(day.state.areas.kitchen!.cleanliness).toBeGreaterThan(
+      baseline.state.areas.kitchen!.cleanliness,
     )
 
-    const responseCauses = day2.state.causes.filter((c) =>
+    const responseCauses = day.state.causes.filter((c) =>
       c.tags.includes('response'),
     )
     expect(responseCauses.length).toBeGreaterThan(0)
 
-    const responsesSlice = getResponsesSlice(day2.state)
+    const responsesSlice = getResponsesSlice(day.state)
     expect(responsesSlice.totalResolved).toBeGreaterThanOrEqual(1)
     expect(responsesSlice.resolvedToday.length).toBeGreaterThanOrEqual(1)
   })
 
   it('delayed entries park in the pending queue, not in target state', () => {
-    const { baseAfterDay1, seed } = setupFoodSafetyDay()
+    const { warmState, seed } = setupFoodSafetyDay()
 
     // 'serve_anyway' carries a delayedEffect of kind 'future_hook'.
     const intent: ResponseIntent = {
@@ -118,9 +131,9 @@ describe('Phase 41 §ISSUE-001 — Response pipeline (engine path)', () => {
       metadata: { responseSlotId: 'serve_anyway' },
     }
 
-    const day2 = runDay(baseAfterDay1, { responseIntents: [intent] })
+    const day = runDay(warmState, { responseIntents: [intent] })
 
-    const responsesSlice = getResponsesSlice(day2.state)
+    const responsesSlice = getResponsesSlice(day.state)
     expect(responsesSlice.pending.length).toBeGreaterThan(0)
 
     const futureHookEntry = responsesSlice.pending.find(
@@ -130,12 +143,12 @@ describe('Phase 41 §ISSUE-001 — Response pipeline (engine path)', () => {
     )
     expect(futureHookEntry).toBeDefined()
     expect(futureHookEntry!.scheduledFor).toBeGreaterThan(
-      day2.state.calendar.totalDaysElapsed,
+      day.state.calendar.totalDaysElapsed,
     )
   })
 
   it('advancing to scheduledFor applies pending entries and drains them', () => {
-    const { baseAfterDay1, seed } = setupFoodSafetyDay()
+    const { warmState, seed } = setupFoodSafetyDay()
 
     const intent: ResponseIntent = {
       id: 'r-serve',
@@ -147,7 +160,7 @@ describe('Phase 41 §ISSUE-001 — Response pipeline (engine path)', () => {
       metadata: { responseSlotId: 'serve_anyway' },
     }
 
-    let state = runDay(baseAfterDay1, { responseIntents: [intent] }).state
+    let state = runDay(warmState, { responseIntents: [intent] }).state
 
     const sliceAfterResolve = getResponsesSlice(state)
     expect(sliceAfterResolve.pending.length).toBeGreaterThan(0)
@@ -240,7 +253,7 @@ describe('Phase 41 §ISSUE-001 — Response pipeline (engine path)', () => {
   })
 
   it("immediate effect('cause', ...) produces an entry in state.causes", () => {
-    const { baseAfterDay1, seed } = setupFoodSafetyDay()
+    const { warmState, seed } = setupFoodSafetyDay()
 
     // 'blame_supplier' profile has effect('cause', ...) as its only
     // immediate effect plus a delayed future_hook. Verifies that a
@@ -255,11 +268,10 @@ describe('Phase 41 §ISSUE-001 — Response pipeline (engine path)', () => {
       metadata: { responseSlotId: 'blame_supplier' },
     }
 
-    const causesBefore = baseAfterDay1.causes.length
-    const day2 = runDay(baseAfterDay1, { responseIntents: [intent] })
+    const day = runDay(warmState, { responseIntents: [intent] })
 
-    const newCauses = day2.state.causes.slice(causesBefore)
-    const responseCauses = newCauses.filter((c) =>
+    // Response-tagged causes only appear when the intent resolves.
+    const responseCauses = day.state.causes.filter((c) =>
       c.tags.includes('response'),
     )
     expect(responseCauses.length).toBeGreaterThan(0)
@@ -287,7 +299,7 @@ describe('Phase 41 §ISSUE-001 — Response pipeline (engine path)', () => {
 
 describe('Phase 41 §ISSUE-001 — Pure resolver state mutations', () => {
   it('cause-kind effects now append to state.causes on the cloned state', () => {
-    const { baseAfterDay1, seed } = setupFoodSafetyDay()
+    const { probeState, seed } = setupFoodSafetyDay()
     const intent: ResponseIntent = {
       id: 'r-blame',
       seedId: seed.id,
@@ -297,15 +309,15 @@ describe('Phase 41 §ISSUE-001 — Pure resolver state mutations', () => {
       intensity: 60,
       metadata: { responseSlotId: 'blame_supplier' },
     }
-    const causesBefore = baseAfterDay1.causes.length
-    const resolution = resolveResponseIntent(baseAfterDay1, seed, intent)
+    const causesBefore = probeState.causes.length
+    const resolution = resolveResponseIntent(probeState, seed, intent)
     expect(resolution.state.causes.length).toBeGreaterThan(causesBefore)
     const newCauses = resolution.state.causes.slice(causesBefore)
     expect(newCauses.some((c) => c.tags.includes('response'))).toBe(true)
   })
 
   it('future_hook delayed effects enqueue into the pending queue', () => {
-    const { baseAfterDay1, seed } = setupFoodSafetyDay()
+    const { probeState, seed } = setupFoodSafetyDay()
     const intent: ResponseIntent = {
       id: 'r-serve',
       seedId: seed.id,
@@ -315,7 +327,7 @@ describe('Phase 41 §ISSUE-001 — Pure resolver state mutations', () => {
       intensity: 70,
       metadata: { responseSlotId: 'serve_anyway' },
     }
-    const resolution = resolveResponseIntent(baseAfterDay1, seed, intent)
+    const resolution = resolveResponseIntent(probeState, seed, intent)
     const slice = resolution.state.modules[
       RESPONSES_MODULE_ID
     ] as ResponsesModuleState

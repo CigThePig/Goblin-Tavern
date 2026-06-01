@@ -41,6 +41,7 @@ import type {
 import type { IssueSeed } from '../../sim/modules/issues/issueSeedTypes'
 import type { TavernState } from '../../sim/state/TavernState'
 import {
+  customerComplaintCauseLinePool,
   customerComplaintChoiceLabelPool,
   customerComplaintEffectPreviewPool,
   customerComplaintEstablishingLinePool,
@@ -70,6 +71,23 @@ export const customerComplaintTemplate: CompositionalCardTemplate = {
       pool: customerComplaintTitlePool,
       wordBudget: 6,
       claimMode: 'flavor',
+    },
+    {
+      // Phase 188 / ISSUE-155 — Causal Establishing Line. Optional
+      // sim-backed LEAD line that names the event the sim attributed as
+      // the dominant negative cause (a shortage, a filthy room, last
+      // night's trouble), read off `seed.causes` via the `dominantCause`
+      // condition. `optional: true` + cause-only conditions give
+      // graceful degradation (framework §5): when no cause classifies
+      // the slot fills nothing and the body is byte-identical to the
+      // pre-Phase-188 [establishing, reaction, manner] output. When it
+      // fills, the body leads with it (see `buildCustomerComplaintBody`).
+      id: 'cause_line',
+      role: 'utterance',
+      pool: customerComplaintCauseLinePool,
+      optional: true,
+      wordBudget: 14,
+      claimMode: 'sim_backed',
     },
     {
       // Phase 151 / ISSUE-119 — Legible Surface arc, Phase 6. The
@@ -139,13 +157,25 @@ function buildCustomerComplaintTitle(
 }
 
 function buildCustomerComplaintBody(filled: FilledSlots): string[] {
+  // Phase 188 / ISSUE-155 — when the optional sim-backed cause_line
+  // fills, it LEADS the body and the standing line becomes the second
+  // beat: [cause, establishing, reaction]. When it doesn't (no cause
+  // classifies), the body is the pre-Phase-188 shape:
+  // [establishing, reaction, manner]. Both paths cap at three lines.
   const lines: string[] = []
+  const cause = filled['cause_line']
   const establishing = filled['establishing_line']
-  if (establishing) lines.push(establishing)
   const reaction = filled['reaction_line']
-  if (reaction) lines.push(reaction)
-  const manner = filled['manner_note']
-  if (manner) lines.push(manner)
+  if (cause) {
+    lines.push(cause)
+    if (establishing) lines.push(establishing)
+    if (reaction) lines.push(reaction)
+  } else {
+    if (establishing) lines.push(establishing)
+    if (reaction) lines.push(reaction)
+    const manner = filled['manner_note']
+    if (manner) lines.push(manner)
+  }
   return lines.slice(0, 3)
 }
 

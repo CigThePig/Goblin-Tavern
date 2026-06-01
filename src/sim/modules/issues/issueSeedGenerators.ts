@@ -1,5 +1,10 @@
 import type { SimContext } from '../../core/context'
 import type { CauseEntry } from '../../state/TavernState'
+import type { CauseClass } from '../causes'
+import {
+  classifyCause,
+  pickDominantCause,
+} from '../causes'
 import type { MemoryDraft } from '../memories/memoryTypes'
 import type {
   ConsequenceProfile,
@@ -1236,6 +1241,20 @@ function recordComplaintPick(ctx: SimContext, entityKey: string): void {
   )
 }
 
+// Phase 188 / ISSUE-155 — cohort-readable problem nouns per classified
+// cause. Keyed by `CauseClass` plus a `'_none'` fallback for the
+// unclassifiable case (preserves a neutral, non-false noun). Reuses the
+// same `classifyCause` taxonomy the card's cause_line condition reads.
+const PROBLEM_NOUN_BY_CAUSE_CLASS: Record<CauseClass | '_none', string> = {
+  shortage: 'an empty cellar',
+  cleanliness: 'a filthy room',
+  price: 'a steep reckoning',
+  danger: 'lingering trouble',
+  rumour: 'sour talk',
+  wait: 'a long wait',
+  _none: 'cold welcome',
+}
+
 function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
   const guard = CONTRADICTION_GUARDS.customer_complaint(ctx)
   if (!guard.allowed) return []
@@ -1345,6 +1364,16 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
   causes.push(...recent)
   causes.push(...pressureCauseRefsAsEntries(ctx, 'reputation_drift', 2))
   if (causes.length < 1) return []
+
+  // Phase 188 / ISSUE-155 — derive the seed's stated cause from the SAME
+  // helpers the card's cause_line condition uses, so the seed and the
+  // card can never disagree about what triggered the complaint. The old
+  // hardcoded `recentContext` / `problemNoun` ('main room dirty all
+  // week' / 'cold welcome') were frequently false.
+  const dominantCause = pickDominantCause(causes)
+  const dominantClass = classifyCause(dominantCause)
+  const causeProblemNoun = PROBLEM_NOUN_BY_CAUSE_CLASS[dominantClass ?? '_none']
+  const causeRecentContext = dominantCause?.readable ?? 'a rough stretch of service'
 
   const tavernSelf = tavernIdentityRef('self')
 
@@ -2041,12 +2070,12 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
       toneHints: ['customer', 'reputation'],
       textIngredients: buildTextIngredients({
         subject: `the ${group.label}`,
-        problemNoun: 'cold welcome',
+        problemNoun: causeProblemNoun,
         sensoryDetails: ['pursed lips', 'half-finished mugs'],
         actorOpinions: {
           [group.id]: 'eye the filthy floor',
         },
-        recentContext: ['main room dirty all week'],
+        recentContext: [causeRecentContext],
         stakesReadable: [
           `${group.label} may stop visiting`,
           'respectability may drop',

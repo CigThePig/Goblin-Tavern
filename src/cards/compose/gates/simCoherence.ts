@@ -151,6 +151,9 @@ const STATE_LOOKUP_KINDS: readonly SnippetCondition['kind'][] = [
   'hasNamedEntity',
   // Phase 127 / ISSUE-096 — signal-surface query counts as a state lookup.
   'signalEquals',
+  // Phase 188 / ISSUE-155 — a classified cause read off `seed.causes` is
+  // a state lookup; lets a `sim_backed` cause_line snippet pass the gate.
+  'dominantCause',
 ]
 
 export function checkSimCoherence(

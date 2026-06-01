@@ -14,6 +14,7 @@ import type {
 } from '../../sim/state/TavernState'
 import type { CastAttributes } from '../../sim/content/cast'
 import { querySignal, repeatCountByTag } from '../../sim/signals'
+import { classifyCause, pickDominantCause } from '../../sim/modules/causes'
 import type { ConditionContext, SnippetCondition } from './types'
 
 /** Resolve the actor referenced by a role string against the seed. v1
@@ -185,6 +186,17 @@ export function evalCondition(
       // `tags` + `createdAt.absoluteDay`. Returns false if the count is
       // below threshold so a less-specific snippet still wins.
       return repeatCountByTag(state, condition.subjectTag) >= condition.atLeast
+    }
+
+    case 'dominantCause': {
+      // Phase 188 / ISSUE-155 — read-only over `seed.causes`. Classify
+      // the dominant negative cause and match against `anyOf`. An empty
+      // / all-positive / unclassifiable `causes` array yields no class,
+      // so the cause line omits and a less-specific (or no) snippet wins
+      // — graceful degradation, framework §5.
+      const cls = classifyCause(pickDominantCause(seed.causes))
+      if (cls === undefined) return false
+      return condition.anyOf.includes(cls)
     }
 
     case 'actorTrait': {

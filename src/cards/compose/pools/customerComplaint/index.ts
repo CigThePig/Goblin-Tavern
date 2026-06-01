@@ -6,6 +6,8 @@
 // `specs/cards/customer_complaint.spec.yaml` records the design.
 
 export { titlePool as customerComplaintTitlePool } from './title'
+// Phase 188 / ISSUE-155 — optional sim-backed lead line naming the cause.
+export { causeLinePool as customerComplaintCauseLinePool } from './causeLine'
 export { establishingLinePool as customerComplaintEstablishingLinePool } from './establishingLine'
 export { reactionLinePool as customerComplaintReactionLinePool } from './reactionLine'
 export { mannerNotePool as customerComplaintMannerNotePool } from './mannerNote'

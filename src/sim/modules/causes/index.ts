@@ -32,6 +32,9 @@ export {
   CAUSE_REPORT_SOURCE,
 } from './causeReport'
 
+export type { CauseClass } from './causeClassify'
+export { classifyCause, pickDominantCause } from './causeClassify'
+
 export {
   getCausesForTarget,
   getCausesByTag,

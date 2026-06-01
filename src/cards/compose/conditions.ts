@@ -142,9 +142,40 @@ export function evalCondition(
     }
 
     case 'memoryPresent': {
-      if (condition.tag === undefined) return state.memories.length > 0
-      const tag = condition.tag
-      return state.memories.some((m) => m.tags.includes(tag))
+      const { tag, scopeToActor, minAgeDays } = condition
+      // Fast path: original global, any-age semantics when neither
+      // optional field is set (preserves every pre-Phase-187 caller).
+      if (scopeToActor === undefined && minAgeDays === undefined) {
+        if (tag === undefined) return state.memories.length > 0
+        return state.memories.some((m) => m.tags.includes(tag))
+      }
+      // Phase 187 / ISSUE-154 — scoped / age-gated lookup. Resolve the
+      // actor once; an unresolvable actor means no memory can match
+      // (graceful degradation, framework §5).
+      const scopedRef =
+        scopeToActor !== undefined
+          ? resolveActorRef(scopeToActor, seed)
+          : undefined
+      if (scopeToActor !== undefined && !scopedRef) return false
+      const today = state.calendar.totalDaysElapsed
+      return state.memories.some((m) => {
+        if (tag !== undefined && !m.tags.includes(tag)) return false
+        if (
+          scopedRef &&
+          !m.actors.some(
+            (a) => a.kind === scopedRef.kind && a.id === scopedRef.id,
+          )
+        ) {
+          return false
+        }
+        if (
+          minAgeDays !== undefined &&
+          today - m.createdAt.absoluteDay < minAgeDays
+        ) {
+          return false
+        }
+        return true
+      })
     }
 
     case 'repeatCount': {

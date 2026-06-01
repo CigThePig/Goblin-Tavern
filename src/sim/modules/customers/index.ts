@@ -15,6 +15,7 @@ export {
   applySatisfactionUpdate,
   applyCustomerImpact,
   CUSTOMERS_MODULE_ID,
+  COMPLAINT_THRESHOLD,
   createInitialCustomerModuleState,
   getCustomerModuleState,
 } from './customerModule'

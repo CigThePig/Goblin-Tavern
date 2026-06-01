@@ -77,7 +77,19 @@ export type SnippetCondition =
   | { kind: 'hasNamedEntity'; role?: string; entityKind?: EntityRefKind }
   // — state lookups (framework §2.3) —
   | { kind: 'pressureRising'; pressureId: string }
-  | { kind: 'memoryPresent'; tag?: string }
+  // Phase 187 / ISSUE-154 — `scopeToActor` and `minAgeDays` are OPTIONAL.
+  // Omitting both preserves the original global, any-age semantics for
+  // every existing caller. `scopeToActor` (a role string such as
+  // `'primaryActor'`) requires the memory's `actors` to include the
+  // resolved entity, so a different group's memory can't satisfy the
+  // claim. `minAgeDays` requires the memory to be at least that many days
+  // old, so a same-evening memory can't back an "unanswered" claim.
+  | {
+      kind: 'memoryPresent'
+      tag?: string
+      scopeToActor?: string
+      minAgeDays?: number
+    }
   | { kind: 'repeatCount'; subjectTag: string; atLeast: number }
   // — Character Depth seam (framework §2.3, §5) —
   //   Forward seam: today no actor carries a `trait: string` field, so

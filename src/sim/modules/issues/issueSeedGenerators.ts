@@ -40,6 +40,7 @@ import {
   urgencyFromPressures,
 } from './generatorHelpers'
 import type { EntityRef } from '../../state/TavernState'
+import { COMPLAINT_THRESHOLD, getCustomerModuleState } from '../customers'
 import type { IssueSeedGenerator } from './issueSeedRegistry'
 import { recencyPenalty, recordPick } from './seedRotation'
 import { EXPANDED_SEED_GENERATORS } from './expandedSeedGenerators'
@@ -1259,12 +1260,21 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
   // so contradiction guard semantics stay intact.
   const presence = merchantPresenceGuard(ctx)
   // Phase 40 audit pass 2 §3 — Widen the candidate pool to satisfaction
-  // ≤60 so multiple groups qualify each day. The recency penalty rotates
-  // the actual pick across that pool; otherwise the lowest-satisfaction
-  // group dominates the family.
+  // ≤ COMPLAINT_THRESHOLD so multiple groups qualify each day. The
+  // recency penalty rotates the actual pick across that pool; otherwise
+  // the lowest-satisfaction group dominates the family.
+  //
+  // Phase 187 / ISSUE-154 — a complaint is a reaction to an *unaddressed*
+  // problem, so a group only qualifies once its dissatisfaction has
+  // survived at least one decision point: `streak >= 2` means it ended at
+  // or below the threshold on at least two evaluated services, so the
+  // player passed through a closing and a morning pause able to respond
+  // and did not recover the group. This changes *who qualifies*, not the
+  // recency ranking below that picks among qualifiers.
+  const streak = getCustomerModuleState(ctx.state).lowSatisfactionStreak
   const groupCandidates = candidates.filter((g) => {
     if (g.id === 'merchants' && !presence.allowed) return false
-    return g.satisfaction <= 60
+    return g.satisfaction <= COMPLAINT_THRESHOLD && (streak[g.id] ?? 0) >= 2
   })
   if (groupCandidates.length === 0) return []
 

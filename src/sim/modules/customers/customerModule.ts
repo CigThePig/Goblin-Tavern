@@ -43,6 +43,12 @@ export const CUSTOMERS_MODULE_ID = 'customers'
 
 const SOURCE = 'customers'
 
+// Phase 187 / ISSUE-154 — the single shared satisfaction threshold below
+// which a group counts as "dissatisfied". The complaint generator's
+// candidate filter and the `lowSatisfactionStreak` maintenance below both
+// read this constant so the two can never drift apart.
+export const COMPLAINT_THRESHOLD = 60
+
 const REQUIRED_CUSTOMER_GROUP_IDS = [
   'local_goblins',
   'miners',
@@ -52,7 +58,7 @@ const REQUIRED_CUSTOMER_GROUP_IDS = [
 ] as const
 
 export function createInitialCustomerModuleState(): CustomerModuleState {
-  return { forecasts: [], turnouts: [] }
+  return { forecasts: [], turnouts: [], lowSatisfactionStreak: {} }
 }
 
 export function getCustomerModuleState(
@@ -100,9 +106,16 @@ const startDayHook: SimulationHook = (ctx: SimContext): void => {
   // the `state.modules.customers` slice; the engine routes the write
   // through `ctx.modifyModuleState` so the cause-required mutation
   // contract holds (Phase 7 §7.3.1).
+  //
+  // Phase 187 / ISSUE-154 — `lowSatisfactionStreak` is a persistence
+  // counter, not a per-day list, so it survives the daily reset; only
+  // the forecast/turnout scratch lists clear here.
   ctx.modifyModuleState<CustomerModuleState>(
     CUSTOMERS_MODULE_ID,
-    () => createInitialCustomerModuleState(),
+    (current) => ({
+      ...createInitialCustomerModuleState(),
+      lowSatisfactionStreak: current?.lowSatisfactionStreak ?? {},
+    }),
     { source: SOURCE, reason: 'day_initialize' },
   )
 }
@@ -322,6 +335,32 @@ const afterServiceHook: SimulationHook = (ctx: SimContext): void => {
     updatedTurnouts.push(turnout)
   }
   setTurnouts(ctx, updatedTurnouts)
+
+  // Phase 187 / ISSUE-154 — maintain the per-group low-satisfaction
+  // streak from the end-of-service satisfaction (after the updates above
+  // are applied to `ctx.state.customerGroups`). A group that ends a
+  // service at or below the shared threshold extends its streak; a group
+  // that recovers above it resets to 0. Only groups that were actually
+  // evaluated this service (i.e. had a turnout) move.
+  const priorStreak = getCustomerModuleState(ctx.state).lowSatisfactionStreak
+  const nextStreak: Record<string, number> = { ...priorStreak }
+  for (const turnout of updatedTurnouts) {
+    const group = ctx.state.customerGroups[turnout.groupId]
+    if (!group) continue
+    if (group.satisfaction <= COMPLAINT_THRESHOLD) {
+      nextStreak[group.id] = (nextStreak[group.id] ?? 0) + 1
+    } else {
+      nextStreak[group.id] = 0
+    }
+  }
+  ctx.modifyModuleState<CustomerModuleState>(
+    CUSTOMERS_MODULE_ID,
+    (current) => ({
+      ...(current ?? createInitialCustomerModuleState()),
+      lowSatisfactionStreak: nextStreak,
+    }),
+    { source: SOURCE, reason: 'low_satisfaction_streak' },
+  )
 }
 
 function describeGroupLine(
@@ -455,6 +494,12 @@ const CustomerTurnoutSchema = z.object({
 const CustomerModuleStateSchema: z.ZodType<CustomerModuleState> = z.object({
   forecasts: z.array(CustomerForecastSchema),
   turnouts: z.array(CustomerTurnoutSchema),
+  // Phase 187 / ISSUE-154 — per-group low-satisfaction streak counter.
+  // `.default({})` lets saves predating this field validate forward
+  // (additive migration) without a dedicated ensure-slice helper.
+  lowSatisfactionStreak: z
+    .record(z.string(), z.number().int().min(0))
+    .default({}),
 })
 
 export const customersModule: SimulationModule = {

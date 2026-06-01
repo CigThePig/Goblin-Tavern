@@ -1,6 +1,18 @@
 # Phase 189 — Consequence-Legible Choices: surface the delayed cost and the blast radius
 
-**Provisional:** ISSUE-156. **Phase doc:** `docs/plans/phase-189-consequence-legible-choices.md`.
+**ISSUE-156.** *Status:* done (see `docs/ISSUE_TRACKER.md`). **Phase doc:** `docs/plans/phase-189-consequence-legible-choices.md`.
+
+> **Implementation landed.** Plan A/B/C below shipped as written. Renderer:
+> `composeChoicesFromSeed` (`src/cards/cardHelpers.ts`) appends ≤1
+> decision-relevant `delayedEffect` as a trailing `later:` line and names the
+> non-primary actor a previewed effect moves; the shared selectors
+> (`selectDelayedPreviewEffect`, `isDecisionRelevantDelayed`,
+> `LATER_PREVIEW_PREFIX`, `isLaterPreviewLine`) live in
+> `src/cards/compose/previewSelect.ts`. Gate: `gates/legibility.ts` carries the
+> `preview_delayed_unsurfaced` rule (fallback excluded); `legibility.ts` and
+> `faithfulness.ts` re-derive immediate effects against the non-`later:` line
+> count. Tests: `tests/cards/compose/phase189.consequenceLegible.test.ts` plus
+> the new fixtures in `tests/cards/compose/gates/legibility.test.ts`.
 
 **This document is self-contained.** Every claim below is grounded in a file path (and, where useful, a symbol or line reference) inside this repository. Nothing here depends on any external conversation, chat log, or document not in the repo. The *Evidence* reproduction uses only `createInitialTavernState` (`src/sim/state/defaults.ts`), `simulateDay` (`src/sim/core/engine.ts`), `FULL_PIPELINE` (`src/sim/canonicalPipeline.ts`), and `pickCard` (`src/cards/index.ts`).
 

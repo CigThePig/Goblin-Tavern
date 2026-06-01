@@ -44,7 +44,7 @@
 // same report (every input is plain data; the only state reads are
 // deterministic `querySignal` / `pressureIsRising` over the frozen state).
 
-import { selectPreviewEffects } from '../previewSelect'
+import { selectPreviewEffects, isLaterPreviewLine } from '../previewSelect'
 import { canonicaliseText } from './dedupe'
 import { MAGNITUDE_LEXICON, lineCarriesMagnitude } from '../magnitudeLexicon'
 import { resolveMeterValence } from '../../../sim/modules/issues/generatorHelpers'
@@ -155,8 +155,15 @@ export function checkFaithfulness(
       const immediate = profile?.immediateEffects ?? []
       const delayed = profile?.delayedEffects ?? []
       const useDelayed = immediate.length === 0 && delayed.length > 0
+      // Phase 189 / ISSUE-156 — re-derive immediate effects against the
+      // immediate (non-`later:`) line count; the trailing delayed-consequence
+      // `later:` line is not a `source` effect, so it maps to
+      // `effects[idx] === undefined` and the per-line direction check skips it.
+      const immediateLineCount = choice.previewEffects.filter(
+        (l) => !isLaterPreviewLine(l),
+      ).length
       const source = useDelayed ? delayed : immediate
-      const effects = selectPreviewEffects(source, lineCount)
+      const effects = selectPreviewEffects(source, immediateLineCount)
 
       for (let lineIdx = 0; lineIdx < lineCount; lineIdx += 1) {
         const line = choice.previewEffects[lineIdx]!

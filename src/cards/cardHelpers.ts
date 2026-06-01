@@ -17,10 +17,16 @@ import type {
   ResponseIntentVerb,
 } from '../sim/modules/issues/issueSeedTypes'
 import type { EffectPreview } from '../sim/core/effect'
-import type { TavernState } from '../sim/state/TavernState'
+import type { EntityRef, TavernState } from '../sim/state/TavernState'
+import { displayNameForRef } from '../sim/modules/issues/generatorHelpers'
 import { pickSnippet } from './compose/assemble'
 import { canonicaliseText } from './compose/gates/dedupe'
-import { selectPreviewEffects, isCostEffect } from './compose/previewSelect'
+import {
+  selectPreviewEffects,
+  selectDelayedPreviewEffect,
+  isCostEffect,
+  LATER_PREVIEW_PREFIX,
+} from './compose/previewSelect'
 import { SALIENCE_TABLES, type SalienceRead } from './compose/salience'
 import type { SlotSpec, SnippetPool } from './compose/types'
 
@@ -35,6 +41,20 @@ const MAX_STAKES = 3
 // on `ComposeChoicesOptions` for genuine future exceptions.
 const MAX_PREVIEW = 3
 const MAX_BODY = 3
+
+/** Actor kinds a previewed effect can name as the spilled-onto party. Areas /
+ *  systems / global markers are state, not actors, so they stay unattributed.
+ *  Mirrors the `EntityRef.kind` union, narrowed to the people/cohort kinds a
+ *  consequence profile actually moves. */
+const ATTRIBUTABLE_ACTOR_KINDS: ReadonlyArray<EntityRef['kind']> = [
+  'staff',
+  'customer_group',
+  'regular',
+  'supplier',
+  'faction',
+  'culture',
+  'notable_npc',
+]
 
 /**
  * Phase 148 / ISSUE-116 — Legible Surface arc, Phase 3. Default cap on
@@ -385,6 +405,91 @@ function isInactionSlot(
   return false
 }
 
+// Phase 189 / ISSUE-156 — recover the entity a previewed effect moves from its
+// `target` string. State paths (`customers.miners.satisfaction`,
+// `staff.server.loyalty`, `world.regulars.id.loyalty`) and the colon-prefixed
+// cause refs (`customer_group:miners`, `staff:server`) both encode an actor;
+// pure meters (`coin`, `reputation.respectable`, `pressure:rumour_pressure`)
+// encode none. Returns `undefined` for the latter and for any shape it can't
+// confidently map — naming the wrong actor is worse than naming none.
+function entityRefFromEffectTarget(target: string): EntityRef | undefined {
+  const colon = target.indexOf(':')
+  if (colon >= 0) {
+    const prefix = target.slice(0, colon)
+    const id = target.slice(colon + 1)
+    if (!id) return undefined
+    switch (prefix) {
+      case 'customer_group':
+      case 'customer':
+        return { kind: 'customer_group', id }
+      case 'staff':
+        return { kind: 'staff', id }
+      case 'regular':
+        return { kind: 'regular', id }
+      case 'supplier':
+        return { kind: 'supplier', id }
+      case 'faction':
+        return { kind: 'faction', id }
+      case 'culture':
+        return { kind: 'culture', id }
+      default:
+        return undefined
+    }
+  }
+  const parts = target.split('.')
+  if (parts[0] === 'customers' && parts[1]) {
+    return { kind: 'customer_group', id: parts[1] }
+  }
+  if (parts[0] === 'staff' && parts[1] && parts.length >= 3) {
+    return { kind: 'staff', id: parts[1] }
+  }
+  if (parts[0] === 'world' && parts[1] === 'regulars' && parts[2]) {
+    return { kind: 'regular', id: parts[2] }
+  }
+  if (parts[0] === 'world' && parts[1] === 'suppliers' && parts[2]) {
+    return { kind: 'supplier', id: parts[2] }
+  }
+  if (parts[0] === 'world' && parts[1] === 'factions' && parts[2]) {
+    return { kind: 'faction', id: parts[2] }
+  }
+  if (parts[0] === 'world' && parts[1] === 'cultures' && parts[2]) {
+    return { kind: 'culture', id: parts[2] }
+  }
+  return undefined
+}
+
+function refKey(ref: EntityRef | undefined): string | undefined {
+  return ref ? `${ref.kind}:${ref.id}` : undefined
+}
+
+/** Phase 189 / ISSUE-156 — Plan B: when a previewed effect moves an actor OTHER
+ *  than `seed.primaryActor`, name that actor in the line so the blast radius is
+ *  visible ("…loyalty would deepen (Mira the Resolute)") instead of an
+ *  unattributed meter move. Best-effort and conservative:
+ *    - only ACTOR kinds are named (areas / systems / coin / pressure are not);
+ *    - the actor must resolve to a real display name (not its raw id);
+ *    - the primary actor is never re-named (the card already centres on it);
+ *    - a line that already contains the name is left alone.
+ *  Returns the line unchanged when none of these hold. Pure: `displayNameForRef`
+ *  reads frozen state deterministically. */
+function attributeNonPrimaryActor(
+  line: string,
+  effect: EffectPreview,
+  seed: IssueSeed,
+  state: TavernState,
+): string {
+  const ref = entityRefFromEffectTarget(effect.target)
+  if (!ref) return line
+  if (!ATTRIBUTABLE_ACTOR_KINDS.includes(ref.kind)) return line
+  if (refKey(ref) === refKey(seed.primaryActor)) return line
+  const name = displayNameForRef(state, ref)
+  // Unresolved refs fall back to the raw id in `displayNameForRef`; naming a
+  // bare id reads worse than naming nothing.
+  if (!name || name === ref.id) return line
+  if (line.toLowerCase().includes(name.toLowerCase())) return line
+  return `${line} (${name})`
+}
+
 export function composeChoicesFromSeed(
   seed: IssueSeed,
   state: TavernState,
@@ -538,16 +643,69 @@ export function composeChoicesFromSeed(
         if (cellKey !== undefined) cellLineThisChoice.set(cellKey, composedLine)
         if (coarseKey !== undefined) coarseCellLine.set(coarseKey, composedLine)
       }
+      // Phase 189 / ISSUE-156 — Plan B: name the other actor when this effect
+      // moves someone other than the primary one. Applied BEFORE the card-wide
+      // de-dup so the emitted-line key reflects the final attributed text (two
+      // cell-reused lines for distinct actors then read distinctly, and two for
+      // the SAME actor collapse correctly). Never applied to a sim `readable`
+      // line: the legibility / faithfulness gates treat `line ===
+      // effect.readable` as authoritative and skip it, and appending to it
+      // would defeat that carve-out.
+      let line = composedLine
+      if (line !== effect.readable) {
+        line = attributeNonPrimaryActor(line, effect, seed, state)
+      }
       // De-dup: a line that exactly repeats one already emitted anywhere on
       // this card falls back to the effect's distinct sim `readable`. Cost
       // lines are exempt so their coin keyword survives for the gate.
-      let line = composedLine
       if (emittedLines.has(canonicaliseText(line)) && !isCostEffect(effect)) {
         line = effect.readable
       }
       emittedLines.add(canonicaliseText(line))
       return line
     })
+    // Phase 189 / ISSUE-156 — Plan A: an ACTIVE choice (one with immediate
+    // effects) surfaces its single most decision-relevant delayed consequence
+    // as a trailing `later:` line — what the choice sets up for later. Additive
+    // to the immediate `previewMax` (never counted against it, so a delayed
+    // line can never displace a surfaced cost). The zero-immediate inaction
+    // carve-out (`useDelayed`) is unchanged: it already previews its delayed
+    // effects directly, with no `later:` prefix.
+    if (!useDelayed) {
+      const delayedEffect = selectDelayedPreviewEffect(delayed)
+      if (delayedEffect !== undefined) {
+        const laterSlot: SlotSpec = {
+          id: `effect_preview::${slot.id}::later`,
+          role: 'effect_preview',
+          pool: options.previewPool,
+          optional: true,
+          wordBudget: 10,
+          claimMode: 'flavor',
+        }
+        const composedLater = pickSnippet(
+          laterSlot,
+          seed,
+          state,
+          { currentResponseSlot: slot, currentEffect: delayedEffect },
+          usedPreviews,
+        )
+        let laterBody = composedLater ?? delayedEffect.readable
+        usedPreviews.add(canonicaliseText(laterBody))
+        if (laterBody !== delayedEffect.readable) {
+          laterBody = attributeNonPrimaryActor(laterBody, delayedEffect, seed, state)
+        }
+        let laterLine = `${LATER_PREVIEW_PREFIX}${laterBody}`
+        // Two choices' `later:` lines could compose identically; fall a repeat
+        // back to the delayed effect's distinct sim `readable` so no two
+        // choices render the same `later:` line (the cross-choice duplicate the
+        // faithfulness / legibility gates flag).
+        if (emittedLines.has(canonicaliseText(laterLine))) {
+          laterLine = `${LATER_PREVIEW_PREFIX}${delayedEffect.readable}`
+        }
+        emittedLines.add(canonicaliseText(laterLine))
+        composedPreview.push(laterLine)
+      }
+    }
     const extra = options.overrides?.(slot) ?? {}
     const overrides: ChoiceOverrides = {
       ...extra,

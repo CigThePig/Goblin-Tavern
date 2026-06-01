@@ -104,7 +104,23 @@ describe('Phase 16 — Legibility gate (live, 20 migrated situations)', () => {
       expect(obs.meterNamingChecksFailed).toBe(0)
       expect(obs.duplicateLineCount).toBe(0)
       expect(obs.riskSurfacingChecksFailed).toBe(0)
+      // Phase 189 / ISSUE-156 — every active choice carrying a decision-
+      // relevant delayed consequence surfaces a `later:` line.
+      expect(obs.delayedSurfacingChecksFailed).toBe(0)
     }
+  })
+
+  it('actually exercises the Phase-189 delayed-consequence rule on live templates', () => {
+    // Guard against the rule silently no-op-ing: across the 20 migrated
+    // templates, active choices really do author decision-relevant delayed
+    // consequences (the complaint card's fix_root / public_apology, etc.), so
+    // the check runs (and, per the assertion above, all pass).
+    const report = checkLegibility({ situations: LEGIBILITY_SITUATIONS })
+    const totalDelayedChecks = report.observed.situations.reduce(
+      (n, s) => n + s.delayedSurfacingChecksRun,
+      0,
+    )
+    expect(totalDelayedChecks).toBeGreaterThan(0)
   })
 
   it('actually exercises the Phase-184 meter / risk rules on live templates', () => {
@@ -187,6 +203,7 @@ describe('Phase 16 — Legibility gate (live, 20 migrated situations)', () => {
       'preview_meter_unnamed',
       'preview_duplicate_line',
       'preview_risk_unsurfaced',
+      'preview_delayed_unsurfaced',
     ])
     // The tuple is frozen.
     expect(Object.isFrozen(LEGIBILITY_REASONS)).toBe(true)
@@ -929,5 +946,127 @@ describe('Phase 16 — Legibility failure fixtures (each reason bites)', () => {
       (v) => v.reason === 'preview_risk_unsurfaced',
     )
     expect(riskViolations.length).toBe(0)
+  })
+
+  // -------------------------------------------------------------------
+  // Phase 189 / ISSUE-156 — preview_delayed_unsurfaced. An active choice
+  // whose profile carries a decision-relevant delayed consequence must
+  // surface a `later:` line. Failing + corrected fixtures.
+  // -------------------------------------------------------------------
+
+  // An immediate effect whose rendered line is the sim `readable` (so the
+  // magnitude / meter / cost / risk rules all carve out) — isolating the
+  // delayed rule as the only one that can fire.
+  const steadyingEffect: EffectPreview = {
+    kind: 'state_change',
+    target: 'reputation.respectable',
+    amount: 4,
+    readable: 'the name steadies',
+    tags: ['reputation'],
+    targetKind: 'reputation',
+    direction: 'positive',
+    magnitudeBand: 'small',
+    meterId: 'respectable',
+    meterLabel: 'respectable',
+  }
+  // A decision-relevant delayed consequence (a `future_hook` recurrence hook).
+  const expectationHook: EffectPreview = {
+    kind: 'future_hook',
+    target: 'group_expectation_hook',
+    amount: 8,
+    readable: 'the group may expect this standard',
+    tags: ['future_hook'],
+  }
+
+  it('preview_delayed_unsurfaced fires when an active choice hides its decision-relevant delayed consequence', () => {
+    const seed = seedWithProfile({
+      id: 'delayed-fixture',
+      family: 'customer_complaint',
+      slotId: 'fix-delayed-slot',
+      verb: 'appease',
+      immediate: [steadyingEffect],
+      delayed: [expectationHook],
+    })
+    const state = createInitialTavernState()
+    // The render surfaces only the immediate line — no `later:` line.
+    const template = makeRenderedTemplate('phase189.delayed-fixture', () =>
+      singleChoiceCardView({
+        choice: {
+          slotId: 'fix-delayed-slot',
+          label: 'Fix the root cause',
+          verb: 'appease',
+          previewEffects: ['the name steadies'],
+        },
+      }),
+    )
+    const report = runFixture(template, [{ seed, state }])
+    expect(report.pass).toBe(false)
+    const delayedViolations = report.violations.filter(
+      (v) => v.reason === 'preview_delayed_unsurfaced',
+    )
+    expect(delayedViolations.length).toBeGreaterThan(0)
+    expect(delayedViolations[0]?.slotId).toBe('fix-delayed-slot')
+  })
+
+  it('preview_delayed_unsurfaced passes when the choice surfaces a later: line (corrected)', () => {
+    const seed = seedWithProfile({
+      id: 'delayed-fixture-ok',
+      family: 'customer_complaint',
+      slotId: 'fix-delayed-slot',
+      verb: 'appease',
+      immediate: [steadyingEffect],
+      delayed: [expectationHook],
+    })
+    const state = createInitialTavernState()
+    const template = makeRenderedTemplate('phase189.delayed-fixture-ok', () =>
+      singleChoiceCardView({
+        choice: {
+          slotId: 'fix-delayed-slot',
+          label: 'Fix the root cause',
+          verb: 'appease',
+          previewEffects: [
+            'the name steadies',
+            'later: the group may expect this standard',
+          ],
+        },
+      }),
+    )
+    const report = runFixture(template, [{ seed, state }])
+    const delayedViolations = report.violations.filter(
+      (v) => v.reason === 'preview_delayed_unsurfaced',
+    )
+    expect(delayedViolations.length).toBe(0)
+  })
+
+  it('preview_delayed_unsurfaced does not fire on the inaction path (delayed previewed directly)', () => {
+    // A zero-immediate (inaction) profile previews its delayed effects
+    // directly via the Phase-147 wiring — no `later:` prefix — and must NOT be
+    // flagged for the missing prefix.
+    const seed = seedWithProfile({
+      id: 'delayed-inaction-fixture',
+      family: 'customer_complaint',
+      slotId: 'ignore-delayed-slot',
+      verb: 'ignore',
+      shape: 'ignore',
+      immediate: [],
+      delayed: [expectationHook],
+    })
+    const state = createInitialTavernState()
+    const template = makeRenderedTemplate('phase189.delayed-inaction-fixture', () =>
+      singleChoiceCardView({
+        choice: {
+          slotId: 'ignore-delayed-slot',
+          label: 'Let it ride',
+          verb: 'ignore',
+          shape: 'ignore',
+          previewEffects: ['the group may expect this standard'],
+        },
+      }),
+    )
+    const report = runFixture(template, [{ seed, state }])
+    const delayedViolations = report.violations.filter(
+      (v) => v.reason === 'preview_delayed_unsurfaced',
+    )
+    expect(delayedViolations.length).toBe(0)
   })
 })

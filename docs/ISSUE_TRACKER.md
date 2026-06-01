@@ -59,7 +59,10 @@ is otherwise complete: ISSUE-149…152 (contract → policy → prose → gate) 
 `done`; only **ISSUE-153** (Phase 5, the standing drive/tune/deepen tail) is
 `in-progress` — part (a), driving the three audit-unsampled families through the
 live gate, has landed; part (b), prose-deepening and band-cutoff recalibration,
-stays standing.
+stays standing. **ISSUE-156** (phase 189) extended that arc's legibility rule to
+the two consequence axes it left untouched — the **delayed** effect (a `later:`
+line) and the **cross-actor** blast radius (naming the non-primary actor) — and
+is `done`.
 
 The card-layer arcs ran Living Cast → Voiced → Legible → Faithful →
 Complete; each has a locked roadmap (`docs/plans/*-surface-arc.md`,
@@ -220,6 +223,7 @@ next.
 | ISSUE-153 | Choice-Preview Legibility Phase 5 — Drive, tune, deepen (standing) | thin | in-progress | 185 |
 | ISSUE-154 | Early-game complaint fairness — gate customer_complaint on persistence; scope the "unanswered complaint" claim | broken | done | 187 |
 | ISSUE-155 | Causal establishing line — surface seed.causes as the customer_complaint body's lead fact | thin | done | 188 |
+| ISSUE-156 | Consequence-legible choices — surface one delayed effect + cross-actor identity on active choices | broken | done | 189 |
 | ISSUE-116 | Legible Surface Phase 3 — Choice Distinctness Gate & Legible Choice-Set Cap | broken | done | 148 |
 
 ---
@@ -3291,6 +3295,13 @@ records the motivating audit, Appendix B the re-runnable instruments at
 - **Scope:** (A) added pure `pickDominantCause` / `classifyCause` to `src/sim/modules/causes/causeClassify.ts` (closed `CauseClass` union `shortage|cleanliness|price|danger|rumour|wait`, mappings grounded in the tags the cause writers emit; dominant = highest `abs(amount)*weight` among `decrease` causes, tie-break lowest `ageDays`); (B) a `dominantCause` snippet condition (`types.ts`/`conditions.ts`) registered in `simCoherence.ts` `STATE_LOOKUP_KINDS` so `sim_backed` cause snippets pass the gate; (C) an OPTIONAL lead `cause_line` slot + pool on the `customer_complaint` template (one sim_backed snippet per class, NO unconditional fallback) with `buildCustomerComplaintBody` leading on the cause line at a 3-line cap; (D) replaced the hardcoded `recentContext` / `problemNoun` in `generateCustomerComplaint` with cause-derived values via the same helpers. Additive; graceful degradation when no class applies; `customer_complaint` only.
 - **Depends on:** none.
 - **Test approach:** `tests/sim/phase188.causeClassify.test.ts` — classifier + dominant-cause unit tests (shortage classifies; positive/`increase` never selected; unclassifiable → `undefined`; score ranking + `ageDays` tie-break). `tests/cards/compose/phase188.causeLine.test.ts` — `dominantCause` evaluates off `seed.causes`; the complaint body leads with the shortage cause line with the standing line as the second beat; body byte-identical when no cause classifies; `dominantCause` is in `STATE_LOOKUP_KINDS` and the pool ships no fallback; pipeline `recentContext` reflects the dominant cause, not the hardcoded string. `runAllGates` + determinism gate green; `npm test` + `npm run typecheck` green.
+
+### ISSUE-156 — Consequence-legible choices
+- **Grade:** broken · **Status:** done · **Phase:** 189 · **Record:** `docs/plans/phase-189-consequence-legible-choices.md`
+- **Depends on:** ISSUE-149 (the `meterId`/`meterLabel` effect contract; `done`).
+- **Evidence:** `composeChoicesFromSeed` (`cardHelpers.ts`) set `useDelayed = immediate.length === 0 && delayed.length > 0`, so `delayedEffects` reached the preview only for zero-immediate (inaction) choices; every active choice dropped them. `seed.affectedActors` had zero refs under `src/cards/`, and preview lines never named a non-primary actor. A default Day-1 `customer_complaint` seed authored delayed consequences (`fix_root → "Group may expect this standard"`, `public_apology → "Group may expect more apologies"`, `mock → "… Miners may boycott"`) that no active choice rendered.
+- **Scope:** (A) in `composeChoicesFromSeed`, an active choice additionally selects ≤1 decision-relevant `delayedEffect` (shared `selectDelayedPreviewEffect`/`isDecisionRelevantDelayed` in `previewSelect.ts`; relevance = `future_hook` kind or `future_hook`/`risk` tag, ranked by magnitude) and renders it via the same meter-aware snippet path as a trailing `later:` line — additive to the immediate `previewMax`, never displacing a surfaced cost; the zero-immediate inaction carve-out is unchanged. (B) `attributeNonPrimaryActor` names the other actor (via `entityRefFromEffectTarget` + `displayNameForRef`) when a previewed effect — immediate or the delayed line — moves an actor other than `seed.primaryActor`; never applied to a sim `readable` fallback line (preserves the gates' sim-authority carve-out). (C) `gates/legibility.ts` gains a `preview_delayed_unsurfaced` rule (active choice with a decision-relevant delayed effect must surface a `later:` line; fallback excluded), and both `legibility.ts` and `faithfulness.ts` re-derive immediate effects against the immediate (non-`later:`) line count so existing per-line rules skip the delayed line. No prose, contract, or generator changes; uniform across all twenty templates via the shared pipeline.
+- **Test approach:** `tests/cards/compose/phase189.consequenceLegible.test.ts` — selector unit behaviour; an active choice surfaces exactly one `later:` line additive to the immediate previews; the coin cost is not displaced; the inaction path renders delayed effects WITHOUT a `later:` prefix; a non-primary staff effect names "Mira the Resolute" while a primary-actor effect stays unattributed. `tests/cards/compose/gates/legibility.test.ts` — the live 20-template suite passes the new rule (`delayedSurfacingChecksFailed === 0`) and actually exercises it (`delayedSurfacingChecksRun > 0`); a failing fixture and its corrected counterpart prove `preview_delayed_unsurfaced` bites; the inaction path is not flagged. `npm test` (3380 tests) + `npm run typecheck` green.
 
 ## Related notes
 

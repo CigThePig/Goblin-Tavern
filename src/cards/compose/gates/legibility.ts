@@ -97,7 +97,12 @@
 // deterministic.
 
 import { pickSnippetTrace, assembleSlots } from '../assemble'
-import { selectPreviewEffects, isRiskEffect } from '../previewSelect'
+import {
+  selectPreviewEffects,
+  isRiskEffect,
+  isDecisionRelevantDelayed,
+  isLaterPreviewLine,
+} from '../previewSelect'
 import { evalCondition } from '../conditions'
 import { canonicaliseText } from './dedupe'
 import {
@@ -198,6 +203,12 @@ export type LegibilitySituationObservation = {
   riskSurfacingChecksRun: number
   /** Count of those whose preview surfaced no risk effect. */
   riskSurfacingChecksFailed: number
+  // Phase 189 / ISSUE-156 — Consequence-Legible Choices.
+  /** Active choices whose consequence profile carried a decision-relevant
+   *  delayed effect (eligible for the delayed-surfacing rule). */
+  delayedSurfacingChecksRun: number
+  /** Count of those whose preview surfaced no `later:` line. */
+  delayedSurfacingChecksFailed: number
 }
 
 export type LegibilityConfig = {
@@ -235,6 +246,8 @@ export const LEGIBILITY_REASONS = Object.freeze([
   'preview_meter_unnamed',
   'preview_duplicate_line',
   'preview_risk_unsurfaced',
+  // Phase 189 / ISSUE-156 — Consequence-Legible Choices.
+  'preview_delayed_unsurfaced',
 ] as const)
 
 export type LegibilityReason = (typeof LEGIBILITY_REASONS)[number]
@@ -300,7 +313,11 @@ export function checkLegibility(config: LegibilityConfig): LegibilityReport {
     let duplicateLineCount = 0
     let riskSurfacingChecksRun = 0
     let riskSurfacingChecksFailed = 0
-    // Phase 184 — the meter rule is skipped for the fallback template.
+    let delayedSurfacingChecksRun = 0
+    let delayedSurfacingChecksFailed = 0
+    // Phase 184 — the meter rule is skipped for the fallback template. Phase
+    // 189 — the delayed rule excludes it for the same reason (the fallback's
+    // no-preview state is a coverage matter, not a legibility defect).
     const meterRuleApplies = situation.templateId !== FALLBACK_TEMPLATE_ID
 
     for (let i = 0; i < samples.length; i += 1) {
@@ -391,14 +408,43 @@ export function checkLegibility(config: LegibilityConfig): LegibilityReport {
         const immediate = profile?.immediateEffects ?? []
         const delayed = profile?.delayedEffects ?? []
         const useDelayed = immediate.length === 0 && delayed.length > 0
+        // Phase 189 / ISSUE-156 — an active choice may carry a trailing
+        // `later:` delayed-consequence line appended past the immediate cap.
+        // It is NOT a `source` effect, so re-derive the immediate effects
+        // against the count of the immediate (non-`later:`) lines only; the
+        // trailing `later:` line then maps to `effects[idx] === undefined` and
+        // the per-line magnitude / meter rules skip it (they own the immediate
+        // previews; the delayed line has its own rule below).
+        const immediateLineCount = choice.previewEffects.filter(
+          (l) => !isLaterPreviewLine(l),
+        ).length
         // Phase 166 / ISSUE-134 — mirror the renderer's cost-surfacing
-        // selection exactly. `lineCount` is the number of lines the
-        // production renderer actually emitted (its own `maxPreview`);
-        // `selectPreviewEffects(source, lineCount)` reproduces the same
-        // effects in the same order, so `effects[lineIdx]` is the true
-        // backing effect for `choice.previewEffects[lineIdx]`.
+        // selection exactly. `immediateLineCount` is the number of immediate
+        // lines the production renderer emitted (its own `maxPreview`);
+        // `selectPreviewEffects(source, immediateLineCount)` reproduces the same
+        // effects in the same order, so `effects[lineIdx]` is the true backing
+        // effect for `choice.previewEffects[lineIdx]`.
         const source = useDelayed ? delayed : immediate
-        const effects = selectPreviewEffects(source, lineCount)
+        const effects = selectPreviewEffects(source, immediateLineCount)
+
+        // Phase 189 / ISSUE-156 — preview_delayed_unsurfaced. An ACTIVE choice
+        // (immediate effects present) whose profile authored a decision-
+        // relevant delayed consequence must surface at least one `later:` line
+        // — the analogue of `preview_cost_unsurfaced`, for the delayed axis.
+        // The inaction path (`useDelayed`) is exempt: it already previews its
+        // delayed effects directly (Phase 147), without a `later:` prefix.
+        if (meterRuleApplies && !useDelayed && delayed.some(isDecisionRelevantDelayed)) {
+          delayedSurfacingChecksRun += 1
+          const surfaced = choice.previewEffects.some(isLaterPreviewLine)
+          if (!surfaced) {
+            delayedSurfacingChecksFailed += 1
+            violations.push({
+              slotId: choice.slotId,
+              reason: 'preview_delayed_unsurfaced',
+              detail: `${situation.templateId} sample ${i}: choice "${choice.slotId}" carries a decision-relevant delayed consequence that no rendered "later:" preview line surfaced`,
+            })
+          }
+        }
 
         // forbidInactionBlank — a choice with NO rendered lines AND a
         // profile carrying no consequences at all (no immediate AND no
@@ -573,6 +619,8 @@ export function checkLegibility(config: LegibilityConfig): LegibilityReport {
       duplicateLineCount,
       riskSurfacingChecksRun,
       riskSurfacingChecksFailed,
+      delayedSurfacingChecksRun,
+      delayedSurfacingChecksFailed,
     })
   }
 

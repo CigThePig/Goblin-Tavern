@@ -218,6 +218,7 @@ next.
 | ISSUE-151 | Choice-Preview Legibility Phase 3 — Pool Vocabulary: name it, ground it | broken | done | 183 |
 | ISSUE-152 | Choice-Preview Legibility Phase 4 — The Legibility Gate, completed | broken | done | 184 |
 | ISSUE-153 | Choice-Preview Legibility Phase 5 — Drive, tune, deepen (standing) | thin | in-progress | 185 |
+| ISSUE-154 | Early-game complaint fairness — gate customer_complaint on persistence; scope the "unanswered complaint" claim | broken | done | 187 |
 | ISSUE-116 | Legible Surface Phase 3 — Choice Distinctness Gate & Legible Choice-Set Cap | broken | done | 148 |
 
 ---
@@ -3275,6 +3276,13 @@ records the motivating audit, Appendix B the re-runnable instruments at
 - **Scope (part b — band-cutoff recalibration, standing/open):** recalibrate `MAGNITUDE_BAND_CUTOFFS` where playtest shows a cut-point reads wrong. No cutoff changed — none has been shown to read wrong, and changing one without play evidence would risk regressing the calibrated bands every gate depends on.
 - **Depends on:** ISSUE-152. Standing — never strictly done.
 - **Test approach:** `tests/cards/compose/gates/legibility.driven.test.ts` — for each of the three families, surface the driven sample, resolve its template, run `checkLegibility` on a single-situation config, and assert `report.pass` plus all per-situation counters are 0 (magnitude / cost / label-collision / inaction-blank / meter-naming / duplicate-line / risk-surfacing), with a guard that a real seed carrying consequence profiles and ≥1 playable choice was rendered. Deterministic (constructed state + seeded `runOneDay`); runs in the default `npm test` suite. Full suite + `npm run typecheck` green.
+
+### ISSUE-154 — Early-game complaint fairness
+- **Grade:** broken · **Status:** done · **Phase:** 187 · **Record:** `docs/plans/phase-187-early-game-complaint-fairness.md`
+- **Evidence:** A default `createInitialTavernState()` → `simulateDay(FULL_PIPELINE)` Day-1 run fired a `customer_complaint` seed because `generateCustomerComplaint` qualified groups on `satisfaction <= 60` with no persistence gate (`issueSeedGenerators.ts` ~1265) and the roster ships `merchants` at 40/25 (`customerRegistry.ts`); the rendered body asserted an "unanswered complaint" backed by a same-day, globally-scoped `merchants_unhappy_recently` memory (`serviceModule.ts` ~247, `memoryRegistry.ts` ~178, `conditions.ts` `memoryPresent` ~144). The card was firing a reaction-to-neglect before neglect was possible.
+- **Scope:** (A) added a serializable per-group `lowSatisfactionStreak: Record<string, number>` to `CustomerModuleState`, maintained on `afterService` against a shared `COMPLAINT_THRESHOLD = 60` (incremented when a group ends a service at/below the threshold, reset to 0 above it) and preserved across the per-day `startDay` reset; (B) require `streak >= 2` in `generateCustomerComplaint`'s candidate filter, leaving the recency ranking untouched; (C) added optional `scopeToActor` / `minAgeDays` to the `memoryPresent` snippet condition (defaults preserve every existing caller) and rewired the three complaint-memory establishing snippets (`est_complaint_memory`, `est_loyalty_complaint`, `est_loyalty_complaint_memory`) to `{ tag: 'complaint', scopeToActor: 'primaryActor', minAgeDays: 1 }`. Additive; no prose changes; no registry value changes; rotation logic and contradiction guard untouched.
+- **Depends on:** none.
+- **Test approach:** `tests/sim/phase187.complaintFairness.test.ts` — default Day-1 run yields no `customer_complaint` seed across seeds; a two-service held-low run opens the complaint on day 2 (streak gate at `>= 2`), a recovery above the threshold resets the streak, and `lowSatisfactionStreak` round-trips JSON serialization + `validateState`. `tests/cards/compose/conditions.test.ts` — `evalCondition` rejects same-day and cross-group complaint memories under the scoped condition, returns false for an unresolvable scoped actor, and preserves the tag-only default semantics. The existing phase-19 vertical-slice complaint test updated to hold the group low across two services. `npm test` + `npm run typecheck` green.
 
 ## Related notes
 

@@ -83,7 +83,10 @@ export const establishingLinePool: SnippetPool = {
       id: 'est_complaint_memory',
       text: 'The last complaint they raised is still unanswered.',
       conditions: [
-        { kind: 'memoryPresent', tag: 'complaint' },
+        // Phase 187 / ISSUE-154 — only *this* group's complaint memory,
+        // and only one that predates today, can back the "unanswered"
+        // claim. A same-evening or cross-group memory no longer matches.
+        { kind: 'memoryPresent', tag: 'complaint', scopeToActor: 'primaryActor', minAgeDays: 1 },
       ],
     },
     {
@@ -114,7 +117,7 @@ export const establishingLinePool: SnippetPool = {
       text: 'Loyalty thin and an unanswered complaint — bad pairing.',
       conditions: [
         { kind: 'signalEquals', role: 'primaryActor', signal: 'customer_group.loyalty', equals: 'low' },
-        { kind: 'memoryPresent', tag: 'complaint' },
+        { kind: 'memoryPresent', tag: 'complaint', scopeToActor: 'primaryActor', minAgeDays: 1 },
       ],
     },
 
@@ -177,7 +180,7 @@ export const establishingLinePool: SnippetPool = {
       text: 'Loyalty thinned, and an unanswered complaint still sits between us.',
       conditions: [
         { kind: 'signalEquals', role: 'primaryActor', signal: 'customer_group.loyalty', equals: 'low' },
-        { kind: 'memoryPresent', tag: 'complaint' },
+        { kind: 'memoryPresent', tag: 'complaint', scopeToActor: 'primaryActor', minAgeDays: 1 },
       ],
     },
     {

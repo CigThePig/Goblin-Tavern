@@ -247,7 +247,16 @@ describe('Phase 19 §19.7 — Family generators (vertical slice)', () => {
       patronage: 30,
     })
     base = withArea(base, 'main_room', { cleanliness: 20 })
-    const result = runDay(base)
+    // Phase 187 / ISSUE-154 — a complaint is a reaction to an *unaddressed*
+    // problem: the customer module's `lowSatisfactionStreak` must reach >= 2
+    // (the group ended at/below threshold on two evaluated services) before
+    // the family qualifies. Hold merchants low across two services, then
+    // assert the complaint fires on the second.
+    const day1 = runDay(base)
+    expect(
+      getIssueSeeds(day1.state, { family: 'customer_complaint' }).length,
+    ).toBe(0)
+    const result = runDay(day1.state)
     const seeds = getIssueSeeds(result.state, { family: 'customer_complaint' })
     expect(seeds.length).toBeGreaterThan(0)
   })

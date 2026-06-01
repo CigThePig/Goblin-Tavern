@@ -49,4 +49,14 @@ export type CustomerTurnout = {
 export type CustomerModuleState = {
   forecasts: CustomerForecast[]
   turnouts: CustomerTurnout[]
+  /**
+   * Phase 187 / ISSUE-154 — per-group count of consecutive evaluated
+   * services that ended at or below `COMPLAINT_THRESHOLD` satisfaction.
+   * Reset to 0 the first service a group recovers above the threshold.
+   * Persisted across days (the per-day `startDay` reset preserves it) so
+   * the complaint generator can require that dissatisfaction survived at
+   * least one decision point before it fires. Plain JSON — keyed by group
+   * id, no Maps.
+   */
+  lowSatisfactionStreak: Record<string, number>
 }

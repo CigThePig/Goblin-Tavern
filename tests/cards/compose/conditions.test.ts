@@ -253,6 +253,80 @@ describe('evalCondition — state-lookup primitives', () => {
   })
 })
 
+describe('evalCondition — memoryPresent scopeToActor + minAgeDays (Phase 187 / ISSUE-154)', () => {
+  const merchantsRef: EntityRef = { kind: 'customer_group', id: 'merchants' }
+
+  function stateWithComplaintMemory(opts: {
+    actorId: string
+    ageDays: number
+  }): TavernState {
+    const base = createInitialTavernState()
+    const cal = base.calendar
+    return {
+      ...base,
+      memories: [
+        ...base.memories,
+        {
+          id: 'complaint-mem',
+          type: 'timed',
+          strength: 35,
+          ageDays: opts.ageDays,
+          createdAt: {
+            year: cal.year,
+            month: cal.month,
+            week: cal.week,
+            day: cal.day,
+            absoluteDay: cal.totalDaysElapsed - opts.ageDays,
+          },
+          actors: [{ kind: 'customer_group', id: opts.actorId }],
+          locations: [],
+          relatedSystems: ['customers'],
+          tags: ['customers', opts.actorId, 'complaint'],
+        },
+      ],
+    }
+  }
+
+  const seed = seedWith({ primaryActor: merchantsRef })
+  const scoped: SnippetCondition = {
+    kind: 'memoryPresent',
+    tag: 'complaint',
+    scopeToActor: 'primaryActor',
+    minAgeDays: 1,
+  }
+
+  it('matches the actor’s own complaint memory once it predates today', () => {
+    const state = stateWithComplaintMemory({ actorId: 'merchants', ageDays: 1 })
+    expect(evalCondition(scoped, seed, state)).toBe(true)
+  })
+
+  it('rejects a same-day complaint memory (minAgeDays not met)', () => {
+    const state = stateWithComplaintMemory({ actorId: 'merchants', ageDays: 0 })
+    expect(evalCondition(scoped, seed, state)).toBe(false)
+  })
+
+  it('rejects a different group’s complaint memory (scopeToActor)', () => {
+    const state = stateWithComplaintMemory({ actorId: 'miners', ageDays: 5 })
+    expect(evalCondition(scoped, seed, state)).toBe(false)
+  })
+
+  it('returns false when the scoped actor does not resolve', () => {
+    const state = stateWithComplaintMemory({ actorId: 'merchants', ageDays: 1 })
+    const noActor = seedWith() // seedWith() omits primaryActor by default
+    expect(evalCondition(scoped, seed, state)).toBe(true)
+    expect(evalCondition(scoped, noActor, state)).toBe(false)
+  })
+
+  it('default semantics unchanged when scopeToActor/minAgeDays are omitted', () => {
+    // A same-day, cross-group complaint memory still satisfies the plain
+    // tag-only condition — proving the optional fields are additive.
+    const state = stateWithComplaintMemory({ actorId: 'miners', ageDays: 0 })
+    expect(
+      evalCondition({ kind: 'memoryPresent', tag: 'complaint' }, seed, state),
+    ).toBe(true)
+  })
+})
+
 describe('evalCondition — repeatCount (Phase 127 / ISSUE-096 — wired)', () => {
   // Phase 127 wired this condition against memory-tag counts in a
   // rolling window. The full window-arithmetic coverage lives in

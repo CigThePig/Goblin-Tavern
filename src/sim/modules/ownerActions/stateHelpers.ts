@@ -33,15 +33,13 @@ export const OWNER_ACTIONS_MODULE_ID = 'ownerActions'
 // expressive. The exact value is a calibration decision deferred to
 // playtest (contract §6); keep it a single constant.
 //
-// NAMING DEBT (deliberate, documented): the *serialized* fields are still
-// named `actionPoint*` —
-// `OwnerActionsModuleState.actionPointsUsed`/`actionPointBudget`,
-// `OwnerActionApplied.actionPointCost`, and the persisted web
-// `PickedAction.actionPointCost`. They now hold MINUTES. Renaming those
-// identifiers would change the save shape and force a state migration,
-// which belongs with the in-flight save migration in Cluster 7 — so the
-// rename is deferred there (see phase-186 implementation notes). Until
-// then, read every `actionPoint*` field as "minutes".
+// Phase 186 Cluster 7 paid the naming debt Cluster 3 deferred: the
+// serialized owner-time fields are now `timeSpent` / `timeBudget`
+// (`OwnerActionsModuleState`) and `timeCost` (`OwnerActionApplied` and the
+// persisted web `PickedAction`). Pre-Cluster-7 saves migrate forward via
+// `ensureOwnerTimeFields` (`src/sim/state/migrations.ts`), which renames the
+// `actionPoint*` keys before validation; the web pick sanitiser accepts the
+// legacy key too. All of these fields hold MINUTES.
 export const DAY_MINUTES = 360
 
 // Expressive minute-cost tiers for owner actions (starting calibration —
@@ -75,8 +73,8 @@ export const RECENT_SOCIAL_ACTIONS_LIMIT = 20
 
 export function createInitialOwnerActionsModuleState(): OwnerActionsModuleState {
   return {
-    actionPointsUsed: 0,
-    actionPointBudget: DAY_MINUTES,
+    timeSpent: 0,
+    timeBudget: DAY_MINUTES,
     applied: [],
     rejected: [],
     projects: {},

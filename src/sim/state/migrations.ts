@@ -38,6 +38,7 @@ import { WEEKLY_MODULE_ID } from '../modules/weekly/state'
 import type { WeeklyModuleState, WeeklyResult } from '../modules/weekly/types'
 import { MONTHLY_MODULE_ID } from '../modules/monthly/types'
 import type { MonthlyModuleState, MonthlyResult } from '../modules/monthly/types'
+import { OWNER_ACTIONS_MODULE_ID } from '../modules/ownerActions/stateHelpers'
 import type {
   AreaState,
   ExpeditionsState,
@@ -196,6 +197,78 @@ export function ensureMonthlyHistoryField<
     modules: {
       ...state.modules,
       [MONTHLY_MODULE_ID]: { ...slice, monthlyHistory: [] },
+    },
+  }
+}
+
+// Phase 186 Cluster 7 — owner-time field rename.
+//
+// Cluster 3 converted the owner action-point economy to a minutes budget
+// but kept the *serialized* field names (`actionPointsUsed`,
+// `actionPointBudget`, and `applied[].actionPointCost`) to avoid forcing a
+// save migration mid-arc. Cluster 7 owns the save migration, so the rename
+// lands here: `actionPointsUsed → timeSpent`, `actionPointBudget →
+// timeBudget`, `applied[].actionPointCost → timeCost`.
+//
+// This helper renames the keys in place on the `ownerActions` module slice
+// of a pre-Cluster-7 save so the (now `time*`-keyed) Zod schema validates.
+// It is idempotent — a no-op once the new keys are present — and runs
+// before `safeValidateState`, mirroring the other `ensure*` helpers.
+//
+// Magnitudes are carried verbatim, NOT scaled. A pre-Cluster-3 save holds
+// raw action-point counts (e.g. `actionPointsUsed: 1`, `actionPointBudget:
+// 3`); those values are cosmetic only — `startDay` resets the daily fields
+// to `0` / `DAY_MINUTES` the next morning, and `applied[]` is empty between
+// days, so the lone visible artefact is a just-closed day's owner-action
+// report showing tiny durations for a save written under the old AP model.
+export function ensureOwnerTimeFields<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  if (!state.modules) return state
+  const slice = state.modules[OWNER_ACTIONS_MODULE_ID] as
+    | Record<string, unknown>
+    | undefined
+  if (!slice) return state
+
+  const appliedHasLegacy =
+    Array.isArray(slice['applied']) &&
+    (slice['applied'] as unknown[]).some(
+      (a) => a !== null && typeof a === 'object' && 'actionPointCost' in (a as object),
+    )
+  const needsMigration =
+    'actionPointsUsed' in slice ||
+    'actionPointBudget' in slice ||
+    appliedHasLegacy
+  if (!needsMigration) return state
+
+  const next: Record<string, unknown> = { ...slice }
+  if ('actionPointsUsed' in next) {
+    next['timeSpent'] = next['actionPointsUsed']
+    delete next['actionPointsUsed']
+  }
+  if ('actionPointBudget' in next) {
+    next['timeBudget'] = next['actionPointBudget']
+    delete next['actionPointBudget']
+  }
+  if (Array.isArray(next['applied'])) {
+    next['applied'] = (next['applied'] as unknown[]).map((entry) => {
+      if (
+        entry === null ||
+        typeof entry !== 'object' ||
+        !('actionPointCost' in (entry as object))
+      ) {
+        return entry
+      }
+      const { actionPointCost, ...rest } = entry as Record<string, unknown>
+      return { ...rest, timeCost: actionPointCost }
+    })
+  }
+
+  return {
+    ...state,
+    modules: {
+      ...state.modules,
+      [OWNER_ACTIONS_MODULE_ID]: next,
     },
   }
 }

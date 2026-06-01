@@ -105,8 +105,8 @@ const startDayHook: SimulationHook = (ctx: SimContext): void => {
     ctx,
     (current) => ({
       ...current,
-      actionPointsUsed: 0,
-      actionPointBudget: DAY_MINUTES,
+      timeSpent: 0,
+      timeBudget: DAY_MINUTES,
       applied: [],
       rejected: [],
     }),
@@ -120,7 +120,7 @@ const applyOwnerActionsHook: SimulationHook = (ctx: SimContext): void => {
 
   const applied: OwnerActionApplied[] = []
   const rejected: OwnerActionRejected[] = []
-  let actionPointsUsed = 0
+  let timeSpent = 0
   const budget = DAY_MINUTES
 
   for (const input of inputs) {
@@ -134,7 +134,7 @@ const applyOwnerActionsHook: SimulationHook = (ctx: SimContext): void => {
       continue
     }
     const def = actionRegistry.get(input.actionId)
-    if (actionPointsUsed + def.actionPointCost > budget) {
+    if (timeSpent + def.timeCost > budget) {
       rejected.push({
         actionId: input.actionId,
         ...(input.targetId !== undefined ? { targetId: input.targetId } : {}),
@@ -155,7 +155,7 @@ const applyOwnerActionsHook: SimulationHook = (ctx: SimContext): void => {
     }
     const result = def.apply(ctx, input)
     applied.push(result)
-    actionPointsUsed += result.actionPointCost
+    timeSpent += result.timeCost
   }
 
   writeSlice(
@@ -164,8 +164,8 @@ const applyOwnerActionsHook: SimulationHook = (ctx: SimContext): void => {
       ...current,
       applied,
       rejected,
-      actionPointsUsed,
-      actionPointBudget: budget,
+      timeSpent,
+      timeBudget: budget,
     }),
     'apply_owner_actions',
   )
@@ -184,7 +184,7 @@ function buildOwnerActionsReport(ctx: SimContext): ReportSection {
   const slice = getOwnerActionsModuleState(ctx.state)
   const lines: string[] = []
   lines.push(
-    `Time Spent: ${formatDuration(slice.actionPointsUsed)} / ${formatDuration(slice.actionPointBudget)}`,
+    `Time Spent: ${formatDuration(slice.timeSpent)} / ${formatDuration(slice.timeBudget)}`,
   )
   lines.push('')
 
@@ -269,8 +269,8 @@ function buildOwnerActionsReport(ctx: SimContext): ReportSection {
     title: 'OWNER ACTION REPORT',
     lines,
     data: {
-      actionPointsUsed: slice.actionPointsUsed,
-      actionPointBudget: slice.actionPointBudget,
+      timeSpent: slice.timeSpent,
+      timeBudget: slice.timeBudget,
       applied: slice.applied.map((a) => ({
         ...a,
         effects: [...a.effects],
@@ -312,10 +312,10 @@ function validateOwnerActions(ctx: SimContext): ValidationIssue[] {
       })
     }
   }
-  if (slice.actionPointsUsed > slice.actionPointBudget) {
+  if (slice.timeSpent > slice.timeBudget) {
     issues.push({
-      path: `modules.${OWNER_ACTIONS_MODULE_ID}.actionPointsUsed`,
-      message: `Time spent (${slice.actionPointsUsed}m) exceeds daily budget (${slice.actionPointBudget}m)`,
+      path: `modules.${OWNER_ACTIONS_MODULE_ID}.timeSpent`,
+      message: `Time spent (${slice.timeSpent}m) exceeds daily budget (${slice.timeBudget}m)`,
       code: 'over_action_budget',
     })
   }
@@ -352,7 +352,7 @@ const OwnerActionAppliedSchema = z.object({
   actionId: z.string(),
   label: z.string(),
   targetId: z.string().optional(),
-  actionPointCost: z.number().int().min(0),
+  timeCost: z.number().int().min(0),
   effects: z.array(z.string()),
   data: z.record(z.string(), z.unknown()),
 })
@@ -417,8 +417,8 @@ const OwnerSocialActionRecordSchema = z.object({
 })
 
 const OwnerActionsModuleStateSchema = z.object({
-  actionPointsUsed: z.number().int().min(0),
-  actionPointBudget: z.number().int().min(0),
+  timeSpent: z.number().int().min(0),
+  timeBudget: z.number().int().min(0),
   applied: z.array(OwnerActionAppliedSchema),
   rejected: z.array(OwnerActionRejectedSchema),
   projects: z.record(z.string(), OwnerProjectStateSchema),

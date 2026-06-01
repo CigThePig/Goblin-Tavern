@@ -113,7 +113,7 @@ const comfortStressedStaff: OwnerActionDefinition = {
   category: 'social',
   tags: ['social', 'staff', 'morale'],
   targetType: 'staff',
-  actionPointCost: TIME_COST_QUICK,
+  timeCost: TIME_COST_QUICK,
   getValidTargets: listStaff,
   canApply: (ctx, input) => {
     if (!input.targetId) {
@@ -188,7 +188,7 @@ const comfortStressedStaff: OwnerActionDefinition = {
       actionId: comfortStressedStaff.id,
       label: `Comforted ${staff.name.display}`,
       targetId: staff.id,
-      actionPointCost: TIME_COST_QUICK,
+      timeCost: TIME_COST_QUICK,
       effects: [
         `stress ${staff.stress} → ${nextStress}`,
         `morale ${staff.morale} → ${nextMorale}`,
@@ -215,7 +215,7 @@ const apologizeToRegular: OwnerActionDefinition = {
   category: 'social',
   tags: ['social', 'regular'],
   targetType: 'regular',
-  actionPointCost: TIME_COST_QUICK,
+  timeCost: TIME_COST_QUICK,
   getValidTargets: listRegulars,
   canApply: (ctx, input) => {
     if (!input.targetId) {
@@ -281,7 +281,7 @@ const apologizeToRegular: OwnerActionDefinition = {
       actionId: apologizeToRegular.id,
       label: `Apologized to ${regular.name.display}`,
       targetId: regular.id,
-      actionPointCost: TIME_COST_QUICK,
+      timeCost: TIME_COST_QUICK,
       effects: [
         `irritation ${regular.irritation} → ${nextIrritation}`,
         `loyalty ${regular.loyalty} → ${nextLoyalty}`,
@@ -307,7 +307,7 @@ const negotiateWithSupplier: OwnerActionDefinition = {
   category: 'social',
   tags: ['social', 'supplier'],
   targetType: 'supplier',
-  actionPointCost: TIME_COST_SHORT,
+  timeCost: TIME_COST_SHORT,
   getValidTargets: listSuppliers,
   canApply: (ctx, input) => {
     if (!input.targetId) {
@@ -368,7 +368,7 @@ const negotiateWithSupplier: OwnerActionDefinition = {
       actionId: negotiateWithSupplier.id,
       label: `Negotiated with ${supplier.label}`,
       targetId: supplier.id,
-      actionPointCost: TIME_COST_SHORT,
+      timeCost: TIME_COST_SHORT,
       effects: [
         `relationship ${supplier.relationship} → ${nextRelationship}`,
         `reliability ${supplier.reliability} → ${nextReliability}`,
@@ -394,7 +394,7 @@ const warnRowdyGroup: OwnerActionDefinition = {
   category: 'social',
   tags: ['social', 'customer_group', 'rowdiness'],
   targetType: 'customer_group',
-  actionPointCost: TIME_COST_QUICK,
+  timeCost: TIME_COST_QUICK,
   getValidTargets: listCustomerGroups,
   canApply: (ctx, input) => {
     if (!input.targetId) {
@@ -454,7 +454,7 @@ const warnRowdyGroup: OwnerActionDefinition = {
       actionId: warnRowdyGroup.id,
       label: `Warned ${group.label}`,
       targetId: group.id,
-      actionPointCost: TIME_COST_QUICK,
+      timeCost: TIME_COST_QUICK,
       effects: [
         `rowdiness ${group.rowdiness} → ${nextRowdiness}`,
         `satisfaction ${group.satisfaction} → ${nextSatisfaction}`,
@@ -480,7 +480,7 @@ const hostFactionNight: OwnerActionDefinition = {
   category: 'social',
   tags: ['social', 'faction'],
   targetType: 'faction',
-  actionPointCost: TIME_COST_STANDARD,
+  timeCost: TIME_COST_STANDARD,
   getValidTargets: listFactions,
   canApply: (ctx, input) => {
     if (!input.targetId) {
@@ -539,7 +539,7 @@ const hostFactionNight: OwnerActionDefinition = {
       actionId: hostFactionNight.id,
       label: `Hosted ${faction.label} Night`,
       targetId: faction.id,
-      actionPointCost: TIME_COST_STANDARD,
+      timeCost: TIME_COST_STANDARD,
       effects: [
         `relationship ${faction.relationship} → ${nextRelationship}`,
         `trust ${faction.trust} → ${nextTrust}`,

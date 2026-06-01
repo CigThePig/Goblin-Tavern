@@ -13,8 +13,9 @@
 //     start-of-day `dayBaseline`;
 //   - a mid-day refresh (serialize → validate → hydrate) resumes against
 //     the right segment AND keeps the full-day diff whole;
-//   - a pre-Cluster-5 save (no `segment` field) derives a consistent
-//     position from its beat.
+//   - a pre-Cluster-5 save (no `segment` field) at a closed-day report
+//     beat resumes at a consistent position (the mid-day reset is
+//     Cluster 7's — see phase186.cluster7Migration.test.ts).
 
 import { beforeEach, describe, expect, it } from 'vitest'
 
@@ -80,7 +81,7 @@ describe('Phase 186 / Cluster 5 — segmented day store flow', () => {
       targetType: 'stock',
       targetId: 'mugs',
       targetLabel: 'Mugs',
-      actionPointCost: 30,
+      timeCost: 30,
     })
     expect(added.ok).toBe(true)
 
@@ -185,20 +186,22 @@ describe('Phase 186 / Cluster 5 — segmented day store flow', () => {
     expect(gameStore.state.calendar.totalDaysElapsed).toBe(closedOrdinal)
   })
 
-  it('a pre-Cluster-5 save (no segment field) derives the segment from its beat', () => {
-    // Produce a valid envelope, then strip the segment field as an old
-    // save would have it, and force a mid-day beat.
+  it('a pre-Cluster-5 save at a closed-day report beat resumes at segment C', () => {
+    // A closed-day report beat is a clean boundary: no Segment A is owed,
+    // so the legacy save resumes at 'C' (ready to begin the next day).
+    // The in-flight (mid-day) reset is exercised in
+    // tests/web/phase186.cluster7Migration.test.ts.
     gameStore.runDay({}) // close a day so latestResult/state are populated
     const session = gameStore.serializeForSave() as Record<string, unknown>
     const daySession = { ...(session.daySession as Record<string, unknown>) }
     delete daySession.segment
-    daySession.beat = 'service'
+    daySession.beat = 'report'
     session.daySession = daySession
 
     const outcome = validatePersistedSession(JSON.parse(JSON.stringify(session)))
     expect(outcome.kind).toBe('loaded')
     if (outcome.kind !== 'loaded') return
-    // service/closing beats ran Segment B.
-    expect(outcome.save.daySession.segment).toBe('B')
+    expect(outcome.save.daySession.beat).toBe('report')
+    expect(outcome.save.daySession.segment).toBe('C')
   })
 })

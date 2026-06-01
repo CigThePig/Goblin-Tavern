@@ -804,3 +804,106 @@ narrative wind-down. Purely a render reordering — no projection change.
   re-homing equivalence, empty-movement omission, voice routing +
   determinism, purity); `tests/reports/yesterdayDigest.test.ts` (fixture
   gains `dayArc: []`).
+
+## Cluster 7 — what shipped (in-flight save migration + owner-time rename)
+
+Cluster 7 closes the arc: it pays the Cluster-3 naming debt and adds the
+two save migrations the earlier clusters deferred to it.
+
+### 1. The owner-time field rename (`actionPoint* → time*`)
+
+Cluster 3 converted the owner action-point economy to a minutes budget but
+left the **serialized** fields named `actionPoint*` to avoid forcing a save
+migration mid-arc. Cluster 7 owns the migration, so the rename landed:
+
+| Old (pre-Cluster-7) | New | Where |
+| --- | --- | --- |
+| `actionPointsUsed` | `timeSpent` | `OwnerActionsModuleState` (serialized) |
+| `actionPointBudget` | `timeBudget` | `OwnerActionsModuleState` (serialized) |
+| `actionPointCost` | `timeCost` | `OwnerActionApplied` (serialized in `applied[]`), web `PickedAction` (serialized in `picks[]`), `OwnerActionDefinition` (registry, not serialized), `ReportOwnerActionLine` + `ApplicableActionRef` (projections, not serialized) |
+
+The rename is **codebase-wide**, not just the four serialized fields the
+Cluster-3 note named: the registry `OwnerActionDefinition.timeCost` and the
+report projections were renamed too, so nothing reads "minutes" under an
+`actionPoint*` name any more. The `TIME_COST_*` tiers and `DAY_MINUTES` were
+already in place from Cluster 3 and were untouched.
+
+### 2. `ensureOwnerTimeFields` — the schema migration
+
+`src/sim/state/migrations.ts` gained `ensureOwnerTimeFields`, wired into the
+`migrateAndValidateState` chain in `web/src/lib/sim/persistence.ts` **before
+`safeValidateState`** (between `ensureMonthlyHistoryField` and
+`ensureCastAttributes`). It renames the `actionPoint*` keys on the
+`ownerActions` module slice — including each `applied[]` entry's
+`actionPointCost` — so a pre-Cluster-7 save validates against the now
+`time*`-keyed Zod schema instead of bouncing as `invalid`. Additive and
+idempotent (a no-op once the new keys are present), matching every other
+`ensure*` helper.
+
+- **Magnitudes are carried verbatim, NOT scaled.** A pre-Cluster-3 save
+  holds raw action-point counts (`actionPointsUsed: 1`, `actionPointBudget:
+  3`). Cosmetic only — `startDay` resets the daily fields to `0` /
+  `DAY_MINUTES` the next morning and `applied[]` is empty between days, so
+  the lone visible artefact is a just-closed day's owner-action report
+  showing tiny durations for a save written under the old AP model.
+- The web pick sanitiser (`sanitizeSinglePick`, `actionBuilder.ts`) reads
+  `r.timeCost ?? r.actionPointCost` so a pre-Cluster-7 save's **queued
+  picks** survive the hydration boundary instead of being silently dropped.
+
+### 3. The in-flight day reset (contract §4.7)
+
+A save written before Cluster 5 carries **no `segment` field** and a
+`seedsToday` pre-baked by the old end-of-day model. Cluster 5's interim
+`sanitizeSegment` derived a segment from the beat
+(morning→C, plan→A, service/closing→B, report→C). The hazard is the beats
+that derive to **A or B**: the store then believes Segment A already ran for
+that day, so `beginDay` is skipped and the day plays on against the stale
+pre-baked surface (skipped world advance, orphaned response intents).
+
+Cluster 7 replaces the derivation for those beats with the §4.7 ruling:
+**reset cleanly to the next morning.** `restoreDaySession` (replacing
+`sanitizeDaySession` in `persistence.ts`) detects the legacy case (`segment`
+absent) and, for a beat in `{plan, service, closing}`, resets to
+`{ beat: 'morning', segment: 'C' }` (the "ready to begin" state). `beginDay`
+(Segment A) then re-opens the day on the (start-of-day) state and
+regenerates today's surface honestly. The day's **pending response intents
+are dropped** (they reference pre-baked seed ids the regeneration clears)
+and the **start-of-day `dayBaseline` is dropped** (`beginDay` mints a fresh
+one). **Queued owner-action `picks` are kept** — Segment B consumes them.
+
+- **`morning` and `report` are NOT reset.** Both already derive to segment
+  `'C'` (the clean day boundary), where `beginDay` runs Segment A fresh
+  anyway — no Segment A is skipped, so there is nothing to repair and any
+  pending survives the round-trip. (This is the key correction over a first
+  cut that also reset `morning`: a no-segment `morning` save is the *clean*
+  pre-day boundary, not a mid-day one, and the existing persistence
+  round-trip test asserts pending is preserved there.)
+- A **Cluster-5+ save** (explicit `segment` present) is trusted as-is; no
+  reset, mid-day position preserved.
+
+Why "reset" not "finish under old rules": the old end-of-day model is gone
+(it is now the three segments), and a pre-Cluster-5 mid-day save's state is
+always start-of-day (nothing resolved until the old `runDay`). Re-running
+Segment A on that state is exactly correct and loses nothing the player
+committed.
+
+### Determinism / consumer notes
+
+- The report `data` payload keys (`timeSpent`/`timeBudget`/`applied[].timeCost`
+  in the `ownerActions` section) were renamed with everything else. An OLD
+  `latestResultLite` loaded from a pre-Cluster-7 save still carries the old
+  keys; `projectOwnerActions` now reads `a.timeCost` → `undefined` for that
+  one resumed day's already-closed report, so `DailyReport.svelte`'s
+  `timeCost > 0` guard just omits the cost tag. Cosmetic, one day, by design —
+  `latestResultLite` is recomputed the next day and is never schema-validated.
+- No engine behaviour changed — the budget gate, costs, and `DAY_MINUTES`
+  are byte-identical to Cluster 3; only identifiers moved.
+
+### Files touched in Cluster 7
+
+- `src/sim/state/migrations.ts` — `ensureOwnerTimeFields` + `OWNER_ACTIONS_MODULE_ID` import.
+- `src/sim/modules/ownerActions/{types,stateHelpers,ownerActionsModule,actionDefinitions,staffManagementActions,socialActions,projectActions,policyActions,readonlyHelpers}.ts` — field rename + comment rewrites (the stale "rename deferred to Cluster 7" notes are gone).
+- `src/sim/modules/expeditions/commissionExpedition.ts`, `src/sim/testing/expansions/candleShortage.ts` — field rename.
+- `src/reports/{types,dailyReportProjection,tavernOverviewProjection,worldOverviewProjection}.ts` — field rename (`ReportOwnerActionLine.timeCost`, `ApplicableActionRef.timeCost`).
+- web: `actionBuilder.ts` (rename + legacy-key acceptance in `sanitizeSinglePick`), `gameStore.svelte.ts`, `persistence.ts` (`ensureOwnerTimeFields` in the chain, `restoreDaySession` + in-flight reset, pending/baseline drop), `DayScreen.svelte`, `ActionPicker.svelte`, `DailyReport.svelte`, `tavern/{ProjectsPanel,QuickActions,CommissionExpeditionSheet,RecipesPanel}.svelte`.
+- tests: `tests/web/phase186.cluster7Migration.test.ts` (new — `ensureOwnerTimeFields`, legacy-save load, legacy pick key, the mid-day reset across plan/service/closing, morning/report no-reset, Cluster-5+ trust); field renames across `phase{5,13,37,92}`, `missedOpportunityProjection`, `tavern/worldOverviewProjection`, `crossScreen.flow`, `persistence`, `phase89.persistenceSafety`, `policyToggleRows`; `phase186.daySegments` updated (its "derive B from a service beat" assertion became "report beat resumes at C", since a no-segment service beat now resets).

@@ -268,7 +268,7 @@ describe('buildWorldOverview — applicable actions', () => {
       ...data.factions.rows,
     ]) {
       for (const ref of row.applicableActions) {
-        expect(typeof ref.actionPointCost).toBe('number')
+        expect(typeof ref.timeCost).toBe('number')
         expect(ref.label.length).toBeGreaterThan(0)
         expect(['immediate', 'project', 'policy', 'social']).toContain(
           ref.category,

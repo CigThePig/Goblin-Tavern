@@ -199,7 +199,7 @@ describe('Phase 89 — pick sanitisation', () => {
         label: 'fake',
         category: 'immediate',
         targetType: 'global',
-        actionPointCost: 1,
+        timeCost: 1,
       },
     ]
     const result = sanitizePicks(raw, state)
@@ -227,7 +227,7 @@ describe('Phase 89 — pick sanitisation', () => {
         label: 'Restock',
         category: 'immediate',
         targetType: 'stock',
-        actionPointCost: 1,
+        timeCost: 1,
         targetId: stockId,
         targetLabel: state.stock[stockId]!.label,
       },

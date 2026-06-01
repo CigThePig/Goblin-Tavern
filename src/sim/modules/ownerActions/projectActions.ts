@@ -175,7 +175,7 @@ function buildStartProjectDefinition(
     category: 'project',
     tags: starter.tags,
     targetType: 'area',
-    actionPointCost: TIME_COST_STANDARD,
+    timeCost: TIME_COST_STANDARD,
     getValidTargets: () => [
       {
         id: starter.targetAreaId,
@@ -255,7 +255,7 @@ function buildStartProjectDefinition(
         actionId: starter.id,
         label: starter.label,
         targetId: starter.targetAreaId,
-        actionPointCost: TIME_COST_STANDARD,
+        timeCost: TIME_COST_STANDARD,
         effects: [
           `project ${starter.projectType} started`,
           `coin -${starter.initialCoinCost}`,
@@ -283,7 +283,7 @@ const fundActiveProject: OwnerActionDefinition = {
   category: 'project',
   tags: ['project', 'fund'],
   targetType: 'project',
-  actionPointCost: TIME_COST_SHORT,
+  timeCost: TIME_COST_SHORT,
   getValidTargets: (ctx: SimContext) => {
     const slice = getOwnerActionsModuleState(ctx.state)
     return Object.values(slice.projects)
@@ -334,7 +334,7 @@ const fundActiveProject: OwnerActionDefinition = {
       actionId: fundActiveProject.id,
       label: `Funded ${project.label}`,
       targetId: project.id,
-      actionPointCost: TIME_COST_SHORT,
+      timeCost: TIME_COST_SHORT,
       effects: [
         `progress ${beforeProgress} → ${updated.progress}`,
         `coinInvested ${beforeCoin} → ${updated.coinInvested}`,
@@ -356,7 +356,7 @@ const cancelProject: OwnerActionDefinition = {
   category: 'project',
   tags: ['project', 'cancel'],
   targetType: 'project',
-  actionPointCost: TIME_COST_QUICK,
+  timeCost: TIME_COST_QUICK,
   getValidTargets: (ctx: SimContext) => {
     const slice = getOwnerActionsModuleState(ctx.state)
     return Object.values(slice.projects)
@@ -393,7 +393,7 @@ const cancelProject: OwnerActionDefinition = {
       actionId: cancelProject.id,
       label: `Cancelled ${project.label}`,
       targetId: project.id,
-      actionPointCost: TIME_COST_QUICK,
+      timeCost: TIME_COST_QUICK,
       effects: [`project ${project.projectType} cancelled`],
       data: {
         projectId: project.id,

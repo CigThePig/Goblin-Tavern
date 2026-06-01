@@ -47,7 +47,7 @@
       targetType: def?.targetType,
       ...(targetId !== undefined ? { targetId } : {}),
       ...(targetLabel !== undefined ? { targetLabel } : {}),
-      actionPointCost: ref.actionPointCost,
+      timeCost: ref.timeCost,
     })
     liveReason = result.ok ? undefined : result.reason
   }
@@ -70,10 +70,10 @@
             <span class="head">
               <span class="label">{ref.label}</span>
               <span class="cost mono">
-                {#if ref.actionPointCost === 0}
+                {#if ref.timeCost === 0}
                   free
                 {:else}
-                  {formatDuration(ref.actionPointCost)}
+                  {formatDuration(ref.timeCost)}
                 {/if}
               </span>
             </span>

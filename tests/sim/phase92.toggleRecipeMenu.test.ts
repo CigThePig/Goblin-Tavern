@@ -37,7 +37,7 @@ describe('Phase 92 — toggle_recipe_menu owner action', () => {
     expect(toggleRecipeMenu.id).toBe('toggle_recipe_menu')
     expect(toggleRecipeMenu.category).toBe('immediate')
     expect(toggleRecipeMenu.targetType).toBe('recipe')
-    expect(toggleRecipeMenu.actionPointCost).toBe(0)
+    expect(toggleRecipeMenu.timeCost).toBe(0)
   })
 
   it('flips an on-menu recipe to off-menu', () => {

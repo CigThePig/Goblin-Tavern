@@ -173,15 +173,15 @@ function seedCompletedProject(state: TavernState): TavernState {
   // Splice a completed project into the ownerActions module slice that
   // the project_success_credit_owner rule reads.
   const slice = (state.modules['ownerActions'] as
-    | { projects: Record<string, unknown>; policies: Record<string, unknown>; recentSocialActions: unknown[]; applied: unknown[]; rejected: unknown[]; actionPointsUsed: number; actionPointBudget: number }
+    | { projects: Record<string, unknown>; policies: Record<string, unknown>; recentSocialActions: unknown[]; applied: unknown[]; rejected: unknown[]; timeSpent: number; timeBudget: number }
     | undefined) ?? {
     projects: {},
     policies: {},
     recentSocialActions: [],
     applied: [],
     rejected: [],
-    actionPointsUsed: 0,
-    actionPointBudget: 3,
+    timeSpent: 0,
+    timeBudget: 3,
   }
   return {
     ...state,

@@ -93,7 +93,7 @@
         label: def.label,
         category: def.category,
         targetType: def.targetType,
-        actionPointCost: def.actionPointCost,
+        timeCost: def.timeCost,
       })
       return
     }
@@ -110,7 +110,7 @@
         targetType: def.targetType,
         targetId: t.id,
         targetLabel: t.label,
-        actionPointCost: def.actionPointCost,
+        timeCost: def.timeCost,
       })
       return
     }
@@ -128,7 +128,7 @@
       targetType: targetingFor.targetType,
       targetId: t.id,
       targetLabel: t.label,
-      actionPointCost: targetingFor.actionPointCost,
+      timeCost: targetingFor.timeCost,
     })
     targetingFor = null
     targetOptions = []
@@ -175,7 +175,7 @@
       targetType: 'policy',
       targetId: row.policyId,
       targetLabel: row.label,
-      actionPointCost: row.actionPointCost,
+      timeCost: row.timeCost,
     })
   }
 </script>
@@ -298,9 +298,9 @@
                 <span class="action-head">
                   <span class="action-label">{def.label}</span>
                   <span class="action-cost mono">
-                    {def.actionPointCost === 0
+                    {def.timeCost === 0
                       ? 'free'
-                      : formatDuration(def.actionPointCost)}
+                      : formatDuration(def.timeCost)}
                   </span>
                 </span>
                 {#if reason}

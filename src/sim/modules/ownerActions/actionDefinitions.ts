@@ -71,7 +71,7 @@ const cleanArea: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['cleanliness', 'maintenance'],
   targetType: 'area',
-  actionPointCost: TIME_COST_STANDARD,
+  timeCost: TIME_COST_STANDARD,
   getValidTargets: listAreas,
   canApply: (ctx, input) => {
     if (!input.targetId) return reject('missing_target', 'clean_area requires targetId')
@@ -141,7 +141,7 @@ const cleanArea: OwnerActionDefinition = {
       actionId: cleanArea.id,
       label: `Cleaned ${area.label}`,
       targetId: area.id,
-      actionPointCost: cleanArea.actionPointCost,
+      timeCost: cleanArea.timeCost,
       effects: [
         `cleanliness ${area.cleanliness} → ${nextCleanliness}`,
         `smell ${area.smell} → ${nextSmell}`,
@@ -170,7 +170,7 @@ const repairArea: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['repair', 'maintenance'],
   targetType: 'area',
-  actionPointCost: TIME_COST_STANDARD,
+  timeCost: TIME_COST_STANDARD,
   getValidTargets: listAreas,
   canApply: (ctx, input) => {
     if (!input.targetId) return reject('missing_target', 'repair_area requires targetId')
@@ -237,7 +237,7 @@ const repairArea: OwnerActionDefinition = {
       actionId: repairArea.id,
       label: `Repaired ${area.label}`,
       targetId: area.id,
-      actionPointCost: repairArea.actionPointCost,
+      timeCost: repairArea.timeCost,
       effects: [
         `damage ${area.damage} → ${nextDamage}`,
         `condition ${area.condition} → ${nextCondition}`,
@@ -281,7 +281,7 @@ const restockItemAction: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['supply', 'stock'],
   targetType: 'stock',
-  actionPointCost: TIME_COST_SHORT,
+  timeCost: TIME_COST_SHORT,
   getValidTargets: listStock,
   canApply: (ctx, input) => {
     if (!input.targetId) return reject('missing_target', 'restock_item requires targetId')
@@ -333,7 +333,7 @@ const restockItemAction: OwnerActionDefinition = {
         actionId: restockItemAction.id,
         label: `Missed restock: ${item.label}`,
         targetId: item.id,
-        actionPointCost: restockItemAction.actionPointCost,
+        timeCost: restockItemAction.timeCost,
         effects: [
           `${item.label} delivery missed (supplier ${supplierId})`,
           'coin unchanged',
@@ -376,7 +376,7 @@ const restockItemAction: OwnerActionDefinition = {
       actionId: restockItemAction.id,
       label: `Restocked ${item.label}`,
       targetId: item.id,
-      actionPointCost: restockItemAction.actionPointCost,
+      timeCost: restockItemAction.timeCost,
       effects: [
         `${item.label} ${before} → ${after}`,
         `coin -${cost}`,
@@ -400,7 +400,7 @@ const adjustPrices: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['pricing', 'economy'],
   targetType: 'stock',
-  actionPointCost: TIME_COST_QUICK,
+  timeCost: TIME_COST_QUICK,
   getValidTargets: listStock,
   canApply: (ctx, input) => {
     if (!input.targetId) return reject('missing_target', 'adjust_prices requires targetId')
@@ -430,7 +430,7 @@ const adjustPrices: OwnerActionDefinition = {
       actionId: adjustPrices.id,
       label: `Adjusted ${item.label} Price`,
       targetId: item.id,
-      actionPointCost: adjustPrices.actionPointCost,
+      timeCost: adjustPrices.timeCost,
       effects: [`salePrice ${before} → ${after}`],
       data: {
         stockId: item.id,
@@ -450,7 +450,7 @@ const payStaffBonus: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['staff', 'wages'],
   targetType: 'staff',
-  actionPointCost: TIME_COST_QUICK,
+  timeCost: TIME_COST_QUICK,
   getValidTargets: listStaff,
   canApply: (ctx, input) => {
     if (!input.targetId) return reject('missing_target', 'pay_staff_bonus requires targetId')
@@ -511,7 +511,7 @@ const payStaffBonus: OwnerActionDefinition = {
       actionId: payStaffBonus.id,
       label: `Paid Bonus: ${staff.name.display}`,
       targetId: staff.id,
-      actionPointCost: payStaffBonus.actionPointCost,
+      timeCost: payStaffBonus.timeCost,
       effects: [
         `morale ${staff.morale} → ${nextMorale}`,
         `stress ${staff.stress} → ${nextStress}`,
@@ -536,7 +536,7 @@ const waterDownAle: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['stock', 'cheat', 'risk'],
   targetType: 'stock',
-  actionPointCost: TIME_COST_SHORT,
+  timeCost: TIME_COST_SHORT,
   getValidTargets: (ctx) => {
     const ale = ctx.state.stock['ale']
     return ale ? [{ id: ale.id, label: ale.label, hint: `qty ${ale.quantity}` }] : []
@@ -600,7 +600,7 @@ const waterDownAle: OwnerActionDefinition = {
       actionId: waterDownAle.id,
       label: 'Watered Down Ale',
       targetId: ale.id,
-      actionPointCost: waterDownAle.actionPointCost,
+      timeCost: waterDownAle.timeCost,
       effects: [
         `ale quantity ${ale.quantity} → ${nextQuantity}`,
         `ale quality ${ale.quality} → ${nextQuality}`,
@@ -625,7 +625,7 @@ const improveStew: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['stock', 'food_quality'],
   targetType: 'stock',
-  actionPointCost: TIME_COST_SHORT,
+  timeCost: TIME_COST_SHORT,
   getValidTargets: (ctx) => {
     const stew = ctx.state.stock['stew']
     return stew ? [{ id: stew.id, label: stew.label }] : []
@@ -683,7 +683,7 @@ const improveStew: OwnerActionDefinition = {
       actionId: improveStew.id,
       label: 'Improved Stew',
       targetId: stew.id,
-      actionPointCost: improveStew.actionPointCost,
+      timeCost: improveStew.timeCost,
       effects: [
         `stew quality ${beforeStewQuality} → ${nextStewQuality}`,
         `ingredients ${beforeIngredients} → ${nextIngredients}`,
@@ -711,7 +711,7 @@ const patchRoof: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['repair', 'roof', 'weather'],
   targetType: 'area',
-  actionPointCost: TIME_COST_HEAVY,
+  timeCost: TIME_COST_HEAVY,
   getValidTargets: (ctx) => {
     const roof = ctx.state.areas['roof']
     return roof
@@ -773,7 +773,7 @@ const patchRoof: OwnerActionDefinition = {
       actionId: patchRoof.id,
       label: 'Patched Roof',
       targetId: roof.id,
-      actionPointCost: patchRoof.actionPointCost,
+      timeCost: patchRoof.timeCost,
       effects: [
         `roof damage ${roof.damage} → ${nextDamage}`,
         `roof condition ${roof.condition} → ${nextCondition}`,
@@ -800,7 +800,7 @@ const fumigateCellar: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['cellar', 'pests', 'sanitation'],
   targetType: 'area',
-  actionPointCost: TIME_COST_HEAVY,
+  timeCost: TIME_COST_HEAVY,
   getValidTargets: (ctx) => {
     const cellar = ctx.state.areas['cellar']
     return cellar
@@ -853,7 +853,7 @@ const fumigateCellar: OwnerActionDefinition = {
       actionId: fumigateCellar.id,
       label: 'Fumigated Cellar',
       targetId: cellar.id,
-      actionPointCost: fumigateCellar.actionPointCost,
+      timeCost: fumigateCellar.timeCost,
       effects: [
         `cellar risk ${cellar.risk} → ${nextRisk}`,
         `cellar smell ${cellar.smell} → ${nextSmell}`,
@@ -880,7 +880,7 @@ const buyMugs: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['stock', 'supply', 'service_capacity'],
   targetType: 'stock',
-  actionPointCost: TIME_COST_QUICK,
+  timeCost: TIME_COST_QUICK,
   getValidTargets: (ctx) => {
     const mugs = ctx.state.stock['mugs']
     return mugs ? [{ id: mugs.id, label: mugs.label, hint: `qty ${mugs.quantity}` }] : []
@@ -916,7 +916,7 @@ const buyMugs: OwnerActionDefinition = {
       actionId: buyMugs.id,
       label: 'Bought Mugs',
       targetId: mugs.id,
-      actionPointCost: buyMugs.actionPointCost,
+      timeCost: buyMugs.timeCost,
       effects: [`mugs ${before} → ${after}`, `coin -${cost}`],
       data: {
         stockId: mugs.id,
@@ -940,7 +940,7 @@ const toggleRecipeMenu: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['recipe', 'menu', 'logistics'],
   targetType: 'recipe',
-  actionPointCost: TIME_COST_TRIVIAL,
+  timeCost: TIME_COST_TRIVIAL,
   getValidTargets: (ctx) =>
     Object.values(ctx.state.recipes).map((r) => ({
       id: r.id,
@@ -970,7 +970,7 @@ const toggleRecipeMenu: OwnerActionDefinition = {
       actionId: toggleRecipeMenu.id,
       label: next ? 'Added to Menu' : 'Removed from Menu',
       targetId: recipe.id,
-      actionPointCost: toggleRecipeMenu.actionPointCost,
+      timeCost: toggleRecipeMenu.timeCost,
       effects: [`${recipe.label} ${next ? 'on menu' : 'off menu'}`],
       data: {
         recipeId: recipe.id,

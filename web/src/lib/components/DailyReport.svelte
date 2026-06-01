@@ -133,8 +133,8 @@
               <div class="ledger-body">
                 <span class="ledger-line">
                   {entry.action.label}{#if entry.action.targetLabel || entry.action.targetId} · {entry.action.targetLabel ?? entry.action.targetId}{/if}
-                  {#if entry.action.actionPointCost > 0}
-                    <span class="ledger-cost tag">({formatDuration(entry.action.actionPointCost)})</span>
+                  {#if entry.action.timeCost > 0}
+                    <span class="ledger-cost tag">({formatDuration(entry.action.timeCost)})</span>
                   {/if}
                 </span>
                 {#if entry.action.effects.length > 0}

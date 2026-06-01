@@ -64,7 +64,7 @@ export type ApplicableActionRef = {
   actionId: string
   label: string
   category: 'immediate' | 'project' | 'policy' | 'social'
-  actionPointCost: number
+  timeCost: number
   disabledReason?: string
 }
 
@@ -912,7 +912,7 @@ function applicableActionsForRow(
       actionId: def.id,
       label: def.label,
       category: def.category,
-      actionPointCost: def.actionPointCost,
+      timeCost: def.timeCost,
     }
     if (reason !== undefined) ref.disabledReason = reason
     return ref

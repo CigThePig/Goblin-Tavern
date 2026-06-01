@@ -100,7 +100,7 @@ const buyCandles: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['stock', 'supply', 'lighting'],
   targetType: 'stock',
-  actionPointCost: TIME_COST_STANDARD,
+  timeCost: TIME_COST_STANDARD,
   getValidTargets: (ctx) => {
     const candles = ctx.state.stock[CANDLE_STOCK_ID]
     return candles
@@ -144,7 +144,7 @@ const buyCandles: OwnerActionDefinition = {
       actionId: CANDLE_BUY_ACTION_ID,
       label: 'Bought Candles',
       targetId: CANDLE_STOCK_ID,
-      actionPointCost: buyCandles.actionPointCost,
+      timeCost: buyCandles.timeCost,
       effects: [`candles ${before} → ${after}`, `coin -${cost}`],
       data: {
         stockId: CANDLE_STOCK_ID,

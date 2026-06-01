@@ -55,7 +55,7 @@ export type PickedAction = {
   targetType: OwnerActionDefinition['targetType']
   targetId?: string
   targetLabel?: string
-  actionPointCost: number
+  timeCost: number
   /**
    * Phase 92 — Optional structured options for actions that need them
    * (commission_expedition, etc.). Forwarded verbatim to the engine.
@@ -94,12 +94,11 @@ export function picksToInputs(
 }
 
 /**
- * Total minutes across the queued picks. Phase 186 Cluster 3 — the queue
- * budget is time now; `actionPointCost` holds minutes (serialized field
- * name retained, rename deferred to Cluster 7).
+ * Total minutes across the queued picks. The queue budget is time;
+ * `timeCost` holds minutes (Phase 186; was `actionPointCost`).
  */
 export function totalQueuedMinutes(picks: ReadonlyArray<PickedAction>): number {
-  return picks.reduce((n, p) => n + p.actionPointCost, 0)
+  return picks.reduce((n, p) => n + p.timeCost, 0)
 }
 
 const VALID_PICK_CATEGORIES: ReadonlySet<OwnerActionCategory> = new Set([
@@ -156,7 +155,10 @@ function sanitizeSinglePick(
   const label = r.label
   const category = r.category
   const targetType = r.targetType
-  const actionPointCost = r.actionPointCost
+  // Phase 186 Cluster 7 — `timeCost` was `actionPointCost` before the
+  // rename; accept the legacy key so a pre-Cluster-7 save's queued picks
+  // survive the hydration boundary instead of being silently dropped.
+  const timeCost = r.timeCost ?? r.actionPointCost
   if (
     typeof actionId !== 'string' ||
     typeof pickId !== 'string' ||
@@ -172,9 +174,9 @@ function sanitizeSinglePick(
     return undefined
   }
   if (
-    typeof actionPointCost !== 'number' ||
-    !Number.isFinite(actionPointCost) ||
-    actionPointCost < 0
+    typeof timeCost !== 'number' ||
+    !Number.isFinite(timeCost) ||
+    timeCost < 0
   ) {
     return undefined
   }
@@ -209,7 +211,7 @@ function sanitizeSinglePick(
     label,
     category: category as OwnerActionCategory,
     targetType: targetType as OwnerActionDefinition['targetType'],
-    actionPointCost,
+    timeCost,
     ...(targetId !== undefined ? { targetId } : {}),
     ...(targetLabel !== undefined ? { targetLabel } : {}),
     ...(options !== undefined ? { options } : {}),
@@ -240,7 +242,7 @@ export type PolicyToggleRow = {
    * enable_X action.
    */
   actionId: string
-  actionPointCost: number
+  timeCost: number
   /**
    * Already queued in the current pick list? Lets the row render an
    * accent-styled chip-equivalent state and supports tap-to-cancel.
@@ -305,7 +307,7 @@ function buildPolicyToggleRow(
     effects: starter.effects[0] ?? '',
     enabled,
     actionId,
-    actionPointCost: TIME_COST_QUICK,
+    timeCost: TIME_COST_QUICK,
     queued,
   }
 
@@ -317,8 +319,8 @@ function buildPolicyToggleRow(
   // Budget check uses pointsLeft inclusive of the row's own cost; if
   // already queued, tapping cancels the pick so the budget check is
   // skipped for the queued state.
-  if (!queued && !inverseQueued && pointsLeft < row.actionPointCost) {
-    row.disabledReason = `${formatDuration(row.actionPointCost)} — out of time`
+  if (!queued && !inverseQueued && pointsLeft < row.timeCost) {
+    row.disabledReason = `${formatDuration(row.timeCost)} — out of time`
   }
 
   if (starter.conflictsWith && starter.conflictsWith.length > 0) {

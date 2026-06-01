@@ -58,7 +58,7 @@ export type ApplicableActionRef = {
   actionId: string
   label: string
   category: 'immediate' | 'project' | 'policy' | 'social'
-  actionPointCost: number
+  timeCost: number
   /** Reason the action can't run against this (action, target) pair right now. Undefined when selectable. */
   disabledReason?: string
 }
@@ -923,7 +923,7 @@ function makeRef(
     actionId: def.id,
     label: def.label,
     category: def.category,
-    actionPointCost: def.actionPointCost,
+    timeCost: def.timeCost,
   }
   if (disabledReason !== undefined) ref.disabledReason = disabledReason
   return ref

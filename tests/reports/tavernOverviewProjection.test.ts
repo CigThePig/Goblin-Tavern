@@ -427,7 +427,7 @@ describe('buildTavernOverview — invariants', () => {
         (a) => a.actionId === 'toggle_recipe_menu',
       )
       expect(toggle).toBeDefined()
-      expect(toggle!.actionPointCost).toBe(0)
+      expect(toggle!.timeCost).toBe(0)
     }
   })
 

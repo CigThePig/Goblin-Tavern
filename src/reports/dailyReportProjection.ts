@@ -382,7 +382,7 @@ function projectOwnerActions(
     const line: ReportOwnerActionLine = {
       actionId: a.actionId,
       label: a.label,
-      actionPointCost: a.actionPointCost,
+      timeCost: a.timeCost,
       effects: [...a.effects],
     }
     if (a.targetId !== undefined) {

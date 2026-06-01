@@ -128,9 +128,9 @@ describe('Phase 13 — Owner action registry', () => {
       // labor). Every other action costs a positive span of minutes
       // (Phase 186 Cluster 3 — the AP economy is now time).
       if (def.id === 'toggle_recipe_menu') {
-        expect(def.actionPointCost).toBe(0)
+        expect(def.timeCost).toBe(0)
       } else {
-        expect(def.actionPointCost).toBeGreaterThanOrEqual(1)
+        expect(def.timeCost).toBeGreaterThanOrEqual(1)
       }
       expect(typeof def.label).toBe('string')
       expect(Array.isArray(def.tags)).toBe(true)
@@ -158,7 +158,7 @@ describe('Phase 186 Cluster 3 — Daily time budget (§3.8)', () => {
     ]
     const result = runDay(base, actions)
     const slice = getOwnerActionsModuleState(result.state)
-    expect(slice.actionPointsUsed).toBe(360)
+    expect(slice.timeSpent).toBe(360)
     expect(slice.applied).toHaveLength(3)
     expect(slice.rejected).toHaveLength(1)
     expect(slice.rejected[0]!.code).toBe('over_budget')
@@ -168,9 +168,9 @@ describe('Phase 186 Cluster 3 — Daily time budget (§3.8)', () => {
   it('time spent resets between days', () => {
     const base = createInitialTavernState()
     const day1 = runDay(base, [{ actionId: 'clean_area', targetId: 'kitchen' }])
-    expect(getOwnerActionsModuleState(day1.state).actionPointsUsed).toBe(120)
+    expect(getOwnerActionsModuleState(day1.state).timeSpent).toBe(120)
     const day2 = runDay(day1.state)
-    expect(getOwnerActionsModuleState(day2.state).actionPointsUsed).toBe(0)
+    expect(getOwnerActionsModuleState(day2.state).timeSpent).toBe(0)
   })
 })
 
@@ -397,7 +397,7 @@ describe('Phase 13 — Validation errors', () => {
     ])
     const slice = getOwnerActionsModuleState(result.state)
     expect(slice.rejected[0]!.code).toBe('unknown_action')
-    expect(slice.actionPointsUsed).toBe(0)
+    expect(slice.timeSpent).toBe(0)
   })
 
   it('rejected actions do not consume time', () => {
@@ -410,7 +410,7 @@ describe('Phase 13 — Validation errors', () => {
     ])
     const slice = getOwnerActionsModuleState(result.state)
     expect(slice.applied).toHaveLength(2)
-    expect(slice.actionPointsUsed).toBe(240) // two clean_area chores at 120m
+    expect(slice.timeSpent).toBe(240) // two clean_area chores at 120m
     expect(slice.rejected).toHaveLength(2)
   })
 })
@@ -537,13 +537,13 @@ describe('Phase 13 — State safety', () => {
       modules: {
         ...base.modules,
         [OWNER_ACTIONS_MODULE_ID]: {
-          actionPointsUsed: 1,
-          actionPointBudget: 3,
+          timeSpent: 1,
+          timeBudget: 3,
           applied: [
             {
               actionId: 'unknown_thing',
               label: 'Unknown',
-              actionPointCost: 1,
+              timeCost: 1,
               effects: [],
               data: {},
             },
@@ -577,8 +577,8 @@ describe('Phase 13 — Module shape', () => {
   it('createInitialTavernState seeds an empty ownerActions slice', () => {
     const state = createInitialTavernState()
     const slice = getOwnerActionsModuleState(state)
-    expect(slice.actionPointsUsed).toBe(0)
-    expect(slice.actionPointBudget).toBe(DAY_MINUTES)
+    expect(slice.timeSpent).toBe(0)
+    expect(slice.timeBudget).toBe(DAY_MINUTES)
     expect(slice.applied).toEqual([])
     expect(slice.rejected).toEqual([])
   })

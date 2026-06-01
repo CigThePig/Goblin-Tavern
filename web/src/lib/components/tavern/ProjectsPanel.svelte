@@ -51,7 +51,7 @@
       targetType: def?.targetType,
       ...(targetId !== undefined ? { targetId } : {}),
       ...(targetLabel !== undefined ? { targetLabel } : {}),
-      actionPointCost: ref.actionPointCost,
+      timeCost: ref.timeCost,
     })
   }
 
@@ -60,14 +60,14 @@
     // Phase 186 Cluster 3 — read the real minute cost from the registry
     // so the queued-time total stays honest (start_* projects cost
     // TIME_COST_STANDARD).
-    const timeCost = actionRegistry.get(row.actionId)?.actionPointCost ?? 0
+    const timeCost = actionRegistry.get(row.actionId)?.timeCost ?? 0
     if (row.validTargets.length === 0) {
       tryQueue({
         actionId: row.actionId,
         label: row.label,
         category: 'project',
         targetType: row.targetType as never,
-        actionPointCost: timeCost,
+        timeCost: timeCost,
       })
       return
     }
@@ -79,7 +79,7 @@
       targetType: row.targetType as never,
       targetId: target.id,
       targetLabel: target.label,
-      actionPointCost: timeCost,
+      timeCost: timeCost,
     })
   }
 
@@ -97,7 +97,7 @@
       label: row.toggleActionLabel ?? row.toggleActionId,
       category: 'policy',
       targetType: def?.targetType ?? 'global',
-      actionPointCost: def?.actionPointCost ?? 1,
+      timeCost: def?.timeCost ?? 1,
     })
   }
 </script>
@@ -158,8 +158,8 @@
                     onclick={() => queueAction(ref, project.id, project.label)}
                   >
                     {ref.label}
-                    {#if ref.actionPointCost > 0}
-                      <span class="cost mono">{formatDuration(ref.actionPointCost)}</span>
+                    {#if ref.timeCost > 0}
+                      <span class="cost mono">{formatDuration(ref.timeCost)}</span>
                     {/if}
                     {#if queued}
                       <span class="q">·queued</span>

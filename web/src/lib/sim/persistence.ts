@@ -37,6 +37,7 @@ import {
   ensureCastAttributes,
   ensureWeeklyHistoryField,
   ensureMonthlyHistoryField,
+  ensureOwnerTimeFields,
   ensureRecipesSlice,
   ensureExpeditionsSlice,
   ensureModuleSlices,
@@ -50,7 +51,6 @@ import type { SimResult } from '../../../../src/sim/core/result'
 import { sanitizePicks, type PickedAction } from './actionBuilder'
 import type {
   Beat,
-  DaySegment,
   DaySessionSnapshot,
   PendingChoice,
 } from './daySession'
@@ -351,7 +351,8 @@ export function validatePersistedSession(parsed: unknown): ValidationOutcome {
   // only mid-day) runs through the same pipeline. If it's missing or
   // fails, drop it: the store's segment methods fall back to the current
   // state, which only loses the full-day-diff bracket for the single
-  // resumed day (Cluster 7 hardens this).
+  // resumed day. (Cluster 7 also drops it when an in-flight pre-Cluster-5
+  // day is reset to a clean morning — see `restoreDaySession`.)
   const dayBaselineRaw = (parsed as { dayBaseline?: unknown }).dayBaseline
   let dayBaseline: TavernState | undefined
   if (isObject(dayBaselineRaw)) {
@@ -397,12 +398,27 @@ export function validatePersistedSession(parsed: unknown): ValidationOutcome {
       : {}
 
   const pendingRaw = (parsed as { pendingBySeedId?: unknown }).pendingBySeedId
-  const pendingBySeedId: Record<string, PendingChoice> = isObject(pendingRaw)
+  let pendingBySeedId: Record<string, PendingChoice> = isObject(pendingRaw)
     ? sanitizePending(pendingRaw as Record<string, unknown>)
     : {}
 
   const daySessionRaw = (parsed as { daySession?: unknown }).daySession
-  const daySession: DaySessionSnapshot = sanitizeDaySession(daySessionRaw)
+  const { daySession, resetInFlightDay } = restoreDaySession(daySessionRaw)
+
+  // Phase 186 Cluster 7 — when a pre-Cluster-5 in-flight day is reset to a
+  // clean morning (see `restoreDaySession`), drop the day's pending response
+  // intents and start-of-day baseline: the intents point at pre-baked seed
+  // ids that Segment A's regeneration clears, and the baseline belongs to a
+  // day that never properly ran. `beginDay` mints a fresh baseline when it
+  // re-opens the day. Queued owner-action `picks` are intentionally kept.
+  if (resetInFlightDay) {
+    pendingBySeedId = {}
+    dayBaseline = undefined
+    // eslint-disable-next-line no-console
+    console.warn(
+      'goblin-tavern: reset a pre-Cluster-5 in-flight day to a clean morning during load (Phase 186 Cluster 7 migration)',
+    )
+  }
 
   const previousCalendarRaw = (parsed as { previousCalendar?: unknown }).previousCalendar
   const previousCalendar = isObject(previousCalendarRaw)
@@ -469,7 +485,11 @@ function migrateAndValidateState(rawState: Record<string, unknown>): StateMigrat
     const s4b = flipUpkeepRecipesOffMenu(s4)
     const s5 = ensureExpeditionsSlice(s4b)
     const s6 = ensureWeeklyHistoryField(s5)
-    const s7 = ensureMonthlyHistoryField(s6)
+    const s7a = ensureMonthlyHistoryField(s6)
+    // Phase 186 Cluster 7 — rename the owner-time fields
+    // (`actionPoint* → time*`) so a pre-Cluster-7 save validates against
+    // the renamed schema. No-op once the new keys are present.
+    const s7 = ensureOwnerTimeFields(s7a)
     // Phase 121 / ISSUE-090 — Living Cast Phase A. Attaches cast
     // attributes to pre-Phase-A staff + regulars; no-op when already
     // present. Runs after the other ensure* helpers so that any
@@ -570,46 +590,100 @@ function sanitizeSubroutes(raw: Record<string, unknown>): SubroutesState {
   return out
 }
 
-function sanitizeDaySession(raw: unknown): DaySessionSnapshot {
+type DaySessionRestore = {
+  daySession: DaySessionSnapshot
+  /**
+   * Phase 186 Cluster 7 — true when a pre-Cluster-5 in-flight day was reset
+   * to a clean morning (contract §4.7). Callers drop the day's stale
+   * pending response intents and start-of-day baseline when this is set.
+   */
+  resetInFlightDay: boolean
+}
+
+const FRESH_MORNING: DaySessionSnapshot = {
+  beat: 'morning',
+  serviceComplete: false,
+  closingComplete: false,
+  segment: 'C',
+}
+
+// Phase 186 Cluster 7 — in-flight save migration (contract §4.7).
+//
+// A save written before Cluster 5 carries no `segment` field. The day was
+// a single end-of-day `simulateDay` then, so a save caught past the morning
+// (plan/service/closing) sits on a state whose Segment A never ran and whose
+// `seedsToday` was pre-baked by the old end-of-day model. Cluster 5's
+// `sanitizeSegment` derives those beats to segment 'A'/'B' — which tells the
+// store Segment A already ran, so `beginDay` is skipped and the day plays on
+// against the stale pre-baked surface (skipped world advance, orphaned
+// response intents).
+//
+// The ruling: reset those beats cleanly to the next morning. The reset
+// lands at {beat:'morning', segment:'C'} — the "ready to begin" state — so
+// `beginDay` (Segment A) re-opens the day from the top on the (start-of-day)
+// state and regenerates today's surface honestly. Queued owner-action
+// `picks` are kept (Segment B consumes them); the day's pending response
+// intents are dropped by the caller (they reference pre-baked seed ids the
+// regeneration clears).
+//
+// `morning` and `report` are NOT reset: both already derive to segment 'C'
+// (the clean day boundary), where `beginDay` runs Segment A fresh anyway, so
+// no Segment A is skipped and any pending survives the round-trip. A
+// Cluster-5+ save carries an explicit `segment` and is trusted as-is.
+const IN_FLIGHT_BEATS: ReadonlySet<Beat> = new Set<Beat>([
+  'plan',
+  'service',
+  'closing',
+])
+
+function restoreDaySession(raw: unknown): DaySessionRestore {
   if (!isObject(raw)) {
-    return {
-      beat: 'morning',
-      serviceComplete: false,
-      closingComplete: false,
-      segment: 'C',
-    }
+    return { daySession: { ...FRESH_MORNING }, resetInFlightDay: false }
   }
   const beatRaw = raw['beat']
   const beat: Beat =
     typeof beatRaw === 'string' && VALID_BEATS.has(beatRaw as Beat)
       ? (beatRaw as Beat)
       : 'morning'
+
+  const segmentRaw = raw['segment']
+  const hasSegment = segmentRaw === 'A' || segmentRaw === 'B' || segmentRaw === 'C'
+
+  // Cluster-5+ save: an explicit segment is the real checkpoint — trust it.
+  if (hasSegment) {
+    return {
+      daySession: {
+        beat,
+        serviceComplete: raw['serviceComplete'] === true,
+        closingComplete: raw['closingComplete'] === true,
+        segment: segmentRaw,
+      },
+      resetInFlightDay: false,
+    }
+  }
+
+  // Pre-Cluster-5 save (no segment). plan/service/closing were genuinely
+  // mid-day under the old single end-of-day model → reset to a clean morning.
+  if (IN_FLIGHT_BEATS.has(beat)) {
+    return { daySession: { ...FRESH_MORNING }, resetInFlightDay: true }
+  }
+
+  // morning/report are clean day boundaries. Keep the beat but sit at
+  // segment 'C' (NOT the Cluster-5 morning→'A' derivation): 'C' is the
+  // "ready to begin" state, so the begin-day effect re-runs Segment A for
+  // this resumed day instead of trusting the stale pre-baked surface. This
+  // is not a reset — pending survives the round-trip.
   return {
-    beat,
-    serviceComplete: raw['serviceComplete'] === true,
-    closingComplete: raw['closingComplete'] === true,
-    segment: sanitizeSegment(raw['segment'], beat),
+    daySession: {
+      beat,
+      serviceComplete: raw['serviceComplete'] === true,
+      closingComplete: raw['closingComplete'] === true,
+      segment: 'C',
+    },
+    resetInFlightDay: false,
   }
 }
 
-// Phase 186 / Day-Clock Cluster 5 — restore the segment position. A
-// pre-Cluster-5 save has no `segment` field, so derive a consistent value
-// from the persisted beat: morning/plan ran Segment A, service/closing ran
-// Segment B, and a closed-day report sits at 'C'. Keeping (beat, segment)
-// consistent on resume is what stops the interactive flow from stalling.
-function sanitizeSegment(raw: unknown, beat: Beat): DaySegment {
-  if (raw === 'A' || raw === 'B' || raw === 'C') return raw
-  switch (beat) {
-    case 'morning':
-    case 'plan':
-      return 'A'
-    case 'service':
-    case 'closing':
-      return 'B'
-    case 'report':
-      return 'C'
-  }
-}
 
 function sanitizePending(
   raw: Record<string, unknown>,

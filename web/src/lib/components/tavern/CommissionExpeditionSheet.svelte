@@ -137,7 +137,7 @@
       targetType: 'global',
       targetId: runner.id,
       targetLabel: runner.name,
-      actionPointCost: def?.actionPointCost ?? 1,
+      timeCost: def?.timeCost ?? 1,
       options,
     })
     if (!result.ok) {

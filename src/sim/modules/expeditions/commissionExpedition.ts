@@ -86,7 +86,7 @@ export const commissionExpedition: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['expedition', 'world', 'adventurer'],
   targetType: 'global',
-  actionPointCost: TIME_COST_STANDARD,
+  timeCost: TIME_COST_STANDARD,
   getValidTargets: (ctx: SimContext) => {
     return Object.values(ctx.state.world.hireableAdventurers)
       .filter(
@@ -272,7 +272,7 @@ export const commissionExpedition: OwnerActionDefinition = {
       actionId: COMMISSION_EXPEDITION_ACTION_ID,
       label: 'Commission Expedition',
       targetId: runner.id,
-      actionPointCost: TIME_COST_STANDARD,
+      timeCost: TIME_COST_STANDARD,
       effects,
       data: {
         expeditionId: expedition.id,

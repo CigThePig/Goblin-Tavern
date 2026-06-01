@@ -536,12 +536,12 @@ class GameStore {
   }
 
   /**
-   * Total minutes across queued picks. Sticky chip reads this. Phase 186
-   * Cluster 3 — the queue budget is time now; `p.actionPointCost` holds
-   * minutes (serialized field name retained, rename deferred to Cluster 7).
+   * Total minutes across queued picks. Sticky chip reads this. The queue
+   * budget is time; `p.timeCost` holds minutes (Phase 186; was
+   * `actionPointCost`).
    */
   get minutesQueued(): number {
-    return this.picks.reduce((n, p) => n + p.actionPointCost, 0)
+    return this.picks.reduce((n, p) => n + p.timeCost, 0)
   }
 
   /** True when at least one pick targets this (action, target). Options ignored. */

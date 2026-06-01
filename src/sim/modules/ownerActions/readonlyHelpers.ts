@@ -150,7 +150,7 @@ export function actionDisabledReason(
   state: TavernState,
   pointsLeft: number,
 ): string | undefined {
-  if (def.actionPointCost > pointsLeft) return 'budget full'
+  if (def.timeCost > pointsLeft) return 'budget full'
 
   if (!def.targetType || def.targetType === 'global') {
     const verdict = canApplyAction(def, state, { actionId: def.id })
@@ -185,7 +185,7 @@ export function actionDisabledReasonForTarget(
   targetId: string | undefined,
   pointsLeft: number,
 ): string | undefined {
-  if (def.actionPointCost > pointsLeft) return 'budget full'
+  if (def.timeCost > pointsLeft) return 'budget full'
 
   if (!def.targetType || def.targetType === 'global') {
     const verdict = canApplyAction(def, state, { actionId: def.id })

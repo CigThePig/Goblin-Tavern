@@ -110,7 +110,7 @@ export type ReportOwnerActionLine = {
    * UI doesn't have to know how to translate per-category target ids.
    */
   targetLabel?: string
-  actionPointCost: number
+  timeCost: number
   effects: string[]
 }
 

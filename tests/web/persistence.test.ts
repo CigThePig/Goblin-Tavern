@@ -142,7 +142,7 @@ describe('persistence — round-trip', () => {
           targetType: 'area',
           targetId: 'main_room',
           targetLabel: 'Main Room',
-          actionPointCost: 1,
+          timeCost: 1,
         },
       ],
       staffPriorities: { 'staff-cook': 'work_kitchen' },

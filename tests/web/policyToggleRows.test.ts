@@ -82,7 +82,7 @@ describe('listPolicyToggleRows', () => {
       category: 'policy' as const,
       targetType: 'policy' as const,
       targetId: 'allow_tabs_for_regulars',
-      actionPointCost: 1,
+      timeCost: 1,
     }
     const rows = listPolicyToggleRows({
       state,
@@ -103,7 +103,7 @@ describe('listPolicyToggleRows', () => {
       category: 'policy' as const,
       targetType: 'policy' as const,
       targetId: 'refuse_tabs',
-      actionPointCost: 1,
+      timeCost: 1,
     }
     const rows = listPolicyToggleRows({
       state,

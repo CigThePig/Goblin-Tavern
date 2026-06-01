@@ -68,11 +68,11 @@ export type OwnerActionApplied = {
   targetId?: string
   /**
    * Time this action drew from the daily budget, in MINUTES. Phase 186
-   * Cluster 3 converted the action-point economy to time; the field name
-   * is retained (serialized — renaming it is deferred to Cluster 7's save
-   * migration). Read as "minutes".
+   * Cluster 3 converted the action-point economy to time; Cluster 7 renamed
+   * the field from `actionPointCost` to `timeCost` (pre-Cluster-7 saves
+   * migrate via `ensureOwnerTimeFields`).
    */
-  actionPointCost: number
+  timeCost: number
   /** Lines describing what changed. Surfaced in the owner-action report. */
   effects: string[]
   /** Structured before/after snapshot for the report data payload. */
@@ -138,17 +138,10 @@ export type OwnerSocialActionRecord = {
 }
 
 export type OwnerActionsModuleState = {
-  /**
-   * Minutes consumed by `applied` this day. Phase 186 Cluster 3 — the
-   * field name is retained for save compatibility (rename deferred to
-   * Cluster 7); read as "minutes spent".
-   */
-  actionPointsUsed: number
-  /**
-   * The day's time budget in minutes (`DAY_MINUTES`). Name retained for
-   * save compatibility; read as "minute budget".
-   */
-  actionPointBudget: number
+  /** Minutes consumed by `applied` this day (Phase 186; was `actionPointsUsed`). */
+  timeSpent: number
+  /** The day's time budget in minutes (`DAY_MINUTES`; was `actionPointBudget`). */
+  timeBudget: number
   applied: OwnerActionApplied[]
   rejected: OwnerActionRejected[]
 
@@ -156,7 +149,7 @@ export type OwnerActionsModuleState = {
   //
   // `projects` and `policies` survive `startDay`'s slice reset so a
   // project started Monday continues to progress Tuesday. The daily
-  // applied/rejected/actionPointsUsed fields still reset every morning.
+  // applied/rejected/timeSpent fields still reset every morning.
   // `recentSocialActions` is a bounded ring (most recent first) so
   // weekly routines and reports can surface "who got apologized to this
   // week" without scanning history.
@@ -175,10 +168,9 @@ export type OwnerActionDefinition = {
   targetType?: OwnerActionTargetType
   /**
    * Minutes this action costs against the daily time budget
-   * (`DAY_MINUTES`). Phase 186 Cluster 3 — see the note on
-   * `OwnerActionApplied.actionPointCost`; read as "minutes".
+   * (`DAY_MINUTES`). Phase 186 — see `OwnerActionApplied.timeCost`.
    */
-  actionPointCost: number
+  timeCost: number
   /** Targets the action can be applied to. Empty array for global actions. */
   getValidTargets: (ctx: SimContext) => ActionTarget[]
   /** Pure validation. Must not mutate state. */

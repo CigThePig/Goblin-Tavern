@@ -44,7 +44,7 @@ describe('Cross-screen flow — queue → End Day → Report (Phase 119 / ISSUE-
       targetType: 'stock',
       targetId: 'mugs',
       targetLabel: 'Mugs',
-      actionPointCost: 1,
+      timeCost: 1,
     })
     expect(result.ok).toBe(true)
     expect(gameStore.picks.length).toBe(1)

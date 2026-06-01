@@ -55,7 +55,7 @@
       targetType: 'recipe',
       targetId: row.id,
       targetLabel: row.label,
-      actionPointCost: def?.actionPointCost ?? 0,
+      timeCost: def?.timeCost ?? 0,
     })
     toggleError = result.ok ? undefined : result.reason
   }

@@ -75,7 +75,7 @@ const hireStaffAction: OwnerActionDefinition = {
   targetType: 'staff',
   // Hiring is a big commitment — interviewing and onboarding a new hand
   // eats most of the day.
-  actionPointCost: TIME_COST_HEAVY,
+  timeCost: TIME_COST_HEAVY,
   getValidTargets: listHireableRoles,
   canApply: (ctx, input) => {
     if (!input.targetId) {
@@ -171,7 +171,7 @@ const hireStaffAction: OwnerActionDefinition = {
       actionId: HIRE_STAFF_ACTION_ID,
       label: 'Hired Staff',
       targetId: hireId,
-      actionPointCost: TIME_COST_HEAVY,
+      timeCost: TIME_COST_HEAVY,
       effects: [
         `Hired ${generatedName.display} (${def.label}).`,
         `coin -${HIRE_STAFF_COST}`,
@@ -207,7 +207,7 @@ const fireStaffAction: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['staff', 'fire'],
   targetType: 'staff',
-  actionPointCost: TIME_COST_STANDARD,
+  timeCost: TIME_COST_STANDARD,
   getValidTargets: listFireableStaff,
   canApply: (ctx, input) => {
     if (!input.targetId) {
@@ -280,7 +280,7 @@ const fireStaffAction: OwnerActionDefinition = {
       actionId: FIRE_STAFF_ACTION_ID,
       label: 'Fired Staff',
       targetId: firedId,
-      actionPointCost: TIME_COST_STANDARD,
+      timeCost: TIME_COST_STANDARD,
       effects: [
         `Fired ${firedName} (${firedRole}).`,
         `Remaining staff morale -${FIRE_MORALE_HIT} each.`,
@@ -314,7 +314,7 @@ const banCustomerGroupAction: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['customers', 'ban', 'social'],
   targetType: 'customer_group',
-  actionPointCost: TIME_COST_STANDARD,
+  timeCost: TIME_COST_STANDARD,
   getValidTargets: listCustomerGroups,
   canApply: (ctx, input) => {
     if (!input.targetId) {
@@ -399,7 +399,7 @@ const banCustomerGroupAction: OwnerActionDefinition = {
       actionId: BAN_CUSTOMER_GROUP_ACTION_ID,
       label: 'Banned Customer Group',
       targetId: groupId,
-      actionPointCost: TIME_COST_STANDARD,
+      timeCost: TIME_COST_STANDARD,
       effects: [
         `${group.label} patronage ${beforePatronage} → 0.`,
         `${group.label} loyalty ${beforeLoyalty} → ${Math.max(0, beforeLoyalty - 10)}.`,

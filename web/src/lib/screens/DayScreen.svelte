@@ -550,7 +550,7 @@
           {#each picks as p (p.pickId)}
             <li>
               · {p.label}{#if p.targetLabel}: {p.targetLabel}{/if}
-              <span class="picks-cost">({formatDuration(p.actionPointCost)})</span>
+              <span class="picks-cost">({formatDuration(p.timeCost)})</span>
             </li>
           {/each}
         </ul>

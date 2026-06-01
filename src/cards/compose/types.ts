@@ -44,6 +44,7 @@ import type {
   VoiceAxisValue,
 } from '../../sim/content/cast'
 import type { BandId, SignalId } from '../../sim/signals'
+import type { CauseClass } from '../../sim/modules/causes'
 import type { CardView, CardAppliesTo } from '../types'
 
 /**
@@ -91,6 +92,17 @@ export type SnippetCondition =
       minAgeDays?: number
     }
   | { kind: 'repeatCount'; subjectTag: string; atLeast: number }
+  // — Phase 188 / ISSUE-155 — Causal Establishing Line. State-lookup
+  //   over the seed's own `causes: CauseEntry[]`. Classifies the
+  //   dominant negative cause (`pickDominantCause` → `classifyCause` in
+  //   `src/sim/modules/causes/`) and matches it against a closed
+  //   `CauseClass` set, so a body line can name the EVENT the sim
+  //   attributed (a shortage, a filthy room, last night's trouble) and
+  //   not just the cohort's standing. Reads structured truth, stays
+  //   inspectable, and is listed in `STATE_LOOKUP_KINDS` so a
+  //   `sim_backed` cause snippet clears `simCoherence`. Returns false
+  //   when no cause classifies — graceful degradation (framework §5).
+  | { kind: 'dominantCause'; anyOf: readonly CauseClass[] }
   // — Character Depth seam (framework §2.3, §5) —
   //   Forward seam: today no actor carries a `trait: string` field, so
   //   `actorTrait` conditions never match. Kept declared because the

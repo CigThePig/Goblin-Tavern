@@ -1,12 +1,50 @@
 # UI/UX Intuitiveness Arc — Tier 5 continuation
 
-**Status:** open. Phases 121–127.
+**Status:** open. Phases 190–196.
 
-**Slots before:** Tier 4 Progressive Onboarding (ISSUE-060…077, phases 99–116).
+**Slots before:** Tier 4 Progressive Onboarding (planned, not yet started).
 
-**Tracker entries:** ISSUE-081…087 (7 issues).
+**Tracker entries:** ISSUE-157…163 (7 issues).
 
-**Builds on:** Tier 5 UI/UX clarity passes (ISSUE-078/079, phases 117–118) and the More-tab chassis work (ISSUE-080, phase 98).
+**Builds on:** Tier 5 UI/UX clarity passes (ISSUE-078/079, phases 117–118) and
+the More-tab chassis work (ISSUE-080, phase 98). Also lands on top of the
+day-clock **time economy** (phase 186) and the card-layer **legibility arcs**
+(Legible → Faithful → Complete Surface, Choice-Preview Legibility; ~phases
+145–189), which it complements rather than overlaps — see "Revival note".
+
+---
+
+## Revival note (2026-06)
+
+This arc was scoped and written long before the work that now precedes it, then
+**orphaned**: its originally-reserved slots (phases 121–127, ISSUE-081…087) were
+silently reused by unrelated card-layer and character-depth work, and the arc
+was never entered into `docs/ISSUE_TRACKER.md`. It is revived here with fresh
+numbering (phases 190–196, ISSUE-157…163) and three substantive updates from a
+re-audit against the current repo:
+
+1. **Time economy, not action points.** Phase 186 replaced the action-point
+   budget with a **time/minutes** economy (`DAY_MINUTES`, `timeCost`,
+   `formatDuration`). Every "AP" reference in the original draft is now framed
+   as **time remaining / time cost**.
+2. **Phase 191 (pressure stakes) reuses existing sim truth.** The sim already
+   authors per-pressure `consequences: string[]` (surfaced in the daily report
+   as "If ignored: …") and exposes `severity`/`urgency` bands. There is **no
+   hard `70` threshold** in the registry. So this phase **surfaces the existing
+   consequence lines and severity band** on the standing pressure surfaces —
+   it does **not** author a parallel `stakeLines.ts` content file or invent a
+   threshold number.
+3. **Phase 193 (suggested actions) also surfaces owner-action effect previews.**
+   Owner-action definitions already carry an `effectsPreview` the picker never
+   renders, while *card choices* (post-legibility arcs) have rich previews. The
+   asymmetry is the bigger clarity gap, so this phase shows action effects in
+   the picker **and** adds the pressure-affinity suggestion engine.
+
+**Why this is not redundant with the card-layer arcs:** those arcs made
+*card choices* legible (what a choice does, after you decide to engage a card).
+This arc makes the *standing UI* legible and navigable (what matters right now,
+where to tap, what a rising pressure threatens). Orthogonal; mutually
+reinforcing.
 
 ---
 
@@ -26,17 +64,17 @@ The sim is genuinely deep. The arc does not simplify it. It exposes the depth th
 
 ## Sequencing rationale
 
-**Phase 121 (interconnection primitives) lands first** because every later phase consumes them. `EntityLink` and `MetricLink` become the carriers for everything else — stakes lines, suggested actions, drilldown CTAs all hang off them. Building those first means later phases are wiring, not invention.
+**Phase 190 (interconnection primitives) lands first** because every later phase consumes them. `EntityLink` and `MetricLink` become the carriers for everything else — stakes lines, suggested actions, drilldown CTAs all hang off them. Building those first means later phases are wiring, not invention.
 
-**Phase 122 (pressure stakes) lands second** because it is the highest-leverage comprehensibility change available. Players don't fear numbers; they fear consequences. A "Food Safety 67 ↑" tells you nothing without "if this hits 100, the health inspector arrives."
+**Phase 191 (pressure stakes) lands second** because it is the highest-leverage comprehensibility change available. Players don't fear numbers; they fear consequences. A "Food Safety 67 ↑" tells you nothing without the sim's own "if ignored" line beside it.
 
-**Phase 123 (TopBar reframe) is small but visually defining** — the topbar is the one element the player sees on every screen.
+**Phase 192 (TopBar reframe) is small but visually defining** — the topbar is the one element the player sees on every screen.
 
-**Phase 124 (Suggested actions) closes the "what do I do" loop.** With pressures now carrying stakes (phase 122) and entities now linked (phase 121), the picker can surface "this action defuses this pressure" reliably.
+**Phase 193 (action previews + suggestions) closes the "what do I do" loop.** With pressures now carrying their consequence lines (phase 191) and entities now linked (phase 190), the picker can show what each action *does* and surface "this action defuses this pressure" reliably.
 
-**Phase 125 (typography pass) is intentionally late:** doing it earlier would force re-touching every component when the linking work lands. Easier to split the `.tag` class once, after every consumer has settled.
+**Phase 194 (typography pass) is intentionally late:** doing it earlier would force re-touching every component when the linking work lands. Easier to split the `.tag` class once, after every consumer has settled.
 
-**Phase 126 (Reports → Action) and Phase 127 (Day dominance + cleanups) are polish.**
+**Phase 195 (Reports → Action) and Phase 196 (Day dominance + cleanups) are polish.**
 
 This sequence is the recommended execution order. Dependencies between phases are noted per-issue; pieces can be reordered within those constraints if needed.
 
@@ -44,21 +82,27 @@ This sequence is the recommended execution order. Dependencies between phases ar
 
 ## Cross-cutting constraints
 
-**Tier 4 awareness.** Tier 4 Progressive Onboarding (ISSUE-060…077) will gate features behind in-game time. `EntityLink` / `MetricLink` built here must fail gracefully on entities that do not yet exist — render as plain text (no link affordance) rather than throwing. This is the only Tier-4 coupling required; the arc does not implement unlock logic.
+**Time economy, not action points (phase 186).** The day budget is **time in minutes** (`DAY_MINUTES`), spent via per-action `timeCost`, formatted with `formatDuration`. There is no "AP X/3". Wherever this arc surfaces budget or sorts by cost, it uses time.
 
-**Atmosphere lives in copy, not chrome.** The dark/parchment aesthetic, voice lines, and report prose stay untouched. Scan-speed improvements (phase 125) remove decorative type from *functional* chrome only.
+**Tier 4 awareness.** Tier 4 Progressive Onboarding (planned, not started) will gate features behind in-game time. `EntityLink` / `MetricLink` built here must fail gracefully on entities that do not yet exist — render as plain text (no link affordance) rather than throwing. This is the only Tier-4 coupling required; the arc does not implement unlock logic.
 
-**No simulation changes beyond minimal additive extensions.** Most phases are web-layer only. Phase 122 adds a `stakeLine` projection (read-only on existing pressure state). Phase 124 adds an additive `pressureAffinity?` field to `OwnerActionDefinition`. Both follow the project's "additive integration during arcs" rule from `CLAUDE.md`. Phase 122's `stakeLine` data lives in content folders, never invented by cards.
+**Atmosphere lives in copy, not chrome.** The dark/parchment aesthetic, voice lines, and report prose stay untouched. Scan-speed improvements (phase 194) remove decorative type from *functional* chrome only.
+
+**No simulation changes beyond minimal additive extensions.** Most phases are web-layer only.
+- Phase 191 adds **no new content** — it adds a read-only projection over the *existing* per-pressure `consequences` and severity band. No `stakeLines.ts`, no threshold field.
+- Phase 193 adds an additive `pressureAffinity?: PressureId[]` field to `OwnerActionDefinition`, and surfaces the *existing* `effectsPreview` in the picker.
+
+Both follow the project's "additive integration during arcs" rule from `CLAUDE.md`.
 
 **No new dependencies.** Stay on Svelte 5 + existing CSS tokens. New primitives are pure components.
 
 **Tests live under `tests/web/` (web-layer) and `tests/sim/` (sim projection extensions).** Match the existing pattern from phases 119–120.
 
-**The simulation is the source of truth.** Nothing in this arc invents state. Entity references and stake lines all read existing or trivially-projected state. Cards/UI must not contradict known state.
+**The simulation is the source of truth.** Nothing in this arc invents state. Entity references, consequence lines, and severity bands all read existing or trivially-projected state. Cards/UI must not contradict known state.
 
 ---
 
-## Phase 121 / ISSUE-081 — Interconnection primitives
+## Phase 190 / ISSUE-157 — Interconnection primitives
 
 **Goal:** Build `EntityLink` and `MetricLink` so any reference to an entity or number in the UI can be tapped to land on its detail surface, and wire the first round of high-traffic consumers (DayScreen at-a-glance, PressureRibbon, plan rows, pending tags, DailyReport entity names).
 
@@ -69,7 +113,7 @@ This sequence is the recommended execution order. Dependencies between phases ar
 - `EntityLink.svelte` — wraps a reference to an entity. Props: `{ kind: EntityKind, id: string, label: string, variant?: 'inline' | 'chip' }`. On click: routes to the entity's sub-view via `gameStore.setRoute` + a new `target` parameter, opens the relevant detail sheet on mount.
 - `MetricLink.svelte` — wraps a metric value. Props: `{ kind: MetricKind, id?: string, children: Snippet }`. On click: opens `CauseDrilldown` with the appropriate path.
 
-**Entity kinds** (union type locked in a new `web/src/lib/components/links/types.ts`):
+**Entity kinds** (union type locked in a new `web/src/lib/components/links/types.ts`). Every kind below has a confirmed detail sheet under `web/src/lib/components/tavern/` or `world/`:
 
 ```
 type EntityKind =
@@ -85,13 +129,14 @@ type MetricKind = 'coin' | 'pressure' | 'reputation' | 'inventory'
 
 **Routing extension** (`web/src/lib/sim/gameStore.svelte.ts` + `persistence.ts`):
 
+- The store currently exposes `setRoute(r: Route)` plus separate `setTavernSubview` / `setWorldSubview` / `setReportsSubview` setters, and persists `tavernSubview` / `worldSubview` / `reportsSubview`. This phase adds the *target* hop on top of that model.
 - Add transient (non-persisted, session-only) fields `tavernSubviewTarget?: string` and `worldSubviewTarget?: string` to the store. These do not enter the save envelope — keeps the save schema stable.
-- `setRoute(route, opts?)` accepts `{ target?: string, kind?: EntityKind }`. When given, it sets the relevant target and updates the corresponding `*Subview` to the kind's home tab (e.g. `kind: 'staff'` → `tavernSubview = 'staff'`, `tavernSubviewTarget = id`).
+- Extend `setRoute(route, opts?)` to accept `{ target?: string, kind?: EntityKind }`. When given, it sets the relevant target and updates the corresponding sub-view to the kind's home tab (e.g. `kind: 'staff'` → `tavernSubview = 'staff'`, `tavernSubviewTarget = id`). Existing single-arg callers keep working.
 - Tavern/World sub-panels (`StaffPanel`, `RegularsPanel`, `StockPanel`, etc.) read `*SubviewTarget` on mount via `$effect` and call into their existing detail-sheet open path. The target is consumed once (cleared on read) so re-entering the panel later doesn't re-open the sheet.
 
 **Drilldown path extensions** (`web/src/lib/components/CauseDrilldown.svelte`):
 
-The existing path scheme handles `pressures.<id>`. Extend to handle:
+The existing path scheme handles `pressures.<id>` and diff paths like `reputation.<axis>` via `causesForPath`. Extend to handle:
 
 - `coin` — opens a coin-flow drilldown showing today's income / expenses if `latestResult` exists; falls back to current balance only if no day has run yet.
 - `reputation.<axis>` — opens a per-axis drilldown built from `state.reputation.<axis>` history.
@@ -121,7 +166,7 @@ The first two require small projection helpers in `src/reports/` mirroring the e
    - Subject names (`intent.subject`) become `EntityLink`s when the projection resolves them to a concrete entity. Falls back to plain text when subject is a generic noun.
 
 6. **`MonthlyOverview.svelte` and `WeeklyOverview.svelte`:**
-   - Top entity / pressure references become links. Cap this phase's audit to the top-level summary blocks; full coverage can come in phase 126.
+   - Top entity / pressure references become links. Cap this phase's audit to the top-level summary blocks; full coverage can come in phase 195.
 
 ### Visual treatment
 
@@ -141,7 +186,7 @@ The first two require small projection helpers in `src/reports/` mirroring the e
 7. In `DailyReport`, a staff name in a resolved-intent block lands on staff detail on tap.
 8. `EntityLink` with an `id` that does not resolve (e.g. a staff member who left between reports, or a tier-4-gated entity that does not yet exist) renders as plain text — no click, no error, no console warn.
 9. The `*SubviewTarget` is consumed on first read and cleared. Re-entering the same sub-panel via the tab nav does not re-open the previously-targeted sheet.
-10. New Vitest coverage in `tests/web/phase121.interconnection.test.ts` validates: routing target propagation, fallback for missing entities, drilldown path resolution for `coin`, `reputation.<axis>`, `inventory.<itemId>`.
+10. New Vitest coverage in `tests/web/phase190.interconnection.test.ts` validates: routing target propagation, fallback for missing entities, drilldown path resolution for `coin`, `reputation.<axis>`, `inventory.<itemId>`.
 
 ### Do not do
 
@@ -157,67 +202,68 @@ None within this arc.
 
 ---
 
-## Phase 122 / ISSUE-082 — Pressure stakes and danger zones
+## Phase 191 / ISSUE-158 — Pressure stakes and danger zones
 
-**Goal:** Make pressure values mean something. A bar at 67 should communicate (a) where the danger threshold is and (b) what bad outcome the player is racing against.
+**Goal:** Make pressure values mean something on the surfaces the player looks at *during play* (ribbon, card, drilldown), not just in the post-day report. A bar at 67 ↑ should communicate (a) that it's entering a danger band and (b) what bad outcome the player is racing against — using the sim's *own* authored consequence text.
+
+### Audit context (read first)
+
+The sim already does most of the substance here:
+- Every pressure calculator authors `consequences: string[]` on its `PressureSnapshot` (e.g. `debt.ts` → `['Debt collectors arrive']`). These are deterministic by id.
+- `pressureReport.ts` already renders them in the daily report as an "If ignored:" block when severity is high enough.
+- Pressures expose `severity` and `urgency` (0–100) bands. There is **no** hard `70` threshold field in the registry.
+
+So this phase **surfaces existing truth on the standing UI** — it is a web-layer + thin-projection phase, not a content-authoring phase.
 
 ### Scope
 
-**Threshold visualisation** (`web/src/lib/components/PressureCard.svelte`, `PressureRibbon.svelte`):
+**Danger-band visualisation** (`web/src/lib/components/PressureCard.svelte`, `PressureRibbon.svelte`):
 
-- Each pressure has a danger threshold (typically 70, may vary by category). Read from the pressure registry under `src/sim/modules/pressures/`. Expose via the existing projection or a small additive helper — do not refactor the registry.
-- Bar track receives a thin vertical tick mark at the threshold position. Tick uses `var(--risk)` at 50% opacity. 1px wide, full track height.
-- When `value >= threshold`, the bar's fill color crosses to the risk/loss palette. `pressureColor` in `web/src/lib/design/tokens.ts` already maps value → color; verify the breakpoint matches the threshold and adjust if not.
+- The ribbon/card already colour the bar fill via `pressureColor(value)` in `web/src/lib/design/tokens.ts`. Verify (and adjust if needed) that the colour crossover into the risk/loss palette lines up with the sim's severity band boundary rather than an arbitrary value. The band boundary is read from the pressure snapshot's `severity`, not invented here.
+- Where the sim exposes a discrete band boundary that maps to a bar position, render a thin vertical tick at that position (`var(--risk)` at 50% opacity, 1px, full track height). If no single numeric boundary is meaningfully exposed, the colour crossover alone carries the danger signal — do not fabricate a tick at a made-up number.
 
-**Stake-line content** (under `src/sim/content/pressures/stakeLines.ts`, new):
+**Consequence-line projection** (`src/reports/pressureConsequenceLine.ts`, new — thin):
 
-- Each pressure category (or each pressure id — author's call during implementation based on simulation granularity) gets a `stakeLine` field: a short sentence describing what happens at threshold breach. Voice matches existing report prose — terse, declarative, not hectoring.
-- Examples (placeholders; final copy is the author's):
-  - Food Safety: "Past 70, the health inspector takes notice."
-  - Pests: "Past 70, regulars start sitting elsewhere."
-  - Maintenance: "Past 70, something breaks."
-- Stake lines are static content, not RNG-derived. Deterministic by id.
-
-**Projection** (`src/reports/pressureStakeLine.ts`, new):
-
-- `buildPressureStakeLine(pressureId, state): string | undefined`. Pure function. Returns the static line for the pressure or `undefined` if no stake line is authored. Tested in `tests/sim/`.
+- `buildPressureConsequenceLine(pressureId, state): string | undefined`. Pure function. Returns the **top existing `consequences` line** for the pressure (the same data the report's "If ignored" block reads), or `undefined` when the pressure has none or is below the danger band. No new copy is authored here.
+- Tested in `tests/sim/`.
 
 **Top-3 ribbon surface** (`PressureRibbon.svelte`):
 
-- For each of the top-3 rows displayed, if `value >= threshold - 20`, show the stake line as a second line under the row label.
-- If `value < threshold - 20`, no stake line is shown (the row is rising but not yet a concern).
-- Stake lines are not added to the full `PressuresDashboard` — too noisy at 21 rows. Dashboard rows already drill to `CauseDrilldown`, which is the right place for full explanation.
+- For each of the top-3 rows displayed, if the pressure is within / above its danger band (severity-driven), show the consequence line as a second line under the row label.
+- Below the band: no consequence line (the row is rising but not yet a concern).
+- Consequence lines are not added to the full `PressuresDashboard` — too noisy at 21 rows. Dashboard rows already drill to `CauseDrilldown`, which is the right place for full explanation.
 
 **CauseDrilldown extension** (`web/src/lib/components/CauseDrilldown.svelte`):
 
-- Pressure drilldown header includes the stake line in a callout block (subtle border, `--text` color, sized between `.section-label` and body).
+- Pressure drilldown header includes the consequence line(s) in a callout block (subtle border, `--text` colour, sized between `.section-label` and body).
 
 ### Acceptance criteria
 
-1. Every pressure bar shows a threshold tick at the correct value.
-2. Bar fill color crosses to risk/loss palette at and above threshold.
-3. Top-3 pressure ribbon shows a stake line when value is within 20 of threshold.
-4. Pressure drilldown header shows the stake line in a callout when one is authored.
-5. Stake lines are deterministic — same pressure id and state yields same line.
-6. Pressures without authored stake lines fall back to silence — no placeholder, no "stakes unknown."
-7. `tests/sim/phase122.pressureStakes.test.ts` validates stake-line generation across all 21 pressures (authored or silent).
-8. `tests/web/phase122.pressureUI.test.ts` validates threshold tick rendering and stake-line surfacing in the ribbon and drilldown.
+1. Pressure bar fill colour crosses to the risk/loss palette at the sim's severity-band boundary (verified, not invented).
+2. Top-3 pressure ribbon shows the pressure's existing consequence line when the pressure is in/above its danger band.
+3. Pressure drilldown header shows the consequence line(s) in a callout when the sim has authored them.
+4. The displayed lines are exactly the sim's `consequences` data — no parallel copy, no rewording in the web layer.
+5. Output is deterministic — same pressure id and state yields the same line.
+6. Pressures without authored consequences fall back to silence — no placeholder, no "stakes unknown."
+7. `tests/sim/phase191.pressureConsequence.test.ts` validates the projection across all 21 pressures (returns the sim's line or silent, never invents).
+8. `tests/web/phase191.pressureUI.test.ts` validates danger-band colouring and consequence-line surfacing in the ribbon and drilldown.
 
 ### Do not do
 
-- Do not write stake lines for all 21 pressures in one sitting. Cover the 5 core pressures first; expanded categories can take a follow-up. Mark uncovered pressures as silent in the projection rather than producing weak placeholder copy.
-- Do not change pressure threshold values. Thresholds are sim contract; this phase only *exposes* them.
-- Do not add multi-line stake explanations. One sentence per stake. Anything longer goes in `CauseDrilldown`'s existing body.
-- Do not turn stake lines into action recommendations ("you should restock"). The Plan beat (phase 124) owns recommendations.
-- Do not gate stake-line display on day-of-week, day-type, or any other temporal condition. If the value is within threshold-20, the line shows. Predictability matters.
+- Do not author a `stakeLines.ts` (or any parallel content file). The sim already owns consequence text; reuse it. Inventing a second source would violate "the simulation is the source of truth."
+- Do not introduce a hard threshold number (e.g. 70) into the registry or the web layer. Use the sim's existing severity band.
+- Do not change pressure severity/urgency computation. This phase only *exposes* it.
+- Do not add multi-line stake explanations to the ribbon. One line per row; fuller text lives in `CauseDrilldown`.
+- Do not turn consequence lines into action recommendations ("you should restock"). The Plan beat (phase 193) owns recommendations.
+- Do not gate display on day-of-week, day-type, or any other temporal condition. If the pressure is in its danger band, the line shows. Predictability matters.
 
 ### Depends on
 
-Phase 121 (`MetricLink` makes the drilldown navigation easier, though strictly not required for stake-line work itself).
+Phase 190 (`MetricLink` makes the drilldown navigation easier, though strictly not required for the consequence-line work itself).
 
 ---
 
-## Phase 123 / ISSUE-083 — TopBar stakes reframe
+## Phase 192 / ISSUE-159 — TopBar stakes reframe
 
 **Goal:** Convert the topbar from a calendar chronicle to a stakes summary. The one element visible on every screen should carry the player's most actionable context.
 
@@ -225,22 +271,22 @@ Phase 121 (`MetricLink` makes the drilldown navigation easier, though strictly n
 
 **Replace** (`web/src/lib/components/TopBar.svelte`):
 
-Current center content: `Day 1 · Week 1 · Month 1 · Supplier Day`
+Current center content (`TopBar.svelte:10–11`): `Day 1 · Week 1 · Month 1 · <day-type>`
 New center content: `Day 1 · <top pressure or "tavern steady">`
 
 - Top pressure uses the same #1 row from `PressureRibbon`'s logic. Renders as a small `<MetricLink kind="pressure" id={topId}>` chip — e.g. `Food Safety ↑ 67` with the trend icon.
-- When no pressure has `value >= threshold - 20`: render `tavern steady` in `var(--text-dim)` italic.
+- When no pressure is in its danger band: render `tavern steady` in `var(--text-dim)` italic.
 
 Right side:
 
-- Coin chip (already exists) wrapped in `<MetricLink kind="coin">`.
-- From Plan beat onward: also show `AP X/3` — action points remaining in the current day's plan. Renders as a chip that opens `ActionPicker` on tap. Non-interactive in Morning beat (before planning begins). Hidden in Report beat.
+- Coin chip (already exists at `TopBar.svelte:57–61`) wrapped in `<MetricLink kind="coin">`.
+- From Plan beat onward: also show a **time-remaining chip** — the day's remaining minutes (`DAY_MINUTES − minutesQueued`, formatted via `formatDuration`). Renders as a chip that opens `ActionPicker` on tap. Non-interactive in Morning beat (before planning begins). Hidden in Report beat. (This is the time economy from phase 186 — there is no "AP X/3".)
 
 **Calendar peek:**
 
 - The `Day 1` portion becomes a tap target. Tapping opens a small popover showing:
   - Full date string (`Day · Week · Month`).
-  - Day-type label + definition (lifts `TermLabel`'s glossary integration).
+  - Day-type label + definition (lifts `TermLabel`'s glossary integration — the day-type `TermLabel` currently lives inline on the day line).
   - Days until next end-of-week / end-of-month milestone.
 - Popover uses the same `BottomSheet` or a smaller inline popover. Author's choice during implementation; the existing `FirstEncounterHint` popover styling is a reasonable model.
 
@@ -254,10 +300,10 @@ Right side:
 2. Day-type label appears as a badge only when non-normal; omitted otherwise.
 3. Tapping the day chip opens the calendar peek popover.
 4. Top pressure chip is a working `MetricLink` — taps open the pressure's `CauseDrilldown`.
-5. Right side shows coin chip + (in Plan beat onward) AP-remaining chip.
-6. AP chip is interactive in Plan/Service/Closing beats; non-interactive in Morning; hidden in Report.
+5. Right side shows coin chip + (in Plan beat onward) a time-remaining chip.
+6. Time chip is interactive in Plan/Service/Closing beats; non-interactive in Morning; hidden in Report.
 7. Welcome-back pill behaviour (Phase 96) is preserved — still appears below the day line on first morning after reload, still auto-dismisses on 30s timer.
-8. `tests/web/phase123.topbar.test.ts` covers: center content branching, badge visibility, AP chip beat gating, calendar peek opening.
+8. `tests/web/phase192.topbar.test.ts` covers: center content branching, badge visibility, time-chip beat gating, calendar peek opening.
 
 ### Do not do
 
@@ -265,28 +311,41 @@ Right side:
 - Do not surface multiple pressures in the topbar. One is the maximum; this is a summary surface, not a dashboard.
 - Do not animate the pressure chip changing between days. Quiet transitions only — fade if anything.
 - Do not change `TermLabel` behaviour on the day-type badge. Definition popover stays accessible from the calendar peek.
-- Do not show stake lines in the topbar. The topbar is summary; stakes live in the ribbon and drilldown.
+- Do not show consequence lines in the topbar. The topbar is summary; stakes live in the ribbon and drilldown.
+- Do not reintroduce action-point language. The budget is time.
 
 ### Depends on
 
-Phase 121 (`MetricLink` must exist). Phase 122 stake-line work is independent but reads well alongside.
+Phase 190 (`MetricLink` must exist). Phase 191 danger-band work is independent but reads well alongside.
 
 ---
 
-## Phase 124 / ISSUE-084 — Suggested actions in Plan beat
+## Phase 193 / ISSUE-160 — Action effect previews + suggestions in Plan beat
 
-**Goal:** Reframe the Plan beat so the picker has a stance on what matters today. Instead of "here are four tabs of actions, pick three," the player sees a small "Suggested" section that ties their choices to rising pressures and yesterday's losses.
+**Goal:** Two clarity gaps in the Plan beat, addressed together. (a) Owner actions in the picker show only a label, a time cost, and a disabled reason — they never say what the action *does*, even though the definition already carries an `effectsPreview`. (b) The picker has no stance on what matters today. This phase surfaces action effects **and** adds a small "Suggested" section tying choices to rising pressures and yesterday's losses.
 
-### Scope
+### Audit context (read first)
+
+- `OwnerActionDefinition` already carries an `effectsPreview` (and policy rows already surface their `effects` string). The `ActionPicker` renders neither for ordinary action rows — only `label`, `timeCost`, and `disabledReason`. Card *choices* (post-legibility arcs) have rich previews; planning actions do not. Closing that asymmetry is the higher-leverage half of this phase.
+- The day budget is **time** (`DAY_MINUTES`, `timeCost`), not action points.
+
+### Scope — Part A: action effect previews
+
+**Picker rows** (`web/src/lib/components/ActionPicker.svelte`):
+
+- Render the existing `effectsPreview` as a one-line dim caption under each action row's label (mirroring how policy rows already show `effects`). Keep it terse; truncate gracefully if long.
+- No new sim data — read what the definition already provides. Actions with an empty `effectsPreview` simply show no caption.
+
+### Scope — Part B: suggestion engine
 
 **Suggestion engine** (`web/src/lib/sim/suggestActions.ts`, new):
 
 A pure function `suggestActions(state, picks, previousResult?): SuggestedAction[]`. Returns up to 3 suggestions. The first cut uses a simple rule set:
 
-- For each pressure with `value >= threshold - 20`, find owner actions whose `pressureAffinity` includes that pressure id.
+- For each pressure in/above its danger band (severity-driven, same band as phase 191), find owner actions whose `pressureAffinity` includes that pressure id.
 - For each loss-direction line in yesterday's `DailyReportData` (`gameStore.previousResult` if held; otherwise derive from `latestResult`), find actions tagged as remediations for that loss type.
 - Deduplicate (an action already in `picks` is filtered out).
-- Sort by (severity of source pressure desc, then by lowest AP cost asc). Cap at 3.
+- Sort by (severity of source pressure desc, then by lowest **time cost** asc). Cap at 3.
 
 Each suggestion carries `{ action: OwnerActionDefinition, reason: string }` where `reason` is generated from the trigger — `"Food Safety rising"` or `"lost ale to spoilage yesterday"`. Reason is short and literal — no interpretation.
 
@@ -299,37 +358,41 @@ Each suggestion carries `{ action: OwnerActionDefinition, reason: string }` wher
 **Picker surface** (`web/src/lib/components/ActionPicker.svelte`):
 
 - Above the existing tab strip, render a new "Suggested" section when `suggestActions` returns ≥1 result.
-- Each suggested action renders the same way as a normal action row (label, AP cost, disabled reason if any), plus the reason as a one-line dim caption underneath.
+- Each suggested action renders the same way as a normal action row (label, time cost, effect preview from Part A, disabled reason if any), plus the reason as a one-line dim caption.
 - Tapping a suggestion adds it to picks via the existing `addPick` path. Removing it works the same way (chip × button).
 - When all suggestions are taken (filtered out by the dedup rule) or the list is empty, the section collapses entirely — no "no suggestions" placeholder.
 
 ### Acceptance criteria
 
-1. Plan beat opens with picker visibly differentiated — Suggested section appears at top when suggestions exist.
-2. Suggested actions tap-to-add behave identically to normal action rows.
-3. Each suggested action shows a one-line reason ("Food Safety rising" / "lost ale yesterday").
-4. Suggestion list updates reactively as picks are added (suggestions already taken are filtered out).
-5. Suggestion engine is deterministic — same state, picks, and previousResult yields same suggestions.
-6. Untagged actions (no `pressureAffinity`) are never suggested.
-7. `tests/web/phase124.suggestActions.test.ts` validates: rising-pressure trigger, yesterday-loss trigger, cap at 3, dedup against picks, AP-cost tiebreak, deterministic ordering.
-8. `tests/sim/phase124.actionAffinity.test.ts` validates that `pressureAffinity` values are valid pressure ids (cross-reference check, like the existing validation pass).
+1. Every action row in the picker shows its `effectsPreview` as a dim caption when one is authored; rows with none show no caption and no placeholder.
+2. Plan beat opens with picker visibly differentiated — Suggested section appears at top when suggestions exist.
+3. Suggested actions tap-to-add behave identically to normal action rows.
+4. Each suggested action shows a one-line reason ("Food Safety rising" / "lost ale yesterday").
+5. Suggestion list updates reactively as picks are added (suggestions already taken are filtered out).
+6. Suggestion engine is deterministic — same state, picks, and previousResult yields same suggestions.
+7. Untagged actions (no `pressureAffinity`) are never suggested.
+8. Sort tiebreak uses **time cost**, not action points.
+9. `tests/web/phase193.actionPreviewsAndSuggest.test.ts` validates: effect-preview rendering, rising-pressure trigger, yesterday-loss trigger, cap at 3, dedup against picks, time-cost tiebreak, deterministic ordering.
+10. `tests/sim/phase193.actionAffinity.test.ts` validates that `pressureAffinity` values are valid pressure ids (cross-reference check, like the existing validation pass).
 
 ### Do not do
 
+- Do not author new effect-preview copy in the web layer. Surface what the definition already provides.
 - Do not build a "smart" recommender. The rule set is intentionally simple — this is about *framing*, not optimisation. Players who want to ignore suggestions still can; players who want guidance get directional pointers.
-- Do not surface suggestions outside the picker. They are scoped to Plan beat. (Phase 126 will add an "open picker with suggestions visible" link from drilldowns, but the suggestion surface itself stays in the picker.)
+- Do not surface suggestions outside the picker. They are scoped to Plan beat. (Phase 195 will add an "open picker with suggestions visible" link from drilldowns, but the suggestion surface itself stays in the picker.)
 - Do not auto-add suggestions. The player taps.
-- Do not author new copy for the suggestion reason beyond the literal trigger. Keep voice consistent with the existing terse projection style — no "consider doing X" framing.
+- Do not author new copy for the suggestion reason beyond the literal trigger. Keep voice consistent with the existing terse style — no "consider doing X" framing.
 - Do not block on full `pressureAffinity` coverage. Ship with partial coverage; un-tagged actions are fine.
-- Do not retroactively change the action point budget or category structure. The existing 4-tab picker stays as is below the Suggested section.
+- Do not retroactively change the time budget or category structure. The existing 4-tab picker stays as is below the Suggested section.
+- Do not reintroduce action-point language anywhere in this phase.
 
 ### Depends on
 
-Phase 121 (no hard dependency, but the picker rows will benefit from `EntityLink` on action targets). Phase 122 stake lines amplify why suggestions matter but aren't required.
+Phase 190 (no hard dependency, but the picker rows will benefit from `EntityLink` on action targets). Phase 191's danger band defines the suggestion trigger, so land 191 first.
 
 ---
 
-## Phase 125 / ISSUE-085 — Typography scan-speed pass
+## Phase 194 / ISSUE-161 — Typography scan-speed pass
 
 **Goal:** Stop letting decorative type carry functional load. Split the overloaded `.tag` class so high-frequency chrome parses fast and decorative atmosphere stays where it belongs.
 
@@ -354,10 +417,11 @@ New classes:
 
 ### Migration
 
-Audit every `class="tag"` (and `class:tag` and template-literal usages) across `web/src/`. Replace with the appropriate new class. Likely candidates (non-exhaustive — full audit during implementation):
+Audit every `class="tag"` (and `class:tag` and template-literal usages) across `web/src/` (~15 files currently). Replace with the appropriate new class. Likely candidates (non-exhaustive — full audit during implementation):
 
 - Sub-nav buttons in `ReportsScreen`, `TavernScreen`, `WorldScreen` → `.chip`
 - Pending tags in `DayScreen` → `.chip`
+- `ActionPicker` tab strip + targeting hints + `unspent`/`empty` lines → `.chip` / `.section-label` as appropriate
 - "Set" / "Pick" plan row metadata → `.chip`
 - Block labels (`<h2 class="block-label tag">`) → `<h2 class="block-label section-label">`
 - Policy state on/off pills in `ActionPicker` → `.badge`
@@ -367,7 +431,7 @@ Audit every `class="tag"` (and `class:tag` and template-literal usages) across `
 
 `TermLabel` currently inherits surrounding type styling and adds a dotted underline for definability. After migration, audit `TermLabel` in each new context:
 
-- Its dotted underline must remain distinguishable from `EntityLink`'s hover-only border-bottom (phase 121).
+- Its dotted underline must remain distinguishable from `EntityLink`'s hover-only border-bottom (phase 190).
 - Document the visual contract in a comment in `global.css`: `TermLabel` = static dotted underline = "what does this mean?"; `EntityLink` = hover-only border-bottom = "take me there."
 
 ### Acceptance criteria
@@ -376,7 +440,7 @@ Audit every `class="tag"` (and `class:tag` and template-literal usages) across `
 2. Functional chrome (nav, chips, badges, status) uses one of the new classes — no `font-variant: small-caps` on tappable text smaller than 14px.
 3. All previously-tagged elements pass a manual contrast check at ≥4.5:1 against background.
 4. Existing web tests still pass — visual classes are decorative, so DOM remains stable except for class names. Queries that select on `.tag` need to be audited and updated.
-5. `tests/web/phase125.typography.test.ts` validates that key components emit the new class names (regression guard against re-introducing `.tag` in functional chrome).
+5. `tests/web/phase194.typography.test.ts` validates that key components emit the new class names (regression guard against re-introducing `.tag` in functional chrome).
 6. Manual screenshot review across all 5 tabs + 5 beats: the app reads as the same product, slightly cleaner. No "looks like a different app" regression.
 
 ### Do not do
@@ -390,11 +454,11 @@ Audit every `class="tag"` (and `class:tag` and template-literal usages) across `
 
 ### Depends on
 
-Phases 121, 122, 123, 124 — typography work lands after the consumers have settled so the migration touches each component once.
+Phases 190, 191, 192, 193 — typography work lands after the consumers have settled so the migration touches each component once.
 
 ---
 
-## Phase 126 / ISSUE-086 — Reports → Action conversion
+## Phase 195 / ISSUE-162 — Reports → Action conversion
 
 **Goal:** Close the loop from insight to action. Every report surface should make it possible to *do something* about what it's showing.
 
@@ -411,13 +475,13 @@ Phases 121, 122, 123, 124 — typography work lands after the consumers have set
 
 **Yesterday Digest promotion** (`web/src/lib/components/YesterdayDigest.svelte` + `web/src/lib/screens/DayScreen.svelte`):
 
-- Currently shown after the at-a-glance row on morning. **Move it above** the at-a-glance row. Yesterday's outcome is more decision-relevant than today's static counts.
+- Currently shown after the at-a-glance row on morning. **Move it above** the at-a-glance row. Yesterday's outcome is more decision-relevant than today's static counts. (The digest already has a tap-through to Reports; preserve it.)
 - Add an optional "Today's watch" second block beneath the digest: one line derived from yesterday's pressure deltas (e.g. "Pests rose 8 — keep an eye on it"). Pure projection from `previousCalendar` + current pressure state. Voice matches existing terse style.
 - When no notable delta, the second block is omitted entirely.
 
 **Monthly / Weekly Overview navigation** (`web/src/lib/components/MonthlyOverview.svelte`, `WeeklyOverview.svelte`):
 
-- Phase 121 covered top-level entity/pressure references. This phase audits every remaining line item — entity names, pressure references, axis labels — and wraps them in `EntityLink` / `MetricLink`.
+- Phase 190 covered top-level entity/pressure references. This phase audits every remaining line item — entity names, pressure references, axis labels — and wraps them in `EntityLink` / `MetricLink`.
 - The existing `onnavigatepressures` callback path stays as-is.
 
 **MissedOpportunities** (`web/src/lib/components/MissedOpportunities.svelte`):
@@ -429,10 +493,10 @@ Phases 121, 122, 123, 124 — typography work lands after the consumers have set
 1. Pressure drilldown shows a "Plan an action against this" CTA that opens `ActionPicker` with appropriate context (suggested section visible, relevant tab preselected).
 2. Yesterday Digest renders **above** the at-a-glance row on morning beat.
 3. Yesterday Digest carries an optional "Today's watch" line when yesterday's pressure deltas surface a relevant cue. Omitted otherwise.
-4. Monthly / Weekly Overview entity and pressure references are tappable via phase 121 primitives — full audit, not just top-level.
+4. Monthly / Weekly Overview entity and pressure references are tappable via phase 190 primitives — full audit, not just top-level.
 5. Missed-opportunity entries link to the named entity.
 6. Drilldown CTAs that have no mapped action category are omitted, not shown as disabled.
-7. `tests/web/phase126.reportsActions.test.ts` validates CTA wiring, Yesterday Digest reordering, "Today's watch" branching, and entity-link coverage in Monthly/Weekly.
+7. `tests/web/phase195.reportsActions.test.ts` validates CTA wiring, Yesterday Digest reordering, "Today's watch" branching, and entity-link coverage in Monthly/Weekly.
 
 ### Do not do
 
@@ -444,11 +508,11 @@ Phases 121, 122, 123, 124 — typography work lands after the consumers have set
 
 ### Depends on
 
-Phase 121, Phase 124.
+Phase 190, Phase 193.
 
 ---
 
-## Phase 127 / ISSUE-087 — Day dominance and cleanups
+## Phase 196 / ISSUE-163 — Day dominance and cleanups
 
 **Goal:** Final visual hierarchy pass. Day is where the game advances; the other tabs are reference. The nav should communicate that. Catch any drift from the prior phases.
 
@@ -457,38 +521,38 @@ Phase 121, Phase 124.
 **Day icon emphasis** (`web/src/lib/components/BottomNav.svelte`):
 
 - Day icon: always rendered in `--accent` color (faded when not active, full when active). Other tabs stay in `--text-faint` when inactive, `--accent` when active.
-- When the current beat has unresolved seeds or queued picks that won't auto-advance (i.e. the player has work to do in Day that they've navigated away from), render a small dot indicator on the Day icon.
+- When the current beat has unresolved seeds or queued picks that won't auto-advance (i.e. the player has work to do in Day that they've navigated away from), render a small dot indicator on the Day icon. Note: picks are now a cross-screen queue (Tavern panels enqueue actions via `gameStore.picks`), so "unresolved work in Day" is a genuine, common state — the indicator earns its place.
 
 **Quick Day promotion** (`web/src/lib/screens/DayScreen.svelte`):
 
-- Current `.quick-day` class uses italic + `--text-dim` — visually a footnote. Promote to peer styling with the primary "Plan the day" button when Quick Day is available. Player should see two real options, not one option and a hint.
+- `runQuickDay` is offered only when Segment A produced zero morning seeds (`quickDayEligible`). When it *is* available, promote its affordance to peer styling with the primary "Plan the day" button instead of an italic `--text-dim` footnote — so the player sees two real options, not one option and a hint. (Leave the eligibility rule unchanged; this is styling only.)
 
 **Plan beat back-to-morning verification:**
 
-- The existing `← back` from Plan returns to Morning. Verify pressure ribbon, at-a-glance, and Yesterday Digest restore correctly after the phase 126 reorder. No new work expected — sanity check only.
+- The existing `← back` from Plan returns to Morning. Verify pressure ribbon, at-a-glance, and Yesterday Digest restore correctly after the phase 195 reorder. No new work expected — sanity check only.
 
 **Final visual audit:**
 
-Walk through every beat and every tab once with phases 121–126 in place. Catch any chips, badges, or labels that drifted during the migration. Resolve. This is the cleanup-and-commit pass.
+Walk through every beat and every tab once with phases 190–195 in place. Catch any chips, badges, or labels that drifted during the migration. Resolve. This is the cleanup-and-commit pass.
 
 ### Acceptance criteria
 
 1. Day icon tinted with `--accent` (faded when inactive) in `BottomNav` always.
 2. Day icon shows a dot indicator when there are unresolved seeds or queued picks at start of day (after navigating away and back).
-3. Quick Day button styling reads as a peer to "Plan the day," not a footnote.
+3. Quick Day affordance reads as a peer to "Plan the day," not a footnote, when it is available.
 4. Manual screenshot review across all 5 tabs + 5 beats catches no regression from prior phases.
-5. `tests/web/phase127.dayNav.test.ts` covers the Day icon emphasis and dot indicator rendering.
+5. `tests/web/phase196.dayNav.test.ts` covers the Day icon emphasis and dot indicator rendering.
 
 ### Do not do
 
 - Do not collapse Tavern + World into one tab. Out of scope for this arc. (Worth reconsidering after Tier 4 onboarding lands and we can see how progressive unlocks affect navigation density.)
 - Do not change `BottomNav` from 5 tabs. Numbers stay the same; visual weight changes.
 - Do not redesign tab icons themselves.
-- Do not introduce new beat states or change the 5-beat day loop.
+- Do not introduce new beat states or change the day loop.
 
 ### Depends on
 
-All prior phases (121–126).
+All prior phases (190–195).
 
 ---
 
@@ -497,10 +561,10 @@ All prior phases (121–126).
 The following came up during design and are explicitly deferred:
 
 - **Tavern + World tab consolidation.** Conceptually appealing but risky to ship before Tier 4 onboarding, which will affect how those surfaces feel under progressive unlock. Re-evaluate after Tier 4 lands.
-- **Cross-day undo of card resolutions.** Phase 121 allows revising a pending choice before End Day; cross-day undo is a separate concern and would touch the sim.
+- **Cross-day undo of card resolutions.** Phase 190 allows revising a pending choice before End Day; cross-day undo is a separate concern and would touch the sim.
 - **Full "back" history stack for sheets.** Tier 4 onboarding may need this; out of scope here.
 - **Animated transitions between linked surfaces.** Stick with the existing motion tokens. No bespoke route animations.
-- **Recommender intelligence in suggested actions.** Phase 124 uses a simple rule set on purpose. Smarter suggestion would need its own design pass.
+- **Recommender intelligence in suggested actions.** Phase 193 uses a simple rule set on purpose. Smarter suggestion would need its own design pass.
 - **Long-press affordances on EntityLink / MetricLink (e.g. "preview without navigating").** Tempting; defer until Tier 4 informs the unlock model.
 - **Tutorial / "did you know" callouts.** Tier 4 owns onboarding surfaces.
 
@@ -508,43 +572,42 @@ The following came up during design and are explicitly deferred:
 
 ## Test approach summary
 
-- Sim-side additions (phase 122 stake-line projection, phase 124 affinity field + validation) get coverage in `tests/sim/phase{NNN}.*.test.ts` matching the existing pattern.
+- Sim-side additions (phase 191 consequence-line projection, phase 193 affinity field + validation) get coverage in `tests/sim/phase{NNN}.*.test.ts` matching the existing pattern.
 - Web-side changes get coverage in `tests/web/phase{NNN}.*.test.ts` mirroring the phase 119–120 pattern (full-render with the existing test harness, derived-state assertions).
 - Each phase ships its own test file; no cross-phase shared fixtures beyond what already exists in `tests/web/`.
 - Visual regression is manual via the dev server. No automated visual diff in this arc.
-- Save-envelope schema must not change across the arc. Phase 121's `*SubviewTarget` is transient; no migration required.
+- Save-envelope schema must not change across the arc. Phase 190's `*SubviewTarget` is transient; no migration required.
 
 ---
 
 ## Tracker update
 
-Add to `docs/ISSUE_TRACKER.md` under Tier 5 (UI/UX clarity), continuing after ISSUE-078/079:
+Add to `docs/ISSUE_TRACKER.md` under Tier 5 (UI/UX clarity), as a revived arc:
 
 ```
-ISSUE-081 — Interconnection primitives (EntityLink, MetricLink).
-  Status: open. Phase: 121. Depends on: —.
-ISSUE-082 — Pressure stakes and danger zones.
-  Status: open. Phase: 122. Depends on: ISSUE-081.
-ISSUE-083 — TopBar stakes reframe.
-  Status: open. Phase: 123. Depends on: ISSUE-081, ISSUE-082.
-ISSUE-084 — Suggested actions in Plan beat.
-  Status: open. Phase: 124. Depends on: ISSUE-081.
-ISSUE-085 — Typography scan-speed pass.
-  Status: open. Phase: 125. Depends on: ISSUE-081, ISSUE-082, ISSUE-083, ISSUE-084.
-ISSUE-086 — Reports → Action conversion.
-  Status: open. Phase: 126. Depends on: ISSUE-081, ISSUE-084.
-ISSUE-087 — Day dominance and cleanups.
-  Status: open. Phase: 127. Depends on: ISSUE-081, ISSUE-082, ISSUE-083, ISSUE-084, ISSUE-085, ISSUE-086.
+ISSUE-157 — Interconnection primitives (EntityLink, MetricLink).
+  Status: open. Phase: 190. Depends on: —.
+ISSUE-158 — Pressure stakes and danger zones (reuse sim consequences + severity band).
+  Status: open. Phase: 191. Depends on: ISSUE-157.
+ISSUE-159 — TopBar stakes reframe (time economy, not action points).
+  Status: open. Phase: 192. Depends on: ISSUE-157, ISSUE-158.
+ISSUE-160 — Action effect previews + suggestions in Plan beat.
+  Status: open. Phase: 193. Depends on: ISSUE-157, ISSUE-158.
+ISSUE-161 — Typography scan-speed pass.
+  Status: open. Phase: 194. Depends on: ISSUE-157, ISSUE-158, ISSUE-159, ISSUE-160.
+ISSUE-162 — Reports → Action conversion.
+  Status: open. Phase: 195. Depends on: ISSUE-157, ISSUE-160.
+ISSUE-163 — Day dominance and cleanups.
+  Status: open. Phase: 196. Depends on: ISSUE-157, ISSUE-158, ISSUE-159, ISSUE-160, ISSUE-161, ISSUE-162.
 ```
-
-Update the issue-count line in `CLAUDE.md` from "79 issues across 5 tiers" to "86 issues across 5 tiers" when this arc is ready to start.
 
 ---
 
 ## Notes for Claude Code
 
 - This arc is web-layer first. Most phases require only `web/src/` changes plus matching `tests/web/`.
-- Phase 122 (`stakeLines.ts` under `src/sim/content/`) and Phase 124 (`pressureAffinity` field on action defs) are the only additive sim changes. Both are read-only metadata, no engine logic, no state-shape changes, no save-schema impact.
-- Per the project's per-issue workflow: each phase should produce a matching `docs/plans/phase-{121–127}-{slug}.md` plan file when work begins. This design contract is the parent; per-phase plans implement against it.
-- The arc is intentionally executable before Tier 4 lands. Tier 4 awareness is limited to the graceful-fallback rule in phase 121 — entities that don't resolve render as plain text.
-- If at any point during implementation Claude Code finds that a phase's acceptance criterion conflicts with an existing locked contract (`phase-01-simulation-contract.md`, `phase-21-expansion-contract.md`, `cards-contract.md`, etc.), stop and surface the conflict before continuing. The locked contracts win.
+- Phase 191 (consequence-line projection over existing `consequences`) and Phase 193 (`pressureAffinity` field on action defs + surfacing existing `effectsPreview`) are the only sim-touching phases. Both are read-only metadata / thin projections, no engine logic, no state-shape changes, no save-schema impact.
+- The budget is **time** throughout (phase 186). There is no action-point concept; do not reintroduce one.
+- Per the project's per-issue workflow: each phase should produce a matching `docs/plans/phase-{190–196}-{slug}.md` plan file when work begins. This design contract is the parent; per-phase plans implement against it.
+- The arc is intentionally executable before Tier 4 lands. Tier 4 awareness is limited to the graceful-fallback rule in phase 190 — entities that don't resolve render as plain text.
+- If at any point during implementation a phase's acceptance criterion conflicts with an existing locked contract (`phase-01-simulation-contract.md`, `phase-21-expansion-contract.md`, `cards-contract.md`, etc.), stop and surface the conflict before continuing. The locked contracts win.

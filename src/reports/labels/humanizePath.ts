@@ -41,6 +41,11 @@ export function humanizePath(path: string): string {
     return `${idLabel('reputation', segments[1]!)} reputation`
   }
 
+  // Phase 190a / ISSUE-157a — `inventory.<itemId>` MetricLink alias.
+  if (segments.length === 2 && segments[0] === 'inventory') {
+    return `${idLabel('stock', segments[1]!)} stock`
+  }
+
   if (segments.length === 3 && segments[0] === 'stock') {
     const id = segments[1]!
     const field = segments[2]!

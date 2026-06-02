@@ -35,6 +35,14 @@ export function pathToCauseTarget(path: string): string {
     const stockId = rest.split('.')[0] ?? rest
     return `stock:${stockId}`
   }
+  if (path.startsWith('inventory.')) {
+    // Phase 190a / ISSUE-157a — `inventory.<itemId>` is the MetricLink
+    // alias for a stock item; it resolves to the same `stock:<id>` cause
+    // target the StockDetailSheet reads.
+    const rest = path.slice('inventory.'.length)
+    const stockId = rest.split('.')[0] ?? rest
+    return `stock:${stockId}`
+  }
   if (path.startsWith('staff.')) {
     const rest = path.slice('staff.'.length)
     const staffId = rest.split('.')[0] ?? rest
@@ -83,6 +91,35 @@ export function causesForPressure(
   opts: CauseLookupOptions = {},
 ): CauseEntry[] {
   return causesForPath(state, `pressures.${pressureId}`, opts)
+}
+
+/**
+ * Phase 190a / ISSUE-157a — thin metric-cause helpers that mirror
+ * `causesForPressure`, so `MetricLink` call sites don't re-encode the
+ * path convention. Each is a one-liner over `causesForPath`; they make
+ * the drilldown-path surface explicit and independently testable.
+ */
+export function causesForCoin(
+  state: TavernState,
+  opts: CauseLookupOptions = {},
+): CauseEntry[] {
+  return causesForPath(state, 'coin', opts)
+}
+
+export function causesForReputationAxis(
+  state: TavernState,
+  axis: string,
+  opts: CauseLookupOptions = {},
+): CauseEntry[] {
+  return causesForPath(state, `reputation.${axis}`, opts)
+}
+
+export function causesForInventory(
+  state: TavernState,
+  itemId: string,
+  opts: CauseLookupOptions = {},
+): CauseEntry[] {
+  return causesForPath(state, `inventory.${itemId}`, opts)
 }
 
 /**

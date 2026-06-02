@@ -1,10 +1,13 @@
 # UI/UX Intuitiveness Arc — Tier 5 continuation
 
-**Status:** open. Phases 190–196.
+**Status:** open. Phases 190–196 (190 split into 190a + 190b).
 
 **Slots before:** Tier 4 Progressive Onboarding (planned, not yet started).
 
-**Tracker entries:** ISSUE-157…163 (7 issues).
+**Tracker entries:** ISSUE-157…163 (7 issues). ISSUE-157 (phase 190) is
+split into **ISSUE-157a** (phase 190a — primitives + routing + drilldown
+paths) and **ISSUE-157b** (phase 190b — consumer wiring); the two share the
+one issue id so the arc keeps seven entries. 191–196 keep ISSUE-158…163.
 
 **Builds on:** Tier 5 UI/UX clarity passes (ISSUE-078/079, phases 117–118) and
 the More-tab chassis work (ISSUE-080, phase 98). Also lands on top of the
@@ -64,7 +67,7 @@ The sim is genuinely deep. The arc does not simplify it. It exposes the depth th
 
 ## Sequencing rationale
 
-**Phase 190 (interconnection primitives) lands first** because every later phase consumes them. `EntityLink` and `MetricLink` become the carriers for everything else — stakes lines, suggested actions, drilldown CTAs all hang off them. Building those first means later phases are wiring, not invention.
+**Phase 190 (interconnection primitives) lands first** because every later phase consumes them. `EntityLink` and `MetricLink` become the carriers for everything else — stakes lines, suggested actions, drilldown CTAs all hang off them. Building those first means later phases are wiring, not invention. Phase 190 itself is split: **190a** builds the primitives, the routing-target mechanism, and the drilldown-path extensions (pure infrastructure, independently testable); **190b** wires the first round of high-traffic consumers onto them. 190a must land before 190b, and both before 191+.
 
 **Phase 191 (pressure stakes) lands second** because it is the highest-leverage comprehensibility change available. Players don't fear numbers; they fear consequences. A "Food Safety 67 ↑" tells you nothing without the sim's own "if ignored" line beside it.
 
@@ -102,16 +105,16 @@ Both follow the project's "additive integration during arcs" rule from `CLAUDE.m
 
 ---
 
-## Phase 190 / ISSUE-157 — Interconnection primitives
+## Phase 190a / ISSUE-157a — Interconnection primitives + routing + drilldown paths
 
-**Goal:** Build `EntityLink` and `MetricLink` so any reference to an entity or number in the UI can be tapped to land on its detail surface, and wire the first round of high-traffic consumers (DayScreen at-a-glance, PressureRibbon, plan rows, pending tags, DailyReport entity names).
+**Goal:** Build `EntityLink` and `MetricLink` so any reference to an entity or number in the UI *can* be tapped to land on its detail surface — plus the routing-target mechanism and drilldown-path extensions they need. This phase ships the infrastructure and its tests; the high-traffic consumer call sites are wired in phase 190b. Building the carriers first means 190b (and 191+) are wiring, not invention.
 
-### Scope
+### Scope (190a)
 
 **New components** under `web/src/lib/components/links/`:
 
 - `EntityLink.svelte` — wraps a reference to an entity. Props: `{ kind: EntityKind, id: string, label: string, variant?: 'inline' | 'chip' }`. On click: routes to the entity's sub-view via `gameStore.setRoute` + a new `target` parameter, opens the relevant detail sheet on mount.
-- `MetricLink.svelte` — wraps a metric value. Props: `{ kind: MetricKind, id?: string, children: Snippet }`. On click: opens `CauseDrilldown` with the appropriate path.
+- `MetricLink.svelte` — wraps a metric value. Props: `{ kind: MetricKind, id?: string, children: Snippet }`. On click: opens `CauseDrilldown` with the appropriate path, via a tiny global `drilldownStore` (mirrors `glossaryStore`) so a `MetricLink` anywhere in the tree can open a drilldown without prop-drilling. A single app-root `CauseDrilldown` binds against the store (mounted in `App.svelte` alongside `Glossary`). Screens that already own a local `CauseDrilldown` (DailyReport, ReportsScreen) keep theirs.
 
 **Entity kinds** (union type locked in a new `web/src/lib/components/links/types.ts`). Every kind below has a confirmed detail sheet under `web/src/lib/components/tavern/` or `world/`:
 
@@ -144,6 +147,41 @@ The existing path scheme handles `pressures.<id>` and diff paths like `reputatio
 
 The first two require small projection helpers in `src/reports/` mirroring the existing pressure-cause pattern. `inventory` reuses existing wiring.
 
+### Visual treatment (190a)
+
+- Default state: indistinguishable from surrounding text (no static underline, no color shift).
+- Hover / focus: `border-bottom: 1px dotted color-mix(in srgb, var(--accent) 35%, transparent)`. Subtle.
+- Touch devices: no hover state; affordance is taught by behaviour, not chrome.
+- Must NOT use the same hover treatment as `TermLabel`. Players need to distinguish "what does this mean?" (definition) from "take me there" (navigation). `TermLabel` currently uses a static dotted underline at all times; `EntityLink` uses a hover-only border-bottom in a slightly different color/opacity. Document both treatments side-by-side as comments in `web/src/lib/design/global.css`.
+
+### Acceptance criteria (190a)
+
+1. `EntityLink` and `MetricLink` render in isolation without throwing and without adding resting chrome (no underline until hover/focus).
+2. `gameStore.setRoute(route, { target, kind })` routes to the kind's home sub-view and stashes the target; existing single-arg callers (`setRoute('day')`) are unchanged and leave targets untouched.
+3. `EntityLink` with an `id` that does not resolve (a staff member who left between reports, or a tier-4-gated entity that does not yet exist) renders as plain text — no click, no error, no console warn. An empty id stays a valid navigation link (home tab, no auto-open).
+4. The `*SubviewTarget` is consumed on first read and cleared (consume-once), so a later re-entry finds it gone.
+5. `MetricLink` opens the global `CauseDrilldown` at the metric's path on tap; an id-bearing kind given no id renders plain (non-interactive) content.
+6. Drilldown path resolution works for `coin`, `reputation.<axis>`, and `inventory.<itemId>` (the last aliasing to the `stock:<id>` cause target).
+7. New Vitest coverage in `tests/web/phase190a.interconnection.test.ts` validates: routing target propagation, consume-once, fallback for missing entities, drilldown-path resolution, and MetricLink opening the drilldown.
+
+### Do not do (190a + 190b)
+
+- Do not add a generic "?" or info icon next to linked items. The whole word/value is the affordance.
+- Do not auto-link arbitrary prose in voice lines, report copy, or empty-state strings. Linking is for *structured* entity references that come from the projection as `{id, label}` pairs. Free-form prose stays prose.
+- Do not implement Tavern + World tab consolidation. Out of scope for this arc.
+- Do not add a "back to where I came from" history stack. Tier 4 may want this; for now the bottom nav is the back affordance.
+- Do not persist `*SubviewTarget` to the save envelope. It is a transient routing hint, not state.
+
+### Depends on (190a)
+
+None within this arc.
+
+---
+
+## Phase 190b / ISSUE-157b — Consumer wiring
+
+**Goal:** Wire the first round of high-traffic consumers onto the 190a primitives. Pure consumer work — no new infrastructure; every call site below uses `EntityLink` / `MetricLink` / `gameStore.setRoute` and the destination panels consume the transient sub-view target on mount.
+
 ### Wiring (consumers covered in this phase)
 
 1. **`DayScreen.svelte` morning at-a-glance row:**
@@ -168,14 +206,9 @@ The first two require small projection helpers in `src/reports/` mirroring the e
 6. **`MonthlyOverview.svelte` and `WeeklyOverview.svelte`:**
    - Top entity / pressure references become links. Cap this phase's audit to the top-level summary blocks; full coverage can come in phase 195.
 
-### Visual treatment
+**Panel-side target consumption:** the Tavern/World sub-panels (`StaffPanel`, `StockPanel`, `RegularsPanel`, …) read the relevant `gameStore.consume*SubviewTarget()` on mount via `$effect` and call into their existing detail-sheet open path. The target is consumed once so re-entering the panel later does not re-open the sheet.
 
-- Default state: indistinguishable from surrounding text (no static underline, no color shift).
-- Hover / focus: `border-bottom: 1px dotted color-mix(in srgb, var(--accent) 35%, transparent)`. Subtle.
-- Touch devices: no hover state; affordance is taught by behaviour, not chrome.
-- Must NOT use the same hover treatment as `TermLabel`. Players need to distinguish "what does this mean?" (definition) from "take me there" (navigation). `TermLabel` currently uses a static dotted underline at all times; `EntityLink` uses a hover-only border-bottom in a slightly different color/opacity. Document both treatments side-by-side as comments in `web/src/lib/design/global.css`.
-
-### Acceptance criteria
+### Acceptance criteria (190b)
 
 1. `EntityLink` and `MetricLink` render in all consumer locations without changing visible layout.
 2. Tapping "3 staff" on DayScreen morning lands on `Tavern → Staff` with the panel scrolled to top (no auto-open since no specific target id was given).
@@ -184,21 +217,16 @@ The first two require small projection helpers in `src/reports/` mirroring the e
 5. Tapping the "100" coin in DayScreen at-a-glance opens `CauseDrilldown` at `coin` path.
 6. Tapping a pending "noted: <verb>" tag re-opens the original card choice for revision (the choice is uncommitted until End Day).
 7. In `DailyReport`, a staff name in a resolved-intent block lands on staff detail on tap.
-8. `EntityLink` with an `id` that does not resolve (e.g. a staff member who left between reports, or a tier-4-gated entity that does not yet exist) renders as plain text — no click, no error, no console warn.
-9. The `*SubviewTarget` is consumed on first read and cleared. Re-entering the same sub-panel via the tab nav does not re-open the previously-targeted sheet.
-10. New Vitest coverage in `tests/web/phase190.interconnection.test.ts` validates: routing target propagation, fallback for missing entities, drilldown path resolution for `coin`, `reputation.<axis>`, `inventory.<itemId>`.
+8. Re-entering the same sub-panel via the tab nav does not re-open the previously-targeted sheet (the 190a consume-once, observed end-to-end).
+9. New Vitest coverage in `tests/web/phase190b.consumerWiring.test.ts` validates the consumer call sites and the panel-side target consumption.
 
-### Do not do
+### Do not do (190b)
 
-- Do not add a generic "?" or info icon next to linked items. The whole word/value is the affordance.
-- Do not auto-link arbitrary prose in voice lines, report copy, or empty-state strings. Linking is for *structured* entity references that come from the projection as `{id, label}` pairs. Free-form prose stays prose.
-- Do not implement Tavern + World tab consolidation. Out of scope for this arc.
-- Do not add a "back to where I came from" history stack. Tier 4 may want this; for now the bottom nav is the back affordance.
-- Do not persist `*SubviewTarget` to the save envelope. It is a transient routing hint, not state.
+See "Do not do (190a + 190b)" above.
 
-### Depends on
+### Depends on (190b)
 
-None within this arc.
+Phase 190a (ISSUE-157a).
 
 ---
 
@@ -259,7 +287,7 @@ So this phase **surfaces existing truth on the standing UI** — it is a web-lay
 
 ### Depends on
 
-Phase 190 (`MetricLink` makes the drilldown navigation easier, though strictly not required for the consequence-line work itself).
+Phase 190a (`MetricLink` makes the drilldown navigation easier, though strictly not required for the consequence-line work itself).
 
 ---
 
@@ -316,7 +344,7 @@ Right side:
 
 ### Depends on
 
-Phase 190 (`MetricLink` must exist). Phase 191 danger-band work is independent but reads well alongside.
+Phase 190a (`MetricLink` must exist). Phase 191 danger-band work is independent but reads well alongside.
 
 ---
 
@@ -388,7 +416,7 @@ Each suggestion carries `{ action: OwnerActionDefinition, reason: string }` wher
 
 ### Depends on
 
-Phase 190 (no hard dependency, but the picker rows will benefit from `EntityLink` on action targets). Phase 191's danger band defines the suggestion trigger, so land 191 first.
+Phase 190a (no hard dependency, but the picker rows will benefit from `EntityLink` on action targets). Phase 191's danger band defines the suggestion trigger, so land 191 first.
 
 ---
 
@@ -481,7 +509,7 @@ Phases 190, 191, 192, 193 — typography work lands after the consumers have set
 
 **Monthly / Weekly Overview navigation** (`web/src/lib/components/MonthlyOverview.svelte`, `WeeklyOverview.svelte`):
 
-- Phase 190 covered top-level entity/pressure references. This phase audits every remaining line item — entity names, pressure references, axis labels — and wraps them in `EntityLink` / `MetricLink`.
+- Phase 190b covered top-level entity/pressure references. This phase audits every remaining line item — entity names, pressure references, axis labels — and wraps them in `EntityLink` / `MetricLink`.
 - The existing `onnavigatepressures` callback path stays as-is.
 
 **MissedOpportunities** (`web/src/lib/components/MissedOpportunities.svelte`):
@@ -508,7 +536,7 @@ Phases 190, 191, 192, 193 — typography work lands after the consumers have set
 
 ### Depends on
 
-Phase 190, Phase 193.
+Phase 190a, Phase 193.
 
 ---
 
@@ -608,6 +636,6 @@ ISSUE-163 — Day dominance and cleanups.
 - This arc is web-layer first. Most phases require only `web/src/` changes plus matching `tests/web/`.
 - Phase 191 (consequence-line projection over existing `consequences`) and Phase 193 (`pressureAffinity` field on action defs + surfacing existing `effectsPreview`) are the only sim-touching phases. Both are read-only metadata / thin projections, no engine logic, no state-shape changes, no save-schema impact.
 - The budget is **time** throughout (phase 186). There is no action-point concept; do not reintroduce one.
-- Per the project's per-issue workflow: each phase should produce a matching `docs/plans/phase-{190–196}-{slug}.md` plan file when work begins. This design contract is the parent; per-phase plans implement against it.
+- Per the project's per-issue workflow: each phase should produce a matching `docs/plans/phase-{190a,190b,191–196}-{slug}.md` plan file when work begins. This design contract is the parent; per-phase plans implement against it.
 - The arc is intentionally executable before Tier 4 lands. Tier 4 awareness is limited to the graceful-fallback rule in phase 190 — entities that don't resolve render as plain text.
 - If at any point during implementation a phase's acceptance criterion conflicts with an existing locked contract (`phase-01-simulation-contract.md`, `phase-21-expansion-contract.md`, `cards-contract.md`, etc.), stop and surface the conflict before continuing. The locked contracts win.

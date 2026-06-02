@@ -64,6 +64,15 @@ the two consequence axes it left untouched — the **delayed** effect (a `later:
 line) and the **cross-actor** blast radius (naming the non-primary actor) — and
 is `done`.
 
+The **UI/UX Intuitiveness arc** (Tier 5, revived — locked contract
+`docs/plans/ui-ux-intuitiveness-arc.md`) is now wired into this tracker as
+**ISSUE-157…163** (phases 190–196). It makes the *standing* UI legible and
+navigable, orthogonal to the card-layer choice-legibility arcs. ISSUE-157
+is split into **ISSUE-157a** (phase 190a — interconnection primitives +
+routing + drilldown paths, `done`) and **ISSUE-157b** (phase 190b —
+consumer wiring, `open`, next up). 191–196 (ISSUE-158…163) are `open` and
+follow in arc order; see the Tier 5 section for per-issue detail.
+
 The card-layer arcs ran Living Cast → Voiced → Legible → Faithful →
 Complete; each has a locked roadmap (`docs/plans/*-surface-arc.md`,
 `docs/plans/living-cast-arc.md`) over the framework contract
@@ -224,6 +233,14 @@ next.
 | ISSUE-154 | Early-game complaint fairness — gate customer_complaint on persistence; scope the "unanswered complaint" claim | broken | done | 187 |
 | ISSUE-155 | Causal establishing line — surface seed.causes as the customer_complaint body's lead fact | thin | done | 188 |
 | ISSUE-156 | Consequence-legible choices — surface one delayed effect + cross-actor identity on active choices | broken | done | 189 |
+| ISSUE-157a | UI Intuitiveness Phase 1a — Interconnection primitives + routing + drilldown paths | thin | done | 190a |
+| ISSUE-157b | UI Intuitiveness Phase 1b — Consumer wiring (EntityLink/MetricLink call sites) | thin | open | 190b |
+| ISSUE-158 | UI Intuitiveness Phase 2 — Pressure stakes and danger zones (reuse sim consequences + severity band) | thin | open | 191 |
+| ISSUE-159 | UI Intuitiveness Phase 3 — TopBar stakes reframe (time economy, not action points) | thin | open | 192 |
+| ISSUE-160 | UI Intuitiveness Phase 4 — Action effect previews + suggestions in Plan beat | thin | open | 193 |
+| ISSUE-161 | UI Intuitiveness Phase 5 — Typography scan-speed pass | thin | open | 194 |
+| ISSUE-162 | UI Intuitiveness Phase 6 — Reports → Action conversion | thin | open | 195 |
+| ISSUE-163 | UI Intuitiveness Phase 7 — Day dominance and cleanups | thin | open | 196 |
 | ISSUE-116 | Legible Surface Phase 3 — Choice Distinctness Gate & Legible Choice-Set Cap | broken | done | 148 |
 
 ---
@@ -3302,6 +3319,74 @@ records the motivating audit, Appendix B the re-runnable instruments at
 - **Evidence:** `composeChoicesFromSeed` (`cardHelpers.ts`) set `useDelayed = immediate.length === 0 && delayed.length > 0`, so `delayedEffects` reached the preview only for zero-immediate (inaction) choices; every active choice dropped them. `seed.affectedActors` had zero refs under `src/cards/`, and preview lines never named a non-primary actor. A default Day-1 `customer_complaint` seed authored delayed consequences (`fix_root → "Group may expect this standard"`, `public_apology → "Group may expect more apologies"`, `mock → "… Miners may boycott"`) that no active choice rendered.
 - **Scope:** (A) in `composeChoicesFromSeed`, an active choice additionally selects ≤1 decision-relevant `delayedEffect` (shared `selectDelayedPreviewEffect`/`isDecisionRelevantDelayed` in `previewSelect.ts`; relevance = `future_hook` kind or `future_hook`/`risk` tag, ranked by magnitude) and renders it via the same meter-aware snippet path as a trailing `later:` line — additive to the immediate `previewMax`, never displacing a surfaced cost; the zero-immediate inaction carve-out is unchanged. (B) `attributeNonPrimaryActor` names the other actor (via `entityRefFromEffectTarget` + `displayNameForRef`) when a previewed effect — immediate or the delayed line — moves an actor other than `seed.primaryActor`; never applied to a sim `readable` fallback line (preserves the gates' sim-authority carve-out). (C) `gates/legibility.ts` gains a `preview_delayed_unsurfaced` rule (active choice with a decision-relevant delayed effect must surface a `later:` line; fallback excluded), and both `legibility.ts` and `faithfulness.ts` re-derive immediate effects against the immediate (non-`later:`) line count so existing per-line rules skip the delayed line. No prose, contract, or generator changes; uniform across all twenty templates via the shared pipeline.
 - **Test approach:** `tests/cards/compose/phase189.consequenceLegible.test.ts` — selector unit behaviour; an active choice surfaces exactly one `later:` line additive to the immediate previews; the coin cost is not displaced; the inaction path renders delayed effects WITHOUT a `later:` prefix; a non-primary staff effect names "Mira the Resolute" while a primary-actor effect stays unattributed. `tests/cards/compose/gates/legibility.test.ts` — the live 20-template suite passes the new rule (`delayedSurfacingChecksFailed === 0`) and actually exercises it (`delayedSurfacingChecksRun > 0`); a failing fixture and its corrected counterpart prove `preview_delayed_unsurfaced` bites; the inaction path is not flagged. `npm test` (3380 tests) + `npm run typecheck` green.
+
+## Tier 5 (revived) — UI/UX Intuitiveness arc
+
+Locked design contract: `docs/plans/ui-ux-intuitiveness-arc.md`. A
+web-layer-first arc that makes the *standing* UI legible and navigable
+(graph, not tree; an opinion about what matters now). Orthogonal to the
+card-layer legibility arcs, which made *card choices* legible. Revived from
+an orphaned draft (originally phases 121–127 / ISSUE-081…087, slots reused
+by unrelated work; never entered this tracker) and renumbered. Seven issue
+ids; **ISSUE-157 is split into 157a/157b** (phase 190 → 190a + 190b) sharing
+the one id so the arc keeps seven entries. The budget is **time**, not
+action points (phase 186) throughout.
+
+### ISSUE-157a — UI Intuitiveness Phase 1a: Interconnection primitives + routing + drilldown paths
+- **Grade:** thin · **Status:** done · **Phase:** 190a · **Record:** `docs/plans/phase-190a-interconnection-primitives.md`
+- **Goal:** Build the reusable carriers every later phase consumes — `EntityLink` / `MetricLink`, the routing-target mechanism, and the drilldown-path extensions — without touching any existing visible screen. The high-traffic consumer call sites land in 190b.
+- **Scope:** (A) `web/src/lib/components/links/` — `types.ts` (pure `EntityKind`/`MetricKind` unions, `ENTITY_ROUTING` map, `entityExists` graceful-fallback resolver, `metricDrilldownPath`), `EntityLink.svelte` (resolvable/empty id → tap target routing via `setRoute`; unresolvable id → plain text), `MetricLink.svelte` (opens the global drilldown at the metric path; id-less id-bearing kind → plain content). (B) `web/src/lib/sim/drilldownStore.svelte.ts` — tiny global mirroring `glossaryStore`; one app-root `CauseDrilldown` bound to it in `App.svelte`. (C) `gameStore.svelte.ts` — transient (non-persisted) `tavernSubviewTarget`/`worldSubviewTarget`, `setRoute(route, opts?)` overload (single-arg callers unchanged), `consume*SubviewTarget()` read-and-clear. (D) `src/reports/` — `pathToCauseTarget` aliases `inventory.<itemId>` → `stock:<id>`; thin `causesForCoin`/`causesForReputationAxis`/`causesForInventory` helpers; `humanizePath` inventory title. (E) `global.css` — hover/focus-only link treatment, documented side-by-side with `TermLabel`'s static underline. Additive throughout; save schema unchanged (targets are transient).
+- **Depends on:** none.
+- **Test approach:** `tests/web/phase190a.interconnection.test.ts` (jsdom, 15 tests) — `metricDrilldownPath` + `pathToCauseTarget` resolution (coin / `reputation.<axis>` / `inventory.<itemId>`) and the thin cause helpers reading planted causes; `entityExists` live/unknown/empty; `setRoute` target propagation + single-arg invariance + empty-target-clears; consume-once; `EntityLink` routes for a resolvable id, degrades to plain text for an unresolvable id, stays a link for an empty id; `MetricLink` opens the global drilldown and renders plain when id-less. `npm test` (3395 passing) + `npm run typecheck` green.
+
+### ISSUE-157b — UI Intuitiveness Phase 1b: Consumer wiring
+- **Grade:** thin · **Status:** open · **Phase:** 190b · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 190b).
+- **Goal:** Wire the first round of high-traffic consumers onto the 190a primitives. Pure consumer work — no new infrastructure.
+- **Scope:** DayScreen morning at-a-glance (coin `MetricLink`, "N staff" / stock-chip `EntityLink`s), `PressureRibbon` rows (`MetricLink kind="pressure"`), DayScreen plan rows + pending tags, `DailyReport` resolved-intent subject names, top-level Monthly/Weekly references. Plus panel-side target consumption: Tavern/World sub-panels read `consume*SubviewTarget()` on mount via `$effect` and open the matching detail sheet (consume-once).
+- **Depends on:** ISSUE-157a.
+- **Test approach:** `tests/web/phase190b.consumerWiring.test.ts` — consumer call sites render without layout change; tapping "N staff"/stock chip/coin/pressure routes or drills correctly; panel auto-opens the targeted sheet once and not on re-entry.
+
+### ISSUE-158 — UI Intuitiveness Phase 2: Pressure stakes and danger zones
+- **Grade:** thin · **Status:** open · **Phase:** 191 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 191).
+- **Goal:** Make pressure values mean something during play (ribbon, card, drilldown) using the sim's *own* authored consequence text — not just in the post-day report.
+- **Scope:** Danger-band visualisation tied to the sim's `severity` band (no invented threshold); a thin `src/reports/pressureConsequenceLine.ts` projection over the *existing* per-pressure `consequences`; top-3 ribbon consequence line; drilldown header callout. No new content, no `stakeLines.ts`, no `70` threshold.
+- **Depends on:** ISSUE-157a.
+- **Test approach:** `tests/sim/phase191.pressureConsequence.test.ts` (projection across all 21 pressures, never invents) + `tests/web/phase191.pressureUI.test.ts` (danger-band colouring + consequence surfacing).
+
+### ISSUE-159 — UI Intuitiveness Phase 3: TopBar stakes reframe
+- **Grade:** thin · **Status:** open · **Phase:** 192 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 192).
+- **Goal:** Convert the topbar from a calendar chronicle to a stakes summary — day ordinal + top-pressure chip (or "tavern steady"), coin + time-remaining chips, calendar peek popover, day-type badge only when non-normal.
+- **Scope:** `TopBar.svelte` only; top pressure as a `MetricLink`; time-remaining chip uses the time economy (no AP). Welcome-back pill behaviour preserved.
+- **Depends on:** ISSUE-157a, ISSUE-158.
+- **Test approach:** `tests/web/phase192.topbar.test.ts` — center-content branching, badge visibility, time-chip beat gating, calendar peek opening.
+
+### ISSUE-160 — UI Intuitiveness Phase 4: Action effect previews + suggestions in Plan beat
+- **Grade:** thin · **Status:** open · **Phase:** 193 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 193).
+- **Goal:** Two Plan-beat clarity gaps together — surface the existing `effectsPreview` on picker rows, and add a small "Suggested" section tying actions to rising pressures / yesterday's losses.
+- **Scope:** `ActionPicker.svelte` effect captions; pure `web/src/lib/sim/suggestActions.ts`; additive `pressureAffinity?: PressureId[]` on `OwnerActionDefinition` (≥60% coverage); time-cost tiebreak (no AP).
+- **Depends on:** ISSUE-157a, ISSUE-158.
+- **Test approach:** `tests/web/phase193.actionPreviewsAndSuggest.test.ts` + `tests/sim/phase193.actionAffinity.test.ts` (affinity ids are valid pressure ids).
+
+### ISSUE-161 — UI Intuitiveness Phase 5: Typography scan-speed pass
+- **Grade:** thin · **Status:** open · **Phase:** 194 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 194).
+- **Goal:** Split the overloaded `.tag` class so functional chrome parses fast and decorative atmosphere stays where it belongs (`.section-label` / `.chip` / `.badge` / narrowed `.tag`).
+- **Scope:** `global.css` class split + full migration audit across `web/src/`; preserve the `TermLabel` vs `EntityLink` visual contract.
+- **Depends on:** ISSUE-157a, ISSUE-158, ISSUE-159, ISSUE-160.
+- **Test approach:** `tests/web/phase194.typography.test.ts` — key components emit the new class names; regression guard against `.tag` in functional chrome.
+
+### ISSUE-162 — UI Intuitiveness Phase 6: Reports → Action conversion
+- **Grade:** thin · **Status:** open · **Phase:** 195 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 195).
+- **Goal:** Close the loop from insight to action — drilldown "Plan an action against this" CTAs, Yesterday Digest promotion + "Today's watch" line, full entity-link audit of Monthly/Weekly + MissedOpportunities.
+- **Scope:** `CauseDrilldown`, `YesterdayDigest`, `DayScreen`, `MonthlyOverview`, `WeeklyOverview`, `MissedOpportunities`. Silence over noise where nothing maps.
+- **Depends on:** ISSUE-157a, ISSUE-160.
+- **Test approach:** `tests/web/phase195.reportsActions.test.ts` — CTA wiring, digest reordering, "Today's watch" branching, entity-link coverage.
+
+### ISSUE-163 — UI Intuitiveness Phase 7: Day dominance and cleanups
+- **Grade:** thin · **Status:** open · **Phase:** 196 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 196).
+- **Goal:** Final visual-hierarchy pass — Day icon emphasis + unresolved-work dot, Quick Day promotion to a peer affordance, and a cleanup walk catching drift from prior phases.
+- **Scope:** `BottomNav.svelte`, `DayScreen.svelte`; styling-only Quick Day promotion (eligibility unchanged).
+- **Depends on:** ISSUE-157a, ISSUE-158, ISSUE-159, ISSUE-160, ISSUE-161, ISSUE-162.
+- **Test approach:** `tests/web/phase196.dayNav.test.ts` — Day icon emphasis + dot indicator rendering.
 
 ## Related notes
 

@@ -9,7 +9,9 @@
   import WorldScreen from './lib/screens/WorldScreen.svelte'
   import MoreScreen from './lib/screens/MoreScreen.svelte'
   import Glossary from './lib/components/Glossary.svelte'
+  import CauseDrilldown from './lib/components/CauseDrilldown.svelte'
   import { glossaryStore } from './lib/glossary/glossaryStore.svelte'
+  import { drilldownStore } from './lib/sim/drilldownStore.svelte'
   import { gameStore } from './lib/sim/gameStore.svelte'
   import { prefsStore } from './lib/prefs/prefsStore.svelte'
   import { DIFFICULTY_PRESETS } from '../../src/sim/state/difficulty'
@@ -304,6 +306,14 @@
   open={glossaryStore.open}
   anchorTerm={glossaryStore.anchorTerm}
   onclose={() => glossaryStore.close()}
+/>
+
+<!-- Phase 190a / ISSUE-157a — single app-root drilldown the from-anywhere
+     MetricLink path binds against (mirrors the Glossary mount above). -->
+<CauseDrilldown
+  open={drilldownStore.open}
+  path={drilldownStore.path}
+  onclose={() => drilldownStore.close()}
 />
 
 <style>

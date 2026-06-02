@@ -212,6 +212,56 @@ ol {
   color: var(--text-faint);
 }
 
+/* ─── Interconnection links (Phase 190a / ISSUE-157a) ─────────────────
+ *
+ * EntityLink / MetricLink turn structured entity + metric references into
+ * tap targets. Their affordance must stay DISTINCT from TermLabel's, so a
+ * player can tell "what does this mean?" from "take me there":
+ *
+ *   TermLabel   = definition   → STATIC dotted underline at all times
+ *                 (.term-chip: border-bottom 1px dotted accent@50%),
+ *                 cursor: help.
+ *   EntityLink /= navigation   → HOVER/FOCUS-ONLY border-bottom
+ *   MetricLink    (border-bottom 1px dotted accent@35%), cursor: pointer,
+ *                 no resting underline (indistinguishable from prose until
+ *                 hovered, so it adds zero chrome at rest).
+ *
+ * Both colours read off --accent but at different opacity, so even on the
+ * same line the two never look identical.
+ */
+.entity-link,
+.metric-link {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  border-bottom: 1px dotted transparent;
+  padding: 0;
+  cursor: pointer;
+  transition:
+    border-color var(--m-fast) var(--ease),
+    color var(--m-fast) var(--ease);
+}
+
+@media (hover: hover) {
+  .entity-link:hover,
+  .metric-link:hover {
+    border-bottom-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+}
+
+.entity-link:focus-visible,
+.metric-link:focus-visible {
+  border-bottom-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  outline: none;
+}
+
+/* Plain (non-resolving / id-less) fallbacks read as ordinary prose. */
+.entity-link-plain,
+.metric-link-plain {
+  color: inherit;
+}
+
 .parchment-grain {
   background-image: radial-gradient(
     color-mix(in srgb, var(--candle) 4%, transparent) 1px,

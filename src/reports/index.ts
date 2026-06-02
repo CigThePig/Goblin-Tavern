@@ -37,6 +37,9 @@ export { resolveEntityLabel, resolveBareEntityId } from './entityLabels'
 export {
   causesForPath,
   causesForPressure,
+  causesForCoin,
+  causesForReputationAxis,
+  causesForInventory,
   closedDayAbsolute,
   pathToCauseTarget,
 } from './causeLookup'

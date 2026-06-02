@@ -76,6 +76,7 @@ import type {
   TavernSubview,
   WorldSubview,
 } from './persistence'
+import { ENTITY_ROUTING, type EntityKind } from '../components/links/types'
 
 class GameStore {
   state: TavernState = $state(createInitialTavernState())
@@ -144,6 +145,16 @@ class GameStore {
   reportsSubview: ReportsSubview = $state('today')
   tavernSubview: TavernSubview = $state('areas')
   worldSubview: WorldSubview = $state('regulars')
+
+  // Phase 190a / ISSUE-157a — Transient routing targets. When an
+  // `EntityLink` routes to a sub-view it stashes the entity id here; the
+  // destination panel consumes it on mount (consume-once) to auto-open
+  // the matching detail sheet. Session-only — NOT persisted to the save
+  // envelope (it is a routing hint, not state), so the save schema stays
+  // stable. Re-entering a panel via the tab nav finds the target already
+  // consumed, so the sheet does not re-open.
+  tavernSubviewTarget: string | undefined = $state(undefined)
+  worldSubviewTarget: string | undefined = $state(undefined)
 
   // Phase 96 — One-shot flag the welcome-back pill reads. Set true on
   // hydration; flipped to false on the first beat advance.
@@ -361,6 +372,8 @@ class GameStore {
     this.reportsSubview = 'today'
     this.tavernSubview = 'areas'
     this.worldSubview = 'regulars'
+    this.tavernSubviewTarget = undefined
+    this.worldSubviewTarget = undefined
     this.savedSnapshotJustLoaded = false
     this.lastSavedAt = undefined
     this.hydrationError = undefined
@@ -596,8 +609,46 @@ class GameStore {
     this.closingComplete = value
   }
 
-  setRoute(r: Route): void {
+  /**
+   * Navigate to a top-level route, optionally carrying an entity target.
+   *
+   * Single-arg callers (`setRoute('day')`) are unchanged. When `opts.kind`
+   * is given (the `EntityLink` path), the matching sub-view is selected
+   * from {@link ENTITY_ROUTING} and `opts.target` is stashed as the
+   * transient sub-view target for the destination panel to consume. An
+   * empty target clears any pending target (land on the home tab, no
+   * auto-open).
+   */
+  setRoute(r: Route, opts?: { target?: string; kind?: EntityKind }): void {
     this.route = r
+    if (!opts?.kind) return
+    const dest = ENTITY_ROUTING[opts.kind]
+    const target = opts.target ? opts.target : undefined
+    if (dest.route === 'tavern') {
+      this.tavernSubview = dest.subview
+      this.tavernSubviewTarget = target
+    } else {
+      this.worldSubview = dest.subview
+      this.worldSubviewTarget = target
+    }
+  }
+
+  /**
+   * Read-and-clear the pending Tavern sub-view target (consume-once).
+   * The destination panel calls this on mount; a later re-entry finds it
+   * already cleared, so the targeted sheet does not re-open.
+   */
+  consumeTavernSubviewTarget(): string | undefined {
+    const t = this.tavernSubviewTarget
+    this.tavernSubviewTarget = undefined
+    return t
+  }
+
+  /** Read-and-clear the pending World sub-view target (consume-once). */
+  consumeWorldSubviewTarget(): string | undefined {
+    const t = this.worldSubviewTarget
+    this.worldSubviewTarget = undefined
+    return t
   }
 
   setReportsSubview(v: ReportsSubview): void {

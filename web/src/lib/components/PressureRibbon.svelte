@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
+  import MetricLink from './links/MetricLink.svelte'
   import { gameStore } from '../sim/gameStore.svelte'
   import { pressureColor } from '../design/tokens'
   import type { PressureState } from '../../../../src/sim/state/TavernState'
@@ -28,19 +29,25 @@
     <p class="quiet mono">no pressures rising — the tavern holds steady</p>
   {:else}
     {#each top as p (p.id)}
-      <div class="row">
-        <span class="label">{p.label}</span>
-        <div class="bar-track">
-          <div
-            class="bar-fill"
-            style="width: {fillPct(p)}; background: {pressureColor(p.value)};"
-          ></div>
+      <!-- Phase 190b — the whole row opens the same `pressures.<id>`
+           drilldown a PressureCard does. The grid `.row` lives inside the
+           MetricLink carrier; the scoped :global rule below makes the
+           carrier a full-width block so the layout is unchanged. -->
+      <MetricLink kind="pressure" id={p.id}>
+        <div class="row">
+          <span class="label">{p.label}</span>
+          <div class="bar-track">
+            <div
+              class="bar-fill"
+              style="width: {fillPct(p)}; background: {pressureColor(p.value)};"
+            ></div>
+          </div>
+          <span class="value mono">{Math.round(p.value)}</span>
+          <span class="trend" style="color: {pressureColor(p.value)};">
+            <Icon name={trendIcon(p.trend)} size={14} />
+          </span>
         </div>
-        <span class="value mono">{Math.round(p.value)}</span>
-        <span class="trend" style="color: {pressureColor(p.value)};">
-          <Icon name={trendIcon(p.trend)} size={14} />
-        </span>
-      </div>
+      </MetricLink>
     {/each}
   {/if}
 </section>
@@ -63,11 +70,32 @@
     margin: var(--sp-xxs) 0;
   }
 
+  /* Phase 190b — the MetricLink carrier wraps each row; make it a
+     full-width block so the grid `.row` inside keeps its layout. The
+     hover/focus underline treatment still comes from `.metric-link`. */
+  .ribbon :global(.metric-link) {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border-radius: var(--radius-sm);
+    /* Row-level affordance is the background highlight below, not the
+       inline-text dotted underline `.metric-link` uses elsewhere. */
+    border-bottom: none;
+  }
+
+  .ribbon :global(.metric-link:hover),
+  .ribbon :global(.metric-link:focus-visible) {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+
   .row {
     display: grid;
     grid-template-columns: 1fr 2fr auto auto;
     align-items: center;
     gap: var(--sp-sm);
+    padding: 2px var(--sp-xs);
+    border-radius: var(--radius-sm);
+    transition: background var(--m-fast) var(--ease);
   }
 
   .label {

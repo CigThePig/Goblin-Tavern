@@ -6,6 +6,7 @@
   import StockDetailSheet from './StockDetailSheet.svelte'
   import CommissionExpeditionSheet from './CommissionExpeditionSheet.svelte'
   import TermLabel from '../TermLabel.svelte'
+  import { gameStore } from '../../sim/gameStore.svelte'
   import { idLabel } from '../../../../../src/reports/labels/idLabel'
   import type {
     StockPanelData,
@@ -23,6 +24,17 @@
   function close() {
     selected = null
   }
+
+  // Phase 190b / ISSUE-157b — consume the routing target an EntityLink
+  // stashed (e.g. a stock chip tapped on the DayScreen morning glance) and
+  // open its StockDetailSheet. Consume-once (190a): a later tab re-entry
+  // finds it cleared and does not re-open.
+  $effect(() => {
+    const targetId = gameStore.consumeTavernSubviewTarget()
+    if (!targetId) return
+    const row = data.inventory.rows.find((r) => r.id === targetId)
+    if (row) selected = row
+  })
 </script>
 
 <section class="panel" aria-label="Stock">

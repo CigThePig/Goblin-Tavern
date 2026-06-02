@@ -4,6 +4,7 @@
 <script lang="ts">
   import MeterBar from './MeterBar.svelte'
   import StaffDetailSheet from './StaffDetailSheet.svelte'
+  import { gameStore } from '../../sim/gameStore.svelte'
   import type {
     StaffPanelData,
     StaffPanelRow,
@@ -19,6 +20,17 @@
   function close() {
     selected = null
   }
+
+  // Phase 190b / ISSUE-157b — consume the routing target an EntityLink
+  // stashed (e.g. a staff name tapped in DailyReport). Consume-once (190a):
+  // the read clears it, so re-entering this tab via the sub-nav later does
+  // not re-open the sheet. A target with no matching row is still consumed.
+  $effect(() => {
+    const targetId = gameStore.consumeTavernSubviewTarget()
+    if (!targetId) return
+    const row = data.rows.find((r) => r.id === targetId)
+    if (row) selected = row
+  })
 </script>
 
 <section class="panel" aria-label="Staff">

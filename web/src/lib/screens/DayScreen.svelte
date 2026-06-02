@@ -40,6 +40,9 @@
   import { untrack } from 'svelte'
   import PressureRibbon from '../components/PressureRibbon.svelte'
   import Icon from '../components/Icon.svelte'
+  import MetricLink from '../components/links/MetricLink.svelte'
+  import EntityLink from '../components/links/EntityLink.svelte'
+  import { entityKindFromTargetType } from '../components/links/types'
   import CardRenderer from '../cards/CardRenderer.svelte'
   import CardDeck from '../components/CardDeck.svelte'
   import BeatTransition from '../components/BeatTransition.svelte'
@@ -178,14 +181,18 @@
     return forecasts.reduce((n, f) => n + (f.expected ?? 0), 0)
   })
 
-  const stockSummary = $derived.by(() => {
-    const entries = Object.values(gameStore.state.stock)
-    const shown = entries.slice(0, 3)
-    const more = entries.length - shown.length
-    const parts = shown.map((s) => `${s.label.toLowerCase()} ${s.quantity}`)
-    if (more > 0) parts.push(`+${more} more`)
-    return parts.join(' · ')
-  })
+  // Phase 190b / ISSUE-157b — the at-a-glance stock summary is now a
+  // structured list so each chip can be an individual `EntityLink` onto
+  // its `StockDetailSheet` (the joined string was a dead end). `moreCount`
+  // becomes an id-less link to Tavern → Stock (no auto-open).
+  const stockChips = $derived(
+    Object.values(gameStore.state.stock)
+      .slice(0, 3)
+      .map((s) => ({ id: s.id, label: `${s.label.toLowerCase()} ${s.quantity}` })),
+  )
+  const stockMoreCount = $derived(
+    Math.max(0, Object.keys(gameStore.state.stock).length - stockChips.length),
+  )
 
   // Phase 97 / ISSUE-057 — Discriminated union so a throw inside
   // `buildDailyReport` is observable instead of silently hiding the
@@ -420,10 +427,30 @@
   <!-- ─── Beat 1: Morning ────────────────────────────────────────── -->
   {#if beat === 'morning'}
     <section class="block" aria-label="At a glance">
+      <!-- Phase 190b — every glance figure is a tap target: coin opens the
+           coin drilldown; "N staff" lands on Tavern → Staff (no specific
+           id, so no sheet auto-opens); each stock chip opens its
+           StockDetailSheet; "+N more" lands on Tavern → Stock. -->
       <div class="glance mono">
-        <span><Icon name="coin" size={13} /> {gameStore.state.coin}</span>
-        <span><Icon name="staff" size={13} /> {staffCount} staff</span>
-        <span><Icon name="stock" size={13} /> {stockSummary}</span>
+        <span>
+          <Icon name="coin" size={13} />
+          <MetricLink kind="coin">{gameStore.state.coin}</MetricLink>
+        </span>
+        <span>
+          <Icon name="staff" size={13} />
+          <EntityLink kind="staff" id="" label={`${staffCount} staff`} />
+        </span>
+        <span class="stock-glance">
+          <Icon name="stock" size={13} />
+          {#each stockChips as chip, i (chip.id)}
+            {#if i > 0}<span class="sep" aria-hidden="true">·</span>{/if}
+            <EntityLink kind="stock" id={chip.id} label={chip.label} />
+          {/each}
+          {#if stockMoreCount > 0}
+            <span class="sep" aria-hidden="true">·</span>
+            <EntityLink kind="stock" id="" label={`+${stockMoreCount} more`} />
+          {/if}
+        </span>
       </div>
       {#if forecastExpected !== undefined}
         <!-- Phase 186 / Cluster 5 — forecast-as-expected (§3.6). Framed
@@ -465,13 +492,24 @@
                 onignore={morningIgnoreFor(seed)}
               />
               {#if pending}
-                <div class="pending tag">
+                <!-- Phase 190b — the pending tag re-opens the decision:
+                     decisions stay uncommitted until End Day, so tapping
+                     clears the pending choice and the card's choices below
+                     go live again for revision. -->
+                <button
+                  class="pending tag"
+                  type="button"
+                  onclick={() => gameStore.clearSeed(seed.id)}
+                  aria-label="Revise this decision"
+                  title="Revise"
+                >
                   {#if pending.kind === 'ignore'}
                     ignored
                   {:else}
                     noted: <strong>{pending.verb}</strong>
                   {/if}
-                </div>
+                  <span class="revise-hint" aria-hidden="true">↺</span>
+                </button>
               {/if}
             </div>
           {/each}
@@ -513,43 +551,57 @@
     </section>
 
     <section class="block">
+      <!-- Phase 190b — the whole plan row is the tap target. Each row is a
+           single button (keyboard + pointer accessible, no nested
+           interactive); the right-side "Pick"/"Set" text is the action
+           hint that used to be a separate button. -->
       <div class="plan-rows">
-        <div class="plan-row">
-          <div>
-            <p class="plan-title">Owner actions</p>
-            <p class="plan-sub tag">
+        <button
+          class="plan-row tappable"
+          type="button"
+          onclick={() => (pickerOpen = true)}
+        >
+          <span class="plan-main">
+            <span class="plan-title">Owner actions</span>
+            <span class="plan-sub tag">
               {picks.length === 0
                 ? 'none yet'
                 : picks.length === 1
                   ? '1 action picked'
                   : `${picks.length} actions picked`}
-            </p>
-          </div>
-          <button class="secondary" type="button" onclick={() => (pickerOpen = true)}>
-            {picks.length === 0 ? 'Pick' : 'Edit'}
-          </button>
-        </div>
+            </span>
+          </span>
+          <span class="plan-hint">{picks.length === 0 ? 'Pick' : 'Edit'}</span>
+        </button>
 
-        <div class="plan-row">
-          <div>
-            <p class="plan-title">Staff priorities</p>
-            <p class="plan-sub tag">
+        <button
+          class="plan-row tappable"
+          type="button"
+          onclick={() => (staffSheetOpen = true)}
+        >
+          <span class="plan-main">
+            <span class="plan-title">Staff priorities</span>
+            <span class="plan-sub tag">
               {Object.keys(staffPriorities).length === 0
                 ? 'using defaults'
                 : `${Object.keys(staffPriorities).length} customised`}
-            </p>
-          </div>
-          <button class="secondary" type="button" onclick={() => (staffSheetOpen = true)}>
-            Set
-          </button>
-        </div>
+            </span>
+          </span>
+          <span class="plan-hint">Set</span>
+        </button>
       </div>
 
       {#if picks.length > 0}
         <ul class="picks-list mono">
           {#each picks as p (p.pickId)}
             <li>
-              · {p.label}{#if p.targetLabel}: {p.targetLabel}{/if}
+              · {p.label}{#if p.targetLabel}: {@const k = p.targetType
+                ? entityKindFromTargetType(p.targetType)
+                : undefined}{#if k && p.targetId}<EntityLink
+                  kind={k}
+                  id={p.targetId}
+                  label={p.targetLabel}
+                />{:else}{p.targetLabel}{/if}{/if}
               <span class="picks-cost">({formatDuration(p.timeCost)})</span>
             </li>
           {/each}
@@ -730,6 +782,16 @@
     gap: 4px;
   }
 
+  /* Phase 190b — stock chips wrap as a row of EntityLinks separated by
+     middots; keep them on the same baseline as the icon. */
+  .stock-glance {
+    flex-wrap: wrap;
+  }
+
+  .stock-glance .sep {
+    color: var(--text-faint);
+  }
+
   .forecast {
     color: var(--text-faint);
     font-style: italic;
@@ -776,11 +838,29 @@
     padding: 2px 8px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--candle-soft);
+    /* Phase 190b — now a button: tapping re-opens the decision. */
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: border-color var(--m-fast) var(--ease),
+      color var(--m-fast) var(--ease);
+  }
+
+  .pending:hover,
+  .pending:focus-visible {
+    border-color: var(--accent);
+    color: var(--accent);
   }
 
   .pending strong {
     color: var(--accent);
     font-weight: 500;
+  }
+
+  .revise-hint {
+    color: var(--text-faint);
+    font-size: 11px;
   }
 
   .actions {
@@ -875,15 +955,32 @@
     gap: var(--sp-xs);
   }
 
+  /* Phase 190b — the whole row is a single tap-target button (was a div
+     with a nested button). Keeps the same visual layout; the right-side
+     "Pick"/"Set" text is now an inline hint instead of a button. */
   .plan-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--sp-md);
     padding: var(--sp-sm) var(--sp-md);
+    width: 100%;
+    text-align: left;
     background: var(--surface);
     border-radius: var(--radius-md);
     border: var(--border-faint);
+    cursor: pointer;
+    transition: border-color var(--m-fast) var(--ease);
+  }
+
+  .plan-row.tappable:hover,
+  .plan-row.tappable:focus-visible {
+    border-color: var(--accent);
+  }
+
+  .plan-main {
+    display: flex;
+    flex-direction: column;
   }
 
   .plan-title {
@@ -895,6 +992,15 @@
   .plan-sub {
     margin-top: 2px;
     color: var(--text-faint);
+  }
+
+  .plan-hint {
+    flex-shrink: 0;
+    font-family: var(--font-body);
+    font-variant: small-caps;
+    letter-spacing: 0.06em;
+    font-size: 13px;
+    color: var(--accent);
   }
 
   .picks-list {

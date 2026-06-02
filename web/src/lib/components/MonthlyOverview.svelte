@@ -14,6 +14,7 @@
   import TermLabel from './TermLabel.svelte'
   import PressureCard from './PressureCard.svelte'
   import { pressureColor } from '../design/tokens'
+  import { drilldownStore } from '../sim/drilldownStore.svelte'
   import type {
     MonthlyOverviewArc,
     MonthlyOverviewData,
@@ -353,6 +354,9 @@
         <div class="pressures">
           {#each data.pressures.top as pressure (pressure.id)}
             {@const p = pressure as MonthlyOverviewPressureRow}
+            <!-- Phase 190b — top pressures open the live pressure drilldown
+                 via the global store (pressures are persistent state, so a
+                 drilldown is honest even on the monthly recap). -->
             <PressureCard
               pressure={{
                 id: p.id,
@@ -362,7 +366,7 @@
                 tags: [],
                 topCauses: p.topCauses,
               }}
-              interactive={false}
+              onselect={(id) => drilldownStore.show(`pressures.${id}`)}
             />
           {/each}
         </div>

@@ -70,8 +70,9 @@ The **UI/UX Intuitiveness arc** (Tier 5, revived — locked contract
 navigable, orthogonal to the card-layer choice-legibility arcs. ISSUE-157
 is split into **ISSUE-157a** (phase 190a — interconnection primitives +
 routing + drilldown paths, `done`) and **ISSUE-157b** (phase 190b —
-consumer wiring, `open`, next up). 191–196 (ISSUE-158…163) are `open` and
-follow in arc order; see the Tier 5 section for per-issue detail.
+consumer wiring, `done`). **ISSUE-158** (phase 191 — pressure stakes and
+danger zones) is next up; 191–196 (ISSUE-158…163) are `open` and follow in
+arc order; see the Tier 5 section for per-issue detail.
 
 The card-layer arcs ran Living Cast → Voiced → Legible → Faithful →
 Complete; each has a locked roadmap (`docs/plans/*-surface-arc.md`,
@@ -234,7 +235,7 @@ next.
 | ISSUE-155 | Causal establishing line — surface seed.causes as the customer_complaint body's lead fact | thin | done | 188 |
 | ISSUE-156 | Consequence-legible choices — surface one delayed effect + cross-actor identity on active choices | broken | done | 189 |
 | ISSUE-157a | UI Intuitiveness Phase 1a — Interconnection primitives + routing + drilldown paths | thin | done | 190a |
-| ISSUE-157b | UI Intuitiveness Phase 1b — Consumer wiring (EntityLink/MetricLink call sites) | thin | open | 190b |
+| ISSUE-157b | UI Intuitiveness Phase 1b — Consumer wiring (EntityLink/MetricLink call sites) | thin | done | 190b |
 | ISSUE-158 | UI Intuitiveness Phase 2 — Pressure stakes and danger zones (reuse sim consequences + severity band) | thin | open | 191 |
 | ISSUE-159 | UI Intuitiveness Phase 3 — TopBar stakes reframe (time economy, not action points) | thin | open | 192 |
 | ISSUE-160 | UI Intuitiveness Phase 4 — Action effect previews + suggestions in Plan beat | thin | open | 193 |
@@ -3340,11 +3341,11 @@ action points (phase 186) throughout.
 - **Test approach:** `tests/web/phase190a.interconnection.test.ts` (jsdom, 15 tests) — `metricDrilldownPath` + `pathToCauseTarget` resolution (coin / `reputation.<axis>` / `inventory.<itemId>`) and the thin cause helpers reading planted causes; `entityExists` live/unknown/empty; `setRoute` target propagation + single-arg invariance + empty-target-clears; consume-once; `EntityLink` routes for a resolvable id, degrades to plain text for an unresolvable id, stays a link for an empty id; `MetricLink` opens the global drilldown and renders plain when id-less. `npm test` (3395 passing) + `npm run typecheck` green.
 
 ### ISSUE-157b — UI Intuitiveness Phase 1b: Consumer wiring
-- **Grade:** thin · **Status:** open · **Phase:** 190b · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 190b).
-- **Goal:** Wire the first round of high-traffic consumers onto the 190a primitives. Pure consumer work — no new infrastructure.
-- **Scope:** DayScreen morning at-a-glance (coin `MetricLink`, "N staff" / stock-chip `EntityLink`s), `PressureRibbon` rows (`MetricLink kind="pressure"`), DayScreen plan rows + pending tags, `DailyReport` resolved-intent subject names, top-level Monthly/Weekly references. Plus panel-side target consumption: Tavern/World sub-panels read `consume*SubviewTarget()` on mount via `$effect` and open the matching detail sheet (consume-once).
+- **Grade:** thin · **Status:** done · **Phase:** 190b · **Record:** `docs/plans/phase-190b-consumer-wiring.md` (+ `docs/plans/ui-ux-intuitiveness-arc.md §Phase 190b`).
+- **Goal:** Wire the first round of high-traffic consumers onto the 190a primitives. Pure consumer work — no new infrastructure beyond two pure `EntityKind` mappers.
+- **Scope:** DayScreen morning at-a-glance (coin `MetricLink`, `N staff` / per-item stock `EntityLink`s, `+N more` id-less stock link); `PressureRibbon` rows wrapped in `MetricLink kind="pressure"` (grid layout preserved via a scoped `:global(.metric-link)` block); DayScreen plan rows promoted to single full-row buttons with queued-pick target labels as `EntityLink`s; DayScreen pending tags now `clearSeed` revision buttons; `DailyReport` resolved-intent subjects as `EntityLink`s via a new additive `ReportResolvedIntent.subjectRef` (populated only from a `namedEntities` entry whose `displayName` equals the subject — never invented from prose); `WeeklyOverview` staff names + `MonthlyOverview` top pressures linked (top-level cap; full coverage in phase 195). Panel-side consume-once in `StaffPanel`/`StockPanel` via mount `$effect`. New pure helpers `entityKindFromTargetType` / `entityKindFromRefKind`; new `gameStore.clearSeed`. Save schema unchanged (targets transient).
 - **Depends on:** ISSUE-157a.
-- **Test approach:** `tests/web/phase190b.consumerWiring.test.ts` — consumer call sites render without layout change; tapping "N staff"/stock chip/coin/pressure routes or drills correctly; panel auto-opens the targeted sheet once and not on re-entry.
+- **Test approach:** `tests/web/phase190b.consumerWiring.test.ts` (jsdom, 13 tests) — the two `EntityKind` mappers (incl. `undefined` rejects); DayScreen morning renders coin/staff/stock tap targets and routes/drills each correctly (coin → `coin` drilldown; `N staff` → Tavern→Staff, no target; stock chip → Tavern→Stock, target stashed); `PressureRibbon` row opens `pressures.<id>`; `clearSeed` removes a pending entry; `DailyReport` links a resolvable subject and leaves a generic noun plain; `StockPanel` consume-once opens the targeted sheet on first mount and not on re-mount. `npm test` (247 files, 3408 passing) + `npm run typecheck` + `npm run check` (svelte-check) green.
 
 ### ISSUE-158 — UI Intuitiveness Phase 2: Pressure stakes and danger zones
 - **Grade:** thin · **Status:** open · **Phase:** 191 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 191).

@@ -12,6 +12,7 @@
 -->
 <script lang="ts">
   import TermLabel from './TermLabel.svelte'
+  import EntityLink from './links/EntityLink.svelte'
   import { pressureColor } from '../design/tokens'
   import type {
     CustomerGroupRow,
@@ -239,7 +240,8 @@
             {@const r = row as StaffRow}
             <li class="trend-row staff-row">
               <span class="trend-name">
-                {r.name}<span class="role tag"> · {r.roleLabel}</span>
+                <!-- Phase 190b — staff names link to Tavern → Staff detail. -->
+                <EntityLink kind="staff" id={r.id} label={r.name} /><span class="role tag"> · {r.roleLabel}</span>
               </span>
               <span class="trend-cell mono" data-dir={dirOf(r.moraleDelta)}>
                 {arrowOf(r.moraleDelta)} {signedRounded(r.moraleDelta)} <span class="tag">mor</span>
@@ -309,7 +311,7 @@
           <ul class="unpaid-list">
             {#each data.wages.unpaidStaff as s (s.id)}
               <li class="unpaid-row">
-                <span class="trend-name">{s.name}<span class="role tag"> · {s.roleLabel}</span></span>
+                <span class="trend-name"><EntityLink kind="staff" id={s.id} label={s.name} /><span class="role tag"> · {s.roleLabel}</span></span>
               </li>
             {/each}
           </ul>

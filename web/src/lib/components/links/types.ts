@@ -12,7 +12,8 @@
 
 import { stockRegistry } from '../../../../../src/sim/registries/stockRegistry'
 import { getOwnerActionsModuleState } from '../../../../../src/sim/modules/ownerActions/ownerActionsModule'
-import type { TavernState } from '../../../../../src/sim/state/TavernState'
+import type { EntityRef, TavernState } from '../../../../../src/sim/state/TavernState'
+import type { OwnerActionTargetType } from '../../../../../src/sim/modules/ownerActions/types'
 import type { TavernSubview, WorldSubview } from '../../sim/persistence'
 
 /**
@@ -101,6 +102,85 @@ export function entityExists(
     // A malformed/partial state slice must never crash a link. Treat an
     // unresolvable reference as plain text.
     return false
+  }
+}
+
+/**
+ * Phase 190b / ISSUE-157b — map an owner-action target type to the
+ * `EntityKind` that owns its detail surface. Returns `undefined` for
+ * target types with no entity detail sheet (`customer_group`, `policy`,
+ * `global`), so a queued-pick label for those falls back to plain text.
+ */
+export function entityKindFromTargetType(
+  t: OwnerActionTargetType,
+): EntityKind | undefined {
+  switch (t) {
+    case 'area':
+      return 'area'
+    case 'stock':
+      return 'stock'
+    case 'staff':
+      return 'staff'
+    case 'regular':
+      return 'regular'
+    case 'supplier':
+      return 'supplier'
+    case 'faction':
+      return 'faction'
+    case 'project':
+      return 'project'
+    case 'recipe':
+      return 'recipe'
+    case 'customer_group':
+    case 'policy':
+    case 'global':
+      return undefined
+    default:
+      return undefined
+  }
+}
+
+/**
+ * Phase 190b / ISSUE-157b — map a sim `EntityRef.kind` to the `EntityKind`
+ * that owns its detail surface. Lets a projection that already carries a
+ * structured `{ kind, id }` reference (e.g. a seed's `namedEntities`)
+ * become an `EntityLink` without re-deriving the kind from prose. Kinds
+ * with no detail surface (`role`, `system`, `other`, `customer_group`,
+ * `local_event`, `tavern_identity`) return `undefined`.
+ */
+export function entityKindFromRefKind(
+  k: EntityRef['kind'],
+): EntityKind | undefined {
+  switch (k) {
+    case 'staff':
+      return 'staff'
+    case 'area':
+      return 'area'
+    case 'stock':
+      return 'stock'
+    case 'recipe':
+      return 'recipe'
+    case 'regular':
+      return 'regular'
+    case 'supplier':
+      return 'supplier'
+    case 'faction':
+      return 'faction'
+    case 'culture':
+      return 'culture'
+    case 'notable_npc':
+      return 'npc'
+    case 'rumour':
+      return 'rumour'
+    case 'customer_group':
+    case 'role':
+    case 'system':
+    case 'other':
+    case 'local_event':
+    case 'tavern_identity':
+      return undefined
+    default:
+      return undefined
   }
 }
 

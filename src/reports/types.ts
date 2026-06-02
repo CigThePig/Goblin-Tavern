@@ -97,6 +97,15 @@ export type ReportResolvedIntent = {
   verb: string
   /** Filled in when the seed is still on `seedsToday`; otherwise a fallback. */
   subject: string
+  /**
+   * Phase 190b / ISSUE-157b — set only when `subject` names a concrete
+   * entity the seed already carries (a `namedEntities` entry whose
+   * `displayName` equals `subject`). Lets the UI render the subject as an
+   * `EntityLink` onto that entity's detail surface. Absent when the
+   * subject is a generic noun — the UI then renders plain text. Never
+   * derived from prose; this is a structured reference or nothing.
+   */
+  subjectRef?: { kind: EntityRef['kind']; id: string }
   responseSlotId: string
 }
 

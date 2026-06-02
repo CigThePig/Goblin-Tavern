@@ -14,13 +14,14 @@
   import MissedOpportunities from './MissedOpportunities.svelte'
   import PressureCard from './PressureCard.svelte'
   import TermLabel from './TermLabel.svelte'
+  import EntityLink from './links/EntityLink.svelte'
+  import { entityKindFromRefKind } from './links/types'
   import { gameStore, formatDuration } from '../sim/gameStore.svelte'
   import type {
     DailyReportData,
     DayArcEntry,
     ReportDiffLine,
     ReportReputationDelta,
-    ReportResolvedIntent,
   } from '../../../../src/reports/types'
 
   let {
@@ -66,10 +67,6 @@
     if (d.direction === 'gain') return '+'
     if (d.direction === 'loss') return '−'
     return '·'
-  }
-
-  function verbReadable(intent: ReportResolvedIntent): string {
-    return `${intent.verb} · ${intent.subject}`
   }
 
   // Phase 186 / Cluster 6 — stable per-entry key for the day-arc list.
@@ -143,10 +140,27 @@
               </div>
             </li>
           {:else if entry.kind === 'resolved_intent'}
+            <!-- Phase 190b — the subject links to its detail surface when
+                 the projection resolved it to a concrete entity
+                 (`subjectRef`); a generic-noun subject stays plain text. -->
+            {@const subjectKind = entry.intent.subjectRef
+              ? entityKindFromRefKind(entry.intent.subjectRef.kind)
+              : undefined}
             <li class="ledger-row">
               <span class="ledger-mark">→</span>
               <div class="ledger-body">
-                <span class="ledger-line">you chose: {verbReadable(entry.intent)}</span>
+                <span class="ledger-line">
+                  you chose: {entry.intent.verb} ·
+                  {#if subjectKind && entry.intent.subjectRef}
+                    <EntityLink
+                      kind={subjectKind}
+                      id={entry.intent.subjectRef.id}
+                      label={entry.intent.subject}
+                    />
+                  {:else}
+                    {entry.intent.subject}
+                  {/if}
+                </span>
               </div>
             </li>
           {:else}

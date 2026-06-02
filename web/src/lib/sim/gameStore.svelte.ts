@@ -601,6 +601,19 @@ class GameStore {
     this.pendingBySeedId = { ...this.pendingBySeedId, [seedId]: pending }
   }
 
+  /**
+   * Phase 190b / ISSUE-157b — drop a pending decision so the card's
+   * choices are live again. A decision stays uncommitted until End Day,
+   * so revising one before then is free; the pending-tag tap-target on
+   * DayScreen calls this to let the player re-open the original choice.
+   */
+  clearSeed(seedId: string): void {
+    if (!(seedId in this.pendingBySeedId)) return
+    const next = { ...this.pendingBySeedId }
+    delete next[seedId]
+    this.pendingBySeedId = next
+  }
+
   setServiceComplete(value: boolean): void {
     this.serviceComplete = value
   }

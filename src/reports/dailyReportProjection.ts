@@ -11,6 +11,7 @@
 import type { SimResult } from '../sim/core/result'
 import type {
   CauseEntry,
+  EntityRef,
   MemoryState,
   ReputationState,
   TavernState,
@@ -458,23 +459,52 @@ function projectResolvedIntents(state: TavernState): ReportResolvedIntent[] {
   const resolved = slice?.resolvedToday ?? []
   // Seeds for "today" still live on `seedsToday` between runDay calls
   // because startDay (which clears them) only runs on the NEXT day.
+  // Phase 190b / ISSUE-157b — alongside the display subject, surface a
+  // structured entity reference when the seed's `namedEntities` carries an
+  // entry whose `displayName` IS the subject. That lets the UI link the
+  // subject to its detail surface without re-deriving a kind from prose.
+  type NamedEntity = { ref?: { kind?: string; id?: string }; displayName?: string }
   const seedsToday =
-    ((state.modules['issueSeeds'] as { seedsToday?: Array<{ id: string; textIngredients?: { subject?: string } }> } | undefined)
-      ?.seedsToday) ?? []
+    ((state.modules['issueSeeds'] as
+      | {
+          seedsToday?: Array<{
+            id: string
+            textIngredients?: { subject?: string; namedEntities?: NamedEntity[] }
+          }>
+        }
+      | undefined)?.seedsToday) ?? []
   const subjectsById = new Map<string, string>()
+  const refsBySeed = new Map<string, { kind: EntityRef['kind']; id: string }>()
   for (const seed of seedsToday) {
     const subject = seed.textIngredients?.subject
     if (typeof subject === 'string' && subject.length > 0) {
       subjectsById.set(seed.id, subject)
+      const named = seed.textIngredients?.namedEntities ?? []
+      const match = named.find(
+        (n) =>
+          n.displayName === subject &&
+          typeof n.ref?.kind === 'string' &&
+          typeof n.ref?.id === 'string',
+      )
+      if (match?.ref?.kind && match.ref.id) {
+        refsBySeed.set(seed.id, {
+          kind: match.ref.kind as EntityRef['kind'],
+          id: match.ref.id,
+        })
+      }
     }
   }
-  return resolved.map((r) => ({
-    intentId: r.intentId,
-    seedId: r.seedId,
-    verb: r.verb,
-    subject: subjectsById.get(r.seedId) ?? r.seedId,
-    responseSlotId: r.responseSlotId,
-  }))
+  return resolved.map((r) => {
+    const ref = refsBySeed.get(r.seedId)
+    return {
+      intentId: r.intentId,
+      seedId: r.seedId,
+      verb: r.verb,
+      subject: subjectsById.get(r.seedId) ?? r.seedId,
+      ...(ref ? { subjectRef: ref } : {}),
+      responseSlotId: r.responseSlotId,
+    }
+  })
 }
 
 // ---------- Service lines ----------

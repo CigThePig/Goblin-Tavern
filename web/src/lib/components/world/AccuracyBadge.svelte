@@ -25,7 +25,7 @@
   )
 </script>
 
-<span class="badge tag {accuracy}">
+<span class="badge {accuracy}">
   <span aria-hidden="true">{icon}</span>
   <span>{label}</span>
 </span>

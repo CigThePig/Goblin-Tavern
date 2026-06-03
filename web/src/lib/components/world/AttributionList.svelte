@@ -30,18 +30,18 @@
 
 {#if rows.length > 0}
   <section class="block">
-    <p class="block-label tag">{title}</p>
+    <p class="block-label section-label">{title}</p>
     <ul class="list">
       {#each rows as row (row.id)}
         <li class="row">
           <p class="readable">{row.readable}</p>
           <div class="meta">
-            <span class="type tag">{row.attributionType}</span>
+            <span class="type chip">{row.attributionType}</span>
             <AccuracyBadge accuracy={row.accuracy} />
             {#if perspective === 'against'}
-              <span class="from tag">— {row.perceiverLabel}</span>
+              <span class="from chip">— {row.perceiverLabel}</span>
             {:else}
-              <span class="to tag">— about {row.targetLabel}</span>
+              <span class="to chip">— about {row.targetLabel}</span>
             {/if}
           </div>
           <MeterBar label="strength" value={row.strength} mode="pressure" />

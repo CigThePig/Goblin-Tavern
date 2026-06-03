@@ -46,7 +46,7 @@
   >
     <div class="lede">
       <span class="display heading">The Crooked Keg</span>
-      <span class="age tag">day {data.daysOpen} open</span>
+      <span class="age chip">day {data.daysOpen} open</span>
     </div>
     <div class="hints">
       {#if data.nicknames.length > 0}
@@ -63,7 +63,7 @@
   {#if expanded}
     <div class="expand">
       <div class="kv">
-        <p class="kv-label tag">
+        <p class="kv-label chip">
           <TermLabel term="tavern_identity" label="Identity" />
         </p>
         <p class="kv-value">founded on day {data.foundingDay}</p>
@@ -71,7 +71,7 @@
 
       {#if data.atmosphereTags.length > 0}
         <div class="kv">
-          <p class="kv-label tag">
+          <p class="kv-label chip">
             <TermLabel term="atmosphere" label="Atmosphere" />
           </p>
           <p class="kv-value">{data.atmosphereTags.join(' · ')}</p>
@@ -80,7 +80,7 @@
 
       {#if data.knownFor.length > 0}
         <div class="kv">
-          <p class="kv-label tag">
+          <p class="kv-label chip">
             <TermLabel term="known_for" label="Known for" />
           </p>
           <p class="kv-value">{data.knownFor.join(' · ')}</p>
@@ -89,7 +89,7 @@
 
       {#if data.houseRules.length > 0}
         <div class="kv">
-          <p class="kv-label tag">
+          <p class="kv-label chip">
             <TermLabel term="house_rules" label="House rules" />
           </p>
           <ul class="rules">
@@ -102,7 +102,7 @@
 
       {#if data.attributionHints.length > 0}
         <div class="kv">
-          <p class="kv-label tag">
+          <p class="kv-label chip">
             <TermLabel term="attribution_hint" label="Voices" />
           </p>
           <ul class="rules voices">
@@ -115,7 +115,7 @@
 
       {#if data.nicknames.length > 0}
         <div class="kv">
-          <p class="kv-label tag">
+          <p class="kv-label chip">
             <TermLabel term="nickname" label="Nicknames" />
           </p>
           <p class="kv-value nicknames">

@@ -55,7 +55,7 @@
 
 {#if actions.length > 0}
   <div class="block">
-    <p class="block-label tag">Quick actions</p>
+    <p class="block-label section-label">Quick actions</p>
     <ul class="list">
       {#each actions as ref (ref.actionId)}
         {@const queued = isQueued(ref.actionId)}
@@ -78,9 +78,9 @@
               </span>
             </span>
             <span class="meta">
-              <span class="cat tag">{categoryLabel(ref.category)}</span>
+              <span class="cat chip">{categoryLabel(ref.category)}</span>
               {#if queued}
-                <span class="queued-pill tag">queued · tap to remove</span>
+                <span class="queued-pill chip">queued · tap to remove</span>
               {:else if ref.disabledReason}
                 <span class="reason">{ref.disabledReason}</span>
               {/if}

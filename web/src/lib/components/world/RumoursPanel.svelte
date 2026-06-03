@@ -34,11 +34,11 @@
             <div class="meta">
               <AccuracyBadge accuracy={row.accuracy} />
               {#if row.targetLabel}
-                <span class="target tag">about {row.targetLabel}</span>
+                <span class="target chip">about {row.targetLabel}</span>
               {/if}
             </div>
             <MeterBar label="strength" value={row.strength} mode="pressure" />
-            <p class="foot tag">
+            <p class="foot chip">
               first heard {row.daysSinceFirstHeard}d ago
               · last spread {row.daysSinceLastSpread === 0
                 ? 'today'

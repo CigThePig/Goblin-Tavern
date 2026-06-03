@@ -42,9 +42,9 @@
         <button class="row" type="button" onclick={() => open(row)}>
           <header class="head">
             <span class="label">{row.label}</span>
-            <span class="adj tag">{row.conditionAdjective}</span>
+            <span class="adj chip">{row.conditionAdjective}</span>
             {#if row.activeProblems.length > 0}
-              <span class="problem-badge tag" aria-label="{row.activeProblems.length} active problems">
+              <span class="problem-badge chip" aria-label="{row.activeProblems.length} active problems">
                 ⚠ {row.activeProblems.length}
               </span>
             {/if}
@@ -56,7 +56,7 @@
           {#if row.traits.length > 0}
             <div class="traits">
               {#each row.traits as trait (trait.id)}
-                <span class="trait tag">{trait.label}</span>
+                <span class="trait chip">{trait.label}</span>
               {/each}
             </div>
           {/if}

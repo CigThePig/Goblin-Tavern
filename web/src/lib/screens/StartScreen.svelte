@@ -112,7 +112,7 @@
       {#if advancedOpen}
         <div class="adv-body">
           <div class="adv-row">
-            <span class="adv-label tag">difficulty</span>
+            <span class="adv-label chip">difficulty</span>
             <div class="diff-row">
               {#each difficultyOptions as opt (opt.id)}
                 <button
@@ -129,7 +129,7 @@
             <p class="adv-note mono">{selectedDescription}</p>
           </div>
           <label class="adv-row">
-            <span class="adv-label tag">seed</span>
+            <span class="adv-label chip">seed</span>
             <input
               class="adv-input mono"
               type="text"
@@ -148,7 +148,7 @@
     </div>
   {/if}
 
-  <footer class="foot tag">
+  <footer class="foot chip">
     headless sim · 95 phases · cards in flight
   </footer>
 </main>

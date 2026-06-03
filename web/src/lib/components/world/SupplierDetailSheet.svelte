@@ -43,7 +43,7 @@
       </p>
 
       <section class="block">
-        <p class="block-label tag">Meters</p>
+        <p class="block-label section-label">Meters</p>
         <div class="meters">
           <MeterBar
             label="relationship"
@@ -56,13 +56,13 @@
             mode="wellness"
           />
         </div>
-        <p class="terms tag">
+        <p class="terms chip">
           <TermLabel term="relationship" /> · <TermLabel term="reliability" />
         </p>
       </section>
 
       <section class="block">
-        <p class="block-label tag">Terms</p>
+        <p class="block-label section-label">Terms</p>
         <dl class="kv">
           <div>
             <dt>debt tolerance</dt>
@@ -88,7 +88,7 @@
 
       {#if supplier.goods.length > 0}
         <section class="block">
-          <p class="block-label tag">Goods provided</p>
+          <p class="block-label section-label">Goods provided</p>
           <ul class="goods">
             {#each supplier.goods as good (good.ingredientId)}
               <li class="good">
@@ -110,7 +110,7 @@
 
       {#if supplier.activeFlags.length > 0}
         <section class="block">
-          <p class="block-label tag">Active flags</p>
+          <p class="block-label section-label">Active flags</p>
           <p class="tags">{supplier.activeFlags.join(' · ')}</p>
         </section>
       {/if}

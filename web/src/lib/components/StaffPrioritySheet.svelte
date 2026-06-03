@@ -49,7 +49,7 @@
         <div class="row">
           <header class="who">
             <span class="name">{member.name.display}</span>
-            <span class="role tag">{idLabel('staffRole', member.role)}</span>
+            <span class="role chip">{idLabel('staffRole', member.role)}</span>
           </header>
           <div class="meters mono">
             <span>morale {member.morale}</span>

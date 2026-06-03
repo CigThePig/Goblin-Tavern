@@ -72,9 +72,10 @@ is split into **ISSUE-157a** (phase 190a — interconnection primitives +
 routing + drilldown paths, `done`) and **ISSUE-157b** (phase 190b —
 consumer wiring, `done`). **ISSUE-158** (phase 191 — pressure stakes and
 danger zones), **ISSUE-159** (phase 192 — TopBar stakes reframe), and
-**ISSUE-160** (phase 193 — action effect previews + suggestions) are now
-`done`; **ISSUE-161** (phase 194 — typography scan-speed pass) is next up;
-194–196 (ISSUE-161…163) are `open` and follow in arc order; see the Tier 5
+**ISSUE-160** (phase 193 — action effect previews + suggestions), and
+**ISSUE-161** (phase 194 — typography scan-speed pass) are now `done`;
+**ISSUE-162** (phase 195 — Reports → Action conversion) is next up;
+195–196 (ISSUE-162…163) are `open` and follow in arc order; see the Tier 5
 section for per-issue detail.
 
 The card-layer arcs ran Living Cast → Voiced → Legible → Faithful →
@@ -242,7 +243,7 @@ next.
 | ISSUE-158 | UI Intuitiveness Phase 2 — Pressure stakes and danger zones (reuse sim consequences + severity band) | thin | open | 191 |
 | ISSUE-159 | UI Intuitiveness Phase 3 — TopBar stakes reframe (time economy, not action points) | thin | open | 192 |
 | ISSUE-160 | UI Intuitiveness Phase 4 — Action effect previews + suggestions in Plan beat | thin | done | 193 |
-| ISSUE-161 | UI Intuitiveness Phase 5 — Typography scan-speed pass | thin | open | 194 |
+| ISSUE-161 | UI Intuitiveness Phase 5 — Typography scan-speed pass | thin | done | 194 |
 | ISSUE-162 | UI Intuitiveness Phase 6 — Reports → Action conversion | thin | open | 195 |
 | ISSUE-163 | UI Intuitiveness Phase 7 — Day dominance and cleanups | thin | open | 196 |
 | ISSUE-116 | Legible Surface Phase 3 — Choice Distinctness Gate & Legible Choice-Set Cap | broken | done | 148 |
@@ -3373,11 +3374,11 @@ action points (phase 186) throughout.
 - **Test approach:** `tests/web/phase193.actionPreviewsAndSuggest.test.ts` (jsdom, 12 tests — preview caption present/absent, Suggested section render + collapse, and the engine's rising-pressure/yesterday-loss triggers, cap-at-3, dedup, time-cost tiebreak, severity ordering, determinism) + `tests/sim/phase193.actionAffinity.test.ts` (5 tests — affinity ids are valid registered pressure ids, arrays non-empty/unique, obvious mappings present, previews non-empty strings, ≥60% remedial coverage). `npm run typecheck` + `npm run check` (svelte-check, 0 errors) green; full `tests/web` (228) + targeted sim tests passing.
 
 ### ISSUE-161 — UI Intuitiveness Phase 5: Typography scan-speed pass
-- **Grade:** thin · **Status:** open · **Phase:** 194 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 194).
+- **Grade:** thin · **Status:** done · **Phase:** 194 · **Record:** `docs/plans/phase-194-typography-scan-speed.md` (+ `docs/plans/ui-ux-intuitiveness-arc.md §Phase 194`).
 - **Goal:** Split the overloaded `.tag` class so functional chrome parses fast and decorative atmosphere stays where it belongs (`.section-label` / `.chip` / `.badge` / narrowed `.tag`).
-- **Scope:** `global.css` class split + full migration audit across `web/src/`; preserve the `TermLabel` vs `EntityLink` visual contract.
+- **Scope:** `global.css` four-class split behind a new `--type-chip` (13px, font-scale-aware) token: `.section-label` (small-caps kept, `--text-dim`), `.chip` (sentence case, `--text`), `.badge` (`.chip` + emphasis box), `.tag` (narrowed, unchanged). Full migration of ~250 `class="…tag…"` sites across ~50 files — headers → `.section-label`, functional labels → `.chip` (typography only; component-scoped pill boxes win on specificity, so no pill lost colour/box), `.badge` backs the pre-existing scoped-`.badge` users (TopBar/RecipeDetailSheet/AccuracyBadge). `.tag` retained on nine passive, non-tappable meta labels only (closed-period notes, log day-coords, "Yesterday · Day N", cause-meta, the seed-family corner + About footnote). Tappable small-caps also stripped where hand-rolled in scoped styles (`BottomNav .label`, three screen `.subtab`s, ActionPicker `.tab`). Collision handling: ActionPicker's queued-pick pill `.chip` → `.pick-pill`; ActionQueueChip's inner label got sentence-case typography without the global class. `TermLabel`/`EntityLink` contract (phase 190a) untouched.
 - **Depends on:** ISSUE-157a, ISSUE-158, ISSUE-159, ISSUE-160.
-- **Test approach:** `tests/web/phase194.typography.test.ts` — key components emit the new class names; regression guard against `.tag` in functional chrome.
+- **Test approach:** `tests/web/phase194.typography.test.ts` (jsdom, 14 tests) — global.css vocabulary (`.section-label`/`.tag` keep small-caps, `.chip`/`.badge` drop it, `.badge` carries a box); tappable chrome (BottomNav/subtabs/picker tabs) sentence case; key components emit the new classes (DailyReport `block-label section-label`, ActionPicker `chip`+`section-label`, AccuracyBadge `badge`); a recursive source scan asserting `class="…tag…"` appears ONLY on the nine-entry meta allowlist (regression guard against re-introducing `.tag` in chrome); ActionPicker DOM renders `.chip` and no `.tag`. `npm run typecheck` + `npm run check` (svelte-check, 0 errors) green; all 242 `tests/web` pass.
 
 ### ISSUE-162 — UI Intuitiveness Phase 6: Reports → Action conversion
 - **Grade:** thin · **Status:** open · **Phase:** 195 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 195).

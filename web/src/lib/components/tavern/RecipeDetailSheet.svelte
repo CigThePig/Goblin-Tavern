@@ -21,11 +21,11 @@
         <span class="badge" class:on={recipe.onMenu}>
           {recipe.onMenu ? 'on menu' : 'off menu'}
         </span>
-        <span class="tier tag rarity-{recipe.demandTier}">{recipe.demandTier}</span>
+        <span class="tier chip rarity-{recipe.demandTier}">{recipe.demandTier}</span>
       </div>
 
       <section class="block">
-        <p class="block-label tag">Inputs</p>
+        <p class="block-label section-label">Inputs</p>
         <ul class="inputs">
           {#each recipe.inputs as input (input.ingredientId)}
             {@const ok = input.available >= input.quantity}
@@ -43,7 +43,7 @@
       </section>
 
       <section class="block">
-        <p class="block-label tag">Profile</p>
+        <p class="block-label section-label">Profile</p>
         <dl class="kv">
           <div>
             <dt><TermLabel term="prep_difficulty" /></dt>
@@ -70,14 +70,14 @@
 
       {#if recipe.culturalTags.length > 0}
         <section class="block">
-          <p class="block-label tag">Cultural tags</p>
+          <p class="block-label section-label">Cultural tags</p>
           <p class="tags">{recipe.culturalTags.join(' · ')}</p>
         </section>
       {/if}
 
       {#if recipe.tags.length > 0}
         <section class="block">
-          <p class="block-label tag">Tags</p>
+          <p class="block-label section-label">Tags</p>
           <p class="tags">{recipe.tags.join(' · ')}</p>
         </section>
       {/if}

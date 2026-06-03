@@ -205,7 +205,7 @@
           </button>
           <div>
             <p class="targeting-label display">{targetingFor.label}</p>
-            <p class="targeting-hint tag">choose a target</p>
+            <p class="targeting-hint chip">choose a target</p>
           </div>
         </header>
         <ul class="targets">
@@ -213,7 +213,7 @@
             <li>
               <button class="target" type="button" onclick={() => chooseTarget(t)}>
                 <span class="target-label">{t.label}</span>
-                {#if t.hint}<span class="target-hint tag">{t.hint}</span>{/if}
+                {#if t.hint}<span class="target-hint chip">{t.hint}</span>{/if}
               </button>
             </li>
           {/each}
@@ -225,7 +225,7 @@
           {#each picks as p (p.pickId)}
             <button
               type="button"
-              class="chip"
+              class="pick-pill"
               aria-label={p.targetLabel
                 ? `Remove ${p.label} on ${p.targetLabel}`
                 : `Remove ${p.label}`}
@@ -240,14 +240,14 @@
           {/each}
         </div>
       {:else}
-        <p class="unspent tag" aria-live="polite">
+        <p class="unspent chip" aria-live="polite">
           Your day is unspent. Tap Done to skip planning.
         </p>
       {/if}
 
       {#if suggestions.length > 0}
         <div class="suggested" aria-label="Suggested actions">
-          <p class="suggested-head tag">Suggested</p>
+          <p class="suggested-head section-label">Suggested</p>
           <ul class="actions">
             {#each suggestions as s (s.action.id)}
               {@const reason = disabledReason(s.action)}
@@ -267,11 +267,11 @@
                     </span>
                   </span>
                   {#if s.action.effectsPreview}
-                    <span class="action-effect tag">{s.action.effectsPreview}</span>
+                    <span class="action-effect chip">{s.action.effectsPreview}</span>
                   {/if}
-                  <span class="suggested-reason tag">{s.reason}</span>
+                  <span class="suggested-reason chip">{s.reason}</span>
                   {#if reason}
-                    <span class="action-reason tag">{reason}</span>
+                    <span class="action-reason chip">{reason}</span>
                   {/if}
                 </button>
               </li>
@@ -318,12 +318,12 @@
                   </span>
                 </span>
                 {#if row.effects}
-                  <span class="policy-effect tag">{row.effects}</span>
+                  <span class="policy-effect chip">{row.effects}</span>
                 {/if}
                 {#if row.disabledReason}
-                  <span class="action-reason tag">{row.disabledReason}</span>
+                  <span class="action-reason chip">{row.disabledReason}</span>
                 {:else if row.conflictNote}
-                  <span class="action-reason tag conflict">{row.conflictNote}</span>
+                  <span class="action-reason chip conflict">{row.conflictNote}</span>
                 {/if}
               </button>
             </li>
@@ -332,7 +332,7 @@
       {:else}
         <ul class="actions">
           {#if actionsForTab.length === 0}
-            <li class="empty tag">
+            <li class="empty chip">
               Nothing to do in this tab right now. Try Immediate.
             </li>
           {/if}
@@ -354,10 +354,10 @@
                   </span>
                 </span>
                 {#if def.effectsPreview}
-                  <span class="action-effect tag">{def.effectsPreview}</span>
+                  <span class="action-effect chip">{def.effectsPreview}</span>
                 {/if}
                 {#if reason}
-                  <span class="action-reason tag">{reason}</span>
+                  <span class="action-reason chip">{reason}</span>
                 {/if}
               </button>
             </li>
@@ -389,7 +389,10 @@
     margin-bottom: var(--sp-md);
   }
 
-  .chip {
+  /* Renamed from `.chip` in phase 194 so the global `.chip` utility can be
+     used freely on this component's functional labels without inheriting
+     the queued-pick pill's box. */
+  .pick-pill {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -427,8 +430,6 @@
 
   .tab {
     font-family: var(--font-body);
-    font-variant: small-caps;
-    letter-spacing: 0.06em;
     font-size: 13px;
     color: var(--text-faint);
     padding: 8px 12px;

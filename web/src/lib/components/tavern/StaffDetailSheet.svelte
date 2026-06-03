@@ -32,7 +32,7 @@
       </p>
 
       <section class="block">
-        <p class="block-label tag">Meters</p>
+        <p class="block-label section-label">Meters</p>
         <div class="meters">
           <MeterBar label="skill" value={staff.skill} mode="wellness" />
           <MeterBar label="morale" value={staff.morale} mode="wellness" />
@@ -40,14 +40,14 @@
           <MeterBar label="fatigue" value={staff.fatigue} mode="pressure" />
           <MeterBar label="loyalty" value={staff.loyalty} mode="wellness" />
         </div>
-        <p class="terms tag">
+        <p class="terms chip">
           <TermLabel term="morale" /> · <TermLabel term="stress" /> ·
           <TermLabel term="fatigue" /> · <TermLabel term="loyalty" />
         </p>
       </section>
 
       <section class="block">
-        <p class="block-label tag">Wages</p>
+        <p class="block-label section-label">Wages</p>
         <p class="wage mono">
           {staff.wage}c per week
           ·
@@ -60,7 +60,7 @@
       </section>
 
       <section class="block">
-        <p class="block-label tag">Priority</p>
+        <p class="block-label section-label">Priority</p>
         <select
           class="prio"
           value={staff.currentPriority ?? ''}
@@ -71,12 +71,12 @@
             <option value={p.id}>{p.label}</option>
           {/each}
         </select>
-        <p class="hint tag">Sticky across days — engine fallback if left default.</p>
+        <p class="hint chip">Sticky across days — engine fallback if left default.</p>
       </section>
 
       {#if staff.workStyle || staff.stressResponse || staff.personalityTags.length > 0}
         <section class="block">
-          <p class="block-label tag">Identity</p>
+          <p class="block-label section-label">Identity</p>
           <dl class="kv">
             {#if staff.workStyle}
               <div>
@@ -99,7 +99,7 @@
 
       {#if staff.activeFlags.length > 0}
         <section class="block">
-          <p class="block-label tag">Active flags</p>
+          <p class="block-label section-label">Active flags</p>
           <p class="tags">{staff.activeFlags.join(' · ')}</p>
         </section>
       {/if}

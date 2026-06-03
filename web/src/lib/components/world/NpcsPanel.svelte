@@ -27,10 +27,10 @@
           <button class="row" type="button" onclick={() => (selected = row)}>
             <header class="head">
               <span class="name">{row.name}</span>
-              <span class="kind tag">{row.kind.replace(/_/g, ' ')}</span>
+              <span class="kind chip">{row.kind.replace(/_/g, ' ')}</span>
               <span class="chev" aria-hidden="true">›</span>
             </header>
-            <p class="sub tag">
+            <p class="sub chip">
               {#if row.factionLabel}{row.factionLabel}{/if}
               {#if row.factionLabel && row.cultureLabel}·{/if}
               {#if row.cultureLabel}{row.cultureLabel}{/if}
@@ -39,7 +39,7 @@
                 {row.customerGroupLabel}
               {/if}
             </p>
-            <p class="foot tag">
+            <p class="foot chip">
               first seen day {row.firstSeenDay}
               {#if row.daysSinceLastSeen !== undefined}
                 · last seen

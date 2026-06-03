@@ -21,22 +21,22 @@
       <p class="readable">{rumour.label}</p>
 
       <section class="block">
-        <p class="block-label tag">
+        <p class="block-label section-label">
           <TermLabel term="accuracy" label="Accuracy" />
         </p>
         <AccuracyBadge accuracy={rumour.accuracy} />
       </section>
 
       <section class="block">
-        <p class="block-label tag">Reach</p>
+        <p class="block-label section-label">Reach</p>
         <MeterBar label="strength" value={rumour.strength} mode="pressure" />
-        <p class="terms tag">
+        <p class="terms chip">
           <TermLabel term="rumour" />
         </p>
       </section>
 
       <section class="block">
-        <p class="block-label tag">Spread</p>
+        <p class="block-label section-label">Spread</p>
         <dl class="kv">
           <div>
             <dt>first heard</dt>
@@ -57,7 +57,7 @@
 
       {#if rumour.sourceLabel || rumour.targetLabel || rumour.subjectLabel}
         <section class="block">
-          <p class="block-label tag">Actors</p>
+          <p class="block-label section-label">Actors</p>
           <dl class="kv">
             {#if rumour.sourceLabel}
               <div>
@@ -83,13 +83,13 @@
 
       {#if rumour.involvedLabels.length > 0}
         <section class="block">
-          <p class="block-label tag">Involved</p>
+          <p class="block-label section-label">Involved</p>
           <p class="tags">{rumour.involvedLabels.join(' · ')}</p>
         </section>
       {/if}
 
       {#if rumour.tags.length > 0}
-        <p class="quiet tag">{rumour.tags.join(' · ')}</p>
+        <p class="quiet chip">{rumour.tags.join(' · ')}</p>
       {/if}
     {/if}
   {/snippet}

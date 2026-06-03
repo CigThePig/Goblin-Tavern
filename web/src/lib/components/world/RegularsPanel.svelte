@@ -33,7 +33,7 @@
               <span class="name">{row.name}</span>
               <span class="chev" aria-hidden="true">›</span>
             </header>
-            <p class="sub tag">
+            <p class="sub chip">
               {row.customerGroupLabel}
               {#if row.cultureLabel}· {row.cultureLabel}{/if}
               {#if row.factionLabel}· {row.factionLabel}{/if}
@@ -46,7 +46,7 @@
                 mode="pressure"
               />
             </div>
-            <p class="foot tag">
+            <p class="foot chip">
               {row.visits} {row.visits === 1 ? 'visit' : 'visits'}
               · last seen
               {row.daysSinceLastSeen === 0

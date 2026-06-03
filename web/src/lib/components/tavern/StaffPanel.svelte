@@ -34,7 +34,7 @@
 </script>
 
 <section class="panel" aria-label="Staff">
-  <p class="summary tag">
+  <p class="summary chip">
     {data.rows.length} {data.rows.length === 1 ? 'staff member' : 'staff'}
     {#if data.unpaidCount > 0}
       · <span class="warn">{data.unpaidCount} unpaid this week</span>
@@ -52,11 +52,11 @@
             <header class="head">
               <span class="label">{row.name}</span>
               {#if row.unavailable}
-                <span class="out tag">out</span>
+                <span class="out chip">out</span>
               {/if}
               <span class="chev" aria-hidden="true">›</span>
             </header>
-            <p class="role tag">
+            <p class="role chip">
               {row.roleLabel} · skill {row.skill} · {row.wage}c/wk
               {#if row.paidThisWeek}
                 · paid
@@ -68,7 +68,7 @@
               <MeterBar label="morale" value={row.morale} mode="wellness" />
             </div>
             {#if row.currentPriorityLabel}
-              <p class="priority tag">priority: {row.currentPriorityLabel}</p>
+              <p class="priority chip">priority: {row.currentPriorityLabel}</p>
             {/if}
           </button>
         </li>

@@ -40,7 +40,7 @@
 <section class="panel" aria-label="Stock">
   <!-- ── Inventory ─────────────────────────────────────────────── -->
   <section class="block">
-    <p class="summary tag">
+    <p class="summary chip">
       {data.inventory.rows.length}
       {data.inventory.rows.length === 1 ? 'item' : 'items'}
       {#if data.inventory.lowStockCount > 0}
@@ -78,15 +78,15 @@
                 <span class="chev" aria-hidden="true">›</span>
               </header>
               <div class="meta">
-                <span class="rarity tag rarity-{row.rarity}">{row.rarity}</span>
+                <span class="rarity chip rarity-{row.rarity}">{row.rarity}</span>
                 <span class="price mono">{row.salePrice}c each</span>
                 {#if row.storageAreaLabel}
-                  <span class="storage tag">in {row.storageAreaLabel}</span>
+                  <span class="storage chip">in {row.storageAreaLabel}</span>
                 {/if}
-                {#if row.isLow}<span class="warn-pill tag">low</span>{/if}
-                {#if row.isSpoiling}<span class="warn-pill tag">spoiling</span>{/if}
+                {#if row.isLow}<span class="warn-pill chip">low</span>{/if}
+                {#if row.isSpoiling}<span class="warn-pill chip">spoiling</span>{/if}
                 {#if row.isUpkeepConsumed}
-                  <span class="upkeep-pill tag">
+                  <span class="upkeep-pill chip">
                     <TermLabel term="upkeep" label="used for upkeep" />
                   </span>
                 {/if}
@@ -100,10 +100,10 @@
 
   <!-- ── Supply Pipeline ────────────────────────────────────────── -->
   <section class="block">
-    <h2 class="block-label tag">Supply pipeline</h2>
+    <h2 class="block-label section-label">Supply pipeline</h2>
 
     <section class="sub">
-      <p class="sub-label tag">
+      <p class="sub-label chip">
         <TermLabel term="expedition" label="Active expeditions" />
       </p>
       {#if data.supplyPipeline.activeExpeditions.length === 0}
@@ -114,9 +114,9 @@
             <li class="exp">
               <header class="exp-head">
                 <span class="exp-name">{exp.runnerName}</span>
-                <span class="exp-mode tag">{exp.mode}</span>
+                <span class="exp-mode chip">{exp.mode}</span>
               </header>
-              <p class="exp-target tag">
+              <p class="exp-target chip">
                 {#if exp.mode === 'targeted'}
                   fetching {exp.targetIngredientLabel ?? exp.targetIngredientId ?? '?'}
                 {:else if exp.targetTier}
@@ -139,7 +139,7 @@
     </section>
 
     <section class="sub">
-      <p class="sub-label tag">
+      <p class="sub-label chip">
         <TermLabel term="adventurer" label="Hireable adventurers" />
       </p>
       <ul class="adv-rows">
@@ -147,7 +147,7 @@
           <li class="adv" class:busy={adv.isBusy}>
             <header class="adv-head">
               <span class="adv-name">{adv.name}</span>
-              <span class="adv-status tag">
+              <span class="adv-status chip">
                 {adv.isBusy ? 'on expedition' : 'available'}
               </span>
             </header>
@@ -179,7 +179,7 @@
 
     {#if data.supplyPipeline.recentCompletions.length > 0}
       <details class="recent">
-        <summary class="sub-label tag">
+        <summary class="sub-label chip">
           Recent completions ({data.supplyPipeline.recentCompletions.length})
         </summary>
         <ul class="completions">
@@ -187,9 +187,9 @@
             <li class="completion outcome-{rec.outcome}">
               <header class="comp-head">
                 <span class="comp-name">{rec.runnerName}</span>
-                <span class="comp-outcome tag">{idLabel('expeditionOutcome', rec.outcome)}</span>
+                <span class="comp-outcome chip">{idLabel('expeditionOutcome', rec.outcome)}</span>
               </header>
-              <p class="comp-meta tag">
+              <p class="comp-meta chip">
                 day {rec.resolvedDay}
                 {#if rec.daysSinceClose > 0}
                   · {rec.daysSinceClose}d ago

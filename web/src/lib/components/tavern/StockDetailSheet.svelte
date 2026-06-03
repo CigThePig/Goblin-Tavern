@@ -19,24 +19,24 @@
   {#snippet children()}
     {#if item}
       <div class="lede">
-        <span class="rarity tag rarity-{item.rarity}">{item.rarity}</span>
+        <span class="rarity chip rarity-{item.rarity}">{item.rarity}</span>
         <span class="qty mono">×{item.quantity}</span>
       </div>
 
       <section class="block">
-        <p class="block-label tag">Condition</p>
+        <p class="block-label section-label">Condition</p>
         <div class="meters">
           <MeterBar label="quality" value={item.quality} mode="wellness" />
           <MeterBar label={'freshness'} value={item.freshness} mode="wellness" />
           <MeterBar label="spoilage" value={item.spoilage} mode="pressure" />
         </div>
-        <p class="terms tag">
+        <p class="terms chip">
           <TermLabel term="freshness" /> · <TermLabel term="spoilage" />
         </p>
       </section>
 
       <section class="block">
-        <p class="block-label tag">Trade</p>
+        <p class="block-label section-label">Trade</p>
         <dl class="kv">
           <div><dt>base price</dt><dd class="mono">{item.basePrice}c</dd></div>
           <div><dt>sale price</dt><dd class="mono">{item.salePrice}c</dd></div>
@@ -49,14 +49,14 @@
 
       {#if item.storageAreaLabel}
         <section class="block">
-          <p class="block-label tag">Storage</p>
+          <p class="block-label section-label">Storage</p>
           <p class="storage">{item.storageAreaLabel}</p>
         </section>
       {/if}
 
       {#if item.tags.length > 0}
         <section class="block">
-          <p class="block-label tag">Tags</p>
+          <p class="block-label section-label">Tags</p>
           <p class="tags">{item.tags.join(' · ')}</p>
         </section>
       {/if}

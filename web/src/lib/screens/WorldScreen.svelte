@@ -146,8 +146,6 @@
     padding: 8px 10px;
     border-radius: var(--radius-sm);
     font-family: var(--font-body);
-    font-variant: small-caps;
-    letter-spacing: 0.06em;
     font-size: 13px;
     color: var(--text-faint);
     transition: color var(--m-fast) var(--ease),

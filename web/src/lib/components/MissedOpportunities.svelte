@@ -27,7 +27,7 @@
 
 {#if opportunities.length > 0}
   <section class="block missed" aria-label="Missed opportunities">
-    <h2 class="block-label tag">
+    <h2 class="block-label section-label">
       <TermLabel term="missed_opportunity" label="What you could have done" />
     </h2>
     <ul class="missed-list">
@@ -37,7 +37,7 @@
           <div class="missed-body">
             <span class="missed-line">{o.readable}</span>
             {#if o.secondary}
-              <span class="missed-sub tag">{o.secondary}</span>
+              <span class="missed-sub chip">{o.secondary}</span>
             {/if}
           </div>
           <button

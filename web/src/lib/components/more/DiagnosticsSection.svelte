@@ -83,7 +83,7 @@
     </button>
     <span
       id="diag-status"
-      class="status tag"
+      class="status chip"
       class:status-ok={status.kind === 'copied'}
       class:status-err={status.kind === 'error'}
       role="status"

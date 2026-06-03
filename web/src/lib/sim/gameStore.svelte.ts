@@ -90,6 +90,20 @@ export type ActionPickerRequest = {
   focusSuggested?: boolean
 }
 
+/**
+ * Phase 196 / ISSUE-163 — which seed timings own resolvable cards on each
+ * beat, mirroring `DayScreen`'s per-beat seed slices. Plan and report carry
+ * no card deck, so `hasUnresolvedDayWork` falls back to the picks queue
+ * alone for them.
+ */
+const BEAT_SEED_TIMINGS: Record<Beat, IssueSeed['timing'][]> = {
+  morning: ['morning_prep', 'end_week', 'end_month'],
+  plan: [],
+  service: ['during_service'],
+  closing: ['closing'],
+  report: [],
+}
+
 class GameStore {
   state: TavernState = $state(createInitialTavernState())
   latestResult: SimResult | undefined = $state(undefined)
@@ -521,6 +535,26 @@ class GameStore {
   /** Seeds filtered to a single timing slot. */
   seedsForTiming(timing: IssueSeed['timing']): IssueSeed[] {
     return this.todaysSeeds.filter((s) => s.timing === timing)
+  }
+
+  /**
+   * Phase 196 / ISSUE-163 — does the player have outstanding Day work they
+   * may have navigated away from? Drives the BottomNav Day-tab dot. Two
+   * sources, both genuine cross-screen states:
+   *  • queued owner-action picks — the picks queue is shared, so Tavern
+   *    panels (Restock, Clean, policy toggles) enqueue here while the
+   *    player is off the Day tab; and
+   *  • unresolved issue-seed cards on the active beat — a seed whose card
+   *    the player hasn't answered yet (no `pendingBySeedId` entry).
+   * Read-only/derived; only the beat's own timings count (plan/report
+   * beats carry no resolvable cards, so picks alone drive them).
+   */
+  get hasUnresolvedDayWork(): boolean {
+    if (this.picks.length > 0) return true
+    const timings = BEAT_SEED_TIMINGS[this.beat]
+    return this.todaysSeeds.some(
+      (s) => timings.includes(s.timing) && !(s.id in this.pendingBySeedId),
+    )
   }
 
   // ── Picks queue API ──────────────────────────────────────────────

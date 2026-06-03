@@ -555,7 +555,11 @@
         Plan the day
       </button>
       {#if quickDayAvailable}
-        <button class="secondary quick-day" type="button" onclick={runQuickDay}>
+        <!-- Phase 196 / ISSUE-163 — Quick Day reads as a real peer to "Plan
+             the day" (the `.primary` outline treatment) rather than an italic
+             footnote, so a card-free morning presents two genuine choices.
+             Eligibility is unchanged; this is styling only. -->
+        <button class="primary quick-day" type="button" onclick={runQuickDay}>
           {quickDayLabel}
         </button>
       {/if}
@@ -933,11 +937,20 @@
     border-color: var(--accent);
   }
 
+  /* Phase 196 / ISSUE-163 — Quick Day is a peer affordance to "Plan the
+     day", not a footnote: it carries the `.primary` button footprint
+     (outline, display font, full tap target) but a neutral outline + body
+     text colour so "Plan the day" stays the brighter recommended default.
+     Two real options, clear default. */
   .quick-day {
-    flex: 1;
-    text-align: center;
-    color: var(--text-dim);
-    font-style: italic;
+    color: var(--text);
+    border-color: color-mix(in srgb, var(--candle-soft) 55%, transparent);
+  }
+
+  .quick-day:hover,
+  .quick-day:focus-visible {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
   }
 
   .ghost {

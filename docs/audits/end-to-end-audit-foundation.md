@@ -308,6 +308,10 @@ Exit criteria:
 - Documented browser/session state machine.
 - Reproduction scripts or tests for any confirmed recovery defects.
 
+Deliverable:
+
+- Completed in `docs/audits/phase-06-web-store-persistence-session-recovery.md`.
+
 ### Phase 7 — UI screens, components, accessibility, and player affordances
 
 **Goal:** Audit whether the UI faithfully exposes valid actions and state.

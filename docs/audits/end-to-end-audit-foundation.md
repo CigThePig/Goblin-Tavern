@@ -344,6 +344,10 @@ Exit criteria:
 - UI path map from primary player actions to store methods and engine inputs.
 - Accessibility and interaction findings classified by severity.
 
+Deliverable:
+
+- Completed in `docs/audits/phase-07-ui-screens-components-accessibility-affordances.md`.
+
 ### Phase 8 — Test-suite oracle and blind-spot audit
 
 **Goal:** Determine what the green test suite does and does not prove.

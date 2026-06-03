@@ -37,6 +37,14 @@ export const spacing = {
 /**
  * Map a 0–100 pressure value to a candle→rust→blood color stop.
  * Used by PressureRibbon to grade bar tint by severity.
+ *
+ * Phase 191 — verified (not changed): the crossover into the risk/loss
+ * palette (rust = `--risk` at 50, blood = `--loss` at 70) lines up with
+ * where the pressure calculators begin authoring `consequences` (severity
+ * 50–60, ≈ value 50–60 at the 1:1 `severityFromValue` default). The bar
+ * fill therefore already darkens as a pressure enters its danger band; the
+ * sim's per-pressure danger signal proper is the consequence line surfaced
+ * by `buildPressureConsequenceLine`, not a number invented in the web layer.
  */
 export function pressureColor(value: number): string {
   if (value < 30) return palette.candleSoft

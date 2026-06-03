@@ -439,6 +439,10 @@ Exit criteria:
 - Clear list of `wont-fix` / design-call items.
 - No speculative candidates promoted as confirmed bugs.
 
+Deliverable:
+
+- Completed in `docs/audits/phase-10-prioritization-repair-roadmap.md`.
+
 ## Cross-cutting audit checklists
 
 ### Unwired-code checklist

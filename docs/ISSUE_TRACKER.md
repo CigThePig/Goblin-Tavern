@@ -73,10 +73,11 @@ routing + drilldown paths, `done`) and **ISSUE-157b** (phase 190b —
 consumer wiring, `done`). **ISSUE-158** (phase 191 — pressure stakes and
 danger zones), **ISSUE-159** (phase 192 — TopBar stakes reframe), and
 **ISSUE-160** (phase 193 — action effect previews + suggestions), and
-**ISSUE-161** (phase 194 — typography scan-speed pass), and **ISSUE-162**
-(phase 195 — Reports → Action conversion) are now `done`; **ISSUE-163**
-(phase 196 — Day dominance and cleanups) is next up and closes the arc;
-see the Tier 5 section for per-issue detail.
+**ISSUE-161** (phase 194 — typography scan-speed pass), **ISSUE-162**
+(phase 195 — Reports → Action conversion), and **ISSUE-163** (phase 196 —
+Day dominance and cleanups) are now `done` — the latter closes the arc;
+see the Tier 5 section for per-issue detail. **The UI/UX Intuitiveness arc
+is complete.**
 
 The card-layer arcs ran Living Cast → Voiced → Legible → Faithful →
 Complete; each has a locked roadmap (`docs/plans/*-surface-arc.md`,
@@ -245,7 +246,7 @@ next.
 | ISSUE-160 | UI Intuitiveness Phase 4 — Action effect previews + suggestions in Plan beat | thin | done | 193 |
 | ISSUE-161 | UI Intuitiveness Phase 5 — Typography scan-speed pass | thin | done | 194 |
 | ISSUE-162 | UI Intuitiveness Phase 6 — Reports → Action conversion | thin | done | 195 |
-| ISSUE-163 | UI Intuitiveness Phase 7 — Day dominance and cleanups | thin | open | 196 |
+| ISSUE-163 | UI Intuitiveness Phase 7 — Day dominance and cleanups | thin | done | 196 |
 | ISSUE-116 | Legible Surface Phase 3 — Choice Distinctness Gate & Legible Choice-Set Cap | broken | done | 148 |
 
 ---
@@ -3388,11 +3389,11 @@ action points (phase 186) throughout.
 - **Test approach:** `tests/web/phase195.reportsActions.test.ts` (jsdom, 20 tests) — `planActionCtaForPath` mapping/omission; `requestActionPicker` plan-beat gate + consume-once; `CauseDrilldown` CTA present for pressure / absent for coin / routes + opens picker on tap; Yesterday-above-glance source + DOM order; "Today's watch" four-way branching; Weekly/Monthly/MissedOpportunities link coverage. `npm run typecheck` + `npm run check` (0 errors) green; phase-192 topbar test updated for the renamed request field; phase-194 `.tag` allowlist extended for the passive `watch-label`. Full fast tier green.
 
 ### ISSUE-163 — UI Intuitiveness Phase 7: Day dominance and cleanups
-- **Grade:** thin · **Status:** open · **Phase:** 196 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 196).
-- **Goal:** Final visual-hierarchy pass — Day icon emphasis + unresolved-work dot, Quick Day promotion to a peer affordance, and a cleanup walk catching drift from prior phases.
-- **Scope:** `BottomNav.svelte`, `DayScreen.svelte`; styling-only Quick Day promotion (eligibility unchanged).
+- **Grade:** thin · **Status:** done · **Phase:** 196 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 196).
+- **Goal:** Final visual-hierarchy pass — Day icon emphasis + unresolved-work dot, Quick Day promotion to a peer affordance, and a cleanup walk catching drift from prior phases. Closes the arc.
+- **Scope:** `BottomNav.svelte` — the Day tab always carries the accent (`.day-tab`, faded `color-mix(--accent 55%)` when inactive; `.tab.active`'s higher specificity lights it to full accent when active), the other four tabs unchanged (`--text-faint` inactive / `--accent` active); a `.work-dot` (small accent dot, `--ink` ring) anchors to the Day icon via a new `.icon-wrap` when the player has navigated away from Day with outstanding work. The dot's source is a new pure read-only getter `gameStore.hasUnresolvedDayWork` — true on any queued pick (the picks queue is cross-screen; Tavern panels enqueue here) **or** an unresolved card on the active beat (a valid `todaysSeeds` entry whose beat-owned timing has no `pendingBySeedId` entry), mapped per beat by a `BEAT_SEED_TIMINGS` constant mirroring `DayScreen`'s slices (plan/report carry no deck → picks alone). The dot is gated on `active !== 'day'` so it retires the moment the player returns. `DayScreen.svelte` — Quick Day promoted from a `.secondary` italic `--text-dim` footnote to a `.primary quick-day` peer (same outline button footprint, neutral `--candle-soft` border + `--text` colour so "Plan the day" stays the brighter default); eligibility rule (`quickDayAvailable`) untouched. Save schema unchanged (the getter is derived; no new persisted state). Plan→Morning back nav verified (no reorder regression after phase 195). Styling-only beyond the one additive derived getter.
 - **Depends on:** ISSUE-157a, ISSUE-158, ISSUE-159, ISSUE-160, ISSUE-161, ISSUE-162.
-- **Test approach:** `tests/web/phase196.dayNav.test.ts` — Day icon emphasis + dot indicator rendering.
+- **Test approach:** `tests/web/phase196.dayNav.test.ts` (jsdom, 13 tests) — `hasUnresolvedDayWork` across picks / unresolved beat seed / resolved seed / wrong-beat-timing / invalid seed / plan-beat-picks-only; BottomNav renders exactly one `.day-tab` emphasis tab, no dot when idle, the dot when away-from-Day with a queued pick or unresolved morning card (anchored to the Day tab), and no dot while Day is active; Quick Day source assertion (`.primary quick-day`, no `.secondary quick-day`, footnote italic gone). `npm run typecheck` + `npm run check` (svelte-check, 0 errors) + `npm run build` green; all 36 `tests/web` files (275 tests) pass.
 
 ## Related notes
 

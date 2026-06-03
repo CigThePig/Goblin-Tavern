@@ -13,14 +13,30 @@
 import { spawn } from 'node:child_process'
 import process from 'node:process'
 
-const vitestArgs = process.argv.slice(2)
+// Pull `--tier=<fast|heavy|all>` out of the args and pass it to vitest via the
+// TEST_TIER env var (vitest.config.ts reads it). Doing the env injection here —
+// rather than `TEST_TIER=… vitest` in package.json — keeps the npm scripts
+// cross-platform (no shell-specific env syntax). Everything else forwards to
+// vitest unchanged, so `npm test -- tests/sim/foo.test.ts` still works.
+const rawArgs = process.argv.slice(2)
+let tier = process.env.TEST_TIER
+const vitestArgs = []
+for (const arg of rawArgs) {
+  const match = /^--tier=(.+)$/.exec(arg)
+  if (match) tier = match[1]
+  else vitestArgs.push(arg)
+}
+
+const childEnv = { ...process.env }
+if (tier) childEnv.TEST_TIER = tier
+
 const args = ['vitest', 'run', ...vitestArgs]
 
 // Inherit stdio for live output, but also capture so we can post-parse
 // the summary. Use a tee via pipe + write-through.
 const child = spawn('npx', args, {
   stdio: ['inherit', 'pipe', 'pipe'],
-  env: process.env,
+  env: childEnv,
 })
 
 let stdoutBuf = ''

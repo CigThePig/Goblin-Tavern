@@ -11,6 +11,7 @@
   import {
     causesForPath,
     formatDiffPathTitle,
+    buildPressureConsequenceLines,
   } from '../../../../src/reports/index'
   import type { CauseEntry } from '../../../../src/sim/state/TavernState'
   import { safeProject, type ProjectionSlot } from '../sim/projectionSlot'
@@ -27,6 +28,17 @@
   } = $props()
 
   const title = $derived(path ? formatDiffPathTitle(path) : '')
+
+  // Phase 191 — when this drilldown is for a pressure (`pressures.<id>`),
+  // surface the sim's own "if ignored" consequence line(s) as a header
+  // callout. Silent for non-pressure paths and for pressures below their
+  // danger band (no authored consequences).
+  const consequences = $derived.by(() => {
+    if (!path || !path.startsWith('pressures.')) return []
+    const pressureId = path.slice('pressures.'.length)
+    if (!pressureId) return []
+    return buildPressureConsequenceLines(pressureId, gameStore.state)
+  })
   // Phase 120 / ISSUE-059 — Wrap the cross-module cause lookup so a
   // throw renders an in-sheet "unavailable" panel instead of bubbling
   // through the App-level boundary and unmounting the whole reports
@@ -63,6 +75,14 @@
 </script>
 
 <BottomSheet {open} {title} {onclose}>
+  {#if consequences.length > 0}
+    <div class="stakes" data-testid="pressure-stakes">
+      <p class="stakes-label">If ignored</p>
+      {#each consequences as line (line)}
+        <p class="stakes-line">{line}</p>
+      {/each}
+    </div>
+  {/if}
   {#if !path}
     <p class="quiet">no path selected</p>
   {:else if causesSlot.ok === 'error'}
@@ -104,6 +124,33 @@
     font-style: italic;
     text-align: center;
     padding: var(--sp-lg) 0;
+  }
+
+  /* Phase 191 — pressure-stakes header callout. Sized between
+     `.section-label` and body; subtle border, `--text` colour. */
+  .stakes {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: var(--sp-sm);
+    padding: var(--sp-sm);
+    border: 1px solid color-mix(in srgb, var(--risk) 45%, transparent);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--risk) 7%, transparent);
+  }
+  .stakes-label {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  .stakes-line {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--text);
   }
 
   .cause-list {

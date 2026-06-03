@@ -3,6 +3,7 @@
   import MetricLink from './links/MetricLink.svelte'
   import { gameStore } from '../sim/gameStore.svelte'
   import { pressureColor } from '../design/tokens'
+  import { buildPressureConsequenceLine } from '../../../../src/reports/index'
   import type { PressureState } from '../../../../src/sim/state/TavernState'
 
   const top = $derived.by(() => {
@@ -12,6 +13,13 @@
       .sort((a, b) => b.value - a.value || Math.abs(b.trend) - Math.abs(a.trend))
       .slice(0, 3)
   })
+
+  // Phase 191 — the sim's own "if ignored" line for any top-3 row that has
+  // climbed into its (per-pressure, severity-driven) danger band. Below the
+  // band the projection returns undefined and the row stays a bare bar.
+  function consequenceFor(p: PressureState): string | undefined {
+    return buildPressureConsequenceLine(p.id, gameStore.state)
+  }
 
   function trendIcon(t: number): 'trend-up' | 'trend-flat' | 'trend-down' {
     if (t > 0.5) return 'trend-up'
@@ -33,19 +41,27 @@
            drilldown a PressureCard does. The grid `.row` lives inside the
            MetricLink carrier; the scoped :global rule below makes the
            carrier a full-width block so the layout is unchanged. -->
+      {@const consequence = consequenceFor(p)}
       <MetricLink kind="pressure" id={p.id}>
-        <div class="row">
-          <span class="label">{p.label}</span>
-          <div class="bar-track">
-            <div
-              class="bar-fill"
-              style="width: {fillPct(p)}; background: {pressureColor(p.value)};"
-            ></div>
+        <div class="entry" data-danger={consequence ? 'true' : undefined}>
+          <div class="row">
+            <span class="label">{p.label}</span>
+            <div class="bar-track">
+              <div
+                class="bar-fill"
+                style="width: {fillPct(p)}; background: {pressureColor(p.value)};"
+              ></div>
+            </div>
+            <span class="value mono">{Math.round(p.value)}</span>
+            <span class="trend" style="color: {pressureColor(p.value)};">
+              <Icon name={trendIcon(p.trend)} size={14} />
+            </span>
           </div>
-          <span class="value mono">{Math.round(p.value)}</span>
-          <span class="trend" style="color: {pressureColor(p.value)};">
-            <Icon name={trendIcon(p.trend)} size={14} />
-          </span>
+          {#if consequence}
+            <p class="consequence" data-testid="pressure-consequence">
+              {consequence}
+            </p>
+          {/if}
         </div>
       </MetricLink>
     {/each}
@@ -88,6 +104,12 @@
     background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
 
+  .entry {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
   .row {
     display: grid;
     grid-template-columns: 1fr 2fr auto auto;
@@ -96,6 +118,23 @@
     padding: 2px var(--sp-xs);
     border-radius: var(--radius-sm);
     transition: background var(--m-fast) var(--ease);
+  }
+
+  /* Phase 191 — the sim's "if ignored" line for a pressure that has
+     entered its danger band. The line itself is the danger signal; a
+     left rule in the risk palette gives it weight without a new colour
+     for the bar (the bar fill already grades through rust → blood). */
+  .consequence {
+    margin: 0;
+    padding-left: var(--sp-xs);
+    border-left: 2px solid color-mix(in srgb, var(--risk) 70%, transparent);
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--text-dim);
+  }
+
+  .entry[data-danger='true'] .label {
+    color: var(--text);
   }
 
   .label {

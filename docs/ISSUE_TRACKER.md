@@ -71,8 +71,9 @@ navigable, orthogonal to the card-layer choice-legibility arcs. ISSUE-157
 is split into **ISSUE-157a** (phase 190a — interconnection primitives +
 routing + drilldown paths, `done`) and **ISSUE-157b** (phase 190b —
 consumer wiring, `done`). **ISSUE-158** (phase 191 — pressure stakes and
-danger zones) is next up; 191–196 (ISSUE-158…163) are `open` and follow in
-arc order; see the Tier 5 section for per-issue detail.
+danger zones) is now `done`; **ISSUE-159** (phase 192 — TopBar stakes
+reframe) is next up; 192–196 (ISSUE-159…163) are `open` and follow in arc
+order; see the Tier 5 section for per-issue detail.
 
 The card-layer arcs ran Living Cast → Voiced → Legible → Faithful →
 Complete; each has a locked roadmap (`docs/plans/*-surface-arc.md`,
@@ -3348,11 +3349,11 @@ action points (phase 186) throughout.
 - **Test approach:** `tests/web/phase190b.consumerWiring.test.ts` (jsdom, 13 tests) — the two `EntityKind` mappers (incl. `undefined` rejects); DayScreen morning renders coin/staff/stock tap targets and routes/drills each correctly (coin → `coin` drilldown; `N staff` → Tavern→Staff, no target; stock chip → Tavern→Stock, target stashed); `PressureRibbon` row opens `pressures.<id>`; `clearSeed` removes a pending entry; `DailyReport` links a resolvable subject and leaves a generic noun plain; `StockPanel` consume-once opens the targeted sheet on first mount and not on re-mount. `npm test` (247 files, 3408 passing) + `npm run typecheck` + `npm run check` (svelte-check) green.
 
 ### ISSUE-158 — UI Intuitiveness Phase 2: Pressure stakes and danger zones
-- **Grade:** thin · **Status:** open · **Phase:** 191 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 191).
-- **Goal:** Make pressure values mean something during play (ribbon, card, drilldown) using the sim's *own* authored consequence text — not just in the post-day report.
-- **Scope:** Danger-band visualisation tied to the sim's `severity` band (no invented threshold); a thin `src/reports/pressureConsequenceLine.ts` projection over the *existing* per-pressure `consequences`; top-3 ribbon consequence line; drilldown header callout. No new content, no `stakeLines.ts`, no `70` threshold.
+- **Grade:** thin · **Status:** done · **Phase:** 191 · **Record:** `docs/plans/phase-191-pressure-stakes.md` (+ `docs/plans/ui-ux-intuitiveness-arc.md §Phase 191`).
+- **Goal:** Make pressure values mean something during play (ribbon, drilldown) using the sim's *own* authored consequence text — not just in the post-day report.
+- **Scope:** Audit finding — each pressure calculator already gates its `consequences` array on its own severity threshold, so a non-empty array *is* the sim's per-pressure danger-band signal (no invented `70`, no `stakeLines.ts`). New thin `src/reports/pressureConsequenceLine.ts` (`buildPressureConsequenceLine` top line + `buildPressureConsequenceLines` full list, both read `getPressureSnapshot(...).consequences` verbatim, silent below band / unknown id), exported from `src/reports/index.ts`. `PressureRibbon.svelte` surfaces the top consequence line as a second row line + `data-danger` treatment for in-band top-3 rows. `CauseDrilldown.svelte` renders an "If ignored" stakes callout for `pressures.<id>` paths. `pressureColor` (tokens.ts) verified (not changed): rust/blood crossover at value 50/70 aligns with the calculators' severity-50–60 consequence bands; documented inline.
 - **Depends on:** ISSUE-157a.
-- **Test approach:** `tests/sim/phase191.pressureConsequence.test.ts` (projection across all 21 pressures, never invents) + `tests/web/phase191.pressureUI.test.ts` (danger-band colouring + consequence surfacing).
+- **Test approach:** `tests/sim/phase191.pressureConsequence.test.ts` (8 tests — projection is exactly `consequences[0]`/`undefined` across all 21 pressures, never invents; silence below band / unknown id / missing slice; empty-entry handling; determinism) + `tests/web/phase191.pressureUI.test.ts` (7 tests — ribbon surfaces the line + danger marking only in band, silent below/with no snapshot; drilldown callout renders for a pressure path with consequences and stays silent otherwise + for non-pressure paths; `pressureColor` crossover guard). `npm run typecheck` + `npm run check` (svelte-check, 0 errors) green; 74 targeted tests passing.
 
 ### ISSUE-159 — UI Intuitiveness Phase 3: TopBar stakes reframe
 - **Grade:** thin · **Status:** open · **Phase:** 192 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 192).

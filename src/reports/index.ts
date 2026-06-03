@@ -28,6 +28,10 @@ export {
 export { projectMissedOpportunities } from './missedOpportunityProjection'
 export { PRESSURE_REMEDIES, resolveRemedyTarget } from './pressureRemedyMap'
 export type { RemedyEntry } from './pressureRemedyMap'
+export {
+  buildPressureConsequenceLine,
+  buildPressureConsequenceLines,
+} from './pressureConsequenceLine'
 export type {
   MissedOpportunityKind,
   MissedOpportunityLine,

@@ -748,7 +748,11 @@
 </main>
 
 <!-- ─── Sheets ──────────────────────────────────────────────────── -->
-<ActionPicker open={pickerOpen} onclose={() => (pickerOpen = false)} />
+<ActionPicker
+  open={pickerOpen}
+  onclose={() => (pickerOpen = false)}
+  previousReport={dailyReport.ok === 'success' ? dailyReport.data : undefined}
+/>
 <StaffPrioritySheet open={staffSheetOpen} onclose={() => (staffSheetOpen = false)} />
 
 <style>

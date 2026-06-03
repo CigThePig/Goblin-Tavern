@@ -10,6 +10,7 @@ import {
   writeProjectsSlice,
 } from './stateHelpers'
 import type {
+  ActionPressureId,
   ActionTarget,
   ActionValidationResult,
   OwnerActionApplied,
@@ -50,6 +51,9 @@ export type ProjectStarterDefinition = {
   initialCoinCost: number
   tags: string[]
   effectsPreview: string[]
+  /** Phase 193 — pressures this project relieves; surfaces it in the
+   *  picker's "Suggested" section when a tagged pressure is in band. */
+  pressureAffinity?: ActionPressureId[]
   /** Trait id added to the target area when the project completes.
    *  When omitted, the project still completes but only the effects
    *  preview record is preserved (acceptable: this lets the project
@@ -101,6 +105,7 @@ export const PROJECT_STARTERS: ProjectStarterDefinition[] = [
       'cellar loses pest_prone trait',
       'stock spoilage risk falls',
     ],
+    pressureAffinity: ['pests'],
     removesTrait: 'pest_prone',
   },
   {
@@ -174,6 +179,12 @@ function buildStartProjectDefinition(
     label: starter.label,
     category: 'project',
     tags: starter.tags,
+    // Phase 193 — terse preview joins the starter's existing multi-line
+    // effects record; affinity (if any) drives the picker's suggestions.
+    effectsPreview: starter.effectsPreview.join('; '),
+    ...(starter.pressureAffinity
+      ? { pressureAffinity: starter.pressureAffinity }
+      : {}),
     targetType: 'area',
     timeCost: TIME_COST_STANDARD,
     getValidTargets: () => [

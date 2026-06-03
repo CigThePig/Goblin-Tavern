@@ -33,13 +33,21 @@
     ActionTarget,
     OwnerActionCategory,
   } from '../../../../src/sim/modules/ownerActions/types'
+  import { suggestActions } from '../sim/suggestActions'
+  import type { DailyReportData } from '../../../../src/reports/types'
 
   let {
     open,
     onclose,
+    previousReport,
   }: {
     open: boolean
     onclose: () => void
+    /**
+     * Phase 193 — yesterday's report, used to suggest restocking after a
+     * stock loss. Optional; absence simply drops the loss-based trigger.
+     */
+    previousReport?: DailyReportData | undefined
   } = $props()
 
   const categories = getActionCategories()
@@ -55,6 +63,13 @@
   const pointsLeft = $derived(DAY_MINUTES - minutesUsed)
 
   const actionsForTab = $derived(listActionsByCategory(tab))
+
+  // Phase 193 — suggestions tie picker choices to rising pressures and
+  // yesterday's losses. Reactive over `picks`, so a suggestion drops out
+  // the moment it is queued. The picker stays the only suggestion surface.
+  const suggestions = $derived(
+    suggestActions(gameStore.state, picks, previousReport),
+  )
 
   // Phase 117 — Policy toggles render as one row per policy instead
   // of paired enable/disable definitions. Only computed when the
@@ -230,6 +245,41 @@
         </p>
       {/if}
 
+      {#if suggestions.length > 0}
+        <div class="suggested" aria-label="Suggested actions">
+          <p class="suggested-head tag">Suggested</p>
+          <ul class="actions">
+            {#each suggestions as s (s.action.id)}
+              {@const reason = disabledReason(s.action)}
+              <li>
+                <button
+                  type="button"
+                  class="action suggested-action"
+                  disabled={!!reason}
+                  onclick={() => tapAction(s.action)}
+                >
+                  <span class="action-head">
+                    <span class="action-label">{s.action.label}</span>
+                    <span class="action-cost mono">
+                      {s.action.timeCost === 0
+                        ? 'free'
+                        : formatDuration(s.action.timeCost)}
+                    </span>
+                  </span>
+                  {#if s.action.effectsPreview}
+                    <span class="action-effect tag">{s.action.effectsPreview}</span>
+                  {/if}
+                  <span class="suggested-reason tag">{s.reason}</span>
+                  {#if reason}
+                    <span class="action-reason tag">{reason}</span>
+                  {/if}
+                </button>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
+
       <div class="tabs" role="tablist" aria-label="Action categories">
         {#each categories as c (c)}
           <button
@@ -303,6 +353,9 @@
                       : formatDuration(def.timeCost)}
                   </span>
                 </span>
+                {#if def.effectsPreview}
+                  <span class="action-effect tag">{def.effectsPreview}</span>
+                {/if}
                 {#if reason}
                   <span class="action-reason tag">{reason}</span>
                 {/if}
@@ -491,9 +544,33 @@
     background: color-mix(in srgb, var(--accent) 18%, transparent);
   }
 
-  .policy-effect {
+  .policy-effect,
+  .action-effect {
     color: var(--text-faint);
     font-style: italic;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  /* Phase 193 — Suggested section sits above the tab strip. */
+  .suggested {
+    margin-bottom: var(--sp-md);
+  }
+
+  .suggested-head {
+    color: var(--accent-soft);
+    font-variant: small-caps;
+    letter-spacing: 0.08em;
+    margin: 0 0 var(--sp-xs);
+  }
+
+  .suggested-action {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 6%, var(--surface-raised));
+  }
+
+  .suggested-reason {
+    color: var(--accent-soft);
     font-size: 12px;
     line-height: 1.4;
   }

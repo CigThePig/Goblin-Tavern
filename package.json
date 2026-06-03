@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node scripts/run-tests.mjs",
+    "test": "node scripts/run-tests.mjs --tier=fast",
+    "test:full": "node scripts/run-tests.mjs --tier=all",
+    "test:heavy": "node scripts/run-tests.mjs --tier=heavy",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "check": "svelte-check --tsconfig ./tsconfig.web.json",

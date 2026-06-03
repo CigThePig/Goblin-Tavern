@@ -5,13 +5,36 @@ A text-based goblin tavern management simulation built **simulation-first**: a h
 ## Dev commands
 
 ```
-npm test            # Vitest suite
+npm test            # Fast Vitest tier (~3 min) — run on every change
+npm run test:full   # Complete suite incl. heavy playtests (~6 min) — pre-merge
+npm run test:heavy  # Only the heavy multi-day playtest files
 npm run typecheck   # tsc --noEmit
 npm run dev         # Vite dev server (web UI)
 npm run build       # Vite production build
 ```
 
-Run `npm test` and `npm run typecheck` to validate every change.
+Run `npm test` and `npm run typecheck` to validate every change; run
+`npm run test:full` before merging.
+
+### Test tiers (why `npm test` is a subset)
+
+A handful of multi-day playtest/simulation files dominate the suite
+wall-clock — `tests/sim/phase20.cardlessPlaytest.test.ts` alone runs ~349s
+serial in one worker and sets the full-suite floor (~6 min). `npm test`
+runs a **fast tier** that excludes those files so day-to-day validation
+finishes in ~3 min; `npm run test:full` runs everything. The heavy-file
+list is the single source of truth in `vitest.config.ts`
+(`HEAVY_TEST_GLOBS`) — when a file grows into a multi-minute playtest, add
+it there and nowhere else. Tier selection is the `--tier=fast|heavy|all`
+flag wired through `scripts/run-tests.mjs`; a bare `vitest run` (no tier)
+stays complete.
+
+**Running tests in a remote / Claude-Code-on-the-web session:** run the
+suite in a **single foreground call** — e.g. `npm run test:full`. Do not
+background it (`&` is blocked in the sandbox, and a detached run is
+orphaned when the session is suspended/resumed, leaving a log that never
+gets an exit marker). Both `npm test` (~3 min) and `npm run test:full`
+(~6 min) fit inside the foreground execution budget when run directly.
 
 ## Current status
 

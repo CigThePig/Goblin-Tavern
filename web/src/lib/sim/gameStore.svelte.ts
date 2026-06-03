@@ -156,6 +156,14 @@ class GameStore {
   tavernSubviewTarget: string | undefined = $state(undefined)
   worldSubviewTarget: string | undefined = $state(undefined)
 
+  // Phase 192 / ISSUE-159 — one-shot request to open the ActionPicker.
+  // The `ActionPicker` open-state is screen-local (Day/Tavern/World each
+  // own a `pickerOpen`); the global TopBar time chip needs a cross-
+  // component signal to open it. Set by `requestActionPicker()`, consumed
+  // once by the active screen's mount/reactive `$effect`. Session-only —
+  // NOT persisted (a routing hint, like the sub-view targets above).
+  actionPickerRequested: boolean = $state(false)
+
   // Phase 96 — One-shot flag the welcome-back pill reads. Set true on
   // hydration; flipped to false on the first beat advance.
   savedSnapshotJustLoaded: boolean = $state(false)
@@ -662,6 +670,25 @@ class GameStore {
     const t = this.worldSubviewTarget
     this.worldSubviewTarget = undefined
     return t
+  }
+
+  /**
+   * Phase 192 / ISSUE-159 — route to the Day screen and flag a request to
+   * open the ActionPicker. The TopBar time chip calls this; the Day
+   * screen consumes the flag on mount/reactively. Routing to `'day'`
+   * first guarantees the screen that owns the picker is the one that
+   * consumes the request.
+   */
+  requestActionPicker(): void {
+    this.route = 'day'
+    this.actionPickerRequested = true
+  }
+
+  /** Read-and-clear the pending ActionPicker open request (consume-once). */
+  consumeActionPickerRequest(): boolean {
+    if (!this.actionPickerRequested) return false
+    this.actionPickerRequested = false
+    return true
   }
 
   setReportsSubview(v: ReportsSubview): void {

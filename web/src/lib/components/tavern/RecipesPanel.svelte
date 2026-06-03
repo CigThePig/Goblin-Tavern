@@ -63,7 +63,7 @@
 
 <section class="panel" aria-label="Recipes">
   <section class="block">
-    <h2 class="block-label tag">
+    <h2 class="block-label section-label">
       <TermLabel term="on_menu" label="On menu" /> ({data.onMenu.length})
     </h2>
     {#if data.onMenu.length === 0}
@@ -94,9 +94,9 @@
                     .map((i) => `${i.quantity}× ${i.ingredientLabel}`)
                     .join(', ')}
                 </span>
-                <span class="tier tag rarity-{row.demandTier}">{row.demandTier}</span>
+                <span class="tier chip rarity-{row.demandTier}">{row.demandTier}</span>
               </div>
-              <p class="meta-line tag">{servedLabel(row)}</p>
+              <p class="meta-line chip">{servedLabel(row)}</p>
               {#if row.blocked}
                 <p class="blocked">⚠ {row.blockedReason}</p>
               {/if}
@@ -117,7 +117,7 @@
 
   {#if data.available.length > 0}
     <section class="block">
-      <h2 class="block-label tag">
+      <h2 class="block-label section-label">
         Available ({data.available.length})
       </h2>
       <ul class="rows">
@@ -142,9 +142,9 @@
                     .map((i) => `${i.quantity}× ${i.ingredientLabel}`)
                     .join(', ')}
                 </span>
-                <span class="tier tag rarity-{row.demandTier}">{row.demandTier}</span>
+                <span class="tier chip rarity-{row.demandTier}">{row.demandTier}</span>
               </div>
-              <p class="meta-line tag">{servedLabel(row)}</p>
+              <p class="meta-line chip">{servedLabel(row)}</p>
               {#if row.blocked}
                 <p class="blocked">⚠ {row.blockedReason}</p>
               {/if}

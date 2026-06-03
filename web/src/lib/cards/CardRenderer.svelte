@@ -93,7 +93,7 @@
     {#if !hasIgnoreChoice}
       <button class="choice ignore" type="button" onclick={() => onignore?.()}>
         <span class="choice-label">Ignore</span>
-        <span class="choice-meta tag">do nothing</span>
+        <span class="choice-meta chip">do nothing</span>
       </button>
     {/if}
   </div>

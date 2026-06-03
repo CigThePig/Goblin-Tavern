@@ -36,7 +36,7 @@
       </p>
 
       <section class="block">
-        <p class="block-label tag">Meters</p>
+        <p class="block-label section-label">Meters</p>
         <div class="meters">
           <MeterBar label="loyalty" value={regular.loyalty} mode="wellness" />
           <MeterBar
@@ -45,13 +45,13 @@
             mode="pressure"
           />
         </div>
-        <p class="terms tag">
+        <p class="terms chip">
           <TermLabel term="loyalty" /> · <TermLabel term="irritation" />
         </p>
       </section>
 
       <section class="block">
-        <p class="block-label tag">History</p>
+        <p class="block-label section-label">History</p>
         <dl class="kv">
           <div>
             <dt>visits</dt>
@@ -74,11 +74,11 @@
 
       {#if regular.favoriteStockLabel}
         <section class="block">
-          <p class="block-label tag">Favourite</p>
+          <p class="block-label section-label">Favourite</p>
           <p class="favourite">
             {regular.favoriteStockLabel}
             {#if regular.favoriteStockOnHand !== undefined}
-              <span class="onhand tag">— {regular.favoriteStockOnHand} on hand</span>
+              <span class="onhand chip">— {regular.favoriteStockOnHand} on hand</span>
             {/if}
           </p>
         </section>
@@ -99,7 +99,7 @@
 
       {#if regular.activeFlags.length > 0}
         <section class="block">
-          <p class="block-label tag">Active flags</p>
+          <p class="block-label section-label">Active flags</p>
           <p class="tags">{regular.activeFlags.join(' · ')}</p>
         </section>
       {/if}

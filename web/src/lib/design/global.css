@@ -49,6 +49,11 @@
   --type-body: 1.0625rem;
   --type-mono: 0.875rem;
   --type-tag: 0.75rem;
+  /* Phase 194 / ISSUE-161 — functional-chrome type. 13px, one notch up
+     from the old 12px `--type-tag`, so chips/badges/section labels parse
+     faster than the decorative `.tag` they replaced. rem so it still
+     honours the phase-98 font-scale override. */
+  --type-chip: 0.8125rem;
 
   --line-tight: 1.25;
   --line-body: 1.55;
@@ -202,6 +207,57 @@ ol {
   font-family: var(--font-mono);
   font-size: var(--type-mono);
   letter-spacing: -0.01em;
+}
+
+/* ─── Functional type vocabulary (Phase 194 / ISSUE-161) ─────────────
+ *
+ * The old `.tag` carried four jobs at once (section headers, status
+ * pills, sub-nav, and true meta) in decorative small-caps, which slows
+ * scanning of functional chrome. It is split four ways so each job reads
+ * at the right weight and `.tag` is reserved for genuine meta context:
+ *
+ *   .section-label = section header marker ("Rising", "Morning",
+ *                    "Yesterday · Day 3" headings). Small-caps STAYS here
+ *                    — headers are the right home for that style. 13px,
+ *                    --text-dim for contrast.
+ *   .chip          = inline status / metric / nav label. Sentence case,
+ *                    no letter-spacing, 13px, --text. The default for
+ *                    functional chrome. Pairs with a component's own
+ *                    scoped class for any coloured box (scoped wins on
+ *                    specificity, so .chip only supplies typography).
+ *   .badge         = like .chip but for emphasis — a coloured background
+ *                    or border. Topbar day-type, policy on/off, danger
+ *                    and accuracy indicators. Box may come from the
+ *                    utility or a component's scoped rule.
+ *   .tag (narrowed)= TRUE meta-context only ("Yesterday · Day 3",
+ *                    "(closed 2 days ago)", log day-coordinates). Passive,
+ *                    non-tappable. ~5-7 uses app-wide after migration.
+ *
+ * No small-caps on .chip/.badge: functional chrome smaller than 14px must
+ * parse fast (acceptance criterion 2). Section headers and passive meta
+ * keep small-caps because they are not scanned as actions.
+ */
+.section-label {
+  font-family: var(--font-body);
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+  font-size: var(--type-chip);
+  color: var(--text-dim);
+}
+
+.chip {
+  font-family: var(--font-body);
+  font-size: var(--type-chip);
+  color: var(--text);
+}
+
+.badge {
+  font-family: var(--font-body);
+  font-size: var(--type-chip);
+  color: var(--text);
+  padding: 0.1em 0.5em;
+  border-radius: var(--radius-sm);
+  border: var(--border-faint);
 }
 
 .tag {

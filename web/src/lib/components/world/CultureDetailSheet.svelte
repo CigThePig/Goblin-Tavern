@@ -20,7 +20,7 @@
       <p class="lede">naming profile: <span class="mono">{culture.namingProfileId}</span></p>
 
       <section class="block">
-        <p class="block-label tag">Meters</p>
+        <p class="block-label section-label">Meters</p>
         <div class="meters">
           <MeterBar
             label="familiarity"
@@ -30,7 +30,7 @@
           <MeterBar label="comfort" value={culture.comfort} mode="wellness" />
           <MeterBar label="tension" value={culture.tension} mode="pressure" />
         </div>
-        <p class="terms tag">
+        <p class="terms chip">
           <TermLabel
             term="familiarity_comfort_tension"
             label="Familiarity · Comfort · Tension"
@@ -39,7 +39,7 @@
       </section>
 
       <section class="block">
-        <p class="block-label tag">Members in your world</p>
+        <p class="block-label section-label">Members in your world</p>
         <dl class="kv">
           <div>
             <dt>regulars</dt>
@@ -62,21 +62,21 @@
 
       {#if culture.preferredStockTags.length > 0}
         <section class="block">
-          <p class="block-label tag">Preferred stock</p>
+          <p class="block-label section-label">Preferred stock</p>
           <p class="tags">{culture.preferredStockTags.join(' · ')}</p>
         </section>
       {/if}
 
       {#if culture.dislikedTags.length > 0}
         <section class="block">
-          <p class="block-label tag">Disliked tags</p>
+          <p class="block-label section-label">Disliked tags</p>
           <p class="tags">{culture.dislikedTags.join(' · ')}</p>
         </section>
       {/if}
 
       {#if culture.importantCalendarTags.length > 0}
         <section class="block">
-          <p class="block-label tag">Calendar markers</p>
+          <p class="block-label section-label">Calendar markers</p>
           <p class="tags">{culture.importantCalendarTags.join(' · ')}</p>
         </section>
       {/if}

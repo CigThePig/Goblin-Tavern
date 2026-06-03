@@ -28,11 +28,11 @@
           <button class="row" type="button" onclick={() => (selected = row)}>
             <header class="head">
               <span class="name">{row.label}</span>
-              <span class="noun adj tag">{row.relationNoun}</span>
+              <span class="noun adj chip">{row.relationNoun}</span>
               <span class="chev" aria-hidden="true">›</span>
             </header>
             {#if row.cultureLabel}
-              <p class="sub tag">{row.cultureLabel}</p>
+              <p class="sub chip">{row.cultureLabel}</p>
             {/if}
             <div class="meters">
               <MeterBar

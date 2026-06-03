@@ -15,13 +15,13 @@
 
 {#if rows.length > 0}
   <section class="block">
-    <p class="block-label tag">{title}</p>
+    <p class="block-label section-label">{title}</p>
     <ul class="list">
       {#each rows as row (row.id)}
         <li class="row">
           <header class="head">
             <span class="label">{row.label}</span>
-            <span class="age tag">{row.ageDays}d</span>
+            <span class="age chip">{row.ageDays}d</span>
           </header>
           <MeterBar label="strength" value={row.strength} mode="pressure" />
         </li>

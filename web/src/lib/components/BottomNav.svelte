@@ -72,10 +72,10 @@
     background: var(--accent);
   }
 
+  /* Phase 194 — primary nav labels read as actions, not atmosphere:
+     sentence case, no small-caps, so they parse at a glance. */
   .label {
     font-family: var(--font-body);
-    font-variant: small-caps;
-    letter-spacing: 0.06em;
     font-size: 12px;
   }
 </style>

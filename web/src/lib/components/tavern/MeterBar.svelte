@@ -34,7 +34,7 @@
 <div class="meter">
   {#if label}
     <div class="head">
-      <span class="label tag">{label}</span>
+      <span class="label chip">{label}</span>
       <span class="value mono">{Math.round(value)}</span>
     </div>
   {/if}

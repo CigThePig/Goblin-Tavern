@@ -464,7 +464,7 @@
         <!-- Phase 186 / Cluster 5 — forecast-as-expected (§3.6). Framed
              as a guess that the morning plan will move, never a settled
              number. -->
-        <p class="forecast tag">
+        <p class="forecast chip">
           ~{forecastExpected} guests expected · before your moves
         </p>
       {/if}
@@ -482,12 +482,12 @@
     {/if}
 
     <section class="block" aria-label="Pressures">
-      <h2 class="block-label tag">Rising</h2>
+      <h2 class="block-label section-label">Rising</h2>
       <PressureRibbon />
     </section>
 
     <section class="block" aria-label="Morning">
-      <h2 class="block-label tag">Morning</h2>
+      <h2 class="block-label section-label">Morning</h2>
       {#if morningCards.length === 0}
         <p class="quiet">{morningEmpty}</p>
       {:else}
@@ -505,7 +505,7 @@
                      clears the pending choice and the card's choices below
                      go live again for revision. -->
                 <button
-                  class="pending tag"
+                  class="pending chip"
                   type="button"
                   onclick={() => gameStore.clearSeed(seed.id)}
                   aria-label="Revise this decision"
@@ -552,7 +552,7 @@
   <!-- ─── Beat 2: Plan ────────────────────────────────────────────── -->
   {#if beat === 'plan'}
     <section class="block" aria-label="Planning summary">
-      <h2 class="block-label tag">Plan the day</h2>
+      <h2 class="block-label section-label">Plan the day</h2>
       <p class="lede">
         Spend your day on owner actions, set staff priorities. Service runs after.
       </p>
@@ -571,7 +571,7 @@
         >
           <span class="plan-main">
             <span class="plan-title">Owner actions</span>
-            <span class="plan-sub tag">
+            <span class="plan-sub chip">
               {picks.length === 0
                 ? 'none yet'
                 : picks.length === 1
@@ -589,7 +589,7 @@
         >
           <span class="plan-main">
             <span class="plan-title">Staff priorities</span>
-            <span class="plan-sub tag">
+            <span class="plan-sub chip">
               {Object.keys(staffPriorities).length === 0
                 ? 'using defaults'
                 : `${Object.keys(staffPriorities).length} customised`}
@@ -642,7 +642,7 @@
   <!-- ─── Beat 3: Service ────────────────────────────────────────── -->
   {#if beat === 'service' && !transitioning}
     <section class="block" aria-label="During service">
-      <h2 class="block-label tag">Service</h2>
+      <h2 class="block-label section-label">Service</h2>
       {#if serviceSeeds.length === 0}
         <p class="quiet">{serviceEmpty}</p>
       {:else}
@@ -665,7 +665,7 @@
   <!-- ─── Beat 4: Closing ────────────────────────────────────────── -->
   {#if beat === 'closing'}
     <section class="block" aria-label="Closing">
-      <h2 class="block-label tag">Closing</h2>
+      <h2 class="block-label section-label">Closing</h2>
       {#if closingSeeds.length === 0}
         <p class="quiet">{closingEmpty}</p>
       {:else}

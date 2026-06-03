@@ -39,7 +39,7 @@
               <span class="name">{row.label}</span>
               <span class="chev" aria-hidden="true">›</span>
             </header>
-            <p class="sub tag">{memberSummary(row.members)}</p>
+            <p class="sub chip">{memberSummary(row.members)}</p>
             <div class="meters">
               <MeterBar
                 label="familiarity"

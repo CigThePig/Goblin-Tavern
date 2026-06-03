@@ -106,7 +106,7 @@
   {:else}
     <!-- ── Header ────────────────────────────────────────────────── -->
     <header class="block header">
-      <p class="tag block-label">
+      <p class="section-label block-label">
         Month {data.header.monthNumber} · Year {data.header.yearNumber}
       </p>
       <p class="head-line display">Closed day {data.header.endDay}</p>
@@ -122,10 +122,10 @@
     <!-- ── Month-over-month comparison ───────────────────────────── -->
     {#if data.comparison}
       <section class="block">
-        <h2 class="block-label tag">vs {data.comparison.previousMonthKey}</h2>
+        <h2 class="block-label section-label">vs {data.comparison.previousMonthKey}</h2>
         <div class="compare-strip">
           <div class="compare-tile">
-            <span class="compare-label tag">ending coin</span>
+            <span class="compare-label chip">ending coin</span>
             <span class="compare-value mono">{Math.round(data.header.endingCoin)}</span>
             <span class="compare-delta mono" data-dir={dirOf(data.comparison.endingCoinDelta)}>
               {arrowOf(data.comparison.endingCoinDelta)}
@@ -133,7 +133,7 @@
             </span>
           </div>
           <div class="compare-tile">
-            <span class="compare-label tag">
+            <span class="compare-label chip">
               <TermLabel term="monthly_net" label="net" />
             </span>
             <span class="compare-value mono">{signedRounded(data.economy?.net ?? 0)}</span>
@@ -142,7 +142,7 @@
             </span>
           </div>
           <div class="compare-tile">
-            <span class="compare-label tag">
+            <span class="compare-label chip">
               <TermLabel term="landlord" label="landlord" />
             </span>
             <span class="compare-value mono">{Math.round(data.landlord?.pressureAfter ?? 0)}</span>
@@ -152,7 +152,7 @@
             </span>
           </div>
           <div class="compare-tile">
-            <span class="compare-label tag">
+            <span class="compare-label chip">
               <TermLabel term="inspection_suspicion" label="suspicion" />
             </span>
             <span class="compare-value mono">{Math.round(data.inspection?.suspicionAfter ?? 0)}</span>
@@ -162,7 +162,7 @@
             </span>
           </div>
           <div class="compare-tile">
-            <span class="compare-label tag">
+            <span class="compare-label chip">
               <TermLabel term="rival_tavern" label="rival" />
             </span>
             <span class="compare-value mono">{Math.round(data.rival?.pressureAfter ?? 0)}</span>
@@ -178,7 +178,7 @@
     <!-- ── Rent & Landlord ───────────────────────────────────────── -->
     {#if data.rent || data.landlord}
       <section class="block">
-        <h2 class="block-label tag">
+        <h2 class="block-label section-label">
           <TermLabel term="rent" label="rent" /> & landlord
         </h2>
         <div class="rent-landlord">
@@ -240,7 +240,7 @@
     <!-- ── Inspection ────────────────────────────────────────────── -->
     {#if data.inspection}
       <section class="block">
-        <h2 class="block-label tag">
+        <h2 class="block-label section-label">
           <TermLabel term="inspection_suspicion" label="inspection" />
         </h2>
         {#if data.inspection.warningIssuedThisMonth}
@@ -274,7 +274,7 @@
     <!-- ── Identity strip — Reputation profile ───────────────────── -->
     {#if data.reputation}
       <section class="block">
-        <h2 class="block-label tag">
+        <h2 class="block-label section-label">
           identity — <TermLabel term="reputation_tier" label="reputation" />
         </h2>
         <ul class="rep-list">
@@ -350,7 +350,7 @@
     <!-- ── Top pressures ─────────────────────────────────────────── -->
     {#if data.pressures && data.pressures.top.length > 0}
       <section class="block">
-        <h2 class="block-label tag">top pressures</h2>
+        <h2 class="block-label section-label">top pressures</h2>
         <div class="pressures">
           {#each data.pressures.top as pressure (pressure.id)}
             {@const p = pressure as MonthlyOverviewPressureRow}
@@ -386,7 +386,7 @@
     <!-- ── Active arcs ───────────────────────────────────────────── -->
     {#if data.arcs && data.arcs.length > 0}
       <section class="block">
-        <h2 class="block-label tag">active arcs</h2>
+        <h2 class="block-label section-label">active arcs</h2>
         <ul class="arc-list">
           {#each data.arcs.slice(0, 6) as arc (arc.id)}
             {@const a = arc as MonthlyOverviewArc}
@@ -400,7 +400,7 @@
                 · age {a.ageDays} {a.ageDays === 1 ? 'day' : 'days'}
               </p>
               {#if a.relatedFactionLabels.length > 0 || a.relatedCultureLabels.length > 0}
-                <p class="arc-refs tag dim">
+                <p class="arc-refs chip dim">
                   {[...a.relatedFactionLabels, ...a.relatedCultureLabels].join(' · ')}
                 </p>
               {/if}
@@ -417,7 +417,7 @@
           {/each}
         </ul>
         {#if data.arcs.length > 6}
-          <p class="tag dim">+{data.arcs.length - 6} more</p>
+          <p class="chip dim">+{data.arcs.length - 6} more</p>
         {/if}
       </section>
     {/if}
@@ -425,7 +425,7 @@
     <!-- ── Rival tavern ──────────────────────────────────────────── -->
     {#if data.rival}
       <section class="block">
-        <h2 class="block-label tag">
+        <h2 class="block-label section-label">
           <TermLabel term="rival_tavern" label="rival tavern" />
         </h2>
         <div class="meter-track">
@@ -457,7 +457,7 @@
     <!-- ── Customers ─────────────────────────────────────────────── -->
     {#if data.customers}
       <section class="block">
-        <h2 class="block-label tag">customers</h2>
+        <h2 class="block-label section-label">customers</h2>
         <div class="customer-pills">
           {#if data.customers.bestGroupLabel}
             <span class="customer-pill best">
@@ -476,7 +476,7 @@
     <!-- ── Economy ───────────────────────────────────────────────── -->
     {#if data.economy}
       <section class="block">
-        <h2 class="block-label tag">economy</h2>
+        <h2 class="block-label section-label">economy</h2>
         <ul class="econ-list">
           <li class="econ-row">
             <span class="econ-label">sales</span>
@@ -519,7 +519,7 @@
     <!-- ── Upgrade readiness ─────────────────────────────────────── -->
     {#if data.upgrades && data.upgrades.length > 0}
       <section class="block">
-        <h2 class="block-label tag">
+        <h2 class="block-label section-label">
           <TermLabel term="upgrade_readiness" label="upgrade readiness" />
         </h2>
         <ul class="upgrade-list">
@@ -543,27 +543,27 @@
     <!-- ── Modifiers ─────────────────────────────────────────────── -->
     {#if data.activeModifier || data.nextMonthModifier}
       <section class="block">
-        <h2 class="block-label tag">
+        <h2 class="block-label section-label">
           <TermLabel term="month_modifier" label="month modifier" />
         </h2>
         <div class="mod-strip">
           {#if data.activeModifier}
             <div class="mod-tile">
-              <span class="mod-when tag">this month</span>
+              <span class="mod-when chip">this month</span>
               <span class="mod-label">{data.activeModifier.label}</span>
               <p class="mod-desc">{data.activeModifier.description}</p>
               {#if data.activeModifier.tags.length > 0}
-                <p class="mod-tags tag dim">{data.activeModifier.tags.join(' · ')}</p>
+                <p class="mod-tags chip dim">{data.activeModifier.tags.join(' · ')}</p>
               {/if}
             </div>
           {/if}
           {#if data.nextMonthModifier}
             <div class="mod-tile mod-next">
-              <span class="mod-when tag">next month</span>
+              <span class="mod-when chip">next month</span>
               <span class="mod-label">{data.nextMonthModifier.label}</span>
               <p class="mod-desc">{data.nextMonthModifier.description}</p>
               {#if data.nextMonthModifier.tags.length > 0}
-                <p class="mod-tags tag dim">{data.nextMonthModifier.tags.join(' · ')}</p>
+                <p class="mod-tags chip dim">{data.nextMonthModifier.tags.join(' · ')}</p>
               {/if}
             </div>
           {/if}
@@ -574,7 +574,7 @@
     <!-- ── Strategic summary ─────────────────────────────────────── -->
     {#if data.strategicSummary && data.strategicSummary.length > 0}
       <section class="block">
-        <h2 class="block-label tag">strategic summary</h2>
+        <h2 class="block-label section-label">strategic summary</h2>
         <ul class="note-list">
           {#each data.strategicSummary as note, i (i)}
             <li class="note">{note}</li>

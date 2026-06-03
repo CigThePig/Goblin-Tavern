@@ -71,7 +71,7 @@
     {#each CATEGORY_ORDER as category (category)}
       {#if filteredByCategory[category].length > 0}
         <section class="bucket" aria-label={GLOSSARY_CATEGORY_LABELS[category]}>
-          <h3 class="bucket-label tag">{GLOSSARY_CATEGORY_LABELS[category]}</h3>
+          <h3 class="bucket-label section-label">{GLOSSARY_CATEGORY_LABELS[category]}</h3>
           <ul class="terms">
             {#each filteredByCategory[category] as term (term.id)}
               <li

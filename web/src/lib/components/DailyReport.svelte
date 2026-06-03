@@ -82,7 +82,7 @@
 <section class="report" aria-label="Daily report">
   <!-- ── Header ────────────────────────────────────────────────── -->
   <header class="block header">
-    <p class="tag block-label">{report.header.dayLabel}</p>
+    <p class="section-label block-label">{report.header.dayLabel}</p>
     <p class="head-line display">
       Day {report.header.closedDayOrdinal} closed
     </p>
@@ -91,7 +91,7 @@
     {/if}
     <div class="head-stats">
       <span class="stat">
-        <span class="stat-label tag">Coin</span>
+        <span class="stat-label chip">Coin</span>
         <span class="stat-value mono">
           {report.coinBefore} → {report.coinAfter}
           <span class="stat-delta" data-dir={report.coinDelta > 0 ? 'gain' : report.coinDelta < 0 ? 'loss' : 'neutral'}>
@@ -118,7 +118,7 @@
        Movements with no entries are omitted upstream. -->
   {#each report.dayArc as movement (movement.id)}
     <section class="block">
-      <h2 class="block-label tag">{movement.title}</h2>
+      <h2 class="block-label section-label">{movement.title}</h2>
       {#if movement.voice}
         <p class="arc-voice">{movement.voice}</p>
       {/if}
@@ -131,11 +131,11 @@
                 <span class="ledger-line">
                   {entry.action.label}{#if entry.action.targetLabel || entry.action.targetId} · {entry.action.targetLabel ?? entry.action.targetId}{/if}
                   {#if entry.action.timeCost > 0}
-                    <span class="ledger-cost tag">({formatDuration(entry.action.timeCost)})</span>
+                    <span class="ledger-cost chip">({formatDuration(entry.action.timeCost)})</span>
                   {/if}
                 </span>
                 {#if entry.action.effects.length > 0}
-                  <span class="ledger-sub tag">{entry.action.effects.slice(0, 2).join(' · ')}</span>
+                  <span class="ledger-sub chip">{entry.action.effects.slice(0, 2).join(' · ')}</span>
                 {/if}
               </div>
             </li>
@@ -179,14 +179,14 @@
   <!-- ── Significant changes ────────────────────────────────────── -->
   {#if report.groupedDiffs.coinAndReputation.length > 0}
     <section class="block">
-      <h2 class="block-label tag">Coin &amp; reputation</h2>
+      <h2 class="block-label section-label">Coin &amp; reputation</h2>
       <ul class="diff-list">
         {#each report.groupedDiffs.coinAndReputation as d (d.path)}
           <li>
             <button class="diff-row" type="button" onclick={() => openDiffDrilldown(d)}>
               <span class="diff-mark" data-dir={d.direction}>{diffMark(d)}</span>
               <span class="diff-text">{d.humanReadable}</span>
-              <span class="diff-chevron tag">↗</span>
+              <span class="diff-chevron chip">↗</span>
             </button>
           </li>
         {/each}
@@ -195,14 +195,14 @@
   {/if}
   {#if report.groupedDiffs.stock.length > 0}
     <section class="block">
-      <h2 class="block-label tag">Stock</h2>
+      <h2 class="block-label section-label">Stock</h2>
       <ul class="diff-list">
         {#each report.groupedDiffs.stock as d (d.path)}
           <li>
             <button class="diff-row" type="button" onclick={() => openDiffDrilldown(d)}>
               <span class="diff-mark" data-dir={d.direction}>{diffMark(d)}</span>
               <span class="diff-text">{d.humanReadable}</span>
-              <span class="diff-chevron tag">↗</span>
+              <span class="diff-chevron chip">↗</span>
             </button>
           </li>
         {/each}
@@ -211,14 +211,14 @@
   {/if}
   {#if report.groupedDiffs.pressures.length > 0}
     <section class="block">
-      <h2 class="block-label tag">Pressures</h2>
+      <h2 class="block-label section-label">Pressures</h2>
       <ul class="diff-list">
         {#each report.groupedDiffs.pressures as d (d.path)}
           <li>
             <button class="diff-row" type="button" onclick={() => openDiffDrilldown(d)}>
               <span class="diff-mark" data-dir={d.direction}>{diffMark(d)}</span>
               <span class="diff-text">{d.humanReadable}</span>
-              <span class="diff-chevron tag">↗</span>
+              <span class="diff-chevron chip">↗</span>
             </button>
           </li>
         {/each}
@@ -227,14 +227,14 @@
   {/if}
   {#if report.groupedDiffs.areas.length > 0}
     <section class="block">
-      <h2 class="block-label tag">Areas</h2>
+      <h2 class="block-label section-label">Areas</h2>
       <ul class="diff-list">
         {#each report.groupedDiffs.areas as d (d.path)}
           <li>
             <button class="diff-row" type="button" onclick={() => openDiffDrilldown(d)}>
               <span class="diff-mark" data-dir={d.direction}>{diffMark(d)}</span>
               <span class="diff-text">{d.humanReadable}</span>
-              <span class="diff-chevron tag">↗</span>
+              <span class="diff-chevron chip">↗</span>
             </button>
           </li>
         {/each}
@@ -243,14 +243,14 @@
   {/if}
   {#if report.groupedDiffs.other.length > 0}
     <section class="block">
-      <h2 class="block-label tag">Other</h2>
+      <h2 class="block-label section-label">Other</h2>
       <ul class="diff-list">
         {#each report.groupedDiffs.other as d (d.path)}
           <li>
             <button class="diff-row" type="button" onclick={() => openDiffDrilldown(d)}>
               <span class="diff-mark" data-dir={d.direction}>{diffMark(d)}</span>
               <span class="diff-text">{d.humanReadable}</span>
-              <span class="diff-chevron tag">↗</span>
+              <span class="diff-chevron chip">↗</span>
             </button>
           </li>
         {/each}
@@ -269,7 +269,7 @@
   <!-- ── What's building ────────────────────────────────────────── -->
   {#if report.risingPressures.length > 0}
     <section class="block">
-      <h2 class="block-label tag">What's building</h2>
+      <h2 class="block-label section-label">What's building</h2>
       <div class="pressures">
         {#each report.risingPressures as p (p.id)}
           <PressureCard pressure={p} onselect={openPressureDrilldown} />
@@ -281,7 +281,7 @@
   <!-- ── What might happen ──────────────────────────────────────── -->
   {#if report.futureHooks.length > 0}
     <section class="block hooks">
-      <h2 class="block-label tag">What might happen</h2>
+      <h2 class="block-label section-label">What might happen</h2>
       <ul class="hook-list">
         {#each report.futureHooks as h (h.memoryId)}
           <li class="hook">
@@ -299,7 +299,7 @@
        choice-bearing periodic seeds surface at the morning pause. -->
   {#if report.weeklyDigest}
     <section class="block">
-      <h2 class="block-label tag">Week digest</h2>
+      <h2 class="block-label section-label">Week digest</h2>
       <details class="digest">
         <summary class="digest-summary">{report.weeklyDigest.title}</summary>
         <pre class="digest-body mono">{report.weeklyDigest.lines.join('\n')}</pre>
@@ -308,7 +308,7 @@
   {/if}
   {#if report.monthlyDigest}
     <section class="block">
-      <h2 class="block-label tag">Month digest</h2>
+      <h2 class="block-label section-label">Month digest</h2>
       <details class="digest">
         <summary class="digest-summary">{report.monthlyDigest.title}</summary>
         <pre class="digest-body mono">{report.monthlyDigest.lines.join('\n')}</pre>

@@ -32,7 +32,7 @@
               <span class="name">{row.name}</span>
               <span class="chev" aria-hidden="true">›</span>
             </header>
-            <p class="sub tag">
+            <p class="sub chip">
               {row.supplierType.replace(/_/g, ' ')}
               {#if row.factionLabel}· {row.factionLabel}{/if}
             </p>
@@ -48,7 +48,7 @@
                 mode="wellness"
               />
             </div>
-            <p class="foot tag">
+            <p class="foot chip">
               {row.goods.length} {row.goods.length === 1 ? 'good' : 'goods'}
               {#if row.daysSinceLastDelivery !== undefined}
                 · last delivered {row.daysSinceLastDelivery}d ago

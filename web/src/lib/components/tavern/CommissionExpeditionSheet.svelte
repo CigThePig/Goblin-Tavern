@@ -153,7 +153,7 @@
 <BottomSheet {open} title="Commission expedition" {onclose}>
   {#snippet children()}
     <section class="block">
-      <p class="block-label tag">1 · Pick a runner</p>
+      <p class="block-label section-label">1 · Pick a runner</p>
       {#if availableRunners.length === 0}
         <p class="quiet">No adventurers available right now.</p>
       {:else}
@@ -184,7 +184,7 @@
     </section>
 
     <section class="block">
-      <p class="block-label tag">2 · Mode</p>
+      <p class="block-label section-label">2 · Mode</p>
       <div class="seg">
         <button
           type="button"
@@ -207,7 +207,7 @@
 
     {#if mode === 'open'}
       <section class="block">
-        <p class="block-label tag">3 · Target tier</p>
+        <p class="block-label section-label">3 · Target tier</p>
         <div class="seg">
           {#each TIERS as t (t)}
             <button
@@ -223,7 +223,7 @@
       </section>
     {:else}
       <section class="block">
-        <p class="block-label tag">3 · Target ingredient</p>
+        <p class="block-label section-label">3 · Target ingredient</p>
         {#if ingredientCatalogSlot.ok === 'error'}
           <p class="quiet" role="status" aria-live="polite">
             Couldn't load the ingredient catalog ({ingredientCatalogSlot.error}).
@@ -241,7 +241,7 @@
                   onclick={() => selectIngredient(ing.id)}
                 >
                   <span class="i-label">{ing.label}</span>
-                  <span class="i-meta tag">{ing.rarity} · stock {ing.inStock}</span>
+                  <span class="i-meta chip">{ing.rarity} · stock {ing.inStock}</span>
                 </button>
               </li>
             {/each}
@@ -251,7 +251,7 @@
     {/if}
 
     <section class="block">
-      <p class="block-label tag">4 · Duration</p>
+      <p class="block-label section-label">4 · Duration</p>
       <div class="seg">
         {#each DURATIONS as d (d)}
           <button

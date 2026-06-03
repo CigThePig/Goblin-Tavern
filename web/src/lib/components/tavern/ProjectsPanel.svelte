@@ -105,7 +105,7 @@
 <section class="panel" aria-label="Projects">
   <!-- ── Active projects ────────────────────────────────────────── -->
   <section class="block">
-    <h2 class="block-label tag">
+    <h2 class="block-label section-label">
       <TermLabel term="project" label="Active projects" /> ({data.active.length})
     </h2>
     {#if data.active.length === 0}
@@ -116,11 +116,11 @@
           <li class="project">
             <header class="head">
               <span class="label">{project.label}</span>
-              <span class="status tag status-{project.status}">
+              <span class="status chip status-{project.status}">
                 {idLabel('projectStatus', project.status)}
               </span>
             </header>
-            <p class="meta tag">
+            <p class="meta chip">
               {#if project.targetLabel}
                 in {project.targetLabel} ·
               {/if}
@@ -138,7 +138,7 @@
             />
             {#if project.effectsPreview.length > 0}
               <details class="effects">
-                <summary class="tag">Effects on completion</summary>
+                <summary class="chip">Effects on completion</summary>
                 <ul>
                   {#each project.effectsPreview as effect (effect)}
                     <li class="effect">· {effect}</li>
@@ -179,7 +179,7 @@
   <!-- ── Available project starters ──────────────────────────────── -->
   {#if data.available.length > 0}
     <section class="block">
-      <h2 class="block-label tag">Start a project</h2>
+      <h2 class="block-label section-label">Start a project</h2>
       <ul class="rows">
         {#each data.available as avail (avail.actionId)}
           {@const queued = isQueued(avail.actionId, avail.validTargets[0]?.id)}
@@ -189,10 +189,10 @@
               <span class="cost mono">{avail.initialCostCoin ?? 0}c</span>
             </header>
             {#if avail.validTargets[0]?.hint}
-              <p class="meta tag">{avail.validTargets[0].hint}</p>
+              <p class="meta chip">{avail.validTargets[0].hint}</p>
             {/if}
             {#if avail.requiredProgress}
-              <p class="meta tag">{avail.requiredProgress} progress to complete</p>
+              <p class="meta chip">{avail.requiredProgress} progress to complete</p>
             {/if}
             <button
               type="button"
@@ -220,7 +220,7 @@
 
   <!-- ── Policies ────────────────────────────────────────────────── -->
   <section class="block">
-    <h2 class="block-label tag">
+    <h2 class="block-label section-label">
       <TermLabel term="policy" label="Policies" />
     </h2>
     <ul class="rows">
@@ -231,12 +231,12 @@
         <li class="policy" class:on={policy.enabled}>
           <header class="head">
             <span class="label">{policy.label}</span>
-            <span class="status tag" class:on={policy.enabled}>
+            <span class="status chip" class:on={policy.enabled}>
               {policy.enabled ? 'On' : 'Off'}
             </span>
           </header>
           {#if policy.enabled && policy.daysActive > 0}
-            <p class="meta tag">active for {policy.daysActive}d</p>
+            <p class="meta chip">active for {policy.daysActive}d</p>
           {/if}
           {#if policy.effects.length > 0}
             <ul class="policy-effects">
@@ -271,7 +271,7 @@
   <!-- ── Recent social moves ─────────────────────────────────────── -->
   {#if data.recentSocial.length > 0}
     <section class="block">
-      <h2 class="block-label tag">
+      <h2 class="block-label section-label">
         <TermLabel term="social_action" label="Recent social moves" />
       </h2>
       <ul class="social-rows">
@@ -279,9 +279,9 @@
           <li class="social outcome-{social.outcome}">
             <header class="s-head">
               <span class="s-label">{social.actionLabel}</span>
-              <span class="s-outcome tag">{idLabel('socialOutcome', social.outcome)}</span>
+              <span class="s-outcome chip">{idLabel('socialOutcome', social.outcome)}</span>
             </header>
-            <p class="s-meta tag">
+            <p class="s-meta chip">
               {social.targetLabel}
               · day {social.day}
               {#if social.daysAgo > 0}

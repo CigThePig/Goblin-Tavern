@@ -8,7 +8,7 @@
 <section class="placeholder">
   <h2 class="display heading-line">{title}</h2>
   <p class="body">{body}</p>
-  <p class="meta tag">to be wired in a later phase</p>
+  <p class="meta chip">to be wired in a later phase</p>
 </section>
 
 <style>

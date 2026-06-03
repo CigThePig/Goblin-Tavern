@@ -30,7 +30,7 @@
       ? 'Over the daily time budget — open action queue to trim'
       : 'Open action queue'}
   >
-    <span class="label tag">
+    <span class="label">
       {overBudget ? 'Over budget' : 'Action queue'}
     </span>
     <span class="counts mono">
@@ -72,8 +72,11 @@
     color: var(--loss);
   }
 
+  /* Phase 194 — was `.label.tag`; functional chrome on a tappable chip, so
+     sentence case at 13px instead of decorative small-caps. */
   .label {
     color: inherit;
+    font-size: var(--type-chip);
   }
 
   .counts {

@@ -50,7 +50,7 @@
     {/each}
   </div>
 
-  <div class="version-row tag">
+  <div class="version-row chip">
     Sim version <span class="mono">{version}</span>
   </div>
 </section>

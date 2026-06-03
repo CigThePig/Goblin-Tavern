@@ -124,7 +124,7 @@
             onignore={ignore(seed)}
           />
           {#if pendingBySeedId[seed.id]}
-            <div class="resolved-overlay tag">
+            <div class="resolved-overlay chip">
               {#if pendingBySeedId[seed.id]!.kind === 'ignore'}
                 ignored
               {:else}

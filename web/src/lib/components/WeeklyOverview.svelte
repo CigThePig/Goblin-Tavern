@@ -67,7 +67,7 @@
   {:else}
     <!-- ── Header ────────────────────────────────────────────────── -->
     <header class="block header">
-      <p class="tag block-label">
+      <p class="section-label block-label">
         Week {data.header.weekNumber} · Month {data.header.monthNumber} · Year {data.header.yearNumber}
       </p>
       <p class="head-line display">Closed day {data.header.endDay}</p>
@@ -80,31 +80,31 @@
     <!-- ── Week-over-week comparison ─────────────────────────────── -->
     {#if data.comparison}
       <section class="block">
-        <h2 class="block-label tag">vs previous week</h2>
+        <h2 class="block-label section-label">vs previous week</h2>
         <div class="compare-strip">
           <div class="compare-tile">
-            <span class="compare-label tag"><TermLabel term="weekly_net" label="net" /></span>
+            <span class="compare-label chip"><TermLabel term="weekly_net" label="net" /></span>
             <span class="compare-value mono">{signedRounded(data.economy?.net ?? 0)}</span>
             <span class="compare-delta mono" data-dir={dirOf(data.comparison.netDelta)}>
               {arrowOf(data.comparison.netDelta)} {signedRounded(data.comparison.netDelta)}
             </span>
           </div>
           <div class="compare-tile">
-            <span class="compare-label tag">sales</span>
+            <span class="compare-label chip">sales</span>
             <span class="compare-value mono">{Math.round(data.economy?.sales ?? 0)}</span>
             <span class="compare-delta mono" data-dir={dirOf(data.comparison.salesDelta)}>
               {arrowOf(data.comparison.salesDelta)} {signedRounded(data.comparison.salesDelta)}
             </span>
           </div>
           <div class="compare-tile">
-            <span class="compare-label tag"><TermLabel term="wages" label="wages" /></span>
+            <span class="compare-label chip"><TermLabel term="wages" label="wages" /></span>
             <span class="compare-value mono">{Math.round(data.economy?.wages ?? 0)}</span>
             <span class="compare-delta mono" data-dir={dirOf(-data.comparison.wagesDelta)}>
               {arrowOf(data.comparison.wagesDelta)} {signedRounded(data.comparison.wagesDelta)}
             </span>
           </div>
           <div class="compare-tile">
-            <span class="compare-label tag"><TermLabel term="patronage" label="satisfaction" /></span>
+            <span class="compare-label chip"><TermLabel term="patronage" label="satisfaction" /></span>
             <span class="compare-value mono">
               {Math.round(averageSatisfaction(data.customerGroups?.rows ?? []))}
             </span>
@@ -120,7 +120,7 @@
     <!-- ── Economy ───────────────────────────────────────────────── -->
     {#if data.economy}
       <section class="block">
-        <h2 class="block-label tag">Economy</h2>
+        <h2 class="block-label section-label">Economy</h2>
         <ul class="econ-list">
           <li class="econ-row">
             <span class="econ-label">sales</span>
@@ -161,12 +161,12 @@
           <div class="econ-callouts">
             {#if data.economy.topRevenueSource}
               <span class="callout-chip">
-                <span class="tag">top revenue</span> {data.economy.topRevenueSource.label}
+                <span class="chip">top revenue</span> {data.economy.topRevenueSource.label}
               </span>
             {/if}
             {#if data.economy.largestCost}
               <span class="callout-chip">
-                <span class="tag">largest cost</span> {data.economy.largestCost}
+                <span class="chip">largest cost</span> {data.economy.largestCost}
               </span>
             {/if}
           </div>
@@ -177,11 +177,11 @@
     <!-- ── Signals ───────────────────────────────────────────────── -->
     {#if data.signals}
       <section class="block">
-        <h2 class="block-label tag"><TermLabel term="weekly_signals" label="signals" /></h2>
+        <h2 class="block-label section-label"><TermLabel term="weekly_signals" label="signals" /></h2>
         <div class="signal-pills">
           {#each (['cheap', 'filthy', 'dangerous', 'tasty', 'reliable'] as const) as axis (axis)}
             <span class="signal-pill mono" data-dir={dirOf(data.signals[axis])}>
-              {signedRounded(data.signals[axis])} <span class="tag">{axis}</span>
+              {signedRounded(data.signals[axis])} <span class="chip">{axis}</span>
             </span>
           {/each}
         </div>
@@ -198,7 +198,7 @@
     <!-- ── Customer groups ───────────────────────────────────────── -->
     {#if data.customerGroups && data.customerGroups.rows.length > 0}
       <section class="block">
-        <h2 class="block-label tag">Customer groups</h2>
+        <h2 class="block-label section-label">Customer groups</h2>
         <ul class="trend-list">
           {#each data.customerGroups.rows as row (row.id)}
             {@const r = row as CustomerGroupRow}
@@ -209,16 +209,16 @@
                 {r.label}
               </span>
               <span class="trend-cell mono" data-dir={dirOf(r.loyaltyDelta)}>
-                {arrowOf(r.loyaltyDelta)} {signedRounded(r.loyaltyDelta)} <span class="tag">loyal</span>
+                {arrowOf(r.loyaltyDelta)} {signedRounded(r.loyaltyDelta)} <span class="chip">loyal</span>
               </span>
               <span class="trend-cell mono" data-dir={dirOf(r.patronageDelta)}>
-                {arrowOf(r.patronageDelta)} {signedRounded(r.patronageDelta)} <span class="tag">patr</span>
+                {arrowOf(r.patronageDelta)} {signedRounded(r.patronageDelta)} <span class="chip">patr</span>
               </span>
               <span class="trend-cell mono dim">
-                {Math.round(r.averageSatisfaction)} <span class="tag">sat</span>
+                {Math.round(r.averageSatisfaction)} <span class="chip">sat</span>
               </span>
               <span class="trend-cell mono dim">
-                {r.totalTraffic} <span class="tag">visits</span>
+                {r.totalTraffic} <span class="chip">visits</span>
               </span>
               {#if r.shortageCount > 0}
                 <span class="shortage-badge mono" title="stock shortages this week">
@@ -234,30 +234,30 @@
     <!-- ── Staff ─────────────────────────────────────────────────── -->
     {#if data.staff && data.staff.rows.length > 0}
       <section class="block">
-        <h2 class="block-label tag">Staff</h2>
+        <h2 class="block-label section-label">Staff</h2>
         <ul class="trend-list">
           {#each data.staff.rows as row (row.id)}
             {@const r = row as StaffRow}
             <li class="trend-row staff-row">
               <span class="trend-name">
                 <!-- Phase 190b — staff names link to Tavern → Staff detail. -->
-                <EntityLink kind="staff" id={r.id} label={r.name} /><span class="role tag"> · {r.roleLabel}</span>
+                <EntityLink kind="staff" id={r.id} label={r.name} /><span class="role chip"> · {r.roleLabel}</span>
               </span>
               <span class="trend-cell mono" data-dir={dirOf(r.moraleDelta)}>
-                {arrowOf(r.moraleDelta)} {signedRounded(r.moraleDelta)} <span class="tag">mor</span>
+                {arrowOf(r.moraleDelta)} {signedRounded(r.moraleDelta)} <span class="chip">mor</span>
               </span>
               <span class="trend-cell mono" data-dir={dirOf(-r.stressDelta)}>
-                {arrowOf(r.stressDelta)} {signedRounded(r.stressDelta)} <span class="tag">str</span>
+                {arrowOf(r.stressDelta)} {signedRounded(r.stressDelta)} <span class="chip">str</span>
               </span>
               <span class="trend-cell mono" data-dir={dirOf(-r.fatigueDelta)}>
-                {arrowOf(r.fatigueDelta)} {signedRounded(r.fatigueDelta)} <span class="tag">fat</span>
+                {arrowOf(r.fatigueDelta)} {signedRounded(r.fatigueDelta)} <span class="chip">fat</span>
               </span>
               <span class="trend-cell mono" data-dir={dirOf(r.loyaltyDelta)}>
-                {arrowOf(r.loyaltyDelta)} {signedRounded(r.loyaltyDelta)} <span class="tag">loy</span>
+                {arrowOf(r.loyaltyDelta)} {signedRounded(r.loyaltyDelta)} <span class="chip">loy</span>
               </span>
               {#if r.notes.length > 0}
                 <details class="staff-notes">
-                  <summary class="tag">notes ({r.notes.length})</summary>
+                  <summary class="chip">notes ({r.notes.length})</summary>
                   <ul>
                     {#each r.notes as note, i (i)}<li>{note}</li>{/each}
                   </ul>
@@ -272,7 +272,7 @@
     <!-- ── Maintenance backlog ───────────────────────────────────── -->
     {#if data.maintenance && data.maintenance.rows.length > 0}
       <section class="block">
-        <h2 class="block-label tag"><TermLabel term="maintenance_backlog" label="maintenance backlog" /></h2>
+        <h2 class="block-label section-label"><TermLabel term="maintenance_backlog" label="maintenance backlog" /></h2>
         <ul class="maint-list">
           {#each data.maintenance.rows as row (row.areaId)}
             {@const r = row as MaintenanceRow}
@@ -288,7 +288,7 @@
                 {Math.round(r.severity)}
               </span>
               {#if r.reasons.length > 0}
-                <span class="maint-reasons tag">{r.reasons.join(' · ')}</span>
+                <span class="maint-reasons chip">{r.reasons.join(' · ')}</span>
               {/if}
             </li>
           {/each}
@@ -299,7 +299,7 @@
     <!-- ── Wages ─────────────────────────────────────────────────── -->
     {#if data.wages}
       <section class="block">
-        <h2 class="block-label tag"><TermLabel term="wages" label="wages" /></h2>
+        <h2 class="block-label section-label"><TermLabel term="wages" label="wages" /></h2>
         <p class="wages-line mono">
           paid <span class="accent">{Math.round(data.wages.paidAmount)}</span>
           / due <span class="dim">{Math.round(data.wages.totalDue)}</span>
@@ -311,7 +311,7 @@
           <ul class="unpaid-list">
             {#each data.wages.unpaidStaff as s (s.id)}
               <li class="unpaid-row">
-                <span class="trend-name"><EntityLink kind="staff" id={s.id} label={s.name} /><span class="role tag"> · {s.roleLabel}</span></span>
+                <span class="trend-name"><EntityLink kind="staff" id={s.id} label={s.name} /><span class="role chip"> · {s.roleLabel}</span></span>
               </li>
             {/each}
           </ul>
@@ -322,7 +322,7 @@
     <!-- ── Supplier invoices ─────────────────────────────────────── -->
     {#if data.supplierInvoices && data.supplierInvoices.rows.length > 0}
       <section class="block">
-        <h2 class="block-label tag"><TermLabel term="supplier_invoice" label="supplier invoices" /></h2>
+        <h2 class="block-label section-label"><TermLabel term="supplier_invoice" label="supplier invoices" /></h2>
         <p class="invoice-summary mono">
           unpaid <span class="loss">{data.supplierInvoices.unpaidCount}</span>
           · paid <span class="dim">{data.supplierInvoices.paidCount}</span>
@@ -339,7 +339,7 @@
               </span>
               <span class="trend-cell mono dim">due W{inv.dueWeek}</span>
               {#if inv.relatedStock.length > 0}
-                <span class="invoice-stock tag">{inv.relatedStock.join(' · ')}</span>
+                <span class="invoice-stock chip">{inv.relatedStock.join(' · ')}</span>
               {/if}
             </li>
           {/each}
@@ -352,7 +352,7 @@
       <section class="block">
         <details class="community">
           <summary class="community-summary">
-            <span class="block-label tag">Community</span>
+            <span class="block-label section-label">Community</span>
             <span class="mono dim">
               {data.community.suppliersTouched} suppliers ·
               {data.community.regularsTouched} regulars ·

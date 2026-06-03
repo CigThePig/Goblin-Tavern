@@ -27,7 +27,7 @@
       </p>
 
       <section class="block">
-        <p class="block-label tag">Meters</p>
+        <p class="block-label section-label">Meters</p>
         <div class="meters">
           <MeterBar
             label="relationship"
@@ -42,7 +42,7 @@
           />
           <MeterBar label="fear" value={faction.fear} mode="pressure" />
         </div>
-        <p class="terms tag">
+        <p class="terms chip">
           <TermLabel term="relationship" /> · <TermLabel term="influence" /> ·
           <TermLabel term="trust_fear" label="Trust & Fear" />
         </p>
@@ -56,7 +56,7 @@
 
       {#if faction.activeFlags.length > 0}
         <section class="block">
-          <p class="block-label tag">Active flags</p>
+          <p class="block-label section-label">Active flags</p>
           <p class="tags">{faction.activeFlags.join(' · ')}</p>
         </section>
       {/if}

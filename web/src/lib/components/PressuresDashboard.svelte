@@ -67,7 +67,7 @@
   {#each buckets as bucket (bucket.category)}
     {#if bucket.pressures.length > 0}
       <section class="bucket" aria-label={`${CATEGORY_LABELS[bucket.category]} pressures`}>
-        <h3 class="bucket-label tag">{CATEGORY_LABELS[bucket.category]}</h3>
+        <h3 class="bucket-label section-label">{CATEGORY_LABELS[bucket.category]}</h3>
         <div class="bucket-body">
           {#each bucket.pressures as p (p.id)}
             <PressureCard pressure={p} {onselect} />

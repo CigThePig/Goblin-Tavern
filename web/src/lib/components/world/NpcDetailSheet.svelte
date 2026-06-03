@@ -35,7 +35,7 @@
       </p>
 
       <section class="block">
-        <p class="block-label tag">Appearances</p>
+        <p class="block-label section-label">Appearances</p>
         <dl class="kv">
           <div>
             <dt>first seen</dt>
@@ -68,13 +68,13 @@
 
       {#if npc.activeFlags.length > 0}
         <section class="block">
-          <p class="block-label tag">Active flags</p>
+          <p class="block-label section-label">Active flags</p>
           <p class="tags">{npc.activeFlags.join(' · ')}</p>
         </section>
       {/if}
 
       {#if npc.tags.length > 0}
-        <p class="quiet tag">{npc.tags.join(' · ')}</p>
+        <p class="quiet chip">{npc.tags.join(' · ')}</p>
       {/if}
     {/if}
   {/snippet}

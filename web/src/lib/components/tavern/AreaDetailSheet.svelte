@@ -23,7 +23,7 @@
       </p>
 
       <section class="block">
-        <p class="block-label tag">Meters</p>
+        <p class="block-label section-label">Meters</p>
         <div class="meters">
           <MeterBar label="dirty" value={100 - area.cleanliness} mode="pressure" />
           <MeterBar label="mess" value={area.mess} mode="pressure" />
@@ -35,7 +35,7 @@
 
       {#if area.traits.length > 0}
         <section class="block">
-          <p class="block-label tag">
+          <p class="block-label section-label">
             <TermLabel term="area_trait" label="Traits" />
           </p>
           <ul class="traits">
@@ -46,7 +46,7 @@
                   <p class="trait-desc">{trait.description}</p>
                 {/if}
                 {#if trait.tags.length > 0}
-                  <p class="trait-tags tag">{trait.tags.join(' · ')}</p>
+                  <p class="trait-tags chip">{trait.tags.join(' · ')}</p>
                 {/if}
               </li>
             {/each}
@@ -56,7 +56,7 @@
 
       {#if area.atmosphere.length > 0}
         <section class="block">
-          <p class="block-label tag">
+          <p class="block-label section-label">
             <TermLabel term="atmosphere" label="Atmosphere" />
           </p>
           <p class="atmosphere">{area.atmosphere.join(' · ')}</p>
@@ -65,7 +65,7 @@
 
       {#if area.upgrades.length > 0}
         <section class="block">
-          <p class="block-label tag">
+          <p class="block-label section-label">
             <TermLabel term="area_upgrade" label="Upgrades" />
           </p>
           <ul class="upgrades">
@@ -73,7 +73,7 @@
               <li class="upgrade">
                 <header class="up-head">
                   <span class="up-label">{upgrade.label}</span>
-                  <span class="up-status tag">{upgrade.status.replace(/_/g, ' ')}</span>
+                  <span class="up-status chip">{upgrade.status.replace(/_/g, ' ')}</span>
                 </header>
                 {#if upgrade.description}
                   <p class="up-desc">{upgrade.description}</p>
@@ -87,7 +87,7 @@
                   />
                 {/if}
                 {#if upgrade.status === 'installed' && upgrade.installedAtDay !== undefined}
-                  <p class="up-meta tag">installed day {upgrade.installedAtDay}</p>
+                  <p class="up-meta chip">installed day {upgrade.installedAtDay}</p>
                 {/if}
               </li>
             {/each}
@@ -97,13 +97,13 @@
 
       {#if area.activeProblems.length > 0}
         <section class="block">
-          <p class="block-label tag">Active problems</p>
+          <p class="block-label section-label">Active problems</p>
           <p class="problems">{area.activeProblems.join(', ')}</p>
         </section>
       {/if}
 
       {#if area.recentMemoryCount > 0}
-        <p class="meta tag">
+        <p class="meta chip">
           {area.recentMemoryCount} recent
           {area.recentMemoryCount === 1 ? 'memory' : 'memories'} reference this area
         </p>

@@ -12,6 +12,7 @@
 -->
 <script lang="ts">
   import TermLabel from './TermLabel.svelte'
+  import MetricLink from './links/MetricLink.svelte'
   import PressureCard from './PressureCard.svelte'
   import { pressureColor } from '../design/tokens'
   import { drilldownStore } from '../sim/drilldownStore.svelte'
@@ -284,7 +285,10 @@
               {#if r.reasons.length > 0}
                 <details class="rep-details">
                   <summary class="rep-summary">
-                    <span class="rep-label">{r.label}</span>
+                    <span class="rep-label">
+                      <!-- Phase 195 — reputation axis links to its drilldown. -->
+                      <MetricLink kind="reputation" id={r.axisId}>{r.label}</MetricLink>
+                    </span>
                     <div class="rep-bar-track">
                       <div
                         class="rep-bar-fill"
@@ -316,7 +320,10 @@
                 </details>
               {:else}
                 <div class="rep-summary rep-summary-flat">
-                  <span class="rep-label">{r.label}</span>
+                  <span class="rep-label">
+                    <!-- Phase 195 — reputation axis links to its drilldown. -->
+                    <MetricLink kind="reputation" id={r.axisId}>{r.label}</MetricLink>
+                  </span>
                   <div class="rep-bar-track">
                     <div
                       class="rep-bar-fill"

@@ -65,6 +65,21 @@ export type YesterdayDigestSecondary =
       readable: string
     }
 
+// Phase 195 / ISSUE-162 — forward-looking "Today's watch" cue. Derived
+// from yesterday's rising pressures: the most notable riser the digest's
+// backward-looking secondary didn't already name. Carries the pressure id
+// so the UI can link the cue straight to its drilldown (insight → action).
+export type YesterdayDigestWatch = {
+  pressureId: string
+  label: string
+  /** Yesterday's rise (always > 0). */
+  delta: number
+  /** Current pressure value. */
+  value: number
+  /** ≤ 12 words, forward-looking. */
+  readable: string
+}
+
 export type YesterdayDigestData = {
   /** The just-closed day's ordinal. */
   closedDayOrdinal: number
@@ -72,9 +87,15 @@ export type YesterdayDigestData = {
   dayLabel: string
   coin: YesterdayDigestCoin
   secondary?: YesterdayDigestSecondary
+  /** Phase 195 — optional forward cue; omitted when nothing rose notably. */
+  watch?: YesterdayDigestWatch
 }
 
 const MAX_WORDS = 12
+
+// Phase 195 — minimum rise for a pressure to be worth a forward cue. Below
+// this the movement is noise and the watch line is omitted entirely.
+const WATCH_DELTA_THRESHOLD = 4
 
 function clampWords(s: string, max: number = MAX_WORDS): string {
   const words = s.trim().split(/\s+/).filter(Boolean)
@@ -133,12 +154,42 @@ export function projectYesterdayDigest(
   }
 
   const secondary = pickSecondary(report)
+  const watch = pickWatch(report, secondary)
 
   return {
     closedDayOrdinal: report.header.closedDayOrdinal,
     dayLabel: shortDayLabel(report.header.dayLabel),
     coin,
     ...(secondary ? { secondary } : {}),
+    ...(watch ? { watch } : {}),
+  }
+}
+
+/**
+ * Phase 195 — pick the "Today's watch" cue: the most notable rising
+ * pressure the backward-looking secondary hasn't already named. Returns
+ * `undefined` when nothing rose past the notability threshold — the cue is
+ * forward-looking guidance, never filler.
+ */
+function pickWatch(
+  report: DailyReportData,
+  secondary: YesterdayDigestSecondary | undefined,
+): YesterdayDigestWatch | undefined {
+  // Don't repeat the pressure the secondary already surfaces — the watch
+  // adds NEW information or it stays silent.
+  const skipId = secondary?.kind === 'pressure' ? secondary.id : undefined
+  // `risingPressures` is pre-filtered to delta > 0 and ordered strongest
+  // first, so the first qualifying entry is the one to watch.
+  const top = report.risingPressures.find(
+    (p) => p.id !== skipId && p.delta >= WATCH_DELTA_THRESHOLD,
+  )
+  if (!top) return undefined
+  return {
+    pressureId: top.id,
+    label: top.label,
+    delta: top.delta,
+    value: top.value,
+    readable: clampWords(`${top.label} rose ${top.delta} — keep an eye on it`),
   }
 }
 

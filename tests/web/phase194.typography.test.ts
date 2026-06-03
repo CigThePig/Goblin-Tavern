@@ -121,6 +121,9 @@ describe('`.tag` is reserved for passive meta context (Phase 194)', () => {
   const ALLOW = new Set([
     'lib/components/CauseDrilldown.svelte :: cause-meta tag',
     'lib/components/YesterdayDigest.svelte :: head tag',
+    // Phase 195 — the "Today's watch" label is a passive meta header, like
+    // the sibling "Yesterday · Day N" head above it.
+    'lib/components/YesterdayDigest.svelte :: watch-label tag',
     'lib/components/TavernLog.svelte :: entity-prefix tag',
     'lib/components/TavernLog.svelte :: meta mono tag dim',
     'lib/components/TavernLog.svelte :: day-coord tag dim',

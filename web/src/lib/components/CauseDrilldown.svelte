@@ -15,6 +15,7 @@
   } from '../../../../src/reports/index'
   import type { CauseEntry } from '../../../../src/sim/state/TavernState'
   import { safeProject, type ProjectionSlot } from '../sim/projectionSlot'
+  import { planActionCtaForPath } from '../sim/planActionCta'
 
   let {
     open,
@@ -72,6 +73,26 @@
       .map((r) => `${r.kind}/${r.id}`)
       .join(', ')
   }
+
+  // Phase 195 / ISSUE-162 — close the loop from insight to action. When an
+  // owner action relieves what this drilldown is showing, surface a CTA
+  // that routes to Day, forces the plan beat, and opens the ActionPicker
+  // with the right tab (and the Suggested section in view when the source
+  // is in its danger band). When nothing maps, `cta` is undefined and no
+  // button renders — silence over a dead affordance (acceptance #6).
+  const cta = $derived(planActionCtaForPath(path, gameStore.state))
+
+  function planAction() {
+    if (!cta) return
+    // Close this sheet first so the player lands on the plan beat cleanly,
+    // then hand the context to the Day screen via the store.
+    onclose()
+    gameStore.requestActionPicker({
+      planBeat: true,
+      tab: cta.tab,
+      focusSuggested: cta.focusSuggested,
+    })
+  }
 </script>
 
 <BottomSheet {open} {title} {onclose}>
@@ -115,6 +136,19 @@
         </li>
       {/each}
     </ul>
+  {/if}
+
+  {#if cta}
+    <!-- Phase 195 / ISSUE-162 — Reports → Action conversion. -->
+    <button
+      class="plan-cta"
+      type="button"
+      data-testid="plan-action-cta"
+      onclick={planAction}
+    >
+      Plan an action against this
+      <span class="plan-cta-arrow" aria-hidden="true">→</span>
+    </button>
   {/if}
 </BottomSheet>
 
@@ -226,6 +260,40 @@
     color: var(--text-faint);
     display: flex;
     gap: var(--sp-xs);
+  }
+
+  /* Phase 195 / ISSUE-162 — insight → action CTA. Full-width, sits below
+     the cause list; mirrors the DayScreen primary affordance so it reads
+     as "do something about this". */
+  .plan-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: var(--sp-md);
+    padding: 12px;
+    min-height: 44px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-size: 13px;
+    color: var(--accent);
+    background: transparent;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background var(--m-fast) var(--ease);
+  }
+
+  .plan-cta:hover,
+  .plan-cta:focus-visible {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  .plan-cta-arrow {
+    color: var(--accent-soft);
   }
 
   /* Phase 120 / ISSUE-059 — projection failure fallback. */

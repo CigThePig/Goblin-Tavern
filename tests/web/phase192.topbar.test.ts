@@ -50,7 +50,7 @@ beforeEach(() => {
   gameStore.reset('phase192-seed')
   clearPressures()
   gameStore.setPicks([])
-  gameStore.actionPickerRequested = false
+  gameStore.actionPickerRequest = undefined
   drilldownStore.close()
   drilldownStore.path = undefined
 })
@@ -179,7 +179,7 @@ describe('TopBar time chip beat gating (Phase 192)', () => {
     expect(chip.tagName).toBe('BUTTON')
 
     await fireEvent.click(chip)
-    expect(gameStore.actionPickerRequested).toBe(true)
+    expect(gameStore.actionPickerRequest).toBeTruthy()
     expect(gameStore.route).toBe('day')
   })
 

@@ -352,6 +352,10 @@ Deliverable:
 
 **Goal:** Determine what the green test suite does and does not prove.
 
+Deliverable:
+
+- Completed in `docs/audits/phase-08-test-suite-oracle-blind-spots.md`.
+
 Scope:
 
 - Test tiers in `vitest.config.ts` and `scripts/run-tests.mjs`.

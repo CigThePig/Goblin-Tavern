@@ -389,6 +389,10 @@ Exit criteria:
 
 **Goal:** Find problems that require long-run or data-wide inspection.
 
+Deliverable:
+
+- Completed in `docs/audits/phase-09-content-data-quality-balance-long-run.md`.
+
 Scope:
 
 - Content registries under `src/sim/content/*`.

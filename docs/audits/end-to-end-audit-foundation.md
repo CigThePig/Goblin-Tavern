@@ -235,6 +235,10 @@ Exit criteria:
 - Matrix from issue-seed family/subtype/timing to card template and tests.
 - List of fallback routes that are intentional versus suspicious.
 
+Deliverable:
+
+- Completed in `docs/audits/phase-04-cards-issue-seeds-composition.md`.
+
 ### Phase 5 — Reports, projections, and explanatory surfaces
 
 **Goal:** Verify reports explain the same state changes the sim produced.

@@ -85,6 +85,7 @@ export const commissionExpedition: OwnerActionDefinition = {
   label: 'Commission Expedition',
   category: 'immediate',
   tags: ['expedition', 'world', 'adventurer'],
+  effectsPreview: 'Sends adventurers out for rare ingredients',
   targetType: 'global',
   timeCost: TIME_COST_STANDARD,
   getValidTargets: (ctx: SimContext) => {

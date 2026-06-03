@@ -72,6 +72,8 @@ const hireStaffAction: OwnerActionDefinition = {
   label: 'Hire Staff',
   category: 'immediate',
   tags: ['staff', 'hire'],
+  effectsPreview: 'Brings on a new hand to ease the rota',
+  pressureAffinity: ['staff_burnout'],
   targetType: 'staff',
   // Hiring is a big commitment — interviewing and onboarding a new hand
   // eats most of the day.
@@ -206,6 +208,7 @@ const fireStaffAction: OwnerActionDefinition = {
   label: 'Fire Staff',
   category: 'immediate',
   tags: ['staff', 'fire'],
+  effectsPreview: 'Lets a staffer go; trims the wage bill',
   targetType: 'staff',
   timeCost: TIME_COST_STANDARD,
   getValidTargets: listFireableStaff,
@@ -313,6 +316,8 @@ const banCustomerGroupAction: OwnerActionDefinition = {
   label: 'Ban Customer Group',
   category: 'immediate',
   tags: ['customers', 'ban', 'social'],
+  effectsPreview: 'Bars a troublesome group from the tavern',
+  pressureAffinity: ['violence'],
   targetType: 'customer_group',
   timeCost: TIME_COST_STANDARD,
   getValidTargets: listCustomerGroups,

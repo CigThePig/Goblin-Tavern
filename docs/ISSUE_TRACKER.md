@@ -71,10 +71,11 @@ navigable, orthogonal to the card-layer choice-legibility arcs. ISSUE-157
 is split into **ISSUE-157a** (phase 190a — interconnection primitives +
 routing + drilldown paths, `done`) and **ISSUE-157b** (phase 190b —
 consumer wiring, `done`). **ISSUE-158** (phase 191 — pressure stakes and
-danger zones) and **ISSUE-159** (phase 192 — TopBar stakes reframe) are now
-`done`; **ISSUE-160** (phase 193 — action effect previews + suggestions) is
-next up; 193–196 (ISSUE-160…163) are `open` and follow in arc order; see
-the Tier 5 section for per-issue detail.
+danger zones), **ISSUE-159** (phase 192 — TopBar stakes reframe), and
+**ISSUE-160** (phase 193 — action effect previews + suggestions) are now
+`done`; **ISSUE-161** (phase 194 — typography scan-speed pass) is next up;
+194–196 (ISSUE-161…163) are `open` and follow in arc order; see the Tier 5
+section for per-issue detail.
 
 The card-layer arcs ran Living Cast → Voiced → Legible → Faithful →
 Complete; each has a locked roadmap (`docs/plans/*-surface-arc.md`,
@@ -240,7 +241,7 @@ next.
 | ISSUE-157b | UI Intuitiveness Phase 1b — Consumer wiring (EntityLink/MetricLink call sites) | thin | done | 190b |
 | ISSUE-158 | UI Intuitiveness Phase 2 — Pressure stakes and danger zones (reuse sim consequences + severity band) | thin | open | 191 |
 | ISSUE-159 | UI Intuitiveness Phase 3 — TopBar stakes reframe (time economy, not action points) | thin | open | 192 |
-| ISSUE-160 | UI Intuitiveness Phase 4 — Action effect previews + suggestions in Plan beat | thin | open | 193 |
+| ISSUE-160 | UI Intuitiveness Phase 4 — Action effect previews + suggestions in Plan beat | thin | done | 193 |
 | ISSUE-161 | UI Intuitiveness Phase 5 — Typography scan-speed pass | thin | open | 194 |
 | ISSUE-162 | UI Intuitiveness Phase 6 — Reports → Action conversion | thin | open | 195 |
 | ISSUE-163 | UI Intuitiveness Phase 7 — Day dominance and cleanups | thin | open | 196 |
@@ -3364,11 +3365,12 @@ action points (phase 186) throughout.
 - **Test approach:** `tests/web/phase192.topbar.test.ts` (jsdom, 13 tests) — center branches between the #1-pressure chip and "tavern steady" (only one pressure ever, no inline `Week N · Month N`); pressure chip opens `pressures.<id>` on the drilldown; badge omitted on `quiet_day`, shown on `market_day`; calendar peek opens on the day chip (full date + milestone lines) and closes on Escape; time-chip beat gating (hidden Report / span Morning / button Plan-Service-Closing, button requests the picker + routes to `'day'`); welcome-back pill still renders. `npm run typecheck` + `npm run check` (svelte-check, 0 errors) green; all 216 `tests/web` pass (incl. phase-191 ribbon regression after the helper refactor).
 
 ### ISSUE-160 — UI Intuitiveness Phase 4: Action effect previews + suggestions in Plan beat
-- **Grade:** thin · **Status:** open · **Phase:** 193 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 193).
-- **Goal:** Two Plan-beat clarity gaps together — surface the existing `effectsPreview` on picker rows, and add a small "Suggested" section tying actions to rising pressures / yesterday's losses.
-- **Scope:** `ActionPicker.svelte` effect captions; pure `web/src/lib/sim/suggestActions.ts`; additive `pressureAffinity?: PressureId[]` on `OwnerActionDefinition` (≥60% coverage); time-cost tiebreak (no AP).
+- **Grade:** thin · **Status:** done · **Phase:** 193 · **Record:** `docs/plans/phase-193-action-previews-suggestions.md` (+ `docs/plans/ui-ux-intuitiveness-arc.md §Phase 193`).
+- **Goal:** Two Plan-beat clarity gaps together — surface a per-action effect preview on picker rows, and add a small "Suggested" section tying actions to rising pressures / yesterday's losses.
+- **Audit correction:** the arc contract's Part A premise ("`OwnerActionDefinition` already carries an `effectsPreview`") was wrong against the code — only project/policy records carry preview text; ordinary action *definitions* carried none. Faithful resolution under the Core Design Rule: add the preview as **additive sim data** (`effectsPreview?: string` on `OwnerActionDefinition`, authored in `src/sim/`), not invented in the web layer. This sits beside Part B's own additive field on the same type. No save-schema impact (both fields are code-level definition metadata).
+- **Scope:** Two additive optional fields on `OwnerActionDefinition` (`effectsPreview?: string`, `pressureAffinity?: ActionPressureId[]` = core ∪ expanded pressure ids), authored across immediate (`actionDefinitions.ts`, `staffManagementActions.ts`, `commissionExpedition.ts`), social (`socialActions.ts`), and project (`projectActions.ts`, joined from the starter's existing `effectsPreview`) actions — 75% affinity coverage of the directly-remedial (immediate + social) set. `ActionPicker.svelte` renders the preview as a dim caption per row (mirroring `.policy-effect`) and a new "Suggested" section above the tab strip; new optional `previousReport?` prop wired from `DayScreen`'s `dailyReport` slot. Pure `web/src/lib/sim/suggestActions.ts`: rising-pressure trigger (phase-191 danger band = non-empty `consequences`) via `pressureAffinity`, yesterday stock-loss trigger → `restock_item`, dedup across triggers + against `picks`, sort by source-severity desc then time cost asc (no AP), cap 3, deterministic.
 - **Depends on:** ISSUE-157a, ISSUE-158.
-- **Test approach:** `tests/web/phase193.actionPreviewsAndSuggest.test.ts` + `tests/sim/phase193.actionAffinity.test.ts` (affinity ids are valid pressure ids).
+- **Test approach:** `tests/web/phase193.actionPreviewsAndSuggest.test.ts` (jsdom, 12 tests — preview caption present/absent, Suggested section render + collapse, and the engine's rising-pressure/yesterday-loss triggers, cap-at-3, dedup, time-cost tiebreak, severity ordering, determinism) + `tests/sim/phase193.actionAffinity.test.ts` (5 tests — affinity ids are valid registered pressure ids, arrays non-empty/unique, obvious mappings present, previews non-empty strings, ≥60% remedial coverage). `npm run typecheck` + `npm run check` (svelte-check, 0 errors) green; full `tests/web` (228) + targeted sim tests passing.
 
 ### ISSUE-161 — UI Intuitiveness Phase 5: Typography scan-speed pass
 - **Grade:** thin · **Status:** open · **Phase:** 194 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 194).

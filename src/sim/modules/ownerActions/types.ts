@@ -1,4 +1,8 @@
 import type { SimContext } from '../../core/context'
+import type { ExpandedPressureId, PressureId } from '../pressures/pressureTypes'
+
+/** Any registry pressure — the core 10 plus the expanded social/market/arc set. */
+export type ActionPressureId = PressureId | ExpandedPressureId
 
 // Phase 13 §13.1 / §13.2 — Owner action types.
 //
@@ -171,6 +175,20 @@ export type OwnerActionDefinition = {
    * (`DAY_MINUTES`). Phase 186 — see `OwnerActionApplied.timeCost`.
    */
   timeCost: number
+  /**
+   * Phase 193 / ISSUE-160 — terse, one-line "what this does" preview for
+   * the planning picker. Additive and optional: actions without one render
+   * no caption (no placeholder). This is authored sim data — the picker
+   * surfaces it verbatim and never invents preview copy in the web layer.
+   */
+  effectsPreview?: string
+  /**
+   * Phase 193 / ISSUE-160 — pressures this action relieves. Drives the
+   * picker's "Suggested" section: when a tagged pressure is in its danger
+   * band, the action is suggested. Optional; untagged actions are never
+   * suggested. Ids are validated against the pressure registry in tests.
+   */
+  pressureAffinity?: ActionPressureId[]
   /** Targets the action can be applied to. Empty array for global actions. */
   getValidTargets: (ctx: SimContext) => ActionTarget[]
   /** Pure validation. Must not mutate state. */

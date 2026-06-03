@@ -71,9 +71,10 @@ navigable, orthogonal to the card-layer choice-legibility arcs. ISSUE-157
 is split into **ISSUE-157a** (phase 190a — interconnection primitives +
 routing + drilldown paths, `done`) and **ISSUE-157b** (phase 190b —
 consumer wiring, `done`). **ISSUE-158** (phase 191 — pressure stakes and
-danger zones) is now `done`; **ISSUE-159** (phase 192 — TopBar stakes
-reframe) is next up; 192–196 (ISSUE-159…163) are `open` and follow in arc
-order; see the Tier 5 section for per-issue detail.
+danger zones) and **ISSUE-159** (phase 192 — TopBar stakes reframe) are now
+`done`; **ISSUE-160** (phase 193 — action effect previews + suggestions) is
+next up; 193–196 (ISSUE-160…163) are `open` and follow in arc order; see
+the Tier 5 section for per-issue detail.
 
 The card-layer arcs ran Living Cast → Voiced → Legible → Faithful →
 Complete; each has a locked roadmap (`docs/plans/*-surface-arc.md`,
@@ -3356,11 +3357,11 @@ action points (phase 186) throughout.
 - **Test approach:** `tests/sim/phase191.pressureConsequence.test.ts` (8 tests — projection is exactly `consequences[0]`/`undefined` across all 21 pressures, never invents; silence below band / unknown id / missing slice; empty-entry handling; determinism) + `tests/web/phase191.pressureUI.test.ts` (7 tests — ribbon surfaces the line + danger marking only in band, silent below/with no snapshot; drilldown callout renders for a pressure path with consequences and stays silent otherwise + for non-pressure paths; `pressureColor` crossover guard). `npm run typecheck` + `npm run check` (svelte-check, 0 errors) green; 74 targeted tests passing.
 
 ### ISSUE-159 — UI Intuitiveness Phase 3: TopBar stakes reframe
-- **Grade:** thin · **Status:** open · **Phase:** 192 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 192).
+- **Grade:** thin · **Status:** done · **Phase:** 192 · **Record:** `docs/plans/phase-192-topbar-stakes-reframe.md` (+ `docs/plans/ui-ux-intuitiveness-arc.md §Phase 192`).
 - **Goal:** Convert the topbar from a calendar chronicle to a stakes summary — day ordinal + top-pressure chip (or "tavern steady"), coin + time-remaining chips, calendar peek popover, day-type badge only when non-normal.
-- **Scope:** `TopBar.svelte` only; top pressure as a `MetricLink`; time-remaining chip uses the time economy (no AP). Welcome-back pill behaviour preserved.
+- **Scope:** `TopBar.svelte` reframe — day ordinal (tap → calendar peek popover) + the #1 pressure as a `MetricLink` chip / "tavern steady" fallback; coin `MetricLink`; a time-remaining chip from the phase-186 time economy (hidden in Report, non-interactive in Morning, an interactive button opening the picker in Plan/Service/Closing — no AP); day-type badge inline only when non-baseline (not `quiet_day`); welcome-back pill (Phase 96) preserved. The #1-pressure selection is extracted to a shared pure helper `web/src/lib/sim/topPressures.ts` so the topbar can never drift from `PressureRibbon` (which now calls it; output identical). Minimal additive cross-component plumbing: transient (non-persisted) `gameStore.actionPickerRequested` + `requestActionPicker()`/`consumeActionPickerRequest()`, consumed once by `DayScreen` to open its screen-local `ActionPicker`. Save schema unchanged (targets transient).
 - **Depends on:** ISSUE-157a, ISSUE-158.
-- **Test approach:** `tests/web/phase192.topbar.test.ts` — center-content branching, badge visibility, time-chip beat gating, calendar peek opening.
+- **Test approach:** `tests/web/phase192.topbar.test.ts` (jsdom, 13 tests) — center branches between the #1-pressure chip and "tavern steady" (only one pressure ever, no inline `Week N · Month N`); pressure chip opens `pressures.<id>` on the drilldown; badge omitted on `quiet_day`, shown on `market_day`; calendar peek opens on the day chip (full date + milestone lines) and closes on Escape; time-chip beat gating (hidden Report / span Morning / button Plan-Service-Closing, button requests the picker + routes to `'day'`); welcome-back pill still renders. `npm run typecheck` + `npm run check` (svelte-check, 0 errors) green; all 216 `tests/web` pass (incl. phase-191 ribbon regression after the helper refactor).
 
 ### ISSUE-160 — UI Intuitiveness Phase 4: Action effect previews + suggestions in Plan beat
 - **Grade:** thin · **Status:** open · **Phase:** 193 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 193).

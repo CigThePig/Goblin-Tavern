@@ -114,6 +114,14 @@
 
   let pickerOpen = $state(false)
   let staffSheetOpen = $state(false)
+
+  // Phase 192 / ISSUE-159 — the global TopBar time chip routes here and
+  // flags a request to open the ActionPicker (the picker is screen-local).
+  // Consume-once: a later re-render finds the flag cleared and does not
+  // re-open.
+  $effect(() => {
+    if (gameStore.consumeActionPickerRequest()) pickerOpen = true
+  })
   // `transitioning` is the only beat-local view bit — it's a pacing
   // animation flag. Restoring it on hydration would mean replaying a
   // half-finished service transition, which is a UX bug. Stays local.

@@ -2,17 +2,14 @@
   import Icon from './Icon.svelte'
   import MetricLink from './links/MetricLink.svelte'
   import { gameStore } from '../sim/gameStore.svelte'
+  import { topPressures } from '../sim/topPressures'
   import { pressureColor } from '../design/tokens'
   import { buildPressureConsequenceLine } from '../../../../src/reports/index'
   import type { PressureState } from '../../../../src/sim/state/TavernState'
 
-  const top = $derived.by(() => {
-    const all = Object.values(gameStore.state.pressures)
-    return [...all]
-      .filter((p) => p.value >= 10 || p.trend !== 0)
-      .sort((a, b) => b.value - a.value || Math.abs(b.trend) - Math.abs(a.trend))
-      .slice(0, 3)
-  })
+  // Phase 192 — selection lives in the shared `topPressures` helper so the
+  // TopBar stakes chip (the #1 row) can never drift from this ribbon.
+  const top = $derived(topPressures(gameStore.state.pressures, 3))
 
   // Phase 191 — the sim's own "if ignored" line for any top-3 row that has
   // climbed into its (per-pressure, severity-driven) danger band. Below the

@@ -52,7 +52,7 @@
   import YesterdayDigest from '../components/YesterdayDigest.svelte'
   import { renderCard } from '../cards/realCardRegistry'
   import { formatDuration } from '../sim/actionBuilder'
-  import { gameStore } from '../sim/gameStore.svelte'
+  import { gameStore, type ActionPickerRequest } from '../sim/gameStore.svelte'
   import { prefsStore } from '../prefs/prefsStore.svelte'
   import { buildIntent, buildIgnoreIntent } from '../sim/intentBuilder'
   import { buildDailyReport } from '../../../../src/reports/index'
@@ -114,13 +114,22 @@
 
   let pickerOpen = $state(false)
   let staffSheetOpen = $state(false)
+  // Phase 195 / ISSUE-162 — context for the most recent open request: the
+  // tab to preselect + whether to scroll the Suggested section into view.
+  // Set when a drilldown "Plan an action" CTA opens the picker; the TopBar
+  // path leaves it at its defaults.
+  let pickerRequest = $state<ActionPickerRequest | undefined>(undefined)
 
-  // Phase 192 / ISSUE-159 — the global TopBar time chip routes here and
-  // flags a request to open the ActionPicker (the picker is screen-local).
-  // Consume-once: a later re-render finds the flag cleared and does not
-  // re-open.
+  // Phase 192 / ISSUE-159 — the global TopBar time chip (and the phase-195
+  // drilldown CTA) route here and flag a request to open the ActionPicker
+  // (the picker is screen-local). Consume-once: a later re-render finds the
+  // flag cleared and does not re-open.
   $effect(() => {
-    if (gameStore.consumeActionPickerRequest()) pickerOpen = true
+    const req = gameStore.consumeActionPickerRequest()
+    if (req) {
+      pickerRequest = req
+      pickerOpen = true
+    }
   })
   // `transitioning` is the only beat-local view bit — it's a pacing
   // animation flag. Restoring it on hydration would mean replaying a
@@ -434,6 +443,21 @@
 <main class="day">
   <!-- ─── Beat 1: Morning ────────────────────────────────────────── -->
   {#if beat === 'morning'}
+    <!-- Phase 195 / ISSUE-162 — yesterday's outcome leads the morning: it
+         is more decision-relevant than today's static counts, so the digest
+         (with its optional "Today's watch" cue) renders ABOVE the
+         at-a-glance row. -->
+    {#if yesterdayDigest.ok === 'success'}
+      <section class="block" aria-label="Yesterday">
+        <YesterdayDigest digest={yesterdayDigest.data} onopen={openTodayReport} />
+      </section>
+    {:else if yesterdayDigest.ok === 'error'}
+      <section class="block digest-fallback" aria-label="Yesterday unavailable" role="alert">
+        <p class="fallback-title">Yesterday digest unavailable</p>
+        <p class="fallback-error mono">{yesterdayDigest.error}</p>
+      </section>
+    {/if}
+
     <section class="block" aria-label="At a glance">
       <!-- Phase 190b — every glance figure is a tap target: coin opens the
            coin drilldown; "N staff" lands on Tavern → Staff (no specific
@@ -469,17 +493,6 @@
         </p>
       {/if}
     </section>
-
-    {#if yesterdayDigest.ok === 'success'}
-      <section class="block" aria-label="Yesterday">
-        <YesterdayDigest digest={yesterdayDigest.data} onopen={openTodayReport} />
-      </section>
-    {:else if yesterdayDigest.ok === 'error'}
-      <section class="block digest-fallback" aria-label="Yesterday unavailable" role="alert">
-        <p class="fallback-title">Yesterday digest unavailable</p>
-        <p class="fallback-error mono">{yesterdayDigest.error}</p>
-      </section>
-    {/if}
 
     <section class="block" aria-label="Pressures">
       <h2 class="block-label section-label">Rising</h2>
@@ -752,6 +765,8 @@
   open={pickerOpen}
   onclose={() => (pickerOpen = false)}
   previousReport={dailyReport.ok === 'success' ? dailyReport.data : undefined}
+  requestedTab={pickerRequest?.tab}
+  focusSuggested={pickerRequest?.focusSuggested ?? false}
 />
 <StaffPrioritySheet open={staffSheetOpen} onclose={() => (staffSheetOpen = false)} />
 

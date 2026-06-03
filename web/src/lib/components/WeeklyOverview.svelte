@@ -13,6 +13,7 @@
 <script lang="ts">
   import TermLabel from './TermLabel.svelte'
   import EntityLink from './links/EntityLink.svelte'
+  import MetricLink from './links/MetricLink.svelte'
   import { pressureColor } from '../design/tokens'
   import type {
     CustomerGroupRow,
@@ -160,8 +161,14 @@
         {#if data.economy.topRevenueSource || data.economy.largestCost}
           <div class="econ-callouts">
             {#if data.economy.topRevenueSource}
+              <!-- Phase 195 — top-revenue source is a stock item; link it. -->
               <span class="callout-chip">
-                <span class="chip">top revenue</span> {data.economy.topRevenueSource.label}
+                <span class="chip">top revenue</span>
+                <EntityLink
+                  kind="stock"
+                  id={data.economy.topRevenueSource.id}
+                  label={data.economy.topRevenueSource.label}
+                />
               </span>
             {/if}
             {#if data.economy.largestCost}
@@ -180,8 +187,11 @@
         <h2 class="block-label section-label"><TermLabel term="weekly_signals" label="signals" /></h2>
         <div class="signal-pills">
           {#each (['cheap', 'filthy', 'dangerous', 'tasty', 'reliable'] as const) as axis (axis)}
+            <!-- Phase 195 — each signal axis is a reputation axis; link it
+                 to its drilldown. -->
             <span class="signal-pill mono" data-dir={dirOf(data.signals[axis])}>
-              {signedRounded(data.signals[axis])} <span class="chip">{axis}</span>
+              {signedRounded(data.signals[axis])}
+              <MetricLink kind="reputation" id={axis}><span class="chip">{axis}</span></MetricLink>
             </span>
           {/each}
         </div>
@@ -277,7 +287,10 @@
           {#each data.maintenance.rows as row (row.areaId)}
             {@const r = row as MaintenanceRow}
             <li class="maint-row">
-              <span class="maint-label">{r.areaLabel}</span>
+              <!-- Phase 195 — link the area to its Tavern detail. -->
+              <span class="maint-label">
+                <EntityLink kind="area" id={r.areaId} label={r.areaLabel} />
+              </span>
               <div class="maint-track">
                 <div
                   class="maint-fill"
@@ -333,7 +346,10 @@
         <ul class="invoice-list">
           {#each invoicesUnpaidFirst(data.supplierInvoices.rows) as inv (inv.id)}
             <li class="invoice-row" class:paid={inv.paid}>
-              <span class="trend-name">{inv.supplierLabel}</span>
+              <!-- Phase 195 — invoice row id is the supplier id; link it. -->
+              <span class="trend-name">
+                <EntityLink kind="supplier" id={inv.id} label={inv.supplierLabel} />
+              </span>
               <span class="trend-cell mono" data-dir={inv.paid ? 'neutral' : 'loss'}>
                 {Math.round(inv.amount)}c
               </span>

@@ -40,6 +40,8 @@
     open,
     onclose,
     previousReport,
+    requestedTab,
+    focusSuggested = false,
   }: {
     open: boolean
     onclose: () => void
@@ -48,10 +50,42 @@
      * stock loss. Optional; absence simply drops the loss-based trigger.
      */
     previousReport?: DailyReportData | undefined
+    /**
+     * Phase 195 — when a drilldown "Plan an action" CTA opens the picker it
+     * names the category tab to preselect, and may ask to scroll the
+     * Suggested section into view. Both are consumed once, on open.
+     */
+    requestedTab?: OwnerActionCategory | undefined
+    focusSuggested?: boolean
   } = $props()
 
   const categories = getActionCategories()
   let tab = $state<OwnerActionCategory>('immediate')
+
+  // Phase 195 — apply the CTA context exactly once per open. Tracking the
+  // previous `open` value (a plain local, not reactive state) means the
+  // effect acts only on the false→true edge, so a later in-sheet tab change
+  // is not stomped by a re-render.
+  let suggestedEl = $state<HTMLElement>()
+  let wasOpen = false
+  $effect(() => {
+    if (open && !wasOpen) {
+      if (requestedTab) {
+        tab = requestedTab
+        targetingFor = null
+      }
+      if (focusSuggested) {
+        // Defer to after the Suggested section paints. jsdom has no
+        // scrollIntoView, so guard the call for the component tests.
+        requestAnimationFrame(() => {
+          if (typeof suggestedEl?.scrollIntoView === 'function') {
+            suggestedEl.scrollIntoView({ block: 'start', behavior: 'smooth' })
+          }
+        })
+      }
+    }
+    wasOpen = open
+  })
 
   // Target picker overlay state (within the sheet body).
   let targetingFor = $state<OwnerActionDefinition | null>(null)
@@ -246,7 +280,7 @@
       {/if}
 
       {#if suggestions.length > 0}
-        <div class="suggested" aria-label="Suggested actions">
+        <div class="suggested" aria-label="Suggested actions" bind:this={suggestedEl}>
           <p class="suggested-head section-label">Suggested</p>
           <ul class="actions">
             {#each suggestions as s (s.action.id)}

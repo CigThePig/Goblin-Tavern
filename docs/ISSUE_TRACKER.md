@@ -73,10 +73,10 @@ routing + drilldown paths, `done`) and **ISSUE-157b** (phase 190b —
 consumer wiring, `done`). **ISSUE-158** (phase 191 — pressure stakes and
 danger zones), **ISSUE-159** (phase 192 — TopBar stakes reframe), and
 **ISSUE-160** (phase 193 — action effect previews + suggestions), and
-**ISSUE-161** (phase 194 — typography scan-speed pass) are now `done`;
-**ISSUE-162** (phase 195 — Reports → Action conversion) is next up;
-195–196 (ISSUE-162…163) are `open` and follow in arc order; see the Tier 5
-section for per-issue detail.
+**ISSUE-161** (phase 194 — typography scan-speed pass), and **ISSUE-162**
+(phase 195 — Reports → Action conversion) are now `done`; **ISSUE-163**
+(phase 196 — Day dominance and cleanups) is next up and closes the arc;
+see the Tier 5 section for per-issue detail.
 
 The card-layer arcs ran Living Cast → Voiced → Legible → Faithful →
 Complete; each has a locked roadmap (`docs/plans/*-surface-arc.md`,
@@ -244,7 +244,7 @@ next.
 | ISSUE-159 | UI Intuitiveness Phase 3 — TopBar stakes reframe (time economy, not action points) | thin | open | 192 |
 | ISSUE-160 | UI Intuitiveness Phase 4 — Action effect previews + suggestions in Plan beat | thin | done | 193 |
 | ISSUE-161 | UI Intuitiveness Phase 5 — Typography scan-speed pass | thin | done | 194 |
-| ISSUE-162 | UI Intuitiveness Phase 6 — Reports → Action conversion | thin | open | 195 |
+| ISSUE-162 | UI Intuitiveness Phase 6 — Reports → Action conversion | thin | done | 195 |
 | ISSUE-163 | UI Intuitiveness Phase 7 — Day dominance and cleanups | thin | open | 196 |
 | ISSUE-116 | Legible Surface Phase 3 — Choice Distinctness Gate & Legible Choice-Set Cap | broken | done | 148 |
 
@@ -3381,11 +3381,11 @@ action points (phase 186) throughout.
 - **Test approach:** `tests/web/phase194.typography.test.ts` (jsdom, 14 tests) — global.css vocabulary (`.section-label`/`.tag` keep small-caps, `.chip`/`.badge` drop it, `.badge` carries a box); tappable chrome (BottomNav/subtabs/picker tabs) sentence case; key components emit the new classes (DailyReport `block-label section-label`, ActionPicker `chip`+`section-label`, AccuracyBadge `badge`); a recursive source scan asserting `class="…tag…"` appears ONLY on the nine-entry meta allowlist (regression guard against re-introducing `.tag` in chrome); ActionPicker DOM renders `.chip` and no `.tag`. `npm run typecheck` + `npm run check` (svelte-check, 0 errors) green; all 242 `tests/web` pass.
 
 ### ISSUE-162 — UI Intuitiveness Phase 6: Reports → Action conversion
-- **Grade:** thin · **Status:** open · **Phase:** 195 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 195).
+- **Grade:** thin · **Status:** done · **Phase:** 195 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 195).
 - **Goal:** Close the loop from insight to action — drilldown "Plan an action against this" CTAs, Yesterday Digest promotion + "Today's watch" line, full entity-link audit of Monthly/Weekly + MissedOpportunities.
-- **Scope:** `CauseDrilldown`, `YesterdayDigest`, `DayScreen`, `MonthlyOverview`, `WeeklyOverview`, `MissedOpportunities`. Silence over noise where nothing maps.
+- **Scope:** New pure `planActionCtaForPath` (`web/src/lib/sim/planActionCta.ts`) maps a drilldown path → `{ tab, focusSuggested }`: pressure paths with an affine owner action map (tab = cheapest affine action's category, mirroring `suggestActions`; `focusSuggested` = pressure in its danger band), coin/reputation map to nothing (omitted — silence over a dead button, acceptance #6). `CauseDrilldown` renders a full-width "Plan an action against this" CTA when the path maps; tapping closes the sheet and calls a context-carrying `gameStore.requestActionPicker({ planBeat, tab, focusSuggested })`. The phase-192 `actionPickerRequested` boolean became a typed `actionPickerRequest` object (`{ tab?, focusSuggested? }`); `requestActionPicker` forces the plan beat only when the day is open pre-service (`segment === 'A'`) so the Run-service/End-day buttons stay live; `DayScreen` threads the request into `ActionPicker`, which consumes `requestedTab`/`focusSuggested` once on the open edge (preselect tab + `scrollIntoView` the Suggested section). `YesterdayDigest` promoted ABOVE the at-a-glance row on morning; new optional `YesterdayDigestData.watch` ("Today's watch") projected in `yesterdayDigest.ts` from the top rising pressure the backward-looking secondary didn't already name (≥4 delta threshold, else omitted), rendered as a `MetricLink` to its drilldown beneath the digest button. Entity-link audit: `WeeklyOverview` signal axes (`MetricLink` reputation) + maintenance area (`EntityLink`) + supplier invoice (`EntityLink` supplier, row id is supplier id) + top-revenue stock (`EntityLink`); `MonthlyOverview` reputation axis labels both summary variants (`MetricLink` reputation); `MissedOpportunities` `targetRef` → `EntityLink` jump when the ref kind maps. Save schema unchanged (request + watch are transient/projected).
 - **Depends on:** ISSUE-157a, ISSUE-160.
-- **Test approach:** `tests/web/phase195.reportsActions.test.ts` — CTA wiring, digest reordering, "Today's watch" branching, entity-link coverage.
+- **Test approach:** `tests/web/phase195.reportsActions.test.ts` (jsdom, 20 tests) — `planActionCtaForPath` mapping/omission; `requestActionPicker` plan-beat gate + consume-once; `CauseDrilldown` CTA present for pressure / absent for coin / routes + opens picker on tap; Yesterday-above-glance source + DOM order; "Today's watch" four-way branching; Weekly/Monthly/MissedOpportunities link coverage. `npm run typecheck` + `npm run check` (0 errors) green; phase-192 topbar test updated for the renamed request field; phase-194 `.tag` allowlist extended for the passive `watch-label`. Full fast tier green.
 
 ### ISSUE-163 — UI Intuitiveness Phase 7: Day dominance and cleanups
 - **Grade:** thin · **Status:** open · **Phase:** 196 · **Record:** `docs/plans/ui-ux-intuitiveness-arc.md` (§Phase 196).

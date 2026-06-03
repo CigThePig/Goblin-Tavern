@@ -14,6 +14,8 @@
 -->
 <script lang="ts">
   import TermLabel from './TermLabel.svelte'
+  import EntityLink from './links/EntityLink.svelte'
+  import { entityKindFromRefKind } from './links/types'
   import type { MissedOpportunityLine } from '../../../../src/reports/types'
 
   let {
@@ -38,6 +40,21 @@
             <span class="missed-line">{o.readable}</span>
             {#if o.secondary}
               <span class="missed-sub chip">{o.secondary}</span>
+            {/if}
+            <!-- Phase 195 / ISSUE-162 — jump to the entity the miss was
+                 about. Only when the projection carries a structured ref
+                 with a linkable detail surface; prose is never parsed. -->
+            {#if o.targetRef && o.targetLabel}
+              {@const kind = entityKindFromRefKind(o.targetRef.kind)}
+              {#if kind}
+                <span class="missed-jump">
+                  <EntityLink
+                    {kind}
+                    id={o.targetRef.id}
+                    label={`→ ${o.targetLabel}`}
+                  />
+                </span>
+              {/if}
             {/if}
           </div>
           <button
@@ -112,6 +129,12 @@
     color: var(--text-faint);
     font-size: 13px;
     line-height: 1.4;
+  }
+
+  /* Phase 195 — entity jump affordance. */
+  .missed-jump {
+    margin-top: 2px;
+    font-size: 13px;
   }
 
   .dismiss {

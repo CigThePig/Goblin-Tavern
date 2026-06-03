@@ -77,6 +77,18 @@ import type {
   WorldSubview,
 } from './persistence'
 import { ENTITY_ROUTING, type EntityKind } from '../components/links/types'
+import type { OwnerActionCategory } from '../../../../src/sim/modules/ownerActions/types'
+
+/**
+ * Phase 195 / ISSUE-162 — context carried by a one-shot ActionPicker open
+ * request. The TopBar time chip requests a bare open (`{}`); a drilldown
+ * "Plan an action" CTA carries the tab to preselect and whether to scroll
+ * the Suggested section into view.
+ */
+export type ActionPickerRequest = {
+  tab?: OwnerActionCategory
+  focusSuggested?: boolean
+}
 
 class GameStore {
   state: TavernState = $state(createInitialTavernState())
@@ -162,7 +174,11 @@ class GameStore {
   // component signal to open it. Set by `requestActionPicker()`, consumed
   // once by the active screen's mount/reactive `$effect`. Session-only —
   // NOT persisted (a routing hint, like the sub-view targets above).
-  actionPickerRequested: boolean = $state(false)
+  //
+  // Phase 195 / ISSUE-162 — the flag became a typed request object so a
+  // drilldown CTA can carry the tab to preselect + a focus-Suggested hint.
+  // `undefined` means "no request pending"; any object means "open".
+  actionPickerRequest: ActionPickerRequest | undefined = $state(undefined)
 
   // Phase 96 — One-shot flag the welcome-back pill reads. Set true on
   // hydration; flipped to false on the first beat advance.
@@ -382,6 +398,7 @@ class GameStore {
     this.worldSubview = 'regulars'
     this.tavernSubviewTarget = undefined
     this.worldSubviewTarget = undefined
+    this.actionPickerRequest = undefined
     this.savedSnapshotJustLoaded = false
     this.lastSavedAt = undefined
     this.hydrationError = undefined
@@ -678,17 +695,32 @@ class GameStore {
    * screen consumes the flag on mount/reactively. Routing to `'day'`
    * first guarantees the screen that owns the picker is the one that
    * consumes the request.
+   *
+   * Phase 195 / ISSUE-162 — `opts` lets a drilldown CTA carry context: the
+   * `tab` to preselect, whether to scroll the Suggested section into view,
+   * and `planBeat` to force the plan beat. The beat is only forced when the
+   * current day is actually open and still pre-service (`segment === 'A'`):
+   * forcing it at a closed/ready day ('C') would land the player on a plan
+   * whose Run-service / End-day buttons are inert no-ops. The picker queues
+   * picks on any beat, so the open still happens either way.
    */
-  requestActionPicker(): void {
+  requestActionPicker(
+    opts: ActionPickerRequest & { planBeat?: boolean } = {},
+  ): void {
     this.route = 'day'
-    this.actionPickerRequested = true
+    if (opts.planBeat && this.segment === 'A') this.setBeat('plan')
+    this.actionPickerRequest = {
+      ...(opts.tab ? { tab: opts.tab } : {}),
+      focusSuggested: opts.focusSuggested ?? false,
+    }
   }
 
-  /** Read-and-clear the pending ActionPicker open request (consume-once). */
-  consumeActionPickerRequest(): boolean {
-    if (!this.actionPickerRequested) return false
-    this.actionPickerRequested = false
-    return true
+  /** Read-and-clear the pending ActionPicker open request (consume-once).
+   *  Returns the request context (truthy) or `undefined` when none pends. */
+  consumeActionPickerRequest(): ActionPickerRequest | undefined {
+    const req = this.actionPickerRequest
+    this.actionPickerRequest = undefined
+    return req
   }
 
   setReportsSubview(v: ReportsSubview): void {

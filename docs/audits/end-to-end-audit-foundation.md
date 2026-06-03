@@ -271,6 +271,10 @@ Exit criteria:
   issue seed.
 - Candidate stale-data and label-masking issues documented.
 
+Deliverable:
+
+- Completed in `docs/audits/phase-05-reports-projections-explanatory-surfaces.md`.
+
 ### Phase 6 — Web store, persistence, import/export, and session recovery
 
 **Goal:** Audit browser paths that often differ from headless tests.

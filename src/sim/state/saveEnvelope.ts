@@ -1,10 +1,12 @@
 import type { TavernState } from './TavernState'
 
-// Phase 6 §6.6 — Save envelope placeholder.
+// Phase 6 §6.6 — legacy SaveEnvelope placeholder.
 //
-// Scope note: full save/load (file I/O, real migration steps) is deferred
-// until post-Phase 20. This file only fixes the shape so module-state
-// validation (§6.1.1) and module version pinning have a stable home.
+// The web runtime now owns real browser save/load through
+// `web/src/lib/sim/persistence.ts`. This sim-side envelope is retained as a
+// documented compatibility seam for Phase 6 validation tests and older docs
+// that describe module version pinning; it is not the active production save
+// format.
 
 export type SaveEnvelope = {
   simVersion: string

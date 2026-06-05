@@ -10,7 +10,7 @@
 // 4. Switching to the Policy tab shows policy rows instead of action
 //    rows.
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte'
 
 const { default: ActionPicker } = await import(
@@ -24,6 +24,7 @@ describe('ActionPicker — smoke (Phase 119 / ISSUE-058)', () => {
   })
 
   afterEach(() => {
+    vi.restoreAllMocks()
     cleanup()
   })
 
@@ -58,6 +59,35 @@ describe('ActionPicker — smoke (Phase 119 / ISSUE-058)', () => {
     const chip = screen.getByRole('button', { name: /^Remove Buy Mugs/i })
     await fireEvent.click(chip)
     expect(gameStore.picks.length).toBe(0)
+  })
+
+
+  it('routes additions through gameStore.tryAddPick', async () => {
+    const spy = vi.spyOn(gameStore, 'tryAddPick')
+    render(ActionPicker, { props: { open: true, onclose: () => {} } })
+
+    await fireEvent.click(screen.getByRole('button', { name: /buy mugs/i }))
+
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(spy.mock.calls[0]?.[0]).toMatchObject({ actionId: 'buy_mugs' })
+  })
+
+  it('rejects a stale target through the central store guard', async () => {
+    render(ActionPicker, { props: { open: true, onclose: () => {} } })
+
+    await fireEvent.click(screen.getByRole('button', { name: /^Clean Area/i }))
+    expect(screen.getByText('choose a target')).toBeTruthy()
+
+    gameStore.state = {
+      ...gameStore.state,
+      areas: Object.fromEntries(
+        Object.entries(gameStore.state.areas).filter(([id]) => id !== 'kitchen'),
+      ) as typeof gameStore.state.areas,
+    }
+
+    await fireEvent.click(screen.getByRole('button', { name: /Kitchen/i }))
+
+    expect(gameStore.picks).toEqual([])
   })
 
   it('switching to Policies tab renders policy rows instead of actions', async () => {

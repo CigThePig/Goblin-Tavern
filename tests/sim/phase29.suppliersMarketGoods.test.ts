@@ -24,7 +24,7 @@ import { stockRegistry } from '../../src/sim/registries/stockRegistry'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import { safeValidateState } from '../../src/sim/state/validation'
 import { withModuleState } from '../../src/sim/testing/stateFactories'
-import { FULL_PIPELINE } from '../../src/sim/testing/simRunner'
+import { FULL_PIPELINE } from '../../src/sim/canonicalPipeline'
 import type { SimContext } from '../../src/sim/core/context'
 import type {
   SimulationHook,

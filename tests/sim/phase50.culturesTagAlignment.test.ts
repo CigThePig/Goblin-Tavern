@@ -50,7 +50,7 @@ import type {
 
 const SEED = 'phase-50-cultures-tag-alignment-test'
 
-const FULL_PIPELINE = [
+const MODULE_SLICE = [
   areasModule,
   stockModule,
   staffModule,
@@ -169,7 +169,7 @@ describe('Phase 50 §ISSUE-010 — Cross-cutting culture registry', () => {
   it('5. validateState passes for the default starting state', () => {
     const state = createInitialTavernState()
     expect(() =>
-      validateState(state, { modules: FULL_PIPELINE }),
+      validateState(state, { modules: MODULE_SLICE }),
     ).not.toThrow()
   })
 })
@@ -198,7 +198,7 @@ describe('Phase 50 §ISSUE-010 — Memory producers wire dead-read tags', () => 
 
   it('6. seating_conflict memory fires when two groups with hostile relationship are both highly patronised', () => {
     const base = primeSeatingConflict(createInitialTavernState())
-    const result = simulateDay(base, input(), FULL_PIPELINE)
+    const result = simulateDay(base, input(), MODULE_SLICE)
     const seatingMems = result.state.memories.filter((m) =>
       m.tags.includes('seating_conflict'),
     )
@@ -223,7 +223,7 @@ describe('Phase 50 §ISSUE-010 — Memory producers wire dead-read tags', () => 
       quantity: 800,
       tags: [...new Set([...(base.stock['ale']?.tags ?? []), 'risky'])],
     })
-    const result = simulateDay(base, input(), FULL_PIPELINE)
+    const result = simulateDay(base, input(), MODULE_SLICE)
     const tabooMems = result.state.memories.filter((m) =>
       m.tags.includes('food_taboo'),
     )
@@ -235,7 +235,7 @@ describe('Phase 50 §ISSUE-010 — Memory producers wire dead-read tags', () => 
     // and traveling_outsiders cultures (both watch market_day) get
     // detected. No friction-relief policy is enabled in default state.
     const base = withCalendarTag(createInitialTavernState(), 'market_day')
-    const result = simulateDay(base, input(), FULL_PIPELINE)
+    const result = simulateDay(base, input(), MODULE_SLICE)
     const mems = result.state.memories.filter((m) =>
       m.tags.includes('cultural_misunderstanding'),
     )
@@ -268,7 +268,7 @@ describe('Phase 50 §ISSUE-010 — Memory producers wire dead-read tags', () => 
 
     let state = base
     for (let i = 0; i < 3; i += 1) {
-      const result = simulateDay(state, input(), FULL_PIPELINE)
+      const result = simulateDay(state, input(), MODULE_SLICE)
       state = result.state
     }
     const snapshot = getPressureModuleState(state).snapshots['cultural_tension']

@@ -58,7 +58,7 @@ import type {
 
 const SEED = 'phase-39-expanded-issue-seeds-test'
 
-const FULL_PIPELINE = [
+const MODULE_SLICE = [
   areasModule,
   stockModule,
   staffModule,
@@ -87,7 +87,7 @@ function input(overrides: Partial<SimInput> = {}): SimInput {
 }
 
 function runDay(state: TavernState, overrides: Partial<SimInput> = {}) {
-  return simulateDay(state, input(overrides), FULL_PIPELINE)
+  return simulateDay(state, input(overrides), MODULE_SLICE)
 }
 
 // Phase 186 / Cluster 1 — generation is segment-local. `morning_prep` and

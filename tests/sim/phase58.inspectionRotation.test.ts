@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { simulateDay } from '../../src/sim/core/engine'
 import type { SimInput } from '../../src/sim/core/context'
 
-import { FULL_PIPELINE } from '../../src/sim/testing/simRunner'
+import { FULL_PIPELINE } from '../../src/sim/canonicalPipeline'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import type { TavernState } from '../../src/sim/state/TavernState'
 import { getIssueSeeds } from '../../src/sim/modules/issues/issueSeedQueries'

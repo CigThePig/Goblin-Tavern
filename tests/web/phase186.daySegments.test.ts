@@ -20,7 +20,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { simulateDay } from '../../src/sim/core/engine'
-import { FULL_PIPELINE } from '../../src/sim/testing/simRunner'
+import { FULL_PIPELINE } from '../../src/sim/canonicalPipeline'
 import type { TavernState } from '../../src/sim/state/TavernState'
 import { gameStore } from '../../web/src/lib/sim/gameStore.svelte'
 import { validatePersistedSession } from '../../web/src/lib/sim/persistence'

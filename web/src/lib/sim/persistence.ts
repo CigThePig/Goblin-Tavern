@@ -48,6 +48,7 @@ import { FULL_PIPELINE } from '../../../../src/sim/canonicalPipeline'
 import type { TavernState } from '../../../../src/sim/state/TavernState'
 import type { CalendarState } from '../../../../src/sim/modules/calendar/types'
 import type { SimResult } from '../../../../src/sim/core/result'
+import type { IssueSeed } from '../../../../src/sim/modules/issues/issueSeedTypes'
 import { sanitizePicks, type PickedAction } from './actionBuilder'
 import type {
   Beat,
@@ -399,7 +400,7 @@ export function validatePersistedSession(parsed: unknown): ValidationOutcome {
 
   const pendingRaw = (parsed as { pendingBySeedId?: unknown }).pendingBySeedId
   let pendingBySeedId: Record<string, PendingChoice> = isObject(pendingRaw)
-    ? sanitizePending(pendingRaw as Record<string, unknown>)
+    ? sanitizePending(pendingRaw as Record<string, unknown>, migratedState)
     : {}
 
   const daySessionRaw = (parsed as { daySession?: unknown }).daySession
@@ -687,9 +688,13 @@ function restoreDaySession(raw: unknown): DaySessionRestore {
 
 function sanitizePending(
   raw: Record<string, unknown>,
+  state: TavernState,
 ): Record<string, PendingChoice> {
+  const seedsById = currentIssueSeedsById(state)
   const out: Record<string, PendingChoice> = {}
   for (const [seedId, entry] of Object.entries(raw)) {
+    const seed = seedsById.get(seedId)
+    if (!seed) continue
     if (!isObject(entry)) continue
     const kind = entry['kind']
     if (kind === 'ignore') {
@@ -705,9 +710,44 @@ function sanitizePending(
     if (!isObject(choice)) continue
     const validChoice = sanitizeChoice(choice)
     if (!validChoice) continue
+    if (!pendingChoiceMatchesCurrentSeed(seed, slotId, verb, validChoice)) continue
     out[seedId] = { kind: 'choice', slotId, verb, choice: validChoice }
   }
   return out
+}
+
+
+function currentIssueSeedsById(state: TavernState): Map<string, IssueSeed> {
+  const issueSeedsState = state.modules['issueSeeds'] as
+    | { seedsToday?: unknown }
+    | undefined
+  const seeds = Array.isArray(issueSeedsState?.seedsToday)
+    ? issueSeedsState.seedsToday
+    : []
+  const out = new Map<string, IssueSeed>()
+  for (const seed of seeds) {
+    if (isObject(seed) && typeof seed['id'] === 'string') {
+      out.set(seed['id'], seed as IssueSeed)
+    }
+  }
+  return out
+}
+
+function pendingChoiceMatchesCurrentSeed(
+  seed: IssueSeed,
+  slotId: string,
+  verb: string,
+  choice: import('../cards/types').CardChoice,
+): boolean {
+  if (choice.slotId !== slotId || choice.verb !== verb) return false
+  const slot = seed.responseSlots.find((candidate) => candidate.id === slotId)
+  if (!slot) return false
+  if (!slot.allowedVerbs.includes(choice.verb)) return false
+  if (slot.shape !== choice.shape) return false
+
+  const targetId = choice.targetId
+  if (targetId === undefined) return true
+  return slot.targetOptions.some((target) => target.id === targetId)
 }
 
 function sanitizeChoice(raw: Record<string, unknown>): import('../cards/types').CardChoice | undefined {

@@ -77,6 +77,8 @@ import type { PhaseBoundary, StateDiff, TaggedStateDiff } from './diff'
 // `simulateDay` runs the canonical pipeline (`SIMULATION_PHASES`) once.
 // Modules supply hooks per phase; the engine sorts them by `dependsOn` and
 // then iterates each phase, running every dependency-ordered hook.
+// `dependsOn` expresses same-phase ordering requirements only. It is not
+// a complete cross-phase data-dependency map.
 // Validation, calendar advancement, and report collection are built in.
 
 const ENGINE_SOURCE = 'engine'
@@ -1683,8 +1685,9 @@ export function advanceDaySegment(
   return runtimeToResult(runtime)
 }
 
-// Phase 2 placeholder name kept around for any callers that imported it
-// directly. `simulateDay` is the canonical Phase 7 entry point.
+// Legacy compatibility export kept for early Phase 2 callers/tests that
+// imported the placeholder name directly. `simulateDay` is the canonical
+// production entry point; no runtime host should call `runSimulation`.
 export function runSimulation(): SimResult {
   throw new Error('runSimulation is deprecated; use simulateDay (Phase 7).')
 }

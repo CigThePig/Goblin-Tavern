@@ -34,6 +34,10 @@
   //   3. On close, focus restores to the element that was active just
   //      before the sheet opened.
   let dialogEl: HTMLDivElement | undefined = $state(undefined)
+
+  function onBackdropClick(event: MouseEvent) {
+    if (event.target === event.currentTarget) onclose()
+  }
   let previouslyFocused: HTMLElement | null = null
 
   $effect(() => {
@@ -68,7 +72,7 @@
 {#if open}
   <div
     class="sheet-backdrop"
-    onclick={onclose}
+    onclick={onBackdropClick}
     role="presentation"
   >
     <div
@@ -78,7 +82,6 @@
       aria-label={title}
       tabindex="-1"
       bind:this={dialogEl}
-      onclick={(e) => e.stopPropagation()}
     >
       <header class="sheet-head">
         <div class="drag-handle" aria-hidden="true"></div>

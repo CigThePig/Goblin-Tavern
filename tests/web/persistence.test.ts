@@ -26,6 +26,8 @@ import {
 } from '../../web/src/lib/sim/persistence'
 import { runOneDay } from '../../src/sim/testing/simRunner'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
+import type { TavernState } from '../../src/sim/state/TavernState'
+import type { IssueSeed } from '../../src/sim/modules/issues/issueSeedTypes'
 
 class MemoryStorage implements StorageLike {
   private readonly map = new Map<string, string>()
@@ -55,6 +57,64 @@ function makeBasicSession(): PersistedSession {
     pendingBySeedId: {},
     daySession: { beat: 'morning', serviceComplete: false, closingComplete: false },
     route: 'day',
+  }
+}
+
+function makeSeed(
+  id: string,
+  overrides: Partial<IssueSeed> = {},
+): IssueSeed {
+  return {
+    id,
+    family: 'debt_rent',
+    type: 'warning',
+    domain: [],
+    timing: 'morning_prep',
+    severity: 50,
+    urgency: 50,
+    novelty: 50,
+    cardWorthiness: 50,
+    affectedActors: [],
+    causes: [],
+    pressures: [],
+    stakes: [],
+    responseSlots: [
+      {
+        id: 'slot-1',
+        labelHint: 'Repair it',
+        allowedVerbs: ['repair'],
+        shape: 'safe_costly',
+        targetOptions: [{ kind: 'area', id: 'kitchen' }],
+        expectedEffects: ['coin -5', 'maintenance -10'],
+      },
+    ],
+    consequenceProfiles: [],
+    memoriesCreated: [],
+    futureHooks: [],
+    toneHints: [],
+    textIngredients: {
+      subject: 'Test seed',
+      sensoryDetails: [],
+      actorOpinions: {},
+      recentContext: [],
+      stakesReadable: [],
+    },
+    validation: { valid: true, errors: [], warnings: [], contractChecks: {} },
+    generatedAt: { year: 1, month: 1, week: 1, day: 1, absoluteDay: 0 },
+    ...overrides,
+  }
+}
+
+function withSeeds(state: TavernState, seeds: IssueSeed[]): TavernState {
+  return {
+    ...state,
+    modules: {
+      ...state.modules,
+      issueSeeds: {
+        ...((state.modules['issueSeeds'] as Record<string, unknown> | undefined) ?? {}),
+        seedsToday: seeds,
+      },
+    },
   }
 }
 
@@ -133,6 +193,7 @@ describe('persistence — round-trip', () => {
     const base = makeBasicSession()
     const session: PersistedSession = {
       ...base,
+      state: withSeeds(base.state, [makeSeed('seed-1'), makeSeed('seed-2')]),
       picks: [
         {
           pickId: 'pick-test-1',
@@ -157,6 +218,7 @@ describe('persistence — round-trip', () => {
             label: 'Repair it',
             verb: 'repair',
             shape: 'safe_costly',
+            targetId: 'kitchen',
             previewEffects: ['coin -5', 'maintenance -10'],
           },
         },
@@ -372,5 +434,112 @@ describe('persistence — relativeTime', () => {
 
   it('handles malformed timestamps gracefully', () => {
     expect(relativeTime('not-a-date', new Date())).toBeUndefined()
+  })
+})
+
+
+describe('persistence — pending choice semantic rebinding', () => {
+  function loadPending(seed: IssueSeed, pendingBySeedId: PersistedSession['pendingBySeedId']) {
+    const base = makeBasicSession()
+    const session: PersistedSession = {
+      ...base,
+      state: withSeeds(base.state, [seed]),
+      pendingBySeedId,
+    }
+    saveSession(session)
+    const out = loadSession()
+    expect(out.kind).toBe('loaded')
+    if (out.kind !== 'loaded') throw new Error('expected loaded')
+    return out.save.pendingBySeedId
+  }
+
+  const freshPending: PersistedSession['pendingBySeedId'] = {
+    'seed-live': {
+      kind: 'choice',
+      slotId: 'slot-1',
+      verb: 'repair',
+      choice: {
+        slotId: 'slot-1',
+        label: 'Repair it',
+        verb: 'repair',
+        shape: 'safe_costly',
+        targetId: 'kitchen',
+        previewEffects: ['coin -5'],
+      },
+    },
+  }
+
+  it('drops a valid-shaped pending choice whose seed no longer exists', () => {
+    const base = makeBasicSession()
+    const session: PersistedSession = {
+      ...base,
+      state: withSeeds(base.state, [makeSeed('different-seed')]),
+      pendingBySeedId: freshPending,
+    }
+    saveSession(session)
+    const out = loadSession()
+    expect(out.kind).toBe('loaded')
+    if (out.kind !== 'loaded') return
+    expect(out.save.pendingBySeedId).toEqual({})
+  })
+
+  it('drops a valid-shaped pending choice whose response slot no longer exists', () => {
+    const seed = makeSeed('seed-live', {
+      responseSlots: [
+        {
+          id: 'slot-new',
+          labelHint: 'Repair it',
+          allowedVerbs: ['repair'],
+          shape: 'safe_costly',
+          targetOptions: [{ kind: 'area', id: 'kitchen' }],
+          expectedEffects: [],
+        },
+      ],
+    })
+    expect(loadPending(seed, freshPending)).toEqual({})
+  })
+
+  it('drops a valid-shaped pending choice whose verb or shape no longer matches', () => {
+    const seed = makeSeed('seed-live', {
+      responseSlots: [
+        {
+          id: 'slot-1',
+          labelHint: 'Delay it',
+          allowedVerbs: ['delay'],
+          shape: 'delay_problem',
+          targetOptions: [{ kind: 'area', id: 'kitchen' }],
+          expectedEffects: [],
+        },
+      ],
+    })
+    expect(loadPending(seed, freshPending)).toEqual({})
+  })
+
+  it('drops a valid-shaped pending choice whose target is stale', () => {
+    const seed = makeSeed('seed-live', {
+      responseSlots: [
+        {
+          id: 'slot-1',
+          labelHint: 'Repair it',
+          allowedVerbs: ['repair'],
+          shape: 'safe_costly',
+          targetOptions: [{ kind: 'area', id: 'main_room' }],
+          expectedEffects: [],
+        },
+      ],
+    })
+    expect(loadPending(seed, freshPending)).toEqual({})
+  })
+
+  it('keeps a fresh valid pending choice that still matches the current seed slot', () => {
+    const out = loadPending(makeSeed('seed-live'), freshPending)
+    expect(out['seed-live']).toEqual(freshPending['seed-live'])
+  })
+
+  it('continues to drop malformed pending choices before semantic checks', () => {
+    const malformed = {
+      'seed-live': { kind: 'choice', slotId: 123, verb: 'repair', choice: {} },
+    } as unknown as PersistedSession['pendingBySeedId']
+    expect(loadPending(makeSeed('seed-live'), malformed)).toEqual({})
   })
 })

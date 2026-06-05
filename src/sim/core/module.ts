@@ -21,6 +21,10 @@ export type RegistrationContext = {
 export type SimulationModule = {
   id: string
   version: string
+  /**
+   * Same-phase hook ordering requirements only. This is not a complete
+   * cross-phase data-dependency map.
+   */
   dependsOn?: string[]
   hooks?: Partial<Record<SimulationPhase, SimulationHook[]>>
   register?: (ctx: RegistrationContext) => void

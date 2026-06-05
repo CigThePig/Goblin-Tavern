@@ -9,7 +9,7 @@ import {
   getWeeklyModuleState,
 } from '../../src/sim/modules/weekly/index'
 import { ensureWeeklyHistoryField } from '../../src/sim/state/migrations'
-import { FULL_PIPELINE } from '../../src/sim/testing/simRunner'
+import { FULL_PIPELINE } from '../../src/sim/canonicalPipeline'
 import { withCoin, withStock } from '../../src/sim/testing/stateFactories'
 import type { TavernState } from '../../src/sim/state/TavernState'
 import type { WeeklyModuleState, WeeklyResult } from '../../src/sim/modules/weekly/types'

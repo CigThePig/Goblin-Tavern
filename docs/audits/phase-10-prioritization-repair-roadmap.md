@@ -91,6 +91,19 @@ future repair phases can pick bounded probes without rereading every phase ledge
 | Long-run and content balance dashboards | `AUD-MOD-003`, `AUD-CONTENT-009-002`, `AUD-CONTENT-009-003`, `AUD-CONTENT-009-004`, `AUD-CONTENT-009-006`, `AUD-CONTENT-009-007` | After the heavy tier is restored, add dashboards for strategy diversity, response impact by family, entity distribution, attribution save-size ceilings, and high-expedition/high-project play. |
 | Daily quiet prose with weekly/monthly digest | `AUD-REP-002` | Decide whether digest presence should suppress quiet-day prose; add a minimal projection test for the chosen behavior. |
 
+## Resolved design calls for follow-up implementation
+
+- Production `FULL_PIPELINE` imports come from `src/sim/canonicalPipeline.ts`, not `src/sim/testing/simRunner`.
+- Empty/deprecated registries and compatibility seams are not active architecture unless a real host consumes them; remove them, rename them as placeholders, or document them as legacy compatibility.
+- `dependsOn` means same-phase ordering only. It is not a complete data-dependency graph.
+- Test-only local pipeline arrays should be named `TEST_PIPELINE` or `MODULE_SLICE`. Only true full-pipeline integration tests should import `FULL_PIPELINE`.
+- Pending choices that no longer semantically match the current seed should be dropped on load/import, without a player warning.
+- `ActionPicker` should use the store guard path, preferably `tryAddPick(...)`, instead of constructing and committing picks through a separate path.
+- The BottomSheet accessibility warning should be fixed by using a backdrop-target check instead of suppressing propagation inside the sheet.
+- `policy_backlash` should receive an authored card template later; do not implement it in this groundwork pass unless already trivial and isolated.
+- Balance dashboards should start as diagnostics, not hard-failing thresholds.
+- Daily quiet prose should be suppressed when weekly/monthly digest prose is present, while `isQuiet` remains a signal for daily movement only.
+
 ## Wont-fix / design-call list
 
 No phase ledger explicitly marked a finding `wont-fix`. The following are current

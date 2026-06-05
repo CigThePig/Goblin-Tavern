@@ -88,7 +88,7 @@ describe('Phase 85 / ISSUE-045 — violence generator consumes the descriptor po
       '../../src/sim/state/defaults'
     )
     const { simulateDay } = await import('../../src/sim/core/engine')
-    const { FULL_PIPELINE } = await import('../../src/sim/testing/simRunner')
+    const { FULL_PIPELINE } = await import('../../src/sim/canonicalPipeline')
     let state = createInitialTavernState()
 
     // Pump violence pressure high enough that the generator fires.

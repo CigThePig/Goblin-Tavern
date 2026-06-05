@@ -59,7 +59,7 @@ import type { MonthlyModuleState } from '../../src/sim/modules/monthly/types'
 
 const SEED = 'phase-19-issue-seeds-test'
 
-const FULL_PIPELINE = [
+const MODULE_SLICE = [
   areasModule,
   stockModule,
   staffModule,
@@ -81,7 +81,7 @@ function input(overrides: Partial<SimInput> = {}): SimInput {
 }
 
 function runDay(state: TavernState, overrides: Partial<SimInput> = {}) {
-  return simulateDay(state, input(overrides), FULL_PIPELINE)
+  return simulateDay(state, input(overrides), MODULE_SLICE)
 }
 
 // Phase 186 / Cluster 1 — Seeds are now generated segment-locally. A

@@ -23,7 +23,6 @@
     listActionsByCategory,
     listPolicyToggleRows,
     listValidTargets,
-    nextPickId,
     totalQueuedMinutes,
     type PickedAction,
     type PolicyToggleRow,
@@ -121,8 +120,8 @@
     targetingFor = null
   }
 
-  function addPick(p: PickedAction) {
-    gameStore.setPicks([...gameStore.picks, p])
+  function addPick(p: Omit<PickedAction, 'pickId'>) {
+    gameStore.tryAddPick(p)
   }
 
   function removePick(pickId: string) {
@@ -137,7 +136,6 @@
     // Global or target-less action: add immediately.
     if (!def.targetType || def.targetType === 'global') {
       addPick({
-        pickId: nextPickId(),
         actionId: def.id,
         label: def.label,
         category: def.category,
@@ -152,7 +150,6 @@
     if (targets.length === 1) {
       const t = targets[0]!
       addPick({
-        pickId: nextPickId(),
         actionId: def.id,
         label: def.label,
         category: def.category,
@@ -170,7 +167,6 @@
   function chooseTarget(t: ActionTarget) {
     if (!targetingFor) return
     addPick({
-      pickId: nextPickId(),
       actionId: targetingFor.id,
       label: targetingFor.label,
       category: targetingFor.category,
@@ -217,7 +213,6 @@
       return
     }
     addPick({
-      pickId: nextPickId(),
       actionId: row.actionId,
       label: row.enabled ? `Turn off ${row.label}` : `Turn on ${row.label}`,
       category: 'policy',

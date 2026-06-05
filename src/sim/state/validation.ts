@@ -1,7 +1,6 @@
 import type { z } from 'zod'
 import { FULL_PIPELINE } from '../canonicalPipeline'
 import type { SimulationModule } from '../core/module'
-import { moduleRegistry } from '../registries/moduleRegistry'
 import {
   validateAreaContentReferences,
   validateRecipeReferences,
@@ -20,13 +19,12 @@ import type { ValidationIssue } from './types'
 // `state.modules` with no registered schema surface as warnings rather
 // than hard failures.
 //
-// Phase 92 / ISSUE-052 — When no explicit module list is provided, the
-// canonical `FULL_PIPELINE` is used. Previously the fallback was
-// `moduleRegistry.all()`, which is empty unless modules self-register,
-// so bare `validateState(state)` calls silently skipped module-state
-// schema enforcement. The registry is still consulted as a secondary
-// fallback for tests or hosts that intentionally limit the module set
-// via the registry.
+// Phase 92 / ISSUE-052 and Phase 10 follow-up — When no explicit
+// module list is provided, the canonical `FULL_PIPELINE` is used.
+// Previously validation could fall back to deprecated module registries,
+// which made bare `validateState(state)` calls depend on whichever host
+// happened to self-register modules. Slice validation remains possible
+// only when callers pass `options.modules` intentionally.
 
 export type SafeValidateResult =
   | {
@@ -48,8 +46,6 @@ function resolveModules(
   options?: ValidateOptions,
 ): ReadonlyArray<SimulationModule> {
   if (options?.modules) return options.modules
-  const registered = moduleRegistry.all()
-  if (registered.length > 0) return registered
   return FULL_PIPELINE
 }
 

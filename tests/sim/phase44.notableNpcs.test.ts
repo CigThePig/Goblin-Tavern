@@ -56,7 +56,7 @@ import type {
 
 const SEED = 'phase-44-notable-npcs-test'
 
-const FULL_PIPELINE = [
+const MODULE_SLICE = [
   areasModule,
   stockModule,
   staffModule,
@@ -191,7 +191,7 @@ describe('Phase 44 §ISSUE-004 — Initial notable NPC roster', () => {
     // EntityRef — including notable_npc refs (referenceValidation.ts:136).
     // The seeded roster must therefore satisfy both the Zod schema and
     // every cross-reference checker.
-    expect(() => validateState(state, { modules: FULL_PIPELINE })).not.toThrow()
+    expect(() => validateState(state, { modules: MODULE_SLICE })).not.toThrow()
   })
 })
 
@@ -243,8 +243,8 @@ describe('Phase 44 §ISSUE-004 — Inspection generator binds to notable_npc', (
 
     // Phase 186 / Cluster 1 — `inspection` is a morning seed reading the
     // prior day's closing pressure snapshot; warm one day to populate it.
-    const warm = simulateDay(base, input(), FULL_PIPELINE)
-    const result = simulateDay(warm.state, input(), FULL_PIPELINE)
+    const warm = simulateDay(base, input(), MODULE_SLICE)
+    const result = simulateDay(warm.state, input(), MODULE_SLICE)
     const seeds = getIssueSeeds(result.state, { family: 'inspection' })
     expect(seeds.length).toBeGreaterThan(0)
 
@@ -269,8 +269,8 @@ describe('Phase 44 §ISSUE-004 — Inspection generator binds to notable_npc', (
 
     // Phase 186 / Cluster 1 — `inspection` is a morning seed reading the
     // prior day's closing pressure snapshot; warm one day to populate it.
-    const warm = simulateDay(base, input(), FULL_PIPELINE)
-    const result = simulateDay(warm.state, input(), FULL_PIPELINE)
+    const warm = simulateDay(base, input(), MODULE_SLICE)
+    const result = simulateDay(warm.state, input(), MODULE_SLICE)
     const seeds = getIssueSeeds(result.state, { family: 'inspection' })
     expect(seeds.length).toBeGreaterThan(0)
 

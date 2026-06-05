@@ -43,7 +43,7 @@ import {
 
 const SEED = 'phase-191-pressure-stakes'
 
-const FULL_PIPELINE = [
+const MODULE_SLICE = [
   areasModule,
   stockModule,
   staffModule,
@@ -68,7 +68,7 @@ function input(overrides: Partial<SimInput> = {}): SimInput {
 function runDays(days: number): TavernState {
   let current = createInitialTavernState()
   for (let i = 0; i < days; i += 1) {
-    current = simulateDay(current, input(), FULL_PIPELINE).state
+    current = simulateDay(current, input(), MODULE_SLICE).state
   }
   return current
 }

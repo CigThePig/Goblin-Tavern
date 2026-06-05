@@ -8,7 +8,7 @@ import {
   ensureRequiredFactionsRegistered,
   factionRegistry,
 } from '../../src/sim/content/factions/factionRegistry'
-import { FULL_PIPELINE } from '../../src/sim/testing/simRunner'
+import { FULL_PIPELINE } from '../../src/sim/canonicalPipeline'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import { validateState } from '../../src/sim/state/validation'
 import { withModuleState } from '../../src/sim/testing/stateFactories'

@@ -8,7 +8,7 @@ import {
   getRegularModuleState,
   regularModule,
 } from '../../src/sim/modules/regulars'
-import { FULL_PIPELINE } from '../../src/sim/testing/simRunner'
+import { FULL_PIPELINE } from '../../src/sim/canonicalPipeline'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import { validateState } from '../../src/sim/state/validation'
 import { createRngStreams } from '../../src/sim/core/rng'

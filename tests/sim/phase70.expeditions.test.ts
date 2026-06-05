@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import { validateState } from '../../src/sim/state/validation'
-import { FULL_PIPELINE, runOneDay } from '../../src/sim/testing/simRunner'
+import { FULL_PIPELINE } from '../../src/sim/canonicalPipeline'
+import { runOneDay } from '../../src/sim/testing/simRunner'
 import { COMMISSION_EXPEDITION_ACTION_ID } from '../../src/sim/modules/expeditions/index'
 import type {
   Expedition,

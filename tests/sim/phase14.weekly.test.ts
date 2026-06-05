@@ -32,7 +32,7 @@ import type { TavernState } from '../../src/sim/state/TavernState'
 
 const SEED = 'phase-14-weekly-test'
 
-const FULL_PIPELINE = [
+const MODULE_SLICE = [
   areasModule,
   stockModule,
   staffModule,
@@ -47,7 +47,7 @@ function input(overrides: Partial<SimInput> = {}): SimInput {
 }
 
 function runDay(state: TavernState, overrides: Partial<SimInput> = {}) {
-  return simulateDay(state, input(overrides), FULL_PIPELINE)
+  return simulateDay(state, input(overrides), MODULE_SLICE)
 }
 
 function plentyOfStock(state: TavernState): TavernState {

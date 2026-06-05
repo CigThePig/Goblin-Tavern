@@ -11,7 +11,7 @@ import type {
   SimulationModule,
 } from '../../src/sim/core/module'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
-import { FULL_PIPELINE } from '../../src/sim/testing/simRunner'
+import { FULL_PIPELINE } from '../../src/sim/canonicalPipeline'
 import { worldModule } from '../../src/sim/modules/world/index'
 import { cultureModule } from '../../src/sim/modules/cultures/index'
 import { factionModule } from '../../src/sim/modules/factions/index'

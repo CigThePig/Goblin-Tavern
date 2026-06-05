@@ -222,10 +222,11 @@ describe('Phase 186 Cluster 7 — in-flight day reset (contract §4.7)', () => {
       expect(outcome.kind).toBe('loaded')
       if (outcome.kind !== 'loaded') return
       // Both clean boundaries derive to segment 'C'; beginDay re-runs
-      // Segment A fresh, so no reset is owed and pending survives.
+      // Segment A fresh, so no reset is owed. Phase 10 semantic
+      // rebinding still drops pending intents whose seed no longer exists.
       expect(outcome.save.daySession.beat).toBe(beat)
       expect(outcome.save.daySession.segment).toBe('C')
-      expect(outcome.save.pendingBySeedId).toEqual({ 'seed-x': { kind: 'ignore' } })
+      expect(outcome.save.pendingBySeedId).toEqual({})
     })
   }
 

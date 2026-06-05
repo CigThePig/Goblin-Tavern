@@ -41,7 +41,7 @@
 import { advanceDaySegment } from '../../../../src/sim/core/engine'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
 import type { DifficultyConfig } from '../../../../src/sim/state/difficulty'
-import { FULL_PIPELINE } from '../../../../src/sim/testing/simRunner'
+import { FULL_PIPELINE } from '../../../../src/sim/canonicalPipeline'
 import type { TavernState } from '../../../../src/sim/state/TavernState'
 import type { CalendarState } from '../../../../src/sim/modules/calendar/types'
 import type { SimInput } from '../../../../src/sim/core/context'

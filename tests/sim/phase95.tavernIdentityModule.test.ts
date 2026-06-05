@@ -17,7 +17,7 @@ import {
 } from '../../src/sim/modules/tavernIdentity/index'
 import { simulateDay } from '../../src/sim/core/engine'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
-import { FULL_PIPELINE } from '../../src/sim/testing/simRunner'
+import { FULL_PIPELINE } from '../../src/sim/canonicalPipeline'
 import { makeTavernState, withArea } from '../../src/sim/testing/stateFactories'
 import {
   OWNER_ACTIONS_MODULE_ID,

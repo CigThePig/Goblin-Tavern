@@ -46,7 +46,7 @@ import type { TavernState } from '../../src/sim/state/TavernState'
 
 const SEED = 'phase-15-monthly-test'
 
-const FULL_PIPELINE = [
+const MODULE_SLICE = [
   areasModule,
   stockModule,
   staffModule,
@@ -62,7 +62,7 @@ function input(overrides: Partial<SimInput> = {}): SimInput {
 }
 
 function runDay(state: TavernState, overrides: Partial<SimInput> = {}) {
-  return simulateDay(state, input(overrides), FULL_PIPELINE)
+  return simulateDay(state, input(overrides), MODULE_SLICE)
 }
 
 function plentyOfStock(state: TavernState): TavernState {
@@ -622,7 +622,7 @@ describe('Phase 15 §15.11 — Three-bot sanity check', () => {
     let state = withCoin(plentyOfStock(createInitialTavernState()), 200)
     let errors = 0
     for (let i = 0; i < 28; i += 1) {
-      const out = simulateDay(state, policyBotInput(SEED, bot, state), FULL_PIPELINE)
+      const out = simulateDay(state, policyBotInput(SEED, bot, state), MODULE_SLICE)
       state = out.state
       errors += out.validation.errors.length
     }
@@ -651,7 +651,7 @@ describe('Phase 15 §15.11 — Three-bot sanity check', () => {
         state = simulateDay(
           state,
           policyBotInput(SEED, bot, state),
-          FULL_PIPELINE,
+          MODULE_SLICE,
         ).state
       }
       return {

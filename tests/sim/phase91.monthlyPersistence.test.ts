@@ -9,7 +9,7 @@ import {
   getMonthlyModuleState,
 } from '../../src/sim/modules/monthly/index'
 import { ensureMonthlyHistoryField } from '../../src/sim/state/migrations'
-import { FULL_PIPELINE } from '../../src/sim/testing/simRunner'
+import { FULL_PIPELINE } from '../../src/sim/canonicalPipeline'
 import { withCoin, withStock } from '../../src/sim/testing/stateFactories'
 import type { TavernState } from '../../src/sim/state/TavernState'
 import type {

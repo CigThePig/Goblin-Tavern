@@ -146,6 +146,26 @@ describe('Phase 6 — Schema validation', () => {
 })
 
 describe('Phase 6 — Module schema composition (§6.1.1)', () => {
+  it('uses the canonical pipeline by default for module-state schemas', () => {
+    const badState = withModuleState(createInitialTavernState(), 'issueSeeds', {
+      seedsToday: 'not an array',
+      cooldowns: {},
+      rejectedToday: [],
+      totalGenerated: 0,
+      totalRejected: 0,
+      lastGeneratedDay: -1,
+      recentPicks: {},
+    })
+    expect(() => validateState(badState)).toThrow(/modules\.issueSeeds\.seedsToday/)
+  })
+
+  it('allows intentional module-slice validation through explicit options.modules', () => {
+    const badCanonicalSlice = withModuleState(createInitialTavernState(), 'issueSeeds', {
+      seedsToday: 'not an array',
+    })
+    expect(() => validateState(badCanonicalSlice, { modules: [] })).not.toThrow()
+  })
+
   it('composes registered module schemas into state.modules', () => {
     const stockSchema = z.object({ ledger: z.array(z.unknown()) })
     const stockModule: SimulationModule = {

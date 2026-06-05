@@ -32,7 +32,7 @@ import { areasModule } from '../../src/sim/modules/areas'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import { safeValidateState } from '../../src/sim/state/validation'
 import { withCustomerGroup, withModuleState } from '../../src/sim/testing/stateFactories'
-import { FULL_PIPELINE } from '../../src/sim/testing/simRunner'
+import { FULL_PIPELINE } from '../../src/sim/canonicalPipeline'
 import type { TavernState } from '../../src/sim/state/TavernState'
 
 // Phase 30 — Cultures, factions, and regular customers.

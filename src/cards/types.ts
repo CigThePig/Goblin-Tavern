@@ -23,6 +23,27 @@ export type StakeView = {
   direction: 'loss' | 'gain' | 'risk'
 }
 
+export type CardContextLine = {
+  readable: string
+  kind: 'why_now' | 'cause' | 'history' | 'future'
+  source:
+    | 'issue_seed'
+    | 'seed_cause'
+    | 'pressure_snapshot'
+    | 'text_ingredient'
+    | 'stake'
+    | 'memory'
+    | 'fallback'
+  refId?: string
+}
+
+export type CardContextView = {
+  whyNow: CardContextLine[]
+  causes: CardContextLine[]
+  history: CardContextLine[]
+  future: CardContextLine[]
+}
+
 export type CardChoice = {
   slotId: string
   label: string
@@ -42,6 +63,8 @@ export type CardView = {
   severity?: number
   /** Seed family/type shown as a small tag in the corner. */
   tag?: string
+  /** Structured sim-backed explanations of why this card exists now. */
+  context?: CardContextView
   meta?: Record<string, unknown>
 }
 

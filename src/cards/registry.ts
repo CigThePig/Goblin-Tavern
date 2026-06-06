@@ -15,6 +15,7 @@ import type { IssueSeed } from '../sim/modules/issues/issueSeedTypes'
 import type { TavernState } from '../sim/state/TavernState'
 import type { CardDefinition, CardView } from './types'
 import { pickCardForSeed } from './selection'
+import { withCardContext } from './cardHelpers'
 import { REQUIRED_CARDS, FALLBACK_CARD_ID } from './templates/index'
 
 export const cardRegistry = new Registry<CardDefinition>()
@@ -43,9 +44,13 @@ ensureRequiredCardsRegistered()
 export function pickCard(seed: IssueSeed, state: TavernState): CardView {
   ensureRequiredCardsRegistered()
   const chosen = pickCardForSeed(seed, state, cardRegistry.all())
-  if (chosen) return chosen.render(seed, state)
+  if (chosen) return withCardContext(chosen.render(seed, state), seed, state)
   if (cardRegistry.has(FALLBACK_CARD_ID)) {
-    return cardRegistry.get(FALLBACK_CARD_ID).render(seed, state)
+    return withCardContext(
+      cardRegistry.get(FALLBACK_CARD_ID).render(seed, state),
+      seed,
+      state,
+    )
   }
   throw new Error(
     `pickCard: no matching card and no fallback registered for seed ${seed.id}`,

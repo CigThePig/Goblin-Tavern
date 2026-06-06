@@ -16,7 +16,9 @@ import type {
   ConsequenceProfile,
   TextIngredients,
 } from '../../src/sim/modules/issues/issueSeedTypes'
-import type { EntityRef } from '../../src/sim/state/TavernState'
+import type { CauseEntry, EntityRef } from '../../src/sim/state/TavernState'
+import type { PressureSnapshot } from '../../src/sim/modules/pressures/pressureTypes'
+import type { MemoryDraft } from '../../src/sim/modules/memories/memoryTypes'
 import type { StakeRef } from '../../src/sim/modules/issues/issueSeedTypes'
 
 export const ZERO_STAMP = {
@@ -41,6 +43,9 @@ export type SeedBlueprint = {
   primaryActor?: EntityRef
   affectedActors?: EntityRef[]
   stakes?: StakeRef[]
+  causes?: CauseEntry[]
+  pressures?: PressureSnapshot[]
+  futureHooks?: MemoryDraft[]
   responseSlots?: ResponseSlot[]
   consequenceProfiles?: ConsequenceProfile[]
   toneHints?: string[]
@@ -97,7 +102,7 @@ export function makeSeed(blueprint: SeedBlueprint = {}): IssueSeed {
         },
       ],
       memories: [],
-      futureHooks: [],
+      futureHooks: blueprint.futureHooks ?? [],
       impactScore: 10,
     },
     ...(slots[1]
@@ -116,7 +121,7 @@ export function makeSeed(blueprint: SeedBlueprint = {}): IssueSeed {
             ],
             delayedEffects: [],
             memories: [],
-            futureHooks: [],
+            futureHooks: blueprint.futureHooks ?? [],
             impactScore: 0,
           },
         ]
@@ -133,13 +138,13 @@ export function makeSeed(blueprint: SeedBlueprint = {}): IssueSeed {
     novelty: blueprint.novelty ?? 50,
     cardWorthiness: blueprint.cardWorthiness ?? 60,
     affectedActors: blueprint.affectedActors ?? [],
-    causes: [],
-    pressures: [],
+    causes: blueprint.causes ?? [],
+    pressures: blueprint.pressures ?? [],
     stakes: blueprint.stakes ?? [stake],
     responseSlots: slots,
     consequenceProfiles: profiles,
     memoriesCreated: [],
-    futureHooks: [],
+    futureHooks: blueprint.futureHooks ?? [],
     toneHints: blueprint.toneHints ?? [],
     ...(blueprint.location ? { location: blueprint.location } : {}),
     ...(blueprint.primaryActor ? { primaryActor: blueprint.primaryActor } : {}),

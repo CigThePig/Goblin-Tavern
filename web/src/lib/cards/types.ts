@@ -7,6 +7,8 @@
 export type {
   StakeView,
   CardChoice,
+  CardContextLine,
+  CardContextView,
   CardView,
   CardAppliesTo,
   CardDefinition,

@@ -63,6 +63,8 @@ export type {
   CardAppliesTo,
   CardView,
   CardChoice,
+  CardContextLine,
+  CardContextView,
   StakeView,
 } from './types'
 // Phase 142 / ISSUE-111 — Voiced Surface arc, Phase 16 (Ambient Surface).

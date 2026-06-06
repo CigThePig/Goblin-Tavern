@@ -11,6 +11,7 @@
 // until later phases migrate them individually.
 
 import type { CardDefinition } from '../types'
+import { withCardContext } from '../cardHelpers'
 import { assembleSlots } from './assemble'
 import type { CompositionalCardTemplate } from './types'
 
@@ -23,7 +24,11 @@ export function defineCompositionalCard(
     toneHints: [template.voiceRegister],
     render: (seed, state) => {
       const filled = assembleSlots(template.slots, seed, state)
-      return template.toCardView(filled, seed, state)
+      return withCardContext(
+        template.toCardView(filled, seed, state),
+        seed,
+        state,
+      )
     },
   }
   if (template.priority !== undefined) definition.priority = template.priority

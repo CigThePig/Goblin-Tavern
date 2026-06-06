@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from '../components/Icon.svelte'
   import { prefsStore } from '../prefs/prefsStore.svelte'
-  import type { CardView, CardChoice } from './types'
+  import type { CardView, CardChoice, CardContextLine } from './types'
 
   let {
     card,
@@ -32,6 +32,20 @@
   // matcher path differs. Hide the generic button so the player must
   // pick the modeled choice and its real consequences.
   const hasIgnoreChoice = $derived(card.choices.some((c) => c.verb === 'ignore'))
+
+  const displayContextSections = $derived(
+    [
+      { label: 'Why now', lines: card.context?.whyNow ?? [] },
+      { label: 'Because', lines: card.context?.causes ?? [] },
+      { label: 'History', lines: card.context?.history ?? [] },
+      { label: 'At stake', lines: card.context?.future ?? [] },
+    ]
+      .map((section) => ({
+        ...section,
+        lines: section.lines.slice(0, 2) as CardContextLine[],
+      }))
+      .filter((section) => section.lines.length > 0),
+  )
 </script>
 
 <article class="card rise-in" aria-label={card.title}>
@@ -53,6 +67,21 @@
         <p class="line">{line}</p>
       {/each}
     </div>
+  {/if}
+
+  {#if displayContextSections.length > 0}
+    <section class="context" aria-label="Card context">
+      {#each displayContextSections as section (section.label)}
+        <div class="context-section">
+          <h3 class="context-label">{section.label}</h3>
+          <ul class="context-lines">
+            {#each section.lines as line (line.kind + line.source + line.readable)}
+              <li>{line.readable}</li>
+            {/each}
+          </ul>
+        </div>
+      {/each}
+    </section>
   {/if}
 
   {#if card.stakes.length > 0}
@@ -153,6 +182,47 @@
     font-size: var(--type-body);
     line-height: var(--line-body);
     color: var(--text-dim);
+  }
+
+  .context {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xs);
+    padding: var(--sp-xs) var(--sp-sm);
+    border-left: 2px solid color-mix(in srgb, var(--accent-soft) 45%, transparent);
+    background: color-mix(in srgb, var(--ink-deep) 32%, transparent);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  }
+
+  .context-section {
+    display: grid;
+    grid-template-columns: minmax(68px, max-content) 1fr;
+    gap: var(--sp-xs);
+    align-items: start;
+  }
+
+  .context-label {
+    margin: 0;
+    color: var(--text-faint);
+    font-size: 11px;
+    font-variant: small-caps;
+    letter-spacing: 0.06em;
+  }
+
+  .context-lines {
+    margin: 0;
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .context-lines li {
+    padding-bottom: 1px;
+  }
+
+  .context-lines li::before {
+    content: '· ';
+    color: var(--accent-soft);
   }
 
   .stakes {

@@ -9,6 +9,7 @@
 // preferred verb filter) rather than the boilerplate.
 
 import type { CardChoice, CardView, StakeView } from './types'
+import { buildCardContext } from './contextProjection'
 import type {
   IssueSeed,
   IssueSeedFamilyId,
@@ -745,4 +746,16 @@ export function makeCardView(parts: {
   if (parts.tag) view.tag = parts.tag
   if (parts.meta) view.meta = parts.meta
   return view
+}
+
+export function withCardContext(
+  card: CardView,
+  seed: IssueSeed,
+  state: TavernState,
+): CardView {
+  if (card.context) return card
+  return {
+    ...card,
+    context: buildCardContext(seed, state),
+  }
 }

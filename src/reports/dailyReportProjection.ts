@@ -36,6 +36,7 @@ import {
   composeTrafficLine,
 } from './compose/sections'
 import { projectMissedOpportunities } from './missedOpportunityProjection'
+import { buildDayNarrative } from '../surface/dayNarrativeProjection'
 import { humanizeDiff, humanizePath } from './labels/humanizePath'
 import { idLabel, humanizeId } from './labels/idLabel'
 import { actionRegistry } from '../sim/registries/actionRegistry'
@@ -147,6 +148,7 @@ export function buildDailyReport(
   )
   const weeklyDigest = projectDigest(result, 'weekly')
   const monthlyDigest = projectDigest(result, 'monthly')
+  const surfaceNarrative = buildDayNarrative({ result, state, closedDay })
 
   const isQuiet =
     topDiffs.length === 0 &&
@@ -179,6 +181,7 @@ export function buildDailyReport(
     resolvedIntents,
     serviceLines,
     dayArc,
+    surfaceNarrative,
     risingPressures,
     futureHooks,
     ...(missedOpportunities.length > 0 ? { missedOpportunities } : {}),

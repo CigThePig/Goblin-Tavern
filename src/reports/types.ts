@@ -7,6 +7,7 @@
 
 import type { CauseEntry, EntityRef, MemoryState } from '../sim/state/TavernState'
 import type { CalendarState } from '../sim/modules/calendar/types'
+import type { DayNarrative } from '../surface/dayNarrativeProjection'
 import type { ResolvedIntentRecord } from '../sim/modules/responses/types'
 import type {
   PressureCategory,
@@ -245,6 +246,8 @@ export type DailyReportData = {
    * (e.g. yesterdayDigest). Movements with no entries are omitted.
    */
   dayArc: DayArcMovement[]
+  /** Experimental shared surface narrative facts for future report/card/log consumers. */
+  surfaceNarrative?: DayNarrative
   risingPressures: ReportPressureLine[]
   futureHooks: ReportHookLine[]
   /** Phase 97 — "What you could have done" block. Up to 3 lines. */

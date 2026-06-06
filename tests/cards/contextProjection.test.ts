@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildCardContext } from '../../src/cards/contextProjection'
+import {
+  buildCardContext,
+  cardContextFromSurfaceFacts,
+  projectSurfaceFactsForSeed,
+} from '../../src/cards/contextProjection'
 import { fallbackCard, customerComplaintCard } from '../../src/cards/index'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import type { CauseEntry } from '../../src/sim/state/TavernState'
@@ -142,6 +146,24 @@ describe('buildCardContext', () => {
 
     expect(context.whyNow[0]?.source).toBe('fallback')
     expect(context.causes).toHaveLength(0)
+  })
+
+
+
+  it('projects the same seed into raw surface facts and card context lines', () => {
+    const seed = makeSeed({
+      id: 'seed-surface-card',
+      causes: [cause({ id: 'backed-cause', readable: 'missed market delivery', weight: 9 })],
+      pressures: [pressure({ id: 'stock_shortage', label: 'Stock shortage', trend: 'rising' })],
+    })
+
+    const facts = projectSurfaceFactsForSeed(seed, state)
+    const context = cardContextFromSurfaceFacts(facts)
+
+    expect(facts.some((fact) => fact.kind === 'cause')).toBe(true)
+    expect(facts.every((fact) => fact.evidence.length > 0)).toBe(true)
+    expect(context.causes[0]?.readable).toBe('missed market delivery')
+    expect(context.whyNow.some((line) => line.readable.includes('Stock shortage'))).toBe(true)
   })
 
   it('dedupes context lines across sections where practical', () => {

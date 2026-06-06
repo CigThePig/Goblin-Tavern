@@ -40,6 +40,12 @@ export type ResolvePurchaseOptions = {
   stretchFactor?: number
 }
 
+// Phase 188 — starter fairness. A visitor's basket is intent, not a
+// guarantee that every patron buys every listed recipe. Scaling the basket
+// keeps first-week stock pressure meaningful without draining all inherited
+// ale/stew before the player gets a fair response window.
+const STARTER_BASKET_FULFILLMENT = 0.5
+
 // Per-visitor purchase intent expressed as recipe ids. The six starter
 // recipes (`dish_ale`, `dish_stew`, `dish_mushrooms`) are 1:1 wrappers
 // around the same stock items the pre-recipe basket used, so behaviour
@@ -101,7 +107,7 @@ export function resolveGroupPurchases(
     // spenders (high wealth + low price sensitivity) buy slightly more.
     const spendBoost = group.wealth >= 70 && group.priceSensitivity <= 40 ? 1 : 0
     const perVisitorBase = 1 + spendBoost + speedBoost
-    const perVisitor = perVisitorBase * stretchFactor
+    const perVisitor = perVisitorBase * stretchFactor * STARTER_BASKET_FULFILLMENT
     const servings = Math.max(0, Math.round(visitors * perVisitor))
     if (servings <= 0) continue
 

@@ -18,8 +18,13 @@ import {
 
 // Phase 38 §38.6 — Faction anger pressure.
 
-const INVERSE_RELATIONSHIP_PER_FACTION = 0.45
-const HIGH_FEAR_PER_FACTION = 0.2
+const FACTION_RELATIONSHIP_FLOOR = 40
+const FACTION_RELATIONSHIP_AMOUNT = 8
+const FACTION_FEAR_FLOOR = 45
+const FACTION_FEAR_AMOUNT = 6
+const INDIVIDUAL_FACTION_STRAIN_FLOOR = 30
+const INDIVIDUAL_FACTION_FEAR_FLOOR = 60
+const INDIVIDUAL_FACTION_STRAIN_AMOUNT = 28
 const GRUDGE_MEMORY_DIVISOR = 8
 const PUBLIC_BLAME_DIVISOR = 8
 const POLICY_BACKLASH_DIVISOR = 10
@@ -49,24 +54,42 @@ export function calculateFactionAnger(
       inverseSum += 100 - faction.relationship
       highFearSum += faction.fear
     }
-    const avgInverse = inverseSum / factions.length
-    if (avgInverse >= 35) {
+    const avgRelationship = 100 - inverseSum / factions.length
+    if (avgRelationship < FACTION_RELATIONSHIP_FLOOR) {
       pushCause(causes, {
-        id: 'avg_faction_inverse_relationship',
-        readable: `Factions feel slighted (avg relationship ${Math.round(100 - avgInverse)}).`,
-        amount: Math.round(avgInverse * INVERSE_RELATIONSHIP_PER_FACTION),
+        id: 'avg_faction_cautious',
+        readable: `Factions are cautious toward the tavern (avg relationship ${Math.round(avgRelationship)}).`,
+        amount: FACTION_RELATIONSHIP_AMOUNT,
         tags: ['faction', 'relationship'],
         relatedSystems: ['factions'],
+        origin: 'discovered',
       })
     }
     const avgFear = highFearSum / factions.length
-    if (avgFear >= 30) {
+    if (avgFear >= FACTION_FEAR_FLOOR) {
       pushCause(causes, {
         id: 'avg_faction_fear',
-        readable: `Factions afraid of one another (avg fear ${Math.round(avgFear)}).`,
-        amount: Math.round(avgFear * HIGH_FEAR_PER_FACTION),
+        readable: `Faction fear is high in town (avg fear ${Math.round(avgFear)}).`,
+        amount: FACTION_FEAR_AMOUNT,
         tags: ['faction', 'fear'],
         relatedSystems: ['factions'],
+        origin: 'external',
+      })
+    }
+    const strained = factions.filter(
+      (faction) =>
+        faction.relationship <= INDIVIDUAL_FACTION_STRAIN_FLOOR ||
+        faction.fear >= INDIVIDUAL_FACTION_FEAR_FLOOR,
+    )
+    if (strained.length > 0) {
+      pushCause(causes, {
+        id: 'individual_faction_strain',
+        readable: `${strained.length} faction(s) are under visible strain.`,
+        amount: INDIVIDUAL_FACTION_STRAIN_AMOUNT * strained.length,
+        tags: ['faction', 'relationship'],
+        relatedActors: strained.map((faction) => ({ kind: 'faction', id: faction.id })),
+        relatedSystems: ['factions'],
+        origin: 'discovered',
       })
     }
   }
@@ -82,6 +105,7 @@ export function calculateFactionAnger(
         amount: Math.round(grudgeMem / GRUDGE_MEMORY_DIVISOR),
         tags: ['faction', 'grudge', 'memory'],
         relatedActors: [ref],
+        origin: 'player_caused',
         relatedSystems: ['factions', 'memories'],
       })
     }
@@ -94,6 +118,7 @@ export function calculateFactionAnger(
         amount: Math.round(blame / PUBLIC_BLAME_DIVISOR),
         tags: ['faction', 'blame', 'attribution'],
         relatedActors: [ref],
+        origin: 'discovered',
         relatedSystems: ['factions', 'attribution'],
       })
     }
@@ -113,6 +138,7 @@ export function calculateFactionAnger(
         ),
         tags: ['faction', 'relief'],
         relatedActors: [ref],
+        origin: 'memory',
         relatedSystems: ['factions', 'memories'],
       })
     }
@@ -127,6 +153,7 @@ export function calculateFactionAnger(
       amount: Math.round(backlash.value / POLICY_BACKLASH_DIVISOR),
       tags: ['faction', 'policy', 'web'],
       relatedSystems: ['policies', 'pressures'],
+      origin: 'player_caused',
     })
   }
 
@@ -142,6 +169,7 @@ export function calculateFactionAnger(
       amount: FACTION_ARC_PER_ARC * arcs.length,
       tags: ['faction', 'arc'],
       relatedActors: arcs.map((arc) => ({ kind: 'local_event', id: arc.id })),
+      origin: 'external',
       relatedSystems: ['localArcs', 'factions'],
     })
   }

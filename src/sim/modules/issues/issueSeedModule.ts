@@ -19,6 +19,7 @@ import {
 import { validateSeed, validateSeedAgainstState } from './issueSeedValidation'
 import { EXPANDED_ISSUE_SEED_FAMILIES } from './issueSeedTypes'
 import { buildIssueSeedReport } from './issueSeedReport'
+import { shouldSurfaceAsIssueSeed } from './fairness'
 import {
   createInitialIssueSeedModuleState,
   type IssueSeed,
@@ -198,6 +199,15 @@ function runGenerationPass(
       })
       continue
     }
+    if (!shouldSurfaceAsIssueSeed(ctx.state, seed)) {
+      rejected.push({
+        family: seed.family,
+        templateId: generatorId,
+        reason: 'withheld by early-game inherited-condition fairness gate',
+      })
+      continue
+    }
+
     accepted.push(seed)
     // Track cooldown bump on every generation regardless of whether the
     // seed gets selected later — repeated generation is the signal that

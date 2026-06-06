@@ -24,10 +24,12 @@ import {
 //   - supplier reliability
 //   - active market shortages
 
-const INVERSE_RELATIONSHIP_PER_SUPPLIER = 0.4
-const LOW_RELIABILITY_PER_SUPPLIER = 0.5
-const PUBLIC_BLAME_DIVISOR = 6
-const LATE_PAYMENT_MEMORY_DIVISOR = 10
+const COLD_SUPPLIER_RELATIONSHIP_FLOOR = 35
+const COLD_SUPPLIER_RELATIONSHIP_AMOUNT = 6
+const LOW_RELIABILITY_FLOOR = 35
+const LOW_RELIABILITY_AMOUNT = 6
+const PUBLIC_BLAME_DIVISOR = 5
+const LATE_PAYMENT_MEMORY_DIVISOR = 4
 const DELIVERY_DISPUTE_MEMORY_DIVISOR = 10
 const MARKET_SHORTAGE_PER_CONDITION = 6
 const GRATITUDE_RELIEF_DIVISOR = 8
@@ -59,24 +61,26 @@ export function calculateSupplierDistrust(
       inverseSum += 100 - supplier.relationship
       lowReliabilitySum += 100 - supplier.reliability
     }
-    const avgInverse = inverseSum / suppliers.length
-    if (avgInverse >= 30) {
+    const avgRelationship = 100 - inverseSum / suppliers.length
+    if (avgRelationship < COLD_SUPPLIER_RELATIONSHIP_FLOOR) {
       pushCause(causes, {
-        id: 'avg_relationship_low',
-        readable: `Suppliers feel underappreciated (avg relationship ${Math.round(100 - avgInverse)}).`,
-        amount: Math.round(avgInverse * INVERSE_RELATIONSHIP_PER_SUPPLIER),
+        id: 'avg_relationship_cold',
+        readable: `Supplier contacts are cold on average (${Math.round(avgRelationship)}).`,
+        amount: COLD_SUPPLIER_RELATIONSHIP_AMOUNT,
         tags: ['supplier', 'relationship'],
         relatedSystems: ['suppliers'],
+        origin: 'discovered',
       })
     }
-    const avgLowRel = lowReliabilitySum / suppliers.length
-    if (avgLowRel >= 25) {
+    const avgReliability = 100 - lowReliabilitySum / suppliers.length
+    if (avgReliability < LOW_RELIABILITY_FLOOR) {
       pushCause(causes, {
         id: 'avg_reliability_low',
-        readable: `Suppliers unreliable on average (reliability ${Math.round(100 - avgLowRel)}).`,
-        amount: Math.round(avgLowRel * LOW_RELIABILITY_PER_SUPPLIER),
+        readable: `Supplier reliability is weak on average (${Math.round(avgReliability)}).`,
+        amount: LOW_RELIABILITY_AMOUNT,
         tags: ['supplier', 'reliability'],
         relatedSystems: ['suppliers'],
+        origin: 'external',
       })
     }
   }
@@ -93,6 +97,7 @@ export function calculateSupplierDistrust(
         amount: Math.round(blame / PUBLIC_BLAME_DIVISOR),
         tags: ['supplier', 'blame', 'attribution'],
         relatedActors: [ref],
+        origin: 'discovered',
         relatedSystems: ['suppliers', 'attribution'],
       })
     }
@@ -105,6 +110,7 @@ export function calculateSupplierDistrust(
         amount: Math.round(lateMem / LATE_PAYMENT_MEMORY_DIVISOR),
         tags: ['supplier', 'memory', 'late_payment'],
         relatedActors: [ref],
+        origin: 'player_caused',
         relatedSystems: ['suppliers', 'memories'],
       })
     }
@@ -117,6 +123,7 @@ export function calculateSupplierDistrust(
         amount: Math.round(disputeMem / DELIVERY_DISPUTE_MEMORY_DIVISOR),
         tags: ['supplier', 'memory', 'delivery_dispute'],
         relatedActors: [ref],
+        origin: 'player_caused',
         relatedSystems: ['suppliers', 'memories'],
       })
     }
@@ -132,6 +139,7 @@ export function calculateSupplierDistrust(
         amount: -Math.round(reliefScore / GRATITUDE_RELIEF_DIVISOR),
         tags: ['supplier', 'relief'],
         relatedActors: [ref],
+        origin: 'memory',
         relatedSystems: ['suppliers', 'memories'],
       })
     }
@@ -152,6 +160,7 @@ export function calculateSupplierDistrust(
       amount: MARKET_SHORTAGE_PER_CONDITION * shortageConditions,
       tags: ['market', 'shortage'],
       relatedSystems: ['suppliers', 'market'],
+      origin: 'external',
     })
   }
 
@@ -163,6 +172,7 @@ export function calculateSupplierDistrust(
       amount: 6 * missedToday.length,
       tags: ['supplier', 'delivery'],
       relatedSystems: ['suppliers'],
+      origin: 'external',
     })
   }
 

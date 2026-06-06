@@ -16,11 +16,15 @@ import {
 
 // Phase 38 §38.5 — Staff loyalty risk pressure.
 
-const INVERSE_LOYALTY_PER_STAFF = 0.4
-const LOW_MORALE_PER_STAFF = 5
+const UNPROVEN_LOYALTY_FLOOR = 50
+const MILD_LOYALTY_CONCERN_FLOOR = 40
+const MILD_LOYALTY_CONCERN = 6
+const REAL_LOYALTY_RISK_BASE = 12
+const REAL_LOYALTY_RISK_PER_POINT_UNDER_40 = 1
+const LOW_MORALE_PER_STAFF = 4
 const UNPAID_WAGES_PER_STAFF = 7
 const BURNOUT_CONTRIBUTION_DIVISOR = 5
-const PUBLIC_BLAME_DIVISOR = 8
+const PUBLIC_BLAME_DIVISOR = 18
 const SCAPEGOAT_MEMORY_DIVISOR = 10
 const RELIEF_DIVISOR = 10
 
@@ -48,14 +52,29 @@ export function calculateStaffLoyaltyRisk(
       if (member.morale <= 35) lowMoraleCount += 1
       if (!member.paidThisWeek) unpaidCount += 1
     }
-    const avgInverseLoyalty = inverseLoyaltySum / staff.length
-    if (avgInverseLoyalty >= 30) {
+    const avgLoyalty = 100 - inverseLoyaltySum / staff.length
+    const pastOpeningGrace = ctx.state.calendar.totalDaysElapsed >= 4
+    if (avgLoyalty < MILD_LOYALTY_CONCERN_FLOOR) {
       pushCause(causes, {
         id: 'avg_loyalty_low',
-        readable: `Staff loyalty low on average (${Math.round(100 - avgInverseLoyalty)}).`,
-        amount: Math.round(avgInverseLoyalty * INVERSE_LOYALTY_PER_STAFF),
+        readable: `Staff loyalty is fragile on average (${Math.round(avgLoyalty)}).`,
+        amount: Math.round(
+          REAL_LOYALTY_RISK_BASE +
+            (MILD_LOYALTY_CONCERN_FLOOR - avgLoyalty) *
+              REAL_LOYALTY_RISK_PER_POINT_UNDER_40,
+        ),
         tags: ['staff', 'loyalty'],
         relatedSystems: ['staff'],
+        origin: 'inherited',
+      })
+    } else if (avgLoyalty < UNPROVEN_LOYALTY_FLOOR && pastOpeningGrace) {
+      pushCause(causes, {
+        id: 'avg_loyalty_unproven',
+        readable: `Staff trust remains unproven on average (${Math.round(avgLoyalty)}).`,
+        amount: MILD_LOYALTY_CONCERN,
+        tags: ['staff', 'loyalty'],
+        relatedSystems: ['staff'],
+        origin: 'discovered',
       })
     }
     if (lowMoraleCount > 0) {
@@ -65,6 +84,7 @@ export function calculateStaffLoyaltyRisk(
         amount: LOW_MORALE_PER_STAFF * lowMoraleCount,
         tags: ['staff', 'morale'],
         relatedSystems: ['staff'],
+        origin: 'inherited',
       })
     }
     if (unpaidCount > 0) {
@@ -74,6 +94,7 @@ export function calculateStaffLoyaltyRisk(
         amount: UNPAID_WAGES_PER_STAFF * unpaidCount,
         tags: ['staff', 'wages'],
         relatedSystems: ['staff', 'weekly'],
+        origin: 'player_caused',
       })
     }
   }
@@ -90,6 +111,7 @@ export function calculateStaffLoyaltyRisk(
         amount: Math.round(blame / PUBLIC_BLAME_DIVISOR),
         tags: ['staff', 'blame', 'attribution'],
         relatedActors: [ref],
+        origin: 'discovered',
         relatedSystems: ['staff', 'attribution'],
       })
     }
@@ -102,6 +124,7 @@ export function calculateStaffLoyaltyRisk(
         amount: Math.round(scapegoatMem / SCAPEGOAT_MEMORY_DIVISOR),
         tags: ['staff', 'memory', 'scapegoat'],
         relatedActors: [ref],
+        origin: 'player_caused',
         relatedSystems: ['staff', 'memories'],
       })
     }
@@ -118,6 +141,7 @@ export function calculateStaffLoyaltyRisk(
         amount: -Math.round(relief / RELIEF_DIVISOR),
         tags: ['staff', 'relief'],
         relatedActors: [ref],
+        origin: 'memory',
         relatedSystems: ['staff', 'memories'],
       })
     }
@@ -132,6 +156,7 @@ export function calculateStaffLoyaltyRisk(
       amount: Math.round(burnoutSnapshot.value / BURNOUT_CONTRIBUTION_DIVISOR),
       tags: ['staff', 'burnout', 'web'],
       relatedSystems: ['staff', 'pressures'],
+      origin: 'decay',
     })
   }
 

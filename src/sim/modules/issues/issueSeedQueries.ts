@@ -4,6 +4,7 @@ import type {
   IssueSeedModuleState,
   IssueSeedQuery,
 } from './issueSeedTypes'
+import { applyEarlyGameIssueSeedCap } from './fairness'
 
 // Phase 19 §19.2 — Issue seed query API.
 //
@@ -44,10 +45,19 @@ export function getIssueSeeds(
       return false
     return true
   })
-  if (query.max !== undefined && query.max > 0) {
-    return filtered.slice(0, query.max)
+  let visible = filtered
+  if (
+    query.family === undefined &&
+    query.types === undefined &&
+    query.timing === undefined &&
+    query.minCardWorthiness === undefined
+  ) {
+    visible = applyEarlyGameIssueSeedCap(state, visible)
   }
-  return filtered
+  if (query.max !== undefined && query.max > 0) {
+    return visible.slice(0, query.max)
+  }
+  return visible
 }
 
 export function getRejectedSeedsToday(

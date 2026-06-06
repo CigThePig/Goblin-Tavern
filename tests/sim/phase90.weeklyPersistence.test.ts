@@ -74,8 +74,10 @@ describe('Phase 90 — Weekly result persistence', () => {
     expect(day8Slice.lastWeeklyResult).toBeDefined()
     expect(day8Slice.lastWeeklyResult!.weekKey).toBe(week1Slice.lastWeeklyResult!.weekKey)
     expect(day8Slice.weeklyHistory.length).toBe(1)
-    // The accumulator is fresh for the new week.
-    expect(day8Slice.economy.sales).toBe(0)
+    // Phase 188 leaves enough stock for day 8 service to earn sales after
+    // reset; assert the accumulator is a fresh day-sized window rather than
+    // the closed week total.
+    expect(day8Slice.economy.sales).toBeLessThan(week1Slice.economy.sales)
     expect(day8Slice.startedOnDay).toBe(8)
   })
 

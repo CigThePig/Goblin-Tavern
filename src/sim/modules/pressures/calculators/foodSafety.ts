@@ -21,9 +21,9 @@ import {
 // contribution surfaces first.
 
 const KITCHEN_FILTHY_HEAVY = 22
-const KITCHEN_FILTHY_LIGHT = 10
+const KITCHEN_FILTHY_LIGHT = 4
 const KITCHEN_SMELL_HEAVY = 12
-const KITCHEN_SMELL_LIGHT = 5
+const KITCHEN_SMELL_LIGHT = 3
 const STEW_SPOIL_HEAVY = 18
 const STEW_SPOIL_LIGHT = 8
 const MUSHROOM_SPOIL = 10
@@ -47,6 +47,7 @@ export function calculateFoodSafety(ctx: SimContext): PressureCalculationResult 
         amount: KITCHEN_FILTHY_HEAVY,
         tags: ['kitchen', 'cleanliness'],
         relatedLocations: [{ kind: 'area', id: kitchen.id }],
+        origin: 'inherited',
         relatedSystems: ['areas'],
       })
     } else if (kitchen.cleanliness <= 50) {
@@ -56,6 +57,7 @@ export function calculateFoodSafety(ctx: SimContext): PressureCalculationResult 
         amount: KITCHEN_FILTHY_LIGHT,
         tags: ['kitchen', 'cleanliness'],
         relatedLocations: [{ kind: 'area', id: kitchen.id }],
+        origin: 'inherited',
         relatedSystems: ['areas'],
       })
     } else if (kitchen.cleanliness >= 75) {
@@ -65,6 +67,7 @@ export function calculateFoodSafety(ctx: SimContext): PressureCalculationResult 
         amount: KITCHEN_CLEAN,
         tags: ['kitchen', 'cleanliness'],
         relatedLocations: [{ kind: 'area', id: kitchen.id }],
+        origin: 'inherited',
         relatedSystems: ['areas'],
       })
     }
@@ -75,6 +78,7 @@ export function calculateFoodSafety(ctx: SimContext): PressureCalculationResult 
         amount: KITCHEN_SMELL_HEAVY,
         tags: ['kitchen', 'smell'],
         relatedLocations: [{ kind: 'area', id: kitchen.id }],
+        origin: 'inherited',
         relatedSystems: ['areas'],
       })
     } else if (kitchen.smell >= 55) {
@@ -84,6 +88,7 @@ export function calculateFoodSafety(ctx: SimContext): PressureCalculationResult 
         amount: KITCHEN_SMELL_LIGHT,
         tags: ['kitchen', 'smell'],
         relatedLocations: [{ kind: 'area', id: kitchen.id }],
+        origin: 'inherited',
         relatedSystems: ['areas'],
       })
     }
@@ -98,6 +103,7 @@ export function calculateFoodSafety(ctx: SimContext): PressureCalculationResult 
         amount: STEW_SPOIL_HEAVY,
         tags: ['stock', 'stew', 'spoilage'],
         relatedSystems: ['stock'],
+        origin: 'decay',
       })
     } else if (stew.spoilage >= 40) {
       pushCause(causes, {
@@ -106,6 +112,7 @@ export function calculateFoodSafety(ctx: SimContext): PressureCalculationResult 
         amount: STEW_SPOIL_LIGHT,
         tags: ['stock', 'stew', 'spoilage'],
         relatedSystems: ['stock'],
+        origin: 'decay',
       })
     }
   }
@@ -118,6 +125,7 @@ export function calculateFoodSafety(ctx: SimContext): PressureCalculationResult 
       amount: MUSHROOM_SPOIL,
       tags: ['stock', 'mushrooms', 'spoilage'],
       relatedSystems: ['stock'],
+      origin: 'decay',
     })
   }
 
@@ -131,6 +139,7 @@ export function calculateFoodSafety(ctx: SimContext): PressureCalculationResult 
         amount: COOK_STRESSED,
         tags: ['staff', 'cook', 'stress'],
         relatedActors: [{ kind: 'staff', id: member.id }],
+        origin: 'decay',
         relatedSystems: ['staff'],
       })
     }
@@ -141,6 +150,7 @@ export function calculateFoodSafety(ctx: SimContext): PressureCalculationResult 
         amount: COOK_FATIGUED,
         tags: ['staff', 'cook', 'fatigue'],
         relatedActors: [{ kind: 'staff', id: member.id }],
+        origin: 'decay',
         relatedSystems: ['staff'],
       })
     }
@@ -156,6 +166,7 @@ export function calculateFoodSafety(ctx: SimContext): PressureCalculationResult 
       amount: MEMORY_BOOST,
       tags: ['memory', 'food_safety'],
       relatedSystems: ['memories'],
+      origin: 'memory',
     })
   }
 

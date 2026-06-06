@@ -397,7 +397,7 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
   const familyGuard = CONTRADICTION_GUARDS.stock_shortage(ctx)
   if (!familyGuard.allowed) return []
   const snap = pressureSnapshot(ctx, 'stock_shortage')
-  if (!snap || snap.value < 35) return []
+  if (!snap || snap.value < 20) return []
 
   // Phase 64 / ISSUE-024 — rotate across stock items rather than
   // hardcoding ale. Candidate set = items whose quantity sits at or

@@ -26,13 +26,21 @@ export type StockDefinition = {
 
 export const stockRegistry = new Registry<StockDefinition>()
 
+// Phase 188 — opening stock retune. The starter ale quantity is sized
+// against the default forecast/purchase baskets: about three ordinary
+// service days of runway, so the tavern still starts thin but no longer
+// runs dry on the first normal service.
+const STARTER_ALE_QUANTITY = 240
+const STARTER_STEW_QUANTITY = 130
+const STARTER_MUSHROOM_QUANTITY = 90
+
 const REQUIRED_STOCK: StockDefinition[] = [
   {
     id: 'ale',
     label: 'Ale',
     tags: ['drink', 'alcohol', 'service_item', 'quality_sensitive'],
     defaultState: {
-      quantity: 80,
+      quantity: STARTER_ALE_QUANTITY,
       quality: 45,
       spoilage: 5,
       basePrice: 2,
@@ -46,7 +54,7 @@ const REQUIRED_STOCK: StockDefinition[] = [
     label: 'Stew',
     tags: ['food', 'prepared', 'service_item', 'perishable'],
     defaultState: {
-      quantity: 40,
+      quantity: STARTER_STEW_QUANTITY,
       quality: 35,
       spoilage: 20,
       basePrice: 2,
@@ -81,7 +89,7 @@ const REQUIRED_STOCK: StockDefinition[] = [
       'risky',
     ],
     defaultState: {
-      quantity: 45,
+      quantity: STARTER_MUSHROOM_QUANTITY,
       quality: 40,
       spoilage: 25,
       basePrice: 1,

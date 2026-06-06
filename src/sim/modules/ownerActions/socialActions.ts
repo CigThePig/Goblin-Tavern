@@ -208,7 +208,7 @@ const comfortStressedStaff: OwnerActionDefinition = {
 
 // ---------- apologize_to_regular ----------
 
-const APOLOGY_IRRITATION_DROP = 12
+const APOLOGY_IRRITATION_DROP = 16
 const APOLOGY_LOYALTY_LIFT = 4
 
 const apologizeToRegular: OwnerActionDefinition = {

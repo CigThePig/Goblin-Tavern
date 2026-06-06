@@ -451,6 +451,9 @@ const adjustPrices: OwnerActionDefinition = {
 // ---------- 13.7 pay_staff_bonus ----------
 
 const DEFAULT_BONUS = 10
+const BONUS_MORALE_PER_10_COIN = 5
+const BONUS_STRESS_DROP_PER_10_COIN = 3
+const BONUS_LOYALTY_PER_10_COIN = 3
 
 const payStaffBonus: OwnerActionDefinition = {
   id: 'pay_staff_bonus',
@@ -485,11 +488,13 @@ const payStaffBonus: OwnerActionDefinition = {
         ? Math.floor(input.amount)
         : DEFAULT_BONUS
 
-    const moraleLift = Math.max(2, Math.round(amount / 2))
-    const stressDrop = Math.max(2, Math.round(amount / 3))
+    const scale = amount / DEFAULT_BONUS
+    const moraleLift = Math.max(2, Math.round(BONUS_MORALE_PER_10_COIN * scale))
+    const stressDrop = Math.max(2, Math.round(BONUS_STRESS_DROP_PER_10_COIN * scale))
     const nextMorale = clampPercent(staff.morale + moraleLift)
     const nextStress = clampPercent(staff.stress - stressDrop)
-    const nextLoyalty = clampPercent(staff.loyalty + 1)
+    const loyaltyLift = Math.max(1, Math.round(BONUS_LOYALTY_PER_10_COIN * scale))
+    const nextLoyalty = clampPercent(staff.loyalty + loyaltyLift)
 
     ctx.modifyStaff(
       staff.id,
@@ -525,6 +530,7 @@ const payStaffBonus: OwnerActionDefinition = {
       effects: [
         `morale ${staff.morale} → ${nextMorale}`,
         `stress ${staff.stress} → ${nextStress}`,
+        `loyalty ${staff.loyalty} → ${nextLoyalty}`,
         `coin -${amount}`,
       ],
       data: {

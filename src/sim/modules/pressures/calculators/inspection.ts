@@ -19,11 +19,11 @@ import {
 //   - recent inspection warnings / memories
 
 const FOOD_SAFETY_HIGH = 18
-const FOOD_SAFETY_MED = 8
-const PRIVY_STINK = 14
-const KITCHEN_FILTHY = 12
-const MERCHANT_UNHAPPY = 8
-const FILTHY_REP = 8
+const FOOD_SAFETY_MED = 6
+const PRIVY_STINK = 6
+const KITCHEN_FILTHY = 6
+const MERCHANT_UNHAPPY = 6
+const FILTHY_REP = 6
 const RELIABLE_REP = -6
 const WARNING_MEMORY = 14
 const SUSPICION_FROM_MONTHLY = 12
@@ -32,7 +32,7 @@ const SUSPICION_FROM_MONTHLY = 12
 // notices first. Apply a small bump when a sensitive area is also
 // objectively dirty, so the trait reinforces existing cleanliness signals
 // instead of duplicating them.
-const INSPECTION_SENSITIVE_DIRTY = 6
+const INSPECTION_SENSITIVE_DIRTY = 2
 
 type MonthlySlice = {
   inspection?: { suspicion?: number }
@@ -51,6 +51,7 @@ export function calculateInspection(ctx: SimContext): PressureCalculationResult 
         amount: FOOD_SAFETY_HIGH,
         tags: ['food_safety', 'pressure'],
         relatedSystems: ['pressures', 'food_safety'],
+        origin: 'decay',
       })
     } else if (foodSafety.value >= 40) {
       pushCause(causes, {
@@ -59,6 +60,7 @@ export function calculateInspection(ctx: SimContext): PressureCalculationResult 
         amount: FOOD_SAFETY_MED,
         tags: ['food_safety', 'pressure'],
         relatedSystems: ['pressures', 'food_safety'],
+        origin: 'decay',
       })
     }
   }
@@ -73,6 +75,7 @@ export function calculateInspection(ctx: SimContext): PressureCalculationResult 
         amount: PRIVY_STINK,
         tags: ['privy', 'smell'],
         relatedLocations: [{ kind: 'area', id: privy.id }],
+        origin: 'inherited',
         relatedSystems: ['areas'],
       })
     }
@@ -87,6 +90,7 @@ export function calculateInspection(ctx: SimContext): PressureCalculationResult 
       amount: KITCHEN_FILTHY,
       tags: ['kitchen', 'cleanliness'],
       relatedLocations: [{ kind: 'area', id: kitchen.id }],
+      origin: 'inherited',
       relatedSystems: ['areas'],
     })
   }
@@ -99,6 +103,7 @@ export function calculateInspection(ctx: SimContext): PressureCalculationResult 
       amount: MERCHANT_UNHAPPY,
       tags: ['customer', 'merchants', 'satisfaction'],
       relatedSystems: ['customers'],
+      origin: 'decay',
     })
   }
 
@@ -109,6 +114,7 @@ export function calculateInspection(ctx: SimContext): PressureCalculationResult 
       amount: FILTHY_REP,
       tags: ['reputation', 'filthy'],
       relatedSystems: ['reputation'],
+      origin: 'decay',
     })
   }
   if (ctx.state.reputation.reliable >= 60) {
@@ -118,6 +124,7 @@ export function calculateInspection(ctx: SimContext): PressureCalculationResult 
       amount: RELIABLE_REP,
       tags: ['reputation', 'reliable'],
       relatedSystems: ['reputation'],
+      origin: 'memory',
     })
   }
 
@@ -133,6 +140,7 @@ export function calculateInspection(ctx: SimContext): PressureCalculationResult 
       amount: INSPECTION_SENSITIVE_DIRTY,
       tags: ['trait', 'inspection_sensitive', area.id],
       relatedLocations: [{ kind: 'area', id: area.id }],
+      origin: 'inherited',
       relatedSystems: ['areas'],
     })
   }
@@ -147,6 +155,7 @@ export function calculateInspection(ctx: SimContext): PressureCalculationResult 
       amount: WARNING_MEMORY,
       tags: ['memory', 'inspection'],
       relatedSystems: ['memories', 'inspection'],
+      origin: 'memory',
     })
   }
 
@@ -161,6 +170,7 @@ export function calculateInspection(ctx: SimContext): PressureCalculationResult 
       amount: SUSPICION_FROM_MONTHLY,
       tags: ['monthly', 'inspection'],
       relatedSystems: ['monthly', 'inspection'],
+      origin: 'decay',
     })
   }
 

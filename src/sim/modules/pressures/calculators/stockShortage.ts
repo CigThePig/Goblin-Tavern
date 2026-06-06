@@ -56,6 +56,7 @@ export function calculateStockShortage(
         amount: Math.round(ALE_VERY_LOW * multiplier),
         tags: ['stock', 'ale', 'shortage'],
         relatedSystems: relatedSystemsCommon(),
+        origin: 'decay',
       })
     } else if (ale.quantity <= 45) {
       pushCause(causes, {
@@ -64,6 +65,7 @@ export function calculateStockShortage(
         amount: Math.round(ALE_LOW * multiplier),
         tags: ['stock', 'ale', 'shortage'],
         relatedSystems: relatedSystemsCommon(),
+        origin: 'decay',
       })
     }
   }
@@ -77,6 +79,7 @@ export function calculateStockShortage(
         amount: Math.round(STEW_VERY_LOW * multiplier),
         tags: ['stock', 'stew', 'shortage'],
         relatedSystems: relatedSystemsCommon(),
+        origin: 'decay',
       })
     } else if (stew.quantity <= 15) {
       pushCause(causes, {
@@ -85,6 +88,7 @@ export function calculateStockShortage(
         amount: Math.round(STEW_LOW * multiplier),
         tags: ['stock', 'stew', 'shortage'],
         relatedSystems: relatedSystemsCommon(),
+        origin: 'decay',
       })
     }
   }
@@ -97,6 +101,7 @@ export function calculateStockShortage(
       amount: Math.round(MUSHROOMS_LOW * multiplier),
       tags: ['stock', 'mushrooms', 'shortage'],
       relatedSystems: relatedSystemsCommon(),
+      origin: 'decay',
     })
   }
 
@@ -111,6 +116,7 @@ export function calculateStockShortage(
       amount: RECENT_SHORTAGE_MEMORY,
       tags: ['memory', 'shortage'],
       relatedSystems: ['memories', 'stock'],
+      origin: 'memory',
     })
   }
 

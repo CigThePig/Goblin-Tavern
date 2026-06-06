@@ -143,7 +143,10 @@ describe('Phase 14 §14.1 — endWeek gating', () => {
     expect(day8.weeklyHistory.length).toBe(1)
     expect(day8.weeklyHistory[0]!.weekKey).toBe(week1.lastWeeklyResult!.weekKey)
     expect(day8.startedOnDay).toBe(8)
-    expect(day8.economy.sales).toBe(0)
+    // Phase 188's opening stock retune leaves enough inventory for day 8
+    // service to earn sales after the reset; assert the accumulator is a
+    // fresh day-sized window rather than the closed week total.
+    expect(day8.economy.sales).toBeLessThan(week1.economy.sales)
   })
 })
 

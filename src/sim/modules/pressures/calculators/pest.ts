@@ -19,19 +19,19 @@ import {
 // Phase 18 explicitly says "if no rat system exists yet, keep this
 // generic" — so we work with the existing area & stock state.
 
-const CELLAR_FILTHY_HEAVY = 18
-const CELLAR_FILTHY_LIGHT = 8
-const CELLAR_SMELL = 10
-const CELLAR_RISK = 12
+const CELLAR_FILTHY_HEAVY = 8
+const CELLAR_FILTHY_LIGHT = 4
+const CELLAR_SMELL = 6
+const CELLAR_RISK = 6
 const SPOILED_FOOD_PER_ITEM = 8
-const KITCHEN_SMELL_HINT = 5
+const KITCHEN_SMELL_HINT = 3
 const FUMIGATION_RELIEF = -12
 
 // Phase 28 §28.8 — `pest_prone` is the trait that says a storage room
 // has the cracks and crumbs rats actually thrive in. Worth a small bump
 // when food stock is sitting in that room. Kept light here; Phase 38
 // pressure webs will tune it more aggressively.
-const PEST_PRONE_TRAIT_BONUS = 6
+const PEST_PRONE_TRAIT_BONUS = 3
 
 export function calculatePest(ctx: SimContext): PressureCalculationResult {
   const causes: PressureCauseRef[] = []
@@ -47,6 +47,7 @@ export function calculatePest(ctx: SimContext): PressureCalculationResult {
         amount: CELLAR_FILTHY_HEAVY,
         tags: ['cellar', 'cleanliness'],
         relatedLocations: [{ kind: 'area', id: cellar.id }],
+        origin: 'inherited',
         relatedSystems: ['areas'],
       })
     } else if (cellar.cleanliness <= 50) {
@@ -56,6 +57,7 @@ export function calculatePest(ctx: SimContext): PressureCalculationResult {
         amount: CELLAR_FILTHY_LIGHT,
         tags: ['cellar', 'cleanliness'],
         relatedLocations: [{ kind: 'area', id: cellar.id }],
+        origin: 'inherited',
         relatedSystems: ['areas'],
       })
     }
@@ -66,6 +68,7 @@ export function calculatePest(ctx: SimContext): PressureCalculationResult {
         amount: CELLAR_SMELL,
         tags: ['cellar', 'smell'],
         relatedLocations: [{ kind: 'area', id: cellar.id }],
+        origin: 'inherited',
         relatedSystems: ['areas'],
       })
     }
@@ -76,6 +79,7 @@ export function calculatePest(ctx: SimContext): PressureCalculationResult {
         amount: CELLAR_RISK,
         tags: ['cellar', 'risk'],
         relatedLocations: [{ kind: 'area', id: cellar.id }],
+        origin: 'inherited',
         relatedSystems: ['areas'],
       })
     }
@@ -92,6 +96,7 @@ export function calculatePest(ctx: SimContext): PressureCalculationResult {
       amount: SPOILED_FOOD_PER_ITEM * spoiledFoodCount,
       tags: ['stock', 'spoilage'],
       relatedSystems: ['stock'],
+      origin: 'decay',
     })
   }
 
@@ -112,6 +117,7 @@ export function calculatePest(ctx: SimContext): PressureCalculationResult {
         amount: PEST_PRONE_TRAIT_BONUS,
         tags: ['cellar', 'trait', 'pest_prone'],
         relatedLocations: [{ kind: 'area', id: cellar.id }],
+        origin: 'inherited',
         relatedSystems: ['areas', 'stock'],
       })
     }
@@ -125,6 +131,7 @@ export function calculatePest(ctx: SimContext): PressureCalculationResult {
       amount: KITCHEN_SMELL_HINT,
       tags: ['kitchen', 'smell'],
       relatedLocations: [{ kind: 'area', id: kitchen.id }],
+      origin: 'inherited',
       relatedSystems: ['areas'],
     })
   }
@@ -136,6 +143,7 @@ export function calculatePest(ctx: SimContext): PressureCalculationResult {
       amount: FUMIGATION_RELIEF,
       tags: ['memory', 'cellar', 'sanitation'],
       relatedSystems: ['memories'],
+      origin: 'memory',
     })
   }
 

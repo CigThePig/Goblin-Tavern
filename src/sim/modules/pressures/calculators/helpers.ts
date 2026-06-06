@@ -14,6 +14,7 @@ export function pushCause(
     relatedActors?: PressureCauseRef['relatedActors']
     relatedLocations?: PressureCauseRef['relatedLocations']
     relatedSystems?: string[]
+    origin?: PressureCauseRef['origin']
   },
 ): void {
   const amount = draft.amount
@@ -37,6 +38,7 @@ export function pushCause(
   if (draft.relatedSystems && draft.relatedSystems.length > 0) {
     ref.relatedSystems = [...draft.relatedSystems]
   }
+  if (draft.origin !== undefined) ref.origin = draft.origin
   causes.push(ref)
 }
 

@@ -39,6 +39,7 @@ export function calculateViolence(ctx: SimContext): PressureCalculationResult {
         amount: ROWDY_PATRON_HEAVY,
         tags: ['customer', 'ogres'],
         relatedActors: [{ kind: 'customer_group', id: ogres.id }],
+        origin: 'external',
         relatedSystems: ['customers'],
       })
     } else if (ogres.patronage >= 40) {
@@ -48,6 +49,7 @@ export function calculateViolence(ctx: SimContext): PressureCalculationResult {
         amount: ROWDY_PATRON_LIGHT,
         tags: ['customer', 'ogres'],
         relatedActors: [{ kind: 'customer_group', id: ogres.id }],
+        origin: 'external',
         relatedSystems: ['customers'],
       })
     }
@@ -58,6 +60,7 @@ export function calculateViolence(ctx: SimContext): PressureCalculationResult {
         amount: HIGH_ROWDINESS,
         tags: ['customer', 'rowdiness'],
         relatedActors: [{ kind: 'customer_group', id: ogres.id }],
+        origin: 'external',
         relatedSystems: ['customers'],
       })
     }
@@ -71,6 +74,7 @@ export function calculateViolence(ctx: SimContext): PressureCalculationResult {
       amount: ROWDY_PATRON_LIGHT,
       tags: ['customer', 'adventurers'],
       relatedActors: [{ kind: 'customer_group', id: adventurers.id }],
+      origin: 'external',
       relatedSystems: ['customers'],
     })
   }
@@ -82,6 +86,7 @@ export function calculateViolence(ctx: SimContext): PressureCalculationResult {
       amount: BRAWL_NIGHT_TODAY,
       tags: ['day_type', 'brawl_night'],
       relatedSystems: ['calendar', 'service'],
+      origin: 'external',
     })
   }
 
@@ -93,6 +98,7 @@ export function calculateViolence(ctx: SimContext): PressureCalculationResult {
       amount: Math.min(RECENT_BRAWL, Math.round(strength / 3) + 8),
       tags: ['memory', 'brawl'],
       relatedSystems: ['memories', 'service'],
+      origin: 'memory',
     })
   }
 
@@ -103,6 +109,7 @@ export function calculateViolence(ctx: SimContext): PressureCalculationResult {
       amount: DANGEROUS_REP,
       tags: ['reputation', 'dangerous'],
       relatedSystems: ['reputation'],
+      origin: 'memory',
     })
   }
 
@@ -117,6 +124,7 @@ export function calculateViolence(ctx: SimContext): PressureCalculationResult {
         amount: BOUNCER_RELIEF,
         tags: ['staff', 'bouncer'],
         relatedActors: [{ kind: 'staff', id: member.id }],
+        origin: 'player_caused',
         relatedSystems: ['staff'],
       })
     }

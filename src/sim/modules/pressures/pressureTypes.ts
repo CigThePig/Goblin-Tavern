@@ -73,6 +73,21 @@ export const EXPANDED_PRESSURE_CATEGORIES: Record<ExpandedPressureId, PressureCa
 
 export type PressureTrend = 'rising' | 'stable' | 'falling'
 
+// Phase 188 — starting fairness. Pressure calculators may classify why a
+// cause exists so player-facing issue generation can distinguish inherited
+// tavern problems from choices the player caused or ignored. Optional for
+// save compatibility: older snapshots simply read as `unknown`.
+export type PressureCauseOrigin =
+  | 'inherited'
+  | 'discovered'
+  | 'warned'
+  | 'player_caused'
+  | 'neglected'
+  | 'decay'
+  | 'external'
+  | 'memory'
+  | 'unknown'
+
 /**
  * A single contribution that pushed a pressure up or down on the most
  * recent calculation. The pressure module derives these from runtime
@@ -93,6 +108,8 @@ export type PressureCauseRef = {
   relatedActors?: EntityRef[]
   relatedLocations?: EntityRef[]
   relatedSystems?: string[]
+  /** Fairness provenance for player-facing card gates. */
+  origin?: PressureCauseOrigin
 }
 
 /** The PressureCalculationResult a calculator returns. */

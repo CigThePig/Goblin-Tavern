@@ -354,6 +354,17 @@ const PressureCauseRefSchema = z.object({
   relatedActors: z.array(EntityRefSchema).optional(),
   relatedLocations: z.array(EntityRefSchema).optional(),
   relatedSystems: z.array(z.string()).optional(),
+  origin: z.enum([
+    'inherited',
+    'discovered',
+    'warned',
+    'player_caused',
+    'neglected',
+    'decay',
+    'external',
+    'memory',
+    'unknown',
+  ]).optional(),
 })
 
 const CalendarStampSchema = z.object({

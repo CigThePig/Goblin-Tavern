@@ -107,9 +107,16 @@
       >
         <span class="choice-label">{c.label}</span>
         {#if c.previewEffects.length > 0}
-          <ul class="preview mono">
+          <ul class="preview mono" aria-label="Narrative effects">
             {#each c.previewEffects as e, i (i)}
               <li>{e}</li>
+            {/each}
+          </ul>
+        {/if}
+        {#if c.mechanicalEffects && c.mechanicalEffects.length > 0}
+          <ul class="mechanical-preview" aria-label="Mechanical effects">
+            {#each c.mechanicalEffects as e, i (i)}
+              <li class="mechanical-chip mono">{e}</li>
             {/each}
           </ul>
         {/if}
@@ -310,6 +317,23 @@
   .preview li::before {
     content: '· ';
     color: var(--candle-soft);
+  }
+
+  .mechanical-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 2px;
+  }
+
+  .mechanical-chip {
+    border: 1px solid color-mix(in srgb, var(--accent-soft) 45%, transparent);
+    border-radius: 999px;
+    padding: 2px 7px;
+    color: var(--accent-soft);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    font-size: 12px;
+    line-height: 1.35;
   }
 
   .disabled-reason {

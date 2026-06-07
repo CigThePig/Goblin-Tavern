@@ -55,6 +55,7 @@ export type PickedAction = {
   targetType: OwnerActionDefinition['targetType']
   targetId?: string
   targetLabel?: string
+  amount?: number
   timeCost: number
   /**
    * Phase 92 — Optional structured options for actions that need them
@@ -88,6 +89,7 @@ export function picksToInputs(
   return picks.map((p) => {
     const input: SimInputOwnerAction = { actionId: p.actionId }
     if (p.targetId !== undefined) input.targetId = p.targetId
+    if (p.amount !== undefined) input.amount = p.amount
     if (p.options !== undefined) input.options = p.options
     return input
   })
@@ -199,6 +201,12 @@ function sanitizeSinglePick(
   }
 
   const targetLabel = typeof r.targetLabel === 'string' ? r.targetLabel : undefined
+  const amountRaw = r.amount
+  const amount =
+    typeof amountRaw === 'number' && Number.isFinite(amountRaw)
+      ? amountRaw
+      : undefined
+
   const optionsRaw = r.options
   const options =
     optionsRaw && typeof optionsRaw === 'object' && !Array.isArray(optionsRaw)
@@ -214,6 +222,7 @@ function sanitizeSinglePick(
     timeCost,
     ...(targetId !== undefined ? { targetId } : {}),
     ...(targetLabel !== undefined ? { targetLabel } : {}),
+    ...(amount !== undefined ? { amount } : {}),
     ...(options !== undefined ? { options } : {}),
   }
   return sanitized

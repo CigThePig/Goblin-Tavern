@@ -27,6 +27,10 @@
     type PickedAction,
     type PolicyToggleRow,
   } from '../sim/actionBuilder'
+  import {
+    quoteOwnerAction,
+    type OwnerActionQuote,
+  } from '../../../../src/sim/modules/ownerActions/quoteOwnerAction'
   import type { OwnerActionDefinition } from '../../../../src/sim/registries/actionRegistry'
   import type {
     ActionTarget,
@@ -118,6 +122,50 @@
   function selectTab(c: OwnerActionCategory) {
     tab = c
     targetingFor = null
+  }
+
+
+  function quoteForInput(input: {
+    actionId: string
+    targetId?: string
+    amount?: number
+    options?: Record<string, unknown>
+  }): OwnerActionQuote | undefined {
+    const quote = quoteOwnerAction(gameStore.state, input)
+    if (
+      !quote.summary &&
+      !quote.cost?.coin &&
+      !quote.stockChanges?.length &&
+      !quote.statChanges?.length &&
+      !quote.risks?.length &&
+      !quote.warnings?.length
+    ) {
+      return undefined
+    }
+    return quote
+  }
+
+  function quoteForAction(def: OwnerActionDefinition): OwnerActionQuote | undefined {
+    if (!def.targetType || def.targetType === 'global') {
+      return quoteForInput({ actionId: def.id })
+    }
+    const targets = listValidTargets(def, gameStore.state)
+    if (targets.length !== 1) return undefined
+    return quoteForInput({ actionId: def.id, targetId: targets[0]!.id })
+  }
+
+  function quoteForTarget(t: ActionTarget): OwnerActionQuote | undefined {
+    if (!targetingFor) return undefined
+    return quoteForInput({ actionId: targetingFor.id, targetId: t.id })
+  }
+
+  function quoteForPick(p: PickedAction): OwnerActionQuote | undefined {
+    return quoteForInput({
+      actionId: p.actionId,
+      ...(p.targetId !== undefined ? { targetId: p.targetId } : {}),
+      ...(p.amount !== undefined ? { amount: p.amount } : {}),
+      ...(p.options !== undefined ? { options: p.options } : {}),
+    })
   }
 
   function addPick(p: Omit<PickedAction, 'pickId'>) {
@@ -239,10 +287,18 @@
         </header>
         <ul class="targets">
           {#each targetOptions as t (t.id)}
+            {@const quote = quoteForTarget(t)}
             <li>
               <button class="target" type="button" onclick={() => chooseTarget(t)}>
                 <span class="target-label">{t.label}</span>
                 {#if t.hint}<span class="target-hint chip">{t.hint}</span>{/if}
+                {#if quote}
+                  <span class="quote">
+                    {#if quote.summary}<span class="quote-line">{quote.summary}</span>{/if}
+                    {#each quote.warnings ?? [] as warning}<span class="quote-warning chip">{warning}</span>{/each}
+                    {#each quote.risks ?? [] as risk}<span class="quote-risk chip">{risk}</span>{/each}
+                  </span>
+                {/if}
               </button>
             </li>
           {/each}
@@ -268,6 +324,17 @@
             </button>
           {/each}
         </div>
+        <div class="queued-quotes" aria-label="Queued action quotes">
+          {#each picks as p (p.pickId)}
+            {@const quote = quoteForPick(p)}
+            {#if quote?.summary || quote?.warnings?.length}
+              <p class="queued-quote chip">
+                <span>{p.label}{p.targetLabel ? ` · ${p.targetLabel}` : ''}: {quote?.summary}</span>
+                {#each quote?.warnings ?? [] as warning}<span class="quote-warning">{warning}</span>{/each}
+              </p>
+            {/if}
+          {/each}
+        </div>
       {:else}
         <p class="unspent chip" aria-live="polite">
           Your day is unspent. Tap Done to skip planning.
@@ -280,6 +347,7 @@
           <ul class="actions">
             {#each suggestions as s (s.action.id)}
               {@const reason = disabledReason(s.action)}
+              {@const quote = quoteForAction(s.action)}
               <li>
                 <button
                   type="button"
@@ -297,6 +365,13 @@
                   </span>
                   {#if s.action.effectsPreview}
                     <span class="action-effect chip">{s.action.effectsPreview}</span>
+                  {/if}
+                  {#if quote}
+                    <span class="quote">
+                      {#if quote.summary}<span class="quote-line">{quote.summary}</span>{/if}
+                      {#each quote.warnings ?? [] as warning}<span class="quote-warning chip">{warning}</span>{/each}
+                      {#each quote.risks ?? [] as risk}<span class="quote-risk chip">{risk}</span>{/each}
+                    </span>
                   {/if}
                   <span class="suggested-reason chip">{s.reason}</span>
                   {#if reason}
@@ -367,6 +442,7 @@
           {/if}
           {#each actionsForTab as def (def.id)}
             {@const reason = disabledReason(def)}
+            {@const quote = quoteForAction(def)}
             <li>
               <button
                 type="button"
@@ -384,6 +460,13 @@
                 </span>
                 {#if def.effectsPreview}
                   <span class="action-effect chip">{def.effectsPreview}</span>
+                {/if}
+                {#if quote}
+                  <span class="quote">
+                    {#if quote.summary}<span class="quote-line">{quote.summary}</span>{/if}
+                    {#each quote.warnings ?? [] as warning}<span class="quote-warning chip">{warning}</span>{/each}
+                    {#each quote.risks ?? [] as risk}<span class="quote-risk chip">{risk}</span>{/each}
+                  </span>
                 {/if}
                 {#if reason}
                   <span class="action-reason chip">{reason}</span>
@@ -448,6 +531,44 @@
     content: '·';
     margin-right: 4px;
     color: var(--text-faint);
+  }
+
+
+  .queued-quotes {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: calc(-1 * var(--sp-xs)) 0 var(--sp-md);
+  }
+
+  .queued-quote {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    color: var(--text-faint);
+    line-height: 1.35;
+  }
+
+  .quote {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    color: var(--text-dim);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .quote-line {
+    color: var(--text-dim);
+  }
+
+  .quote-warning {
+    color: var(--loss);
+  }
+
+  .quote-risk {
+    color: var(--risk);
   }
 
   .tabs {

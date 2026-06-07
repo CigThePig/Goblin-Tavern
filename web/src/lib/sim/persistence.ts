@@ -768,6 +768,10 @@ function sanitizeChoice(raw: Record<string, unknown>): import('../cards/types').
   const previewEffects = previewEffectsRaw.filter(
     (s): s is string => typeof s === 'string',
   )
+  const mechanicalEffectsRaw = raw['mechanicalEffects']
+  const mechanicalEffects = Array.isArray(mechanicalEffectsRaw)
+    ? mechanicalEffectsRaw.filter((s): s is string => typeof s === 'string')
+    : undefined
   const targetId = typeof raw['targetId'] === 'string' ? (raw['targetId'] as string) : undefined
   const disabledReason =
     typeof raw['disabledReason'] === 'string' ? (raw['disabledReason'] as string) : undefined
@@ -777,6 +781,7 @@ function sanitizeChoice(raw: Record<string, unknown>): import('../cards/types').
     verb: verb as import('../cards/types').CardChoice['verb'],
     shape: shape as import('../cards/types').CardChoice['shape'],
     previewEffects,
+    ...(mechanicalEffects !== undefined ? { mechanicalEffects } : {}),
     ...(targetId !== undefined ? { targetId } : {}),
     ...(disabledReason !== undefined ? { disabledReason } : {}),
   }

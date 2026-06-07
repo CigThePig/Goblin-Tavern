@@ -51,6 +51,8 @@ export type CardChoice = {
   targetId?: string
   shape: ResponseIntentShape
   previewEffects: string[]
+  /** Compact numeric summaries derived from the same backing effects as previewEffects. */
+  mechanicalEffects?: string[]
   disabledReason?: string
 }
 

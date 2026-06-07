@@ -72,3 +72,6 @@ export * from './gates'
 // composition runtime (synthetic seed adapter, multi-note assembler,
 // gate adapter). The card runtime above is unchanged.
 export * from './reports'
+
+export { formatEffectPreview } from './formatEffectPreview'
+export { guardCardViewWording } from './fairnessWording'

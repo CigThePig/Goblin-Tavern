@@ -29,6 +29,8 @@ import {
   LATER_PREVIEW_PREFIX,
 } from './compose/previewSelect'
 import { SALIENCE_TABLES, type SalienceRead } from './compose/salience'
+import { formatEffectPreview } from './compose/formatEffectPreview'
+import { guardCardViewWording } from './compose/fairnessWording'
 import type { SlotSpec, SnippetPool } from './compose/types'
 
 const MAX_TITLE_WORDS = 6
@@ -159,6 +161,7 @@ export type ChoiceOverrides = {
    * tags }` is unchanged by Phase 6; only the readable text is rewritten.
    */
   previewEffects?: string[]
+  mechanicalEffects?: string[]
 }
 
 export function buildChoice(
@@ -173,12 +176,17 @@ export function buildChoice(
   const fallbackTargetId = slot.targetOptions[0]?.id
   const targetId = overrides.targetId ?? fallbackTargetId
   const previewMax = overrides.maxPreview ?? MAX_PREVIEW
-  const immediate = (profile?.immediateEffects ?? []).map((e) => e.readable)
-  const delayed = overrides.includeDelayed
-    ? (profile?.delayedEffects ?? []).map((e) => `later: ${e.readable}`)
-    : []
+  const immediateEffects = profile?.immediateEffects ?? []
+  const delayedEffects = overrides.includeDelayed ? (profile?.delayedEffects ?? []) : []
+  const immediate = immediateEffects.map((e) => e.readable)
+  const delayed = delayedEffects.map((e) => `later: ${e.readable}`)
   const defaultPreview = [...immediate, ...delayed].slice(0, previewMax)
+  const defaultMechanical = [
+    ...immediateEffects.map((e) => formatEffectPreview(e)),
+    ...delayedEffects.map((e) => `later: ${formatEffectPreview(e)}`),
+  ].slice(0, previewMax)
   const previewEffects = overrides.previewEffects ?? defaultPreview
+  const mechanicalEffects = overrides.mechanicalEffects ?? defaultMechanical
   const choice: CardChoice = {
     slotId: slot.id,
     label: overrides.label ?? slot.labelHint,
@@ -186,6 +194,7 @@ export function buildChoice(
     shape: slot.shape,
     previewEffects,
   }
+  if (mechanicalEffects !== undefined) choice.mechanicalEffects = mechanicalEffects
   if (targetId !== undefined) choice.targetId = targetId
   if (overrides.disabledReason !== undefined) {
     choice.disabledReason = overrides.disabledReason
@@ -602,6 +611,7 @@ export function composeChoicesFromSeed(
     // faithfulness gates' line→effect re-derivation stays aligned and the
     // readable already counts as legible under their `line === effect.readable`
     // sim-authority carve-out.
+    const mechanicalPreview = effects.map((effect) => formatEffectPreview(effect, state))
     const composedPreview = effects.map((effect, idx) => {
       const cellKey = previewCellKey(effect)
       // Compose (or cell-reuse) the line exactly as before — this still
@@ -705,6 +715,7 @@ export function composeChoicesFromSeed(
         }
         emittedLines.add(canonicaliseText(laterLine))
         composedPreview.push(laterLine)
+        mechanicalPreview.push(`${LATER_PREVIEW_PREFIX}${formatEffectPreview(delayedEffect, state)}`)
       }
     }
     const extra = options.overrides?.(slot) ?? {}
@@ -712,6 +723,7 @@ export function composeChoicesFromSeed(
       ...extra,
       maxPreview: previewMax,
       previewEffects: composedPreview,
+      mechanicalEffects: mechanicalPreview,
     }
     if (composedLabel !== undefined) overrides.label = composedLabel
     return buildChoice(slot, profile, overrides)
@@ -753,9 +765,10 @@ export function withCardContext(
   seed: IssueSeed,
   state: TavernState,
 ): CardView {
-  if (card.context) return card
+  const guarded = guardCardViewWording(card, seed, state)
+  if (guarded.context) return guarded
   return {
-    ...card,
+    ...guarded,
     context: buildCardContext(seed, state),
   }
 }

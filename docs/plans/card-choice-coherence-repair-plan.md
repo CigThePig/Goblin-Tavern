@@ -22,6 +22,33 @@ This is not primarily a prose-polish pass. It is a structural repair to the card
 
 ---
 
+## Repo Architecture Grounding
+
+This plan should be implemented against the existing issue-seed-to-card pipeline, not as a parallel card system. The relevant production path is:
+
+```text
+src/sim/modules/issues/*SeedGenerators.ts
+  -> IssueSeed.responseSlots / IssueSeed.consequenceProfiles
+  -> src/cards/cardHelpers.ts composeChoicesFromSeed()
+  -> src/cards/compose/previewSelect.ts
+  -> src/cards/compose/formatEffectPreview.ts
+  -> CardChoice.previewEffects / CardChoice.mechanicalEffects
+```
+
+Important existing constraints:
+
+- `ResponseSlot` currently carries `id`, `labelHint`, `allowedVerbs`, `shape`, `targetOptions`, `expectedEffects`, and optional `requiredTags`. Any new contract metadata must be added to this type or stored in a sidecar keyed by `family + slot id`. Do not assume a contract field exists yet.
+- `ConsequenceProfile` currently carries `id`, `responseSlotId`, `immediateEffects`, `delayedEffects`, `memories`, `futureHooks`, and `impactScore`. It does not currently carry explicit effect roles such as `cost`, `benefit`, `risk`, or `payoff`; those roles must be derived from `EffectPreview` metadata first or added deliberately.
+- `EffectPreview` already includes structured metadata from `effect()` such as `targetKind`, `direction`, `magnitudeBand`, `meterId`, and `meterLabel`. Prefer extending these structures over string-parsing `readable` prose.
+- `composeChoicesFromSeed()` already applies a legible choice cap, selects preview effects, formats `mechanicalEffects`, preserves inaction previews, and can append one `later:` line for selected delayed consequences. Any preview repair must update this shared selection path and the gate tests together.
+- `selectDelayedPreviewEffect()` currently only surfaces delayed `future_hook` effects or delayed effects tagged with `future_hook` / `risk`. Ordinary delayed benefits like `areas.main_room.condition +20` and `pressure:maintenance -10` can remain hidden, which is the root of the `area_atmosphere/start_project` issue.
+- Meter valence already exists for several lower-is-better meters in `generatorHelpers.ts`, and pressure labels come from `pressureRegistry`. Phase 4 should extend/clarify that existing valence and label surface, not create an unrelated label map in the UI.
+- The test suite already has card composition gates and real-seed shape capture under `tests/cards/compose/gates/`. New audits should reuse these triggering-state and capture patterns where possible, then add a script only when a durable report artifact is needed.
+
+Implementation rule for this documentation pass:
+
+> Do not add new runtime behavior while strengthening this plan. The purpose here is to make future implementation steps precise enough that they can be completed without guessing how cards are generated today.
+
 ## Phase 0: Preserve Current Behavior Before Surgery
 
 ### Goal
@@ -30,10 +57,20 @@ Create a baseline so future changes can be compared against the current output.
 
 ### Tasks
 
-1. Add or update a development-only card sampling script.
-2. Generate a representative sample of all current card families and response slots.
-3. Save sample output to a non-runtime audit location.
-4. Include immediate effects, delayed effects, previews, labels, causes, and risks.
+1. Reuse existing test/gate infrastructure before inventing a new path:
+   - real seed shapes: `tests/cards/compose/gates/realSeedShapes.ts`
+   - triggering states: `tests/sim/triggeringStates.ts`
+   - gate samplers: `tests/cards/compose/gates/samplers.ts`
+   - card helper entry point: `composeChoicesFromSeed()` in `src/cards/cardHelpers.ts`
+2. Add a development-only sampler script only if no existing command can emit durable files. Prefer `scripts/sample-card-choices.ts` over a non-existent `src/dev/` directory.
+3. Generate a representative sample of all current card families, seed types, response slots, and rendered choices.
+4. Save sample output to a non-runtime audit location.
+5. Include both authored simulation data and rendered card data:
+   - seed id, family, type, timing, severity, urgency
+   - causes, pressures, stakes, memories, future hooks
+   - response slot id, label hint, allowed verbs, shape, expected effects
+   - consequence profile id, immediate effects, delayed effects, impact score
+   - rendered `CardChoice.label`, `previewEffects`, and `mechanicalEffects`
 
 Suggested output location:
 
@@ -53,8 +90,9 @@ docs/audits/generated-card-baseline/reputation-samples.md
 
 ### Acceptance Criteria
 
-- A developer can run one command and generate card samples.
+- A developer can run one command and generate card samples, for example `npm run sample:card-choices`. If the implementation uses TypeScript scripts directly, add the required runner dependency or wrapper as part of that phase.
 - The output includes enough information to inspect choice labels, option prose, effect chips, immediate effects, delayed effects, and card causes.
+- The output distinguishes authored preview data from rendered card data, so hidden delayed effects are obvious.
 - No gameplay logic is changed in this phase.
 
 ---
@@ -69,19 +107,15 @@ The audit should inspect every issue seed, card template, response slot, and con
 
 ### Tasks
 
-Create a script similar to:
-
-```text
-src/dev/auditCardChoices.ts
-```
-
-or:
+Create a script at:
 
 ```text
 scripts/audit-card-choices.ts
 ```
 
-The script should output one row per generated choice.
+Do not place this under `src/dev/`; that directory does not currently exist. If the project does not already include a TypeScript script runner dependency, either add the minimal package-script support needed for the audit or write an `.mjs` wrapper that imports compiled/testable modules without changing runtime code.
+
+The script should output one row per generated choice. Build rows from real `IssueSeed` objects and the corresponding `CardChoice` objects returned by the same helper the templates use, not from hand-authored fixtures.
 
 Each row should include:
 
@@ -92,8 +126,11 @@ seed id
 response slot id
 response label
 response shape
+allowed verbs
+target options
 choice label
-choice prose
+rendered previewEffects
+rendered mechanicalEffects
 immediate effects
 delayed effects
 expected effects
@@ -101,6 +138,7 @@ visible preview effects
 cost effects
 benefit effects
 risk effects
+effect targetKind/direction/magnitudeBand/meterId/meterLabel
 hidden delayed benefits
 hidden delayed risks
 warning flags
@@ -127,7 +165,7 @@ label_strength_mismatch
 
 #### Expected Cost Missing
 
-If `expectedEffects` claims any of the following, the actual immediate or delayed effects must contain a matching mechanical cost, risk, or tradeoff:
+If `expectedEffects` or a future `ChoiceContract.costTypes` declaration claims any of the following, the actual immediate or delayed effects must contain a matching mechanical cost, risk, or tradeoff. This check should be metadata-first; use `EffectPreview.targetKind`, `target`, `direction`, `meterId`, and tags before falling back to readable strings:
 
 ```text
 time cost
@@ -142,7 +180,7 @@ If not, flag it.
 
 #### Free Positive Option
 
-If an option has meaningful positive immediate effects and no visible cost, downside, delayed risk, or limitation, flag it.
+If an option has meaningful positive immediate effects and no visible cost, downside, delayed risk, or limitation, flag it. "Visible" means present in rendered `previewEffects` or `mechanicalEffects`, not merely implied by `expectedEffects` text.
 
 This especially matters for options such as:
 
@@ -158,7 +196,7 @@ negotiate_supplier
 
 #### Hidden Delayed Benefit
 
-If an option has delayed positive effects that explain its strategic value, but those effects are not shown in the preview, flag it.
+If an option has delayed positive effects that explain its strategic value, but those effects are not shown in `previewEffects` or `mechanicalEffects`, flag it. Treat lower-is-better decreases and pressure relief as positive benefits by using existing direction/valence metadata rather than raw sign.
 
 This is especially important for long-term investments such as:
 
@@ -172,11 +210,12 @@ If one option costs more and appears to do less than another option in the same 
 
 ### Acceptance Criteria
 
-- The audit script runs without changing game state.
-- The audit produces a readable Markdown or JSON report.
+- The audit script runs without mutating the input game state and without applying responses.
+- The audit produces a readable Markdown or JSON report under `docs/audits/` or another non-runtime output path.
 - The report identifies systemic card-coherence failures.
-- The audit catches the `area_atmosphere/start_project` hidden delayed payoff issue.
+- The audit catches the `area_atmosphere/start_project` hidden delayed payoff issue caused by delayed `condition` and `maintenance` benefits that are not tagged as decision-relevant delayed effects today.
 - The audit catches free-benefit options where costs exist only in prose or `expectedEffects`.
+- The audit reuses existing real-seed capture/triggering-state patterns instead of relying only on synthetic card factories.
 
 ---
 
@@ -200,7 +239,7 @@ or:
 ChoiceContract
 ```
 
-This should exist alongside current response shapes at first. Do not replace the old system immediately.
+This should exist alongside current response shapes at first. Do not replace the old system immediately, because `shape` is already consumed by card rendering, tests, and policy-bot code.
 
 ### Suggested Archetypes
 
@@ -229,7 +268,7 @@ type ChoiceArchetype =
 
 ### Contract Fields
 
-Each response slot or consequence profile should be able to declare something like:
+Each response slot should be able to declare something like the following. Prefer `ResponseSlot.choiceContract` for slot-level promises; use `ConsequenceProfile` only for profile-specific role overrides when one slot can map to multiple profiles.
 
 ```ts
 choiceContract: {
@@ -340,10 +379,11 @@ must never look like a neutral choice unless the problem is genuinely trivial
 
 ### Acceptance Criteria
 
-- Choice archetypes are defined in a central location.
-- At least `area_atmosphere` response slots are annotated with contracts.
-- The audit script can read these contracts.
+- Choice archetypes and contract types are defined in a central simulation/card contract location, likely near `issueSeedTypes.ts` or a colocated imported type module.
+- At least `area_atmosphere` response slots in `expandedSeedGenerators.ts` are annotated with contracts or covered by a sidecar map keyed by slot id.
+- The audit script can read these contracts without invoking the renderer.
 - The system can validate archetype-specific rules without changing the runtime renderer yet.
+- Existing code that only expects `ResponseSlot.shape` continues to work.
 
 ---
 
@@ -353,11 +393,11 @@ must never look like a neutral choice unless the problem is genuinely trivial
 
 Make the preview system show the effects that explain a choice’s actual strategic meaning.
 
-Currently, delayed effects can be hidden unless they are future hooks or tagged as risks. This makes long-term options look irrational.
+Currently, active choices can append one delayed line, but `selectDelayedPreviewEffect()` only selects delayed `future_hook` effects or delayed effects tagged `future_hook` / `risk`. Delayed positive payoffs without those tags can be hidden. This makes long-term options look irrational.
 
 ### Tasks
 
-Update preview selection so effects are selected by role, not merely by generic importance.
+Update preview selection so effects are selected by role, not merely by generic importance or delayed relevance tags.
 
 Each choice preview should try to show:
 
@@ -370,7 +410,7 @@ main delayed risk
 future hook, if any
 ```
 
-The required roles should depend on `ChoiceArchetype`.
+The required roles should depend on `ChoiceArchetype`, while preserving the existing hard guarantees that coin costs and inaction consequences remain visible.
 
 ### Archetype Preview Requirements
 
@@ -433,10 +473,11 @@ risk escalation
 
 ### Acceptance Criteria
 
-- `start_project` no longer appears worse than `repair_area` because its delayed payoff is visible.
+- `start_project` no longer appears worse than `repair_area` because its delayed condition payoff and maintenance-pressure relief are visible.
 - Long-term investments consistently show why they are long-term investments.
-- Delayed risks and delayed benefits have clear labels such as `Later`, `Delayed`, or `Risk`.
-- Existing preview tests are updated rather than bypassed.
+- Delayed risks and delayed benefits have clear labels such as `Later`, `Delayed`, or `Risk`; if the code keeps the existing prefix, use the existing `later: ` convention consistently.
+- Existing preview tests are updated rather than bypassed, especially tests around `selectPreviewEffects`, `selectDelayedPreviewEffect`, legibility gates, faithfulness gates, and Phase 189 consequence previews.
+- The total preview line cap policy is explicitly re-decided: either delayed role lines remain additive as today, or the plan documents which immediate line can be displaced and why.
 
 ---
 
@@ -456,9 +497,9 @@ This looks good, but it is bad if it means maintenance pressure or backlog incre
 
 ### Tasks
 
-Review all meters and pressures.
+Review all meters and pressures, starting with the existing `METER_VALENCE` in `generatorHelpers.ts`, pressure labels in `pressureRegistry`, and `formatEffectPreview()` label construction.
 
-Classify each displayed meter as one of:
+Classify each displayed meter as one of these display categories. Do not duplicate an unrelated UI-only truth table if the sim already knows the meter direction; extend the existing sim/card metadata instead:
 
 ```text
 good_when_higher
@@ -505,10 +546,11 @@ Repair Backlog +10
 
 ### Acceptance Criteria
 
-- Pressure-style effects display with pressure/backlog/risk/tension wording.
-- Positive and negative direction is understandable from the chip label.
+- Pressure-style effects display with pressure/backlog/risk/tension wording where appropriate.
+- Positive and negative direction is understandable from the chip label and amount together.
 - Card previews no longer make bad increases look beneficial.
 - Tests cover at least maintenance pressure, staff fatigue, room damage, mess, smell, tension, and reputation changes.
+- Existing valence behavior is preserved for lower-is-better state meters and for pressure meters, which intentionally use pressure-specific labels and direction wording.
 
 ---
 
@@ -565,7 +607,7 @@ Expected shape:
 
 ```text
 improves cleanliness/smell/mess
-must have visible cost or limited-use reason
+must have visible cost or a mechanically checkable limited-use reason
 must not repair structural damage
 ```
 
@@ -576,9 +618,10 @@ Coin -5
 Staff Fatigue +4
 Service Pace -5
 Owner Time -1
+Temporary Capacity -1
 ```
 
-Pick the cost type that best matches existing simulation resources.
+Pick the cost type that best matches existing simulation resources. If the resource does not exist, add that missing resource to the implementation plan explicitly before using it in examples or tests.
 
 #### `start_project`
 
@@ -594,7 +637,7 @@ Expected shape:
 high coin cost
 some immediate condition improvement
 visible delayed condition improvement
-visible delayed maintenance pressure reduction
+visible delayed maintenance-pressure reduction
 possibly project/follow-up language
 ```
 
@@ -613,7 +656,7 @@ Expected shape:
 ```text
 reduces damage or mess
 improves cleanliness modestly
-must reduce capacity, revenue, traffic, service speed, or guest comfort
+must reduce capacity, revenue, traffic, service speed, guest comfort, or another real operational meter. The current area-atmosphere profile uses delayed `pressure:stock_shortage +6` as a proxy for capacity loss; the implementation should decide whether that is the right target or whether a clearer service/capacity effect is needed.
 ```
 
 #### `rebrand_area`
@@ -627,7 +670,7 @@ spin_or_rebrand
 Expected shape:
 
 ```text
-small or no physical improvement
+small cosmetic improvement at most; no meaningful structural repair
 respectable reputation cost
 possible rough/cozy audience shift
 root issue remains clear
@@ -745,7 +788,7 @@ Coin -5
 
 ### Acceptance Criteria
 
-- Ale and stock problems no longer feel unavoidable on day 1 unless intentionally seeded as starting conditions.
+- Ale and stock problems no longer feel unavoidable on day 1 unless intentionally seeded as starting conditions. This may require checking stock initial state and pressure calculators in addition to card text.
 - Buying/restocking always shows quantity and cost.
 - Cheap options visibly carry risk.
 - Conservation/rationing choices visibly cost satisfaction, reputation, or revenue.
@@ -823,7 +866,7 @@ must show delayed payoff if expensive
 - Staff cards show exact bonus/pay amounts.
 - Staff care is beneficial but not free.
 - Staff push choices have visible human costs.
-- Early-game loyalty cards do not punish the player for conditions they could not yet influence.
+- Early-game loyalty cards do not punish the player for conditions they could not yet influence. This is a seed-triggering and pressure-calculation check, not only a card-copy check.
 - Staff-related delayed benefits and risks are visible.
 
 ---
@@ -1232,3 +1275,54 @@ Ignore it and let the goblins chew the floorboards.
 ```
 
 That is the target.
+
+---
+
+## Cross-Cutting Implementation Notes
+
+### Files and Surfaces to Inspect Before Coding
+
+Before implementing any phase, inspect these files and update the plan if their contracts have changed:
+
+```text
+src/sim/modules/issues/issueSeedTypes.ts
+src/sim/modules/issues/issueSeedGenerators.ts
+src/sim/modules/issues/expandedSeedGenerators.ts
+src/sim/modules/issues/generatorHelpers.ts
+src/sim/core/effect.ts
+src/cards/cardHelpers.ts
+src/cards/compose/previewSelect.ts
+src/cards/compose/formatEffectPreview.ts
+src/cards/compose/salience.ts
+src/cards/compose/pools/**/effectPreview.ts
+tests/cards/compose/gates/realSeedShapes.ts
+tests/cards/compose/gates/samplers.ts
+tests/cards/compose/gates/legibility.test.ts
+tests/cards/compose/gates/faithfulness.test.ts
+tests/cards/compose/phase189.consequenceLegible.test.ts
+tests/cards/templates.areaAtmosphere.test.ts
+```
+
+### Tests That Should Move With the Work
+
+Each implementation phase should add or update tests in the same change. At minimum:
+
+```text
+npm run typecheck
+npm test
+npx vitest run tests/cards/templates.areaAtmosphere.test.ts
+npx vitest run tests/cards/compose/phase189.consequenceLegible.test.ts
+npx vitest run tests/cards/compose/gates/legibility.test.ts
+npx vitest run tests/cards/compose/gates/faithfulness.test.ts
+```
+
+Adjust commands to the repository's current test runner; the important point is that contract changes must be covered at both the unit-helper level and the real-seed/gate level.
+
+### Rollout Guardrails
+
+- Do not repair every family at once. Land the audit harness first, then the `area_atmosphere` vertical slice, then expand by domain.
+- Keep authored simulation effects authoritative. Snippet pools may reword labels and previews, but they must not invent a cost, payoff, or risk not backed by `EffectPreview`.
+- Avoid relying on `expectedEffects` prose as truth. It is useful for audit hints, but mechanical truth lives in `ConsequenceProfile` effects and future contract metadata.
+- When examples mention a meter that does not exist today, mark it as a proposed meter rather than an immediate implementation instruction.
+- Every new contract field needs migration/default behavior for existing seeds, fixtures, and tests.
+- Every warning emitted by the audit should include enough source context to fix it: family, seed id, slot id, profile id, effect targets, rendered preview lines, and the rule that fired.

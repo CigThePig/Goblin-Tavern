@@ -79,6 +79,14 @@ function labelFromDottedTarget(effect: EffectPreview, state?: TavernState): stri
       .filter(Boolean)
       .join(' ')
   }
+  if (parts[0] === 'cultures' && parts[1]) {
+    return [
+      entityLabel(state, 'cultures', parts[1]),
+      meterLabel(effect) ?? titleCase(parts[parts.length - 1]!),
+    ]
+      .filter(Boolean)
+      .join(' ')
+  }
   if (parts[0] === 'world' && parts[1] && parts[2]) {
     const worldKind = parts[1]
     return [

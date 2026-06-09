@@ -123,6 +123,7 @@ const METER_VALENCE: Record<string, 'lowerIsBetter'> = {
   smell: 'lowerIsBetter', // area
   mess: 'lowerIsBetter', // area
   risk: 'lowerIsBetter', // area
+  spoilage: 'lowerIsBetter', // stock
   tension: 'lowerIsBetter', // culture
   irritation: 'lowerIsBetter', // regular (defensive — may not be emitted today)
   rowdiness: 'lowerIsBetter', // customer_group cohort (defensive)

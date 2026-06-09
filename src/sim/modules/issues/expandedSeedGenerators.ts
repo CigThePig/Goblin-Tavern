@@ -1182,8 +1182,9 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
   }
   if (causes.length === 0) return []
 
-  const goodsRef = chosen.goodsProvided[0]
-    ? stockRef(chosen.goodsProvided[0])
+  const goodsId = chosen.goodsProvided[0]
+  const goodsRef = goodsId
+    ? stockRef(goodsId)
     : systemRef('market')
 
   const responseSlots: ResponseSlot[] = [
@@ -1194,6 +1195,14 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
       shape: 'safe_costly',
       targetOptions: [ref],
       expectedEffects: ['clear debt', 'spend coin'],
+      choiceContract: {
+        archetype: 'compensate',
+        primaryTarget: 'pressure.supplier_distrust',
+        solves: ['late_supplier_payment'],
+        costTypes: ['coin'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'negotiate_supplier',
@@ -1201,7 +1210,15 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['negotiate'],
       shape: 'compromise',
       targetOptions: [ref],
-      expectedEffects: ['shift price', 'risk relationship'],
+      expectedEffects: ['shift price', 'spend coin concession'],
+      choiceContract: {
+        archetype: 'negotiate',
+        primaryTarget: 'pressure.stock_shortage',
+        solves: ['supplier_terms'],
+        costTypes: ['coin'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'blame_supplier',
@@ -1210,6 +1227,14 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
       shape: 'relationship_sacrifice',
       targetOptions: [ref],
       expectedEffects: ['shed blame', 'destroy relationship'],
+      choiceContract: {
+        archetype: 'appease',
+        primaryTarget: 'supplier.relationship',
+        doesNotSolve: ['supplier_distrust'],
+        costTypes: ['relationship_risk', 'pressure_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'switch_supplier',
@@ -1218,6 +1243,16 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
       shape: 'long_term_investment',
       targetOptions: [ref],
       expectedEffects: ['change goods quality', 'lose relationship'],
+      choiceContract: {
+        archetype: 'major_project',
+        primaryTarget: 'supplier.reliability',
+        solves: ['supplier_distrust'],
+        doesNotSolve: ['today_stock_gap'],
+        costTypes: ['coin', 'relationship_risk', 'pressure_risk'],
+        payoffTiming: 'mixed',
+        mustShowDelayedPayoff: true,
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'accept_suspicious_goods',
@@ -1225,7 +1260,16 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['buy'],
       shape: 'risky_profitable',
       targetOptions: [goodsRef],
-      expectedEffects: ['cheap stock', 'risk food safety'],
+      expectedEffects: ['cheap stock quantity', 'spend discounted coin', 'raise spoilage risk'],
+      choiceContract: {
+        archetype: 'cheap_supplier',
+        primaryTarget: goodsId ? `stock.${goodsId}.quantity` : 'stock.quantity',
+        solves: ['stock_shortage'],
+        doesNotSolve: ['food_safety_risk'],
+        costTypes: ['coin', 'pressure_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'refuse_supplier_offer',
@@ -1233,7 +1277,16 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['ignore'],
       shape: 'safe_costly',
       targetOptions: [ref],
-      expectedEffects: ['no risk', 'less stock'],
+      expectedEffects: ['avoid food safety risk', 'risk supplier relationship', 'less stock'],
+      choiceContract: {
+        archetype: 'delay',
+        primaryTarget: 'pressure.food_safety',
+        solves: ['suspicious_goods'],
+        doesNotSolve: ['stock_shortage'],
+        costTypes: ['relationship_risk', 'pressure_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'place_standing_order',
@@ -1241,7 +1294,16 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['buy', 'negotiate'],
       shape: 'safe_costly',
       targetOptions: [ref],
-      expectedEffects: ['lock weekly volume', 'reduce market exposure'],
+      expectedEffects: ['lock weekly volume', 'spend coin', 'reduce market exposure'],
+      choiceContract: {
+        archetype: 'buy_stock',
+        primaryTarget: 'pressure.market_instability',
+        solves: ['market_exposure'],
+        costTypes: ['coin'],
+        payoffTiming: 'mixed',
+        mustShowDelayedPayoff: true,
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'inspect_delivery',
@@ -1249,7 +1311,15 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['inspect'],
       shape: 'compromise',
       targetOptions: [ref, goodsRef],
-      expectedEffects: ['gate suspicious goods', 'show supplier you care'],
+      expectedEffects: ['gate suspicious goods', 'spend inspection time', 'show supplier you care'],
+      choiceContract: {
+        archetype: 'policy_change',
+        primaryTarget: 'pressure.food_safety',
+        solves: ['suspicious_goods'],
+        costTypes: ['coin'],
+        payoffTiming: 'immediate',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'split_orders',
@@ -1259,7 +1329,16 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['buy', 'negotiate'],
       shape: 'long_term_investment',
       targetOptions: secondaryRef ? [ref, secondaryRef] : [ref],
-      expectedEffects: ['dilute supply risk', 'spread relationship cost'],
+      expectedEffects: ['dilute supply risk', 'spend coin', 'spread relationship cost'],
+      choiceContract: {
+        archetype: 'major_project',
+        primaryTarget: 'pressure.market_instability',
+        solves: ['single_supplier_risk'],
+        costTypes: ['coin'],
+        payoffTiming: 'mixed',
+        mustShowDelayedPayoff: true,
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'supplier_exclusivity_deal',
@@ -1268,6 +1347,15 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
       shape: 'risky_profitable',
       targetOptions: [ref],
       expectedEffects: ['unlock discount', 'single point of failure'],
+      choiceContract: {
+        archetype: 'cheap_supplier',
+        primaryTarget: 'coin',
+        solves: ['short_term_supplier_cost'],
+        doesNotSolve: ['single_supplier_risk'],
+        costTypes: ['pressure_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'investigate_suspicious_goods',
@@ -1275,7 +1363,15 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['inspect', 'discard'],
       shape: 'safe_costly',
       targetOptions: [ref, goodsRef],
-      expectedEffects: ['close food safety gap', 'spend hours'],
+      expectedEffects: ['close food safety gap', 'spend coin on inspection hours'],
+      choiceContract: {
+        archetype: 'policy_change',
+        primaryTarget: 'pressure.food_safety',
+        solves: ['suspicious_goods'],
+        costTypes: ['coin', 'relationship_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
   ]
 
@@ -1335,6 +1431,7 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
       id: 'negotiate_supplier_profile',
       responseSlotId: 'negotiate_supplier',
       immediateEffects: [
+        effect('state_change', 'coin', -5, 'Concession sweetens the negotiation', ['coin']),
         effect('cause', `supplier:${chosen.id}`, 12, 'Negotiation succeeds', [
           'supplier',
           'fair_deal',
@@ -1503,21 +1600,31 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
       id: 'accept_suspicious_profile',
       responseSlotId: 'accept_suspicious_goods',
       immediateEffects: [
-        effect('pressure', 'pressure:food_safety', 8, 'Food safety risk rises', ['pressure']),
-        effect('pressure', 'pressure:inspection', 6, 'Inspection risk rises', ['pressure']),
+        ...(goodsId
+          ? [
+              effect('state_change', `stock.${goodsId}.quantity`, 18, 'Discount goods added to stock', [
+                'stock',
+              ]),
+              effect('state_change', 'coin', -8, 'Pay discounted supplier cost', ['coin']),
+              effect('state_change', `stock.${goodsId}.spoilage`, 6, 'Questionable goods spoil faster', [
+                'stock',
+                'risk',
+              ]),
+            ]
+          : [effect('state_change', 'coin', -8, 'Pay discounted supplier cost', ['coin'])]),
         effect('cause', `supplier:${chosen.id}`, 4, 'Supplier owes a favour', [
           'supplier',
           'attribution',
         ]),
-        effect('state_change', 'coin', 6, 'Cheap goods, immediate margin', ['coin']),
       ],
       delayedEffects: [
+        effect('pressure', 'pressure:food_safety', 8, 'Food safety risk rises', ['pressure', 'risk']),
         effect(
           'future_hook',
           `food_poisoning_outbreak_${chosen.id}`,
-          12,
+          0,
           'Outbreak risk grows',
-          ['future_hook'],
+          ['future_hook', 'risk'],
         ),
       ],
       memories: [

@@ -10,6 +10,18 @@
       "responseSlotId": "discard_stock",
       "responseLabel": "Discard questionable stock",
       "responseShape": "safe_costly",
+      "choiceContract": {
+        "archetype": "policy_change",
+        "primaryTarget": "pressure.food_safety",
+        "solves": [
+          "unsafe_stock"
+        ],
+        "costTypes": [
+          "stock"
+        ],
+        "payoffTiming": "immediate",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "discard"
       ],
@@ -189,6 +201,22 @@
       "responseSlotId": "clean_kitchen",
       "responseLabel": "Clean the kitchen",
       "responseShape": "long_term_investment",
+      "choiceContract": {
+        "archetype": "clean",
+        "primaryTarget": "areas.kitchen.cleanliness",
+        "solves": [
+          "kitchen_mess",
+          "food_safety_risk"
+        ],
+        "doesNotSolve": [
+          "spoiled_stock"
+        ],
+        "costTypes": [
+          "staff_fatigue"
+        ],
+        "payoffTiming": "immediate",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "clean"
       ],
@@ -198,11 +226,13 @@
       "choiceLabel": "Scrub it",
       "renderedPreviewEffects": [
         "the floor would gain a real step of polish",
-        "the food-safety risk would ease a clear drop tonight"
+        "the food-safety risk would ease a clear drop tonight",
+        "fatigue would creep a step across the shift"
       ],
       "renderedMechanicalEffects": [
         "Kitchen Cleanliness +25",
-        "Food Safety Risk -10"
+        "Food Safety Risk -10",
+        "Ib Mudshank Fatigue +6"
       ],
       "immediateEffects": [
         {
@@ -244,12 +274,32 @@
             "benefit"
           ],
           "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "staff.cook.fatigue",
+          "amount": 6,
+          "readable": "Kitchen scrub tires the cook",
+          "tags": [
+            "staff"
+          ],
+          "targetKind": "staff",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "fatigue",
+          "meterLabel": "fatigue",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Ib Mudshank Fatigue +6",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
         }
       ],
       "delayedEffects": [],
       "expectedEffects": [
         "raise kitchen cleanliness",
-        "time and effort cost"
+        "staff burden"
       ],
       "visiblePreviewEffects": [
         {
@@ -291,9 +341,50 @@
             "benefit"
           ],
           "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "staff.cook.fatigue",
+          "amount": 6,
+          "readable": "Kitchen scrub tires the cook",
+          "tags": [
+            "staff"
+          ],
+          "targetKind": "staff",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "fatigue",
+          "meterLabel": "fatigue",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Ib Mudshank Fatigue +6",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
         }
       ],
-      "costEffects": [],
+      "costEffects": [
+        {
+          "kind": "state_change",
+          "target": "staff.cook.fatigue",
+          "amount": 6,
+          "readable": "Kitchen scrub tires the cook",
+          "tags": [
+            "staff"
+          ],
+          "targetKind": "staff",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "fatigue",
+          "meterLabel": "fatigue",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Ib Mudshank Fatigue +6",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
+        }
+      ],
       "benefitEffects": [
         {
           "kind": "state_change",
@@ -339,9 +430,7 @@
       "riskEffects": [],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_cost_missing"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "food_safety",
@@ -352,6 +441,19 @@
       "responseSlotId": "serve_anyway",
       "responseLabel": "Serve it anyway",
       "responseShape": "risky_profitable",
+      "choiceContract": {
+        "archetype": "cut_corners",
+        "primaryTarget": "coin",
+        "doesNotSolve": [
+          "food_safety_risk",
+          "spoiled_stock"
+        ],
+        "costTypes": [
+          "pressure_risk"
+        ],
+        "payoffTiming": "immediate",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "serve"
       ],
@@ -585,6 +687,19 @@
       "responseSlotId": "blame_supplier",
       "responseLabel": "Blame the supplier",
       "responseShape": "relationship_sacrifice",
+      "choiceContract": {
+        "archetype": "appease",
+        "primaryTarget": "supplier.relationship",
+        "doesNotSolve": [
+          "food_safety_risk",
+          "spoiled_stock"
+        ],
+        "costTypes": [
+          "relationship_risk"
+        ],
+        "payoffTiming": "delayed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "blame"
       ],
@@ -594,10 +709,14 @@
       "choiceLabel": "Pin it on the supplier",
       "renderedPreviewEffects": [
         "The reason would be recorded plainly",
+        "supplier distrust would climb a step tonight",
+        "Blame may leak publicly",
         "later: A flag would mark the slate for later"
       ],
       "renderedMechanicalEffects": [
         "Push blame onto supplier",
+        "Supplier Distrust Risk +8",
+        "Rumour Pressure +5",
         "later: Supplier may retaliate later"
       ],
       "immediateEffects": [
@@ -614,6 +733,46 @@
           "meterId": "global",
           "formatted": "Push blame onto supplier",
           "roles": [],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:supplier_distrust",
+          "amount": 8,
+          "readable": "Supplier distrust rises",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "supplier_distrust",
+          "meterLabel": "Supplier Distrust Risk",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Supplier Distrust Risk +8",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:rumour_pressure",
+          "amount": 5,
+          "readable": "Blame may leak publicly",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "rumour_pressure",
+          "meterLabel": "Rumour Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Rumour Pressure +5",
+          "roles": [
+            "risk"
+          ],
           "visible": true
         }
       ],
@@ -636,7 +795,7 @@
       ],
       "expectedEffects": [
         "avoid immediate blame",
-        "create supplier grudge memory"
+        "risk supplier relationship"
       ],
       "visiblePreviewEffects": [
         {
@@ -652,6 +811,46 @@
           "meterId": "global",
           "formatted": "Push blame onto supplier",
           "roles": [],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:supplier_distrust",
+          "amount": 8,
+          "readable": "Supplier distrust rises",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "supplier_distrust",
+          "meterLabel": "Supplier Distrust Risk",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Supplier Distrust Risk +8",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:rumour_pressure",
+          "amount": 5,
+          "readable": "Blame may leak publicly",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "rumour_pressure",
+          "meterLabel": "Rumour Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Rumour Pressure +5",
+          "roles": [
+            "risk"
+          ],
           "visible": true
         },
         {
@@ -672,12 +871,51 @@
       ],
       "costEffects": [],
       "benefitEffects": [],
-      "riskEffects": [],
+      "riskEffects": [
+        {
+          "kind": "pressure",
+          "target": "pressure:supplier_distrust",
+          "amount": 8,
+          "readable": "Supplier distrust rises",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "supplier_distrust",
+          "meterLabel": "Supplier Distrust Risk",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Supplier Distrust Risk +8",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:rumour_pressure",
+          "amount": 5,
+          "readable": "Blame may leak publicly",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "rumour_pressure",
+          "meterLabel": "Rumour Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Rumour Pressure +5",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        }
+      ],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_risk_missing"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "maintenance",
@@ -3007,6 +3245,18 @@
       "responseSlotId": "restock",
       "responseLabel": "Restock ale",
       "responseShape": "safe_costly",
+      "choiceContract": {
+        "archetype": "buy_stock",
+        "primaryTarget": "stock.ale.quantity",
+        "solves": [
+          "stock_shortage"
+        ],
+        "costTypes": [
+          "coin"
+        ],
+        "payoffTiming": "immediate",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "buy"
       ],
@@ -3231,6 +3481,18 @@
       "responseSlotId": "raise_prices",
       "responseLabel": "Raise prices",
       "responseShape": "risky_profitable",
+      "choiceContract": {
+        "archetype": "policy_change",
+        "primaryTarget": "stock.ale.salePrice",
+        "doesNotSolve": [
+          "stock_shortage"
+        ],
+        "costTypes": [
+          "relationship_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "raise_price"
       ],
@@ -3435,6 +3697,18 @@
       "responseSlotId": "water_down",
       "responseLabel": "Stretch the ale",
       "responseShape": "deception",
+      "choiceContract": {
+        "archetype": "cut_corners",
+        "primaryTarget": "stock.ale.quantity",
+        "doesNotSolve": [
+          "real_stock_shortage"
+        ],
+        "costTypes": [
+          "reputation_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "serve"
       ],
@@ -3671,6 +3945,21 @@
       "responseSlotId": "limit_sales",
       "responseLabel": "Limit sales",
       "responseShape": "compromise",
+      "choiceContract": {
+        "archetype": "delay",
+        "primaryTarget": "pressure.stock_shortage",
+        "solves": [
+          "demand_spike"
+        ],
+        "doesNotSolve": [
+          "low_stock_quantity"
+        ],
+        "costTypes": [
+          "relationship_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "delay"
       ],
@@ -3730,7 +4019,7 @@
       ],
       "expectedEffects": [
         "conserve stock",
-        "lose income"
+        "risk customer satisfaction"
       ],
       "visiblePreviewEffects": [
         {
@@ -3809,6 +4098,18 @@
       "responseSlotId": "ignore",
       "responseLabel": "Ignore the shortage",
       "responseShape": "ignore",
+      "choiceContract": {
+        "archetype": "ignore",
+        "primaryTarget": "pressure.stock_shortage",
+        "doesNotSolve": [
+          "stock_shortage"
+        ],
+        "costTypes": [
+          "none"
+        ],
+        "payoffTiming": "delayed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "ignore"
       ],
@@ -3906,6 +4207,18 @@
       "responseSlotId": "pay_supplier",
       "responseLabel": "Pay Brakka Mushroom Cart",
       "responseShape": "safe_costly",
+      "choiceContract": {
+        "archetype": "compensate",
+        "primaryTarget": "pressure.supplier_distrust",
+        "solves": [
+          "late_supplier_payment"
+        ],
+        "costTypes": [
+          "coin"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "pay"
       ],
@@ -4216,7 +4529,9 @@
       "riskEffects": [],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": []
+      "warningFlags": [
+        "possible_dominated_option"
+      ]
     },
     {
       "cardFamily": "supplier_relationship",
@@ -4227,6 +4542,18 @@
       "responseSlotId": "negotiate_supplier",
       "responseLabel": "Negotiate",
       "responseShape": "compromise",
+      "choiceContract": {
+        "archetype": "negotiate",
+        "primaryTarget": "pressure.stock_shortage",
+        "solves": [
+          "supplier_terms"
+        ],
+        "costTypes": [
+          "coin"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "negotiate"
       ],
@@ -4235,18 +4562,38 @@
       ],
       "choiceLabel": "Cut the terms shorter",
       "renderedPreviewEffects": [
-        "a marked rise would steady the merchant route",
-        "shortage risk would ease a step on the shelves",
-        "a touch of goodwill would reach the trader",
+        "a notch of silver would slip from the purse",
+        "the supplier would lift a real step closer",
+        "the shortage risk would settle a notch in the cellar",
         "later: Terms may need revisiting"
       ],
       "renderedMechanicalEffects": [
+        "Coin -5",
         "Brakka Mushroom Cart +12",
         "Stock Shortage Risk -6",
-        "Brakka Mushroom Cart Relationship +3",
         "later: Terms may need revisiting"
       ],
       "immediateEffects": [
+        {
+          "kind": "state_change",
+          "target": "coin",
+          "amount": -5,
+          "readable": "Concession sweetens the negotiation",
+          "tags": [
+            "coin"
+          ],
+          "targetKind": "coin",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "coin",
+          "meterLabel": "coin",
+          "meterDisplayCategory": "resource",
+          "formatted": "Coin -5",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
+        },
         {
           "kind": "cause",
           "target": "supplier:brakka_mushroom_cart",
@@ -4325,7 +4672,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         }
       ],
       "delayedEffects": [
@@ -4350,9 +4697,29 @@
       ],
       "expectedEffects": [
         "shift price",
-        "risk relationship"
+        "spend coin concession"
       ],
       "visiblePreviewEffects": [
+        {
+          "kind": "state_change",
+          "target": "coin",
+          "amount": -5,
+          "readable": "Concession sweetens the negotiation",
+          "tags": [
+            "coin"
+          ],
+          "targetKind": "coin",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "coin",
+          "meterLabel": "coin",
+          "meterDisplayCategory": "resource",
+          "formatted": "Coin -5",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
+        },
         {
           "kind": "cause",
           "target": "supplier:brakka_mushroom_cart",
@@ -4394,26 +4761,6 @@
           "visible": true
         },
         {
-          "kind": "state_change",
-          "target": "world.suppliers.brakka_mushroom_cart.relationship",
-          "amount": 3,
-          "readable": "Relationship up",
-          "tags": [
-            "supplier"
-          ],
-          "targetKind": "supplier",
-          "direction": "positive",
-          "magnitudeBand": "tiny",
-          "meterId": "relationship",
-          "meterLabel": "relationship",
-          "meterDisplayCategory": "good_when_higher",
-          "formatted": "Brakka Mushroom Cart Relationship +3",
-          "roles": [
-            "benefit"
-          ],
-          "visible": true
-        },
-        {
           "kind": "future_hook",
           "target": "supplier_renegotiation_brakka_mushroom_cart",
           "amount": 8,
@@ -4432,7 +4779,28 @@
           "visible": true
         }
       ],
-      "costEffects": [],
+      "costEffects": [
+        {
+          "kind": "state_change",
+          "target": "coin",
+          "amount": -5,
+          "readable": "Concession sweetens the negotiation",
+          "tags": [
+            "coin"
+          ],
+          "targetKind": "coin",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "coin",
+          "meterLabel": "coin",
+          "meterDisplayCategory": "resource",
+          "formatted": "Coin -5",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
+        }
+      ],
       "benefitEffects": [
         {
           "kind": "cause",
@@ -4512,7 +4880,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         },
         {
           "kind": "future_hook",
@@ -4536,9 +4904,7 @@
       "riskEffects": [],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_risk_missing"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "supplier_relationship",
@@ -4549,6 +4915,19 @@
       "responseSlotId": "blame_supplier",
       "responseLabel": "Blame supplier",
       "responseShape": "relationship_sacrifice",
+      "choiceContract": {
+        "archetype": "appease",
+        "primaryTarget": "supplier.relationship",
+        "doesNotSolve": [
+          "supplier_distrust"
+        ],
+        "costTypes": [
+          "relationship_risk",
+          "pressure_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "blame"
       ],
@@ -4822,6 +5201,24 @@
       "responseSlotId": "switch_supplier",
       "responseLabel": "Switch supplier",
       "responseShape": "long_term_investment",
+      "choiceContract": {
+        "archetype": "major_project",
+        "primaryTarget": "supplier.reliability",
+        "solves": [
+          "supplier_distrust"
+        ],
+        "doesNotSolve": [
+          "today_stock_gap"
+        ],
+        "costTypes": [
+          "coin",
+          "relationship_risk",
+          "pressure_risk"
+        ],
+        "payoffTiming": "mixed",
+        "mustShowDelayedPayoff": true,
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "fire"
       ],
@@ -5120,6 +5517,22 @@
       "responseSlotId": "accept_suspicious_goods",
       "responseLabel": "Accept suspicious goods",
       "responseShape": "risky_profitable",
+      "choiceContract": {
+        "archetype": "cheap_supplier",
+        "primaryTarget": "stock.mushrooms.quantity",
+        "solves": [
+          "stock_shortage"
+        ],
+        "doesNotSolve": [
+          "food_safety_risk"
+        ],
+        "costTypes": [
+          "coin",
+          "pressure_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "buy"
       ],
@@ -5128,53 +5541,76 @@
       ],
       "choiceLabel": "Accept suspicious goods",
       "renderedPreviewEffects": [
-        "the food-safety risk would climb a step higher",
-        "Inspection risk rises",
-        "a step of coin would settle into the till",
+        "a step would deepen the pantry stores",
+        "the till would lighten by a step",
+        "a hair of stock would slip from the pantry",
+        "later: the food-safety risk would climb a step higher",
         "later: Outbreak risk grows"
       ],
       "renderedMechanicalEffects": [
-        "Food Safety Risk +8",
-        "Inspection Pressure +6",
-        "Coin +6",
+        "Mushrooms Quantity +18",
+        "Coin -8",
+        "Mushrooms Spoilage +6",
+        "later: Food Safety Risk +8",
         "later: Outbreak risk grows"
       ],
       "immediateEffects": [
         {
-          "kind": "pressure",
-          "target": "pressure:food_safety",
-          "amount": 8,
-          "readable": "Food safety risk rises",
+          "kind": "state_change",
+          "target": "stock.mushrooms.quantity",
+          "amount": 18,
+          "readable": "Discount goods added to stock",
           "tags": [
-            "pressure"
+            "stock"
           ],
-          "targetKind": "pressure",
+          "targetKind": "stock",
           "direction": "positive",
           "magnitudeBand": "small",
-          "meterId": "food_safety",
-          "meterLabel": "Food Safety Risk",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Food Safety Risk +8",
+          "meterId": "quantity",
+          "meterLabel": "quantity",
+          "meterDisplayCategory": "resource",
+          "formatted": "Mushrooms Quantity +18",
           "roles": [
-            "risk"
+            "benefit"
           ],
           "visible": true
         },
         {
-          "kind": "pressure",
-          "target": "pressure:inspection",
-          "amount": 6,
-          "readable": "Inspection risk rises",
+          "kind": "state_change",
+          "target": "coin",
+          "amount": -8,
+          "readable": "Pay discounted supplier cost",
           "tags": [
-            "pressure"
+            "coin"
           ],
-          "targetKind": "pressure",
-          "direction": "positive",
+          "targetKind": "coin",
+          "direction": "negative",
           "magnitudeBand": "small",
-          "meterId": "inspection",
-          "meterLabel": "Inspection Pressure",
+          "meterId": "coin",
+          "meterLabel": "coin",
+          "meterDisplayCategory": "resource",
+          "formatted": "Coin -8",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "stock.mushrooms.spoilage",
+          "amount": 6,
+          "readable": "Questionable goods spoil faster",
+          "tags": [
+            "stock",
+            "risk"
+          ],
+          "targetKind": "stock",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "spoilage",
+          "meterLabel": "spoilage",
           "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Inspection Pressure +6",
+          "formatted": "Mushrooms Spoilage +6",
           "roles": [
             "risk"
           ],
@@ -5198,58 +5634,17 @@
             "benefit"
           ],
           "visible": false
-        },
-        {
-          "kind": "state_change",
-          "target": "coin",
-          "amount": 6,
-          "readable": "Cheap goods, immediate margin",
-          "tags": [
-            "coin"
-          ],
-          "targetKind": "coin",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "coin",
-          "meterLabel": "coin",
-          "meterDisplayCategory": "resource",
-          "formatted": "Coin +6",
-          "roles": [],
-          "visible": true
         }
       ],
       "delayedEffects": [
         {
-          "kind": "future_hook",
-          "target": "food_poisoning_outbreak_brakka_mushroom_cart",
-          "amount": 12,
-          "readable": "Outbreak risk grows",
-          "tags": [
-            "future_hook"
-          ],
-          "targetKind": "other",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "food_poisoning_outbreak_brakka_mushroom_cart",
-          "formatted": "Outbreak risk grows",
-          "roles": [
-            "benefit"
-          ],
-          "visible": true
-        }
-      ],
-      "expectedEffects": [
-        "cheap stock",
-        "risk food safety"
-      ],
-      "visiblePreviewEffects": [
-        {
           "kind": "pressure",
           "target": "pressure:food_safety",
           "amount": 8,
           "readable": "Food safety risk rises",
           "tags": [
-            "pressure"
+            "pressure",
+            "risk"
           ],
           "targetKind": "pressure",
           "direction": "positive",
@@ -5264,64 +5659,170 @@
           "visible": true
         },
         {
-          "kind": "pressure",
-          "target": "pressure:inspection",
-          "amount": 6,
-          "readable": "Inspection risk rises",
+          "kind": "future_hook",
+          "target": "food_poisoning_outbreak_brakka_mushroom_cart",
+          "amount": 0,
+          "readable": "Outbreak risk grows",
           "tags": [
-            "pressure"
+            "future_hook",
+            "risk"
           ],
-          "targetKind": "pressure",
+          "targetKind": "other",
+          "direction": "neutral",
+          "meterId": "food_poisoning_outbreak_brakka_mushroom_cart",
+          "formatted": "Outbreak risk grows",
+          "roles": [],
+          "visible": true
+        }
+      ],
+      "expectedEffects": [
+        "cheap stock quantity",
+        "spend discounted coin",
+        "raise spoilage risk"
+      ],
+      "visiblePreviewEffects": [
+        {
+          "kind": "state_change",
+          "target": "stock.mushrooms.quantity",
+          "amount": 18,
+          "readable": "Discount goods added to stock",
+          "tags": [
+            "stock"
+          ],
+          "targetKind": "stock",
           "direction": "positive",
           "magnitudeBand": "small",
-          "meterId": "inspection",
-          "meterLabel": "Inspection Pressure",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Inspection Pressure +6",
+          "meterId": "quantity",
+          "meterLabel": "quantity",
+          "meterDisplayCategory": "resource",
+          "formatted": "Mushrooms Quantity +18",
           "roles": [
-            "risk"
+            "benefit"
           ],
           "visible": true
         },
         {
           "kind": "state_change",
           "target": "coin",
-          "amount": 6,
-          "readable": "Cheap goods, immediate margin",
+          "amount": -8,
+          "readable": "Pay discounted supplier cost",
           "tags": [
             "coin"
           ],
           "targetKind": "coin",
-          "direction": "positive",
+          "direction": "negative",
           "magnitudeBand": "small",
           "meterId": "coin",
           "meterLabel": "coin",
           "meterDisplayCategory": "resource",
-          "formatted": "Coin +6",
-          "roles": [],
+          "formatted": "Coin -8",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "stock.mushrooms.spoilage",
+          "amount": 6,
+          "readable": "Questionable goods spoil faster",
+          "tags": [
+            "stock",
+            "risk"
+          ],
+          "targetKind": "stock",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "spoilage",
+          "meterLabel": "spoilage",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Mushrooms Spoilage +6",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:food_safety",
+          "amount": 8,
+          "readable": "Food safety risk rises",
+          "tags": [
+            "pressure",
+            "risk"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "food_safety",
+          "meterLabel": "Food Safety Risk",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Food Safety Risk +8",
+          "roles": [
+            "risk"
+          ],
           "visible": true
         },
         {
           "kind": "future_hook",
           "target": "food_poisoning_outbreak_brakka_mushroom_cart",
-          "amount": 12,
+          "amount": 0,
           "readable": "Outbreak risk grows",
           "tags": [
-            "future_hook"
+            "future_hook",
+            "risk"
           ],
           "targetKind": "other",
-          "direction": "positive",
-          "magnitudeBand": "small",
+          "direction": "neutral",
           "meterId": "food_poisoning_outbreak_brakka_mushroom_cart",
           "formatted": "Outbreak risk grows",
+          "roles": [],
+          "visible": true
+        }
+      ],
+      "costEffects": [
+        {
+          "kind": "state_change",
+          "target": "coin",
+          "amount": -8,
+          "readable": "Pay discounted supplier cost",
+          "tags": [
+            "coin"
+          ],
+          "targetKind": "coin",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "coin",
+          "meterLabel": "coin",
+          "meterDisplayCategory": "resource",
+          "formatted": "Coin -8",
           "roles": [
-            "benefit"
+            "cost"
           ],
           "visible": true
         }
       ],
-      "costEffects": [],
       "benefitEffects": [
+        {
+          "kind": "state_change",
+          "target": "stock.mushrooms.quantity",
+          "amount": 18,
+          "readable": "Discount goods added to stock",
+          "tags": [
+            "stock"
+          ],
+          "targetKind": "stock",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "quantity",
+          "meterLabel": "quantity",
+          "meterDisplayCategory": "resource",
+          "formatted": "Mushrooms Quantity +18",
+          "roles": [
+            "benefit"
+          ],
+          "visible": true
+        },
         {
           "kind": "cause",
           "target": "supplier:brakka_mushroom_cart",
@@ -5340,34 +5841,38 @@
             "benefit"
           ],
           "visible": false
-        },
-        {
-          "kind": "future_hook",
-          "target": "food_poisoning_outbreak_brakka_mushroom_cart",
-          "amount": 12,
-          "readable": "Outbreak risk grows",
-          "tags": [
-            "future_hook"
-          ],
-          "targetKind": "other",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "food_poisoning_outbreak_brakka_mushroom_cart",
-          "formatted": "Outbreak risk grows",
-          "roles": [
-            "benefit"
-          ],
-          "visible": true
         }
       ],
       "riskEffects": [
+        {
+          "kind": "state_change",
+          "target": "stock.mushrooms.spoilage",
+          "amount": 6,
+          "readable": "Questionable goods spoil faster",
+          "tags": [
+            "stock",
+            "risk"
+          ],
+          "targetKind": "stock",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "spoilage",
+          "meterLabel": "spoilage",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Mushrooms Spoilage +6",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
         {
           "kind": "pressure",
           "target": "pressure:food_safety",
           "amount": 8,
           "readable": "Food safety risk rises",
           "tags": [
-            "pressure"
+            "pressure",
+            "risk"
           ],
           "targetKind": "pressure",
           "direction": "positive",
@@ -5376,26 +5881,6 @@
           "meterLabel": "Food Safety Risk",
           "meterDisplayCategory": "bad_when_higher",
           "formatted": "Food Safety Risk +8",
-          "roles": [
-            "risk"
-          ],
-          "visible": true
-        },
-        {
-          "kind": "pressure",
-          "target": "pressure:inspection",
-          "amount": 6,
-          "readable": "Inspection risk rises",
-          "tags": [
-            "pressure"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "inspection",
-          "meterLabel": "Inspection Pressure",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Inspection Pressure +6",
           "roles": [
             "risk"
           ],
@@ -5415,6 +5900,22 @@
       "responseSlotId": "refuse_supplier_offer",
       "responseLabel": "Refuse the offer",
       "responseShape": "safe_costly",
+      "choiceContract": {
+        "archetype": "delay",
+        "primaryTarget": "pressure.food_safety",
+        "solves": [
+          "suspicious_goods"
+        ],
+        "doesNotSolve": [
+          "stock_shortage"
+        ],
+        "costTypes": [
+          "relationship_risk",
+          "pressure_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "ignore"
       ],
@@ -5514,7 +6015,8 @@
         }
       ],
       "expectedEffects": [
-        "no risk",
+        "avoid food safety risk",
+        "risk supplier relationship",
         "less stock"
       ],
       "visiblePreviewEffects": [

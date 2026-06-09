@@ -201,7 +201,15 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['appease'],
       shape: 'relationship_sacrifice',
       targetOptions: [ref],
-      expectedEffects: ['raise loyalty', 'time cost'],
+      expectedEffects: ['raise loyalty', 'takes time'],
+      choiceContract: {
+        archetype: 'staff_care',
+        primaryTarget: 'staff.loyalty',
+        solves: ['loyalty_shock'],
+        costTypes: ['owner_time'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'publicly_back_staff',
@@ -210,6 +218,14 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
       shape: 'reputation_play',
       targetOptions: [ref],
       expectedEffects: ['shift blame off staff', 'risk owner reputation'],
+      choiceContract: {
+        archetype: 'staff_care',
+        primaryTarget: 'staff.loyalty',
+        solves: ['public_blame'],
+        costTypes: ['reputation_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'pay_bonus',
@@ -218,6 +234,14 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
       shape: 'safe_costly',
       targetOptions: [ref],
       expectedEffects: ['raise morale', 'spend coin'],
+      choiceContract: {
+        archetype: 'compensate',
+        primaryTarget: 'staff.morale',
+        solves: ['loyalty_shock'],
+        costTypes: ['coin'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'blame_staff',
@@ -226,6 +250,14 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
       shape: 'relationship_sacrifice',
       targetOptions: [ref],
       expectedEffects: ['shed owner blame', 'destroy loyalty'],
+      choiceContract: {
+        archetype: 'staff_push',
+        primaryTarget: 'owner.reputation',
+        doesNotSolve: ['loyalty_shock'],
+        costTypes: ['relationship_risk', 'reputation_risk', 'pressure_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'change_priority',
@@ -233,7 +265,15 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['delegate'],
       shape: 'compromise',
       targetOptions: [ref],
-      expectedEffects: ['lower stress', 'reduce service capacity'],
+      expectedEffects: ['rest staff', 'reduce service capacity'],
+      choiceContract: {
+        archetype: 'staff_care',
+        primaryTarget: 'staff.stress',
+        solves: ['loyalty_shock'],
+        costTypes: ['service_capacity'],
+        payoffTiming: 'immediate',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'ignore_request',
@@ -242,6 +282,14 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
       shape: 'ignore',
       targetOptions: [],
       expectedEffects: ['no cost', 'risk staff quitting'],
+      choiceContract: {
+        archetype: 'ignore',
+        primaryTarget: 'staff.loyalty',
+        doesNotSolve: ['loyalty_shock'],
+        costTypes: ['none'],
+        payoffTiming: 'delayed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'give_authority',
@@ -250,6 +298,15 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
       shape: 'long_term_investment',
       targetOptions: [ref],
       expectedEffects: ['raise loyalty sharply', 'raise stress', 'service capacity grows'],
+      choiceContract: {
+        archetype: 'major_project',
+        primaryTarget: 'staff.authority',
+        solves: ['loyalty_shock'],
+        costTypes: ['coin', 'staff_fatigue'],
+        payoffTiming: 'mixed',
+        mustShowDelayedPayoff: true,
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'quieter_role',
@@ -258,6 +315,14 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
       shape: 'compromise',
       targetOptions: [ref],
       expectedEffects: ['lower stress', 'service capacity drops'],
+      choiceContract: {
+        archetype: 'staff_care',
+        primaryTarget: 'staff.stress',
+        solves: ['loyalty_shock'],
+        costTypes: ['service_capacity'],
+        payoffTiming: 'immediate',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'promise_raise',
@@ -266,6 +331,14 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
       shape: 'delay_problem',
       targetOptions: [ref],
       expectedEffects: ['raise loyalty now', 'future wage cost'],
+      choiceContract: {
+        archetype: 'compensate',
+        primaryTarget: 'staff.loyalty',
+        solves: ['loyalty_shock'],
+        costTypes: ['coin'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'staff_meeting',
@@ -274,6 +347,14 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
       shape: 'compromise',
       targetOptions: peerRef ? [ref, peerRef] : [ref],
       expectedEffects: ['lower burnout', 'spread context to peers'],
+      choiceContract: {
+        archetype: 'staff_care',
+        primaryTarget: 'pressure.staff_burnout',
+        solves: ['loyalty_shock'],
+        costTypes: ['owner_time'],
+        payoffTiming: 'immediate',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'training_helper',
@@ -284,6 +365,15 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
       shape: 'long_term_investment',
       targetOptions: peerRef ? [ref, peerRef] : [ref],
       expectedEffects: ['lower burnout', 'raise peer loyalty', 'service quality climbs'],
+      choiceContract: {
+        archetype: 'major_project',
+        primaryTarget: 'staff.training',
+        solves: ['loyalty_shock', 'burnout'],
+        costTypes: ['staff_fatigue'],
+        payoffTiming: 'mixed',
+        mustShowDelayedPayoff: true,
+        requiresVisibleTradeoff: true,
+      },
     },
   ]
 
@@ -296,6 +386,10 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
         effect('state_change', `staff.${chosen.id}.loyalty`, 10, 'Loyalty rises', ['staff']),
         effect('state_change', `staff.${chosen.id}.stress`, -8, 'Stress drops', ['staff']),
         effect('state_change', `staff.${chosen.id}.morale`, 6, 'Morale lifts', ['staff']),
+        effect('state_change', 'global.owner_time', -5, 'Owner time spent in a private talk', [
+          'time',
+          'owner',
+        ]),
         effect('cause', `staff:${chosen.id}`, 5, 'Private gratitude', ['staff', 'attribution']),
       ],
       delayedEffects: [
@@ -338,8 +432,9 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
         effect('state_change', `staff.${chosen.id}.loyalty`, 12, 'Public backing earns loyalty', [
           'staff',
         ]),
-        effect('state_change', 'reputation.respectable', 5, 'Owner stood up for staff', [
+        effect('state_change', 'reputation.respectable', -4, 'Owner spends standing to back staff', [
           'reputation',
+          'risk',
         ]),
         effect('state_change', 'reputation.dangerous', -3, 'Crew-defender signal', [
           'reputation',
@@ -386,6 +481,11 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
         effect('pressure', 'pressure:staff_loyalty_risk', -10, 'Loyalty risk drops', ['pressure']),
       ],
       delayedEffects: [
+        effect('pressure', 'pressure:debt', 2, 'Bonus nudges wage pressure upward', [
+          'pressure',
+          'debt',
+          'delay:5',
+        ]),
         effect(
           'future_hook',
           `wage_expectation_${chosen.id}`,
@@ -484,8 +584,18 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
         effect('state_change', `staff.${chosen.id}.stress`, -10, 'Stress drops', ['staff']),
         effect('state_change', `staff.${chosen.id}.fatigue`, -5, 'Some rest', ['staff']),
         effect('pressure', 'pressure:staff_burnout', -6, 'Burnout eases', ['pressure']),
+        effect('state_change', 'global.service_capacity', -4, 'Service capacity dips during the priority shift', [
+          'service',
+          'capacity',
+        ]),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect('pressure', 'pressure:staff_loyalty_risk', 3, 'Priority shuffle may spark grumbles', [
+          'pressure',
+          'staff',
+          'delay:3',
+        ]),
+      ],
       memories: [
         {
           id: `staff_priority_changed_${chosen.id}`,
@@ -600,6 +710,10 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
         ]),
         effect('pressure', 'pressure:staff_loyalty_risk', -6, 'Loyalty risk eases', ['pressure']),
         effect('pressure', 'pressure:staff_burnout', -8, 'Burnout falls', ['pressure']),
+        effect('state_change', 'global.service_capacity', -10, 'Service capacity drops in the quieter role', [
+          'service',
+          'capacity',
+        ]),
       ],
       delayedEffects: [],
       memories: [
@@ -671,6 +785,10 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
           'staff',
           'attribution',
         ]),
+        effect('state_change', 'global.owner_time', -5, 'Owner time spent in a staff meeting', [
+          'time',
+          'owner',
+        ]),
       ],
       delayedEffects: [],
       memories: [
@@ -721,6 +839,13 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
         effect('pressure', 'pressure:staff_burnout', -8, 'Workload spreads', ['pressure']),
       ],
       delayedEffects: [
+        effect(
+          'state_change',
+          'global.service_quality',
+          10,
+          'Service quality climbs once the helper is trained',
+          ['service', 'training'],
+        ),
         effect(
           'future_hook',
           `training_helper_${chosen.id}`,

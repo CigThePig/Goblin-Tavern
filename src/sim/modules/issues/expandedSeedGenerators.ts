@@ -2544,13 +2544,13 @@ function generateAreaAtmosphere(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['clean'],
       shape: 'short_term_patch',
       targetOptions: [ref],
-      expectedEffects: ['raise cleanliness', 'time cost'],
+      expectedEffects: ['raise cleanliness', 'raise staff fatigue'],
       choiceContract: {
         archetype: 'clean',
         primaryTarget: 'area.cleanliness',
         solves: ['mess', 'smell', 'grime'],
         doesNotSolve: ['structural_damage'],
-        costTypes: ['owner_time'],
+        costTypes: ['staff_fatigue'],
         payoffTiming: 'immediate',
         requiresVisibleTradeoff: true,
       },
@@ -2561,13 +2561,13 @@ function generateAreaAtmosphere(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['upgrade'],
       shape: 'long_term_investment',
       targetOptions: [ref],
-      expectedEffects: ['major upgrade', 'coin and time cost'],
+      expectedEffects: ['major upgrade', 'spend coin'],
       choiceContract: {
         archetype: 'major_project',
         primaryTarget: 'area.condition',
         solves: ['structural_damage'],
         doesNotSolve: ['smell', 'mess'],
-        costTypes: ['coin', 'owner_time'],
+        costTypes: ['coin'],
         payoffTiming: 'mixed',
         mustShowDelayedPayoff: true,
         requiresVisibleTradeoff: true,
@@ -2650,6 +2650,7 @@ function generateAreaAtmosphere(ctx: SimContext): IssueSeed[] {
       responseSlotId: 'clean_area',
       immediateEffects: [
         effect('state_change', `areas.${chosen.id}.cleanliness`, 20, 'Area cleaned', ['area']),
+        effect('state_change', 'staff.cook.fatigue', 4, 'Cleaning tires the crew', ['staff']),
         effect('state_change', `areas.${chosen.id}.smell`, -12, 'Smell reduced', ['area']),
         effect('state_change', `areas.${chosen.id}.mess`, -10, 'Mess cleared', ['area']),
       ],
@@ -2695,6 +2696,13 @@ function generateAreaAtmosphere(ctx: SimContext): IssueSeed[] {
       immediateEffects: [
         effect('state_change', `areas.${chosen.id}.damage`, -8, 'Damage stops accruing', ['area']),
         effect('state_change', `areas.${chosen.id}.cleanliness`, 10, 'Empty area gets tidied', ['area']),
+        effect(
+          'state_change',
+          'global.service_capacity',
+          -5,
+          'Service capacity lost while area is closed',
+          ['capacity', 'service'],
+        ),
       ],
       delayedEffects: [
         effect('pressure', 'pressure:stock_shortage', 6, 'Capacity loss strains service', ['pressure']),
@@ -2715,7 +2723,7 @@ function generateAreaAtmosphere(ctx: SimContext): IssueSeed[] {
         effect('state_change', 'reputation.respectable', -8, 'Reputation shifts on identity gamble', [
           'reputation',
         ]),
-        effect('state_change', `areas.${chosen.id}.condition`, 5, 'Coat of paint masks problem', ['area']),
+        effect('state_change', 'reputation.cozy', 6, 'Fresh story reframes the room', ['reputation']),
       ],
       delayedEffects: [
         effect(
@@ -2747,8 +2755,8 @@ function generateAreaAtmosphere(ctx: SimContext): IssueSeed[] {
       immediateEffects: [],
       delayedEffects: [
         effect('pressure', 'pressure:maintenance', 10, 'Maintenance pressure rises', ['pressure']),
-        effect('state_change', `areas.${chosen.id}.condition`, -8, 'Slow decay', ['area']),
-        effect('state_change', `areas.${chosen.id}.damage`, 6, 'Damage accrues', ['area']),
+        effect('state_change', `areas.${chosen.id}.condition`, -8, 'Slow decay', ['area', 'risk']),
+        effect('state_change', `areas.${chosen.id}.damage`, 6, 'Damage accrues', ['area', 'risk']),
       ],
       memories: [
         {

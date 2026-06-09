@@ -1698,7 +1698,7 @@
           "structural_damage"
         ],
         "costTypes": [
-          "owner_time"
+          "staff_fatigue"
         ],
         "payoffTiming": "immediate",
         "requiresVisibleTradeoff": true
@@ -1712,13 +1712,13 @@
       "choiceLabel": "Scrub it back to shape",
       "renderedPreviewEffects": [
         "a quick patch would lift the corner a step",
-        "Smell reduced",
-        "Mess cleared"
+        "fatigue would creep a step across the shift (Ib Mudshank)",
+        "Smell reduced"
       ],
       "renderedMechanicalEffects": [
         "Main Room Cleanliness +20",
-        "Main Room Smell -12",
-        "Main Room Mess -10"
+        "Ib Mudshank Fatigue +4",
+        "Main Room Smell -12"
       ],
       "immediateEffects": [
         {
@@ -1743,6 +1743,26 @@
         },
         {
           "kind": "state_change",
+          "target": "staff.cook.fatigue",
+          "amount": 4,
+          "readable": "Cleaning tires the crew",
+          "tags": [
+            "staff"
+          ],
+          "targetKind": "staff",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "fatigue",
+          "meterLabel": "fatigue",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Ib Mudshank Fatigue +4",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
           "target": "areas.main_room.smell",
           "amount": -12,
           "readable": "Smell reduced",
@@ -1779,13 +1799,13 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         }
       ],
       "delayedEffects": [],
       "expectedEffects": [
         "raise cleanliness",
-        "time cost"
+        "raise staff fatigue"
       ],
       "visiblePreviewEffects": [
         {
@@ -1810,6 +1830,26 @@
         },
         {
           "kind": "state_change",
+          "target": "staff.cook.fatigue",
+          "amount": 4,
+          "readable": "Cleaning tires the crew",
+          "tags": [
+            "staff"
+          ],
+          "targetKind": "staff",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "fatigue",
+          "meterLabel": "fatigue",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Ib Mudshank Fatigue +4",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
           "target": "areas.main_room.smell",
           "amount": -12,
           "readable": "Smell reduced",
@@ -1827,29 +1867,30 @@
             "benefit"
           ],
           "visible": true
-        },
+        }
+      ],
+      "costEffects": [
         {
           "kind": "state_change",
-          "target": "areas.main_room.mess",
-          "amount": -10,
-          "readable": "Mess cleared",
+          "target": "staff.cook.fatigue",
+          "amount": 4,
+          "readable": "Cleaning tires the crew",
           "tags": [
-            "area"
+            "staff"
           ],
-          "targetKind": "area",
-          "direction": "positive",
+          "targetKind": "staff",
+          "direction": "negative",
           "magnitudeBand": "small",
-          "meterId": "mess",
-          "meterLabel": "mess",
+          "meterId": "fatigue",
+          "meterLabel": "fatigue",
           "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Main Room Mess -10",
+          "formatted": "Ib Mudshank Fatigue +4",
           "roles": [
-            "benefit"
+            "cost"
           ],
           "visible": true
         }
       ],
-      "costEffects": [],
       "benefitEffects": [
         {
           "kind": "state_change",
@@ -1909,17 +1950,13 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         }
       ],
       "riskEffects": [],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_cost_missing",
-        "contract_cost_missing",
-        "contract_visible_tradeoff_missing"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "area_atmosphere",
@@ -1941,8 +1978,7 @@
           "mess"
         ],
         "costTypes": [
-          "coin",
-          "owner_time"
+          "coin"
         ],
         "payoffTiming": "mixed",
         "mustShowDelayedPayoff": true,
@@ -2053,7 +2089,7 @@
       ],
       "expectedEffects": [
         "major upgrade",
-        "coin and time cost"
+        "spend coin"
       ],
       "visiblePreviewEffects": [
         {
@@ -2224,10 +2260,7 @@
       "riskEffects": [],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_cost_missing",
-        "contract_cost_missing"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "area_atmosphere",
@@ -2264,11 +2297,13 @@
       "renderedPreviewEffects": [
         "a hair of order would touch the kitchen",
         "the floor would read by a step cleaner",
+        "service capacity would fall a step",
         "later: the shortage risk would bite a step deeper tonight"
       ],
       "renderedMechanicalEffects": [
         "Main Room Damage -8",
         "Main Room Cleanliness +10",
+        "Service Capacity -5",
         "later: Stock Shortage Risk +6"
       ],
       "immediateEffects": [
@@ -2309,6 +2344,27 @@
           "formatted": "Main Room Cleanliness +10",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "global.service_capacity",
+          "amount": -5,
+          "readable": "Service capacity lost while area is closed",
+          "tags": [
+            "capacity",
+            "service"
+          ],
+          "targetKind": "global",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "service_capacity",
+          "meterLabel": "service capacity",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Service Capacity -5",
+          "roles": [
+            "cost"
           ],
           "visible": true
         }
@@ -2381,6 +2437,27 @@
           "visible": true
         },
         {
+          "kind": "state_change",
+          "target": "global.service_capacity",
+          "amount": -5,
+          "readable": "Service capacity lost while area is closed",
+          "tags": [
+            "capacity",
+            "service"
+          ],
+          "targetKind": "global",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "service_capacity",
+          "meterLabel": "service capacity",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Service Capacity -5",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
+        },
+        {
           "kind": "pressure",
           "target": "pressure:stock_shortage",
           "amount": 6,
@@ -2401,7 +2478,29 @@
           "visible": true
         }
       ],
-      "costEffects": [],
+      "costEffects": [
+        {
+          "kind": "state_change",
+          "target": "global.service_capacity",
+          "amount": -5,
+          "readable": "Service capacity lost while area is closed",
+          "tags": [
+            "capacity",
+            "service"
+          ],
+          "targetKind": "global",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "service_capacity",
+          "meterLabel": "service capacity",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Service Capacity -5",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
+        }
+      ],
       "benefitEffects": [
         {
           "kind": "state_change",
@@ -2468,10 +2567,7 @@
       ],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_capacity_loss_missing",
-        "contract_cost_missing"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "area_atmosphere",
@@ -2508,12 +2604,12 @@
       "choiceLabel": "Rebrand the space",
       "renderedPreviewEffects": [
         "the respectable name would slip a notch in word",
-        "the corner would lift a hair",
+        "the name would gain a step in the talk",
         "later: A reminder would sit on the slate"
       ],
       "renderedMechanicalEffects": [
         "Reputation Respectable -8",
-        "Main Room Condition +5",
+        "Reputation Cozy +6",
         "later: Audience may narrow"
       ],
       "immediateEffects": [
@@ -2537,19 +2633,19 @@
         },
         {
           "kind": "state_change",
-          "target": "areas.main_room.condition",
-          "amount": 5,
-          "readable": "Coat of paint masks problem",
+          "target": "reputation.cozy",
+          "amount": 6,
+          "readable": "Fresh story reframes the room",
           "tags": [
-            "area"
+            "reputation"
           ],
-          "targetKind": "area",
+          "targetKind": "reputation",
           "direction": "positive",
-          "magnitudeBand": "tiny",
-          "meterId": "condition",
-          "meterLabel": "condition",
-          "meterDisplayCategory": "good_when_higher",
-          "formatted": "Main Room Condition +5",
+          "magnitudeBand": "small",
+          "meterId": "cozy",
+          "meterLabel": "cozy",
+          "meterDisplayCategory": "contextual",
+          "formatted": "Reputation Cozy +6",
           "roles": [
             "benefit"
           ],
@@ -2598,19 +2694,19 @@
         },
         {
           "kind": "state_change",
-          "target": "areas.main_room.condition",
-          "amount": 5,
-          "readable": "Coat of paint masks problem",
+          "target": "reputation.cozy",
+          "amount": 6,
+          "readable": "Fresh story reframes the room",
           "tags": [
-            "area"
+            "reputation"
           ],
-          "targetKind": "area",
+          "targetKind": "reputation",
           "direction": "positive",
-          "magnitudeBand": "tiny",
-          "meterId": "condition",
-          "meterLabel": "condition",
-          "meterDisplayCategory": "good_when_higher",
-          "formatted": "Main Room Condition +5",
+          "magnitudeBand": "small",
+          "meterId": "cozy",
+          "meterLabel": "cozy",
+          "meterDisplayCategory": "contextual",
+          "formatted": "Reputation Cozy +6",
           "roles": [
             "benefit"
           ],
@@ -2636,19 +2732,19 @@
       "benefitEffects": [
         {
           "kind": "state_change",
-          "target": "areas.main_room.condition",
-          "amount": 5,
-          "readable": "Coat of paint masks problem",
+          "target": "reputation.cozy",
+          "amount": 6,
+          "readable": "Fresh story reframes the room",
           "tags": [
-            "area"
+            "reputation"
           ],
-          "targetKind": "area",
+          "targetKind": "reputation",
           "direction": "positive",
-          "magnitudeBand": "tiny",
-          "meterId": "condition",
-          "meterLabel": "condition",
-          "meterDisplayCategory": "good_when_higher",
-          "formatted": "Main Room Condition +5",
+          "magnitudeBand": "small",
+          "meterId": "cozy",
+          "meterLabel": "cozy",
+          "meterDisplayCategory": "contextual",
+          "formatted": "Reputation Cozy +6",
           "roles": [
             "benefit"
           ],
@@ -2727,7 +2823,8 @@
           "amount": -8,
           "readable": "Slow decay",
           "tags": [
-            "area"
+            "area",
+            "risk"
           ],
           "targetKind": "area",
           "direction": "negative",
@@ -2736,7 +2833,9 @@
           "meterLabel": "condition",
           "meterDisplayCategory": "good_when_higher",
           "formatted": "Main Room Condition -8",
-          "roles": [],
+          "roles": [
+            "risk"
+          ],
           "visible": true
         },
         {
@@ -2745,7 +2844,8 @@
           "amount": 6,
           "readable": "Damage accrues",
           "tags": [
-            "area"
+            "area",
+            "risk"
           ],
           "targetKind": "area",
           "direction": "negative",
@@ -2754,7 +2854,9 @@
           "meterLabel": "damage",
           "meterDisplayCategory": "bad_when_higher",
           "formatted": "Main Room Damage +6",
-          "roles": [],
+          "roles": [
+            "risk"
+          ],
           "visible": true
         }
       ],
@@ -2789,7 +2891,8 @@
           "amount": -8,
           "readable": "Slow decay",
           "tags": [
-            "area"
+            "area",
+            "risk"
           ],
           "targetKind": "area",
           "direction": "negative",
@@ -2798,7 +2901,9 @@
           "meterLabel": "condition",
           "meterDisplayCategory": "good_when_higher",
           "formatted": "Main Room Condition -8",
-          "roles": [],
+          "roles": [
+            "risk"
+          ],
           "visible": true
         },
         {
@@ -2807,7 +2912,8 @@
           "amount": 6,
           "readable": "Damage accrues",
           "tags": [
-            "area"
+            "area",
+            "risk"
           ],
           "targetKind": "area",
           "direction": "negative",
@@ -2816,7 +2922,9 @@
           "meterLabel": "damage",
           "meterDisplayCategory": "bad_when_higher",
           "formatted": "Main Room Damage +6",
-          "roles": [],
+          "roles": [
+            "risk"
+          ],
           "visible": true
         }
       ],
@@ -2838,6 +2946,48 @@
           "meterLabel": "Maintenance Backlog",
           "meterDisplayCategory": "bad_when_higher",
           "formatted": "Maintenance Backlog +10",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "areas.main_room.condition",
+          "amount": -8,
+          "readable": "Slow decay",
+          "tags": [
+            "area",
+            "risk"
+          ],
+          "targetKind": "area",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "condition",
+          "meterLabel": "condition",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Main Room Condition -8",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "areas.main_room.damage",
+          "amount": 6,
+          "readable": "Damage accrues",
+          "tags": [
+            "area",
+            "risk"
+          ],
+          "targetKind": "area",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "damage",
+          "meterLabel": "damage",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Main Room Damage +6",
           "roles": [
             "risk"
           ],

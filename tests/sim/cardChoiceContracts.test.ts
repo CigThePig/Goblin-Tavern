@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { composeChoicesFromSeed } from '../../src/cards/cardHelpers'
 import { getIssueSeeds } from '../../src/sim/modules/issues/issueSeedQueries'
 import type { ChoiceArchetype } from '../../src/sim/modules/issues/issueSeedTypes'
 import { runOneDay } from '../../src/sim/testing/simRunner'
@@ -47,10 +48,50 @@ describe('card choice contracts', () => {
     expect(projectSlot?.choiceContract).toMatchObject({
       archetype: 'major_project',
       primaryTarget: 'area.condition',
-      costTypes: ['coin', 'owner_time'],
+      costTypes: ['coin'],
       payoffTiming: 'mixed',
       mustShowDelayedPayoff: true,
       requiresVisibleTradeoff: true,
     })
   })
+
+  it('makes the Phase 5 area-atmosphere vertical slice mechanically legible', () => {
+    const areaSeed = captureAreaAtmosphereSeed('card-choice-contracts-phase-5')!
+    const state = buildAreaAtmosphereTriggeringState()
+    const choices = composeChoicesFromSeed(areaSeed, state, {
+      labelPool: { slotId: 'choice_label', snippets: [] },
+      previewPool: { slotId: 'effect_preview', snippets: [] },
+    })
+    const bySlot = new Map(choices.map((choice) => [choice.slotId, choice]))
+
+    expect(bySlot.get('clean_area')?.mechanicalEffects).toEqual([
+      'Main Room Cleanliness +20',
+      'Ib Mudshank Fatigue +4',
+      'Main Room Smell -12',
+    ])
+    expect(bySlot.get('start_project')?.mechanicalEffects).toEqual([
+      'Coin -25',
+      'Main Room Condition +10',
+      'later: Main Room Condition +20',
+      'later: Maintenance Backlog -10',
+    ])
+    expect(bySlot.get('close_area_temporarily')?.mechanicalEffects).toEqual([
+      'Main Room Damage -8',
+      'Main Room Cleanliness +10',
+      'Service Capacity -5',
+      'later: Stock Shortage Risk +6',
+    ])
+    expect(bySlot.get('rebrand_area')?.mechanicalEffects).toEqual([
+      'Reputation Respectable -8',
+      'Reputation Cozy +6',
+      'later: Audience may narrow',
+    ])
+    expect(bySlot.get('rebrand_area')?.mechanicalEffects?.join('\n')).not.toContain('Condition')
+    expect(bySlot.get('ignore_area_problem')?.mechanicalEffects).toEqual([
+      'Maintenance Backlog +10',
+      'Main Room Condition -8',
+      'Main Room Damage +6',
+    ])
+  })
+
 })

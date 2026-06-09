@@ -1380,6 +1380,22 @@
       "responseSlotId": "repair_area",
       "responseLabel": "Repair Main Room",
       "responseShape": "long_term_investment",
+      "choiceContract": {
+        "archetype": "proper_repair",
+        "primaryTarget": "area.condition",
+        "solves": [
+          "structural_damage"
+        ],
+        "doesNotSolve": [
+          "smell",
+          "mess"
+        ],
+        "costTypes": [
+          "coin"
+        ],
+        "payoffTiming": "immediate",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "repair"
       ],
@@ -1595,6 +1611,23 @@
       "responseSlotId": "clean_area",
       "responseLabel": "Clean Main Room",
       "responseShape": "short_term_patch",
+      "choiceContract": {
+        "archetype": "clean",
+        "primaryTarget": "area.cleanliness",
+        "solves": [
+          "mess",
+          "smell",
+          "grime"
+        ],
+        "doesNotSolve": [
+          "structural_damage"
+        ],
+        "costTypes": [
+          "owner_time"
+        ],
+        "payoffTiming": "immediate",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "clean"
       ],
@@ -1799,7 +1832,9 @@
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
       "warningFlags": [
-        "expected_cost_missing"
+        "expected_cost_missing",
+        "contract_cost_missing",
+        "contract_visible_tradeoff_missing"
       ]
     },
     {
@@ -1811,6 +1846,24 @@
       "responseSlotId": "start_project",
       "responseLabel": "Start a project",
       "responseShape": "long_term_investment",
+      "choiceContract": {
+        "archetype": "major_project",
+        "primaryTarget": "area.condition",
+        "solves": [
+          "structural_damage"
+        ],
+        "doesNotSolve": [
+          "smell",
+          "mess"
+        ],
+        "costTypes": [
+          "coin",
+          "owner_time"
+        ],
+        "payoffTiming": "mixed",
+        "mustShowDelayedPayoff": true,
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "upgrade"
       ],
@@ -2075,7 +2128,9 @@
       "warningFlags": [
         "expected_cost_missing",
         "hidden_delayed_benefit",
-        "long_term_investment_without_visible_payoff"
+        "long_term_investment_without_visible_payoff",
+        "contract_cost_missing",
+        "contract_delayed_payoff_missing"
       ]
     },
     {
@@ -2087,6 +2142,22 @@
       "responseSlotId": "close_area_temporarily",
       "responseLabel": "Close Main Room",
       "responseShape": "compromise",
+      "choiceContract": {
+        "archetype": "close_temporarily",
+        "primaryTarget": "area.traffic_worsening",
+        "solves": [
+          "traffic_driven_worsening"
+        ],
+        "doesNotSolve": [
+          "structural_damage",
+          "smell"
+        ],
+        "costTypes": [
+          "service_capacity"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "delay"
       ],
@@ -2293,7 +2364,9 @@
       ],
       "warningFlags": [
         "expected_capacity_loss_missing",
-        "hidden_delayed_risk"
+        "hidden_delayed_risk",
+        "contract_cost_missing",
+        "contract_visible_tradeoff_missing"
       ]
     },
     {
@@ -2305,6 +2378,23 @@
       "responseSlotId": "rebrand_area",
       "responseLabel": "Rebrand the area",
       "responseShape": "reputation_play",
+      "choiceContract": {
+        "archetype": "spin_or_rebrand",
+        "primaryTarget": "reputation.audience",
+        "solves": [
+          "perception"
+        ],
+        "doesNotSolve": [
+          "structural_damage",
+          "mess",
+          "smell"
+        ],
+        "costTypes": [
+          "reputation_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "rebrand"
       ],
@@ -2470,6 +2560,21 @@
       "responseSlotId": "ignore_area_problem",
       "responseLabel": "Ignore the problem",
       "responseShape": "ignore",
+      "choiceContract": {
+        "archetype": "ignore",
+        "primaryTarget": "area.condition",
+        "solves": [],
+        "doesNotSolve": [
+          "structural_damage",
+          "mess",
+          "smell"
+        ],
+        "costTypes": [
+          "none"
+        ],
+        "payoffTiming": "delayed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "ignore"
       ],

@@ -8,6 +8,7 @@ import { fallbackCard } from '../src/cards/templates/fallback'
 import type { CardChoice } from '../src/cards/types'
 import type { EffectPreview } from '../src/sim/core/effect'
 import type {
+  ChoiceContract,
   ConsequenceProfile,
   IssueSeed,
   ResponseSlot,
@@ -56,6 +57,10 @@ const WARNING_FLAGS = [
   'ignore_without_downside',
   'pressure_label_unclear',
   'label_strength_mismatch',
+  'contract_cost_missing',
+  'contract_visible_tradeoff_missing',
+  'contract_delayed_payoff_missing',
+  'contract_archetype_rule_violation',
 ] as const
 
 type WarningFlag = (typeof WARNING_FLAGS)[number]
@@ -94,6 +99,7 @@ type AuditRow = {
   responseSlotId: string
   responseLabel: string
   responseShape: string
+  choiceContract?: ChoiceContract
   allowedVerbs: string[]
   targetOptions: string[]
   choiceLabel: string
@@ -287,6 +293,122 @@ function addWarning(flags: Set<WarningFlag>, flag: WarningFlag): void {
   flags.add(flag)
 }
 
+function hasContractCost(costType: NonNullable<ChoiceContract['costTypes']>[number], effects: EffectAudit[]): boolean {
+  switch (costType) {
+    case 'none':
+      return true
+    case 'coin':
+      return hasMechanicalCostForClaim('coin cost', effects)
+    case 'owner_time':
+      return hasMechanicalCostForClaim('time cost', effects)
+    case 'service_capacity':
+      return hasMechanicalCostForClaim('capacity loss', effects)
+    case 'staff_fatigue':
+    case 'staff_morale':
+      return hasMechanicalCostForClaim('staff burden', effects)
+    case 'reputation_risk':
+      return hasMechanicalCostForClaim('risk credibility', effects)
+    case 'relationship_risk':
+      return hasMechanicalCostForClaim('risk relationship', effects)
+    case 'pressure_risk':
+      return effects.some((effect) => effect.targetKind === 'pressure' && effect.direction === 'positive')
+    case 'stock':
+      return effects.some((effect) => effect.targetKind === 'stock' && effect.direction === 'negative')
+    default:
+      return false
+  }
+}
+
+function hasDirectRepairBenefit(effects: EffectAudit[]): boolean {
+  return effects.some(
+    (effect) =>
+      effect.roles.includes('benefit') &&
+      effect.targetKind === 'area' &&
+      (effect.meterId === 'condition' || effect.meterId === 'damage'),
+  )
+}
+
+function hasCleanlinessBenefit(effects: EffectAudit[]): boolean {
+  return effects.some(
+    (effect) =>
+      effect.roles.includes('benefit') &&
+      effect.targetKind === 'area' &&
+      ['cleanliness', 'smell', 'mess'].includes(effect.meterId ?? ''),
+  )
+}
+
+function hasMaterialRepairBenefit(effects: EffectAudit[]): boolean {
+  const repairEffects = effects.filter(
+    (effect) =>
+      effect.roles.includes('benefit') &&
+      effect.targetKind === 'area' &&
+      (effect.meterId === 'condition' || effect.meterId === 'damage'),
+  )
+  return (
+    repairEffects.some(isLargeOrMedium) ||
+    repairEffects.reduce((sum, effect) => sum + Math.abs(effect.amount ?? 0), 0) >= 20
+  )
+}
+
+function contractWarningsForRow(
+  slot: ResponseSlot,
+  immediate: EffectAudit[],
+  delayed: EffectAudit[],
+): WarningFlag[] {
+  const contract = slot.choiceContract
+  if (contract === undefined) return []
+
+  const flags = new Set<WarningFlag>()
+  const allEffects = [...immediate, ...delayed]
+  const delayedBenefits = delayed.filter((effect) => effect.roles.includes('benefit'))
+
+  for (const costType of contract.costTypes ?? []) {
+    if (!hasContractCost(costType, allEffects)) addWarning(flags, 'contract_cost_missing')
+  }
+
+  if (contract.requiresVisibleTradeoff && !hasVisibleDownside(allEffects)) {
+    addWarning(flags, 'contract_visible_tradeoff_missing')
+  }
+
+  if (contract.mustShowDelayedPayoff && !delayedBenefits.some((effect) => effect.visible)) {
+    addWarning(flags, 'contract_delayed_payoff_missing')
+  }
+
+  switch (contract.archetype) {
+    case 'major_project':
+      if (contract.payoffTiming !== 'mixed' && contract.payoffTiming !== 'delayed') {
+        addWarning(flags, 'contract_archetype_rule_violation')
+      }
+      if (delayedBenefits.length === 0) addWarning(flags, 'contract_archetype_rule_violation')
+      break
+    case 'proper_repair':
+      if (!hasMaterialRepairBenefit(immediate)) addWarning(flags, 'contract_archetype_rule_violation')
+      break
+    case 'clean':
+      if (!hasCleanlinessBenefit(allEffects)) addWarning(flags, 'contract_archetype_rule_violation')
+      if (hasDirectRepairBenefit(allEffects) && !hasCleanlinessBenefit(allEffects)) {
+        addWarning(flags, 'contract_archetype_rule_violation')
+      }
+      break
+    case 'close_temporarily':
+      if (!hasContractCost('service_capacity', allEffects)) addWarning(flags, 'contract_cost_missing')
+      break
+    case 'spin_or_rebrand':
+      if (hasMaterialRepairBenefit(allEffects)) addWarning(flags, 'contract_archetype_rule_violation')
+      if (!hasContractCost('reputation_risk', allEffects)) addWarning(flags, 'contract_cost_missing')
+      break
+    case 'ignore':
+      if (!delayed.some((effect) => effect.roles.includes('risk') || effect.direction === 'negative')) {
+        addWarning(flags, 'contract_archetype_rule_violation')
+      }
+      break
+    default:
+      break
+  }
+
+  return [...flags]
+}
+
 function warningsForRow(slot: ResponseSlot, choice: CardChoice, immediate: EffectAudit[], delayed: EffectAudit[]): WarningFlag[] {
   const flags = new Set<WarningFlag>()
   const allEffects = [...immediate, ...delayed]
@@ -332,6 +454,8 @@ function warningsForRow(slot: ResponseSlot, choice: CardChoice, immediate: Effec
     addWarning(flags, 'label_strength_mismatch')
   }
 
+  for (const flag of contractWarningsForRow(slot, immediate, delayed)) addWarning(flags, flag)
+
   return [...flags]
 }
 
@@ -354,6 +478,7 @@ function buildRows(): AuditRow[] {
         responseSlotId: slot.id,
         responseLabel: slot.labelHint,
         responseShape: slot.shape,
+        ...(slot.choiceContract !== undefined ? { choiceContract: slot.choiceContract } : {}),
         allowedVerbs: slot.allowedVerbs,
         targetOptions: slot.targetOptions.map((target) => `${target.kind}:${target.id}`),
         choiceLabel: choice.label,
@@ -461,13 +586,14 @@ function markdownReport(rows: AuditRow[]): string {
   lines.push('')
   lines.push('## Warning rows')
   lines.push('')
-  lines.push('| Family | Seed | Slot | Choice | Warnings | Preview | Mechanical | Hidden delayed benefits | Hidden delayed risks | Expected effects |')
-  lines.push('|---|---|---|---|---|---|---|---|---|---|')
+  lines.push('| Family | Seed | Slot | Archetype | Choice | Warnings | Preview | Mechanical | Hidden delayed benefits | Hidden delayed risks | Expected effects |')
+  lines.push('|---|---|---|---|---|---|---|---|---|---|---|')
   for (const row of rows.filter((candidate) => candidate.warningFlags.length > 0)) {
     lines.push([
       row.cardFamily,
       row.seedId,
       row.responseSlotId,
+      row.choiceContract?.archetype ?? '—',
       row.choiceLabel,
       row.warningFlags.join('<br>'),
       row.renderedPreviewEffects.join('<br>') || '—',
@@ -480,8 +606,8 @@ function markdownReport(rows: AuditRow[]): string {
   lines.push('')
   lines.push('## All audited rows')
   lines.push('')
-  lines.push('| Family | Issue | Seed | Slot | Shape | Allowed verbs | Targets | Choice | Warnings | Immediate effects | Delayed effects | Visible effects | Cost effects | Benefit effects | Risk effects |')
-  lines.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|')
+  lines.push('| Family | Issue | Seed | Slot | Shape | Archetype | Contract cost | Contract timing | Allowed verbs | Targets | Choice | Warnings | Immediate effects | Delayed effects | Visible effects | Cost effects | Benefit effects | Risk effects |')
+  lines.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|')
   for (const row of rows) {
     lines.push([
       row.cardFamily,
@@ -489,6 +615,9 @@ function markdownReport(rows: AuditRow[]): string {
       row.seedId,
       row.responseSlotId,
       row.responseShape,
+      row.choiceContract?.archetype ?? '—',
+      row.choiceContract?.costTypes?.join(', ') ?? '—',
+      row.choiceContract?.payoffTiming ?? '—',
       row.allowedVerbs.join(', '),
       row.targetOptions.join(', ') || '—',
       row.choiceLabel,

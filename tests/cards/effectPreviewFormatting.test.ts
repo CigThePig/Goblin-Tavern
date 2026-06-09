@@ -4,6 +4,7 @@ import { formatEffectPreview } from '../../src/cards/compose/formatEffectPreview
 import { composeChoicesFromSeed } from '../../src/cards/cardHelpers'
 import { guardCardViewWording } from '../../src/cards/compose/fairnessWording'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
+import { effect } from '../../src/sim/modules/issues/generatorHelpers'
 import { makeSeed, ZERO_STAMP } from './cardFactories'
 import type { CardView } from '../../src/cards/types'
 import type { MemoryState } from '../../src/sim/state/TavernState'
@@ -51,6 +52,61 @@ describe('numeric card effect preview formatting', () => {
         state,
       ),
     ).toBe(`${cookName} Morale +5`)
+  })
+
+
+  it('uses bad-state labels for pressure and lower-is-better meter chips', () => {
+    const state = createInitialTavernState()
+    const cookName = state.staff.cook!.name.display
+
+    const cases: Array<[ReturnType<typeof effect>, string, string]> = [
+      [
+        effect('pressure', 'pressure:maintenance', 10, 'Maintenance pressure rises', [
+          'pressure',
+        ]),
+        'Maintenance Backlog +10',
+        'bad_when_higher',
+      ],
+      [
+        effect('state_change', 'staff.cook.fatigue', 4, 'Fatigue rises', ['staff']),
+        `${cookName} Fatigue +4`,
+        'bad_when_higher',
+      ],
+      [
+        effect('state_change', 'areas.main_room.damage', 10, 'Damage spreads', ['area']),
+        'Main Room Damage +10',
+        'bad_when_higher',
+      ],
+      [
+        effect('state_change', 'areas.main_room.mess', 8, 'Mess spreads', ['area']),
+        'Main Room Mess +8',
+        'bad_when_higher',
+      ],
+      [
+        effect('state_change', 'areas.main_room.smell', 6, 'Smell spreads', ['area']),
+        'Main Room Smell +6',
+        'bad_when_higher',
+      ],
+      [
+        effect('state_change', 'cultures.goblin.tension', 10, 'Tension rises', [
+          'culture',
+        ]),
+        'Goblin Tension +10',
+        'bad_when_higher',
+      ],
+      [
+        effect('state_change', 'reputation.respectable', -5, 'Respectability softens', [
+          'reputation',
+        ]),
+        'Reputation Respectable -5',
+        'contextual',
+      ],
+    ]
+
+    for (const [preview, formatted, category] of cases) {
+      expect(formatEffectPreview(preview, state)).toBe(formatted)
+      expect(preview.meterDisplayCategory).toBe(category)
+    }
   })
 
   it('falls back to existing flavour when exact amount is unavailable', () => {

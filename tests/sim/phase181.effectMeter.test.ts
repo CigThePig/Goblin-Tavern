@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  classifyMeterDisplayCategory,
   classifyMeterId,
   effect,
   resolveMeterLabel,
@@ -39,7 +40,9 @@ describe('resolveMeterLabel — player-facing names', () => {
     expect(resolveMeterLabel('pressure', 'pressure:staff_loyalty_risk', 'staff_loyalty_risk')).toBe(
       'Staff Loyalty Risk',
     )
-    expect(resolveMeterLabel('pressure', 'pressure:food_safety', 'food_safety')).toBe('Food Safety')
+    expect(resolveMeterLabel('pressure', 'pressure:food_safety', 'food_safety')).toBe(
+      'Food Safety Risk',
+    )
   })
 
   it('names the known staff meter leaves', () => {
@@ -72,6 +75,46 @@ describe('resolveMeterLabel — player-facing names', () => {
   })
 })
 
+
+describe('classifyMeterDisplayCategory — card chip polarity', () => {
+  it('marks pressure and lower-is-better state meters as bad when higher', () => {
+    expect(
+      classifyMeterDisplayCategory(
+        'pressure',
+        'pressure:maintenance',
+        'maintenance',
+        'Maintenance Backlog',
+      ),
+    ).toBe('bad_when_higher')
+    expect(
+      classifyMeterDisplayCategory('staff', 'staff.mira.fatigue', 'fatigue', 'fatigue'),
+    ).toBe('bad_when_higher')
+    expect(
+      classifyMeterDisplayCategory('area', 'areas.main_room.damage', 'damage', 'damage'),
+    ).toBe('bad_when_higher')
+  })
+
+  it('marks higher-is-better meters, resources, and reputation identity separately', () => {
+    expect(
+      classifyMeterDisplayCategory(
+        'area',
+        'areas.main_room.condition',
+        'condition',
+        'condition',
+      ),
+    ).toBe('good_when_higher')
+    expect(classifyMeterDisplayCategory('coin', 'coin', 'coin', 'coin')).toBe('resource')
+    expect(
+      classifyMeterDisplayCategory(
+        'reputation',
+        'reputation.respectable',
+        'respectable',
+        'respectable',
+      ),
+    ).toBe('contextual')
+  })
+})
+
 describe('effect() — emits meterId + meterLabel onto every preview', () => {
   it('populates a staff loyalty state_change', () => {
     const e = effect('state_change', 'staff.mira.loyalty', 10, 'Loyalty rises', ['staff'])
@@ -95,6 +138,7 @@ describe('effect() — emits meterId + meterLabel onto every preview', () => {
     ])
     expect(e.meterId).toBe('staff_loyalty_risk')
     expect(e.meterLabel).toBe('Staff Loyalty Risk')
+    expect(e.meterDisplayCategory).toBe('bad_when_higher')
   })
 
   it('sets meterId but omits meterLabel for a zero-amount cause effect on an entity id', () => {
@@ -103,12 +147,13 @@ describe('effect() — emits meterId + meterLabel onto every preview', () => {
     expect(e.meterLabel).toBeUndefined()
   })
 
-  it('preserves the existing classified fields unchanged', () => {
+  it('preserves the existing classified fields unchanged and adds resource display metadata', () => {
     const e = effect('state_change', 'coin', -25, 'Pay landlord', ['coin'])
     expect(e.targetKind).toBe('coin')
     expect(e.direction).toBe('negative')
     expect(e.magnitudeBand).toBe('medium')
     expect(e.meterId).toBe('coin')
     expect(e.meterLabel).toBe('coin')
+    expect(e.meterDisplayCategory).toBe('resource')
   })
 })

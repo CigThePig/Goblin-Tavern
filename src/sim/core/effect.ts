@@ -43,6 +43,16 @@ export type EffectDirection = 'positive' | 'negative' | 'neutral'
 
 export type EffectMagnitudeBand = 'tiny' | 'small' | 'medium' | 'large'
 
+// Phase 4 of the card-choice coherence repair plan: every displayed meter
+// carries a polarity category so card previews can explain whether a higher
+// number is a benefit, a threat, contextual identity movement, or a spendable
+// resource.
+export type EffectMeterDisplayCategory =
+  | 'good_when_higher'
+  | 'bad_when_higher'
+  | 'contextual'
+  | 'resource'
+
 export type EffectPreview = {
   kind: EffectKind
   target: string
@@ -72,9 +82,13 @@ export type EffectPreview = {
    *  Populated by `effect()`. */
   meterId?: string
   /** Player-facing name for `meterId`, when a sensible one exists (pressure
-   *  registry label, a known meter leaf, or a humanised dotted-path leaf).
+   *  registry effect label, a known meter leaf, or a humanised dotted-path leaf).
    *  `undefined` for entity-id leaves (cause effects) and other non-meters. */
   meterLabel?: string
+  /** Polarity category for the displayed meter label. Omitted when
+   *  `meterLabel` is omitted, because entity-id cause targets are not meter
+   *  chips. */
+  meterDisplayCategory?: EffectMeterDisplayCategory
 }
 
 export type EffectResult = EffectPreview & {

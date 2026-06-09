@@ -198,7 +198,7 @@ describe('Phase 189 / ISSUE-156 — Plan A: delayed consequence surfaces as a la
       'Coin -25',
       'Main Room Condition +10',
       'later: Main Room Condition +20',
-      'later: Maintenance -10',
+      'later: Maintenance Backlog -10',
     ])
   })
 

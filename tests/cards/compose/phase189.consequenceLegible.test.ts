@@ -17,6 +17,7 @@ import {
   isDecisionRelevantDelayed,
   isLaterPreviewLine,
   selectDelayedPreviewEffect,
+  selectDelayedPreviewEffects,
   LATER_PREVIEW_PREFIX,
 } from '../../../src/cards/compose/previewSelect'
 import { effect } from '../../../src/sim/modules/issues/generatorHelpers'
@@ -51,6 +52,7 @@ function activeSeed(parts: {
   primaryActor?: EntityRef
   verb?: ResponseSlot['allowedVerbs'][number]
   shape?: ResponseSlot['shape']
+  choiceContract?: ResponseSlot['choiceContract']
 }): IssueSeed {
   const slot: ResponseSlot = {
     id: parts.slotId,
@@ -60,6 +62,7 @@ function activeSeed(parts: {
     targetOptions: [],
     expectedEffects: [],
   }
+  if (parts.choiceContract !== undefined) slot.choiceContract = parts.choiceContract
   const profile: ConsequenceProfile = {
     id: `${parts.slotId}-profile`,
     responseSlotId: parts.slotId,
@@ -79,27 +82,37 @@ function activeSeed(parts: {
 }
 
 describe('Phase 189 / ISSUE-156 — delayed-effect selectors (shared with the gate)', () => {
-  it('isDecisionRelevantDelayed: future_hook and risk/future_hook-tagged effects qualify', () => {
+  it('isDecisionRelevantDelayed: future hooks, tags, delayed payoffs, and risks qualify', () => {
     const hook = effect('future_hook', 'expectation_hook', 8, 'group may expect this', [
       'future_hook',
     ])
     const riskTagged = effect('pressure', 'pressure:rumour_pressure', 8, 'rumours', ['risk'])
-    const plainPressure = effect('pressure', 'pressure:maintenance', -4, 'drifts', ['pressure'])
+    const pressureRelief = effect('pressure', 'pressure:maintenance', -4, 'drifts', ['pressure'])
+    const conditionPayoff = effect('state_change', 'areas.main_room.condition', 8, 'condition improves', ['area'])
     expect(isDecisionRelevantDelayed(hook)).toBe(true)
     expect(isDecisionRelevantDelayed(riskTagged)).toBe(true)
-    // A plain pressure drift, tagged only 'pressure', is not on its own a
-    // decision-relevant LATER consequence.
-    expect(isDecisionRelevantDelayed(plainPressure)).toBe(false)
+    expect(isDecisionRelevantDelayed(pressureRelief)).toBe(true)
+    expect(isDecisionRelevantDelayed(conditionPayoff)).toBe(true)
   })
 
   it('selectDelayedPreviewEffect: picks one relevant entry by magnitude, none when absent', () => {
     expect(selectDelayedPreviewEffect([])).toBeUndefined()
     const small = effect('future_hook', 'a', 5, 'small hook', ['future_hook'])
     const big = effect('future_hook', 'b', 15, 'big hook', ['future_hook'])
-    const noise = effect('pressure', 'pressure:x', -3, 'drift', ['pressure'])
+    const noise = effect('memory', 'memory:x', 0, 'bookkeeping memory', ['memory'])
     expect(selectDelayedPreviewEffect([small, big, noise])).toBe(big)
     // Only a non-relevant delayed effect → nothing to surface.
     expect(selectDelayedPreviewEffect([noise])).toBeUndefined()
+  })
+
+  it('selectDelayedPreviewEffects: major projects surface condition payoff and pressure relief', () => {
+    const conditionPayoff = effect('state_change', 'areas.main_room.condition', 20, 'project completes', ['area'])
+    const maintenanceRelief = effect('pressure', 'pressure:maintenance', -10, 'maintenance eases', ['pressure'])
+    const selected = selectDelayedPreviewEffects(
+      [conditionPayoff, maintenanceRelief],
+      { archetype: 'major_project', mustShowDelayedPayoff: true },
+    )
+    expect(selected).toEqual([conditionPayoff, maintenanceRelief])
   })
 })
 
@@ -154,6 +167,39 @@ describe('Phase 189 / ISSUE-156 — Plan A: delayed consequence surfaces as a la
     const lines = choice!.previewEffects
     expect(lines.some((l) => l.includes('coin leaves the till'))).toBe(true)
     expect(lines.filter(isLaterPreviewLine)).toHaveLength(1)
+  })
+
+  it('major project previews additive delayed payoff and pressure relief', () => {
+    const seed = activeSeed({
+      slotId: 'start_project',
+      verb: 'upgrade',
+      shape: 'long_term_investment',
+      choiceContract: { archetype: 'major_project', mustShowDelayedPayoff: true },
+      immediate: [
+        effect('state_change', 'coin', -25, 'project investment', ['coin']),
+        effect('state_change', 'areas.main_room.condition', 10, 'initial upgrade work', ['area']),
+      ],
+      delayed: [
+        effect('state_change', 'areas.main_room.condition', 20, 'project completes', ['area']),
+        effect('pressure', 'pressure:maintenance', -10, 'maintenance pressure eases', ['pressure']),
+      ],
+    })
+    const [choice] = composeChoicesFromSeed(seed, state, {
+      labelPool: EMPTY_LABEL_POOL,
+      previewPool: EMPTY_PREVIEW_POOL,
+    })
+    expect(choice!.previewEffects).toEqual([
+      'project investment',
+      'initial upgrade work',
+      'later: project completes',
+      'later: maintenance pressure eases',
+    ])
+    expect(choice!.mechanicalEffects).toEqual([
+      'Coin -25',
+      'Main Room Condition +10',
+      'later: Main Room Condition +20',
+      'later: Maintenance -10',
+    ])
   })
 
   it('the inaction path is unchanged — delayed effects preview WITHOUT a later: prefix', () => {

@@ -24,7 +24,7 @@ import { pickSnippet } from './compose/assemble'
 import { canonicaliseText } from './compose/gates/dedupe'
 import {
   selectPreviewEffects,
-  selectDelayedPreviewEffect,
+  selectDelayedPreviewEffects,
   isCostEffect,
   LATER_PREVIEW_PREFIX,
 } from './compose/previewSelect'
@@ -676,17 +676,21 @@ export function composeChoicesFromSeed(
       return line
     })
     // Phase 189 / ISSUE-156 — Plan A: an ACTIVE choice (one with immediate
-    // effects) surfaces its single most decision-relevant delayed consequence
-    // as a trailing `later:` line — what the choice sets up for later. Additive
+    // effects) surfaces its role-selected delayed consequences
+    // as trailing `later:` lines — what the choice sets up for later. Additive
     // to the immediate `previewMax` (never counted against it, so a delayed
     // line can never displace a surfaced cost). The zero-immediate inaction
     // carve-out (`useDelayed`) is unchanged: it already previews its delayed
     // effects directly, with no `later:` prefix.
     if (!useDelayed) {
-      const delayedEffect = selectDelayedPreviewEffect(delayed)
-      if (delayedEffect !== undefined) {
+      const delayedEffectsToPreview = selectDelayedPreviewEffects(
+        delayed,
+        slot.choiceContract,
+      )
+      for (let idx = 0; idx < delayedEffectsToPreview.length; idx += 1) {
+        const delayedEffect = delayedEffectsToPreview[idx]!
         const laterSlot: SlotSpec = {
-          id: `effect_preview::${slot.id}::later`,
+          id: `effect_preview::${slot.id}::later::${idx}`,
           role: 'effect_preview',
           pool: options.previewPool,
           optional: true,

@@ -153,7 +153,7 @@ describe('composeChoicesFromSeed — inaction wiring', () => {
     expect(ignore.previewEffects[1]).toBe('condition drops')
   })
 
-  it('uses immediateEffects when present, ignoring delayedEffects', () => {
+  it('uses immediateEffects for the acting path and appends relevant delayedEffects', () => {
     const profiles: ConsequenceProfile[] = [
       {
         id: 'p_act',
@@ -179,8 +179,10 @@ describe('composeChoicesFromSeed — inaction wiring', () => {
       previewPool: PREVIEW_POOL,
     })
     expect(choices).toHaveLength(1)
-    expect(choices[0]!.previewEffects).toHaveLength(1)
-    expect(choices[0]!.previewEffects[0]).toBe('ACTING_PATH_LINE')
+    expect(choices[0]!.previewEffects).toEqual([
+      'ACTING_PATH_LINE',
+      'later: pressure eases',
+    ])
   })
 
   it('renders zero lines when both immediate and delayed are empty (no route to source)', () => {

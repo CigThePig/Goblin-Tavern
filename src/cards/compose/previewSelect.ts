@@ -26,10 +26,26 @@ export function isHeadlineStateChange(e: EffectPreview): boolean {
   return e.kind === 'state_change'
 }
 
-/** A coin cost: a negative-direction `coin` effect. The player must always
- *  see when a choice spends coin (Phase 166). */
+/** A visible mechanical cost or burden. Coin remains the hard guarantee from
+ *  Phase 166, and the card-choice coherence repairs extend the same rescue to
+ *  non-coin tradeoffs that otherwise read as free: staff stress/fatigue, owner
+ *  time, and service/capacity loss. */
 export function isCostEffect(e: EffectPreview): boolean {
-  return e.targetKind === 'coin' && e.direction === 'negative'
+  if (e.targetKind === 'coin' && e.direction === 'negative') return true
+  if (e.targetKind === 'staff' && e.direction === 'negative') {
+    return (
+      e.meterId === 'stress' ||
+      e.meterId === 'fatigue' ||
+      e.meterId === 'morale' ||
+      e.meterId === 'loyalty'
+    )
+  }
+  if (e.direction === 'negative') {
+    const text = `${e.target} ${e.meterId ?? ''} ${e.readable}`.toLowerCase()
+    if (e.tags.includes('time') || e.tags.includes('capacity')) return true
+    return /owner[_ ]time|service[_ ]capacity|capacity|staff[_ ]time/.test(text)
+  }
+  return false
 }
 
 /** A decision-relevant risk change: a `pressure` effect whose direction
@@ -189,7 +205,18 @@ export function selectDelayedPreviewEffects(
     push(pickLargest(delayed, isDelayedBenefitEffect, selected))
   }
 
-  push(pickLargest(delayed, isDelayedRiskEffect, selected))
+  // Surface concrete delayed risks before generic hooks. A future hook may also
+  // be risky, but if both a pressure/meter risk and a hook exist (e.g. staff
+  // bonus debt pressure plus expectation hook), the meter risk is what makes
+  // the tradeoff mechanically honest. The hook is then added as its own line if
+  // distinct.
+  push(
+    pickLargest(
+      delayed,
+      (e) => e.kind !== 'future_hook' && isDelayedRiskEffect(e),
+      selected,
+    ),
+  )
   push(pickLargest(delayed, (e) => e.kind === 'future_hook', selected))
 
   // If older content only marks relevance with tags, still surface the largest

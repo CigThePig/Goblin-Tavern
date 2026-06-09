@@ -1715,6 +1715,37 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'effectDirection', sign: 'negative' },
       ],
     },
+    // ---- global: owner time / service capacity ----
+    {
+      id: 'shared_preview_meter_owner_time_neg_small_a',
+      text: 'owner time would spend a step away',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['owner_time'] },
+        { kind: 'effectTargetKind', anyOf: ['global'] },
+        { kind: 'effectDirection', sign: 'negative' },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_service_capacity_neg_tiny_a',
+      text: 'service capacity would dip a hair',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['service_capacity'] },
+        { kind: 'effectTargetKind', anyOf: ['global'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_service_capacity_neg_small_a',
+      text: 'capacity would shrink by a measure',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['service_capacity'] },
+        { kind: 'effectTargetKind', anyOf: ['global'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['small'] },
+      ],
+    },
+
     // ---- global / tavern-wide ----
     {
       id: 'shared_preview_global_pos_a',
@@ -1948,6 +1979,16 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'effectTargetKind', anyOf: ['staff'] },
         { kind: 'effectDirection', sign: 'positive' },
         { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_stress_neg_tiny_a',
+      text: 'stress would nip a hair at the shift',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['stress'] },
+        { kind: 'effectTargetKind', anyOf: ['staff'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
       ],
     },
     {

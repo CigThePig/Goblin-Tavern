@@ -1047,6 +1047,14 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
       shape: 'safe_costly',
       targetOptions: [staffRef(worst.id)],
       expectedEffects: ['raise staff morale', 'spend coin'],
+      choiceContract: {
+        archetype: 'compensate',
+        primaryTarget: 'staff.morale',
+        solves: ['acute_burnout'],
+        costTypes: ['coin'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'reduce_workload',
@@ -1055,6 +1063,14 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
       shape: 'compromise',
       targetOptions: [staffRef(worst.id)],
       expectedEffects: ['lower stress', 'reduce service capacity'],
+      choiceContract: {
+        archetype: 'staff_care',
+        primaryTarget: 'staff.stress',
+        solves: ['acute_burnout'],
+        costTypes: ['service_capacity'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'push_through',
@@ -1063,6 +1079,14 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
       shape: 'risky_profitable',
       targetOptions: [staffRef(worst.id)],
       expectedEffects: ['no cost', 'risk staff quitting'],
+      choiceContract: {
+        archetype: 'staff_push',
+        primaryTarget: 'service.coverage',
+        doesNotSolve: ['acute_burnout'],
+        costTypes: ['relationship_risk', 'pressure_risk'],
+        payoffTiming: 'delayed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'reassign',
@@ -1071,6 +1095,14 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
       shape: 'compromise',
       targetOptions: [staffRef(worst.id)],
       expectedEffects: ['shift workload', 'side effects elsewhere'],
+      choiceContract: {
+        archetype: 'staff_push',
+        primaryTarget: 'staff.workload',
+        solves: ['acute_burnout'],
+        costTypes: ['staff_fatigue', 'pressure_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
   ]
 
@@ -1127,6 +1159,13 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
       immediateEffects: [
         effect('state_change', `staff.${worst.id}.fatigue`, -15, 'Lower fatigue', ['staff']),
         effect('state_change', `staff.${worst.id}.stress`, -10, 'Lower stress', ['staff']),
+        effect(
+          'state_change',
+          'global.service_capacity',
+          -8,
+          'Service capacity drops while the rota is lightened',
+          ['service', 'capacity'],
+        ),
       ],
       delayedEffects: [
         effect(

@@ -2535,7 +2535,7 @@
       "renderedPreviewEffects": [
         "a hair of order would touch the kitchen",
         "the floor would read by a step cleaner",
-        "service capacity would fall a step",
+        "capacity would shrink by a measure",
         "later: the shortage risk would bite a step deeper tonight"
       ],
       "renderedMechanicalEffects": [
@@ -6832,13 +6832,13 @@
       "choiceLabel": "Scrub it",
       "renderedPreviewEffects": [
         "fresh joinery would firm the floor a notch",
-        "Privy scrubbed",
-        "the inspection risk would fall a marked fall overhead"
+        "the inspection risk would fall a marked fall overhead",
+        "fatigue would drag the crew down a real slip (Ib Mudshank)"
       ],
       "renderedMechanicalEffects": [
         "Kitchen Cleanliness +20",
-        "Privy Cleanliness +15",
-        "Inspection Pressure -12"
+        "Inspection Pressure -12",
+        "Ib Mudshank Fatigue +8"
       ],
       "immediateEffects": [
         {
@@ -6879,7 +6879,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         },
         {
           "kind": "state_change",
@@ -6939,7 +6939,7 @@
           "roles": [
             "cost"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "cause",
@@ -6989,26 +6989,6 @@
           "visible": true
         },
         {
-          "kind": "state_change",
-          "target": "areas.privy.cleanliness",
-          "amount": 15,
-          "readable": "Privy scrubbed",
-          "tags": [
-            "area"
-          ],
-          "targetKind": "area",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "cleanliness",
-          "meterLabel": "cleanliness",
-          "meterDisplayCategory": "good_when_higher",
-          "formatted": "Privy Cleanliness +15",
-          "roles": [
-            "benefit"
-          ],
-          "visible": true
-        },
-        {
           "kind": "pressure",
           "target": "pressure:inspection",
           "amount": -12,
@@ -7025,6 +7005,26 @@
           "formatted": "Inspection Pressure -12",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "staff.cook.fatigue",
+          "amount": 8,
+          "readable": "Cleaning shift adds load",
+          "tags": [
+            "staff"
+          ],
+          "targetKind": "staff",
+          "direction": "negative",
+          "magnitudeBand": "medium",
+          "meterId": "fatigue",
+          "meterLabel": "fatigue",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Ib Mudshank Fatigue +8",
+          "roles": [
+            "cost"
           ],
           "visible": true
         }
@@ -7048,7 +7048,7 @@
           "roles": [
             "cost"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "benefitEffects": [
@@ -7090,7 +7090,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         },
         {
           "kind": "state_change",
@@ -7157,7 +7157,8 @@
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
       "warningFlags": [
-        "expected_cost_missing"
+        "expected_cost_missing",
+        "possible_dominated_option"
       ]
     },
     {
@@ -7519,14 +7520,14 @@
       "choiceLabel": "Set a cleaning roster",
       "renderedPreviewEffects": [
         "a measure of repair would steady the floor",
-        "Roster covers privy",
         "Routine keeps inspection at bay",
+        "fatigue would drag the crew down a real slip (Mira the Resolute)",
         "later: A reminder would sit on the slate for later"
       ],
       "renderedMechanicalEffects": [
         "Kitchen Cleanliness +12",
-        "Privy Cleanliness +12",
         "Inspection Pressure -12",
+        "Mira the Resolute Fatigue +8",
         "later: Routine becomes a habit"
       ],
       "immediateEffects": [
@@ -7568,7 +7569,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         },
         {
           "kind": "state_change",
@@ -7628,7 +7629,7 @@
           "roles": [
             "cost"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "cause",
@@ -7717,26 +7718,6 @@
           "visible": true
         },
         {
-          "kind": "state_change",
-          "target": "areas.privy.cleanliness",
-          "amount": 12,
-          "readable": "Roster covers privy",
-          "tags": [
-            "area"
-          ],
-          "targetKind": "area",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "cleanliness",
-          "meterLabel": "cleanliness",
-          "meterDisplayCategory": "good_when_higher",
-          "formatted": "Privy Cleanliness +12",
-          "roles": [
-            "benefit"
-          ],
-          "visible": true
-        },
-        {
           "kind": "pressure",
           "target": "pressure:inspection",
           "amount": -12,
@@ -7753,6 +7734,26 @@
           "formatted": "Inspection Pressure -12",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "staff.server.fatigue",
+          "amount": 8,
+          "readable": "Cleaning shifts tire",
+          "tags": [
+            "staff"
+          ],
+          "targetKind": "staff",
+          "direction": "negative",
+          "magnitudeBand": "medium",
+          "meterId": "fatigue",
+          "meterLabel": "fatigue",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Mira the Resolute Fatigue +8",
+          "roles": [
+            "cost"
           ],
           "visible": true
         },
@@ -7794,7 +7795,7 @@
           "roles": [
             "cost"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "benefitEffects": [
@@ -7836,7 +7837,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         },
         {
           "kind": "state_change",
@@ -8607,12 +8608,14 @@
         "the inspection risk would ease a step tonight",
         "the rumour pressure would spread a step through the room",
         "loyalty would slip a step from the crew (Ib Mudshank)",
+        "later: the inspection risk would climb a step overhead",
         "later: Inspectors may dig deeper"
       ],
       "renderedMechanicalEffects": [
         "Inspection Pressure -6",
         "Rumour Pressure +8",
         "Ib Mudshank Loyalty -4",
+        "later: Inspection Pressure +6",
         "later: Inspectors may dig deeper"
       ],
       "immediateEffects": [
@@ -8696,7 +8699,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -8779,6 +8782,26 @@
           "formatted": "Ib Mudshank Loyalty -4",
           "roles": [
             "cost"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:inspection",
+          "amount": 6,
+          "readable": "Hidden goods rot quietly",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "inspection",
+          "meterLabel": "Inspection Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Inspection Pressure +6",
+          "roles": [
+            "risk"
           ],
           "visible": true
         },
@@ -8902,35 +8925,12 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:inspection",
-          "amount": 6,
-          "readable": "Hidden goods rot quietly",
-          "tags": [
-            "pressure"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "inspection",
-          "meterLabel": "Inspection Pressure",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Inspection Pressure +6",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
-      "warningFlags": [
-        "hidden_delayed_risk"
-      ]
+      "hiddenDelayedRisks": [],
+      "warningFlags": []
     },
     {
       "cardFamily": "inspection",
@@ -9163,6 +9163,18 @@
       "responseSlotId": "pay_bonus",
       "responseLabel": "Pay Nash a bonus",
       "responseShape": "safe_costly",
+      "choiceContract": {
+        "archetype": "compensate",
+        "primaryTarget": "staff.morale",
+        "solves": [
+          "acute_burnout"
+        ],
+        "costTypes": [
+          "coin"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "pay"
       ],
@@ -9174,12 +9186,14 @@
         "morale would surge through the whole crew, a wide leap",
         "stress would lift a real step off the crew",
         "a notch of silver would slip from the purse",
-        "later: the rota would mark it for later"
+        "later: a hair of pressure would press onto the reading",
+        "later: a thread would loop back round"
       ],
       "renderedMechanicalEffects": [
         "Nash Morale +15",
         "Nash Stress -10",
         "Coin -15",
+        "later: Debt Pressure +3",
         "later: Nash may expect another bonus"
       ],
       "immediateEffects": [
@@ -9265,7 +9279,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -9349,6 +9363,28 @@
           "formatted": "Coin -15",
           "roles": [
             "cost"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:debt",
+          "amount": 3,
+          "readable": "Bonus tightens the ledger over the week",
+          "tags": [
+            "pressure",
+            "debt",
+            "delay:5"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "tiny",
+          "meterId": "debt",
+          "meterLabel": "Debt Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Debt Pressure +3",
+          "roles": [
+            "risk"
           ],
           "visible": true
         },
@@ -9476,37 +9512,12 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:debt",
-          "amount": 3,
-          "readable": "Bonus tightens the ledger over the week",
-          "tags": [
-            "pressure",
-            "debt",
-            "delay:5"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "tiny",
-          "meterId": "debt",
-          "meterLabel": "Debt Pressure",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Debt Pressure +3",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
-      "warningFlags": [
-        "hidden_delayed_risk"
-      ]
+      "hiddenDelayedRisks": [],
+      "warningFlags": []
     },
     {
       "cardFamily": "staff_burnout",
@@ -9517,6 +9528,18 @@
       "responseSlotId": "reduce_workload",
       "responseLabel": "Lighten Nash's load",
       "responseShape": "compromise",
+      "choiceContract": {
+        "archetype": "staff_care",
+        "primaryTarget": "staff.stress",
+        "solves": [
+          "acute_burnout"
+        ],
+        "costTypes": [
+          "service_capacity"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "delegate"
       ],
@@ -9527,11 +9550,15 @@
       "renderedPreviewEffects": [
         "fatigue would drop away, a wide leap for the crew",
         "stress would loosen a clear lift across the rota",
-        "later: a thread would loop back round"
+        "capacity would shrink by a measure",
+        "later: fatigue would creep a step across the shift (Ib Mudshank)",
+        "later: the rota would mark it for later"
       ],
       "renderedMechanicalEffects": [
         "Nash Fatigue -15",
         "Nash Stress -10",
+        "Service Capacity -8",
+        "later: Ib Mudshank Fatigue +6",
         "later: Coverage gap may resurface when Nash returns"
       ],
       "immediateEffects": [
@@ -9574,6 +9601,27 @@
             "benefit"
           ],
           "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "global.service_capacity",
+          "amount": -8,
+          "readable": "Service capacity drops while the rota is lightened",
+          "tags": [
+            "service",
+            "capacity"
+          ],
+          "targetKind": "global",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "service_capacity",
+          "meterLabel": "service capacity",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Service Capacity -8",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
         }
       ],
       "delayedEffects": [
@@ -9597,7 +9645,7 @@
           "roles": [
             "cost"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -9666,6 +9714,49 @@
           "visible": true
         },
         {
+          "kind": "state_change",
+          "target": "global.service_capacity",
+          "amount": -8,
+          "readable": "Service capacity drops while the rota is lightened",
+          "tags": [
+            "service",
+            "capacity"
+          ],
+          "targetKind": "global",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "service_capacity",
+          "meterLabel": "service capacity",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Service Capacity -8",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "staff.cook.fatigue",
+          "amount": 6,
+          "readable": "Ib Mudshank picks up the slack",
+          "tags": [
+            "staff",
+            "coverage_gap",
+            "delay:3"
+          ],
+          "targetKind": "staff",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "fatigue",
+          "meterLabel": "fatigue",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Ib Mudshank Fatigue +6",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
+        },
+        {
           "kind": "future_hook",
           "target": "coverage_gap_cleaner_bouncer",
           "amount": 7,
@@ -9689,6 +9780,27 @@
       "costEffects": [
         {
           "kind": "state_change",
+          "target": "global.service_capacity",
+          "amount": -8,
+          "readable": "Service capacity drops while the rota is lightened",
+          "tags": [
+            "service",
+            "capacity"
+          ],
+          "targetKind": "global",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "service_capacity",
+          "meterLabel": "service capacity",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Service Capacity -8",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
           "target": "staff.cook.fatigue",
           "amount": 6,
           "readable": "Ib Mudshank picks up the slack",
@@ -9707,7 +9819,7 @@
           "roles": [
             "cost"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "benefitEffects": [
@@ -9775,10 +9887,7 @@
       "riskEffects": [],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_capacity_loss_missing",
-        "free_positive_option"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "staff_burnout",
@@ -9789,6 +9898,19 @@
       "responseSlotId": "push_through",
       "responseLabel": "Push through",
       "responseShape": "risky_profitable",
+      "choiceContract": {
+        "archetype": "staff_push",
+        "primaryTarget": "service.coverage",
+        "doesNotSolve": [
+          "acute_burnout"
+        ],
+        "costTypes": [
+          "relationship_risk",
+          "pressure_risk"
+        ],
+        "payoffTiming": "delayed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "ignore"
       ],
@@ -9945,6 +10067,19 @@
       "responseSlotId": "reassign",
       "responseLabel": "Reassign priorities",
       "responseShape": "compromise",
+      "choiceContract": {
+        "archetype": "staff_push",
+        "primaryTarget": "staff.workload",
+        "solves": [
+          "acute_burnout"
+        ],
+        "costTypes": [
+          "staff_fatigue",
+          "pressure_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "delegate"
       ],
@@ -9955,11 +10090,13 @@
       "renderedPreviewEffects": [
         "Slight relief",
         "fatigue would creep a step across the shift (Ib Mudshank)",
+        "later: Cross-staff load creeps the burnout meter",
         "later: Ib Mudshank may grumble about the reassign"
       ],
       "renderedMechanicalEffects": [
         "Nash Stress -8",
         "Ib Mudshank Fatigue +6",
+        "later: Staff Burnout Risk +3",
         "later: Ib Mudshank may grumble about the reassign"
       ],
       "immediateEffects": [
@@ -10026,7 +10163,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -10091,6 +10228,28 @@
           "formatted": "Ib Mudshank Fatigue +6",
           "roles": [
             "cost"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:staff_burnout",
+          "amount": 3,
+          "readable": "Cross-staff load creeps the burnout meter",
+          "tags": [
+            "pressure",
+            "staff",
+            "delay:5"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "tiny",
+          "meterId": "staff_burnout",
+          "meterLabel": "Staff Burnout Risk",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Staff Burnout Risk +3",
+          "roles": [
+            "risk"
           ],
           "visible": true
         },
@@ -10199,38 +10358,12 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:staff_burnout",
-          "amount": 3,
-          "readable": "Cross-staff load creeps the burnout meter",
-          "tags": [
-            "pressure",
-            "staff",
-            "delay:5"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "tiny",
-          "meterId": "staff_burnout",
-          "meterLabel": "Staff Burnout Risk",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Staff Burnout Risk +3",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
-      "warningFlags": [
-        "hidden_delayed_risk",
-        "possible_dominated_option"
-      ]
+      "hiddenDelayedRisks": [],
+      "warningFlags": []
     },
     {
       "cardFamily": "staff_identity",
@@ -10241,6 +10374,18 @@
       "responseSlotId": "comfort_staff",
       "responseLabel": "Comfort Nash",
       "responseShape": "relationship_sacrifice",
+      "choiceContract": {
+        "archetype": "staff_care",
+        "primaryTarget": "staff.loyalty",
+        "solves": [
+          "loyalty_shock"
+        ],
+        "costTypes": [
+          "owner_time"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "appease"
       ],
@@ -10251,13 +10396,13 @@
       "renderedPreviewEffects": [
         "loyalty would deepen a clear lift across the rota",
         "Stress drops",
-        "morale would warm a notch through the crew",
+        "owner time would spend a step away",
         "later: the rota would loop back to it"
       ],
       "renderedMechanicalEffects": [
         "Nash Loyalty +10",
         "Nash Stress -8",
-        "Nash Morale +6",
+        "Owner Time -5",
         "later: Owner owes the moment back"
       ],
       "immediateEffects": [
@@ -10319,6 +10464,25 @@
           "roles": [
             "benefit"
           ],
+          "visible": false
+        },
+        {
+          "kind": "state_change",
+          "target": "global.owner_time",
+          "amount": -5,
+          "readable": "Owner time spent in a private talk",
+          "tags": [
+            "time",
+            "owner"
+          ],
+          "targetKind": "global",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "owner_time",
+          "meterLabel": "owner time",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Owner Time -5",
+          "roles": [],
           "visible": true
         },
         {
@@ -10363,7 +10527,7 @@
       ],
       "expectedEffects": [
         "raise loyalty",
-        "time cost"
+        "takes time"
       ],
       "visiblePreviewEffects": [
         {
@@ -10408,22 +10572,21 @@
         },
         {
           "kind": "state_change",
-          "target": "staff.cleaner_bouncer.morale",
-          "amount": 6,
-          "readable": "Morale lifts",
+          "target": "global.owner_time",
+          "amount": -5,
+          "readable": "Owner time spent in a private talk",
           "tags": [
-            "staff"
+            "time",
+            "owner"
           ],
-          "targetKind": "staff",
-          "direction": "positive",
+          "targetKind": "global",
+          "direction": "negative",
           "magnitudeBand": "small",
-          "meterId": "morale",
-          "meterLabel": "morale",
+          "meterId": "owner_time",
+          "meterLabel": "owner time",
           "meterDisplayCategory": "good_when_higher",
-          "formatted": "Nash Morale +6",
-          "roles": [
-            "benefit"
-          ],
+          "formatted": "Owner Time -5",
+          "roles": [],
           "visible": true
         },
         {
@@ -10505,7 +10668,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         },
         {
           "kind": "cause",
@@ -10548,10 +10711,7 @@
       "riskEffects": [],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_cost_missing",
-        "free_positive_option"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "staff_identity",
@@ -10562,6 +10722,18 @@
       "responseSlotId": "publicly_back_staff",
       "responseLabel": "Publicly back Nash",
       "responseShape": "reputation_play",
+      "choiceContract": {
+        "archetype": "staff_care",
+        "primaryTarget": "staff.loyalty",
+        "solves": [
+          "public_blame"
+        ],
+        "costTypes": [
+          "reputation_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "rebrand",
         "appease"
@@ -10572,13 +10744,13 @@
       "choiceLabel": "Back them in public",
       "renderedPreviewEffects": [
         "loyalty would climb a real step with the crew",
-        "respectable standing would gain a step in talk",
+        "a hair of standing would slip from the name",
         "the loyalty risk would ease a step off the crew",
         "later: a thread would surface later"
       ],
       "renderedMechanicalEffects": [
         "Nash Loyalty +12",
-        "Reputation Respectable +5",
+        "Reputation Respectable -4",
         "Staff Loyalty Risk -8",
         "later: Crew remembers being defended"
       ],
@@ -10606,20 +10778,21 @@
         {
           "kind": "state_change",
           "target": "reputation.respectable",
-          "amount": 5,
-          "readable": "Owner stood up for staff",
+          "amount": -4,
+          "readable": "Owner spends standing to back staff",
           "tags": [
-            "reputation"
+            "reputation",
+            "risk"
           ],
           "targetKind": "reputation",
-          "direction": "positive",
-          "magnitudeBand": "small",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +5",
+          "formatted": "Reputation Respectable -4",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         },
@@ -10710,20 +10883,21 @@
         {
           "kind": "state_change",
           "target": "reputation.respectable",
-          "amount": 5,
-          "readable": "Owner stood up for staff",
+          "amount": -4,
+          "readable": "Owner spends standing to back staff",
           "tags": [
-            "reputation"
+            "reputation",
+            "risk"
           ],
           "targetKind": "reputation",
-          "direction": "positive",
-          "magnitudeBand": "small",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +5",
+          "formatted": "Reputation Respectable -4",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         },
@@ -10789,26 +10963,6 @@
           "visible": true
         },
         {
-          "kind": "state_change",
-          "target": "reputation.respectable",
-          "amount": 5,
-          "readable": "Owner stood up for staff",
-          "tags": [
-            "reputation"
-          ],
-          "targetKind": "reputation",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "respectable",
-          "meterLabel": "respectable",
-          "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +5",
-          "roles": [
-            "benefit"
-          ],
-          "visible": true
-        },
-        {
           "kind": "pressure",
           "target": "pressure:staff_loyalty_risk",
           "amount": -8,
@@ -10847,7 +11001,29 @@
           "visible": true
         }
       ],
-      "riskEffects": [],
+      "riskEffects": [
+        {
+          "kind": "state_change",
+          "target": "reputation.respectable",
+          "amount": -4,
+          "readable": "Owner spends standing to back staff",
+          "tags": [
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "reputation",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "respectable",
+          "meterLabel": "respectable",
+          "meterDisplayCategory": "contextual",
+          "formatted": "Reputation Respectable -4",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        }
+      ],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
       "warningFlags": []
@@ -10861,6 +11037,18 @@
       "responseSlotId": "pay_bonus",
       "responseLabel": "Pay a bonus",
       "responseShape": "safe_costly",
+      "choiceContract": {
+        "archetype": "compensate",
+        "primaryTarget": "staff.morale",
+        "solves": [
+          "loyalty_shock"
+        ],
+        "costTypes": [
+          "coin"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "pay"
       ],
@@ -10872,12 +11060,14 @@
         "morale would climb a clear lift in the crew",
         "the till would lighten by a step",
         "the loyalty risk would fall a clear drop tonight",
+        "later: a hair of pressure would press onto the reading",
         "later: Bonus becomes the new floor"
       ],
       "renderedMechanicalEffects": [
         "Nash Morale +12",
         "Coin -10",
         "Staff Loyalty Risk -10",
+        "later: Debt Pressure +2",
         "later: Bonus becomes the new floor"
       ],
       "immediateEffects": [
@@ -10983,6 +11173,28 @@
       ],
       "delayedEffects": [
         {
+          "kind": "pressure",
+          "target": "pressure:debt",
+          "amount": 2,
+          "readable": "Bonus nudges wage pressure upward",
+          "tags": [
+            "pressure",
+            "debt",
+            "delay:5"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "tiny",
+          "meterId": "debt",
+          "meterLabel": "Debt Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Debt Pressure +2",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
           "kind": "future_hook",
           "target": "wage_expectation_cleaner_bouncer",
           "amount": 8,
@@ -11063,6 +11275,28 @@
           "formatted": "Staff Loyalty Risk -10",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:debt",
+          "amount": 2,
+          "readable": "Bonus nudges wage pressure upward",
+          "tags": [
+            "pressure",
+            "debt",
+            "delay:5"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "tiny",
+          "meterId": "debt",
+          "meterLabel": "Debt Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Debt Pressure +2",
+          "roles": [
+            "risk"
           ],
           "visible": true
         },
@@ -11206,12 +11440,33 @@
           "visible": true
         }
       ],
-      "riskEffects": [],
+      "riskEffects": [
+        {
+          "kind": "pressure",
+          "target": "pressure:debt",
+          "amount": 2,
+          "readable": "Bonus nudges wage pressure upward",
+          "tags": [
+            "pressure",
+            "debt",
+            "delay:5"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "tiny",
+          "meterId": "debt",
+          "meterLabel": "Debt Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Debt Pressure +2",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        }
+      ],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "possible_dominated_option"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "staff_identity",
@@ -11222,6 +11477,20 @@
       "responseSlotId": "blame_staff",
       "responseLabel": "Blame Nash",
       "responseShape": "relationship_sacrifice",
+      "choiceContract": {
+        "archetype": "staff_push",
+        "primaryTarget": "owner.reputation",
+        "doesNotSolve": [
+          "loyalty_shock"
+        ],
+        "costTypes": [
+          "relationship_risk",
+          "reputation_risk",
+          "pressure_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "blame"
       ],
@@ -11233,12 +11502,14 @@
         "loyalty would collapse a heavy fall in the crew",
         "morale would sink a clear drop in the crew",
         "the rumour pressure would spread a step through the room",
+        "later: the loyalty risk would build a clear lift overnight",
         "later: Staff may quit"
       ],
       "renderedMechanicalEffects": [
         "Nash Loyalty -20",
         "Nash Morale -12",
         "Rumour Pressure +6",
+        "later: Staff Loyalty Risk +12",
         "later: Staff may quit"
       ],
       "immediateEffects": [
@@ -11358,7 +11629,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -11445,6 +11716,26 @@
           "visible": true
         },
         {
+          "kind": "pressure",
+          "target": "pressure:staff_loyalty_risk",
+          "amount": 12,
+          "readable": "Loyalty risk spikes",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "medium",
+          "meterId": "staff_loyalty_risk",
+          "meterLabel": "Staff Loyalty Risk",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Staff Loyalty Risk +12",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
           "kind": "future_hook",
           "target": "staff_quit_risk_cleaner_bouncer",
           "amount": 15,
@@ -11564,35 +11855,12 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:staff_loyalty_risk",
-          "amount": 12,
-          "readable": "Loyalty risk spikes",
-          "tags": [
-            "pressure"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "medium",
-          "meterId": "staff_loyalty_risk",
-          "meterLabel": "Staff Loyalty Risk",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Staff Loyalty Risk +12",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
-      "warningFlags": [
-        "hidden_delayed_risk"
-      ]
+      "hiddenDelayedRisks": [],
+      "warningFlags": []
     },
     {
       "cardFamily": "staff_identity",
@@ -11603,6 +11871,18 @@
       "responseSlotId": "change_priority",
       "responseLabel": "Change priority",
       "responseShape": "compromise",
+      "choiceContract": {
+        "archetype": "staff_care",
+        "primaryTarget": "staff.stress",
+        "solves": [
+          "loyalty_shock"
+        ],
+        "costTypes": [
+          "service_capacity"
+        ],
+        "payoffTiming": "immediate",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "delegate"
       ],
@@ -11612,13 +11892,15 @@
       "choiceLabel": "Change priority",
       "renderedPreviewEffects": [
         "stress would loosen a clear lift across the rota",
-        "fatigue would ease a step across the rota",
-        "the burnout meter would settle a step lower tonight"
+        "the burnout meter would settle a step lower tonight",
+        "service capacity would dip a hair",
+        "later: Priority shuffle may spark grumbles"
       ],
       "renderedMechanicalEffects": [
         "Nash Stress -10",
-        "Nash Fatigue -5",
-        "Staff Burnout Risk -6"
+        "Staff Burnout Risk -6",
+        "Service Capacity -4",
+        "later: Staff Loyalty Risk +3"
       ],
       "immediateEffects": [
         {
@@ -11659,7 +11941,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         },
         {
           "kind": "pressure",
@@ -11680,11 +11962,55 @@
             "benefit"
           ],
           "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "global.service_capacity",
+          "amount": -4,
+          "readable": "Service capacity dips during the priority shift",
+          "tags": [
+            "service",
+            "capacity"
+          ],
+          "targetKind": "global",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "service_capacity",
+          "meterLabel": "service capacity",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Service Capacity -4",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
         }
       ],
-      "delayedEffects": [],
+      "delayedEffects": [
+        {
+          "kind": "pressure",
+          "target": "pressure:staff_loyalty_risk",
+          "amount": 3,
+          "readable": "Priority shuffle may spark grumbles",
+          "tags": [
+            "pressure",
+            "staff",
+            "delay:3"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "tiny",
+          "meterId": "staff_loyalty_risk",
+          "meterLabel": "Staff Loyalty Risk",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Staff Loyalty Risk +3",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        }
+      ],
       "expectedEffects": [
-        "lower stress",
+        "rest staff",
         "reduce service capacity"
       ],
       "visiblePreviewEffects": [
@@ -11709,26 +12035,6 @@
           "visible": true
         },
         {
-          "kind": "state_change",
-          "target": "staff.cleaner_bouncer.fatigue",
-          "amount": -5,
-          "readable": "Some rest",
-          "tags": [
-            "staff"
-          ],
-          "targetKind": "staff",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "fatigue",
-          "meterLabel": "fatigue",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Nash Fatigue -5",
-          "roles": [
-            "benefit"
-          ],
-          "visible": true
-        },
-        {
           "kind": "pressure",
           "target": "pressure:staff_burnout",
           "amount": -6,
@@ -11747,9 +12053,74 @@
             "benefit"
           ],
           "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "global.service_capacity",
+          "amount": -4,
+          "readable": "Service capacity dips during the priority shift",
+          "tags": [
+            "service",
+            "capacity"
+          ],
+          "targetKind": "global",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "service_capacity",
+          "meterLabel": "service capacity",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Service Capacity -4",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:staff_loyalty_risk",
+          "amount": 3,
+          "readable": "Priority shuffle may spark grumbles",
+          "tags": [
+            "pressure",
+            "staff",
+            "delay:3"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "tiny",
+          "meterId": "staff_loyalty_risk",
+          "meterLabel": "Staff Loyalty Risk",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Staff Loyalty Risk +3",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
         }
       ],
-      "costEffects": [],
+      "costEffects": [
+        {
+          "kind": "state_change",
+          "target": "global.service_capacity",
+          "amount": -4,
+          "readable": "Service capacity dips during the priority shift",
+          "tags": [
+            "service",
+            "capacity"
+          ],
+          "targetKind": "global",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "service_capacity",
+          "meterLabel": "service capacity",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Service Capacity -4",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
+        }
+      ],
       "benefitEffects": [
         {
           "kind": "state_change",
@@ -11789,7 +12160,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         },
         {
           "kind": "pressure",
@@ -11812,14 +12183,33 @@
           "visible": true
         }
       ],
-      "riskEffects": [],
+      "riskEffects": [
+        {
+          "kind": "pressure",
+          "target": "pressure:staff_loyalty_risk",
+          "amount": 3,
+          "readable": "Priority shuffle may spark grumbles",
+          "tags": [
+            "pressure",
+            "staff",
+            "delay:3"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "tiny",
+          "meterId": "staff_loyalty_risk",
+          "meterLabel": "Staff Loyalty Risk",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Staff Loyalty Risk +3",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        }
+      ],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_cost_missing",
-        "expected_capacity_loss_missing",
-        "possible_dominated_option"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "staff_identity",
@@ -11830,6 +12220,18 @@
       "responseSlotId": "ignore_request",
       "responseLabel": "Ignore the moment",
       "responseShape": "ignore",
+      "choiceContract": {
+        "archetype": "ignore",
+        "primaryTarget": "staff.loyalty",
+        "doesNotSolve": [
+          "loyalty_shock"
+        ],
+        "costTypes": [
+          "none"
+        ],
+        "payoffTiming": "delayed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "ignore"
       ],
@@ -11838,11 +12240,13 @@
       "renderedPreviewEffects": [
         "loyalty would slip a step from the crew",
         "Unspoken stress lingers",
+        "later: the loyalty risk would climb a step higher tonight",
         "later: Quiet quitting watch"
       ],
       "renderedMechanicalEffects": [
         "Nash Loyalty -3",
         "Nash Stress +4",
+        "later: Staff Loyalty Risk +6",
         "later: Quiet quitting watch"
       ],
       "immediateEffects": [
@@ -11906,7 +12310,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -11969,6 +12373,26 @@
           "formatted": "Nash Stress +4",
           "roles": [
             "cost"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:staff_loyalty_risk",
+          "amount": 6,
+          "readable": "Loyalty risk rises",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "staff_loyalty_risk",
+          "meterLabel": "Staff Loyalty Risk",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Staff Loyalty Risk +6",
+          "roles": [
+            "risk"
           ],
           "visible": true
         },
@@ -12072,36 +12496,12 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:staff_loyalty_risk",
-          "amount": 6,
-          "readable": "Loyalty risk rises",
-          "tags": [
-            "pressure"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "staff_loyalty_risk",
-          "meterLabel": "Staff Loyalty Risk",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Staff Loyalty Risk +6",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
-      "warningFlags": [
-        "hidden_delayed_risk",
-        "possible_dominated_option"
-      ]
+      "hiddenDelayedRisks": [],
+      "warningFlags": []
     },
     {
       "cardFamily": "regular_customer",
@@ -13708,14 +14108,14 @@
       "choiceLabel": "Apologise to the whole room",
       "renderedPreviewEffects": [
         "respectable standing would gain a step in talk",
-        "satisfaction would rise a real step with the patrons",
-        "pressure would fall back a clear drop",
+        "the reading would quiet by a real slip",
+        "morale would sink a clear drop in the crew (Mira the Resolute)",
         "later: Group may expect more apologies"
       ],
       "renderedMechanicalEffects": [
         "Reputation Respectable +8",
-        "Merchants Satisfaction +10",
         "Regular Customer Loss Risk -10",
+        "Mira the Resolute Morale -8",
         "later: Group may expect more apologies"
       ],
       "immediateEffects": [
@@ -13757,7 +14157,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         },
         {
           "kind": "pressure",
@@ -13817,7 +14217,7 @@
           "roles": [
             "cost"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "delayedEffects": [
@@ -13866,26 +14266,6 @@
           "visible": true
         },
         {
-          "kind": "state_change",
-          "target": "customers.merchants.satisfaction",
-          "amount": 10,
-          "readable": "Group accepts the apology",
-          "tags": [
-            "customer"
-          ],
-          "targetKind": "customer",
-          "direction": "positive",
-          "magnitudeBand": "medium",
-          "meterId": "satisfaction",
-          "meterLabel": "satisfaction",
-          "meterDisplayCategory": "good_when_higher",
-          "formatted": "Merchants Satisfaction +10",
-          "roles": [
-            "benefit"
-          ],
-          "visible": true
-        },
-        {
           "kind": "pressure",
           "target": "pressure:regular_customer_loss",
           "amount": -10,
@@ -13902,6 +14282,26 @@
           "formatted": "Regular Customer Loss Risk -10",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "staff.server.morale",
+          "amount": -8,
+          "readable": "Staff felt thrown under",
+          "tags": [
+            "staff"
+          ],
+          "targetKind": "staff",
+          "direction": "negative",
+          "magnitudeBand": "medium",
+          "meterId": "morale",
+          "meterLabel": "morale",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Mira the Resolute Morale -8",
+          "roles": [
+            "cost"
           ],
           "visible": true
         },
@@ -13943,7 +14343,7 @@
           "roles": [
             "cost"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "benefitEffects": [
@@ -13985,7 +14385,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         },
         {
           "kind": "pressure",
@@ -14069,13 +14469,13 @@
       "choiceLabel": "Side with Master Faline Cargoright",
       "renderedPreviewEffects": [
         "loyalty would deepen a real step with the regular (Master Faline Cargoright)",
-        "Regular championed",
+        "loyalty would fall a clear drop across the rota (Mira the Resolute)",
         "the loyalty risk would climb a step higher tonight",
         "later: Staff remember being overruled"
       ],
       "renderedMechanicalEffects": [
         "Master Faline Cargoright Loyalty +12",
-        "Master Faline Cargoright +12",
+        "Mira the Resolute Loyalty -10",
         "Staff Loyalty Risk +8",
         "later: Staff remember being overruled"
       ],
@@ -14118,7 +14518,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         },
         {
           "kind": "state_change",
@@ -14138,7 +14538,7 @@
           "roles": [
             "cost"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "state_change",
@@ -14247,22 +14647,22 @@
           "visible": true
         },
         {
-          "kind": "cause",
-          "target": "regular:starter_regular_merchants_1",
-          "amount": 12,
-          "readable": "Regular championed",
+          "kind": "state_change",
+          "target": "staff.server.loyalty",
+          "amount": -10,
+          "readable": "Staff publicly overruled",
           "tags": [
-            "regular",
-            "favorite_order",
-            "attribution"
+            "staff"
           ],
-          "targetKind": "customer",
-          "direction": "positive",
+          "targetKind": "staff",
+          "direction": "negative",
           "magnitudeBand": "medium",
-          "meterId": "starter_regular_merchants_1",
-          "formatted": "Master Faline Cargoright +12",
+          "meterId": "loyalty",
+          "meterLabel": "loyalty",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Mira the Resolute Loyalty -10",
           "roles": [
-            "benefit"
+            "cost"
           ],
           "visible": true
         },
@@ -14324,7 +14724,7 @@
           "roles": [
             "cost"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "state_change",
@@ -14386,7 +14786,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         },
         {
           "kind": "pressure",
@@ -15165,7 +15565,7 @@
       ],
       "choiceLabel": "Comp the round",
       "renderedPreviewEffects": [
-        "Discount appeases",
+        "satisfaction would rise a real step with the patrons",
         "a measure of coppers would leave the till",
         "loyalty would warm a step with the regular"
       ],
@@ -15451,8 +15851,7 @@
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
       "warningFlags": [
-        "expected_risk_missing",
-        "possible_dominated_option"
+        "expected_risk_missing"
       ]
     },
     {
@@ -15474,11 +15873,13 @@
       "renderedPreviewEffects": [
         "a clear drop of silver would leave the till",
         "the violence risk would fall a real slip back",
-        "later: A risk of return would remain on the slate"
+        "later: a hair of pressure would press onto the reading",
+        "later: A reminder would sit on the slate for later"
       ],
       "renderedMechanicalEffects": [
         "Coin -20",
         "Violence Risk -15",
+        "later: Staff Burnout Risk +4",
         "later: Security may become a routine fixture"
       ],
       "immediateEffects": [
@@ -15544,7 +15945,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -15608,6 +16009,28 @@
           "formatted": "Violence Risk -15",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:staff_burnout",
+          "amount": 4,
+          "readable": "Security crew tires the staff coordination",
+          "tags": [
+            "pressure",
+            "staff",
+            "delay:5"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "tiny",
+          "meterId": "staff_burnout",
+          "meterLabel": "Staff Burnout Risk",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Staff Burnout Risk +4",
+          "roles": [
+            "risk"
           ],
           "visible": true
         },
@@ -15715,38 +16138,12 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:staff_burnout",
-          "amount": 4,
-          "readable": "Security crew tires the staff coordination",
-          "tags": [
-            "pressure",
-            "staff",
-            "delay:5"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "tiny",
-          "meterId": "staff_burnout",
-          "meterLabel": "Staff Burnout Risk",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Staff Burnout Risk +4",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
-      "warningFlags": [
-        "hidden_delayed_risk",
-        "possible_dominated_option"
-      ]
+      "hiddenDelayedRisks": [],
+      "warningFlags": []
     },
     {
       "cardFamily": "violence",
@@ -15768,7 +16165,7 @@
         "patronage would collapse a heavy fall among the regulars",
         "the violence risk would drain a clear drop tonight",
         "a heavy fall would empty the cohort table",
-        "later: A reminder would sit on the slate for later"
+        "later: A risk of return would remain on the slate"
       ],
       "renderedMechanicalEffects": [
         "Ogres Patronage -25",
@@ -16007,11 +16404,13 @@
       "renderedPreviewEffects": [
         "a dangerous name would spread a step through talk",
         "talk would dim a touch around the tavern",
+        "later: patronage would fall a clear drop among the patrons (Merchants)",
         "later: The house would gain a rougher name"
       ],
       "renderedMechanicalEffects": [
         "Reputation Dangerous +6",
         "Reputation Respectable -4",
+        "later: Merchants Patronage -8",
         "later: Dangerous reputation may lock in"
       ],
       "immediateEffects": [
@@ -16073,7 +16472,7 @@
           "meterDisplayCategory": "good_when_higher",
           "formatted": "Merchants Patronage -8",
           "roles": [],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -16136,6 +16535,26 @@
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
           "formatted": "Reputation Respectable -4",
+          "roles": [],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "customers.merchants.patronage",
+          "amount": -8,
+          "readable": "Merchants drift away from the rowdy rep",
+          "tags": [
+            "customer",
+            "merchants",
+            "delay:5"
+          ],
+          "targetKind": "customer",
+          "direction": "negative",
+          "magnitudeBand": "medium",
+          "meterId": "patronage",
+          "meterLabel": "patronage",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Merchants Patronage -8",
           "roles": [],
           "visible": true
         },
@@ -16227,11 +16646,13 @@
       "renderedPreviewEffects": [
         "a quick patch would lift the corner a step",
         "a notch of silver would slip from the purse",
+        "later: Repair shifts tire the crew",
         "later: main_room may shrug off later damage"
       ],
       "renderedMechanicalEffects": [
         "Main Room Damage -20",
         "Coin -12",
+        "later: Staff Burnout Risk +3",
         "later: main_room may shrug off later damage"
       ],
       "immediateEffects": [
@@ -16297,7 +16718,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -16362,6 +16783,28 @@
           "formatted": "Coin -12",
           "roles": [
             "cost"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:staff_burnout",
+          "amount": 3,
+          "readable": "Repair shifts tire the crew",
+          "tags": [
+            "pressure",
+            "staff",
+            "delay:3"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "tiny",
+          "meterId": "staff_burnout",
+          "meterLabel": "Staff Burnout Risk",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Staff Burnout Risk +3",
+          "roles": [
+            "risk"
           ],
           "visible": true
         },
@@ -16471,37 +16914,12 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:staff_burnout",
-          "amount": 3,
-          "readable": "Repair shifts tire the crew",
-          "tags": [
-            "pressure",
-            "staff",
-            "delay:3"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "tiny",
-          "meterId": "staff_burnout",
-          "meterLabel": "Staff Burnout Risk",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Staff Burnout Risk +3",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
-      "warningFlags": [
-        "hidden_delayed_risk"
-      ]
+      "hiddenDelayedRisks": [],
+      "warningFlags": []
     },
     {
       "cardFamily": "faction_request",
@@ -19530,11 +19948,13 @@
       "renderedPreviewEffects": [
         "the cheap name would creep a notch into talk",
         "the till would lighten by a step",
+        "later: a hair of standing would slip from the name",
         "later: A reminder would sit on the slate for later"
       ],
       "renderedMechanicalEffects": [
         "Reputation Cheap -5",
         "Coin -10",
+        "later: Reputation Cheap -3",
         "later: cheap correction may settle"
       ],
       "immediateEffects": [
@@ -19595,7 +20015,7 @@
           "meterDisplayCategory": "contextual",
           "formatted": "Reputation Cheap -3",
           "roles": [],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -19659,6 +20079,25 @@
           "roles": [
             "cost"
           ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "reputation.cheap",
+          "amount": -3,
+          "readable": "Correction shows through across the week",
+          "tags": [
+            "reputation",
+            "delay:5"
+          ],
+          "targetKind": "reputation",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "cheap",
+          "meterLabel": "cheap",
+          "meterDisplayCategory": "contextual",
+          "formatted": "Reputation Cheap -3",
+          "roles": [],
           "visible": true
         },
         {
@@ -19752,10 +20191,12 @@
       "choiceLabel": "Call the matching crowd in",
       "renderedPreviewEffects": [
         "patronage would climb a real step among the regulars (Miners)",
+        "later: a hair of pressure would press onto the reading",
         "later: cheap audience may lock in"
       ],
       "renderedMechanicalEffects": [
         "Miners Patronage +8",
+        "later: Reputation Drift Pressure +4",
         "later: cheap audience may lock in"
       ],
       "immediateEffects": [
@@ -19801,7 +20242,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -19847,6 +20288,28 @@
           "formatted": "Miners Patronage +8",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:reputation_drift",
+          "amount": 4,
+          "readable": "Targeted advertising deepens the drift",
+          "tags": [
+            "pressure",
+            "reputation",
+            "delay:5"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "tiny",
+          "meterId": "reputation_drift",
+          "meterLabel": "Reputation Drift Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Reputation Drift Pressure +4",
+          "roles": [
+            "risk"
           ],
           "visible": true
         },
@@ -19937,38 +20400,12 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:reputation_drift",
-          "amount": 4,
-          "readable": "Targeted advertising deepens the drift",
-          "tags": [
-            "pressure",
-            "reputation",
-            "delay:5"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "tiny",
-          "meterId": "reputation_drift",
-          "meterLabel": "Reputation Drift Pressure",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Reputation Drift Pressure +4",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
-      "warningFlags": [
-        "hidden_delayed_risk",
-        "free_positive_option"
-      ]
+      "hiddenDelayedRisks": [],
+      "warningFlags": []
     },
     {
       "cardFamily": "reputation_shift",
@@ -19989,11 +20426,13 @@
       "renderedPreviewEffects": [
         "talk would dim a touch around the tavern",
         "patronage would rise a step at the regular tables (Merchants)",
+        "later: Mixed messages breed gossip",
         "later: cheap audience may dilute"
       ],
       "renderedMechanicalEffects": [
         "Reputation Cheap -3",
         "Merchants Patronage +4",
+        "later: Rumour Pressure +3",
         "later: cheap audience may dilute"
       ],
       "immediateEffects": [
@@ -20057,7 +20496,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -20125,6 +20564,28 @@
           "visible": true
         },
         {
+          "kind": "pressure",
+          "target": "pressure:rumour_pressure",
+          "amount": 3,
+          "readable": "Mixed messages breed gossip",
+          "tags": [
+            "pressure",
+            "rumour",
+            "delay:5"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "tiny",
+          "meterId": "rumour_pressure",
+          "meterLabel": "Rumour Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Rumour Pressure +3",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
           "kind": "future_hook",
           "target": "audience_dilution_cheap",
           "amount": 12,
@@ -20211,38 +20672,12 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:rumour_pressure",
-          "amount": 3,
-          "readable": "Mixed messages breed gossip",
-          "tags": [
-            "pressure",
-            "rumour",
-            "delay:5"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "tiny",
-          "meterId": "rumour_pressure",
-          "meterLabel": "Rumour Pressure",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Rumour Pressure +3",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
-      "warningFlags": [
-        "hidden_delayed_risk",
-        "possible_dominated_option"
-      ]
+      "hiddenDelayedRisks": [],
+      "warningFlags": []
     },
     {
       "cardFamily": "rumour_crisis",
@@ -20264,12 +20699,14 @@
         "the rumour pressure would fall a real slip tonight",
         "the respectable name would slip a notch in word",
         "Audience doubts the protest",
-        "later: A reminder would sit on the slate for later"
+        "later: the rumour pressure would spread a step through the room",
+        "later: A risk would remain on the slate for later"
       ],
       "renderedMechanicalEffects": [
         "Rumour Pressure -10",
         "Reputation Respectable -6",
         "Reputation Reliable -8",
+        "later: Rumour Pressure +6",
         "later: Denial may backfire if true"
       ],
       "immediateEffects": [
@@ -20369,7 +20806,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -20449,6 +20886,26 @@
           "meterDisplayCategory": "contextual",
           "formatted": "Reputation Reliable -8",
           "roles": [],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:rumour_pressure",
+          "amount": 6,
+          "readable": "Whisper rebounds",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "rumour_pressure",
+          "meterLabel": "Rumour Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Rumour Pressure +6",
+          "roles": [
+            "risk"
+          ],
           "visible": true
         },
         {
@@ -20550,36 +21007,12 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:rumour_pressure",
-          "amount": 6,
-          "readable": "Whisper rebounds",
-          "tags": [
-            "pressure"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "rumour_pressure",
-          "meterLabel": "Rumour Pressure",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Rumour Pressure +6",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
-      "warningFlags": [
-        "hidden_delayed_risk",
-        "possible_dominated_option"
-      ]
+      "hiddenDelayedRisks": [],
+      "warningFlags": []
     },
     {
       "cardFamily": "rumour_crisis",
@@ -20881,12 +21314,14 @@
         "the rumour pressure would ease a step from the room",
         "talk would dim a touch around the tavern",
         "a marked fall would chill the merchant route",
-        "later: A risk would remain on the slate for later"
+        "later: cultural tension would climb a step tonight",
+        "later: A reminder would sit on the slate for later"
       ],
       "renderedMechanicalEffects": [
         "Rumour Pressure -8",
         "Reputation Respectable -4",
         "Brakka Mushroom Cart -10",
+        "later: Cultural Tension +8",
         "later: Blamed party may grudge"
       ],
       "immediateEffects": [
@@ -20986,7 +21421,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "pressure",
@@ -21089,6 +21524,26 @@
           "visible": true
         },
         {
+          "kind": "pressure",
+          "target": "pressure:cultural_tension",
+          "amount": 8,
+          "readable": "Simmer becomes a glare",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "cultural_tension",
+          "meterLabel": "Cultural Tension",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Cultural Tension +8",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
           "kind": "future_hook",
           "target": "rumour_blame_grudge_supplier_brakka_mushroom_cart",
           "amount": 14,
@@ -21187,7 +21642,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "pressure",
@@ -21214,26 +21669,6 @@
       "hiddenDelayedRisks": [
         {
           "kind": "pressure",
-          "target": "pressure:cultural_tension",
-          "amount": 8,
-          "readable": "Simmer becomes a glare",
-          "tags": [
-            "pressure"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "cultural_tension",
-          "meterLabel": "Cultural Tension",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Cultural Tension +8",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        },
-        {
-          "kind": "pressure",
           "target": "pressure:faction_anger",
           "amount": 6,
           "readable": "Faction tied to blame is sore",
@@ -21254,8 +21689,7 @@
         }
       ],
       "warningFlags": [
-        "hidden_delayed_risk",
-        "possible_dominated_option"
+        "hidden_delayed_risk"
       ]
     },
     {
@@ -21582,12 +22016,14 @@
         "a marked fall of silver would empty the till",
         "a marked fall would ease the risk taken",
         "a notch would loosen the supplier deal",
+        "later: Someone always talks",
         "later: Bribe may be exposed"
       ],
       "renderedMechanicalEffects": [
         "Coin -20",
         "Rumour Pressure -12",
         "Brakka Mushroom Cart -6",
+        "later: Rumour Pressure +5",
         "later: Bribe may be exposed"
       ],
       "immediateEffects": [
@@ -21688,7 +22124,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -21769,6 +22205,26 @@
           "meterId": "brakka_mushroom_cart",
           "formatted": "Brakka Mushroom Cart -6",
           "roles": [],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:rumour_pressure",
+          "amount": 5,
+          "readable": "Someone always talks",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "rumour_pressure",
+          "meterLabel": "Rumour Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Rumour Pressure +5",
+          "roles": [
+            "risk"
+          ],
           "visible": true
         },
         {
@@ -21891,36 +22347,12 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:rumour_pressure",
-          "amount": 5,
-          "readable": "Someone always talks",
-          "tags": [
-            "pressure"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "rumour_pressure",
-          "meterLabel": "Rumour Pressure",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Rumour Pressure +5",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
-      "warningFlags": [
-        "hidden_delayed_risk",
-        "possible_dominated_option"
-      ]
+      "hiddenDelayedRisks": [],
+      "warningFlags": []
     },
     {
       "cardFamily": "rumour_crisis",
@@ -25640,11 +26072,13 @@
       "renderedPreviewEffects": [
         "Coin would leave the till for the landlord",
         "the landlord's pressure would fall away, a sharp drop",
-        "later: A consequence would surface next month"
+        "later: debt pressure would creep a step up the slate",
+        "later: A reminder would sit on the slate for later"
       ],
       "renderedMechanicalEffects": [
         "Coin 0",
         "Landlord Pressure -25",
+        "later: Debt Pressure +6",
         "later: Landlord may offer a window of goodwill"
       ],
       "immediateEffects": [
@@ -25709,7 +26143,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -25772,6 +26206,28 @@
           "formatted": "Landlord Pressure -25",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:debt",
+          "amount": 6,
+          "readable": "Reserves thinner after rent",
+          "tags": [
+            "pressure",
+            "debt",
+            "delay:5"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "debt",
+          "meterLabel": "Debt Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Debt Pressure +6",
+          "roles": [
+            "risk"
           ],
           "visible": true
         },
@@ -25859,37 +26315,13 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:debt",
-          "amount": 6,
-          "readable": "Reserves thinner after rent",
-          "tags": [
-            "pressure",
-            "debt",
-            "delay:5"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "debt",
-          "meterLabel": "Debt Pressure",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Debt Pressure +6",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
+      "hiddenDelayedRisks": [],
       "warningFlags": [
-        "expected_cost_missing",
-        "hidden_delayed_risk"
+        "expected_cost_missing"
       ]
     },
     {
@@ -25911,11 +26343,13 @@
       "renderedPreviewEffects": [
         "a real slip of coin would leave the purse",
         "a measure of new timber would brace the room",
-        "later: The cellar would gain ground on the books"
+        "later: the landlord's pressure would mount a marked rise overhead",
+        "later: A consequence would surface next month"
       ],
       "renderedMechanicalEffects": [
         "Coin -20",
         "Cellar Condition +12",
+        "later: Landlord Pressure +12",
         "later: Cellar capacity may unlock next month"
       ],
       "immediateEffects": [
@@ -25982,7 +26416,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -26047,6 +26481,28 @@
           "formatted": "Cellar Condition +12",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:landlord",
+          "amount": 12,
+          "readable": "Rent slip — landlord notices",
+          "tags": [
+            "pressure",
+            "landlord",
+            "delay:3"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "medium",
+          "meterId": "landlord",
+          "meterLabel": "Landlord Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Landlord Pressure +12",
+          "roles": [
+            "risk"
           ],
           "visible": true
         },
@@ -26155,37 +26611,12 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:landlord",
-          "amount": 12,
-          "readable": "Rent slip — landlord notices",
-          "tags": [
-            "pressure",
-            "landlord",
-            "delay:3"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "medium",
-          "meterId": "landlord",
-          "meterLabel": "Landlord Pressure",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Landlord Pressure +12",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
-      "warningFlags": [
-        "hidden_delayed_risk"
-      ]
+      "hiddenDelayedRisks": [],
+      "warningFlags": []
     },
     {
       "cardFamily": "monthly_review",
@@ -26205,10 +26636,12 @@
       "choiceLabel": "Hold the reserves another month",
       "renderedPreviewEffects": [
         "a hair of pressure would lift off the meter",
+        "later: the loyalty risk would climb a step higher tonight",
         "later: A thread would loop back round in time"
       ],
       "renderedMechanicalEffects": [
         "Debt Pressure -4",
+        "later: Staff Loyalty Risk +6",
         "later: Reserves intact through next month"
       ],
       "immediateEffects": [
@@ -26255,7 +26688,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -26300,6 +26733,28 @@
           "formatted": "Debt Pressure -4",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:staff_loyalty_risk",
+          "amount": 6,
+          "readable": "Staff sense the penny-pinching",
+          "tags": [
+            "pressure",
+            "staff",
+            "delay:7"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "staff_loyalty_risk",
+          "meterLabel": "Staff Loyalty Risk",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Staff Loyalty Risk +6",
+          "roles": [
+            "risk"
           ],
           "visible": true
         },
@@ -26387,37 +26842,12 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:staff_loyalty_risk",
-          "amount": 6,
-          "readable": "Staff sense the penny-pinching",
-          "tags": [
-            "pressure",
-            "staff",
-            "delay:7"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "staff_loyalty_risk",
-          "meterLabel": "Staff Loyalty Risk",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Staff Loyalty Risk +6",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
-      "warningFlags": [
-        "hidden_delayed_risk"
-      ]
+      "hiddenDelayedRisks": [],
+      "warningFlags": []
     },
     {
       "cardFamily": "monthly_review",
@@ -26439,12 +26869,14 @@
         "the till would lighten by a step",
         "the order would warm a marked rise on terms (Rival Taverns)",
         "the rival's pressure would fall a real slip back",
-        "later: A reminder would sit on the slate for later"
+        "later: the rumour pressure would spread a step through the room",
+        "later: The rival pressure would settle for a stretch"
       ],
       "renderedMechanicalEffects": [
         "Coin -15",
         "Rival Taverns +12",
         "Rival Tavern Pressure -12",
+        "later: Rumour Pressure +6",
         "later: Rival pact may reopen later"
       ],
       "immediateEffects": [
@@ -26531,7 +26963,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -26620,6 +27052,28 @@
           "visible": true
         },
         {
+          "kind": "pressure",
+          "target": "pressure:rumour_pressure",
+          "amount": 6,
+          "readable": "Visible accommodation feeds gossip",
+          "tags": [
+            "pressure",
+            "rumour",
+            "delay:5"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "rumour_pressure",
+          "meterLabel": "Rumour Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Rumour Pressure +6",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
           "kind": "future_hook",
           "target": "rival_settlement_pact_Y1-M1",
           "amount": 21,
@@ -26744,38 +27198,12 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:rumour_pressure",
-          "amount": 6,
-          "readable": "Visible accommodation feeds gossip",
-          "tags": [
-            "pressure",
-            "rumour",
-            "delay:5"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "rumour_pressure",
-          "meterLabel": "Rumour Pressure",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Rumour Pressure +6",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
-      "warningFlags": [
-        "hidden_delayed_risk",
-        "possible_dominated_option"
-      ]
+      "hiddenDelayedRisks": [],
+      "warningFlags": []
     },
     {
       "cardFamily": "seasonal_arc",
@@ -27104,13 +27532,13 @@
       "renderedPreviewEffects": [
         "a marked rise of coin would settle into the purse",
         "a heavy fall would lift the worst pressure off",
-        "respectable standing would gain a step in talk",
+        "fatigue would drag the crew down a real slip (Ib Mudshank)",
         "later: A reminder would sit on the slate for later"
       ],
       "renderedMechanicalEffects": [
         "Coin +30",
         "Festival Readiness Risk -20",
-        "Reputation Respectable +8",
+        "Ib Mudshank Fatigue +8",
         "later: Festival sets a yearly expectation"
       ],
       "immediateEffects": [
@@ -27170,7 +27598,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         },
         {
           "kind": "cause",
@@ -27211,7 +27639,7 @@
           "roles": [
             "cost"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "delayedEffects": [
@@ -27279,21 +27707,21 @@
         },
         {
           "kind": "state_change",
-          "target": "reputation.respectable",
+          "target": "staff.cook.fatigue",
           "amount": 8,
-          "readable": "Hospitable reputation grows",
+          "readable": "Long night for the crew",
           "tags": [
-            "reputation"
+            "staff"
           ],
-          "targetKind": "reputation",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "respectable",
-          "meterLabel": "respectable",
-          "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +8",
+          "targetKind": "staff",
+          "direction": "negative",
+          "magnitudeBand": "medium",
+          "meterId": "fatigue",
+          "meterLabel": "fatigue",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Ib Mudshank Fatigue +8",
           "roles": [
-            "benefit"
+            "cost"
           ],
           "visible": true
         },
@@ -27335,7 +27763,7 @@
           "roles": [
             "cost"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "benefitEffects": [
@@ -27377,7 +27805,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         },
         {
           "kind": "cause",
@@ -27423,7 +27851,8 @@
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
       "warningFlags": [
-        "expected_cost_missing"
+        "expected_cost_missing",
+        "possible_dominated_option"
       ]
     },
     {
@@ -27447,12 +27876,14 @@
         "a real step of silver would land in the till",
         "the cheap name would sink a clear drop in talk",
         "the rumour pressure would spread a step through the room",
-        "later: A consequence would surface later in the arc"
+        "later: a clear lift would build pressure onto the room",
+        "later: A thread would loop back round in time"
       ],
       "renderedMechanicalEffects": [
         "Coin +20",
         "Reputation Cheap -10",
         "Rumour Pressure +6",
+        "later: Regular Customer Loss Risk +10",
         "later: Reputation backlash possible"
       ],
       "immediateEffects": [
@@ -27550,7 +27981,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -27627,6 +28058,26 @@
           "meterLabel": "Rumour Pressure",
           "meterDisplayCategory": "bad_when_higher",
           "formatted": "Rumour Pressure +6",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:regular_customer_loss",
+          "amount": 10,
+          "readable": "Regulars feel gouged",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "medium",
+          "meterId": "regular_customer_loss",
+          "meterLabel": "Regular Customer Loss Risk",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Regular Customer Loss Risk +10",
           "roles": [
             "risk"
           ],
@@ -27711,35 +28162,12 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:regular_customer_loss",
-          "amount": 10,
-          "readable": "Regulars feel gouged",
-          "tags": [
-            "pressure"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "medium",
-          "meterId": "regular_customer_loss",
-          "meterLabel": "Regular Customer Loss Risk",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Regular Customer Loss Risk +10",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
-      "warningFlags": [
-        "hidden_delayed_risk"
-      ]
+      "hiddenDelayedRisks": [],
+      "warningFlags": []
     },
     {
       "cardFamily": "seasonal_arc",
@@ -27761,12 +28189,14 @@
         "a marked fall would settle the meter for now",
         "the shortage risk would settle a notch in the cellar",
         "a marked rise would steady the merchant route (Old Keg Brewers)",
-        "later: The arc would carry the choice forward"
+        "later: supplier distrust would climb a step tonight",
+        "later: A consequence would surface later in the arc"
       ],
       "renderedMechanicalEffects": [
         "Festival Readiness Risk -12",
         "Stock Shortage Risk -8",
         "Old Keg Brewers +10",
+        "later: Supplier Distrust Risk +5",
         "later: Favour will be called in"
       ],
       "immediateEffects": [
@@ -27851,7 +28281,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -27939,6 +28369,26 @@
           "visible": true
         },
         {
+          "kind": "pressure",
+          "target": "pressure:supplier_distrust",
+          "amount": 5,
+          "readable": "Owed favour shifts balance",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "supplier_distrust",
+          "meterLabel": "Supplier Distrust Risk",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Supplier Distrust Risk +5",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
           "kind": "future_hook",
           "target": "arc_supplier_favour_owed_mushroom_festival_arc",
           "amount": 10,
@@ -28058,35 +28508,12 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:supplier_distrust",
-          "amount": 5,
-          "readable": "Owed favour shifts balance",
-          "tags": [
-            "pressure"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "supplier_distrust",
-          "meterLabel": "Supplier Distrust Risk",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Supplier Distrust Risk +5",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
-      "warningFlags": [
-        "hidden_delayed_risk"
-      ]
+      "hiddenDelayedRisks": [],
+      "warningFlags": []
     },
     {
       "cardFamily": "seasonal_arc",
@@ -28108,12 +28535,14 @@
         "pressure would fall back a clear drop",
         "a notch of pressure would ease off the reading",
         "the house would warm by a real step (Local Shrine)",
-        "later: A thread would loop back round in time"
+        "later: the faction's anger would climb a step hotter",
+        "later: The arc would carry the choice forward"
       ],
       "renderedMechanicalEffects": [
         "Festival Readiness Risk -15",
         "Arc Escalation Risk -6",
         "Local Shrine +10",
+        "later: Faction Anger Tension +8",
         "later: Faction will demand repayment"
       ],
       "immediateEffects": [
@@ -28197,7 +28626,7 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         },
         {
           "kind": "future_hook",
@@ -28280,6 +28709,26 @@
           "formatted": "Local Shrine +10",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:faction_anger",
+          "amount": 8,
+          "readable": "Debt to faction simmers",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "faction_anger",
+          "meterLabel": "Faction Anger Tension",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Faction Anger Tension +8",
+          "roles": [
+            "risk"
           ],
           "visible": true
         },
@@ -28402,35 +28851,12 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:faction_anger",
-          "amount": 8,
-          "readable": "Debt to faction simmers",
-          "tags": [
-            "pressure"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "faction_anger",
-          "meterLabel": "Faction Anger Tension",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Faction Anger Tension +8",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
-      "warningFlags": [
-        "hidden_delayed_risk"
-      ]
+      "hiddenDelayedRisks": [],
+      "warningFlags": []
     },
     {
       "cardFamily": "seasonal_arc",

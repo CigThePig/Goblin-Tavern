@@ -105,6 +105,17 @@ describe('Phase 189 / ISSUE-156 — delayed-effect selectors (shared with the ga
     expect(selectDelayedPreviewEffect([noise])).toBeUndefined()
   })
 
+  it('selectDelayedPreviewEffects: concrete delayed risks surface before future hooks', () => {
+    const debtRisk = effect('pressure', 'pressure:debt', 3, 'bonus strains the ledger', [
+      'pressure',
+    ])
+    const expectationHook = effect('future_hook', 'bonus_expected', 30, 'bonus expected again', [
+      'future_hook',
+    ])
+    const selected = selectDelayedPreviewEffects([debtRisk, expectationHook])
+    expect(selected).toEqual([debtRisk, expectationHook])
+  })
+
   it('selectDelayedPreviewEffects: major projects surface condition payoff and pressure relief', () => {
     const conditionPayoff = effect('state_change', 'areas.main_room.condition', 20, 'project completes', ['area'])
     const maintenanceRelief = effect('pressure', 'pressure:maintenance', -10, 'maintenance eases', ['pressure'])

@@ -25,7 +25,6 @@ import { canonicaliseText } from './compose/gates/dedupe'
 import {
   selectPreviewEffects,
   selectDelayedPreviewEffects,
-  isCostEffect,
   LATER_PREVIEW_PREFIX,
 } from './compose/previewSelect'
 import { SALIENCE_TABLES, type SalienceRead } from './compose/salience'
@@ -667,9 +666,14 @@ export function composeChoicesFromSeed(
         line = attributeNonPrimaryActor(line, effect, seed, state)
       }
       // De-dup: a line that exactly repeats one already emitted anywhere on
-      // this card falls back to the effect's distinct sim `readable`. Cost
-      // lines are exempt so their coin keyword survives for the gate.
-      if (emittedLines.has(canonicaliseText(line)) && !isCostEffect(effect)) {
+      // this card falls back to the effect's distinct sim `readable`. Coin
+      // cost lines are exempt so their coin keyword survives for the gate;
+      // non-coin burden lines may fall back so staff stress/fatigue tradeoffs
+      // do not inherit another staff meter's wording.
+      if (
+        emittedLines.has(canonicaliseText(line)) &&
+        !(effect.targetKind === 'coin' && effect.direction === 'negative')
+      ) {
         line = effect.readable
       }
       emittedLines.add(canonicaliseText(line))

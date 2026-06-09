@@ -12,7 +12,8 @@
     "check": "svelte-check --tsconfig ./tsconfig.web.json",
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sample:card-choices": "tsx scripts/sample-card-choices.ts"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^4.0.0",
@@ -22,6 +23,7 @@
     "jsdom": "^24.1.3",
     "svelte": "^5.1.0",
     "svelte-check": "^4.0.0",
+    "tsx": "^4.22.4",
     "typescript": "^5.4.0",
     "vite": "^5.4.0",
     "vitest": "^1.5.0"

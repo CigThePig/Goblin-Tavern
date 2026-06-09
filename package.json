@@ -13,7 +13,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "sample:card-choices": "tsx scripts/sample-card-choices.ts"
+    "sample:card-choices": "tsx scripts/sample-card-choices.ts",
+    "audit:card-choices": "tsx scripts/audit-card-choices.ts"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^4.0.0",

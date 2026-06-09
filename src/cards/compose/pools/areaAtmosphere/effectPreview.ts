@@ -72,6 +72,16 @@ export const effectPreviewPool: SnippetPool = {
       ],
     },
     {
+      id: 'pre_service_capacity_loss',
+      text: 'service capacity would fall a step',
+      conditions: [
+        { kind: 'effectTargetKind', anyOf: ['global'] },
+        { kind: 'effectMeter', anyOf: ['service_capacity'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny', 'small'] },
+      ],
+    },
+    {
       id: 'pre_coin_cost',
       text: 'Coin would leave the till for the work',
       conditions: [

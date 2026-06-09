@@ -10,6 +10,7 @@
 // never drift.
 
 import type { EffectPreview } from '../../sim/core/effect'
+import type { ChoiceContract } from '../../sim/modules/issues/issueSeedTypes'
 
 // ---- decision-relevance predicates (Phase 182 / ISSUE-150) ----
 //
@@ -76,55 +77,144 @@ export function isLaterPreviewLine(line: string): boolean {
 
 /** Tags that mark a delayed effect as a consequence worth surfacing: the
  *  escalation / expectation / risk hooks the consequence profiles emit
- *  (`future_hook` recurrence hooks, `risk` futureHook markers). Plain
- *  bookkeeping delayed effects (an un-tagged pressure drift) are not
- *  decision-relevant on their own — the player learns nothing actionable from
- *  "a meter will drift" that the immediate previews didn't already imply. */
+ *  (`future_hook` recurrence hooks, `risk` futureHook markers). Phase 3 keeps
+ *  these tags as compatibility markers, then broadens delayed relevance below
+ *  with metadata-based payoff/risk detection. */
 export const DELAYED_RELEVANCE_TAGS: readonly string[] = Object.freeze([
   'future_hook',
   'risk',
 ])
 
 /** A delayed effect the player should see flagged as a later consequence: a
- *  `future_hook` (the escalation/expectation recurrence hook) or any delayed
- *  effect carrying one of `DELAYED_RELEVANCE_TAGS`. Used identically by the
- *  renderer's `selectDelayedPreviewEffect` and the gate's
- *  `preview_delayed_unsurfaced` rule. */
+ *  `future_hook` (the escalation/expectation recurrence hook), any delayed
+ *  effect carrying one of `DELAYED_RELEVANCE_TAGS`, or a mechanically legible
+ *  payoff/risk movement. Phase 3 of the card-choice coherence repair expands
+ *  delayed relevance beyond explicit tags: untagged long-term payoffs such as
+ *  area condition gains and maintenance-pressure relief are strategically
+ *  decisive, so they must be eligible for `later:` previews too. */
 export function isDecisionRelevantDelayed(e: EffectPreview): boolean {
   if (e.kind === 'future_hook') return true
-  return e.tags.some((t) => DELAYED_RELEVANCE_TAGS.includes(t))
+  if (e.tags.some((t) => DELAYED_RELEVANCE_TAGS.includes(t))) return true
+  return isDelayedBenefitEffect(e) || isDelayedRiskEffect(e)
 }
 
-/** Pick at most ONE decision-relevant delayed effect to surface as a `later:`
- *  line, or `undefined` when the profile authors none. Ranks the relevant
- *  entries by (1) carrying a relevance tag / being a `future_hook`, then
- *  (2) magnitude (larger |amount| first), then (3) source order — a small,
- *  deterministic ranker analogous to `selectPreviewEffects`. Pure; never
- *  mutates the input. */
+/** True when a delayed effect is a payoff/benefit the player should understand.
+ *  `effect()` has already made lower-is-better state meters valence-aware, so a
+ *  `positive` direction means a good movement for normal state changes. Pressure
+ *  intentionally keeps raw sign semantics elsewhere in the codebase: negative
+ *  pressure is relief, and is therefore a benefit even though its `direction` is
+ *  `negative`. */
+export function isDelayedBenefitEffect(e: EffectPreview): boolean {
+  if (e.kind !== 'state_change' && e.kind !== 'pressure') return false
+  if (e.targetKind === 'coin') return e.direction === 'positive'
+  if (e.targetKind === 'pressure') return e.direction === 'negative'
+  return e.direction === 'positive'
+}
+
+/** True when a delayed effect is a future downside/risk. Lower-is-better state
+ *  meters are already valence-aware (`negative` = bad), while pressure increases
+ *  are raw-sign badness (`positive` = rising pressure/risk). */
+export function isDelayedRiskEffect(e: EffectPreview): boolean {
+  if (e.kind === 'future_hook') return true
+  if (e.tags.includes('risk')) return true
+  if (e.kind !== 'state_change' && e.kind !== 'pressure') return false
+  if (e.targetKind === 'pressure') return e.direction === 'positive'
+  return e.direction === 'negative'
+}
+
+function magnitudeRank(e: EffectPreview): number {
+  return Math.abs(e.amount ?? 0)
+}
+
+function pickLargest(
+  source: readonly EffectPreview[],
+  predicate: (e: EffectPreview) => boolean,
+  exclude: ReadonlySet<number>,
+): number | undefined {
+  let bestIndex: number | undefined
+  let bestMagnitude = -1
+  for (let i = 0; i < source.length; i += 1) {
+    if (exclude.has(i)) continue
+    const e = source[i]!
+    if (!predicate(e)) continue
+    const mag = magnitudeRank(e)
+    if (bestIndex === undefined || mag > bestMagnitude) {
+      bestIndex = i
+      bestMagnitude = mag
+    }
+  }
+  return bestIndex
+}
+
+function isProjectPayoff(e: EffectPreview): boolean {
+  if (!isDelayedBenefitEffect(e)) return false
+  // For long-term investments, pressure relief is often the second half of the
+  // payoff ("maintenance pressure eases") rather than a generic risk note. Keep
+  // it eligible alongside the primary state payoff.
+  return true
+}
+
+/** Pick the delayed effects to surface as additive `later:` lines. Phase 189
+ *  showed one tagged delayed consequence; card-choice coherence Phase 3 makes
+ *  the selection role-based. The immediate preview cap is intentionally not
+ *  shared with these lines: delayed role lines remain additive, as the Phase 189
+ *  cost-preservation policy did, so a surfaced coin cost or immediate benefit is
+ *  never displaced by long-term payoff/risk explanation.
+ *
+ *  Role order is stable and reader-friendly:
+ *    1. delayed benefit/payoff (two for major projects so condition payoff and
+ *       pressure relief can both explain the investment),
+ *    2. delayed risk/downside,
+ *    3. future hook when distinct from the risk already selected.
+ */
+export function selectDelayedPreviewEffects(
+  delayed: readonly EffectPreview[],
+  contract?: ChoiceContract,
+): EffectPreview[] {
+  if (delayed.length === 0) return []
+
+  const selected = new Set<number>()
+  const push = (idx: number | undefined) => {
+    if (idx !== undefined) selected.add(idx)
+  }
+
+  const archetype = contract?.archetype
+  const wantsMajorProjectPayoff =
+    archetype === 'major_project' || contract?.mustShowDelayedPayoff === true
+
+  if (wantsMajorProjectPayoff) {
+    push(pickLargest(delayed, isProjectPayoff, selected))
+    push(pickLargest(delayed, isProjectPayoff, selected))
+  } else {
+    push(pickLargest(delayed, isDelayedBenefitEffect, selected))
+  }
+
+  push(pickLargest(delayed, isDelayedRiskEffect, selected))
+  push(pickLargest(delayed, (e) => e.kind === 'future_hook', selected))
+
+  // If older content only marks relevance with tags, still surface the largest
+  // tagged entry rather than dropping the established Phase 189 behaviour.
+  if (selected.size === 0) {
+    push(pickLargest(delayed, isDecisionRelevantDelayed, selected))
+  }
+
+  return [...selected]
+    .sort((a, b) => a - b)
+    .map((i) => delayed[i]!)
+}
+
+/** Back-compat helper for tests/gates that still need a single delayed line.
+ *  New renderer code uses `selectDelayedPreviewEffects` so multiple role lines
+ *  can explain a long-term option. */
 export function selectDelayedPreviewEffect(
   delayed: readonly EffectPreview[],
+  contract?: ChoiceContract,
 ): EffectPreview | undefined {
-  let best: EffectPreview | undefined
-  let bestIndex = -1
-  for (let i = 0; i < delayed.length; i += 1) {
-    const e = delayed[i]!
-    if (!isDecisionRelevantDelayed(e)) continue
-    if (best === undefined) {
-      best = e
-      bestIndex = i
-      continue
-    }
-    const eMag = Math.abs(e.amount ?? 0)
-    const bestMag = Math.abs(best.amount ?? 0)
-    if (eMag > bestMag) {
-      best = e
-      bestIndex = i
-    }
-    // Equal magnitude keeps the earlier (lower source index) entry — `best`
-    // was set first, so nothing to do; `bestIndex` documents the tie-break.
-  }
-  void bestIndex
-  return best
+  const selected = selectDelayedPreviewEffects(delayed, contract)
+  if (selected.length === 0) return undefined
+  return selected.reduce((best, current) =>
+    magnitudeRank(current) > magnitudeRank(best) ? current : best,
+  )
 }
 
 /** Select the effects a choice should preview, capped at `previewMax`.

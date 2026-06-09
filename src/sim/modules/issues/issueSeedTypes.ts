@@ -150,6 +150,64 @@ export type ResponseIntentShape =
   | 'reputation_play'
   | 'ignore'
 
+/**
+ * Card-choice coherence contract archetype.
+ *
+ * `ResponseIntentShape` is intentionally broad and remains the renderer-facing
+ * compatibility layer. `ChoiceArchetype` is a narrower design/audit contract:
+ * it names the strategic job the option promises to do so non-rendering tools
+ * can check that authored costs, payoffs, and tradeoffs match the option.
+ */
+export type ChoiceArchetype =
+  | 'patch'
+  | 'proper_repair'
+  | 'major_project'
+  | 'clean'
+  | 'close_temporarily'
+  | 'ignore'
+  | 'spin_or_rebrand'
+  | 'compensate'
+  | 'staff_push'
+  | 'staff_care'
+  | 'buy_stock'
+  | 'cheap_supplier'
+  | 'negotiate'
+  | 'escalate'
+  | 'policy_change'
+  | 'delay'
+  | 'call_in_favor'
+  | 'appease'
+  | 'cut_corners'
+
+export type ChoiceContractCostType =
+  | 'coin'
+  | 'staff_fatigue'
+  | 'staff_morale'
+  | 'owner_time'
+  | 'service_capacity'
+  | 'reputation_risk'
+  | 'relationship_risk'
+  | 'stock'
+  | 'pressure_risk'
+  | 'none'
+
+export type ChoicePayoffTiming = 'immediate' | 'delayed' | 'mixed' | 'none'
+
+/**
+ * Slot-level promise read by audits and future card composition repairs.
+ * Keep these fields mechanical and terse; they describe intent, not prose.
+ */
+export type ChoiceContract = {
+  archetype: ChoiceArchetype
+  primaryTarget?: string
+  solves?: string[]
+  doesNotSolve?: string[]
+  costTypes?: ChoiceContractCostType[]
+  payoffTiming?: ChoicePayoffTiming
+  mustShowDelayedPayoff?: boolean
+  requiresVisibleTradeoff?: boolean
+}
+
 /** Phase 19 §"Stake" — what is mechanically at stake on a seed. */
 export type StakeRef = {
   id: string
@@ -173,6 +231,8 @@ export type ResponseSlot = {
   targetOptions: EntityRef[]
   /** Mechanical effect labels — not prose. */
   expectedEffects: string[]
+  /** Optional strategic contract for non-rendering audits and future preview repair. */
+  choiceContract?: ChoiceContract
   requiredTags?: string[]
 }
 

@@ -2528,6 +2528,15 @@ function generateAreaAtmosphere(ctx: SimContext): IssueSeed[] {
       shape: 'long_term_investment',
       targetOptions: [ref],
       expectedEffects: ['restore condition', 'spend coin'],
+      choiceContract: {
+        archetype: 'proper_repair',
+        primaryTarget: 'area.condition',
+        solves: ['structural_damage'],
+        doesNotSolve: ['smell', 'mess'],
+        costTypes: ['coin'],
+        payoffTiming: 'immediate',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'clean_area',
@@ -2536,6 +2545,15 @@ function generateAreaAtmosphere(ctx: SimContext): IssueSeed[] {
       shape: 'short_term_patch',
       targetOptions: [ref],
       expectedEffects: ['raise cleanliness', 'time cost'],
+      choiceContract: {
+        archetype: 'clean',
+        primaryTarget: 'area.cleanliness',
+        solves: ['mess', 'smell', 'grime'],
+        doesNotSolve: ['structural_damage'],
+        costTypes: ['owner_time'],
+        payoffTiming: 'immediate',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'start_project',
@@ -2544,6 +2562,16 @@ function generateAreaAtmosphere(ctx: SimContext): IssueSeed[] {
       shape: 'long_term_investment',
       targetOptions: [ref],
       expectedEffects: ['major upgrade', 'coin and time cost'],
+      choiceContract: {
+        archetype: 'major_project',
+        primaryTarget: 'area.condition',
+        solves: ['structural_damage'],
+        doesNotSolve: ['smell', 'mess'],
+        costTypes: ['coin', 'owner_time'],
+        payoffTiming: 'mixed',
+        mustShowDelayedPayoff: true,
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'close_area_temporarily',
@@ -2552,6 +2580,15 @@ function generateAreaAtmosphere(ctx: SimContext): IssueSeed[] {
       shape: 'compromise',
       targetOptions: [ref],
       expectedEffects: ['stop damage', 'lose capacity'],
+      choiceContract: {
+        archetype: 'close_temporarily',
+        primaryTarget: 'area.traffic_worsening',
+        solves: ['traffic_driven_worsening'],
+        doesNotSolve: ['structural_damage', 'smell'],
+        costTypes: ['service_capacity'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'rebrand_area',
@@ -2560,6 +2597,15 @@ function generateAreaAtmosphere(ctx: SimContext): IssueSeed[] {
       shape: 'reputation_play',
       targetOptions: [ref],
       expectedEffects: ['shift identity', 'risk audience'],
+      choiceContract: {
+        archetype: 'spin_or_rebrand',
+        primaryTarget: 'reputation.audience',
+        solves: ['perception'],
+        doesNotSolve: ['structural_damage', 'mess', 'smell'],
+        costTypes: ['reputation_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'ignore_area_problem',
@@ -2568,6 +2614,15 @@ function generateAreaAtmosphere(ctx: SimContext): IssueSeed[] {
       shape: 'ignore',
       targetOptions: [],
       expectedEffects: ['no cost', 'rep drifts'],
+      choiceContract: {
+        archetype: 'ignore',
+        primaryTarget: 'area.condition',
+        solves: [],
+        doesNotSolve: ['structural_damage', 'mess', 'smell'],
+        costTypes: ['none'],
+        payoffTiming: 'delayed',
+        requiresVisibleTradeoff: true,
+      },
     },
   ]
 

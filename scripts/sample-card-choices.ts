@@ -150,6 +150,7 @@ function slotJson(slot: ResponseSlot): Record<string, unknown> {
     shape: slot.shape,
     targetOptions: slot.targetOptions,
     expectedEffects: slot.expectedEffects,
+    choiceContract: slot.choiceContract,
     requiredTags: slot.requiredTags,
   }
 }

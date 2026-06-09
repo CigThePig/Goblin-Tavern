@@ -8,6 +8,7 @@ import type {
 import type {
   EffectDirection,
   EffectMagnitudeBand,
+  EffectMeterDisplayCategory,
   EffectPreview,
   EffectTargetKind,
 } from '../../core/effect'
@@ -126,6 +127,25 @@ const METER_VALENCE: Record<string, 'lowerIsBetter'> = {
   irritation: 'lowerIsBetter', // regular (defensive — may not be emitted today)
   rowdiness: 'lowerIsBetter', // customer_group cohort (defensive)
 }
+
+
+// Display categories make chip polarity explicit without asking the card UI to
+// maintain its own truth table. These categories are derived alongside
+// `direction` and `meterLabel`, using the same sim-side valence and pressure
+// registry metadata.
+const RESOURCE_METERS = new Set(['coin', 'quantity'])
+const CONTEXTUAL_METERS = new Set([
+  'cheap',
+  'tasty',
+  'filthy',
+  'dangerous',
+  'cozy',
+  'strange',
+  'reliable',
+  'goblinAuthentic',
+  'respectable',
+  'culinary_renown',
+])
 
 /** Resolve the valence of the meter a `target` string points at. Reads the
  *  last dot-segment against `METER_VALENCE`; colon-prefixed cause targets
@@ -292,8 +312,8 @@ export function resolveMeterLabel(
 ): string | undefined {
   if (targetKind === 'pressure') {
     return pressureRegistry.has(meterId)
-      ? pressureRegistry.get(meterId).label
-      : humanizeMeterLeaf(meterId)
+      ? pressureRegistry.get(meterId).effectLabel ?? pressureRegistry.get(meterId).label
+      : `${humanizeMeterLeaf(meterId)} pressure`
   }
   const known = METER_LABELS[meterId]
   if (known !== undefined) return known
@@ -303,6 +323,22 @@ export function resolveMeterLabel(
   // label undefined for them rather than humanising an entity id.
   if (target.includes('.')) return humanizeMeterLeaf(meterId)
   return undefined
+}
+
+
+export function classifyMeterDisplayCategory(
+  targetKind: EffectTargetKind,
+  target: string,
+  meterId: string,
+  meterLabel?: string,
+): EffectMeterDisplayCategory | undefined {
+  if (meterLabel === undefined) return undefined
+  if (targetKind === 'pressure') return 'bad_when_higher'
+  if (RESOURCE_METERS.has(meterId)) return 'resource'
+  if (targetKind === 'reputation' || CONTEXTUAL_METERS.has(meterId)) return 'contextual'
+  return resolveMeterValence(target) === 'lowerIsBetter'
+    ? 'bad_when_higher'
+    : 'good_when_higher'
 }
 
 export function effect(
@@ -317,6 +353,12 @@ export function effect(
   const magnitudeBand = classifyMagnitudeBand(targetKind, amount)
   const meterId = classifyMeterId(target)
   const meterLabel = resolveMeterLabel(targetKind, target, meterId)
+  const meterDisplayCategory = classifyMeterDisplayCategory(
+    targetKind,
+    target,
+    meterId,
+    meterLabel,
+  )
   const out: EffectPreview = {
     kind,
     target,
@@ -329,6 +371,7 @@ export function effect(
   }
   if (magnitudeBand !== undefined) out.magnitudeBand = magnitudeBand
   if (meterLabel !== undefined) out.meterLabel = meterLabel
+  if (meterDisplayCategory !== undefined) out.meterDisplayCategory = meterDisplayCategory
   return out
 }
 

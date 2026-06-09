@@ -33,6 +33,10 @@ import type { PressureCalculationResult, PressureId } from './pressureTypes'
 export type PressureDefinition = {
   id: PressureId | string
   label: string
+  /** Optional card/effect-chip label. The report/UI label can stay concise,
+   *  while mechanical chips name the bad state (pressure, risk, backlog,
+   *  tension) so `+10` cannot be mistaken for a benefit. */
+  effectLabel?: string
   tags: string[]
   /** Free-form systems hint surfaced in reports. */
   relatedSystems?: string[]
@@ -45,6 +49,7 @@ export const REQUIRED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'food_safety',
     label: 'Food Safety',
+    effectLabel: 'Food Safety Risk',
     tags: ['food', 'kitchen', 'risk'],
     relatedSystems: ['stock', 'areas', 'staff'],
     calculate: calculateFoodSafety,
@@ -52,6 +57,7 @@ export const REQUIRED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'inspection',
     label: 'Inspection',
+    effectLabel: 'Inspection Pressure',
     tags: ['inspection', 'risk', 'reputation'],
     relatedSystems: ['inspection', 'monthly', 'customers'],
     calculate: calculateInspection,
@@ -59,6 +65,7 @@ export const REQUIRED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'staff_burnout',
     label: 'Staff Burnout',
+    effectLabel: 'Staff Burnout Risk',
     tags: ['staff', 'risk'],
     relatedSystems: ['staff'],
     calculate: calculateStaffBurnout,
@@ -66,6 +73,7 @@ export const REQUIRED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'pests',
     label: 'Pests',
+    effectLabel: 'Pest Risk',
     tags: ['pests', 'cellar', 'risk'],
     relatedSystems: ['areas', 'stock'],
     calculate: calculatePest,
@@ -73,6 +81,7 @@ export const REQUIRED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'debt',
     label: 'Debt',
+    effectLabel: 'Debt Pressure',
     tags: ['economy', 'risk'],
     relatedSystems: ['economy', 'monthly'],
     calculate: calculateDebt,
@@ -80,6 +89,7 @@ export const REQUIRED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'maintenance',
     label: 'Maintenance',
+    effectLabel: 'Maintenance Backlog',
     tags: ['maintenance', 'areas'],
     relatedSystems: ['areas'],
     calculate: calculateMaintenance,
@@ -87,6 +97,7 @@ export const REQUIRED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'violence',
     label: 'Violence',
+    effectLabel: 'Violence Risk',
     tags: ['violence', 'service', 'risk'],
     relatedSystems: ['service', 'customers'],
     calculate: calculateViolence,
@@ -94,6 +105,7 @@ export const REQUIRED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'reputation_drift',
     label: 'Reputation Drift',
+    effectLabel: 'Reputation Drift Pressure',
     tags: ['reputation', 'identity'],
     relatedSystems: ['reputation', 'customers'],
     calculate: calculateReputationDrift,
@@ -101,6 +113,7 @@ export const REQUIRED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'stock_shortage',
     label: 'Stock Shortage',
+    effectLabel: 'Stock Shortage Risk',
     tags: ['stock', 'forecast'],
     relatedSystems: ['stock', 'customers'],
     calculate: calculateStockShortage,
@@ -108,6 +121,7 @@ export const REQUIRED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'landlord',
     label: 'Landlord',
+    effectLabel: 'Landlord Pressure',
     tags: ['landlord', 'rent', 'risk'],
     relatedSystems: ['monthly', 'rent'],
     calculate: calculateLandlord,
@@ -121,6 +135,7 @@ export const EXPANDED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'supplier_distrust',
     label: 'Supplier Distrust',
+    effectLabel: 'Supplier Distrust Risk',
     tags: ['supplier', 'distrust', 'social', 'expanded'],
     relatedSystems: ['suppliers', 'memories', 'attribution', 'market'],
     calculate: calculateSupplierDistrust,
@@ -128,6 +143,7 @@ export const EXPANDED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'regular_customer_loss',
     label: 'Regular Customer Loss',
+    effectLabel: 'Regular Customer Loss Risk',
     tags: ['regulars', 'social', 'expanded'],
     relatedSystems: ['regulars', 'customers', 'memories'],
     calculate: calculateRegularCustomerLoss,
@@ -142,6 +158,7 @@ export const EXPANDED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'faction_anger',
     label: 'Faction Anger',
+    effectLabel: 'Faction Anger Tension',
     tags: ['faction', 'social', 'expanded'],
     relatedSystems: ['factions', 'memories', 'attribution', 'localArcs'],
     calculate: calculateFactionAnger,
@@ -149,6 +166,7 @@ export const EXPANDED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'cultural_tension',
     label: 'Cultural Tension',
+    effectLabel: 'Cultural Tension',
     tags: ['culture', 'social', 'expanded'],
     relatedSystems: ['cultures', 'customers', 'memories', 'policies'],
     calculate: calculateCulturalTension,
@@ -156,6 +174,7 @@ export const EXPANDED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'rival_tavern_pressure',
     label: 'Rival Tavern Pressure',
+    effectLabel: 'Rival Tavern Pressure',
     tags: ['rival', 'market', 'social', 'expanded'],
     relatedSystems: ['localArcs', 'reputation', 'regulars', 'rumours'],
     calculate: calculateRivalTavernPressure,
@@ -163,6 +182,7 @@ export const EXPANDED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'festival_readiness',
     label: 'Festival Readiness',
+    effectLabel: 'Festival Readiness Risk',
     tags: ['festival', 'arc', 'expanded'],
     relatedSystems: ['stock', 'staff', 'areas', 'suppliers', 'localArcs'],
     calculate: calculateFestivalReadiness,
@@ -170,6 +190,7 @@ export const EXPANDED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'market_instability',
     label: 'Market Instability',
+    effectLabel: 'Market Instability Risk',
     tags: ['market', 'expanded'],
     relatedSystems: ['suppliers', 'market', 'localArcs', 'stock'],
     calculate: calculateMarketInstability,
@@ -177,6 +198,7 @@ export const EXPANDED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'rumour_pressure',
     label: 'Rumour Pressure',
+    effectLabel: 'Rumour Pressure',
     tags: ['rumour', 'social', 'expanded'],
     relatedSystems: ['rumours', 'attribution', 'memories'],
     calculate: calculateRumourPressure,
@@ -184,6 +206,7 @@ export const EXPANDED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'policy_backlash',
     label: 'Policy Backlash',
+    effectLabel: 'Policy Backlash Risk',
     tags: ['policy', 'social', 'expanded'],
     relatedSystems: ['policies', 'customers', 'attribution', 'regulars'],
     calculate: calculatePolicyBacklash,
@@ -191,6 +214,7 @@ export const EXPANDED_PRESSURE_DEFINITIONS: PressureDefinition[] = [
   {
     id: 'arc_escalation',
     label: 'Arc Escalation',
+    effectLabel: 'Arc Escalation Risk',
     tags: ['arc', 'expanded'],
     relatedSystems: ['localArcs', 'memories', 'pressures'],
     calculate: calculateArcEscalation,

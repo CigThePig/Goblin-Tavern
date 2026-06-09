@@ -126,6 +126,7 @@ function effectJson(effect: EffectPreview): Record<string, unknown> {
     magnitudeBand: effect.magnitudeBand,
     meterId: effect.meterId,
     meterLabel: effect.meterLabel,
+    meterDisplayCategory: effect.meterDisplayCategory,
   }
 }
 

@@ -85,6 +85,7 @@ type EffectAudit = {
   magnitudeBand?: EffectPreview['magnitudeBand']
   meterId?: string
   meterLabel?: string
+  meterDisplayCategory?: EffectPreview['meterDisplayCategory']
   formatted: string
   roles: EffectRole[]
   visible: boolean
@@ -235,6 +236,9 @@ function auditEffect(effect: EffectPreview, state: TavernState, choice: CardChoi
     ...(effect.magnitudeBand !== undefined ? { magnitudeBand: effect.magnitudeBand } : {}),
     ...(effect.meterId !== undefined ? { meterId: effect.meterId } : {}),
     ...(effect.meterLabel !== undefined ? { meterLabel: effect.meterLabel } : {}),
+    ...(effect.meterDisplayCategory !== undefined
+      ? { meterDisplayCategory: effect.meterDisplayCategory }
+      : {}),
     formatted,
     roles: effectRoles(effect),
     visible: effectVisible(effect, state, choice, delayed),

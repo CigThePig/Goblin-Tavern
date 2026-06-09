@@ -171,6 +171,14 @@ function generateFoodSafety(ctx: SimContext): IssueSeed[] {
       shape: 'safe_costly',
       targetOptions: [stockRef('mushrooms'), stockRef('stew')],
       expectedEffects: ['reduce food safety pressure', 'lose stock'],
+      choiceContract: {
+        archetype: 'policy_change',
+        primaryTarget: 'pressure.food_safety',
+        solves: ['unsafe_stock'],
+        costTypes: ['stock'],
+        payoffTiming: 'immediate',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'clean_kitchen',
@@ -178,7 +186,16 @@ function generateFoodSafety(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['clean'],
       shape: 'long_term_investment',
       targetOptions: [areaRef('kitchen')],
-      expectedEffects: ['raise kitchen cleanliness', 'time and effort cost'],
+      expectedEffects: ['raise kitchen cleanliness', 'staff burden'],
+      choiceContract: {
+        archetype: 'clean',
+        primaryTarget: 'areas.kitchen.cleanliness',
+        solves: ['kitchen_mess', 'food_safety_risk'],
+        doesNotSolve: ['spoiled_stock'],
+        costTypes: ['staff_fatigue'],
+        payoffTiming: 'immediate',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'serve_anyway',
@@ -191,6 +208,14 @@ function generateFoodSafety(ctx: SimContext): IssueSeed[] {
         'raise food safety risk',
         'raise inspection pressure',
       ],
+      choiceContract: {
+        archetype: 'cut_corners',
+        primaryTarget: 'coin',
+        doesNotSolve: ['food_safety_risk', 'spoiled_stock'],
+        costTypes: ['pressure_risk'],
+        payoffTiming: 'immediate',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'blame_supplier',
@@ -200,8 +225,16 @@ function generateFoodSafety(ctx: SimContext): IssueSeed[] {
       targetOptions: [systemRef('supplier')],
       expectedEffects: [
         'avoid immediate blame',
-        'create supplier grudge memory',
+        'risk supplier relationship',
       ],
+      choiceContract: {
+        archetype: 'appease',
+        primaryTarget: 'supplier.relationship',
+        doesNotSolve: ['food_safety_risk', 'spoiled_stock'],
+        costTypes: ['relationship_risk'],
+        payoffTiming: 'delayed',
+        requiresVisibleTradeoff: true,
+      },
     },
   ]
 
@@ -235,6 +268,13 @@ function generateFoodSafety(ctx: SimContext): IssueSeed[] {
       immediateEffects: [
         effect('state_change', 'areas.kitchen.cleanliness', 25, 'Kitchen cleaner', ['area']),
         effect('pressure', 'pressure:food_safety', -10, 'Lower food safety risk', ['pressure']),
+        ...(cook
+          ? [
+              effect('state_change', `staff.${cook.id}.fatigue`, 6, 'Kitchen scrub tires the cook', [
+                'staff',
+              ]),
+            ]
+          : []),
       ],
       delayedEffects: [],
       memories: [
@@ -281,6 +321,8 @@ function generateFoodSafety(ctx: SimContext): IssueSeed[] {
       responseSlotId: 'blame_supplier',
       immediateEffects: [
         effect('cause', 'global', 0, 'Push blame onto supplier', ['blame']),
+        effect('pressure', 'pressure:supplier_distrust', 8, 'Supplier distrust rises', ['pressure']),
+        effect('pressure', 'pressure:rumour_pressure', 5, 'Blame may leak publicly', ['pressure']),
       ],
       delayedEffects: [
         effect(
@@ -454,6 +496,14 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
       shape: 'safe_costly',
       targetOptions: [stockRef(chosen.id)],
       expectedEffects: [`raise ${stockLabel} quantity`, 'spend coin'],
+      choiceContract: {
+        archetype: 'buy_stock',
+        primaryTarget: `stock.${chosen.id}.quantity`,
+        solves: ['stock_shortage'],
+        costTypes: ['coin'],
+        payoffTiming: 'immediate',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'raise_prices',
@@ -462,6 +512,14 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
       shape: 'risky_profitable',
       targetOptions: [stockRef(chosen.id)],
       expectedEffects: ['raise margin', 'risk customer satisfaction'],
+      choiceContract: {
+        archetype: 'policy_change',
+        primaryTarget: `stock.${chosen.id}.salePrice`,
+        doesNotSolve: ['stock_shortage'],
+        costTypes: ['relationship_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'water_down',
@@ -470,6 +528,14 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
       shape: 'deception',
       targetOptions: [stockRef(chosen.id)],
       expectedEffects: ['raise quantity', 'lower quality', 'risk reputation'],
+      choiceContract: {
+        archetype: 'cut_corners',
+        primaryTarget: `stock.${chosen.id}.quantity`,
+        doesNotSolve: ['real_stock_shortage'],
+        costTypes: ['reputation_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'limit_sales',
@@ -477,7 +543,16 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['delay'],
       shape: 'compromise',
       targetOptions: [stockRef(chosen.id)],
-      expectedEffects: ['conserve stock', 'lose income'],
+      expectedEffects: ['conserve stock', 'risk customer satisfaction'],
+      choiceContract: {
+        archetype: 'delay',
+        primaryTarget: 'pressure.stock_shortage',
+        solves: ['demand_spike'],
+        doesNotSolve: ['low_stock_quantity'],
+        costTypes: ['relationship_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'ignore',
@@ -486,6 +561,14 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
       shape: 'ignore',
       targetOptions: [],
       expectedEffects: ['no immediate change', 'risk shortage backlash'],
+      choiceContract: {
+        archetype: 'ignore',
+        primaryTarget: 'pressure.stock_shortage',
+        doesNotSolve: ['stock_shortage'],
+        costTypes: ['none'],
+        payoffTiming: 'delayed',
+        requiresVisibleTradeoff: true,
+      },
     },
   ]
 

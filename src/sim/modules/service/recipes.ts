@@ -5,7 +5,7 @@ import type {
   StaffRoleId,
   StockRarity,
 } from '../../state/TavernState'
-import { sellStockItem } from '../stock/sales'
+import { recordShortage, sellStockItem } from '../stock/sales'
 import type { ShortageRecord } from '../stock/types'
 import { applyRenownDrift } from './renown'
 
@@ -134,12 +134,27 @@ export function sellRecipe(
 
   // Compute how many servings the tightest input can actually back.
   // Each input contributes `servings * input.quantity` units; we
-  // floor the bottleneck so we never half-consume an input.
+  // floor the bottleneck so we never half-consume an input. The
+  // bottleneck input (the one whose capacity caps `sold` below the
+  // requested `servings`) is remembered so a single, deliberate
+  // unmet-demand shortage can be recorded for it after consumption —
+  // rather than letting each input over-request and emit spurious
+  // shortages as a side effect.
   let maxServings = servings
+  let bottleneck:
+    | { ingredientId: string; quantity: number; available: number }
+    | null = null
   for (const input of def.inputs) {
     const available = ctx.state.stock[input.ingredientId]?.quantity ?? 0
     const capacity = Math.floor(available / input.quantity)
-    if (capacity < maxServings) maxServings = capacity
+    if (capacity < maxServings) {
+      maxServings = capacity
+      bottleneck = {
+        ingredientId: input.ingredientId,
+        quantity: input.quantity,
+        available,
+      }
+    }
   }
   const sold = Math.max(0, maxServings)
 
@@ -147,9 +162,10 @@ export function sellRecipe(
   const seenShortageStockIds = new Set<string>()
 
   for (const input of def.inputs) {
-    const requested = servings * input.quantity
+    // Consume only the bottleneck-capped amount so non-bottleneck
+    // inputs are never drained past what the served dishes need.
     const toSell = sold * input.quantity
-    if (requested <= 0) continue
+    if (toSell <= 0) continue
     const sellOptions: { buyerGroupId?: string; source: string } = {
       source:
         options?.source ?? `recipe.${recipeId}.input.${input.ingredientId}`,
@@ -157,7 +173,7 @@ export function sellRecipe(
     if (options?.buyerGroupId !== undefined) {
       sellOptions.buyerGroupId = options.buyerGroupId
     }
-    const sale = sellStockItem(ctx, input.ingredientId, requested, sellOptions)
+    const sale = sellStockItem(ctx, input.ingredientId, toSell, sellOptions)
     result.earned += sale.earned
     if (sale.sold > 0) {
       result.itemsConsumed.push({
@@ -165,18 +181,31 @@ export function sellRecipe(
         quantity: sale.sold,
       })
     }
-    if (
-      sale.shortage &&
-      !seenShortageStockIds.has(sale.shortage.stockId)
-    ) {
+    // With `toSell` capped to the bottleneck, `sale.shortage` should
+    // not fire in steady state; surface it defensively if a mid-loop
+    // quantity change makes an input tighter than expected.
+    if (sale.shortage && !seenShortageStockIds.has(sale.shortage.stockId)) {
       result.shortages.push(sale.shortage)
       seenShortageStockIds.add(sale.shortage.stockId)
     }
-    // Cap warning: if `toSell` exceeded `sale.sold`, an input was
-    // tighter than the bottleneck calculation expected (e.g.
-    // mid-loop quantity change). The bottleneck floor protects
-    // against this in steady state.
-    void toSell
+  }
+
+  // Unmet demand: when the bottleneck capped servings below what was
+  // requested, record exactly one shortage for the bottleneck input so
+  // the issue-seed / pressure pipeline still learns we ran short —
+  // without the over-consumption that an uncapped request would cause.
+  if (sold < servings && bottleneck) {
+    const shortage = recordShortage(
+      ctx,
+      bottleneck.ingredientId,
+      servings * bottleneck.quantity,
+      bottleneck.available,
+      'sale',
+    )
+    if (!seenShortageStockIds.has(shortage.stockId)) {
+      result.shortages.push(shortage)
+      seenShortageStockIds.add(shortage.stockId)
+    }
   }
 
   result.sold = sold

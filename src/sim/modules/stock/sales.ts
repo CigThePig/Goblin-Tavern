@@ -56,7 +56,7 @@ function appendShortage(ctx: SimContext, shortage: ShortageRecord): void {
   )
 }
 
-function recordShortage(
+export function recordShortage(
   ctx: SimContext,
   stockId: string,
   requested: number,

@@ -99,6 +99,16 @@ function pushNumericChange(
   })
 }
 
+// A `StateChange.after` for a non-scalar value would otherwise alias an
+// object inside the final state that `simulateDay` returns to the caller;
+// a caller that mutated `result.state` afterwards would silently rewrite
+// the recorded diff. Snapshot non-scalar values so the diff is an
+// independent record. Scalars (and null/undefined) pass through unchanged.
+function snapshotValue(value: unknown): unknown {
+  if (value === null || typeof value !== 'object') return value
+  return structuredClone(value)
+}
+
 function pushScalarChange(
   changes: StateChange[],
   path: string,
@@ -112,8 +122,8 @@ function pushScalarChange(
     options.readable ?? `${path}: ${formatValue(before)} → ${formatValue(after)}`
   const change: StateChange = {
     path,
-    before,
-    after,
+    before: snapshotValue(before),
+    after: snapshotValue(after),
     readable,
     tags: options.tags ? [...options.tags] : [],
   }

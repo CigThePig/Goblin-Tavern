@@ -1,5 +1,19 @@
 # Codebase audit — 2026-06-10: recipe input over-consumption + supporting findings
 
+> **Resolution (2026-06-10):** All four findings below are fixed.
+> 1. `sellRecipe` now consumes the bottleneck-capped amount per input and
+>    records exactly one deliberate unmet-demand shortage for the
+>    bottleneck ingredient (1:1-recipe behaviour preserved); regression
+>    test added in `tests/sim/phase65.stockRecipeModel.test.ts`.
+> 2. New `ctx.addRegular` / `removeRegular` / `addSocialRumour` /
+>    `addLocalEvent` helpers added to SimContext; the four direct-write
+>    sites now route through them.
+> 3. SimContext query getters wrap returns in `freezeInDev` (new
+>    `src/sim/core/devGuard.ts`) so an accidental in-place write throws
+>    under tests, no-op in production.
+> 4. `StateDiff` `before`/`after` non-scalar values are snapshotted in
+>    `pushScalarChange`, so they no longer alias the returned final state.
+
 A targeted bug-hunt across `src/sim/`, `src/cards/`, and `src/reports/`,
 focused on the architectural invariants in `CLAUDE.md` (determinism,
 purity, serializability, causality) plus economy/ledger math. One

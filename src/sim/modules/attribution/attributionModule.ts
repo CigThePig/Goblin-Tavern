@@ -471,11 +471,10 @@ function propagateToRumours(
       })
       continue
     }
-    // Add a fresh rumour by writing the world record directly via the
-    // social rumour mutation helper. Because `modifySocialRumour`
-    // requires an existing id, we instead splice a new rumour into the
-    // world container through the existing helper API: write an empty
-    // shell first via direct world write.
+    // Add a fresh rumour. `modifySocialRumour` only updates existing
+    // records, so creation goes through `ctx.addSocialRumour` (see
+    // `seedRumour`), which performs the additive world write and records
+    // attribution together.
     const rumour: SocialRumourState = {
       id: rumourId,
       label: `${attribution.attributionType} ${attribution.target.kind}:${attribution.target.id}`,
@@ -492,14 +491,9 @@ function propagateToRumours(
 }
 
 function seedRumour(ctx: SimContext, rumour: SocialRumourState): void {
-  // Rumour creation follows the same pattern as
-  // `weekly/community.ts::persistRumour` and `regulars/regularModule.ts`:
-  // there is no public "create rumour" context helper, so the new
-  // record is spliced directly into the live `state.world.socialRumours`
-  // container. The follow-up `addCause` call records the change so the
-  // cause trail still attributes it.
-  ctx.state.world.socialRumours[rumour.id] = rumour
-  ctx.addCause({
+  // Rumour creation routes through `ctx.addSocialRumour`, which performs
+  // the additive world write and records attribution in one step.
+  ctx.addSocialRumour(rumour, {
     source: `${SOURCE}.rumour_seeded`,
     sourceType: 'memory',
     target: rumour.id,

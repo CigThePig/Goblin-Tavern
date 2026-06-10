@@ -1,6 +1,7 @@
 import { advanceCalendar, isEndOfMonth, isEndOfWeek } from '../modules/calendar/index'
 import { cloneTavernState } from '../state/defaults'
 import { safeValidateState } from '../state/validation'
+import { freezeInDev } from './devGuard'
 import type {
   AreaState,
   CauseEntry,
@@ -1292,6 +1293,77 @@ function createContext(
         addCauseInternal(meta, { target: id, targetType: 'rumour' })
       }
     },
+    // World entity creation/removal. Mirrors the
+    // `addHireableAdventurer`/`removeHireableAdventurer` pattern: clone the
+    // target branch, write the new/removed record, and route attribution
+    // through `addCauseInternal` so creation is never invisible to the
+    // cause trail. Callers pass a full `CauseDraft` (with `target`/
+    // `targetType` already set); the second-arg defaults are a fallback.
+    addRegular(regular, meta): void {
+      if (runtime.current.world.regulars[regular.id]) {
+        throw new Error(`addRegular: duplicate regular id '${regular.id}'`)
+      }
+      runtime.current = {
+        ...runtime.current,
+        world: {
+          ...runtime.current.world,
+          regulars: {
+            ...runtime.current.world.regulars,
+            [regular.id]: regular,
+          },
+        },
+      }
+      addCauseInternal(meta, { target: regular.id, targetType: 'regular' })
+    },
+    removeRegular(id, meta): void {
+      if (!runtime.current.world.regulars[id]) return
+      const nextRegulars = { ...runtime.current.world.regulars }
+      delete nextRegulars[id]
+      runtime.current = {
+        ...runtime.current,
+        world: {
+          ...runtime.current.world,
+          regulars: nextRegulars,
+        },
+      }
+      addCauseInternal(meta, { target: id, targetType: 'regular' })
+    },
+    addSocialRumour(rumour, meta): void {
+      if (runtime.current.world.socialRumours[rumour.id]) {
+        throw new Error(
+          `addSocialRumour: duplicate rumour id '${rumour.id}'`,
+        )
+      }
+      runtime.current = {
+        ...runtime.current,
+        world: {
+          ...runtime.current.world,
+          socialRumours: {
+            ...runtime.current.world.socialRumours,
+            [rumour.id]: rumour,
+          },
+        },
+      }
+      addCauseInternal(meta, { target: rumour.id, targetType: 'rumour' })
+    },
+    addLocalEvent(event, meta): void {
+      if (runtime.current.world.localEvents[event.id]) {
+        throw new Error(
+          `addLocalEvent: duplicate local event id '${event.id}'`,
+        )
+      }
+      runtime.current = {
+        ...runtime.current,
+        world: {
+          ...runtime.current.world,
+          localEvents: {
+            ...runtime.current.world.localEvents,
+            [event.id]: event,
+          },
+        },
+      }
+      addCauseInternal(meta, { target: event.id, targetType: 'local_event' })
+    },
     modifyTavernIdentity(changes, meta): void {
       const before = runtime.current.world.tavernIdentity
       const next: TavernIdentityState = { ...before, ...changes }
@@ -1320,27 +1392,30 @@ function createContext(
     },
 
     // Phase 27 §27.3 — World query helpers. Thin readers; return
-    // `undefined` for unknown ids.
+    // `undefined` for unknown ids. The returned record is a live
+    // reference into state; `freezeInDev` makes an accidental in-place
+    // write (bypassing `ctx.modify*`) throw under tests while staying a
+    // no-op in production.
     getCulture(id): CultureWorldState | undefined {
-      return runtime.current.world.cultures[id]
+      return freezeInDev(runtime.current.world.cultures[id])
     },
     getFaction(id): FactionWorldState | undefined {
-      return runtime.current.world.factions[id]
+      return freezeInDev(runtime.current.world.factions[id])
     },
     getSupplier(id): SupplierWorldState | undefined {
-      return runtime.current.world.suppliers[id]
+      return freezeInDev(runtime.current.world.suppliers[id])
     },
     getRegular(id): RegularWorldState | undefined {
-      return runtime.current.world.regulars[id]
+      return freezeInDev(runtime.current.world.regulars[id])
     },
     getNotableNpc(id): NotableNpcWorldState | undefined {
-      return runtime.current.world.notableNpcs[id]
+      return freezeInDev(runtime.current.world.notableNpcs[id])
     },
     getLocalEvent(id): LocalEventWorldState | undefined {
-      return runtime.current.world.localEvents[id]
+      return freezeInDev(runtime.current.world.localEvents[id])
     },
     getSocialRumour(id): SocialRumourState | undefined {
-      return runtime.current.world.socialRumours[id]
+      return freezeInDev(runtime.current.world.socialRumours[id])
     },
 
     // Phase 16 §16.2 — Memory context API.
@@ -1370,19 +1445,27 @@ function createContext(
     getMemory(id): MemoryState | undefined {
       const idx = findMemoryIndex(id)
       if (idx === -1) return undefined
-      return runtime.current.memories[idx]
+      return freezeInDev(runtime.current.memories[idx])
     },
     getMemoriesByTag(tag): MemoryState[] {
-      return runtime.current.memories.filter((m) => m.tags.includes(tag))
+      return freezeInDev(
+        runtime.current.memories.filter((m) => m.tags.includes(tag)),
+      )
     },
     getMemoriesForActor(actor: EntityRef): MemoryState[] {
-      return runtime.current.memories.filter((m) =>
-        m.actors.some((a) => a.kind === actor.kind && a.id === actor.id),
+      return freezeInDev(
+        runtime.current.memories.filter((m) =>
+          m.actors.some((a) => a.kind === actor.kind && a.id === actor.id),
+        ),
       )
     },
     getMemoriesForLocation(location: EntityRef): MemoryState[] {
-      return runtime.current.memories.filter((m) =>
-        m.locations.some((l) => l.kind === location.kind && l.id === location.id),
+      return freezeInDev(
+        runtime.current.memories.filter((m) =>
+          m.locations.some(
+            (l) => l.kind === location.kind && l.id === location.id,
+          ),
+        ),
       )
     },
     getMemoryStrength(id): number {
@@ -1405,12 +1488,16 @@ function createContext(
     getRecentHistory(days): HistoryEntry[] {
       if (days <= 0) return []
       const cutoff = runtime.current.calendar.totalDaysElapsed - days
-      return runtime.current.history.filter(
-        (e) => e.timestamp.absoluteDay >= cutoff,
+      return freezeInDev(
+        runtime.current.history.filter(
+          (e) => e.timestamp.absoluteDay >= cutoff,
+        ),
       )
     },
     getHistoryByTag(tag): HistoryEntry[] {
-      return runtime.current.history.filter((e) => e.tags.includes(tag))
+      return freezeInDev(
+        runtime.current.history.filter((e) => e.tags.includes(tag)),
+      )
     },
     pruneHistoryBefore(absoluteDay): number {
       const before = runtime.current.history.length
@@ -1428,16 +1515,22 @@ function createContext(
       return addCauseInternal(draft)
     },
     getCausesForTarget(target): CauseEntry[] {
-      return runtime.current.causes.filter((c) => c.target === target)
+      return freezeInDev(
+        runtime.current.causes.filter((c) => c.target === target),
+      )
     },
     getCausesByTag(tag): CauseEntry[] {
-      return runtime.current.causes.filter((c) => c.tags.includes(tag))
+      return freezeInDev(
+        runtime.current.causes.filter((c) => c.tags.includes(tag)),
+      )
     },
     getRecentCauses(days): CauseEntry[] {
       if (days <= 0) return []
       const cutoff = runtime.current.calendar.totalDaysElapsed - days
-      return runtime.current.causes.filter(
-        (c) => c.timestamp.absoluteDay >= cutoff,
+      return freezeInDev(
+        runtime.current.causes.filter(
+          (c) => c.timestamp.absoluteDay >= cutoff,
+        ),
       )
     },
     getTopCausesForTarget(target, limit): CauseEntry[] {
@@ -1446,7 +1539,7 @@ function createContext(
         .slice()
       matching.sort((a, b) => b.weight - a.weight)
       if (limit <= 0) return []
-      return matching.slice(0, limit)
+      return freezeInDev(matching.slice(0, limit))
     },
     ageCausesEndOfDay(): void {
       const { next, expired } = ageCauses(runtime.current.causes, 1)

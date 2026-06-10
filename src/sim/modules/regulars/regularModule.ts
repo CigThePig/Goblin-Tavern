@@ -158,8 +158,7 @@ function createRegular(
     castAttributes,
   }
 
-  ctx.state.world.regulars[id] = regular
-  ctx.addCause({
+  ctx.addRegular(regular, {
     source: `${SOURCE}.emergence`,
     sourceType: 'regular',
     target: id,
@@ -313,9 +312,7 @@ const closingHook: SimulationHook = (ctx: SimContext): void => {
     const removedId = regular.id
     const removedDisplay = regular.name.display
     const removedGroupId = regular.customerGroupId
-    delete ctx.state.world.regulars[removedId]
-    decayedToday.push(removedId)
-    ctx.addCause({
+    ctx.removeRegular(removedId, {
       source: `${SOURCE}.decay`,
       sourceType: 'regular',
       target: removedId,
@@ -326,6 +323,7 @@ const closingHook: SimulationHook = (ctx: SimContext): void => {
       tags: ['regular', 'decay', removedGroupId],
       relatedActors: [{ kind: 'customer_group', id: removedGroupId }],
     })
+    decayedToday.push(removedId)
   }
   if (decayedToday.length === 0) return
   ctx.modifyModuleState<RegularModuleState>(

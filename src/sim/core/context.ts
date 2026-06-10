@@ -249,6 +249,18 @@ export type SimContext = {
     changes: Partial<SocialRumourState>,
     meta: MutationMeta,
   ): void
+  // World entity creation/removal helpers. The `modify*` helpers above only
+  // update existing records; entity *creation* (a regular emerging, a rumour
+  // starting, a local arc beginning) and removal (a regular decaying out)
+  // need an additive write. These route the new/removed record through the
+  // same cause contract as the modifiers — pass a `CauseDraft` describing
+  // why — so attribution is never an afterthought a copy-paste site can
+  // forget. `addRegular`/`addSocialRumour`/`addLocalEvent` throw on a
+  // duplicate id; `removeRegular` is a no-op for an unknown id.
+  addRegular(regular: RegularWorldState, meta: MutationMeta): void
+  removeRegular(id: string, meta: MutationMeta): void
+  addSocialRumour(rumour: SocialRumourState, meta: MutationMeta): void
+  addLocalEvent(event: LocalEventWorldState, meta: MutationMeta): void
   modifyTavernIdentity(
     changes: Partial<TavernIdentityState>,
     meta: MutationMeta,

@@ -163,6 +163,105 @@ describe('Phase 65 — stock-and-recipe model extension', () => {
     expect(captured!.earned).toBe(5 * aleSalePrice)
   })
 
+  it('sellRecipe caps multi-input consumption at the bottleneck and earns only for served dishes', () => {
+    // Regression for the 2026-06-10 recipe-consumption audit §1: a
+    // multi-input recipe must consume the bottleneck-capped amount of
+    // each input (never over-drain non-bottleneck inputs), earn coin
+    // only for dishes actually served, and emit exactly one deliberate
+    // shortage for the bottleneck ingredient — not a spurious shortage
+    // per over-requested input. The shipped six recipes are all 1:1, so
+    // we register a transient 2-input recipe to exercise the path.
+    const cleanup = (): void => {
+      recipeRegistry.unregister('dish_phase65_multi')
+    }
+    try {
+      recipeRegistry.register({
+        id: 'dish_phase65_multi',
+        label: 'Hearty Stew & Ale',
+        tags: ['dish'],
+        inputs: [
+          { ingredientId: 'stew', quantity: 2 },
+          { ingredientId: 'ale', quantity: 1 },
+        ],
+        prepDifficulty: 20,
+        demandTier: 'common',
+        culturalTags: [],
+        defaultState: {
+          onMenu: true,
+          timesServed: 0,
+          daysSinceLastServed: 0,
+          lastServedDay: null,
+        },
+      })
+
+      const state = createInitialTavernState()
+      // Bottleneck: 5 stew backs floor(5/2) = 2 servings; 50 ale is
+      // plentiful. Requesting 3 servings should serve only 2.
+      state.stock['stew']!.quantity = 5
+      state.stock['ale']!.quantity = 50
+      const stewPrice = state.stock['stew']!.salePrice
+      const alePrice = state.stock['ale']!.salePrice
+
+      let captured: {
+        result: ReturnType<typeof sellRecipe>
+        stewBefore: number
+        stewAfter: number
+        aleBefore: number
+        aleAfter: number
+      } | null = null
+
+      const probe: SimulationModule = {
+        id: 'phase65.test.sellRecipe.multi',
+        version: '0.0.0',
+        dependsOn: ['stock'],
+        hooks: {
+          service: [
+            (ctx: SimContext) => {
+              const stewBefore = ctx.state.stock['stew']!.quantity
+              const aleBefore = ctx.state.stock['ale']!.quantity
+              const result = sellRecipe(ctx, 'dish_phase65_multi', 3, {
+                buyerGroupId: 'local_goblins',
+              })
+              captured = {
+                result,
+                stewBefore,
+                stewAfter: ctx.state.stock['stew']!.quantity,
+                aleBefore,
+                aleAfter: ctx.state.stock['ale']!.quantity,
+              }
+            },
+          ],
+        },
+      }
+
+      simulateDay(state, { seed: SEED }, [stockModule, probe])
+      expect(captured).not.toBeNull()
+      const { result, stewBefore, stewAfter, aleBefore, aleAfter } = captured!
+
+      // Served the bottleneck-capped 2 servings, not the requested 3.
+      expect(result.sold).toBe(2)
+      // Consume exactly the capped amounts: 2 servings × (2 stew + 1 ale).
+      expect(stewBefore - stewAfter).toBe(4)
+      expect(aleBefore - aleAfter).toBe(2)
+      expect(result.itemsConsumed).toEqual([
+        { stockId: 'stew', quantity: 4 },
+        { stockId: 'ale', quantity: 2 },
+      ])
+      // Earn coin only for the 2 served dishes' inputs — no revenue for
+      // ingredients no customer was served.
+      expect(result.earned).toBe(2 * (2 * stewPrice + alePrice))
+      // Exactly one deliberate shortage, for the bottleneck (stew), with
+      // the unmet demand (6 requested vs 5 available) — not a per-input
+      // over-request side effect.
+      expect(result.shortages).toHaveLength(1)
+      expect(result.shortages[0]!.stockId).toBe('stew')
+      expect(result.shortages[0]!.requested).toBe(6)
+      expect(result.shortages[0]!.available).toBe(5)
+    } finally {
+      cleanup()
+    }
+  })
+
   it('a 7-day playtest with default state produces a deterministic coin total', () => {
     // Behaviour-preservation guard: with the six 1:1 starter recipes,
     // a deterministic 7-day run from default state must produce a

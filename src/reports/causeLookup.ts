@@ -6,7 +6,7 @@
 // for "today" and ranks by weight. Pure functions; no DOM.
 
 import type { CauseEntry, TavernState } from '../sim/state/TavernState'
-import { canonicalCauseTarget } from '../sim/modules/causes/causeTargets'
+import { canonicalCauseTarget, targetMatches } from '../sim/modules/causes/causeTargets'
 
 export type CauseLookupOptions = {
   /** Absolute day to filter on. Defaults to "the day just closed". */
@@ -50,7 +50,7 @@ export function causesForPath(
   const day = opts.absoluteDay ?? closedDayAbsolute(state)
   const limit = opts.limit ?? 6
   const matched = state.causes.filter(
-    (c) => c.target === target && c.timestamp.absoluteDay === day,
+    (c) => targetMatches(c.target, target) && c.timestamp.absoluteDay === day,
   )
   matched.sort((a, b) => b.weight - a.weight)
   return matched.slice(0, limit)

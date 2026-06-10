@@ -1,30 +1,21 @@
 import { simulateDay } from '../src/sim/core/engine'
 import { FULL_PIPELINE } from '../src/sim/canonicalPipeline'
 import { createInitialTavernState } from '../src/sim/state/defaults'
+import { canonicalCauseTarget } from '../src/sim/modules/causes/causeTargets'
 import type { TavernState } from '../src/sim/state/TavernState'
 import type { CauseEntry } from '../src/sim/state/TavernState'
 import type { StateChange } from '../src/sim/core/diff'
 
 // Convention-fixed matcher: a change is explained if ANY recent cause
 // matches by colon convention (the audit's) OR by exact dot path (the
-// engine's auto-emission convention).
-function colonTarget(path: string): string | undefined {
-  const m: Record<string, string> = {
-    areas: 'area', stock: 'stock', staff: 'staff', customers: 'customer',
-    reputation: 'reputation', pressures: 'pressure', cultures: 'culture',
-    factions: 'faction', suppliers: 'supplier', regulars: 'regular',
-    localEvents: 'local_event', socialRumours: 'rumour',
-  }
-  if (path === 'coin') return 'coin'
-  const head = path.split('.')[0]!
-  const id = path.split('.')[1]
-  if (m[head] && id) return `${m[head]}:${id}`
-  return undefined
-}
+// engine's legacy auto-emission convention, kept as transitional tolerance).
+// Phase 197 / ISSUE-164 — the colon mapping is the shared canonicalizer the
+// engine emitters and both report consumers now use; import it rather than
+// re-encoding the map here.
 function explained(change: StateChange, causes: ReadonlyArray<CauseEntry>): boolean {
-  const colon = colonTarget(change.path)
+  const colon = canonicalCauseTarget(change.path)
   for (const c of causes) {
-    if (c.target === change.path) return true // engine dot convention
+    if (c.target === change.path) return true // legacy engine dot convention
     if (colon && (c.target === colon || c.target.startsWith(colon + '.'))) return true
   }
   return false

@@ -4,7 +4,7 @@
 Architectural Rule 6 ("Causality. When a major value changes, the sim must
 record *why*."). No arc doc — this is a standalone correctness phase on the
 cause/audit contract.
-**Status:** open.
+**Status:** done (Clusters 1–4 landed).
 **Numbering note:** verify 197 / ISSUE-164 are still free against
 `docs/ISSUE_TRACKER.md` §"Issue index" before committing; renumber the file
 and headings if taken. Content does not depend on the numbers.

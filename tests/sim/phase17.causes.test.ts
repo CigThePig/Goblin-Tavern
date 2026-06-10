@@ -169,6 +169,31 @@ describe('Phase 17 §17.1 — State diff', () => {
     expect(diff.significantChanges[0]!.path).toBe('areas.kitchen.cleanliness')
   })
 
+  it('excludes array mutations (ledger, shortages) from significant changes', () => {
+    const before = createInitialTavernState()
+    const after: TavernState = {
+      ...before,
+      modules: {
+        ...before.modules,
+        stock: {
+          ...(before.modules.stock as Record<string, unknown>),
+          ledger: [{ source: 'customers.adventurers.dish_ale', amount: 54, category: 'sales', tags: ['sale'] }],
+          shortages: [{ stockId: 'ale', requested: 10, available: 0, day: 1, reason: 'empty' }],
+        },
+      },
+    }
+    const diff = createStateDiff(before, after)
+    const ledgerChange = diff.changes.find((c) => c.path === 'modules.stock.ledger')
+    const shortageChange = diff.changes.find((c) => c.path === 'modules.stock.shortages')
+    // Changes exist in the raw diff...
+    expect(ledgerChange).toBeDefined()
+    expect(shortageChange).toBeDefined()
+    // ...but are excluded from significant changes because they are arrays.
+    const significant = filterSignificantChanges(diff, DEFAULT_THRESHOLDS)
+    expect(significant.find((c) => c.path === 'modules.stock.ledger')).toBeUndefined()
+    expect(significant.find((c) => c.path === 'modules.stock.shortages')).toBeUndefined()
+  })
+
   it('reputation and pressure changes use their own thresholds', () => {
     const before = createInitialTavernState()
     const after: TavernState = {

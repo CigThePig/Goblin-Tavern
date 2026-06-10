@@ -78,3 +78,27 @@ export function canonicalCauseTarget(path: string): string | undefined {
   // their own writes.
   return undefined
 }
+
+/**
+ * Whether a stored cause target satisfies a drilldown lookup target.
+ *
+ * An id-level lookup (`stock:ale`) must match field-level stored causes
+ * (`stock:ale.quantity`), and vice versa — both directions are needed so
+ * modules that emit id-level causes are found by field-level lookups too.
+ *
+ * Shared by causeReport (audit) and causeLookup (UI drilldown) so both
+ * consumers apply identical semantics.
+ */
+export function targetMatches(storedTarget: string, lookupTarget: string): boolean {
+  if (storedTarget === lookupTarget) return true
+  // Field-level stored target matches id-level lookup: `stock:ale.quantity` ∋ `stock:ale`
+  if (storedTarget.startsWith(`${lookupTarget}.`)) return true
+  // Id-level stored target matches field-level lookup: `pressure:food_safety` ∋ `pressure:food_safety.value`
+  if (lookupTarget.startsWith(`${storedTarget}.`)) return true
+  // Phase 197 / ISSUE-164 — transitional dot-tolerance: pre-upgrade causes
+  // stored with the old engine dot-path convention (e.g. `stock.ale.quantity`)
+  // canonicalize to the same colon target (`stock:ale`) so they still match
+  // while they age out (≤5 days). Remove after one release cycle.
+  if (canonicalCauseTarget(storedTarget) === lookupTarget) return true
+  return false
+}

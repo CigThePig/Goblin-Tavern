@@ -9,6 +9,13 @@ import {
   pathToCauseTarget,
 } from '../../src/reports/causeLookup'
 import { runOneWeek } from '../../src/sim/testing/simRunner'
+import { simulateDay } from '../../src/sim/core/engine'
+import type { SimContext } from '../../src/sim/core/context'
+import type { SimulationModule } from '../../src/sim/core/module'
+import type { SimulationPhase } from '../../src/sim/core/phases'
+import { causesModule } from '../../src/sim/modules/causes/index'
+import { stockModule } from '../../src/sim/modules/stock/index'
+import { createInitialTavernState } from '../../src/sim/state/defaults'
 
 const SEED = 'tests/reports/causeLookup'
 
@@ -88,5 +95,42 @@ describe('closedDayAbsolute', () => {
     const run = runOneWeek({ seed: SEED + '.closed' })
     const state = run.finalState
     expect(closedDayAbsolute(state)).toBe(state.calendar.totalDaysElapsed - 1)
+  })
+})
+
+// Issue A regression — causesForPath must use prefix-tolerant matching so that
+// an id-level lookup (`stock:ale`) resolves field-level stored causes
+// (`stock:ale.quantity`). Before this fix the drilldown always returned empty
+// for stock/staff/area/customer rows even though the audit was green.
+describe('Issue A regression — id-level drilldown resolves field-level stored causes', () => {
+  function probeModule(
+    phase: SimulationPhase,
+    mutate: (ctx: SimContext) => void,
+  ): SimulationModule {
+    return { id: 'probe', version: '0.0.0', hooks: { [phase]: [(ctx: SimContext) => mutate(ctx)] } }
+  }
+
+  it('causesForPath returns ≥1 cause for a stock drilldown (stock.ale.quantity)', () => {
+    // Plants a stock change with an explicit cause via modifyStock.
+    // `causesForPath('stock.ale.quantity')` converts to the id-level target
+    // `stock:ale`; the engine stores the cause at `stock:ale.quantity`.
+    // Before the fix, the exact-match filter missed it; after the fix, the
+    // prefix-tolerant filter finds it.
+    const probe = probeModule('beforeService', (ctx) => {
+      const ale = ctx.state.stock.ale!
+      ctx.modifyStock(
+        'ale',
+        { quantity: ale.quantity - 10 },
+        { source: 'probe', reason: 'test consumption', weight: 10 },
+      )
+    })
+    const result = simulateDay(createInitialTavernState(), { seed: SEED + '.issueA' }, [
+      causesModule,
+      stockModule,
+      probe,
+    ])
+    const causes = causesForPath(result.state, 'stock.ale.quantity')
+    expect(causes.length, 'causesForPath returned no causes for stock drilldown').toBeGreaterThan(0)
+    expect(causes.some((c) => c.source === 'probe')).toBe(true)
   })
 })

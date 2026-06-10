@@ -2,7 +2,7 @@ import type { SimContext } from '../../core/context'
 import type { ReportSection } from '../../core/reports'
 import type { CauseEntry } from '../../state/TavernState'
 import type { StateChange, StateDiff } from '../../core/diff'
-import { canonicalCauseTarget } from './causeTargets'
+import { canonicalCauseTarget, targetMatches } from './causeTargets'
 
 // Phase 17 §17.9 — Cause report.
 //
@@ -30,20 +30,6 @@ function targetForChange(change: StateChange): string | undefined {
   // Phase 197 / ISSUE-164 — delegates to the shared canonicalizer so
   // causeReport and causeLookup share one mapping.
   return canonicalCauseTarget(change.path)
-}
-
-function targetMatches(target: string, expected: string): boolean {
-  if (target === expected) return true
-  // Field-level targets (e.g. `customer:miners.satisfaction`) should
-  // match the broader id (`customer:miners`).
-  if (target.startsWith(`${expected}.`)) return true
-  if (expected.startsWith(`${target}.`)) return true
-  // Phase 197 / ISSUE-164 — transitional dot-tolerance: pre-upgrade causes
-  // stored with the old engine dot-path convention (e.g. `stock.ale.quantity`)
-  // canonicalize to the same colon target (`stock:ale`) so they still match
-  // while they age out (≤5 days). Remove after one release cycle.
-  if (canonicalCauseTarget(target) === expected) return true
-  return false
 }
 
 export function findUnexplainedSignificantChanges(

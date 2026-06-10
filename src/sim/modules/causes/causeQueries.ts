@@ -1,4 +1,5 @@
 import type { CauseEntry, TavernState } from '../../state/TavernState'
+import { targetMatches } from './causeTargets'
 
 // Phase 17 §17.7 — Explanation queries.
 //
@@ -20,7 +21,7 @@ export function getCausesForTarget(
 ): CauseEntry[] {
   const out: CauseEntry[] = []
   for (const cause of asCauseList(state)) {
-    if (cause.target === target) out.push(cause)
+    if (targetMatches(cause.target, target)) out.push(cause)
   }
   return out
 }

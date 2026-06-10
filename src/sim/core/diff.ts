@@ -698,7 +698,10 @@ export function filterSignificantChanges(
   const out: StateChange[] = []
   for (const change of diff.changes) {
     if (change.delta === undefined) {
-      // Non-numeric change (e.g. paidThisWeek boolean flip) is always
+      // Skip array mutations (ledger entries, shortage records, etc.) —
+      // internal bookkeeping arrays are not player-facing state changes.
+      if (Array.isArray(change.before) || Array.isArray(change.after)) continue
+      // Non-numeric scalar change (e.g. paidThisWeek boolean flip) is always
       // significant: it's a state-shape flip, not a meter drift.
       out.push(change)
       continue

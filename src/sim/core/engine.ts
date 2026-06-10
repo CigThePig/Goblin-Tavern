@@ -608,14 +608,13 @@ function createContext(
     return entry
   }
 
-  // Audit fixes pass 1 §1.2 — the Phase 7 `modify*` helpers each accept a
-  // `MutationMeta` (alias `CauseDraft`) describing the change. Older
-  // versions of these helpers swallowed the meta; this helper walks the
-  // partial `changes` map, finds the numeric fields that actually moved,
-  // and emits one cause per change using the diff-path target convention
-  // (`areas.<id>.<field>`, `staff.<id>.<field>`, etc.) so the
-  // cause-coverage audit's `cause.target === change.path` lookup
-  // matches at least one entry per significant change.
+  // Phase 197 / ISSUE-164 — The Phase 7 `modify*` helpers each accept a
+  // `MutationMeta` (alias `CauseDraft`) describing the change. This helper
+  // walks the partial `changes` map, finds the numeric fields that actually
+  // moved, and emits one cause per change using the colon-style target
+  // convention (`area:<id>.<field>`, `staff:<id>.<field>`, etc.) so both
+  // the cause-coverage audit (`causeReport.targetForChange`) and the UI
+  // drilldown (`causeLookup.pathToCauseTarget`) find a matching entry.
   //
   // Returns the number of causes emitted so callers (e.g. Phase 27 world
   // mutators) can fall back to an aggregate cause when no numeric field
@@ -754,16 +753,12 @@ function createContext(
           [id]: next,
         },
       }
-      // Audit fixes pass 1 §1.2 — emit one cause per significant numeric
-      // change so the cause-coverage audit's diff-path lookup
-      // (`cause.target === change.path`) finds at least one matching
-      // entry. Non-numeric / unchanged fields are skipped.
       emitDiffPathCausesForRecord(
         meta,
         area as unknown as Record<string, unknown>,
         next as unknown as Record<string, unknown>,
         changes as unknown as Record<string, unknown>,
-        (field) => `areas.${id}.${field}`,
+        (field) => `area:${id}.${field}`,
         'area',
         ['area', id],
       )
@@ -783,7 +778,7 @@ function createContext(
         item as unknown as Record<string, unknown>,
         next as unknown as Record<string, unknown>,
         changes as unknown as Record<string, unknown>,
-        (field) => `stock.${id}.${field}`,
+        (field) => `stock:${id}.${field}`,
         'stock',
         ['stock', id],
       )
@@ -803,7 +798,7 @@ function createContext(
         member as unknown as Record<string, unknown>,
         next as unknown as Record<string, unknown>,
         changes as unknown as Record<string, unknown>,
-        (field) => `staff.${id}.${field}`,
+        (field) => `staff:${id}.${field}`,
         'staff',
         ['staff', id],
       )
@@ -823,7 +818,7 @@ function createContext(
       }
       if (meta) {
         addCauseInternal(meta, {
-          target: `staff.${staff.id}`,
+          target: `staff:${staff.id}`,
           targetType: 'staff',
         })
       }
@@ -838,7 +833,7 @@ function createContext(
       }
       if (meta) {
         addCauseInternal(meta, {
-          target: `staff.${id}`,
+          target: `staff:${id}`,
           targetType: 'staff',
         })
       }
@@ -862,7 +857,7 @@ function createContext(
         group as unknown as Record<string, unknown>,
         next as unknown as Record<string, unknown>,
         changes as unknown as Record<string, unknown>,
-        (field) => `customers.${id}.${field}`,
+        (field) => `customer:${id}.${field}`,
         'customer',
         ['customer', id],
       )
@@ -891,7 +886,7 @@ function createContext(
         recipe as unknown as Record<string, unknown>,
         next as unknown as Record<string, unknown>,
         changes as unknown as Record<string, unknown>,
-        (field) => `recipes.${id}.${field}`,
+        (field) => `recipe:${id}.${field}`,
         'recipe',
         ['recipe', id],
       )
@@ -943,7 +938,7 @@ function createContext(
             afterVal !== beforeVal
           ) {
             addCauseInternal(meta, {
-              target: `reputation.${String(key)}`,
+              target: `reputation:${String(key)}`,
               targetType: 'reputation',
               amount: afterVal - beforeVal,
               tags: ['reputation', String(key)],
@@ -978,7 +973,7 @@ function createContext(
       }
       if (cause && nextValue !== existing.value) {
         addCauseInternal(cause, {
-          target: `pressures.${id}.value`,
+          target: `pressure:${id}.value`,
           targetType: 'pressure',
           amount: nextValue - existing.value,
           tags: ['pressure', id],

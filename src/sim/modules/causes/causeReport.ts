@@ -2,6 +2,7 @@ import type { SimContext } from '../../core/context'
 import type { ReportSection } from '../../core/reports'
 import type { CauseEntry } from '../../state/TavernState'
 import type { StateChange, StateDiff } from '../../core/diff'
+import { canonicalCauseTarget } from './causeTargets'
 
 // Phase 17 §17.9 — Cause report.
 //
@@ -26,75 +27,9 @@ function describeCause(cause: CauseEntry): string {
 }
 
 function targetForChange(change: StateChange): string | undefined {
-  // Map a state-diff path to the canonical cause target string. The
-  // engine's modify* helpers use the same convention so the cause and
-  // diff layers line up.
-  if (change.path === 'coin') return 'coin'
-  if (change.path.startsWith('areas.')) {
-    const id = change.path.split('.')[1]
-    return id ? `area:${id}` : undefined
-  }
-  if (change.path.startsWith('stock.')) {
-    const id = change.path.split('.')[1]
-    return id ? `stock:${id}` : undefined
-  }
-  if (change.path.startsWith('staff.')) {
-    const id = change.path.split('.')[1]
-    return id ? `staff:${id}` : undefined
-  }
-  if (change.path.startsWith('customers.')) {
-    const id = change.path.split('.')[1]
-    return id ? `customer:${id}` : undefined
-  }
-  if (change.path.startsWith('reputation.')) {
-    const axis = change.path.split('.')[1]
-    return axis ? `reputation:${axis}` : undefined
-  }
-  if (change.path.startsWith('pressures.')) {
-    const id = change.path.split('.')[1]
-    return id ? `pressure:${id}` : undefined
-  }
-  // ISSUE-002 (phase 42) — world slices. Per-field cause targets emitted
-  // by the engine's world mutators use the flat path style
-  // (`cultures.foo.familiarity`) and match diff paths directly; explicit
-  // `addCause` call sites that use the id-only canonical target
-  // (`culture:foo`) match through `targetMatches`' prefix relationship.
-  if (change.path.startsWith('cultures.')) {
-    const id = change.path.split('.')[1]
-    return id ? `culture:${id}` : undefined
-  }
-  if (change.path.startsWith('factions.')) {
-    const id = change.path.split('.')[1]
-    return id ? `faction:${id}` : undefined
-  }
-  if (change.path.startsWith('suppliers.')) {
-    const id = change.path.split('.')[1]
-    return id ? `supplier:${id}` : undefined
-  }
-  if (change.path.startsWith('regulars.')) {
-    const id = change.path.split('.')[1]
-    return id ? `regular:${id}` : undefined
-  }
-  if (change.path.startsWith('notableNpcs.')) {
-    const id = change.path.split('.')[1]
-    return id ? `notable_npc:${id}` : undefined
-  }
-  if (change.path.startsWith('localEvents.')) {
-    const id = change.path.split('.')[1]
-    return id ? `local_event:${id}` : undefined
-  }
-  if (change.path.startsWith('socialRumours.')) {
-    const id = change.path.split('.')[1]
-    return id ? `rumour:${id}` : undefined
-  }
-  if (change.path === 'tavernIdentity' || change.path.startsWith('tavernIdentity.')) {
-    return 'tavernIdentity'
-  }
-  // `modules.*` is intentionally left unmapped. Module-internal state
-  // mutations have no canonical cause-target convention, so surfacing
-  // them as "unexplained" is the right audit signal until each module
-  // chooses to attribute its own writes.
-  return undefined
+  // Phase 197 / ISSUE-164 — delegates to the shared canonicalizer so
+  // causeReport and causeLookup share one mapping.
+  return canonicalCauseTarget(change.path)
 }
 
 function targetMatches(target: string, expected: string): boolean {
@@ -103,6 +38,11 @@ function targetMatches(target: string, expected: string): boolean {
   // match the broader id (`customer:miners`).
   if (target.startsWith(`${expected}.`)) return true
   if (expected.startsWith(`${target}.`)) return true
+  // Phase 197 / ISSUE-164 — transitional dot-tolerance: pre-upgrade causes
+  // stored with the old engine dot-path convention (e.g. `stock.ale.quantity`)
+  // canonicalize to the same colon target (`stock:ale`) so they still match
+  // while they age out (≤5 days). Remove after one release cycle.
+  if (canonicalCauseTarget(target) === expected) return true
   return false
 }
 

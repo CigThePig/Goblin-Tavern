@@ -6,6 +6,7 @@
 // for "today" and ranks by weight. Pure functions; no DOM.
 
 import type { CauseEntry, TavernState } from '../sim/state/TavernState'
+import { canonicalCauseTarget } from '../sim/modules/causes/causeTargets'
 
 export type CauseLookupOptions = {
   /** Absolute day to filter on. Defaults to "the day just closed". */
@@ -24,41 +25,16 @@ export type CauseLookupOptions = {
  * filter when callers want a fuzzy match.
  */
 export function pathToCauseTarget(path: string): string {
-  if (path === 'coin') return 'coin'
-  if (path.startsWith('reputation.')) {
-    const axis = path.slice('reputation.'.length)
-    return `reputation:${axis}`
-  }
-  if (path.startsWith('stock.')) {
-    // stock.ale.quantity → stock:ale ; stock.ale → stock:ale
-    const rest = path.slice('stock.'.length)
-    const stockId = rest.split('.')[0] ?? rest
-    return `stock:${stockId}`
-  }
+  // Phase 190a / ISSUE-157a — `inventory.<itemId>` is a MetricLink alias
+  // for a stock item; resolve it before the canonical mapping.
   if (path.startsWith('inventory.')) {
-    // Phase 190a / ISSUE-157a — `inventory.<itemId>` is the MetricLink
-    // alias for a stock item; it resolves to the same `stock:<id>` cause
-    // target the StockDetailSheet reads.
     const rest = path.slice('inventory.'.length)
     const stockId = rest.split('.')[0] ?? rest
     return `stock:${stockId}`
   }
-  if (path.startsWith('staff.')) {
-    const rest = path.slice('staff.'.length)
-    const staffId = rest.split('.')[0] ?? rest
-    return `staff:${staffId}`
-  }
-  if (path.startsWith('areas.')) {
-    const rest = path.slice('areas.'.length)
-    const areaId = rest.split('.')[0] ?? rest
-    return `area:${areaId}`
-  }
-  if (path.startsWith('pressures.')) {
-    const rest = path.slice('pressures.'.length)
-    const pressureId = rest.split('.')[0] ?? rest
-    return `pressure:${pressureId}`
-  }
-  return path
+  // Phase 197 / ISSUE-164 — delegate to the shared canonicalizer so this
+  // function and causeReport.targetForChange share one mapping.
+  return canonicalCauseTarget(path) ?? path
 }
 
 /**

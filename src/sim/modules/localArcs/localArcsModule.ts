@@ -75,10 +75,9 @@ function writeSlice(
 
 function addArcToWorld(ctx: SimContext, arc: LocalEventWorldState): void {
   // Phase 27's `modifyLocalEvent` only handles updates to existing
-  // records. Arc creation needs an additive write — mirror the regulars
-  // module's direct-write pattern, then attribute it with `addCause`.
-  ctx.state.world.localEvents[arc.id] = arc
-  ctx.addCause({
+  // records. Arc creation needs an additive write — `ctx.addLocalEvent`
+  // performs it and records attribution in one step.
+  ctx.addLocalEvent(arc, {
     source: `${SOURCE}.start`,
     sourceType: 'local_event',
     target: arc.id,

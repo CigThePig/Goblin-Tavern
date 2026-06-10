@@ -571,14 +571,9 @@ function persistRumour(
     tags: [...rumour.tags],
     involvedRefs: [...rumour.involvedRefs],
   }
-  // Mutate the world container directly. The pattern matches the
-  // regulars module's `ctx.state.world.regulars[id] = regular` write
-  // (see `regularModule.ts` §"createRegular"): there is no `addRumour`
-  // helper, but `state` is a live getter on `runtime.current`, so the
-  // assignment lands on the active state. The follow-up `addCause`
-  // call records the change so the cause trail still attributes it.
-  ctx.state.world.socialRumours[rumour.id] = persisted
-  ctx.addCause({
+  // Rumour creation routes through `ctx.addSocialRumour`, which performs
+  // the additive world write and records attribution in one step.
+  ctx.addSocialRumour(persisted, {
     source: `${SOURCE}.rumour_started`,
     sourceType: 'weekly',
     target: rumour.id,

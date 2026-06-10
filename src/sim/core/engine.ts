@@ -1463,6 +1463,11 @@ function createContext(
     getDiffs(): ReadonlyArray<TaggedStateDiff> {
       return runtime.changeTracker.all()
     },
+    // Phase 197 / ISSUE-164 — Cluster 1. Live snapshot→now diff, usable
+    // during `generateReports` before `finalize('day')` runs.
+    getDiffSoFar(boundary: PhaseBoundary): StateDiff | undefined {
+      return runtime.changeTracker.diffAgainst(boundary, runtime.current)
+    },
   }
 
   // The mutation helpers do not yet wire a real cause draft (Phase 17),

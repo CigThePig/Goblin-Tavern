@@ -1,7 +1,7 @@
 import type { SimContext } from '../../core/context'
 import type { ReportSection } from '../../core/reports'
 import type { CauseEntry } from '../../state/TavernState'
-import type { StateChange, TaggedStateDiff } from '../../core/diff'
+import type { StateChange, StateDiff } from '../../core/diff'
 
 // Phase 17 §17.9 — Cause report.
 //
@@ -107,7 +107,7 @@ function targetMatches(target: string, expected: string): boolean {
 }
 
 export function findUnexplainedSignificantChanges(
-  diff: TaggedStateDiff | undefined,
+  diff: StateDiff | undefined,
   causes: ReadonlyArray<CauseEntry>,
 ): StateChange[] {
   if (!diff) return []
@@ -167,10 +167,10 @@ export function buildCauseReport(ctx: SimContext): ReportSection {
   }
   lines.push('')
 
-  // Phase 17 §17.9 — Unexplained significant changes. Use the full-day
-  // diff so the report covers anything between yesterday and the end of
-  // today.
-  const dayDiff = ctx.getDiffs().find((d) => d.boundary === 'day')
+  // Phase 197 / ISSUE-164 — Cluster 1. Use getDiffSoFar so the check
+  // runs against the live snapshot→now diff even though finalize('day')
+  // hasn't been called yet at generateReports time.
+  const dayDiff = ctx.getDiffSoFar('day')
   const unexplained = findUnexplainedSignificantChanges(dayDiff, today)
   lines.push('Unexplained significant changes:')
   if (unexplained.length === 0) {

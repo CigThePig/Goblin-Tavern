@@ -2317,6 +2317,16 @@ export function narratorEffectPreviewBase(): Snippet[] {
       ],
     },
     {
+      id: 'shared_preview_meter_rep_reliable_neg_tiny_a',
+      text: 'reliable reputation would slip a hair',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['reliable'] },
+        { kind: 'effectTargetKind', anyOf: ['reputation'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny'] },
+      ],
+    },
+    {
       id: 'shared_preview_meter_rep_reliable_pos_small_a',
       text: 'reliable standing would firm a step in word',
       conditions: [

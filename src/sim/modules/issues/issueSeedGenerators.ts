@@ -3466,6 +3466,25 @@ function recordReputationPick(ctx: SimContext, entityKey: string): void {
   )
 }
 
+
+function reputationAxisLabel(axisId: string): string {
+  return axisId
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/_/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function audienceNarrowingRisk(axisId: string): string {
+  const axis = reputationAxisLabel(axisId).toLowerCase()
+  if (axis.includes('respectable')) return 'Respectable patrons may visit less often'
+  if (axis.includes('rough') || axis.includes('dangerous')) return 'Cautious patrons may visit less often'
+  if (axis.includes('cozy')) return 'Rougher patrons may visit less often'
+  if (axis.includes('cheap')) return 'Big-spending patrons may visit less often'
+  if (axis.includes('tasty') || axis.includes('culinary')) return 'Non-food crowds may visit less often'
+  return `${reputationAxisLabel(axisId)} audience may narrow`
+}
+
 function generateReputationShift(ctx: SimContext): IssueSeed[] {
   const guard = CONTRADICTION_GUARDS.reputation_shift(ctx)
   if (!guard.allowed) return []
@@ -3506,7 +3525,17 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['rebrand'],
       shape: 'reputation_play',
       targetOptions: [systemRef('reputation')],
-      expectedEffects: ['lean into reputation', 'narrow audience'],
+      expectedEffects: ['lean into reputation', 'audience may narrow'],
+      choiceContract: {
+        archetype: 'spin_or_rebrand',
+        primaryTarget: `reputation.${axisId}`,
+        solves: ['identity_drift'],
+        doesNotSolve: ['physical_state'],
+        costTypes: ['reputation_risk'],
+        payoffTiming: 'mixed',
+        mustShowDelayedPayoff: true,
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'correct',
@@ -3514,7 +3543,17 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['clean', 'repair', 'pay'],
       shape: 'long_term_investment',
       targetOptions: [systemRef('reputation')],
-      expectedEffects: ['shift reputation away', 'costly effort'],
+      expectedEffects: ['spend coin', 'shift reputation away'],
+      choiceContract: {
+        archetype: 'spin_or_rebrand',
+        primaryTarget: `reputation.${axisId}`,
+        solves: ['identity_drift'],
+        doesNotSolve: ['physical_state'],
+        costTypes: ['coin'],
+        payoffTiming: 'mixed',
+        mustShowDelayedPayoff: true,
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'advertise',
@@ -3522,7 +3561,17 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['invite'],
       shape: 'compromise',
       targetOptions: [customerRef('miners'), customerRef('merchants')],
-      expectedEffects: ['raise patronage', 'lock identity'],
+      expectedEffects: ['raise patronage', 'audience may narrow'],
+      choiceContract: {
+        archetype: 'spin_or_rebrand',
+        primaryTarget: 'customers.patronage',
+        solves: ['low_matching_patronage'],
+        doesNotSolve: ['physical_state'],
+        costTypes: ['reputation_risk'],
+        payoffTiming: 'mixed',
+        mustShowDelayedPayoff: true,
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'diversify',
@@ -3530,7 +3579,17 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['rebrand'],
       shape: 'compromise',
       targetOptions: [systemRef('customers')],
-      expectedEffects: ['broaden appeal', 'risk dilution'],
+      expectedEffects: ['broaden appeal', 'risk credibility'],
+      choiceContract: {
+        archetype: 'spin_or_rebrand',
+        primaryTarget: 'customers.patronage',
+        solves: ['audience_narrowing'],
+        doesNotSolve: ['physical_state'],
+        costTypes: ['reputation_risk'],
+        payoffTiming: 'mixed',
+        mustShowDelayedPayoff: true,
+        requiresVisibleTradeoff: true,
+      },
     },
   ]
 
@@ -3543,7 +3602,11 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
       id: 'embrace_profile',
       responseSlotId: 'embrace',
       immediateEffects: [
-        effect('state_change', `reputation.${axisId}`, 5, 'Lean into reputation', ['reputation']),
+        effect('state_change', `reputation.${axisId}`, 5, `${reputationAxisLabel(axisId)} Reputation rises`, ['reputation']),
+        effect('state_change', 'reputation.reliable', -3, 'Broader trust narrows', [
+          'reputation',
+          'risk',
+        ]),
       ],
       delayedEffects: [
         effect(
@@ -3553,12 +3616,18 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
           'Embraced identity continues to drift',
           ['reputation', 'delay:7'],
         ),
+        effect('pressure', 'pressure:reputation_drift', 4, 'Audience narrows around that identity', [
+          'pressure',
+          'reputation',
+          'risk',
+          'audience',
+        ]),
         effect(
           'future_hook',
           `identity_lock_in_${axisId}`,
           14,
-          `${axisId} identity may lock in`,
-          ['future_hook', 'reputation', axisId],
+          audienceNarrowingRisk(axisId),
+          ['future_hook', 'reputation', axisId, 'audience', 'risk'],
         ),
       ],
       memories: [{ id: `embraced_${axisId}_identity`, tags: ['reputation', axisId] }],
@@ -3573,7 +3642,7 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
       id: 'correct_profile',
       responseSlotId: 'correct',
       immediateEffects: [
-        effect('state_change', `reputation.${axisId}`, -5, 'Shift reputation', ['reputation']),
+        effect('state_change', `reputation.${axisId}`, -5, `${reputationAxisLabel(axisId)} Reputation falls`, ['reputation']),
         effect('state_change', 'coin', -10, 'Effort cost', ['coin']),
       ],
       delayedEffects: [
@@ -3588,7 +3657,7 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
           'future_hook',
           `identity_correction_${axisId}`,
           10,
-          `${axisId} correction may settle`,
+          `${reputationAxisLabel(axisId)} correction may settle`,
           ['future_hook', 'reputation', axisId],
         ),
       ],
@@ -3607,6 +3676,10 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
         effect('state_change', 'customers.miners.patronage', 8, 'Bring in matching group', [
           'customer',
         ]),
+        effect('state_change', 'reputation.reliable', -3, 'Targeted pitch narrows trust', [
+          'reputation',
+          'risk',
+        ]),
       ],
       delayedEffects: [
         effect(
@@ -3620,7 +3693,7 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
           'future_hook',
           `audience_lock_${axisId}`,
           10,
-          `${axisId} audience may lock in`,
+          audienceNarrowingRisk(axisId),
           ['future_hook', 'reputation', axisId, 'audience'],
         ),
       ],
@@ -3636,9 +3709,13 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
       id: 'diversify_profile',
       responseSlotId: 'diversify',
       immediateEffects: [
-        effect('state_change', `reputation.${axisId}`, -3, 'Soften identity', ['reputation']),
+        effect('state_change', `reputation.${axisId}`, -3, `${reputationAxisLabel(axisId)} Reputation softens`, ['reputation']),
         effect('state_change', 'customers.merchants.patronage', 4, 'Broader appeal lands', [
           'customer',
+        ]),
+        effect('state_change', 'reputation.reliable', -2, 'Mixed message dents credibility', [
+          'reputation',
+          'risk',
         ]),
       ],
       delayedEffects: [
@@ -3653,7 +3730,7 @@ function generateReputationShift(ctx: SimContext): IssueSeed[] {
           'future_hook',
           `audience_dilution_${axisId}`,
           12,
-          `${axisId} audience may dilute`,
+          `${reputationAxisLabel(axisId)} audience may broaden, but credibility may blur`,
           ['future_hook', 'reputation', axisId, 'dilution'],
         ),
       ],

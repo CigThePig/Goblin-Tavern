@@ -57,7 +57,7 @@ function labelFromDottedTarget(effect: EffectPreview, state?: TavernState): stri
   if (parts.length === 0) return undefined
   if (effect.target === 'coin') return 'Coin'
   if (parts[0] === 'reputation' && parts[1]) {
-    return `Reputation ${meterLabel(effect) ?? titleCase(parts[1])}`
+    return `${meterLabel(effect) ?? titleCase(parts[1])} Reputation`
   }
   if (parts[0] === 'stock' && parts[1]) {
     return [entityLabel(state, 'stock', parts[1]), meterLabel(effect) ?? titleCase(parts[parts.length - 1]!)]

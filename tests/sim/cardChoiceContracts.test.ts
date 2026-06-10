@@ -4,7 +4,11 @@ import { composeChoicesFromSeed } from '../../src/cards/cardHelpers'
 import { getIssueSeeds } from '../../src/sim/modules/issues/issueSeedQueries'
 import type { ChoiceArchetype } from '../../src/sim/modules/issues/issueSeedTypes'
 import { runOneDay } from '../../src/sim/testing/simRunner'
-import { buildAreaAtmosphereTriggeringState } from '../sim/triggeringStates'
+import {
+  buildAreaAtmosphereTriggeringState,
+  buildRegularCustomerRelationshipTriggeringState,
+  buildReputationShiftTriggeringState,
+} from '../sim/triggeringStates'
 
 const EXPECTED_AREA_ARCHETYPES: Record<string, ChoiceArchetype> = {
   repair_area: 'proper_repair',
@@ -13,6 +17,25 @@ const EXPECTED_AREA_ARCHETYPES: Record<string, ChoiceArchetype> = {
   close_area_temporarily: 'close_temporarily',
   rebrand_area: 'spin_or_rebrand',
   ignore_area_problem: 'ignore',
+}
+
+
+
+function captureSeed(family: string, buildState: () => ReturnType<typeof buildAreaAtmosphereTriggeringState>, seed: string) {
+  let result = runOneDay(buildState(), { seed })
+  let captured = getIssueSeeds(result.state, { family })[0]
+  if (captured === undefined) {
+    result = runOneDay(result.state, { seed: `${seed}-warm` })
+    captured = getIssueSeeds(result.state, { family })[0]
+  }
+  return { seed: captured, state: result.state }
+}
+
+function composeForContract(seed: NonNullable<ReturnType<typeof captureSeed>['seed']>, state: ReturnType<typeof buildAreaAtmosphereTriggeringState>) {
+  return composeChoicesFromSeed(seed, state, {
+    labelPool: { slotId: 'choice_label', snippets: [] },
+    previewPool: { slotId: 'effect_preview', snippets: [] },
+  })
 }
 
 function captureAreaAtmosphereSeed(seed: string) {
@@ -82,8 +105,8 @@ describe('card choice contracts', () => {
       'later: Stock Shortage Risk +6',
     ])
     expect(bySlot.get('rebrand_area')?.mechanicalEffects).toEqual([
-      'Reputation Respectable -8',
-      'Reputation Cozy +6',
+      'Respectable Reputation -8',
+      'Cozy Reputation +6',
       'later: Audience may narrow',
     ])
     expect(bySlot.get('rebrand_area')?.mechanicalEffects?.join('\n')).not.toContain('Condition')
@@ -92,6 +115,65 @@ describe('card choice contracts', () => {
       'Main Room Condition -8',
       'Main Room Damage +6',
     ])
+  })
+
+
+  it('makes Phase 8 regular word-of-mouth choices carry visible credibility stakes', () => {
+    const captured = captureSeed(
+      'regular_customer',
+      buildRegularCustomerRelationshipTriggeringState,
+      'card-choice-contracts-phase-8-regulars',
+    )
+    expect(captured.seed).toBeDefined()
+
+    const choices = composeForContract(captured.seed!, captured.state)
+    const bySlot = new Map(choices.map((choice) => [choice.slotId, choice]))
+
+    expect(captured.seed!.responseSlots.find((slot) => slot.id === 'ask_regular_to_spread_word')?.choiceContract).toMatchObject({
+      archetype: 'call_in_favor',
+      costTypes: ['reputation_risk', 'relationship_risk'],
+      requiresVisibleTradeoff: true,
+    })
+    expect(bySlot.get('apologize_to_regular')?.mechanicalEffects).toContain('Coin -1')
+    expect(bySlot.get('ask_regular_to_spread_word')?.mechanicalEffects).toEqual(
+      expect.arrayContaining([
+        'Brik Tallowmug Loyalty +8',
+        'Reputation Drift Pressure +5',
+        'later: Regulars may judge the promise later',
+      ]),
+    )
+  })
+
+  it('makes Phase 8 reputation and audience shifts plain and domain-specific', () => {
+    const captured = captureSeed(
+      'reputation_shift',
+      buildReputationShiftTriggeringState,
+      'card-choice-contracts-phase-8-reputation',
+    )
+    expect(captured.seed).toBeDefined()
+
+    const choices = composeForContract(captured.seed!, captured.state)
+    const bySlot = new Map(choices.map((choice) => [choice.slotId, choice]))
+    const embrace = bySlot.get('embrace')?.mechanicalEffects ?? []
+    const advertise = bySlot.get('advertise')?.mechanicalEffects ?? []
+
+    expect(captured.seed!.responseSlots.find((slot) => slot.id === 'embrace')?.choiceContract).toMatchObject({
+      archetype: 'spin_or_rebrand',
+      doesNotSolve: ['physical_state'],
+      costTypes: ['reputation_risk'],
+      mustShowDelayedPayoff: true,
+    })
+    expect(embrace).toEqual(expect.arrayContaining([
+      'Cheap Reputation +5',
+      'Reliable Reputation -3',
+      'later: Reputation Drift Pressure +4',
+      'later: Big-spending patrons may visit less often',
+    ]))
+    expect(advertise).toEqual(expect.arrayContaining([
+      'Reliable Reputation -3',
+      'later: Big-spending patrons may visit less often',
+    ]))
+    expect([...embrace, ...advertise].join('\n')).not.toMatch(/Condition|Cleanliness|Damage/)
   })
 
 })

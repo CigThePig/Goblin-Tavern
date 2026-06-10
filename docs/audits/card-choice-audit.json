@@ -38,7 +38,7 @@
       "renderedMechanicalEffects": [
         "Mushrooms Quantity -20",
         "Food Safety Risk -12",
-        "later: Reputation Respectable -3"
+        "later: Respectable Reputation -3"
       ],
       "immediateEffects": [
         {
@@ -95,7 +95,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable -3",
+          "formatted": "Respectable Reputation -3",
           "roles": [],
           "visible": true
         }
@@ -157,7 +157,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable -3",
+          "formatted": "Respectable Reputation -3",
           "roles": [],
           "visible": true
         }
@@ -2846,8 +2846,8 @@
         "later: A reminder would sit on the slate"
       ],
       "renderedMechanicalEffects": [
-        "Reputation Respectable -8",
-        "Reputation Cozy +6",
+        "Respectable Reputation -8",
+        "Cozy Reputation +6",
         "later: Audience may narrow"
       ],
       "immediateEffects": [
@@ -2865,7 +2865,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable -8",
+          "formatted": "Respectable Reputation -8",
           "roles": [],
           "visible": true
         },
@@ -2883,7 +2883,7 @@
           "meterId": "cozy",
           "meterLabel": "cozy",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cozy +6",
+          "formatted": "Cozy Reputation +6",
           "roles": [
             "benefit"
           ],
@@ -2926,7 +2926,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable -8",
+          "formatted": "Respectable Reputation -8",
           "roles": [],
           "visible": true
         },
@@ -2944,7 +2944,7 @@
           "meterId": "cozy",
           "meterLabel": "cozy",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cozy +6",
+          "formatted": "Cozy Reputation +6",
           "roles": [
             "benefit"
           ],
@@ -2982,7 +2982,7 @@
           "meterId": "cozy",
           "meterLabel": "cozy",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cozy +6",
+          "formatted": "Cozy Reputation +6",
           "roles": [
             "benefit"
           ],
@@ -7968,7 +7968,7 @@
       "renderedMechanicalEffects": [
         "Coin -5",
         "Inspection Pressure -15",
-        "Reputation Respectable +5",
+        "Respectable Reputation +5",
         "later: Watch may return with goodwill"
       ],
       "immediateEffects": [
@@ -8026,7 +8026,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +5",
+          "formatted": "Respectable Reputation +5",
           "roles": [
             "benefit"
           ],
@@ -8133,7 +8133,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +5",
+          "formatted": "Respectable Reputation +5",
           "roles": [
             "benefit"
           ],
@@ -8215,7 +8215,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +5",
+          "formatted": "Respectable Reputation +5",
           "roles": [
             "benefit"
           ],
@@ -8292,7 +8292,7 @@
       ],
       "renderedMechanicalEffects": [
         "Inspection Pressure -10",
-        "Reputation Respectable +5",
+        "Respectable Reputation +5",
         "Town Watch +10",
         "later: Watch may keep an open door"
       ],
@@ -8331,7 +8331,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +5",
+          "formatted": "Respectable Reputation +5",
           "roles": [
             "benefit"
           ],
@@ -8436,7 +8436,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +5",
+          "formatted": "Respectable Reputation +5",
           "roles": [
             "benefit"
           ],
@@ -8517,7 +8517,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +5",
+          "formatted": "Respectable Reputation +5",
           "roles": [
             "benefit"
           ],
@@ -8954,7 +8954,7 @@
       "renderedMechanicalEffects": [
         "Inspection Pressure +8",
         "Rumour Pressure +6",
-        "Reputation Dangerous +4"
+        "Dangerous Reputation +4"
       ],
       "immediateEffects": [],
       "delayedEffects": [
@@ -9012,7 +9012,7 @@
           "meterId": "dangerous",
           "meterLabel": "dangerous",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Dangerous +4",
+          "formatted": "Dangerous Reputation +4",
           "roles": [
             "benefit"
           ],
@@ -9078,7 +9078,7 @@
           "meterId": "dangerous",
           "meterLabel": "dangerous",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Dangerous +4",
+          "formatted": "Dangerous Reputation +4",
           "roles": [
             "benefit"
           ],
@@ -9101,7 +9101,7 @@
           "meterId": "dangerous",
           "meterLabel": "dangerous",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Dangerous +4",
+          "formatted": "Dangerous Reputation +4",
           "roles": [
             "benefit"
           ],
@@ -10750,7 +10750,7 @@
       ],
       "renderedMechanicalEffects": [
         "Nash Loyalty +12",
-        "Reputation Respectable -4",
+        "Respectable Reputation -4",
         "Staff Loyalty Risk -8",
         "later: Crew remembers being defended"
       ],
@@ -10790,7 +10790,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable -4",
+          "formatted": "Respectable Reputation -4",
           "roles": [
             "risk"
           ],
@@ -10810,7 +10810,7 @@
           "meterId": "dangerous",
           "meterLabel": "dangerous",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Dangerous -3",
+          "formatted": "Dangerous Reputation -3",
           "roles": [],
           "visible": false
         },
@@ -10895,7 +10895,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable -4",
+          "formatted": "Respectable Reputation -4",
           "roles": [
             "risk"
           ],
@@ -11017,7 +11017,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable -4",
+          "formatted": "Respectable Reputation -4",
           "roles": [
             "risk"
           ],
@@ -11567,7 +11567,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable -8",
+          "formatted": "Respectable Reputation -8",
           "roles": [],
           "visible": false
         },
@@ -12512,6 +12512,18 @@
       "responseSlotId": "apologize_to_regular",
       "responseLabel": "Apologise to Brik Tallowmug",
       "responseShape": "safe_costly",
+      "choiceContract": {
+        "archetype": "appease",
+        "primaryTarget": "regular.loyalty",
+        "solves": [
+          "regular_irritation"
+        ],
+        "costTypes": [
+          "coin"
+        ],
+        "payoffTiming": "immediate",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "appease"
       ],
@@ -12520,17 +12532,19 @@
       ],
       "choiceLabel": "Apologise to Brik Tallowmug",
       "renderedPreviewEffects": [
-        "Loyalty rises"
+        "Regular loyalty rises",
+        "Apology round cost"
       ],
       "renderedMechanicalEffects": [
-        "Phase163 Regular Brik +8"
+        "Brik Tallowmug +8",
+        "Coin -1"
       ],
       "immediateEffects": [
         {
           "kind": "cause",
           "target": "regular:phase163_regular_brik",
           "amount": 8,
-          "readable": "Loyalty rises",
+          "readable": "Regular loyalty rises",
           "tags": [
             "regular"
           ],
@@ -12541,21 +12555,43 @@
           "formatted": "Brik Tallowmug +8",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "coin",
+          "amount": -1,
+          "readable": "Apology round cost",
+          "tags": [
+            "coin",
+            "time"
+          ],
+          "targetKind": "coin",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "coin",
+          "meterLabel": "coin",
+          "meterDisplayCategory": "resource",
+          "formatted": "Coin -1",
+          "roles": [
+            "cost"
           ],
           "visible": true
         }
       ],
       "delayedEffects": [],
       "expectedEffects": [
-        "raise loyalty",
-        "time cost"
+        "spend coin",
+        "takes time",
+        "raise loyalty"
       ],
       "visiblePreviewEffects": [
         {
           "kind": "cause",
           "target": "regular:phase163_regular_brik",
           "amount": 8,
-          "readable": "Loyalty rises",
+          "readable": "Regular loyalty rises",
           "tags": [
             "regular"
           ],
@@ -12568,15 +12604,58 @@
             "benefit"
           ],
           "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "coin",
+          "amount": -1,
+          "readable": "Apology round cost",
+          "tags": [
+            "coin",
+            "time"
+          ],
+          "targetKind": "coin",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "coin",
+          "meterLabel": "coin",
+          "meterDisplayCategory": "resource",
+          "formatted": "Coin -1",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
         }
       ],
-      "costEffects": [],
+      "costEffects": [
+        {
+          "kind": "state_change",
+          "target": "coin",
+          "amount": -1,
+          "readable": "Apology round cost",
+          "tags": [
+            "coin",
+            "time"
+          ],
+          "targetKind": "coin",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "coin",
+          "meterLabel": "coin",
+          "meterDisplayCategory": "resource",
+          "formatted": "Coin -1",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
+        }
+      ],
       "benefitEffects": [
         {
           "kind": "cause",
           "target": "regular:phase163_regular_brik",
           "amount": 8,
-          "readable": "Loyalty rises",
+          "readable": "Regular loyalty rises",
           "tags": [
             "regular"
           ],
@@ -12594,10 +12673,7 @@
       "riskEffects": [],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_cost_missing",
-        "free_positive_option"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "regular_customer",
@@ -12608,6 +12684,18 @@
       "responseSlotId": "comp_regular_meal",
       "responseLabel": "Comp a meal",
       "responseShape": "safe_costly",
+      "choiceContract": {
+        "archetype": "compensate",
+        "primaryTarget": "regular.loyalty",
+        "solves": [
+          "regular_irritation"
+        ],
+        "costTypes": [
+          "coin"
+        ],
+        "payoffTiming": "immediate",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "discount",
         "pay"
@@ -12618,11 +12706,11 @@
       "choiceLabel": "Comp a meal",
       "renderedPreviewEffects": [
         "Comp cost",
-        "Loyalty rises sharply"
+        "Regular loyalty rises sharply"
       ],
       "renderedMechanicalEffects": [
         "Coin -8",
-        "Phase163 Regular Brik +10"
+        "Brik Tallowmug +10"
       ],
       "immediateEffects": [
         {
@@ -12649,7 +12737,7 @@
           "kind": "cause",
           "target": "regular:phase163_regular_brik",
           "amount": 10,
-          "readable": "Loyalty rises sharply",
+          "readable": "Regular loyalty rises sharply",
           "tags": [
             "regular"
           ],
@@ -12666,8 +12754,8 @@
       ],
       "delayedEffects": [],
       "expectedEffects": [
-        "raise loyalty",
-        "lose coin"
+        "spend coin",
+        "raise loyalty"
       ],
       "visiblePreviewEffects": [
         {
@@ -12694,7 +12782,7 @@
           "kind": "cause",
           "target": "regular:phase163_regular_brik",
           "amount": 10,
-          "readable": "Loyalty rises sharply",
+          "readable": "Regular loyalty rises sharply",
           "tags": [
             "regular"
           ],
@@ -12736,7 +12824,7 @@
           "kind": "cause",
           "target": "regular:phase163_regular_brik",
           "amount": 10,
-          "readable": "Loyalty rises sharply",
+          "readable": "Regular loyalty rises sharply",
           "tags": [
             "regular"
           ],
@@ -12754,9 +12842,7 @@
       "riskEffects": [],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_risk_missing"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "regular_customer",
@@ -12767,6 +12853,18 @@
       "responseSlotId": "refuse_request",
       "responseLabel": "Refuse the request",
       "responseShape": "relationship_sacrifice",
+      "choiceContract": {
+        "archetype": "appease",
+        "primaryTarget": "regular.boundary",
+        "doesNotSolve": [
+          "regular_irritation"
+        ],
+        "costTypes": [
+          "relationship_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "blame",
         "ignore"
@@ -12776,10 +12874,12 @@
       ],
       "choiceLabel": "Refuse the request",
       "renderedPreviewEffects": [
-        "Regular grudges"
+        "Regular grudges",
+        "later: Regular may turn rival"
       ],
       "renderedMechanicalEffects": [
-        "Phase163 Regular Brik -12"
+        "Brik Tallowmug -12",
+        "later: Regular may turn rival"
       ],
       "immediateEffects": [
         {
@@ -12813,12 +12913,12 @@
           "meterId": "regular_grudge_phase163_regular_brik",
           "formatted": "Regular may turn rival",
           "roles": [],
-          "visible": false
+          "visible": true
         }
       ],
       "expectedEffects": [
         "hold the line",
-        "lose regular"
+        "risk regular relationship"
       ],
       "visiblePreviewEffects": [
         {
@@ -12834,6 +12934,21 @@
           "magnitudeBand": "medium",
           "meterId": "phase163_regular_brik",
           "formatted": "Brik Tallowmug -12",
+          "roles": [],
+          "visible": true
+        },
+        {
+          "kind": "future_hook",
+          "target": "regular_grudge_phase163_regular_brik",
+          "amount": 0,
+          "readable": "Regular may turn rival",
+          "tags": [
+            "future_hook"
+          ],
+          "targetKind": "other",
+          "direction": "neutral",
+          "meterId": "regular_grudge_phase163_regular_brik",
+          "formatted": "Regular may turn rival",
           "roles": [],
           "visible": true
         }
@@ -12854,6 +12969,19 @@
       "responseSlotId": "ask_regular_to_spread_word",
       "responseLabel": "Ask them to spread the word",
       "responseShape": "long_term_investment",
+      "choiceContract": {
+        "archetype": "call_in_favor",
+        "primaryTarget": "regular.word_of_mouth",
+        "solves": [
+          "regular_customer_loss"
+        ],
+        "costTypes": [
+          "reputation_risk",
+          "relationship_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "invite",
         "negotiate"
@@ -12864,17 +12992,43 @@
       ],
       "choiceLabel": "Ask them to spread the word",
       "renderedPreviewEffects": [
-        "Word spreads"
+        "Regular loyalty backs the pitch",
+        "Word spreads to their crowd",
+        "Credibility risk rises",
+        "later: Regulars may judge the promise later"
       ],
       "renderedMechanicalEffects": [
-        "Miners Loyalty +5"
+        "Brik Tallowmug Loyalty +8",
+        "Miners Loyalty +5",
+        "Reputation Drift Pressure +5",
+        "later: Regulars may judge the promise later"
       ],
       "immediateEffects": [
         {
           "kind": "state_change",
+          "target": "world.regulars.phase163_regular_brik.loyalty",
+          "amount": 8,
+          "readable": "Regular loyalty backs the pitch",
+          "tags": [
+            "regular"
+          ],
+          "targetKind": "customer",
+          "direction": "positive",
+          "magnitudeBand": "medium",
+          "meterId": "loyalty",
+          "meterLabel": "loyalty",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Brik Tallowmug Loyalty +8",
+          "roles": [
+            "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
           "target": "customers.miners.loyalty",
           "amount": 5,
-          "readable": "Word spreads",
+          "readable": "Word spreads to their crowd",
           "tags": [
             "customer"
           ],
@@ -12889,9 +13043,52 @@
             "benefit"
           ],
           "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:reputation_drift",
+          "amount": 5,
+          "readable": "Credibility risk rises",
+          "tags": [
+            "pressure",
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "reputation_drift",
+          "meterLabel": "Reputation Drift Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Reputation Drift Pressure +5",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
         }
       ],
-      "delayedEffects": [],
+      "delayedEffects": [
+        {
+          "kind": "future_hook",
+          "target": "regular_word_credibility_phase163_regular_brik",
+          "amount": 8,
+          "readable": "Regulars may judge the promise later",
+          "tags": [
+            "future_hook",
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "other",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "regular_word_credibility_phase163_regular_brik",
+          "formatted": "Regulars may judge the promise later",
+          "roles": [
+            "benefit"
+          ],
+          "visible": true
+        }
+      ],
       "expectedEffects": [
         "raise reputation",
         "risk credibility"
@@ -12899,9 +13096,29 @@
       "visiblePreviewEffects": [
         {
           "kind": "state_change",
+          "target": "world.regulars.phase163_regular_brik.loyalty",
+          "amount": 8,
+          "readable": "Regular loyalty backs the pitch",
+          "tags": [
+            "regular"
+          ],
+          "targetKind": "customer",
+          "direction": "positive",
+          "magnitudeBand": "medium",
+          "meterId": "loyalty",
+          "meterLabel": "loyalty",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Brik Tallowmug Loyalty +8",
+          "roles": [
+            "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
           "target": "customers.miners.loyalty",
           "amount": 5,
-          "readable": "Word spreads",
+          "readable": "Word spreads to their crowd",
           "tags": [
             "customer"
           ],
@@ -12912,6 +13129,48 @@
           "meterLabel": "loyalty",
           "meterDisplayCategory": "good_when_higher",
           "formatted": "Miners Loyalty +5",
+          "roles": [
+            "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:reputation_drift",
+          "amount": 5,
+          "readable": "Credibility risk rises",
+          "tags": [
+            "pressure",
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "reputation_drift",
+          "meterLabel": "Reputation Drift Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Reputation Drift Pressure +5",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "future_hook",
+          "target": "regular_word_credibility_phase163_regular_brik",
+          "amount": 8,
+          "readable": "Regulars may judge the promise later",
+          "tags": [
+            "future_hook",
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "other",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "regular_word_credibility_phase163_regular_brik",
+          "formatted": "Regulars may judge the promise later",
           "roles": [
             "benefit"
           ],
@@ -12922,9 +13181,29 @@
       "benefitEffects": [
         {
           "kind": "state_change",
+          "target": "world.regulars.phase163_regular_brik.loyalty",
+          "amount": 8,
+          "readable": "Regular loyalty backs the pitch",
+          "tags": [
+            "regular"
+          ],
+          "targetKind": "customer",
+          "direction": "positive",
+          "magnitudeBand": "medium",
+          "meterId": "loyalty",
+          "meterLabel": "loyalty",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Brik Tallowmug Loyalty +8",
+          "roles": [
+            "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
           "target": "customers.miners.loyalty",
           "amount": 5,
-          "readable": "Word spreads",
+          "readable": "Word spreads to their crowd",
           "tags": [
             "customer"
           ],
@@ -12939,14 +13218,55 @@
             "benefit"
           ],
           "visible": true
+        },
+        {
+          "kind": "future_hook",
+          "target": "regular_word_credibility_phase163_regular_brik",
+          "amount": 8,
+          "readable": "Regulars may judge the promise later",
+          "tags": [
+            "future_hook",
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "other",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "regular_word_credibility_phase163_regular_brik",
+          "formatted": "Regulars may judge the promise later",
+          "roles": [
+            "benefit"
+          ],
+          "visible": true
         }
       ],
-      "riskEffects": [],
+      "riskEffects": [
+        {
+          "kind": "pressure",
+          "target": "pressure:reputation_drift",
+          "amount": 5,
+          "readable": "Credibility risk rises",
+          "tags": [
+            "pressure",
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "reputation_drift",
+          "meterLabel": "Reputation Drift Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Reputation Drift Pressure +5",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        }
+      ],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_risk_missing"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "regular_customer",
@@ -12957,6 +13277,15 @@
       "responseSlotId": "ban_regular",
       "responseLabel": "Ban Brik Tallowmug",
       "responseShape": "escalation",
+      "choiceContract": {
+        "archetype": "escalate",
+        "primaryTarget": "regular.boundary",
+        "costTypes": [
+          "relationship_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "ban"
       ],
@@ -12968,7 +13297,7 @@
         "Regular banned"
       ],
       "renderedMechanicalEffects": [
-        "Phase163 Regular Brik -25"
+        "Brik Tallowmug -25"
       ],
       "immediateEffects": [
         {
@@ -12990,7 +13319,7 @@
       ],
       "delayedEffects": [],
       "expectedEffects": [
-        "lose regular",
+        "risk regular relationship",
         "send signal"
       ],
       "visiblePreviewEffects": [
@@ -13027,13 +13356,29 @@
       "responseSlotId": "ignore_regular",
       "responseLabel": "Ignore the regular",
       "responseShape": "ignore",
+      "choiceContract": {
+        "archetype": "ignore",
+        "primaryTarget": "pressure.regular_customer_loss",
+        "doesNotSolve": [
+          "regular_irritation"
+        ],
+        "costTypes": [
+          "none"
+        ],
+        "payoffTiming": "delayed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "ignore"
       ],
       "targetOptions": [],
       "choiceLabel": "Ignore the regular",
-      "renderedPreviewEffects": [],
-      "renderedMechanicalEffects": [],
+      "renderedPreviewEffects": [
+        "Loss pressure rises"
+      ],
+      "renderedMechanicalEffects": [
+        "Regular Customer Loss Risk +6"
+      ],
       "immediateEffects": [],
       "delayedEffects": [
         {
@@ -13054,14 +13399,35 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "expectedEffects": [
         "no cost",
         "raise regular loss pressure"
       ],
-      "visiblePreviewEffects": [],
+      "visiblePreviewEffects": [
+        {
+          "kind": "pressure",
+          "target": "pressure:regular_customer_loss",
+          "amount": 6,
+          "readable": "Loss pressure rises",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "regular_customer_loss",
+          "meterLabel": "Regular Customer Loss Risk",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Regular Customer Loss Risk +6",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        }
+      ],
       "costEffects": [],
       "benefitEffects": [],
       "riskEffects": [
@@ -13083,36 +13449,12 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:regular_customer_loss",
-          "amount": 6,
-          "readable": "Loss pressure rises",
-          "tags": [
-            "pressure"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "regular_customer_loss",
-          "meterLabel": "Regular Customer Loss Risk",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Regular Customer Loss Risk +6",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
-      "warningFlags": [
-        "hidden_delayed_risk",
-        "ignore_without_downside"
-      ]
+      "hiddenDelayedRisks": [],
+      "warningFlags": []
     },
     {
       "cardFamily": "regular_customer",
@@ -13123,6 +13465,18 @@
       "responseSlotId": "apologize_to_regular",
       "responseLabel": "Apologise to Brik Tallowmug",
       "responseShape": "safe_costly",
+      "choiceContract": {
+        "archetype": "appease",
+        "primaryTarget": "regular.loyalty",
+        "solves": [
+          "regular_irritation"
+        ],
+        "costTypes": [
+          "coin"
+        ],
+        "payoffTiming": "immediate",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "appease"
       ],
@@ -13131,17 +13485,19 @@
       ],
       "choiceLabel": "Apologise to Brik Tallowmug",
       "renderedPreviewEffects": [
-        "Loyalty rises"
+        "Regular loyalty rises",
+        "Apology round cost"
       ],
       "renderedMechanicalEffects": [
-        "Phase163 Regular Brik +8"
+        "Brik Tallowmug +8",
+        "Coin -1"
       ],
       "immediateEffects": [
         {
           "kind": "cause",
           "target": "regular:phase163_regular_brik",
           "amount": 8,
-          "readable": "Loyalty rises",
+          "readable": "Regular loyalty rises",
           "tags": [
             "regular"
           ],
@@ -13152,21 +13508,43 @@
           "formatted": "Brik Tallowmug +8",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "coin",
+          "amount": -1,
+          "readable": "Apology round cost",
+          "tags": [
+            "coin",
+            "time"
+          ],
+          "targetKind": "coin",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "coin",
+          "meterLabel": "coin",
+          "meterDisplayCategory": "resource",
+          "formatted": "Coin -1",
+          "roles": [
+            "cost"
           ],
           "visible": true
         }
       ],
       "delayedEffects": [],
       "expectedEffects": [
-        "raise loyalty",
-        "time cost"
+        "spend coin",
+        "takes time",
+        "raise loyalty"
       ],
       "visiblePreviewEffects": [
         {
           "kind": "cause",
           "target": "regular:phase163_regular_brik",
           "amount": 8,
-          "readable": "Loyalty rises",
+          "readable": "Regular loyalty rises",
           "tags": [
             "regular"
           ],
@@ -13179,15 +13557,58 @@
             "benefit"
           ],
           "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "coin",
+          "amount": -1,
+          "readable": "Apology round cost",
+          "tags": [
+            "coin",
+            "time"
+          ],
+          "targetKind": "coin",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "coin",
+          "meterLabel": "coin",
+          "meterDisplayCategory": "resource",
+          "formatted": "Coin -1",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
         }
       ],
-      "costEffects": [],
+      "costEffects": [
+        {
+          "kind": "state_change",
+          "target": "coin",
+          "amount": -1,
+          "readable": "Apology round cost",
+          "tags": [
+            "coin",
+            "time"
+          ],
+          "targetKind": "coin",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "coin",
+          "meterLabel": "coin",
+          "meterDisplayCategory": "resource",
+          "formatted": "Coin -1",
+          "roles": [
+            "cost"
+          ],
+          "visible": true
+        }
+      ],
       "benefitEffects": [
         {
           "kind": "cause",
           "target": "regular:phase163_regular_brik",
           "amount": 8,
-          "readable": "Loyalty rises",
+          "readable": "Regular loyalty rises",
           "tags": [
             "regular"
           ],
@@ -13205,10 +13626,7 @@
       "riskEffects": [],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_cost_missing",
-        "free_positive_option"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "regular_customer",
@@ -13219,6 +13637,18 @@
       "responseSlotId": "comp_regular_meal",
       "responseLabel": "Comp a meal",
       "responseShape": "safe_costly",
+      "choiceContract": {
+        "archetype": "compensate",
+        "primaryTarget": "regular.loyalty",
+        "solves": [
+          "regular_irritation"
+        ],
+        "costTypes": [
+          "coin"
+        ],
+        "payoffTiming": "immediate",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "discount",
         "pay"
@@ -13229,11 +13659,11 @@
       "choiceLabel": "Comp a meal",
       "renderedPreviewEffects": [
         "Comp cost",
-        "Loyalty rises sharply"
+        "Regular loyalty rises sharply"
       ],
       "renderedMechanicalEffects": [
         "Coin -8",
-        "Phase163 Regular Brik +10"
+        "Brik Tallowmug +10"
       ],
       "immediateEffects": [
         {
@@ -13260,7 +13690,7 @@
           "kind": "cause",
           "target": "regular:phase163_regular_brik",
           "amount": 10,
-          "readable": "Loyalty rises sharply",
+          "readable": "Regular loyalty rises sharply",
           "tags": [
             "regular"
           ],
@@ -13277,8 +13707,8 @@
       ],
       "delayedEffects": [],
       "expectedEffects": [
-        "raise loyalty",
-        "lose coin"
+        "spend coin",
+        "raise loyalty"
       ],
       "visiblePreviewEffects": [
         {
@@ -13305,7 +13735,7 @@
           "kind": "cause",
           "target": "regular:phase163_regular_brik",
           "amount": 10,
-          "readable": "Loyalty rises sharply",
+          "readable": "Regular loyalty rises sharply",
           "tags": [
             "regular"
           ],
@@ -13347,7 +13777,7 @@
           "kind": "cause",
           "target": "regular:phase163_regular_brik",
           "amount": 10,
-          "readable": "Loyalty rises sharply",
+          "readable": "Regular loyalty rises sharply",
           "tags": [
             "regular"
           ],
@@ -13365,9 +13795,7 @@
       "riskEffects": [],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_risk_missing"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "regular_customer",
@@ -13378,6 +13806,18 @@
       "responseSlotId": "refuse_request",
       "responseLabel": "Refuse the request",
       "responseShape": "relationship_sacrifice",
+      "choiceContract": {
+        "archetype": "appease",
+        "primaryTarget": "regular.boundary",
+        "doesNotSolve": [
+          "regular_irritation"
+        ],
+        "costTypes": [
+          "relationship_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "blame",
         "ignore"
@@ -13387,10 +13827,12 @@
       ],
       "choiceLabel": "Refuse the request",
       "renderedPreviewEffects": [
-        "Regular grudges"
+        "Regular grudges",
+        "later: Regular may turn rival"
       ],
       "renderedMechanicalEffects": [
-        "Phase163 Regular Brik -12"
+        "Brik Tallowmug -12",
+        "later: Regular may turn rival"
       ],
       "immediateEffects": [
         {
@@ -13424,12 +13866,12 @@
           "meterId": "regular_grudge_phase163_regular_brik",
           "formatted": "Regular may turn rival",
           "roles": [],
-          "visible": false
+          "visible": true
         }
       ],
       "expectedEffects": [
         "hold the line",
-        "lose regular"
+        "risk regular relationship"
       ],
       "visiblePreviewEffects": [
         {
@@ -13445,6 +13887,21 @@
           "magnitudeBand": "medium",
           "meterId": "phase163_regular_brik",
           "formatted": "Brik Tallowmug -12",
+          "roles": [],
+          "visible": true
+        },
+        {
+          "kind": "future_hook",
+          "target": "regular_grudge_phase163_regular_brik",
+          "amount": 0,
+          "readable": "Regular may turn rival",
+          "tags": [
+            "future_hook"
+          ],
+          "targetKind": "other",
+          "direction": "neutral",
+          "meterId": "regular_grudge_phase163_regular_brik",
+          "formatted": "Regular may turn rival",
           "roles": [],
           "visible": true
         }
@@ -13465,6 +13922,19 @@
       "responseSlotId": "ask_regular_to_spread_word",
       "responseLabel": "Ask them to spread the word",
       "responseShape": "long_term_investment",
+      "choiceContract": {
+        "archetype": "call_in_favor",
+        "primaryTarget": "regular.word_of_mouth",
+        "solves": [
+          "regular_customer_loss"
+        ],
+        "costTypes": [
+          "reputation_risk",
+          "relationship_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "invite",
         "negotiate"
@@ -13475,17 +13945,43 @@
       ],
       "choiceLabel": "Ask them to spread the word",
       "renderedPreviewEffects": [
-        "Word spreads"
+        "Regular loyalty backs the pitch",
+        "Word spreads to their crowd",
+        "Credibility risk rises",
+        "later: Regulars may judge the promise later"
       ],
       "renderedMechanicalEffects": [
-        "Miners Loyalty +5"
+        "Brik Tallowmug Loyalty +8",
+        "Miners Loyalty +5",
+        "Reputation Drift Pressure +5",
+        "later: Regulars may judge the promise later"
       ],
       "immediateEffects": [
         {
           "kind": "state_change",
+          "target": "world.regulars.phase163_regular_brik.loyalty",
+          "amount": 8,
+          "readable": "Regular loyalty backs the pitch",
+          "tags": [
+            "regular"
+          ],
+          "targetKind": "customer",
+          "direction": "positive",
+          "magnitudeBand": "medium",
+          "meterId": "loyalty",
+          "meterLabel": "loyalty",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Brik Tallowmug Loyalty +8",
+          "roles": [
+            "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
           "target": "customers.miners.loyalty",
           "amount": 5,
-          "readable": "Word spreads",
+          "readable": "Word spreads to their crowd",
           "tags": [
             "customer"
           ],
@@ -13500,9 +13996,52 @@
             "benefit"
           ],
           "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:reputation_drift",
+          "amount": 5,
+          "readable": "Credibility risk rises",
+          "tags": [
+            "pressure",
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "reputation_drift",
+          "meterLabel": "Reputation Drift Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Reputation Drift Pressure +5",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
         }
       ],
-      "delayedEffects": [],
+      "delayedEffects": [
+        {
+          "kind": "future_hook",
+          "target": "regular_word_credibility_phase163_regular_brik",
+          "amount": 8,
+          "readable": "Regulars may judge the promise later",
+          "tags": [
+            "future_hook",
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "other",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "regular_word_credibility_phase163_regular_brik",
+          "formatted": "Regulars may judge the promise later",
+          "roles": [
+            "benefit"
+          ],
+          "visible": true
+        }
+      ],
       "expectedEffects": [
         "raise reputation",
         "risk credibility"
@@ -13510,9 +14049,29 @@
       "visiblePreviewEffects": [
         {
           "kind": "state_change",
+          "target": "world.regulars.phase163_regular_brik.loyalty",
+          "amount": 8,
+          "readable": "Regular loyalty backs the pitch",
+          "tags": [
+            "regular"
+          ],
+          "targetKind": "customer",
+          "direction": "positive",
+          "magnitudeBand": "medium",
+          "meterId": "loyalty",
+          "meterLabel": "loyalty",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Brik Tallowmug Loyalty +8",
+          "roles": [
+            "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
           "target": "customers.miners.loyalty",
           "amount": 5,
-          "readable": "Word spreads",
+          "readable": "Word spreads to their crowd",
           "tags": [
             "customer"
           ],
@@ -13523,6 +14082,48 @@
           "meterLabel": "loyalty",
           "meterDisplayCategory": "good_when_higher",
           "formatted": "Miners Loyalty +5",
+          "roles": [
+            "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:reputation_drift",
+          "amount": 5,
+          "readable": "Credibility risk rises",
+          "tags": [
+            "pressure",
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "reputation_drift",
+          "meterLabel": "Reputation Drift Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Reputation Drift Pressure +5",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "future_hook",
+          "target": "regular_word_credibility_phase163_regular_brik",
+          "amount": 8,
+          "readable": "Regulars may judge the promise later",
+          "tags": [
+            "future_hook",
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "other",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "regular_word_credibility_phase163_regular_brik",
+          "formatted": "Regulars may judge the promise later",
           "roles": [
             "benefit"
           ],
@@ -13533,9 +14134,29 @@
       "benefitEffects": [
         {
           "kind": "state_change",
+          "target": "world.regulars.phase163_regular_brik.loyalty",
+          "amount": 8,
+          "readable": "Regular loyalty backs the pitch",
+          "tags": [
+            "regular"
+          ],
+          "targetKind": "customer",
+          "direction": "positive",
+          "magnitudeBand": "medium",
+          "meterId": "loyalty",
+          "meterLabel": "loyalty",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Brik Tallowmug Loyalty +8",
+          "roles": [
+            "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
           "target": "customers.miners.loyalty",
           "amount": 5,
-          "readable": "Word spreads",
+          "readable": "Word spreads to their crowd",
           "tags": [
             "customer"
           ],
@@ -13550,14 +14171,55 @@
             "benefit"
           ],
           "visible": true
+        },
+        {
+          "kind": "future_hook",
+          "target": "regular_word_credibility_phase163_regular_brik",
+          "amount": 8,
+          "readable": "Regulars may judge the promise later",
+          "tags": [
+            "future_hook",
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "other",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "regular_word_credibility_phase163_regular_brik",
+          "formatted": "Regulars may judge the promise later",
+          "roles": [
+            "benefit"
+          ],
+          "visible": true
         }
       ],
-      "riskEffects": [],
+      "riskEffects": [
+        {
+          "kind": "pressure",
+          "target": "pressure:reputation_drift",
+          "amount": 5,
+          "readable": "Credibility risk rises",
+          "tags": [
+            "pressure",
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "reputation_drift",
+          "meterLabel": "Reputation Drift Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Reputation Drift Pressure +5",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        }
+      ],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_risk_missing"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "regular_customer",
@@ -13568,6 +14230,15 @@
       "responseSlotId": "ban_regular",
       "responseLabel": "Ban Brik Tallowmug",
       "responseShape": "escalation",
+      "choiceContract": {
+        "archetype": "escalate",
+        "primaryTarget": "regular.boundary",
+        "costTypes": [
+          "relationship_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "ban"
       ],
@@ -13579,7 +14250,7 @@
         "Regular banned"
       ],
       "renderedMechanicalEffects": [
-        "Phase163 Regular Brik -25"
+        "Brik Tallowmug -25"
       ],
       "immediateEffects": [
         {
@@ -13601,7 +14272,7 @@
       ],
       "delayedEffects": [],
       "expectedEffects": [
-        "lose regular",
+        "risk regular relationship",
         "send signal"
       ],
       "visiblePreviewEffects": [
@@ -13638,13 +14309,29 @@
       "responseSlotId": "ignore_regular",
       "responseLabel": "Ignore the regular",
       "responseShape": "ignore",
+      "choiceContract": {
+        "archetype": "ignore",
+        "primaryTarget": "pressure.regular_customer_loss",
+        "doesNotSolve": [
+          "regular_irritation"
+        ],
+        "costTypes": [
+          "none"
+        ],
+        "payoffTiming": "delayed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "ignore"
       ],
       "targetOptions": [],
       "choiceLabel": "Ignore the regular",
-      "renderedPreviewEffects": [],
-      "renderedMechanicalEffects": [],
+      "renderedPreviewEffects": [
+        "Loss pressure rises"
+      ],
+      "renderedMechanicalEffects": [
+        "Regular Customer Loss Risk +6"
+      ],
       "immediateEffects": [],
       "delayedEffects": [
         {
@@ -13665,14 +14352,35 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "expectedEffects": [
         "no cost",
         "raise regular loss pressure"
       ],
-      "visiblePreviewEffects": [],
+      "visiblePreviewEffects": [
+        {
+          "kind": "pressure",
+          "target": "pressure:regular_customer_loss",
+          "amount": 6,
+          "readable": "Loss pressure rises",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "regular_customer_loss",
+          "meterLabel": "Regular Customer Loss Risk",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Regular Customer Loss Risk +6",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        }
+      ],
       "costEffects": [],
       "benefitEffects": [],
       "riskEffects": [
@@ -13694,36 +14402,12 @@
           "roles": [
             "risk"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
-      "hiddenDelayedRisks": [
-        {
-          "kind": "pressure",
-          "target": "pressure:regular_customer_loss",
-          "amount": 6,
-          "readable": "Loss pressure rises",
-          "tags": [
-            "pressure"
-          ],
-          "targetKind": "pressure",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "regular_customer_loss",
-          "meterLabel": "Regular Customer Loss Risk",
-          "meterDisplayCategory": "bad_when_higher",
-          "formatted": "Regular Customer Loss Risk +6",
-          "roles": [
-            "risk"
-          ],
-          "visible": false
-        }
-      ],
-      "warningFlags": [
-        "hidden_delayed_risk",
-        "ignore_without_downside"
-      ]
+      "hiddenDelayedRisks": [],
+      "warningFlags": []
     },
     {
       "cardFamily": "customer_complaint",
@@ -14113,7 +14797,7 @@
         "later: Group may expect more apologies"
       ],
       "renderedMechanicalEffects": [
-        "Reputation Respectable +8",
+        "Respectable Reputation +8",
         "Regular Customer Loss Risk -10",
         "Mira the Resolute Morale -8",
         "later: Group may expect more apologies"
@@ -14133,7 +14817,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +8",
+          "formatted": "Respectable Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -14259,7 +14943,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +8",
+          "formatted": "Respectable Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -14361,7 +15045,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +8",
+          "formatted": "Respectable Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -14877,7 +15561,7 @@
         "later: House rule will see friction"
       ],
       "renderedMechanicalEffects": [
-        "Reputation Respectable +4",
+        "Respectable Reputation +4",
         "Cultural Tension +6",
         "Policy Backlash Risk +10",
         "later: House rule will see friction"
@@ -14897,7 +15581,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +4",
+          "formatted": "Respectable Reputation +4",
           "roles": [
             "benefit"
           ],
@@ -15022,7 +15706,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +4",
+          "formatted": "Respectable Reputation +4",
           "roles": [
             "benefit"
           ],
@@ -15103,7 +15787,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +4",
+          "formatted": "Respectable Reputation +4",
           "roles": [
             "benefit"
           ],
@@ -15315,7 +15999,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable -4",
+          "formatted": "Respectable Reputation -4",
           "roles": [],
           "visible": false
         },
@@ -16408,8 +17092,8 @@
         "later: The house would gain a rougher name"
       ],
       "renderedMechanicalEffects": [
-        "Reputation Dangerous +6",
-        "Reputation Respectable -4",
+        "Dangerous Reputation +6",
+        "Respectable Reputation -4",
         "later: Merchants Patronage -8",
         "later: Dangerous reputation may lock in"
       ],
@@ -16428,7 +17112,7 @@
           "meterId": "dangerous",
           "meterLabel": "dangerous",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Dangerous +6",
+          "formatted": "Dangerous Reputation +6",
           "roles": [
             "benefit"
           ],
@@ -16448,7 +17132,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable -4",
+          "formatted": "Respectable Reputation -4",
           "roles": [],
           "visible": true
         }
@@ -16514,7 +17198,7 @@
           "meterId": "dangerous",
           "meterLabel": "dangerous",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Dangerous +6",
+          "formatted": "Dangerous Reputation +6",
           "roles": [
             "benefit"
           ],
@@ -16534,7 +17218,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable -4",
+          "formatted": "Respectable Reputation -4",
           "roles": [],
           "visible": true
         },
@@ -16595,7 +17279,7 @@
           "meterId": "dangerous",
           "meterLabel": "dangerous",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Dangerous +6",
+          "formatted": "Dangerous Reputation +6",
           "roles": [
             "benefit"
           ],
@@ -18986,7 +19670,7 @@
         "Local Goblins Tension -10",
         "Local Goblins Comfort +8",
         "later: Cultural Tension +5",
-        "later: Reputation Strange +6"
+        "later: Strange Reputation +6"
       ],
       "immediateEffects": [
         {
@@ -19065,7 +19749,7 @@
           "meterId": "strange",
           "meterLabel": "strange",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Strange +6",
+          "formatted": "Strange Reputation +6",
           "roles": [
             "benefit"
           ],
@@ -19151,7 +19835,7 @@
           "meterId": "strange",
           "meterLabel": "strange",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Strange +6",
+          "formatted": "Strange Reputation +6",
           "roles": [
             "benefit"
           ],
@@ -19214,7 +19898,7 @@
           "meterId": "strange",
           "meterLabel": "strange",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Strange +6",
+          "formatted": "Strange Reputation +6",
           "roles": [
             "benefit"
           ],
@@ -19709,6 +20393,22 @@
       "responseSlotId": "embrace",
       "responseLabel": "Embrace the identity",
       "responseShape": "reputation_play",
+      "choiceContract": {
+        "archetype": "spin_or_rebrand",
+        "primaryTarget": "reputation.cheap",
+        "solves": [
+          "identity_drift"
+        ],
+        "doesNotSolve": [
+          "physical_state"
+        ],
+        "costTypes": [
+          "reputation_risk"
+        ],
+        "payoffTiming": "mixed",
+        "mustShowDelayedPayoff": true,
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "rebrand"
       ],
@@ -19718,20 +20418,24 @@
       "choiceLabel": "Lean into the identity",
       "renderedPreviewEffects": [
         "the cheap name would ease a step from word",
+        "reliable reputation would slip a hair",
         "later: a hair of repute would settle on the name",
-        "later: The identity might lock in further later"
+        "later: a hair of pressure would press onto the reading",
+        "later: A reminder would sit on the slate for later"
       ],
       "renderedMechanicalEffects": [
-        "Reputation Cheap +5",
-        "later: Reputation Cheap +3",
-        "later: cheap identity may lock in"
+        "Cheap Reputation +5",
+        "Reliable Reputation -3",
+        "later: Cheap Reputation +3",
+        "later: Reputation Drift Pressure +4",
+        "later: Big-spending patrons may visit less often"
       ],
       "immediateEffects": [
         {
           "kind": "state_change",
           "target": "reputation.cheap",
           "amount": 5,
-          "readable": "Lean into reputation",
+          "readable": "Cheap Reputation rises",
           "tags": [
             "reputation"
           ],
@@ -19741,9 +20445,30 @@
           "meterId": "cheap",
           "meterLabel": "cheap",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cheap +5",
+          "formatted": "Cheap Reputation +5",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "reputation.reliable",
+          "amount": -3,
+          "readable": "Broader trust narrows",
+          "tags": [
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "reputation",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "reliable",
+          "meterLabel": "reliable",
+          "meterDisplayCategory": "contextual",
+          "formatted": "Reliable Reputation -3",
+          "roles": [
+            "risk"
           ],
           "visible": true
         }
@@ -19764,9 +20489,32 @@
           "meterId": "cheap",
           "meterLabel": "cheap",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cheap +3",
+          "formatted": "Cheap Reputation +3",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:reputation_drift",
+          "amount": 4,
+          "readable": "Audience narrows around that identity",
+          "tags": [
+            "pressure",
+            "reputation",
+            "risk",
+            "audience"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "tiny",
+          "meterId": "reputation_drift",
+          "meterLabel": "Reputation Drift Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Reputation Drift Pressure +4",
+          "roles": [
+            "risk"
           ],
           "visible": true
         },
@@ -19774,17 +20522,19 @@
           "kind": "future_hook",
           "target": "identity_lock_in_cheap",
           "amount": 14,
-          "readable": "cheap identity may lock in",
+          "readable": "Big-spending patrons may visit less often",
           "tags": [
             "future_hook",
             "reputation",
-            "cheap"
+            "cheap",
+            "audience",
+            "risk"
           ],
           "targetKind": "other",
           "direction": "positive",
           "magnitudeBand": "small",
           "meterId": "identity_lock_in_cheap",
-          "formatted": "cheap identity may lock in",
+          "formatted": "Big-spending patrons may visit less often",
           "roles": [
             "benefit"
           ],
@@ -19793,14 +20543,14 @@
       ],
       "expectedEffects": [
         "lean into reputation",
-        "narrow audience"
+        "audience may narrow"
       ],
       "visiblePreviewEffects": [
         {
           "kind": "state_change",
           "target": "reputation.cheap",
           "amount": 5,
-          "readable": "Lean into reputation",
+          "readable": "Cheap Reputation rises",
           "tags": [
             "reputation"
           ],
@@ -19810,9 +20560,30 @@
           "meterId": "cheap",
           "meterLabel": "cheap",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cheap +5",
+          "formatted": "Cheap Reputation +5",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "reputation.reliable",
+          "amount": -3,
+          "readable": "Broader trust narrows",
+          "tags": [
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "reputation",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "reliable",
+          "meterLabel": "reliable",
+          "meterDisplayCategory": "contextual",
+          "formatted": "Reliable Reputation -3",
+          "roles": [
+            "risk"
           ],
           "visible": true
         },
@@ -19831,9 +20602,32 @@
           "meterId": "cheap",
           "meterLabel": "cheap",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cheap +3",
+          "formatted": "Cheap Reputation +3",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:reputation_drift",
+          "amount": 4,
+          "readable": "Audience narrows around that identity",
+          "tags": [
+            "pressure",
+            "reputation",
+            "risk",
+            "audience"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "tiny",
+          "meterId": "reputation_drift",
+          "meterLabel": "Reputation Drift Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Reputation Drift Pressure +4",
+          "roles": [
+            "risk"
           ],
           "visible": true
         },
@@ -19841,17 +20635,19 @@
           "kind": "future_hook",
           "target": "identity_lock_in_cheap",
           "amount": 14,
-          "readable": "cheap identity may lock in",
+          "readable": "Big-spending patrons may visit less often",
           "tags": [
             "future_hook",
             "reputation",
-            "cheap"
+            "cheap",
+            "audience",
+            "risk"
           ],
           "targetKind": "other",
           "direction": "positive",
           "magnitudeBand": "small",
           "meterId": "identity_lock_in_cheap",
-          "formatted": "cheap identity may lock in",
+          "formatted": "Big-spending patrons may visit less often",
           "roles": [
             "benefit"
           ],
@@ -19864,7 +20660,7 @@
           "kind": "state_change",
           "target": "reputation.cheap",
           "amount": 5,
-          "readable": "Lean into reputation",
+          "readable": "Cheap Reputation rises",
           "tags": [
             "reputation"
           ],
@@ -19874,7 +20670,7 @@
           "meterId": "cheap",
           "meterLabel": "cheap",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cheap +5",
+          "formatted": "Cheap Reputation +5",
           "roles": [
             "benefit"
           ],
@@ -19895,7 +20691,7 @@
           "meterId": "cheap",
           "meterLabel": "cheap",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cheap +3",
+          "formatted": "Cheap Reputation +3",
           "roles": [
             "benefit"
           ],
@@ -19905,24 +20701,71 @@
           "kind": "future_hook",
           "target": "identity_lock_in_cheap",
           "amount": 14,
-          "readable": "cheap identity may lock in",
+          "readable": "Big-spending patrons may visit less often",
           "tags": [
             "future_hook",
             "reputation",
-            "cheap"
+            "cheap",
+            "audience",
+            "risk"
           ],
           "targetKind": "other",
           "direction": "positive",
           "magnitudeBand": "small",
           "meterId": "identity_lock_in_cheap",
-          "formatted": "cheap identity may lock in",
+          "formatted": "Big-spending patrons may visit less often",
           "roles": [
             "benefit"
           ],
           "visible": true
         }
       ],
-      "riskEffects": [],
+      "riskEffects": [
+        {
+          "kind": "state_change",
+          "target": "reputation.reliable",
+          "amount": -3,
+          "readable": "Broader trust narrows",
+          "tags": [
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "reputation",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "reliable",
+          "meterLabel": "reliable",
+          "meterDisplayCategory": "contextual",
+          "formatted": "Reliable Reputation -3",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:reputation_drift",
+          "amount": 4,
+          "readable": "Audience narrows around that identity",
+          "tags": [
+            "pressure",
+            "reputation",
+            "risk",
+            "audience"
+          ],
+          "targetKind": "pressure",
+          "direction": "positive",
+          "magnitudeBand": "tiny",
+          "meterId": "reputation_drift",
+          "meterLabel": "Reputation Drift Pressure",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Reputation Drift Pressure +4",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        }
+      ],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
       "warningFlags": []
@@ -19936,6 +20779,22 @@
       "responseSlotId": "correct",
       "responseLabel": "Correct the identity",
       "responseShape": "long_term_investment",
+      "choiceContract": {
+        "archetype": "spin_or_rebrand",
+        "primaryTarget": "reputation.cheap",
+        "solves": [
+          "identity_drift"
+        ],
+        "doesNotSolve": [
+          "physical_state"
+        ],
+        "costTypes": [
+          "coin"
+        ],
+        "payoffTiming": "mixed",
+        "mustShowDelayedPayoff": true,
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "clean",
         "repair",
@@ -19949,20 +20808,20 @@
         "the cheap name would creep a notch into talk",
         "the till would lighten by a step",
         "later: a hair of standing would slip from the name",
-        "later: A reminder would sit on the slate for later"
+        "later: The identity might lock in further later"
       ],
       "renderedMechanicalEffects": [
-        "Reputation Cheap -5",
+        "Cheap Reputation -5",
         "Coin -10",
-        "later: Reputation Cheap -3",
-        "later: cheap correction may settle"
+        "later: Cheap Reputation -3",
+        "later: Cheap correction may settle"
       ],
       "immediateEffects": [
         {
           "kind": "state_change",
           "target": "reputation.cheap",
           "amount": -5,
-          "readable": "Shift reputation",
+          "readable": "Cheap Reputation falls",
           "tags": [
             "reputation"
           ],
@@ -19972,7 +20831,7 @@
           "meterId": "cheap",
           "meterLabel": "cheap",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cheap -5",
+          "formatted": "Cheap Reputation -5",
           "roles": [],
           "visible": true
         },
@@ -20013,7 +20872,7 @@
           "meterId": "cheap",
           "meterLabel": "cheap",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cheap -3",
+          "formatted": "Cheap Reputation -3",
           "roles": [],
           "visible": true
         },
@@ -20021,7 +20880,7 @@
           "kind": "future_hook",
           "target": "identity_correction_cheap",
           "amount": 10,
-          "readable": "cheap correction may settle",
+          "readable": "Cheap correction may settle",
           "tags": [
             "future_hook",
             "reputation",
@@ -20031,7 +20890,7 @@
           "direction": "positive",
           "magnitudeBand": "small",
           "meterId": "identity_correction_cheap",
-          "formatted": "cheap correction may settle",
+          "formatted": "Cheap correction may settle",
           "roles": [
             "benefit"
           ],
@@ -20039,15 +20898,15 @@
         }
       ],
       "expectedEffects": [
-        "shift reputation away",
-        "costly effort"
+        "spend coin",
+        "shift reputation away"
       ],
       "visiblePreviewEffects": [
         {
           "kind": "state_change",
           "target": "reputation.cheap",
           "amount": -5,
-          "readable": "Shift reputation",
+          "readable": "Cheap Reputation falls",
           "tags": [
             "reputation"
           ],
@@ -20057,7 +20916,7 @@
           "meterId": "cheap",
           "meterLabel": "cheap",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cheap -5",
+          "formatted": "Cheap Reputation -5",
           "roles": [],
           "visible": true
         },
@@ -20096,7 +20955,7 @@
           "meterId": "cheap",
           "meterLabel": "cheap",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cheap -3",
+          "formatted": "Cheap Reputation -3",
           "roles": [],
           "visible": true
         },
@@ -20104,7 +20963,7 @@
           "kind": "future_hook",
           "target": "identity_correction_cheap",
           "amount": 10,
-          "readable": "cheap correction may settle",
+          "readable": "Cheap correction may settle",
           "tags": [
             "future_hook",
             "reputation",
@@ -20114,7 +20973,7 @@
           "direction": "positive",
           "magnitudeBand": "small",
           "meterId": "identity_correction_cheap",
-          "formatted": "cheap correction may settle",
+          "formatted": "Cheap correction may settle",
           "roles": [
             "benefit"
           ],
@@ -20148,7 +21007,7 @@
           "kind": "future_hook",
           "target": "identity_correction_cheap",
           "amount": 10,
-          "readable": "cheap correction may settle",
+          "readable": "Cheap correction may settle",
           "tags": [
             "future_hook",
             "reputation",
@@ -20158,7 +21017,7 @@
           "direction": "positive",
           "magnitudeBand": "small",
           "meterId": "identity_correction_cheap",
-          "formatted": "cheap correction may settle",
+          "formatted": "Cheap correction may settle",
           "roles": [
             "benefit"
           ],
@@ -20181,6 +21040,22 @@
       "responseSlotId": "advertise",
       "responseLabel": "Advertise to matching group",
       "responseShape": "compromise",
+      "choiceContract": {
+        "archetype": "spin_or_rebrand",
+        "primaryTarget": "customers.patronage",
+        "solves": [
+          "low_matching_patronage"
+        ],
+        "doesNotSolve": [
+          "physical_state"
+        ],
+        "costTypes": [
+          "reputation_risk"
+        ],
+        "payoffTiming": "mixed",
+        "mustShowDelayedPayoff": true,
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "invite"
       ],
@@ -20191,13 +21066,15 @@
       "choiceLabel": "Call the matching crowd in",
       "renderedPreviewEffects": [
         "patronage would climb a real step among the regulars (Miners)",
-        "later: a hair of pressure would press onto the reading",
-        "later: cheap audience may lock in"
+        "Targeted pitch narrows trust",
+        "later: Targeted advertising deepens the drift",
+        "later: Big-spending patrons may visit less often"
       ],
       "renderedMechanicalEffects": [
         "Miners Patronage +8",
+        "Reliable Reputation -3",
         "later: Reputation Drift Pressure +4",
-        "later: cheap audience may lock in"
+        "later: Big-spending patrons may visit less often"
       ],
       "immediateEffects": [
         {
@@ -20217,6 +21094,27 @@
           "formatted": "Miners Patronage +8",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "reputation.reliable",
+          "amount": -3,
+          "readable": "Targeted pitch narrows trust",
+          "tags": [
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "reputation",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "reliable",
+          "meterLabel": "reliable",
+          "meterDisplayCategory": "contextual",
+          "formatted": "Reliable Reputation -3",
+          "roles": [
+            "risk"
           ],
           "visible": true
         }
@@ -20248,7 +21146,7 @@
           "kind": "future_hook",
           "target": "audience_lock_cheap",
           "amount": 10,
-          "readable": "cheap audience may lock in",
+          "readable": "Big-spending patrons may visit less often",
           "tags": [
             "future_hook",
             "reputation",
@@ -20259,7 +21157,7 @@
           "direction": "positive",
           "magnitudeBand": "small",
           "meterId": "audience_lock_cheap",
-          "formatted": "cheap audience may lock in",
+          "formatted": "Big-spending patrons may visit less often",
           "roles": [
             "benefit"
           ],
@@ -20268,7 +21166,7 @@
       ],
       "expectedEffects": [
         "raise patronage",
-        "lock identity"
+        "audience may narrow"
       ],
       "visiblePreviewEffects": [
         {
@@ -20288,6 +21186,27 @@
           "formatted": "Miners Patronage +8",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "reputation.reliable",
+          "amount": -3,
+          "readable": "Targeted pitch narrows trust",
+          "tags": [
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "reputation",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "reliable",
+          "meterLabel": "reliable",
+          "meterDisplayCategory": "contextual",
+          "formatted": "Reliable Reputation -3",
+          "roles": [
+            "risk"
           ],
           "visible": true
         },
@@ -20317,7 +21236,7 @@
           "kind": "future_hook",
           "target": "audience_lock_cheap",
           "amount": 10,
-          "readable": "cheap audience may lock in",
+          "readable": "Big-spending patrons may visit less often",
           "tags": [
             "future_hook",
             "reputation",
@@ -20328,7 +21247,7 @@
           "direction": "positive",
           "magnitudeBand": "small",
           "meterId": "audience_lock_cheap",
-          "formatted": "cheap audience may lock in",
+          "formatted": "Big-spending patrons may visit less often",
           "roles": [
             "benefit"
           ],
@@ -20361,7 +21280,7 @@
           "kind": "future_hook",
           "target": "audience_lock_cheap",
           "amount": 10,
-          "readable": "cheap audience may lock in",
+          "readable": "Big-spending patrons may visit less often",
           "tags": [
             "future_hook",
             "reputation",
@@ -20372,7 +21291,7 @@
           "direction": "positive",
           "magnitudeBand": "small",
           "meterId": "audience_lock_cheap",
-          "formatted": "cheap audience may lock in",
+          "formatted": "Big-spending patrons may visit less often",
           "roles": [
             "benefit"
           ],
@@ -20380,6 +21299,27 @@
         }
       ],
       "riskEffects": [
+        {
+          "kind": "state_change",
+          "target": "reputation.reliable",
+          "amount": -3,
+          "readable": "Targeted pitch narrows trust",
+          "tags": [
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "reputation",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "reliable",
+          "meterLabel": "reliable",
+          "meterDisplayCategory": "contextual",
+          "formatted": "Reliable Reputation -3",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
         {
           "kind": "pressure",
           "target": "pressure:reputation_drift",
@@ -20416,6 +21356,22 @@
       "responseSlotId": "diversify",
       "responseLabel": "Diversify",
       "responseShape": "compromise",
+      "choiceContract": {
+        "archetype": "spin_or_rebrand",
+        "primaryTarget": "customers.patronage",
+        "solves": [
+          "audience_narrowing"
+        ],
+        "doesNotSolve": [
+          "physical_state"
+        ],
+        "costTypes": [
+          "reputation_risk"
+        ],
+        "payoffTiming": "mixed",
+        "mustShowDelayedPayoff": true,
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "rebrand"
       ],
@@ -20426,21 +21382,23 @@
       "renderedPreviewEffects": [
         "talk would dim a touch around the tavern",
         "patronage would rise a step at the regular tables (Merchants)",
+        "Mixed message dents credibility",
         "later: Mixed messages breed gossip",
-        "later: cheap audience may dilute"
+        "later: Cheap audience may broaden, but credibility may blur"
       ],
       "renderedMechanicalEffects": [
-        "Reputation Cheap -3",
+        "Cheap Reputation -3",
         "Merchants Patronage +4",
+        "Reliable Reputation -2",
         "later: Rumour Pressure +3",
-        "later: cheap audience may dilute"
+        "later: Cheap audience may broaden, but credibility may blur"
       ],
       "immediateEffects": [
         {
           "kind": "state_change",
           "target": "reputation.cheap",
           "amount": -3,
-          "readable": "Soften identity",
+          "readable": "Cheap Reputation softens",
           "tags": [
             "reputation"
           ],
@@ -20450,7 +21408,7 @@
           "meterId": "cheap",
           "meterLabel": "cheap",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cheap -3",
+          "formatted": "Cheap Reputation -3",
           "roles": [],
           "visible": true
         },
@@ -20471,6 +21429,27 @@
           "formatted": "Merchants Patronage +4",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "reputation.reliable",
+          "amount": -2,
+          "readable": "Mixed message dents credibility",
+          "tags": [
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "reputation",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "reliable",
+          "meterLabel": "reliable",
+          "meterDisplayCategory": "contextual",
+          "formatted": "Reliable Reputation -2",
+          "roles": [
+            "risk"
           ],
           "visible": true
         }
@@ -20502,7 +21481,7 @@
           "kind": "future_hook",
           "target": "audience_dilution_cheap",
           "amount": 12,
-          "readable": "cheap audience may dilute",
+          "readable": "Cheap audience may broaden, but credibility may blur",
           "tags": [
             "future_hook",
             "reputation",
@@ -20513,7 +21492,7 @@
           "direction": "positive",
           "magnitudeBand": "small",
           "meterId": "audience_dilution_cheap",
-          "formatted": "cheap audience may dilute",
+          "formatted": "Cheap audience may broaden, but credibility may blur",
           "roles": [
             "benefit"
           ],
@@ -20522,14 +21501,14 @@
       ],
       "expectedEffects": [
         "broaden appeal",
-        "risk dilution"
+        "risk credibility"
       ],
       "visiblePreviewEffects": [
         {
           "kind": "state_change",
           "target": "reputation.cheap",
           "amount": -3,
-          "readable": "Soften identity",
+          "readable": "Cheap Reputation softens",
           "tags": [
             "reputation"
           ],
@@ -20539,7 +21518,7 @@
           "meterId": "cheap",
           "meterLabel": "cheap",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cheap -3",
+          "formatted": "Cheap Reputation -3",
           "roles": [],
           "visible": true
         },
@@ -20560,6 +21539,27 @@
           "formatted": "Merchants Patronage +4",
           "roles": [
             "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "reputation.reliable",
+          "amount": -2,
+          "readable": "Mixed message dents credibility",
+          "tags": [
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "reputation",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "reliable",
+          "meterLabel": "reliable",
+          "meterDisplayCategory": "contextual",
+          "formatted": "Reliable Reputation -2",
+          "roles": [
+            "risk"
           ],
           "visible": true
         },
@@ -20589,7 +21589,7 @@
           "kind": "future_hook",
           "target": "audience_dilution_cheap",
           "amount": 12,
-          "readable": "cheap audience may dilute",
+          "readable": "Cheap audience may broaden, but credibility may blur",
           "tags": [
             "future_hook",
             "reputation",
@@ -20600,7 +21600,7 @@
           "direction": "positive",
           "magnitudeBand": "small",
           "meterId": "audience_dilution_cheap",
-          "formatted": "cheap audience may dilute",
+          "formatted": "Cheap audience may broaden, but credibility may blur",
           "roles": [
             "benefit"
           ],
@@ -20633,7 +21633,7 @@
           "kind": "future_hook",
           "target": "audience_dilution_cheap",
           "amount": 12,
-          "readable": "cheap audience may dilute",
+          "readable": "Cheap audience may broaden, but credibility may blur",
           "tags": [
             "future_hook",
             "reputation",
@@ -20644,7 +21644,7 @@
           "direction": "positive",
           "magnitudeBand": "small",
           "meterId": "audience_dilution_cheap",
-          "formatted": "cheap audience may dilute",
+          "formatted": "Cheap audience may broaden, but credibility may blur",
           "roles": [
             "benefit"
           ],
@@ -20652,6 +21652,27 @@
         }
       ],
       "riskEffects": [
+        {
+          "kind": "state_change",
+          "target": "reputation.reliable",
+          "amount": -2,
+          "readable": "Mixed message dents credibility",
+          "tags": [
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "reputation",
+          "direction": "negative",
+          "magnitudeBand": "tiny",
+          "meterId": "reliable",
+          "meterLabel": "reliable",
+          "meterDisplayCategory": "contextual",
+          "formatted": "Reliable Reputation -2",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
         {
           "kind": "pressure",
           "target": "pressure:rumour_pressure",
@@ -20704,8 +21725,8 @@
       ],
       "renderedMechanicalEffects": [
         "Rumour Pressure -10",
-        "Reputation Respectable -6",
-        "Reputation Reliable -8",
+        "Respectable Reputation -6",
+        "Reliable Reputation -8",
         "later: Rumour Pressure +6",
         "later: Denial may backfire if true"
       ],
@@ -20744,7 +21765,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable -6",
+          "formatted": "Respectable Reputation -6",
           "roles": [],
           "visible": true
         },
@@ -20762,7 +21783,7 @@
           "meterId": "reliable",
           "meterLabel": "reliable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Reliable -8",
+          "formatted": "Reliable Reputation -8",
           "roles": [],
           "visible": true
         },
@@ -20866,7 +21887,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable -6",
+          "formatted": "Respectable Reputation -6",
           "roles": [],
           "visible": true
         },
@@ -20884,7 +21905,7 @@
           "meterId": "reliable",
           "meterLabel": "reliable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Reliable -8",
+          "formatted": "Reliable Reputation -8",
           "roles": [],
           "visible": true
         },
@@ -21037,8 +22058,8 @@
       ],
       "renderedMechanicalEffects": [
         "Rumour Pressure -15",
-        "Reputation Respectable +8",
-        "Reputation Reliable +10"
+        "Respectable Reputation +8",
+        "Reliable Reputation +10"
       ],
       "immediateEffects": [
         {
@@ -21075,7 +22096,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +8",
+          "formatted": "Respectable Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -21095,7 +22116,7 @@
           "meterId": "reliable",
           "meterLabel": "reliable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Reliable +10",
+          "formatted": "Reliable Reputation +10",
           "roles": [
             "benefit"
           ],
@@ -21134,7 +22155,7 @@
           "meterId": "dangerous",
           "meterLabel": "dangerous",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Dangerous -4",
+          "formatted": "Dangerous Reputation -4",
           "roles": [],
           "visible": false
         }
@@ -21179,7 +22200,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +8",
+          "formatted": "Respectable Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -21199,7 +22220,7 @@
           "meterId": "reliable",
           "meterLabel": "reliable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Reliable +10",
+          "formatted": "Reliable Reputation +10",
           "roles": [
             "benefit"
           ],
@@ -21242,7 +22263,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +8",
+          "formatted": "Respectable Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -21262,7 +22283,7 @@
           "meterId": "reliable",
           "meterLabel": "reliable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Reliable +10",
+          "formatted": "Reliable Reputation +10",
           "roles": [
             "benefit"
           ],
@@ -21319,7 +22340,7 @@
       ],
       "renderedMechanicalEffects": [
         "Rumour Pressure -8",
-        "Reputation Respectable -4",
+        "Respectable Reputation -4",
         "Brakka Mushroom Cart -10",
         "later: Cultural Tension +8",
         "later: Blamed party may grudge"
@@ -21359,7 +22380,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable -4",
+          "formatted": "Respectable Reputation -4",
           "roles": [],
           "visible": true
         },
@@ -21501,7 +22522,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable -4",
+          "formatted": "Respectable Reputation -4",
           "roles": [],
           "visible": true
         },
@@ -21715,7 +22736,7 @@
       ],
       "renderedMechanicalEffects": [
         "Rumour Pressure -20",
-        "Reputation Respectable +12",
+        "Respectable Reputation +12",
         "Coin -10"
       ],
       "immediateEffects": [
@@ -21753,7 +22774,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +12",
+          "formatted": "Respectable Reputation +12",
           "roles": [
             "benefit"
           ],
@@ -21773,7 +22794,7 @@
           "meterId": "reliable",
           "meterLabel": "reliable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Reliable +8",
+          "formatted": "Reliable Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -21859,7 +22880,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +12",
+          "formatted": "Respectable Reputation +12",
           "roles": [
             "benefit"
           ],
@@ -21943,7 +22964,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +12",
+          "formatted": "Respectable Reputation +12",
           "roles": [
             "benefit"
           ],
@@ -21963,7 +22984,7 @@
           "meterId": "reliable",
           "meterLabel": "reliable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Reliable +8",
+          "formatted": "Reliable Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -22379,7 +23400,7 @@
       ],
       "renderedMechanicalEffects": [
         "Rumour Pressure -8",
-        "Reputation Respectable -4",
+        "Respectable Reputation -4",
         "Cultural Tension +10",
         "later: Counter-rumour may run away"
       ],
@@ -22418,7 +23439,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable -4",
+          "formatted": "Respectable Reputation -4",
           "roles": [],
           "visible": true
         },
@@ -22519,7 +23540,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable -4",
+          "formatted": "Respectable Reputation -4",
           "roles": [],
           "visible": true
         },
@@ -22649,9 +23670,9 @@
         "later: a dangerous name would spread a step through talk"
       ],
       "renderedMechanicalEffects": [
-        "Reputation Respectable -4",
+        "Respectable Reputation -4",
         "later: Rumour Pressure +12",
-        "later: Reputation Dangerous +8"
+        "later: Dangerous Reputation +8"
       ],
       "immediateEffects": [
         {
@@ -22668,7 +23689,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable -4",
+          "formatted": "Respectable Reputation -4",
           "roles": [],
           "visible": true
         }
@@ -22708,7 +23729,7 @@
           "meterId": "dangerous",
           "meterLabel": "dangerous",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Dangerous +8",
+          "formatted": "Dangerous Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -22754,7 +23775,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable -4",
+          "formatted": "Respectable Reputation -4",
           "roles": [],
           "visible": true
         },
@@ -22792,7 +23813,7 @@
           "meterId": "dangerous",
           "meterLabel": "dangerous",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Dangerous +8",
+          "formatted": "Dangerous Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -22815,7 +23836,7 @@
           "meterId": "dangerous",
           "meterLabel": "dangerous",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Dangerous +8",
+          "formatted": "Dangerous Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -23303,7 +24324,7 @@
           "meterId": "cozy",
           "meterLabel": "cozy",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cozy +8",
+          "formatted": "Cozy Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -23493,7 +24514,7 @@
           "meterId": "cozy",
           "meterLabel": "cozy",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cozy +8",
+          "formatted": "Cozy Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -23516,7 +24537,7 @@
           "meterId": "cozy",
           "meterLabel": "cozy",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cozy +8",
+          "formatted": "Cozy Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -23552,8 +24573,8 @@
         "later: the rival's pressure would fall a real slip back"
       ],
       "renderedMechanicalEffects": [
-        "Reputation Tasty +12",
-        "Reputation Respectable +8",
+        "Tasty Reputation +12",
+        "Respectable Reputation +8",
         "Coin -15",
         "later: Rival Tavern Pressure -10"
       ],
@@ -23572,7 +24593,7 @@
           "meterId": "tasty",
           "meterLabel": "tasty",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Tasty +12",
+          "formatted": "Tasty Reputation +12",
           "roles": [
             "benefit"
           ],
@@ -23592,7 +24613,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +8",
+          "formatted": "Respectable Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -23660,7 +24681,7 @@
           "meterId": "tasty",
           "meterLabel": "tasty",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Tasty +12",
+          "formatted": "Tasty Reputation +12",
           "roles": [
             "benefit"
           ],
@@ -23680,7 +24701,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +8",
+          "formatted": "Respectable Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -23764,7 +24785,7 @@
           "meterId": "tasty",
           "meterLabel": "tasty",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Tasty +12",
+          "formatted": "Tasty Reputation +12",
           "roles": [
             "benefit"
           ],
@@ -23784,7 +24805,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +8",
+          "formatted": "Respectable Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -23844,7 +24865,7 @@
         "Rival Tavern Pressure -10",
         "Rumour Pressure +10",
         "later: Counter-rumour may be exposed",
-        "later: Reputation Dangerous +6"
+        "later: Dangerous Reputation +6"
       ],
       "immediateEffects": [
         {
@@ -23918,7 +24939,7 @@
           "meterId": "dangerous",
           "meterLabel": "dangerous",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Dangerous +6",
+          "formatted": "Dangerous Reputation +6",
           "roles": [
             "benefit"
           ],
@@ -23999,7 +25020,7 @@
           "meterId": "dangerous",
           "meterLabel": "dangerous",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Dangerous +6",
+          "formatted": "Dangerous Reputation +6",
           "roles": [
             "benefit"
           ],
@@ -24042,7 +25063,7 @@
           "meterId": "dangerous",
           "meterLabel": "dangerous",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Dangerous +6",
+          "formatted": "Dangerous Reputation +6",
           "roles": [
             "benefit"
           ],
@@ -24098,7 +25119,7 @@
       ],
       "renderedMechanicalEffects": [
         "Rival Tavern Pressure -12",
-        "Reputation Respectable +4",
+        "Respectable Reputation +4",
         "later: Merchants Patronage -6"
       ],
       "immediateEffects": [
@@ -24136,7 +25157,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +4",
+          "formatted": "Respectable Reputation +4",
           "roles": [
             "benefit"
           ],
@@ -24202,7 +25223,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +4",
+          "formatted": "Respectable Reputation +4",
           "roles": [
             "benefit"
           ],
@@ -24263,7 +25284,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +4",
+          "formatted": "Respectable Reputation +4",
           "roles": [
             "benefit"
           ],
@@ -24884,7 +25905,7 @@
           "meterId": "cozy",
           "meterLabel": "cozy",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cozy +8",
+          "formatted": "Cozy Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -25074,7 +26095,7 @@
           "meterId": "cozy",
           "meterLabel": "cozy",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cozy +8",
+          "formatted": "Cozy Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -25097,7 +26118,7 @@
           "meterId": "cozy",
           "meterLabel": "cozy",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cozy +8",
+          "formatted": "Cozy Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -25133,8 +26154,8 @@
         "later: the rival's pressure would fall a real slip back"
       ],
       "renderedMechanicalEffects": [
-        "Reputation Tasty +12",
-        "Reputation Respectable +8",
+        "Tasty Reputation +12",
+        "Respectable Reputation +8",
         "Coin -15",
         "later: Rival Tavern Pressure -10"
       ],
@@ -25153,7 +26174,7 @@
           "meterId": "tasty",
           "meterLabel": "tasty",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Tasty +12",
+          "formatted": "Tasty Reputation +12",
           "roles": [
             "benefit"
           ],
@@ -25173,7 +26194,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +8",
+          "formatted": "Respectable Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -25241,7 +26262,7 @@
           "meterId": "tasty",
           "meterLabel": "tasty",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Tasty +12",
+          "formatted": "Tasty Reputation +12",
           "roles": [
             "benefit"
           ],
@@ -25261,7 +26282,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +8",
+          "formatted": "Respectable Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -25345,7 +26366,7 @@
           "meterId": "tasty",
           "meterLabel": "tasty",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Tasty +12",
+          "formatted": "Tasty Reputation +12",
           "roles": [
             "benefit"
           ],
@@ -25365,7 +26386,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +8",
+          "formatted": "Respectable Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -25425,7 +26446,7 @@
         "Rival Tavern Pressure -10",
         "Rumour Pressure +10",
         "later: Counter-rumour may be exposed",
-        "later: Reputation Dangerous +6"
+        "later: Dangerous Reputation +6"
       ],
       "immediateEffects": [
         {
@@ -25499,7 +26520,7 @@
           "meterId": "dangerous",
           "meterLabel": "dangerous",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Dangerous +6",
+          "formatted": "Dangerous Reputation +6",
           "roles": [
             "benefit"
           ],
@@ -25580,7 +26601,7 @@
           "meterId": "dangerous",
           "meterLabel": "dangerous",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Dangerous +6",
+          "formatted": "Dangerous Reputation +6",
           "roles": [
             "benefit"
           ],
@@ -25623,7 +26644,7 @@
           "meterId": "dangerous",
           "meterLabel": "dangerous",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Dangerous +6",
+          "formatted": "Dangerous Reputation +6",
           "roles": [
             "benefit"
           ],
@@ -25679,7 +26700,7 @@
       ],
       "renderedMechanicalEffects": [
         "Rival Tavern Pressure -12",
-        "Reputation Respectable +4",
+        "Respectable Reputation +4",
         "later: Merchants Patronage -6"
       ],
       "immediateEffects": [
@@ -25717,7 +26738,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +4",
+          "formatted": "Respectable Reputation +4",
           "roles": [
             "benefit"
           ],
@@ -25783,7 +26804,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +4",
+          "formatted": "Respectable Reputation +4",
           "roles": [
             "benefit"
           ],
@@ -25844,7 +26865,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +4",
+          "formatted": "Respectable Reputation +4",
           "roles": [
             "benefit"
           ],
@@ -27307,7 +28328,7 @@
           "meterId": "reliable",
           "meterLabel": "reliable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Reliable +8",
+          "formatted": "Reliable Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -27478,7 +28499,7 @@
           "meterId": "reliable",
           "meterLabel": "reliable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Reliable +8",
+          "formatted": "Reliable Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -27594,7 +28615,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +8",
+          "formatted": "Respectable Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -27801,7 +28822,7 @@
           "meterId": "respectable",
           "meterLabel": "respectable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Respectable +8",
+          "formatted": "Respectable Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -27881,7 +28902,7 @@
       ],
       "renderedMechanicalEffects": [
         "Coin +20",
-        "Reputation Cheap -10",
+        "Cheap Reputation -10",
         "Rumour Pressure +6",
         "later: Regular Customer Loss Risk +10",
         "later: Reputation backlash possible"
@@ -27919,7 +28940,7 @@
           "meterId": "cheap",
           "meterLabel": "cheap",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cheap -10",
+          "formatted": "Cheap Reputation -10",
           "roles": [],
           "visible": true
         },
@@ -28039,7 +29060,7 @@
           "meterId": "cheap",
           "meterLabel": "cheap",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Cheap -10",
+          "formatted": "Cheap Reputation -10",
           "roles": [],
           "visible": true
         },
@@ -28880,7 +29901,7 @@
       "renderedMechanicalEffects": [
         "Festival Readiness Risk +15",
         "Arc Escalation Risk +12",
-        "Reputation Reliable -10"
+        "Reliable Reputation -10"
       ],
       "immediateEffects": [],
       "delayedEffects": [
@@ -28938,7 +29959,7 @@
           "meterId": "reliable",
           "meterLabel": "reliable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Reliable -10",
+          "formatted": "Reliable Reputation -10",
           "roles": [],
           "visible": true
         },
@@ -29020,7 +30041,7 @@
           "meterId": "reliable",
           "meterLabel": "reliable",
           "meterDisplayCategory": "contextual",
-          "formatted": "Reputation Reliable -10",
+          "formatted": "Reliable Reputation -10",
           "roles": [],
           "visible": true
         }

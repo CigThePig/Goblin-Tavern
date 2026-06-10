@@ -98,7 +98,7 @@ describe('numeric card effect preview formatting', () => {
         effect('state_change', 'reputation.respectable', -5, 'Respectability softens', [
           'reputation',
         ]),
-        'Reputation Respectable -5',
+        'Respectable Reputation -5',
         'contextual',
       ],
     ]

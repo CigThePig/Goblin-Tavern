@@ -391,7 +391,7 @@ describe('Phase 30 — Faction relationship drift', () => {
     const watchAfter = result.state.world.factions['town_watch']!.relationship
     expect(watchAfter).toBeLessThan(watchBefore)
     const cause = result.state.causes.find(
-      (c) => c.target === 'town_watch' && c.targetType === 'faction',
+      (c) => c.target === 'faction:town_watch.relationship' && c.targetType === 'faction',
     )
     expect(cause).toBeDefined()
     expect(cause?.tags).toContain('relationship')

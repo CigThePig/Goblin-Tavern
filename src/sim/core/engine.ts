@@ -630,13 +630,18 @@ function createContext(
     extraTags: string[],
   ): number => {
     if (!meta) return 0
+    // Phase 197 Cluster 3 — strip caller-supplied target/targetType/amount so
+    // the computed per-field values always win. The aggregate fallback
+    // (emitted === 0) uses the original meta from the call site, preserving
+    // caller intent there. direction/weight overrides are intentionally kept.
+    const { target: _t, targetType: _tt, amount: _a, ...metaRest } = meta
     let emitted = 0
     for (const field of Object.keys(changes)) {
       const beforeVal = before[field]
       const afterVal = after[field]
       if (typeof beforeVal !== 'number' || typeof afterVal !== 'number') continue
       if (afterVal === beforeVal) continue
-      addCauseInternal(meta, {
+      addCauseInternal(metaRest, {
         target: targetForField(field),
         targetType,
         amount: afterVal - beforeVal,

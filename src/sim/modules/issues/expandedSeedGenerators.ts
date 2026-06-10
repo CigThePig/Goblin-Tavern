@@ -1011,7 +1011,15 @@ function generateRegularCustomer(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['appease'],
       shape: 'safe_costly',
       targetOptions: [ref],
-      expectedEffects: ['raise loyalty', 'time cost'],
+      expectedEffects: ['spend coin', 'takes time', 'raise loyalty'],
+      choiceContract: {
+        archetype: 'appease',
+        primaryTarget: 'regular.loyalty',
+        solves: ['regular_irritation'],
+        costTypes: ['coin'],
+        payoffTiming: 'immediate',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'comp_regular_meal',
@@ -1019,7 +1027,15 @@ function generateRegularCustomer(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['discount', 'pay'],
       shape: 'safe_costly',
       targetOptions: [ref],
-      expectedEffects: ['raise loyalty', 'lose coin'],
+      expectedEffects: ['spend coin', 'raise loyalty'],
+      choiceContract: {
+        archetype: 'compensate',
+        primaryTarget: 'regular.loyalty',
+        solves: ['regular_irritation'],
+        costTypes: ['coin'],
+        payoffTiming: 'immediate',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'refuse_request',
@@ -1027,7 +1043,15 @@ function generateRegularCustomer(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['blame', 'ignore'],
       shape: 'relationship_sacrifice',
       targetOptions: [ref],
-      expectedEffects: ['hold the line', 'lose regular'],
+      expectedEffects: ['hold the line', 'risk regular relationship'],
+      choiceContract: {
+        archetype: 'appease',
+        primaryTarget: 'regular.boundary',
+        doesNotSolve: ['regular_irritation'],
+        costTypes: ['relationship_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'ask_regular_to_spread_word',
@@ -1036,6 +1060,14 @@ function generateRegularCustomer(ctx: SimContext): IssueSeed[] {
       shape: 'long_term_investment',
       targetOptions: [ref, groupRef],
       expectedEffects: ['raise reputation', 'risk credibility'],
+      choiceContract: {
+        archetype: 'call_in_favor',
+        primaryTarget: 'regular.word_of_mouth',
+        solves: ['regular_customer_loss'],
+        costTypes: ['reputation_risk', 'relationship_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'ban_regular',
@@ -1043,7 +1075,14 @@ function generateRegularCustomer(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['ban'],
       shape: 'escalation',
       targetOptions: [ref],
-      expectedEffects: ['lose regular', 'send signal'],
+      expectedEffects: ['risk regular relationship', 'send signal'],
+      choiceContract: {
+        archetype: 'escalate',
+        primaryTarget: 'regular.boundary',
+        costTypes: ['relationship_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'ignore_regular',
@@ -1052,6 +1091,14 @@ function generateRegularCustomer(ctx: SimContext): IssueSeed[] {
       shape: 'ignore',
       targetOptions: [],
       expectedEffects: ['no cost', 'raise regular loss pressure'],
+      choiceContract: {
+        archetype: 'ignore',
+        primaryTarget: 'pressure.regular_customer_loss',
+        doesNotSolve: ['regular_irritation'],
+        costTypes: ['none'],
+        payoffTiming: 'delayed',
+        requiresVisibleTradeoff: true,
+      },
     },
   ]
 
@@ -1060,7 +1107,8 @@ function generateRegularCustomer(ctx: SimContext): IssueSeed[] {
       id: 'apologize_profile',
       responseSlotId: 'apologize_to_regular',
       immediateEffects: [
-        effect('cause', `regular:${chosen.id}`, 8, 'Loyalty rises', ['regular']),
+        effect('cause', `regular:${chosen.id}`, 8, 'Regular loyalty rises', ['regular']),
+        effect('state_change', 'coin', -1, 'Apology round cost', ['coin', 'time']),
       ],
       delayedEffects: [],
       memories: [
@@ -1077,7 +1125,7 @@ function generateRegularCustomer(ctx: SimContext): IssueSeed[] {
       responseSlotId: 'comp_regular_meal',
       immediateEffects: [
         effect('state_change', 'coin', -8, 'Comp cost', ['coin']),
-        effect('cause', `regular:${chosen.id}`, 10, 'Loyalty rises sharply', ['regular']),
+        effect('cause', `regular:${chosen.id}`, 10, 'Regular loyalty rises sharply', ['regular']),
       ],
       delayedEffects: [],
       memories: [
@@ -1123,11 +1171,27 @@ function generateRegularCustomer(ctx: SimContext): IssueSeed[] {
       id: 'ask_regular_word_profile',
       responseSlotId: 'ask_regular_to_spread_word',
       immediateEffects: [
-        effect('state_change', `customers.${chosen.customerGroupId}.loyalty`, 5, 'Word spreads', [
+        effect('state_change', `world.regulars.${chosen.id}.loyalty`, 8, 'Regular loyalty backs the pitch', [
+          'regular',
+        ]),
+        effect('state_change', `customers.${chosen.customerGroupId}.loyalty`, 5, 'Word spreads to their crowd', [
           'customer',
         ]),
+        effect('pressure', 'pressure:reputation_drift', 5, 'Credibility risk rises', [
+          'pressure',
+          'reputation',
+          'risk',
+        ]),
       ],
-      delayedEffects: [],
+      delayedEffects: [
+        effect(
+          'future_hook',
+          `regular_word_credibility_${chosen.id}`,
+          8,
+          'Regulars may judge the promise later',
+          ['future_hook', 'reputation', 'risk'],
+        ),
+      ],
       memories: [
         {
           id: `regular_word_${chosen.id}`,
@@ -1135,7 +1199,13 @@ function generateRegularCustomer(ctx: SimContext): IssueSeed[] {
           tags: ['regular', 'reputation'],
         },
       ],
-      futureHooks: [],
+      futureHooks: [
+        {
+          id: `regular_word_credibility_${chosen.id}`,
+          actors: [ref],
+          tags: ['regular', 'reputation', 'risk'],
+        },
+      ],
     }),
     makeProfile({
       id: 'ban_regular_profile',

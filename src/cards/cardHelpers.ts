@@ -176,7 +176,8 @@ export function buildChoice(
   const targetId = overrides.targetId ?? fallbackTargetId
   const previewMax = overrides.maxPreview ?? MAX_PREVIEW
   const immediateEffects = profile?.immediateEffects ?? []
-  const delayedEffects = overrides.includeDelayed ? (profile?.delayedEffects ?? []) : []
+  const shouldPreviewDelayed = overrides.includeDelayed === true || immediateEffects.length === 0
+  const delayedEffects = shouldPreviewDelayed ? (profile?.delayedEffects ?? []) : []
   const immediate = immediateEffects.map((e) => e.readable)
   const delayed = delayedEffects.map((e) => `later: ${e.readable}`)
   const defaultPreview = [...immediate, ...delayed].slice(0, previewMax)

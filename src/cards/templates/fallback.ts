@@ -21,7 +21,7 @@
 
 import {
   buildStakes,
-  buildChoicesFromSeed,
+  composeChoicesFromSeed,
   familyTag,
   makeCardView,
 } from '../cardHelpers'
@@ -56,12 +56,15 @@ export const fallbackTemplate: CompositionalCardTemplate = {
       claimMode: 'flavor',
     },
   ],
-  toCardView: (filled, seed) => {
+  toCardView: (filled, seed, state) => {
     return makeCardView({
       title: buildFallbackTitle(filled, seed),
       body: buildFallbackBody(seed),
       stakes: buildStakes(seed),
-      choices: buildChoicesFromSeed(seed),
+      choices: composeChoicesFromSeed(seed, state, {
+        labelPool: { slotId: 'choice_label', snippets: [] },
+        previewPool: { slotId: 'effect_preview', snippets: [] },
+      }),
       severity: seed.severity,
       tag: familyTag(seed),
     })

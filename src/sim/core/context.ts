@@ -360,4 +360,9 @@ export type SimContext = {
   // `SimResult.diffs` carries them out of `simulateDay`.
   getDiff(boundary: PhaseBoundary): StateDiff | undefined
   getDiffs(): ReadonlyArray<TaggedStateDiff>
+  // Phase 197 / ISSUE-164 — Cluster 1. Computes snapshot→now without
+  // finalizing, so modules running during `generateReports` (before
+  // `finalize('day')`) can still read the full-day diff. `getDiff` /
+  // `getDiffs` semantics are unchanged (post-finalize only).
+  getDiffSoFar(boundary: PhaseBoundary): StateDiff | undefined
 }

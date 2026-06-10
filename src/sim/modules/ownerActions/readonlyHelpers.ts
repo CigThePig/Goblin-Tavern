@@ -97,6 +97,7 @@ function makeReadOnlyCtx(state: TavernState): SimContext {
     modifyPressure: refuse('modifyPressure'),
     getDiff: () => undefined,
     getDiffs: () => [],
+    getDiffSoFar: () => undefined,
   } satisfies SimContext
   return ctx
 }

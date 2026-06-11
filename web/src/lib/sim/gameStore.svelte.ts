@@ -433,7 +433,11 @@ class GameStore {
     this.state = save.state
     this.previousCalendar = save.previousCalendar
     this.latestResult = save.latestResultLite
-      ? { ...save.latestResultLite, state: save.state }
+      ? {
+          ...save.latestResultLite,
+          diffs: save.latestResultLite.diffs ?? [],
+          state: save.state,
+        }
       : undefined
     // Phase 89 / ISSUE-049 — Re-run pick sanitation against the
     // (now-canonical) hydrated state. `validatePersistedSession` also
@@ -454,7 +458,7 @@ class GameStore {
     // Without it, a resumed end-of-day would produce a partial full-day
     // diff — the segment methods fall back to the current state, which is
     // the documented edge Cluster 7's migration will harden.
-    this.dayBaseline = save.dayBaseline
+    this.dayBaseline = save.dayBaseline ? structuredClone(save.dayBaseline) : undefined
     this.dayLogs = []
     this.route = save.route
     this.reportsSubview = save.subroutes?.reports ?? 'today'
@@ -475,13 +479,16 @@ class GameStore {
    * storage and (post-save) on `lastSavedAt`.
    */
   serializeForSave(): PersistedSession {
+    // Diffs are excluded from the save: they are a debug artifact that
+    // grows to ~2.5–5 MB per day and would exhaust localStorage quotas
+    // by day ~12. Reports/logs/validation are cloned so a future in-place
+    // edit cannot silently corrupt the next autosave's payload.
     const latestResultLite: LatestResultLite | undefined = this.latestResult
-      ? {
+      ? structuredClone({
           reports: this.latestResult.reports,
           logs: this.latestResult.logs,
           validation: this.latestResult.validation,
-          diffs: this.latestResult.diffs,
-        }
+        })
       : undefined
     return {
       saveVersion: 1,
@@ -499,7 +506,7 @@ class GameStore {
       ...(latestResultLite ? { latestResultLite } : {}),
       picks: [...this.picks],
       staffPriorities: { ...this.staffPriorities },
-      pendingBySeedId: { ...this.pendingBySeedId },
+      pendingBySeedId: structuredClone(this.pendingBySeedId),
       daySession: {
         beat: this.beat,
         serviceComplete: this.serviceComplete,

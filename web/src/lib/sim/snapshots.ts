@@ -18,6 +18,7 @@
 // QuotaExceededError mid-write.
 
 import {
+  SAVE_STORAGE_KEY,
   validatePersistedSession,
   type PersistedSession,
   type ValidationOutcome,
@@ -108,8 +109,11 @@ function makeSnapshotId(): string {
 // Storage budget
 
 /**
- * Sum the byte length of every key/value pair currently in the
- * configured storage. Used by the budget guard.
+ * Sum the byte length of every snapshot key/value pair in the configured
+ * storage, **excluding the autosave key**. The autosave key shares the
+ * origin but has its own write path; counting it against the snapshot
+ * budget caused snapshots to refuse from ~day 13 even when zero snapshots
+ * existed (see 2026-06-11 audit §2).
  *
  * Works against either a real `Storage` (which exposes `key(i)` and
  * `.length`) or our in-memory fallback (which doesn't). We probe the
@@ -129,6 +133,9 @@ export function estimateStorageBytes(): number {
     for (let i = 0; i < len; i += 1) {
       const k = realStorage.key(i)
       if (k === null) continue
+      // Skip the autosave — it counts against the browser quota but not
+      // the snapshot budget (snapshots have their own 4 MB allocation).
+      if (k === SAVE_STORAGE_KEY) continue
       const v = realStorage.getItem(k) ?? ''
       total += k.length + v.length
     }
@@ -139,6 +146,7 @@ export function estimateStorageBytes(): number {
   if (memoryFallback) {
     let total = 0
     for (const [k, v] of memoryFallback.entries()) {
+      if (k === SAVE_STORAGE_KEY) continue
       total += k.length + v.length
     }
     return total * 2

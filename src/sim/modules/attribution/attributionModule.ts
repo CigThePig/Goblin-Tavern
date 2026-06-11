@@ -49,6 +49,9 @@ export type { AttributionModuleState }
 
 const DEFAULT_EXPIRY_DAYS = 14
 const MIN_LIVE_STRENGTH = 5
+// Hard ceiling for sticky-false attributions (accuracy='false', publicness>=60).
+// Without a cap they accumulate indefinitely in rumour-heavy campaigns.
+const MAX_STICKY_FALSE_AGE_DAYS = 365
 const MEMORY_THRESHOLD = 60
 const RUMOUR_THRESHOLD = 55
 const CAUSE_THRESHOLD = 65
@@ -311,6 +314,9 @@ function ageAttributions(
       attribution.accuracy === 'false' && attribution.publicness >= 60
     if (aged >= expiry && !isStickyFalse) continue
     if (strength < MIN_LIVE_STRENGTH && !isStickyFalse) continue
+    // Hard ceiling even for sticky-false attributions so rumour-heavy
+    // campaigns cannot accumulate them without bound.
+    if (isStickyFalse && aged >= MAX_STICKY_FALSE_AGE_DAYS) continue
     next.push({ ...attribution, ageDays: aged, strength: clampMeter(strength) })
   }
   return { ...current, attributions: next }

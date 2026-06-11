@@ -37,6 +37,8 @@ export type StateChange = {
   readable: string
   tags: string[]
   source?: string
+  /** True when before/after payloads were elided because they exceeded the diff size threshold. */
+  truncated?: boolean
 }
 
 export type StateDiff = {
@@ -633,7 +635,19 @@ function diffModules(
           continue
         }
         if (avJson === bvJson) continue
-        if (avJson.length > DIFF_MODULE_VALUE_MAX_JSON || bvJson.length > DIFF_MODULE_VALUE_MAX_JSON) continue
+        if (avJson.length > DIFF_MODULE_VALUE_MAX_JSON || bvJson.length > DIFF_MODULE_VALUE_MAX_JSON) {
+          // Emit a sentinel so consumers can distinguish "nothing changed"
+          // from "changed, payload elided" (see 2026-06-11 audit §4).
+          changes.push({
+            path: `modules.${moduleId}.${key}`,
+            before: undefined,
+            after: undefined,
+            readable: `modules.${moduleId}.${key} changed (payload elided — too large to diff)`,
+            tags: ['module', moduleId, key, 'truncated'],
+            truncated: true,
+          })
+          continue
+        }
         pushScalarChange(changes, `modules.${moduleId}.${key}`, av, bv, {
           tags: ['module', moduleId, key],
         })

@@ -4866,12 +4866,29 @@ function generatePolicyBacklash(ctx: SimContext): IssueSeed[] {
   const policies = Object.values(owner?.policies ?? {}).filter((p) => p.enabled)
   if (policies.length === 0) return []
 
-  const policy = policies[0]!
+  // Pick the enabled policy with the strongest recent per-policy backlash
+  // cause linkage. Policies with no per-policy cause are excluded so the
+  // card never names a policy that wasn't actually driving the pressure.
+  // Consistent with the witness-group sort at expandedSeedGenerators.ts:178-179.
+  const candidates = policies
+    .map((p) => ({
+      policy: p,
+      policyCauses: recentCauseEntries(ctx, ['policy', p.id, 'backlash'], 14, 3),
+    }))
+    .filter((e) => e.policyCauses.length > 0)
+    .sort((a, b) => {
+      const wa = a.policyCauses.reduce((s, c) => s + c.weight, 0)
+      const wb = b.policyCauses.reduce((s, c) => s + c.weight, 0)
+      return wb - wa
+    })
+  if (candidates.length === 0) return []
+
+  const { policy, policyCauses } = candidates[0]!
   const guard = policyStillActiveGuard(ctx, policy.id)
   if (!guard.allowed) return []
 
   const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'policy_backlash', 3)
-  for (const c of recentCauseEntries(ctx, ['policy', policy.id, 'backlash'], 14, 3)) {
+  for (const c of policyCauses) {
     if (!causes.find((existing) => existing.id === c.id)) causes.push(c)
   }
   if (causes.length === 0) return []

@@ -200,11 +200,12 @@ describe('snapshots — budget guard', () => {
     expect(wouldExceedBudget(0)).toBe(false)
   })
 
-  it('estimateStorageBytes accumulates key + value lengths', () => {
+  it('estimateStorageBytes accumulates key + value lengths as UTF-16 bytes', () => {
     storage.setItem('a', 'hello')
     storage.setItem('bb', 'world!')
-    // 'a' + 'hello' = 6, 'bb' + 'world!' = 8 → 14
-    expect(estimateStorageBytes()).toBe(14)
+    // 'a' + 'hello' = 6 code-units, 'bb' + 'world!' = 8 code-units → 14 code-units
+    // localStorage stores UTF-16 (2 bytes per code unit) → 28 bytes
+    expect(estimateStorageBytes()).toBe(28)
   })
 })
 

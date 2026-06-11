@@ -120,6 +120,7 @@ export function estimateStorageBytes(): number {
   const storage = getStorage()
 
   // Real localStorage path: walk `key(i)` + `getItem`.
+  // localStorage stores strings as UTF-16, so bytes = code-units × 2.
   type RealStorage = StorageLike & { length?: number; key?: (i: number) => string | null }
   const realStorage = storage as RealStorage
   if (typeof realStorage.length === 'number' && typeof realStorage.key === 'function') {
@@ -131,7 +132,7 @@ export function estimateStorageBytes(): number {
       const v = realStorage.getItem(k) ?? ''
       total += k.length + v.length
     }
-    return total
+    return total * 2
   }
 
   // In-memory fallback path.
@@ -140,7 +141,7 @@ export function estimateStorageBytes(): number {
     for (const [k, v] of memoryFallback.entries()) {
       total += k.length + v.length
     }
-    return total
+    return total * 2
   }
 
   return 0

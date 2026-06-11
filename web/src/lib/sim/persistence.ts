@@ -48,6 +48,7 @@ import { FULL_PIPELINE } from '../../../../src/sim/canonicalPipeline'
 import type { TavernState } from '../../../../src/sim/state/TavernState'
 import type { CalendarState } from '../../../../src/sim/modules/calendar/types'
 import type { SimResult } from '../../../../src/sim/core/result'
+import type { TaggedStateDiff } from '../../../../src/sim/core/diff'
 import type { IssueSeed } from '../../../../src/sim/modules/issues/issueSeedTypes'
 import { sanitizePicks, type PickedAction } from './actionBuilder'
 import type {
@@ -59,9 +60,13 @@ import type {
 export const SAVE_STORAGE_KEY = 'goblin-tavern:save:v1'
 export const SAVE_VERSION = 1 as const
 
-// SimResult minus its TavernState — state is already at the envelope
-// root, so duplicating it would roughly double the save size.
-export type LatestResultLite = Omit<SimResult, 'state'>
+// SimResult minus its TavernState and diffs. State is already at the
+// envelope root (deduplication), and diffs are not persisted — they are
+// too large for localStorage quotas (~2.5–5 MB per day) and not needed
+// for report display. After reload, latestResult.diffs defaults to [].
+export type LatestResultLite = Omit<SimResult, 'state' | 'diffs'> & {
+  diffs?: TaggedStateDiff[]
+}
 
 export type Route = 'day' | 'reports' | 'tavern' | 'world' | 'more'
 

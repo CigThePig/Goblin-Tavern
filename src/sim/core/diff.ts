@@ -594,6 +594,13 @@ function diffTavernIdentity(
 // canonical cause-target convention, so the matching entries in
 // `targetForChange` intentionally return `undefined` — surfacing module
 // writes as "unexplained" until module owners attribute them.
+//
+// Large containers (e.g. `attribution.attributions`, `issueSeeds.seedsToday`)
+// are skipped: they bloat per-day diffs into MB territory and are not
+// player-readable. Module owners should add dedicated diff walkers for
+// any container that needs cause-matched reporting.
+const DIFF_MODULE_VALUE_MAX_JSON = 10_000 // chars
+
 function diffModules(
   before: Record<string, unknown>,
   after: Record<string, unknown>,
@@ -613,7 +620,20 @@ function diffModules(
       for (const key of keys) {
         const av = (a as Record<string, unknown>)[key]
         const bv = (b as Record<string, unknown>)[key]
-        if (jsonEqual(av, bv)) continue
+        // Serialize once: compare and measure size in a single pass.
+        // JSON.stringify(undefined) returns undefined (not a string); use a
+        // sentinel so undefined and null remain distinguishable when one side
+        // changes from undefined to null or vice versa.
+        if (av === bv) continue
+        let avJson: string, bvJson: string
+        try {
+          avJson = JSON.stringify(av) ?? '\x00undefined'
+          bvJson = JSON.stringify(bv) ?? '\x00undefined'
+        } catch {
+          continue
+        }
+        if (avJson === bvJson) continue
+        if (avJson.length > DIFF_MODULE_VALUE_MAX_JSON || bvJson.length > DIFF_MODULE_VALUE_MAX_JSON) continue
         pushScalarChange(changes, `modules.${moduleId}.${key}`, av, bv, {
           tags: ['module', moduleId, key],
         })

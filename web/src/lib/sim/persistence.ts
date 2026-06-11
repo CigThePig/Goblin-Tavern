@@ -60,10 +60,11 @@ import type {
 export const SAVE_STORAGE_KEY = 'goblin-tavern:save:v1'
 export const SAVE_VERSION = 1 as const
 
-// SimResult minus its TavernState and diffs. State is already at the
-// envelope root (deduplication), and diffs are not persisted — they are
-// too large for localStorage quotas (~2.5–5 MB per day) and not needed
-// for report display. After reload, latestResult.diffs defaults to [].
+// SimResult minus its TavernState. State is deduped at the envelope root.
+// Diffs are persisted but with module-container values already excluded by
+// the 10 k-char threshold in diffModules, so a day's changes array is
+// typically a few KB — well within quota. After reload latestResult.diffs
+// defaults to [] when absent (pre-fix saves).
 export type LatestResultLite = Omit<SimResult, 'state' | 'diffs'> & {
   diffs?: TaggedStateDiff[]
 }
@@ -106,12 +107,10 @@ export type PersistedSession = {
   simSeed: string
   state: TavernState
   /**
-   * Phase 186 / Day-Clock Cluster 5 — the start-of-day `TavernState`,
-   * present only while a day is mid-flight (`daySession.segment` is 'A'
-   * or 'B'). The store threads it as the full-day-diff baseline (GATE B)
-   * so a mid-day refresh still produces a whole daily report. Runs
-   * through the same migration + validation pipeline as `state`; dropped
-   * if it fails (the segment methods fall back to the current state).
+   * Phase 186 / Day-Clock Cluster 5 — no longer written (removed to fix
+   * mid-day save quota overflow; see 2026-06-11 audit §1). Kept in the
+   * type so old saves that carry it still parse; hydration falls back to
+   * the current state as the baseline when this field is absent.
    */
   dayBaseline?: TavernState
   previousCalendar?: CalendarState

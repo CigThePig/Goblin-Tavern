@@ -479,15 +479,16 @@ class GameStore {
    * storage and (post-save) on `lastSavedAt`.
    */
   serializeForSave(): PersistedSession {
-    // Diffs are excluded from the save: they are a debug artifact that
-    // grows to ~2.5–5 MB per day and would exhaust localStorage quotas
-    // by day ~12. Reports/logs/validation are cloned so a future in-place
-    // edit cannot silently corrupt the next autosave's payload.
+    // Diffs are included but with module-container values already excluded
+    // by the 10 k-char threshold in diffModules, so the changes array is
+    // typically a few KB. Reports/logs/validation are cloned so a future
+    // in-place edit cannot silently corrupt the next autosave's payload.
     const latestResultLite: LatestResultLite | undefined = this.latestResult
       ? structuredClone({
           reports: this.latestResult.reports,
           logs: this.latestResult.logs,
           validation: this.latestResult.validation,
+          diffs: this.latestResult.diffs,
         })
       : undefined
     return {
@@ -513,13 +514,6 @@ class GameStore {
         closingComplete: this.closingComplete,
         segment: this.segment,
       },
-      // Persist the start-of-day baseline only while a day is in progress
-      // (segment 'A'/'B') — at 'C' the day is closed and the next
-      // `beginDay` will snapshot a fresh one, so storing it would just
-      // bloat the save with a stale copy of state.
-      ...(this.dayBaseline && this.segment !== 'C'
-        ? { dayBaseline: this.dayBaseline }
-        : {}),
       route: this.route,
       subroutes: {
         reports: this.reportsSubview,

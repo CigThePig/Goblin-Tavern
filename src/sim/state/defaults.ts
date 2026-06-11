@@ -174,7 +174,7 @@ function createInitialStaff(): Record<string, StaffState> {
   // Phase 31 §31.8 — iterate in a stable registry order so a future
   // refactor of the registry's storage doesn't shift staff names.
   const orderedDefs = [...staffRegistry.all()].sort((a, b) =>
-    a.id.localeCompare(b.id),
+    a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
   )
   for (const def of orderedDefs) {
     // Phase 71 / ISSUE-031 §4.3 — cook-tier roles (kitchen_hand,
@@ -233,7 +233,7 @@ function createInitialCustomerGroups(): Record<string, CustomerGroupState> {
   const identityRng = streams.get('customer_group_identity')
   const groups: Record<string, CustomerGroupState> = {}
   const orderedDefs = [...customerRegistry.all()].sort((a, b) =>
-    a.id.localeCompare(b.id),
+    a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
   )
   for (const def of orderedDefs) {
     const castAttributes = createCustomerGroupCastAttributes({
@@ -370,7 +370,7 @@ function createInitialSuppliers(): Record<string, SupplierWorldState> {
   const identityRng = streams.get('supplier_identity')
   const suppliers: Record<string, SupplierWorldState> = {}
   const orderedDefs = [...supplierRegistry.all()].sort((a, b) =>
-    a.id.localeCompare(b.id),
+    a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
   )
   for (const def of orderedDefs) {
     const castAttributes = createSupplierCastAttributes({
@@ -438,7 +438,7 @@ function createInitialFactions(): Record<string, FactionWorldState> {
   const identityRng = streams.get('faction_identity')
   const factions: Record<string, FactionWorldState> = {}
   const orderedDefs = [...factionRegistry.all()].sort((a, b) =>
-    a.id.localeCompare(b.id),
+    a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
   )
   for (const def of orderedDefs) {
     const castAttributes = createFactionCastAttributes({
@@ -645,7 +645,7 @@ function createInitialNotableNpcs(): Record<string, NotableNpcWorldState> {
   // REQUIRED_NOTABLE_NPC_PROFILES array does not shift the RNG sequence
   // and thereby the generated names.
   const orderedProfiles = [...notableNpcProfileRegistry.all()].sort((a, b) =>
-    a.id.localeCompare(b.id),
+    a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
   )
   for (const profile of orderedProfiles) {
     const { npc, generatedName } = createNotableNpc({

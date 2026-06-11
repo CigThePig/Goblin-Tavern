@@ -117,7 +117,7 @@ export function ensureStaffIdentityFields<
   }
   const streams = createRngStreams('initial-staff-identity')
   const rng = streams.get('staff_identity')
-  const orderedEntries = [...staffEntries].sort(([a], [b]) => a.localeCompare(b))
+  const orderedEntries = [...staffEntries].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
   const nextStaff: Record<string, unknown> = { ...state.staff }
   for (const [id, member] of orderedEntries) {
     const hasIdentity = Boolean(member?.identity)
@@ -328,7 +328,7 @@ export function ensureCastAttributes<
     const rng = streams.get('staff_identity')
     const nextStaff: Record<string, unknown> = { ...state.staff }
     const ordered = [...staffNeedsMigration].sort((a, b) =>
-      a.id.localeCompare(b.id),
+      a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
     )
     for (const member of ordered) {
       const cultureId = member.identity?.cultureId
@@ -346,7 +346,7 @@ export function ensureCastAttributes<
     const rng = streams.get('regular_identity')
     const nextRegulars: Record<string, unknown> = { ...next.world.regulars }
     const ordered = [...regularsNeedingMigration].sort((a, b) =>
-      a.id.localeCompare(b.id),
+      a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
     )
     for (const regular of ordered) {
       const castAttributes = createRegularCastAttributes({
@@ -371,7 +371,7 @@ export function ensureCastAttributes<
     const rng = streams.get('supplier_identity')
     const nextSuppliers: Record<string, unknown> = { ...next.world.suppliers }
     const ordered = [...suppliersNeedingMigration].sort((a, b) =>
-      a.id.localeCompare(b.id),
+      a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
     )
     for (const supplier of ordered) {
       const castAttributes = createSupplierCastAttributes({
@@ -396,7 +396,7 @@ export function ensureCastAttributes<
     const rng = streams.get('faction_identity')
     const nextFactions: Record<string, unknown> = { ...next.world.factions }
     const ordered = [...factionsNeedingMigration].sort((a, b) =>
-      a.id.localeCompare(b.id),
+      a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
     )
     for (const faction of ordered) {
       const castAttributes = createFactionCastAttributes({
@@ -420,7 +420,7 @@ export function ensureCastAttributes<
     const rng = streams.get('customer_group_identity')
     const nextGroups: Record<string, unknown> = { ...next.customerGroups }
     const ordered = [...groupsNeedingMigration].sort((a, b) =>
-      a.id.localeCompare(b.id),
+      a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
     )
     for (const group of ordered) {
       const castAttributes = createCustomerGroupCastAttributes({
@@ -439,7 +439,7 @@ export function ensureCastAttributes<
     const rng = streams.get('npc_identity')
     const nextNpcs: Record<string, unknown> = { ...next.world.notableNpcs }
     const ordered = [...npcsNeedingMigration].sort((a, b) =>
-      a.id.localeCompare(b.id),
+      a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
     )
     for (const npc of ordered) {
       const castAttributes = createNotableNpcCastAttributes({

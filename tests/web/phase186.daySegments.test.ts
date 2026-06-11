@@ -117,16 +117,15 @@ describe('Phase 186 / Cluster 5 — segmented day store flow', () => {
     expect(segmentedDay!.changes).toEqual(singleDay!.changes)
   })
 
-  it('mid-day refresh — serialize at Segment B, hydrate, finish with a whole full-day diff', () => {
-    // Oracle, computed before the store advances.
+  it('mid-day refresh — serialize at Segment B, hydrate, finish the day', () => {
+    // dayBaseline is no longer written to the save (2026-06-11 audit §1):
+    // persisting a second full TavernState mid-day doubled save size and
+    // crossed the Firefox/Safari ~5 MB quota from day ~22. After reload
+    // the baseline falls back to the post-B state, so the full-day diff
+    // covers only Segment C (documented post-reload partial-diff edge).
+
     const baseline = plainState()
     const day0 = baseline.calendar.totalDaysElapsed
-    const single = simulateDay(
-      baseline,
-      { seed: `cluster5-seed-d${day0}`, ownerActions: [], staffPriorities: {} },
-      FULL_PIPELINE,
-    )
-    const singleDay = single.diffs.find((d) => d.boundary === 'day')!
 
     // Drive to mid-day (Segment B done) and save there.
     gameStore.beginDay()
@@ -134,8 +133,8 @@ describe('Phase 186 / Cluster 5 — segmented day store flow', () => {
     gameStore.setBeat('closing')
     const session = gameStore.serializeForSave()
     expect(session.daySession.segment).toBe('B')
-    // The start-of-day baseline is persisted while a day is in progress.
-    expect(session.dayBaseline).toBeDefined()
+    // dayBaseline is intentionally absent — see audit §1.
+    expect(session.dayBaseline).toBeUndefined()
 
     // Simulate a refresh: round-trip the save through the loader and
     // hydrate a "fresh" store.
@@ -144,26 +143,20 @@ describe('Phase 186 / Cluster 5 — segmented day store flow', () => {
     )
     expect(outcome.kind).toBe('loaded')
     if (outcome.kind !== 'loaded') return
-    expect(outcome.save.dayBaseline).toBeDefined()
+    expect(outcome.save.dayBaseline).toBeUndefined()
 
     gameStore.reset('other-seed') // prove hydrate fully replaces state
     gameStore.hydrateFromSave(outcome.save)
     expect(gameStore.segment).toBe('B')
     expect(gameStore.beat).toBe('closing')
 
-    // Finish the day after the refresh — GATE B must still hold. The
-    // load pipeline runs the baseline through the additive `ensure*`
-    // migrations, which can normalise a `null` slice to its default
-    // object — changing a diff *value* but not which paths moved. So
-    // compare the SET of changed paths: a Segment-C-only (shattered)
-    // diff would be missing every Segment-A/B path (forecast, service
-    // turnout, …), which this catches.
+    // Finish the day after the refresh — the day must close correctly even
+    // with a partial diff baseline (Segment C only). The result must carry
+    // a day diff and the day counter must advance.
     const finished = gameStore.endDay({ responseIntents: [] })
     expect(gameStore.state.calendar.totalDaysElapsed).toBe(day0 + 1)
-    const finishedDay = finished!.diffs.find((d) => d.boundary === 'day')!
-    const paths = (changes: { path: string }[]) =>
-      changes.map((c) => c.path).sort()
-    expect(paths(finishedDay.changes)).toEqual(paths(singleDay.changes))
+    const finishedDay = finished!.diffs.find((d) => d.boundary === 'day')
+    expect(finishedDay).toBeDefined()
   })
 
   it('opening the next day does NOT relabel the just-closed day report', () => {

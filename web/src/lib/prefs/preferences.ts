@@ -22,11 +22,19 @@ export const PREFS_VERSION = 1 as const
 
 export type FontScale = 'sm' | 'md' | 'lg'
 export type ReducedMotionMode = 'auto' | 'on' | 'off'
+/**
+ * Colour theme. 'dark' is the game's identity ("tavern at night") and
+ * the default; 'light' is the parchment palette (authored in global.css
+ * since the beginning but previously unreachable — index.html pinned
+ * `data-theme="dark"`); 'auto' follows the OS prefers-color-scheme.
+ */
+export type ThemeMode = 'dark' | 'light' | 'auto'
 
 export type Preferences = {
   version: typeof PREFS_VERSION
   fontScale: FontScale
   reducedMotion: ReducedMotionMode
+  theme: ThemeMode
   showSeedTags: boolean
   confirmEndDay: boolean
   showFirstEncounterHints: boolean
@@ -44,6 +52,7 @@ const VALID_REDUCED_MOTION: ReadonlySet<ReducedMotionMode> = new Set<ReducedMoti
   'on',
   'off',
 ])
+const VALID_THEMES: ReadonlySet<ThemeMode> = new Set<ThemeMode>(['dark', 'light', 'auto'])
 const VALID_DIFFICULTIES: ReadonlySet<DifficultyId> = new Set<DifficultyId>([
   'easy',
   'standard',
@@ -64,6 +73,7 @@ export function getDefaultPreferences(): Preferences {
     version: PREFS_VERSION,
     fontScale: 'md',
     reducedMotion: 'auto',
+    theme: 'dark',
     showSeedTags: true,
     confirmEndDay: false,
     showFirstEncounterHints: true,
@@ -170,6 +180,7 @@ function sanitize(raw: Record<string, unknown>): Preferences {
   const defaults = getDefaultPreferences()
   const fontScale = raw['fontScale']
   const reducedMotion = raw['reducedMotion']
+  const theme = raw['theme']
   const lastDifficulty = raw['lastDifficulty']
   const seenTermsRaw = raw['seenTerms']
 
@@ -184,6 +195,10 @@ function sanitize(raw: Record<string, unknown>): Preferences {
       VALID_REDUCED_MOTION.has(reducedMotion as ReducedMotionMode)
         ? (reducedMotion as ReducedMotionMode)
         : defaults.reducedMotion,
+    theme:
+      typeof theme === 'string' && VALID_THEMES.has(theme as ThemeMode)
+        ? (theme as ThemeMode)
+        : defaults.theme,
     showSeedTags: typeof raw['showSeedTags'] === 'boolean' ? raw['showSeedTags'] : defaults.showSeedTags,
     confirmEndDay: typeof raw['confirmEndDay'] === 'boolean' ? raw['confirmEndDay'] : defaults.confirmEndDay,
     showFirstEncounterHints:

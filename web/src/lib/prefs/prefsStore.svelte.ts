@@ -22,6 +22,7 @@ import {
   type FontScale,
   type Preferences,
   type ReducedMotionMode,
+  type ThemeMode,
 } from './preferences'
 import type { DifficultyId } from '../../../../src/sim/state/difficulty'
 
@@ -52,6 +53,11 @@ class PrefsStore {
 
   setReducedMotion(mode: ReducedMotionMode): void {
     this.preferences = { ...this.preferences, reducedMotion: mode }
+    savePreferences(this.preferences)
+  }
+
+  setTheme(mode: ThemeMode): void {
+    this.preferences = { ...this.preferences, theme: mode }
     savePreferences(this.preferences)
   }
 

@@ -194,7 +194,7 @@
   }
 
   .cause {
-    background: var(--ink-deep);
+    background: var(--bg);
     border: var(--border-faint);
     border-radius: var(--radius-sm);
     padding: var(--sp-sm);
@@ -244,7 +244,7 @@
 
   .weight-track {
     height: 3px;
-    background: color-mix(in srgb, var(--ink) 70%, var(--ash) 30%);
+    background: color-mix(in srgb, var(--text) 18%, transparent);
     border-radius: 2px;
     overflow: hidden;
   }
@@ -317,7 +317,7 @@
     line-height: 1.4;
     word-break: break-word;
     padding: var(--sp-xs) var(--sp-sm);
-    background: var(--ink-deep);
+    background: var(--bg);
     border-radius: var(--radius-sm);
   }
 </style>

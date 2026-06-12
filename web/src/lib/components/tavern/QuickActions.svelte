@@ -8,7 +8,7 @@
 <script lang="ts">
   import { gameStore, formatDuration } from '../../sim/gameStore.svelte'
   import { actionRegistry } from '../../../../../src/sim/registries/actionRegistry'
-  import { categoryLabel } from '../../sim/actionBuilder'
+  import { categoryLabel, humanizeActionReason } from '../../sim/actionBuilder'
   import type { ApplicableActionRef } from '../../../../../src/reports/tavernOverviewProjection'
 
   let {
@@ -82,7 +82,7 @@
               {#if queued}
                 <span class="queued-pill chip">queued · tap to remove</span>
               {:else if ref.disabledReason}
-                <span class="reason">{ref.disabledReason}</span>
+                <span class="reason">{humanizeActionReason(ref.disabledReason)}</span>
               {/if}
             </span>
           </button>

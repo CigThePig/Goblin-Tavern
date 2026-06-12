@@ -106,7 +106,7 @@
 
   .search {
     width: 100%;
-    background: var(--ink-deep);
+    background: var(--bg);
     color: var(--text);
     border: var(--border-faint);
     border-radius: var(--radius-sm);
@@ -139,7 +139,7 @@
   .term {
     padding: var(--sp-sm);
     border-radius: var(--radius-sm);
-    background: var(--ink-deep);
+    background: var(--bg);
     border: var(--border-faint);
     transition: border-color var(--m-fast) var(--ease);
   }

@@ -20,6 +20,7 @@
     categoryLabel,
     formatDuration,
     getActionCategories,
+    humanizeActionReason,
     listActionsByCategory,
     listPolicyToggleRows,
     listValidTargets,
@@ -236,7 +237,30 @@
   // `pointsLeft` so Svelte reactivity wires through; the actual check
   // lives in `actionDisabledReason` (see web/src/lib/sim/actionBuilder).
   function disabledReason(def: OwnerActionDefinition): string | undefined {
-    return actionDisabledReason(def, gameStore.state, pointsLeft)
+    const reason = actionDisabledReason(def, gameStore.state, pointsLeft)
+    // Engine rejection strings are machine-facing; translate at the
+    // display boundary so ids never reach the player.
+    return reason === undefined ? undefined : humanizeActionReason(reason)
+  }
+
+  // Quote warnings come through the same engine-validation channel as the
+  // disabled reason, so after humanization the two often collapse to the
+  // same sentence. Dedupe (against the reason and each other) so a blocked
+  // action explains itself once.
+  function visibleWarnings(
+    quote: OwnerActionQuote | undefined,
+    reason: string | undefined,
+  ): string[] {
+    if (!quote?.warnings?.length) return []
+    const seen = new Set<string>(reason ? [reason] : [])
+    const out: string[] = []
+    for (const w of quote.warnings) {
+      const h = humanizeActionReason(w)
+      if (seen.has(h)) continue
+      seen.add(h)
+      out.push(h)
+    }
+    return out
   }
 
   // Phase 117 — Policy toggle tap handler.
@@ -295,7 +319,7 @@
                 {#if quote}
                   <span class="quote">
                     {#if quote.summary}<span class="quote-line">{quote.summary}</span>{/if}
-                    {#each quote.warnings ?? [] as warning}<span class="quote-warning chip">{warning}</span>{/each}
+                    {#each visibleWarnings(quote, undefined) as warning}<span class="quote-warning chip">{warning}</span>{/each}
                     {#each quote.risks ?? [] as risk}<span class="quote-risk chip">{risk}</span>{/each}
                   </span>
                 {/if}
@@ -330,7 +354,7 @@
             {#if quote?.summary || quote?.warnings?.length}
               <p class="queued-quote chip">
                 <span>{p.label}{p.targetLabel ? ` · ${p.targetLabel}` : ''}: {quote?.summary}</span>
-                {#each quote?.warnings ?? [] as warning}<span class="quote-warning">{warning}</span>{/each}
+                {#each visibleWarnings(quote, undefined) as warning}<span class="quote-warning">{warning}</span>{/each}
               </p>
             {/if}
           {/each}
@@ -369,7 +393,7 @@
                   {#if quote}
                     <span class="quote">
                       {#if quote.summary}<span class="quote-line">{quote.summary}</span>{/if}
-                      {#each quote.warnings ?? [] as warning}<span class="quote-warning chip">{warning}</span>{/each}
+                      {#each visibleWarnings(quote, reason) as warning}<span class="quote-warning chip">{warning}</span>{/each}
                       {#each quote.risks ?? [] as risk}<span class="quote-risk chip">{risk}</span>{/each}
                     </span>
                   {/if}
@@ -464,7 +488,7 @@
                 {#if quote}
                   <span class="quote">
                     {#if quote.summary}<span class="quote-line">{quote.summary}</span>{/if}
-                    {#each quote.warnings ?? [] as warning}<span class="quote-warning chip">{warning}</span>{/each}
+                    {#each visibleWarnings(quote, reason) as warning}<span class="quote-warning chip">{warning}</span>{/each}
                     {#each quote.risks ?? [] as risk}<span class="quote-risk chip">{risk}</span>{/each}
                   </span>
                 {/if}
@@ -743,16 +767,18 @@
     letter-spacing: 0.12em;
     text-transform: uppercase;
     font-size: 13px;
-    color: var(--accent);
+    color: var(--bg);
+    background: var(--accent);
     border: 1px solid var(--accent);
     border-radius: var(--radius-sm);
     padding: 10px 18px;
     min-height: 44px;
+    transition: background var(--m-fast) var(--ease);
   }
 
   .confirm:hover,
   .confirm:focus-visible {
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    background: color-mix(in srgb, var(--accent) 88%, white);
   }
 
   /* Target picker overlay */

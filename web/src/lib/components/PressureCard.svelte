@@ -114,7 +114,7 @@
 
   .bar-track {
     height: 4px;
-    background: color-mix(in srgb, var(--ink-deep) 70%, var(--ash) 30%);
+    background: color-mix(in srgb, var(--text) 18%, transparent);
     border-radius: 2px;
     overflow: hidden;
   }

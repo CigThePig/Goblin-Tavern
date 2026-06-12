@@ -215,7 +215,7 @@
     top: var(--sp-sm);
     right: var(--sp-xl);
     color: var(--accent-soft);
-    background: var(--ink-deep);
+    background: var(--bg);
     padding: 2px 8px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--candle-soft);

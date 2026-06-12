@@ -233,7 +233,7 @@
     line-height: 1.4;
     word-break: break-word;
     padding: var(--sp-xs) var(--sp-sm);
-    background: var(--ink-deep);
+    background: var(--bg);
     border-radius: var(--radius-sm);
   }
 </style>

@@ -549,11 +549,21 @@ function projectServiceLines(
       category: 'traffic',
     })
   }
+  // Incidents arrive as structured summaries (`id`, `severity`,
+  // `actorGroup`) with no prose. Humanize the id — never show
+  // `chair_damage` or a literal "Incident: event" — and collapse repeats
+  // of the same incident into one line with a count.
+  const incidentCounts = new Map<string, number>()
   for (const incident of serviceResult.incidents ?? []) {
+    const inc = incident as { readable?: string; id?: string; kind?: string; type?: string }
+    const label = inc.readable ?? incidentLabel(inc)
+    if (!label) continue
+    incidentCounts.set(label, (incidentCounts.get(label) ?? 0) + 1)
+  }
+  for (const [label, count] of incidentCounts) {
     if (lines.length >= SERVICE_LINE_CAP) break
-    const readable = (incident as { readable?: string; kind?: string; type?: string }).readable
     lines.push({
-      readable: readable ?? `Incident: ${(incident as { kind?: string; type?: string }).kind ?? (incident as { type?: string }).type ?? 'event'}`,
+      readable: count > 1 ? `${label} (×${count})` : label,
       category: 'incident',
     })
   }
@@ -565,7 +575,7 @@ function projectServiceLines(
       readable: composeDriverLine({
         state,
         closedDay,
-        driverName: drivers.positive,
+        driverName: driverDisplayName(drivers.positive, state),
         direction: 'positive',
       }),
       category: 'driver',
@@ -576,13 +586,43 @@ function projectServiceLines(
       readable: composeDriverLine({
         state,
         closedDay,
-        driverName: drivers.negative,
+        driverName: driverDisplayName(drivers.negative, state),
         direction: 'negative',
       }),
       category: 'driver',
     })
   }
   return lines.slice(0, SERVICE_LINE_CAP)
+}
+
+/**
+ * Player-facing label for a structured service incident. Incidents carry
+ * machine ids (`chair_damage`, `stock_shortage`); the report must never
+ * print those raw. Returns `undefined` when the incident has no usable
+ * identity at all (the line is skipped rather than reading "Incident:
+ * event").
+ */
+function incidentLabel(inc: {
+  id?: string
+  kind?: string
+  type?: string
+}): string | undefined {
+  const raw = inc.kind ?? inc.type ?? inc.id
+  if (!raw) return undefined
+  return `Incident: ${humanizeId(raw).toLowerCase()}`
+}
+
+/**
+ * Resolve a service-driver id to its display name. Positive drivers are
+ * customer-group ids (use the group's stored label); negative drivers
+ * are incident ids (humanize, lowercased to sit mid-sentence after
+ * "Dragged by …").
+ */
+function driverDisplayName(driverId: string, state: TavernState): string {
+  const group = state.customerGroups[driverId]
+  if (group?.label) return group.label
+  const humanized = humanizeId(driverId)
+  return humanized.charAt(0).toLowerCase() + humanized.slice(1)
 }
 
 // ---------- Day arc (Phase 186 / Cluster 6) ----------

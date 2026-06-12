@@ -463,25 +463,34 @@
            coin drilldown; "N staff" lands on Tavern → Staff (no specific
            id, so no sheet auto-opens); each stock chip opens its
            StockDetailSheet; "+N more" lands on Tavern → Stock. -->
-      <div class="glance mono">
-        <span>
-          <Icon name="coin" size={13} />
-          <MetricLink kind="coin">{gameStore.state.coin}</MetricLink>
+      <div class="glance">
+        <span class="glance-item">
+          <span class="glance-label">Coin</span>
+          <span class="glance-value mono">
+            <Icon name="coin" size={13} />
+            <MetricLink kind="coin">{gameStore.state.coin}</MetricLink>
+          </span>
         </span>
-        <span>
-          <Icon name="staff" size={13} />
-          <EntityLink kind="staff" id="" label={`${staffCount} staff`} />
+        <span class="glance-item">
+          <span class="glance-label">Staff</span>
+          <span class="glance-value mono">
+            <Icon name="staff" size={13} />
+            <EntityLink kind="staff" id="" label={`${staffCount} staff`} />
+          </span>
         </span>
-        <span class="stock-glance">
-          <Icon name="stock" size={13} />
-          {#each stockChips as chip, i (chip.id)}
-            {#if i > 0}<span class="sep" aria-hidden="true">·</span>{/if}
-            <EntityLink kind="stock" id={chip.id} label={chip.label} />
-          {/each}
-          {#if stockMoreCount > 0}
-            <span class="sep" aria-hidden="true">·</span>
-            <EntityLink kind="stock" id="" label={`+${stockMoreCount} more`} />
-          {/if}
+        <span class="glance-item glance-stock">
+          <span class="glance-label">Stock</span>
+          <span class="glance-value mono stock-glance">
+            <Icon name="stock" size={13} />
+            {#each stockChips as chip, i (chip.id)}
+              {#if i > 0}<span class="sep" aria-hidden="true">·</span>{/if}
+              <EntityLink kind="stock" id={chip.id} label={chip.label} />
+            {/each}
+            {#if stockMoreCount > 0}
+              <span class="sep" aria-hidden="true">·</span>
+              <EntityLink kind="stock" id="" label={`+${stockMoreCount} more`} />
+            {/if}
+          </span>
         </span>
       </div>
       {#if forecastExpected !== undefined}
@@ -660,6 +669,34 @@
   {#if beat === 'service' && !transitioning}
     <section class="block" aria-label="During service">
       <h2 class="block-label section-label">Service</h2>
+      {#if gameStore.serviceOutcome}
+        <!-- The day has already happened by this beat (Segment B ran on
+             "Run service") — show its headline instead of letting the
+             topbar coin jump unexplained. -->
+        <div class="service-outcome" data-testid="service-outcome">
+          <span class="outcome-stat">
+            <Icon name="staff" size={14} />
+            <span class="mono">{gameStore.serviceOutcome.patrons}</span>
+            <span class="outcome-label">patrons</span>
+          </span>
+          <span class="outcome-stat" class:gain={gameStore.serviceOutcome.netCoin > 0} class:loss={gameStore.serviceOutcome.netCoin < 0}>
+            <Icon name="coin" size={14} />
+            <span class="mono">
+              {gameStore.serviceOutcome.netCoin > 0 ? '+' : ''}{gameStore.serviceOutcome.netCoin}
+            </span>
+            <span class="outcome-label">coin</span>
+          </span>
+          {#if gameStore.serviceOutcome.incidents > 0}
+            <span class="outcome-stat loss">
+              <Icon name="stake-risk" size={14} />
+              <span class="mono">{gameStore.serviceOutcome.incidents}</span>
+              <span class="outcome-label">
+                {gameStore.serviceOutcome.incidents === 1 ? 'incident' : 'incidents'}
+              </span>
+            </span>
+          {/if}
+        </div>
+      {/if}
       {#if serviceSeeds.length === 0}
         <p class="quiet">{serviceEmpty}</p>
       {:else}
@@ -799,7 +836,7 @@
   .glance {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--sp-md);
+    gap: var(--sp-md) var(--sp-lg);
     padding: var(--sp-sm) var(--sp-md);
     background: var(--surface);
     border-radius: var(--radius-md);
@@ -807,10 +844,30 @@
     border: var(--border-faint);
   }
 
-  .glance span {
+  /* Each figure carries a micro-label so the strip reads as labelled
+     stats, not anonymous mono fragments. */
+  .glance-item {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .glance-label {
+    font-family: var(--font-body);
+    font-variant: small-caps;
+    letter-spacing: 0.06em;
+    font-size: 11px;
+    color: var(--text-faint);
+  }
+
+  .glance-value {
     display: inline-flex;
     align-items: center;
     gap: 4px;
+  }
+
+  .glance-value :global(svg) {
+    color: var(--accent-soft);
   }
 
   /* Phase 190b — stock chips wrap as a row of EntityLinks separated by
@@ -845,6 +902,43 @@
     border: var(--border-faint);
   }
 
+  /* Service headline strip — the day's outcome at a glance, shown the
+     moment service has run. */
+  .service-outcome {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-md);
+    padding: var(--sp-sm) var(--sp-md);
+    background: var(--surface);
+    border: var(--border-faint);
+    border-radius: var(--radius-md);
+  }
+
+  .outcome-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-dim);
+  }
+
+  .outcome-stat .mono {
+    color: var(--text);
+    font-size: 15px;
+  }
+
+  .outcome-stat.gain .mono {
+    color: var(--gain);
+  }
+
+  .outcome-stat.loss .mono {
+    color: var(--loss);
+  }
+
+  .outcome-label {
+    font-size: 13px;
+    color: var(--text-faint);
+  }
+
   .card-stack {
     display: flex;
     flex-direction: column;
@@ -865,7 +959,7 @@
     top: var(--sp-sm);
     right: var(--sp-xl);
     color: var(--accent-soft);
-    background: var(--ink-deep);
+    background: var(--bg);
     padding: 2px 8px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--candle-soft);
@@ -900,6 +994,10 @@
     align-items: center;
   }
 
+  /* Filled primary — the one button that advances the game should be the
+     brightest thing on screen. Ink-on-candle in dark mode, parchment-on-
+     umber in light (both read off tokens). Ghost/secondary stay outlines,
+     so the hierarchy is legible at a glance. */
   .primary {
     flex: 1;
     font-family: var(--font-display);
@@ -907,18 +1005,28 @@
     letter-spacing: 0.12em;
     text-transform: uppercase;
     font-size: 14px;
-    color: var(--accent);
-    background: transparent;
+    color: var(--bg);
+    background: var(--accent);
     border: 1px solid var(--accent);
     border-radius: var(--radius-sm);
     padding: 14px;
     min-height: 48px;
-    transition: background var(--m-fast) var(--ease);
+    box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 25%, transparent);
+    transition:
+      background var(--m-fast) var(--ease),
+      box-shadow var(--m-fast) var(--ease),
+      transform var(--m-fast) var(--ease);
   }
 
   .primary:hover,
   .primary:focus-visible {
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    background: color-mix(in srgb, var(--accent) 88%, white);
+    box-shadow: 0 2px 16px color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+
+  .primary:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 4px color-mix(in srgb, var(--accent) 25%, transparent);
   }
 
   .secondary {
@@ -938,19 +1046,22 @@
   }
 
   /* Phase 196 / ISSUE-163 — Quick Day is a peer affordance to "Plan the
-     day", not a footnote: it carries the `.primary` button footprint
-     (outline, display font, full tap target) but a neutral outline + body
-     text colour so "Plan the day" stays the brighter recommended default.
-     Two real options, clear default. */
+     day", not a footnote: it keeps the `.primary` footprint (display
+     font, full tap target) but stays an outline so the filled "Plan the
+     day" remains the recommended default. Two real options, clear
+     default. */
   .quick-day {
     color: var(--text);
+    background: transparent;
     border-color: color-mix(in srgb, var(--candle-soft) 55%, transparent);
+    box-shadow: none;
   }
 
   .quick-day:hover,
   .quick-day:focus-visible {
     border-color: var(--accent);
     background: color-mix(in srgb, var(--accent) 12%, transparent);
+    box-shadow: none;
   }
 
   .ghost {
@@ -1130,7 +1241,7 @@
     line-height: 1.4;
     word-break: break-word;
     padding: var(--sp-xs) var(--sp-sm);
-    background: var(--ink-deep);
+    background: var(--bg);
     border-radius: var(--radius-sm);
     border: 1px solid color-mix(in srgb, var(--candle-soft) 30%, transparent);
     max-width: 100%;

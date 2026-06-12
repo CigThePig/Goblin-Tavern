@@ -149,7 +149,7 @@
   {/if}
 
   <footer class="foot chip">
-    headless sim · 95 phases · cards in flight
+    every coin counted · every grudge remembered
   </footer>
 </main>
 
@@ -226,21 +226,25 @@
     max-width: 320px;
   }
 
+  /* Filled primary CTA — matches the Day screen's hierarchy: the action
+     that starts the game is the brightest element on screen. */
   .primary {
     font-family: var(--font-display);
     font-weight: 700;
     font-size: 16px;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    background: transparent;
-    color: var(--accent);
+    background: var(--accent);
+    color: var(--bg);
     border: 1px solid var(--accent);
     border-radius: var(--radius-sm);
     padding: 14px var(--sp-xl);
     min-height: 48px;
+    box-shadow: 0 2px 14px color-mix(in srgb, var(--accent) 30%, transparent);
     transition:
       background var(--m-fast) var(--ease),
-      box-shadow var(--m-fast) var(--ease);
+      box-shadow var(--m-fast) var(--ease),
+      transform var(--m-fast) var(--ease);
     display: inline-flex;
     flex-direction: column;
     align-items: center;
@@ -249,8 +253,12 @@
 
   .primary:hover,
   .primary:focus-visible {
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
-    box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 25%, transparent);
+    background: color-mix(in srgb, var(--accent) 88%, white);
+    box-shadow: 0 0 28px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+
+  .primary:active {
+    transform: translateY(1px);
   }
 
   .cta-sub {
@@ -258,7 +266,7 @@
     font-size: 11px;
     letter-spacing: 0.06em;
     text-transform: none;
-    color: var(--text-faint);
+    color: color-mix(in srgb, var(--bg) 80%, var(--accent));
     font-weight: 400;
   }
 

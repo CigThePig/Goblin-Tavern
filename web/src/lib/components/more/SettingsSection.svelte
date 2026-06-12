@@ -11,12 +11,19 @@
   import type {
     FontScale,
     ReducedMotionMode,
+    ThemeMode,
   } from '../../prefs/preferences'
 
   const fontScales: { id: FontScale; label: string }[] = [
     { id: 'sm', label: 'Small' },
     { id: 'md', label: 'Medium' },
     { id: 'lg', label: 'Large' },
+  ]
+
+  const themes: { id: ThemeMode; label: string; hint: string }[] = [
+    { id: 'dark', label: 'Night', hint: 'tavern at night — the default' },
+    { id: 'light', label: 'Parchment', hint: 'daylight ledger palette' },
+    { id: 'auto', label: 'Auto', hint: 'follow OS preference' },
   ]
 
   const motionModes: { id: ReducedMotionMode; label: string; hint: string }[] = [
@@ -32,6 +39,27 @@
 
 <section class="settings-section" aria-labelledby="settings-h">
   <h2 id="settings-h" class="display heading-row">Settings</h2>
+
+  <div class="row">
+    <div class="row-label">
+      <span class="row-title">Theme</span>
+      <span class="row-sub">Night is the tavern by candlelight; Parchment is a daylight ledger.</span>
+    </div>
+    <div class="seg" role="group" aria-label="Theme">
+      {#each themes as opt (opt.id)}
+        <button
+          type="button"
+          class="seg-chip"
+          class:selected={prefsStore.preferences.theme === opt.id}
+          aria-pressed={prefsStore.preferences.theme === opt.id}
+          title={opt.hint}
+          onclick={() => prefsStore.setTheme(opt.id)}
+        >
+          {opt.label}
+        </button>
+      {/each}
+    </div>
+  </div>
 
   <div class="row">
     <div class="row-label">

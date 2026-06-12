@@ -127,6 +127,17 @@
     } else {
       root.removeAttribute('data-reduced-motion')
     }
+    // Theme: 'dark' pins the night palette, 'light' pins parchment, and
+    // 'auto' removes the attribute so the prefers-color-scheme rule in
+    // global.css decides. index.html ships data-theme="dark" so the
+    // pre-hydration frame is always night — this effect takes over once
+    // preferences load.
+    const theme = prefsStore.preferences.theme
+    if (theme === 'auto') {
+      root.removeAttribute('data-theme')
+    } else {
+      root.setAttribute('data-theme', theme)
+    }
   })
 
   // Phase 93 / ISSUE-053 — Sync the App-level `view` from

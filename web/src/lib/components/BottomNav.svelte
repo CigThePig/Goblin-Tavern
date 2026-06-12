@@ -51,10 +51,21 @@
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     height: var(--nav-h);
-    background: var(--ink);
+    /* Semantic token (not raw --ink) so parchment mode stays readable. */
+    background: var(--surface);
     border-top: var(--border-faint);
     padding-bottom: env(safe-area-inset-bottom, 0);
     z-index: 10;
+  }
+
+  /* Desktop: keep the bar full-width but cluster the five tabs into the
+     content column — 250px between adjacent tabs is a pointing exercise,
+     not navigation. */
+  @media (min-width: 720px) {
+    .bottom-nav {
+      grid-template-columns: repeat(5, minmax(0, calc(var(--max-content) / 5)));
+      justify-content: center;
+    }
   }
 
   .tab {
@@ -116,7 +127,7 @@
     height: 6px;
     border-radius: 50%;
     background: var(--accent);
-    border: 1px solid var(--ink);
+    border: 1px solid var(--surface);
   }
 
   /* Phase 194 — primary nav labels read as actions, not atmosphere:

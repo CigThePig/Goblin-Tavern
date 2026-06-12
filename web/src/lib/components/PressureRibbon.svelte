@@ -145,7 +145,9 @@
 
   .bar-track {
     height: 4px;
-    background: color-mix(in srgb, var(--ink-deep) 70%, var(--ash) 30%);
+    /* Theme-relative: a faint text tint reads as an empty track in both
+       dark and parchment modes (raw ink turned near-black on parchment). */
+    background: color-mix(in srgb, var(--text) 18%, transparent);
     border-radius: 2px;
     overflow: hidden;
   }

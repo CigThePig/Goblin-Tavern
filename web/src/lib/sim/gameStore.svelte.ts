@@ -219,6 +219,17 @@ class GameStore {
   runError: { message: string; stack?: string } | undefined = $state(undefined)
 
   /**
+   * Headline outcome of the day's service run (Segment B), captured so
+   * the service beat can SHOW the day that just happened — patrons
+   * through the door, net coin movement, incident count — instead of an
+   * empty screen while the topbar coin silently jumps. Ephemeral view
+   * state: not persisted; a mid-day reload simply omits the strip.
+   */
+  serviceOutcome:
+    | { patrons: number; netCoin: number; incidents: number }
+    | undefined = $state(undefined)
+
+  /**
    * Phase 97 — Per-day dismissed missed-opportunity ids. Used by the
    * daily-report projection to filter the "What you could have done"
    * block. A new Set reference is assigned on every change so `$state`
@@ -296,6 +307,7 @@ class GameStore {
     this.pendingBySeedId = {}
     this.serviceComplete = false
     this.closingComplete = false
+    this.serviceOutcome = undefined
     return result
   }
 
@@ -323,6 +335,30 @@ class GameStore {
     // Owner actions have been applied — drain the queue. Staff priorities
     // persist by design.
     this.picks = []
+    // Capture the service headline for the service-beat outcome strip.
+    // The service module's report section is only built in Segment C, but
+    // the module stores the day's result on its state slice as soon as
+    // service resolves — read it from there.
+    const svc = (result.state.modules['service'] as
+      | {
+          result?: {
+            trafficByGroup?: Record<string, number>
+            netCoinEarned?: number
+            incidents?: unknown[]
+          }
+        }
+      | undefined)?.result
+    if (svc) {
+      const patrons = Object.values(svc.trafficByGroup ?? {}).reduce(
+        (sum, n) => sum + (typeof n === 'number' ? n : 0),
+        0,
+      )
+      this.serviceOutcome = {
+        patrons,
+        netCoin: svc.netCoinEarned ?? 0,
+        incidents: (svc.incidents ?? []).length,
+      }
+    }
     return result
   }
 
@@ -406,6 +442,7 @@ class GameStore {
     this.segment = INITIAL_DAY_SESSION.segment
     this.dayBaseline = undefined
     this.dayLogs = []
+    this.serviceOutcome = undefined
     this.route = 'day'
     this.reportsSubview = 'today'
     this.tavernSubview = 'areas'

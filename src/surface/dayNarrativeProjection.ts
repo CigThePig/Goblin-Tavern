@@ -6,6 +6,7 @@ import type { ResolvedIntentRecord } from '../sim/modules/responses/types'
 import type { TavernState, MemoryState } from '../sim/state/TavernState'
 import type { PressureSnapshot } from '../sim/modules/pressures/pressureTypes'
 import { closedDayAbsolute } from '../reports/causeLookup'
+import { humanizeId } from '../reports/labels/idLabel'
 import { projectMissedOpportunities } from '../reports/missedOpportunityProjection'
 import { addSurfaceFact, dedupeSurfaceFacts, evidenceRef } from './evidence'
 import type { SurfaceFact } from './types'
@@ -136,8 +137,14 @@ function buildServiceFacts(result: SimResult): SurfaceFact[] {
     })
   }
   for (const [index, incident] of (serviceResult.incidents ?? []).entries()) {
-    const readable = (incident as { readable?: string; kind?: string; type?: string }).readable
-      ?? `Incident: ${(incident as { kind?: string; type?: string }).kind ?? (incident as { type?: string }).type ?? 'event'}.`
+    const inc = incident as { readable?: string; id?: string; kind?: string; type?: string }
+    // Humanize the machine id (`chair_damage` → "chair damage"); skip
+    // incidents with no usable identity rather than printing "Incident:
+    // event".
+    const rawKind = inc.kind ?? inc.type ?? inc.id
+    const readable = inc.readable
+      ?? (rawKind ? `Incident: ${humanizeId(rawKind).toLowerCase()}.` : undefined)
+    if (!readable) continue
     addSurfaceFact(facts, {
       id: `day:service:incident:${index}`,
       kind: 'consequence',

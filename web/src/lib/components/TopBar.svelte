@@ -252,7 +252,9 @@
     align-items: center;
     height: var(--topbar-h);
     padding: 0 var(--sp-md);
-    background: var(--ink);
+    /* Semantic token (not raw --ink) so parchment mode gets a light bar
+       with dark text instead of dark-on-dark chrome. */
+    background: var(--surface);
     border-bottom: var(--border-faint);
     position: sticky;
     top: 0;
@@ -281,6 +283,7 @@
     align-items: center;
     gap: 6px;
     max-width: 100%;
+    min-width: 0;
     font-family: var(--font-body);
     font-size: 13px;
     color: var(--text-dim);
@@ -288,11 +291,23 @@
     overflow: hidden;
   }
 
+  /* The pressure chip is the only flexible element on the line: it
+     shrinks (its label ellipsizes) before anything else clips, so the
+     day ordinal and day-type badge always render whole. Previously the
+     badge — the LAST flex item — was what got cut ("Supplie…"). */
+  .day-line :global(.metric-link) {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+  }
+
   .sep {
+    flex-shrink: 0;
     color: var(--text-faint);
   }
 
   .day-chip {
+    flex-shrink: 0;
     font: inherit;
     font-variant: small-caps;
     letter-spacing: 0.05em;
@@ -319,15 +334,35 @@
     align-items: center;
     gap: 4px;
     color: var(--text);
+    max-width: 100%;
+    min-width: 0;
   }
 
   .pressure-label {
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 11ch;
+    /* Keep at least a recognisable stem ("Food S…", "Landl…") — the
+       label is the stakes summary; two letters is worse than no chip. */
+    min-width: 6ch;
+    flex: 0 1 auto;
+  }
+
+  /* Narrow phones: tighten the line and drop the trend glyph before
+     letting the label squeeze below readability. */
+  @media (max-width: 480px) {
+    .day-line {
+      font-size: 12px;
+      gap: 4px;
+    }
+
+    .pressure-chip :global(svg) {
+      display: none;
+    }
   }
 
   .pressure-value {
+    flex-shrink: 0;
     color: var(--text-dim);
   }
 
@@ -337,6 +372,7 @@
   }
 
   .badge {
+    flex-shrink: 0;
     font-variant: small-caps;
     letter-spacing: 0.05em;
     font-size: 11px;

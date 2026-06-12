@@ -26,6 +26,12 @@
 
   const showSeal = $derived((card.severity ?? 0) >= 70)
 
+  // Snippet pools emit lowercase prose fragments ("coin would leave the
+  // till by a step") next to capitalized ones — normalize to sentence
+  // case at the display boundary so a card's preview list reads evenly.
+  const sentenceCase = (s: string) =>
+    s.length > 0 ? s.charAt(0).toUpperCase() + s.slice(1) : s
+
   // ISSUE-047 — when the seed already models an `ignore`-verb slot, that
   // slot (rendered as a normal choice) IS the player's "do nothing"
   // option; the generic Ignore would be a sneakier alternative whose
@@ -107,9 +113,9 @@
       >
         <span class="choice-label">{c.label}</span>
         {#if c.previewEffects.length > 0}
-          <ul class="preview mono" aria-label="Narrative effects">
+          <ul class="preview" aria-label="Narrative effects">
             {#each c.previewEffects as e, i (i)}
-              <li>{e}</li>
+              <li>{sentenceCase(e)}</li>
             {/each}
           </ul>
         {/if}
@@ -197,7 +203,7 @@
     gap: var(--sp-xs);
     padding: var(--sp-xs) var(--sp-sm);
     border-left: 2px solid color-mix(in srgb, var(--accent-soft) 45%, transparent);
-    background: color-mix(in srgb, var(--ink-deep) 32%, transparent);
+    background: rgba(0, 0, 0, 0.14);
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   }
 
@@ -238,7 +244,7 @@
     gap: var(--sp-xxs);
     padding: var(--sp-xs) var(--sp-sm);
     border-left: 2px solid var(--candle-soft);
-    background: color-mix(in srgb, var(--ink-deep) 50%, transparent);
+    background: rgba(0, 0, 0, 0.2);
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   }
 
@@ -272,7 +278,7 @@
     align-items: flex-start;
     gap: var(--sp-xxs);
     padding: var(--sp-sm) var(--sp-md);
-    background: var(--ink);
+    background: var(--surface);
     border: 1px solid color-mix(in srgb, var(--candle-soft) 50%, transparent);
     border-radius: var(--radius-sm);
     color: var(--text);
@@ -286,7 +292,7 @@
   .choice:not(:disabled):hover,
   .choice:not(:disabled):focus-visible {
     border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 6%, var(--ink));
+    background: color-mix(in srgb, var(--accent) 6%, var(--surface));
   }
 
   .choice:disabled {
@@ -304,10 +310,17 @@
     color: var(--accent-soft);
   }
 
+  /* Narrative previews read as prose (body italic), so they are visually
+     distinct from the mechanical chips below; mono is reserved for
+     figures. Snippet pools emit lowercase fragments — capitalize at the
+     display boundary. */
   .preview {
     margin-top: 2px;
     color: var(--text-faint);
-    font-size: 13px;
+    font-family: var(--font-body);
+    font-style: italic;
+    font-size: 13.5px;
+    line-height: 1.4;
   }
 
   .preview li {

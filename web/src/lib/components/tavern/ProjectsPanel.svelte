@@ -11,7 +11,7 @@
   import MeterBar from './MeterBar.svelte'
   import { gameStore, formatDuration } from '../../sim/gameStore.svelte'
   import { actionRegistry } from '../../../../../src/sim/registries/actionRegistry'
-  import { categoryLabel } from '../../sim/actionBuilder'
+  import { categoryLabel, humanizeActionReason } from '../../sim/actionBuilder'
   import { idLabel } from '../../../../../src/reports/labels/idLabel'
   import type {
     AvailableProjectRow,
@@ -164,7 +164,7 @@
                     {#if queued}
                       <span class="q">·queued</span>
                     {:else if ref.disabledReason}
-                      <span class="r">·{ref.disabledReason}</span>
+                      <span class="r">·{humanizeActionReason(ref.disabledReason)}</span>
                     {/if}
                   </button>
                 {/each}

@@ -49,6 +49,25 @@ Implementation rule for this documentation pass:
 
 > Do not add new runtime behavior while strengthening this plan. The purpose here is to make future implementation steps precise enough that they can be completed without guessing how cards are generated today.
 
+## Progress Check After Phase 8
+
+Verified on 2026-06-12 after the repository changes made since the Phase 8 work. The changes do not invalidate this plan, but they do change how the remaining phases should be approached:
+
+- Phase 0 and Phase 1 infrastructure now exists as `npm run sample:card-choices` and `npm run audit:card-choices`; future phases should refresh and use those reports instead of adding another sampler or audit entry point.
+- `ResponseSlot.choiceContract`, `ChoiceArchetype`, and the supporting contract fields now exist in `src/sim/modules/issues/issueSeedTypes.ts`. Future phases should annotate missing slots directly with that field unless a family has a strong reason to use a sidecar.
+- `EffectPreview` now carries `meterDisplayCategory` in addition to `targetKind`, `direction`, `magnitudeBand`, `meterId`, and `meterLabel`. Remaining audit/test work should use this metadata instead of recreating meter-polarity rules in card UI code.
+- Delayed preview selection is already role-based and can show multiple additive `later: ` lines through `selectDelayedPreviewEffects()`. Future phases should preserve that additive policy and only adjust role predicates when a family exposes a new kind of delayed payoff or risk.
+- Pressure effect chip labels now come from `pressureRegistry.effectLabel` where available. Remaining label work should extend pressure definitions or sim-side meter metadata, not add a card-only label table.
+- Area/room, stock/supplier, staff, and reputation/social families have been repaired enough to proceed. The next phases should not reopen them broadly; touch them only when the current audit shows a cross-family issue.
+
+Current audit snapshot (`npm run audit:card-choices`, 113 rows) still reports 26 rows with warnings. The warnings most relevant to the remaining phases are:
+
+- Phase 9 scope: `violence/ban_group` still looks possibly dominated; `faction_request/call_watch` still looks possibly dominated; `culture_conflict/mediate_groups` and `culture_conflict/ask_staff_to_intervene` still report expected cost gaps; `rival_tavern/host_counter_event` hides a long-term payoff.
+- Phase 10 scope: `debt_rent/delay` reports an expected-cost mismatch because its authored expectation says "no immediate cost" while the audit currently treats expected costs broadly; `monthly_review/pay_landlord_on_time` reports an expected-cost gap.
+- Cross-scope legacy cards still missing explicit contracts include at least core `violence`, `debt_rent`, `maintenance/close_area`, `inspection`, and `faction_request` response slots. Add contracts as part of the phase that touches each family.
+
+The remaining work should therefore start from existing implementation, not the older assumptions in the original phase text. Where an older phase says to add a type, script, or metadata field that now exists, interpret it as "use and extend the existing surface."
+
 ## Phase 0: Preserve Current Behavior Before Surgery
 
 ### Goal
@@ -954,6 +973,16 @@ Rough Reputation +6
 
 Make risky, violent, factional, or disciplinary choices legible.
 
+### Current Repo Status / Plan Update
+
+The original direction still holds, but the implementation should account for the post-Phase-8 contract work:
+
+- Do not add a new conflict-card contract system. Use the existing `ResponseSlot.choiceContract` field and the current `ChoiceArchetype` union.
+- Start by annotating the remaining uncontracted conflict families, especially core `violence` slots in `issueSeedGenerators.ts` and `faction_request` slots in `expandedSeedGenerators.ts`.
+- `culture_conflict` already has some card-coherence repairs, but the current audit still flags `mediate_groups` and `ask_staff_to_intervene` for expected cost gaps. Treat those as targeted follow-ups rather than a wholesale rewrite.
+- `rival_tavern/host_counter_event` belongs in this phase if it is treated as social conflict/escalation. The audit currently says its long-term payoff is still hidden, so either its contract should require a visible delayed payoff or its delayed benefit tagging/role metadata should be adjusted.
+- The audit's `possible_dominated_option` warning is intentionally conservative. Before changing mechanics for `violence/ban_group` or `faction_request/call_watch`, first check whether the option already has a distinct target, timing, or risk profile that the audit cannot see. If so, improve contract metadata or audit exemptions with source context rather than flattening the choice.
+
 This domain should include:
 
 ```text
@@ -998,12 +1027,34 @@ Respectable Reputation -5
 
 4. Security improvements must cost coin, staff load, or atmosphere.
 
+5. Core `violence` response slots should receive explicit archetypes before mechanics are rebalanced:
+
+```text
+hire_security -> major_project or proper_repair, depending on whether the delayed security hook is intended as an investment payoff
+ban_group -> escalate
+embrace_rowdy -> spin_or_rebrand or cut_corners
+repair_damage -> proper_repair or patch, matching the authored damage amount and cost
+```
+
+6. `faction_request` response slots should receive explicit archetypes and visible stakes:
+
+```text
+appease_faction -> appease or compensate
+negotiate_terms -> negotiate
+refuse_faction -> escalate
+host_faction_night -> call_in_favor or major_project, depending on whether it is a future-facing event investment
+call_watch -> escalate
+play_rival_faction -> cut_corners
+```
+
 ### Acceptance Criteria
 
 - Risky options are not disguised as clean upgrades.
 - The player can tell who benefits and who is angered.
 - Security options have costs.
 - Escalation cards always show possible blowback.
+- Conflict/security/faction slots touched in this phase have `choiceContract` metadata.
+- The card-choice audit no longer reports hidden long-term payoff for `rival_tavern/host_counter_event`, unless the warning is documented with a specific, source-backed reason.
 
 ---
 
@@ -1012,6 +1063,15 @@ Respectable Reputation -5
 ### Goal
 
 Make financial choices concrete and strategically understandable.
+
+### Current Repo Status / Plan Update
+
+The financial-card work should also begin from the existing contract/audit surfaces:
+
+- Add `choiceContract` metadata to core `debt_rent` response slots before changing behavior. The family predates the contract pass and currently relies on `shape` plus `expectedEffects`.
+- Treat `debt_rent/delay` carefully: it has no immediate effects by design and its delayed landlord pressure/future hook are already visible, but the current audit flags `expected_cost_missing` because "no immediate cost" is present in `expectedEffects`. This may be an audit-rule wording problem rather than a card-mechanics problem. Either refine the audit so "no immediate cost" is not interpreted as a missing cost, or replace the expected-effect wording with a contract that says `costTypes: ["none"]`, `payoffTiming: "delayed"`, and `requiresVisibleTradeoff: true`.
+- `monthly_review/pay_landlord_on_time` currently reports an expected-cost gap. Verify whether the profile has a real coin effect that is not visible, no coin effect despite the label, or an `expectedEffects` phrase that overpromises. Fix the source of truth, not just the prose.
+- When adding or changing money effects, use the existing `formatEffectPreview()` path so exact coin values render as mechanical chips; do not introduce a second money formatter.
 
 This domain should include:
 
@@ -1082,6 +1142,8 @@ multi-domain benefit
 - Deferred payments are not free.
 - Expensive options are visibly justified.
 - The audit flags no high-cost-low-visible-benefit choices unless intentionally documented.
+- Core `debt_rent` slots have `choiceContract` metadata and the audit distinguishes intentional no-immediate-cost deferrals from missing-cost bugs.
+- Monthly review financial choices either show their actual coin effect or stop promising a coin payment when no such effect exists.
 
 ---
 
@@ -1090,6 +1152,15 @@ multi-domain benefit
 ### Goal
 
 Prevent the same class of bugs from returning.
+
+### Current Repo Status / Plan Update
+
+Some coherence coverage already exists from the earlier phases, so Phase 11 should be an expansion/consolidation pass rather than a first test pass:
+
+- Keep using the existing card composition gates under `tests/cards/compose/gates/` and the targeted card-template tests. Add new assertions beside those tests unless a new helper is clearly shared across domains.
+- Tests should call the same `selectPreviewEffects()`, `selectDelayedPreviewEffects()`, and `formatEffectPreview()` helpers used by production rendering so the gates do not reimplement preview policy.
+- Add regression coverage for the specific remaining audit findings fixed in Phases 9 and 10: conflict/faction contracts, visible escalation blowback, intentional no-immediate-cost debt deferral, and monthly-review coin exactness.
+- If an audit warning is intentionally accepted as a conservative false positive, add an explicit test or allowlist entry with the family, slot id, and reason. Do not silently ignore it in the generated report.
 
 ### Test Categories
 
@@ -1179,6 +1250,14 @@ But they should not imply player failure.
 
 Validate that the repaired system feels coherent in play, not just in tests.
 
+### Current Repo Status / Plan Update
+
+The final review should compare against both durable audit artifacts now present in the repo:
+
+- Refresh `docs/audits/generated-card-baseline/` with `npm run sample:card-choices` if the implementation phase changed rendered card output substantially.
+- Refresh `docs/audits/card-choice-audit.md` and `.json` with `npm run audit:card-choices` after Phases 9-11. The expected direction is fewer warning rows than the current 26-warning-row snapshot, with any remaining warnings documented as intentional or deferred.
+- Review the first-day output specifically for legacy/core families (`violence`, `debt_rent`, `maintenance`, `inspection`) because they did not all receive contracts during the Phase 5-8 vertical slices.
+
 ### Tasks
 
 1. Generate a fresh full-card audit report.
@@ -1208,6 +1287,8 @@ Validate that the repaired system feels coherent in play, not just in tests.
 ## Recommended Implementation Order
 
 Do not implement everything in one pass.
+
+Post-Phase-8 update: steps 1 through 10 in the original order are already complete or sufficiently complete to move on. Continue with Phase 9, then Phase 10, then the remaining test/final-review work.
 
 Use this order:
 

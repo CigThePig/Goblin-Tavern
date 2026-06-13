@@ -15,10 +15,21 @@ export const effectPreviewPool: SnippetPool = {
   snippets: [
     ...narratorEffectPreviewBase(),
     {
+      id: 'pre_coin_rent_neutral',
+      text: 'Coin stays unchanged; rent was already settled',
+      conditions: [
+        { kind: 'effectTag', tag: 'rent' },
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'neutral' },
+      ],
+    },
+    {
       id: 'pre_coin_rent',
       text: 'Coin would leave the till for the landlord',
       conditions: [
         { kind: 'effectTag', tag: 'rent' },
+        { kind: 'effectTargetKind', anyOf: ['coin'] },
+        { kind: 'effectDirection', sign: 'negative' },
       ],
     },
     {

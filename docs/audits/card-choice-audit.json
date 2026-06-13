@@ -676,9 +676,7 @@
       ],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_cost_missing"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "food_safety",
@@ -6196,6 +6194,19 @@
       "responseSlotId": "pay",
       "responseLabel": "Pay what we owe",
       "responseShape": "safe_costly",
+      "choiceContract": {
+        "archetype": "compensate",
+        "primaryTarget": "pressure.landlord",
+        "solves": [
+          "rent_arrears",
+          "landlord_pressure"
+        ],
+        "costTypes": [
+          "coin"
+        ],
+        "payoffTiming": "immediate",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "pay"
       ],
@@ -6423,6 +6434,21 @@
       "responseSlotId": "borrow",
       "responseLabel": "Borrow coin",
       "responseShape": "risky_profitable",
+      "choiceContract": {
+        "archetype": "cut_corners",
+        "primaryTarget": "coin",
+        "solves": [
+          "immediate_coin_shortfall"
+        ],
+        "doesNotSolve": [
+          "debt_pressure"
+        ],
+        "costTypes": [
+          "pressure_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "borrow"
       ],
@@ -6498,7 +6524,7 @@
         }
       ],
       "expectedEffects": [
-        "gain coin",
+        "gain coin now",
         "create future debt"
       ],
       "visiblePreviewEffects": [
@@ -6582,9 +6608,7 @@
       ],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_cost_missing"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "debt_rent",
@@ -6595,6 +6619,19 @@
       "responseSlotId": "delay",
       "responseLabel": "Delay payment",
       "responseShape": "delay_problem",
+      "choiceContract": {
+        "archetype": "delay",
+        "primaryTarget": "pressure.landlord",
+        "doesNotSolve": [
+          "rent_arrears",
+          "landlord_pressure"
+        ],
+        "costTypes": [
+          "none"
+        ],
+        "payoffTiming": "delayed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "delay"
       ],
@@ -6649,8 +6686,8 @@
         }
       ],
       "expectedEffects": [
-        "no immediate cost",
-        "raise landlord pressure"
+        "no immediate coin cost",
+        "raise landlord pressure later"
       ],
       "visiblePreviewEffects": [
         {
@@ -6726,6 +6763,21 @@
       "responseSlotId": "raise_prices",
       "responseLabel": "Raise prices",
       "responseShape": "compromise",
+      "choiceContract": {
+        "archetype": "cut_corners",
+        "primaryTarget": "stock.ale.salePrice",
+        "solves": [
+          "immediate_coin_shortfall"
+        ],
+        "doesNotSolve": [
+          "customer_trust"
+        ],
+        "costTypes": [
+          "relationship_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "raise_price"
       ],
@@ -6784,7 +6836,7 @@
         }
       ],
       "expectedEffects": [
-        "raise margin",
+        "raise sale price",
         "risk customer trust"
       ],
       "visiblePreviewEffects": [
@@ -27536,6 +27588,18 @@
       "responseSlotId": "pay_landlord_on_time",
       "responseLabel": "Pay the landlord on time",
       "responseShape": "safe_costly",
+      "choiceContract": {
+        "archetype": "compensate",
+        "primaryTarget": "pressure.landlord",
+        "solves": [
+          "landlord_pressure"
+        ],
+        "costTypes": [
+          "none"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "pay"
       ],
@@ -27544,7 +27608,7 @@
       ],
       "choiceLabel": "Pay the landlord on the line",
       "renderedPreviewEffects": [
-        "Coin would leave the till for the landlord",
+        "Coin stays unchanged; rent was already settled",
         "the landlord's pressure would fall away, a sharp drop",
         "later: debt pressure would creep a step up the slate",
         "later: A reminder would sit on the slate for later"
@@ -27641,7 +27705,7 @@
       ],
       "expectedEffects": [
         "lower landlord pressure",
-        "spend coin"
+        "rent already paid"
       ],
       "visiblePreviewEffects": [
         {
@@ -27794,9 +27858,7 @@
       ],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_cost_missing"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "monthly_review",
@@ -27807,6 +27869,24 @@
       "responseSlotId": "invest_in_cellar",
       "responseLabel": "Invest in the cellar",
       "responseShape": "long_term_investment",
+      "choiceContract": {
+        "archetype": "major_project",
+        "primaryTarget": "areas.cellar.condition",
+        "solves": [
+          "cellar_condition",
+          "future_cellar_capacity"
+        ],
+        "doesNotSolve": [
+          "landlord_pressure"
+        ],
+        "costTypes": [
+          "coin",
+          "pressure_risk"
+        ],
+        "payoffTiming": "mixed",
+        "mustShowDelayedPayoff": true,
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "upgrade"
       ],
@@ -27914,6 +27994,7 @@
       ],
       "expectedEffects": [
         "improve cellar",
+        "spend coin",
         "risk rent slip"
       ],
       "visiblePreviewEffects": [
@@ -28101,6 +28182,21 @@
       "responseSlotId": "hold_reserves",
       "responseLabel": "Hold reserves through next month",
       "responseShape": "compromise",
+      "choiceContract": {
+        "archetype": "delay",
+        "primaryTarget": "pressure.debt",
+        "solves": [
+          "debt_pressure"
+        ],
+        "doesNotSolve": [
+          "staff_loyalty_risk"
+        ],
+        "costTypes": [
+          "pressure_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "delay"
       ],
@@ -28186,7 +28282,7 @@
       ],
       "expectedEffects": [
         "lower debt",
-        "staff feel the squeeze"
+        "staff feel the squeeze later"
       ],
       "visiblePreviewEffects": [
         {
@@ -28332,6 +28428,22 @@
       "responseSlotId": "settle_with_rival",
       "responseLabel": "Settle with the rival tavern",
       "responseShape": "compromise",
+      "choiceContract": {
+        "archetype": "negotiate",
+        "primaryTarget": "pressure.rival_tavern_pressure",
+        "solves": [
+          "rival_pressure"
+        ],
+        "doesNotSolve": [
+          "rumour_pressure"
+        ],
+        "costTypes": [
+          "coin",
+          "pressure_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "negotiate"
       ],
@@ -28461,7 +28573,8 @@
       ],
       "expectedEffects": [
         "lower rival pressure",
-        "fuel gossip"
+        "spend coin",
+        "fuel gossip later"
       ],
       "visiblePreviewEffects": [
         {
@@ -29325,7 +29438,6 @@
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
       "warningFlags": [
-        "expected_cost_missing",
         "possible_dominated_option"
       ]
     },

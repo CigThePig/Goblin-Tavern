@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 import { formatEffectPreview } from '../src/cards/compose/formatEffectPreview'
 import { cardRegistry, ensureRequiredCardsRegistered } from '../src/cards/registry'
@@ -476,7 +477,7 @@ function warningsForRow(slot: ResponseSlot, choice: CardChoice, immediate: Effec
   return [...flags]
 }
 
-function buildRows(): AuditRow[] {
+export function buildRows(): AuditRow[] {
   const rows: AuditRow[] = []
   for (const sample of SCENARIOS.flatMap(captureScenario)) {
     for (const choice of sample.choices) {
@@ -659,4 +660,6 @@ async function main(): Promise<void> {
   console.log(`Wrote ${rows.length} card-choice audit row(s) to ${join(OUT_DIR, REPORT_MD)} and ${join(OUT_DIR, REPORT_JSON)}`)
 }
 
-void main()
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  void main()
+}

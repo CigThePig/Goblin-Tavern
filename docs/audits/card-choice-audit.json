@@ -676,7 +676,9 @@
       ],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": []
+      "warningFlags": [
+        "expected_cost_missing"
+      ]
     },
     {
       "cardFamily": "food_safety",
@@ -789,7 +791,9 @@
           "direction": "neutral",
           "meterId": "supplier_retaliation_possible",
           "formatted": "Supplier may retaliate later",
-          "roles": [],
+          "roles": [
+            "risk"
+          ],
           "visible": true
         }
       ],
@@ -865,7 +869,9 @@
           "direction": "neutral",
           "meterId": "supplier_retaliation_possible",
           "formatted": "Supplier may retaliate later",
-          "roles": [],
+          "roles": [
+            "risk"
+          ],
           "visible": true
         }
       ],
@@ -907,6 +913,23 @@
           "meterLabel": "Rumour Pressure",
           "meterDisplayCategory": "bad_when_higher",
           "formatted": "Rumour Pressure +5",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "future_hook",
+          "target": "supplier_retaliation_possible",
+          "amount": 0,
+          "readable": "Supplier may retaliate later",
+          "tags": [
+            "future_hook"
+          ],
+          "targetKind": "other",
+          "direction": "neutral",
+          "meterId": "supplier_retaliation_possible",
+          "formatted": "Supplier may retaliate later",
           "roles": [
             "risk"
           ],
@@ -4335,7 +4358,7 @@
           "meterId": "supplier_goodwill_return_brakka_mushroom_cart",
           "formatted": "Goodwill returns next delivery",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -4419,7 +4442,7 @@
           "meterId": "supplier_goodwill_return_brakka_mushroom_cart",
           "formatted": "Goodwill returns next delivery",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -4506,7 +4529,9 @@
             "benefit"
           ],
           "visible": false
-        },
+        }
+      ],
+      "riskEffects": [
         {
           "kind": "future_hook",
           "target": "supplier_goodwill_return_brakka_mushroom_cart",
@@ -4521,17 +4546,14 @@
           "meterId": "supplier_goodwill_return_brakka_mushroom_cart",
           "formatted": "Goodwill returns next delivery",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
       ],
-      "riskEffects": [],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "possible_dominated_option"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "supplier_relationship",
@@ -5040,7 +5062,7 @@
           "meterId": "supplier_retaliation_brakka_mushroom_cart",
           "formatted": "Supplier may retaliate",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -5120,32 +5142,13 @@
           "meterId": "supplier_retaliation_brakka_mushroom_cart",
           "formatted": "Supplier may retaliate",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
       ],
       "costEffects": [],
-      "benefitEffects": [
-        {
-          "kind": "future_hook",
-          "target": "supplier_retaliation_brakka_mushroom_cart",
-          "amount": 12,
-          "readable": "Supplier may retaliate",
-          "tags": [
-            "future_hook"
-          ],
-          "targetKind": "other",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "supplier_retaliation_brakka_mushroom_cart",
-          "formatted": "Supplier may retaliate",
-          "roles": [
-            "benefit"
-          ],
-          "visible": true
-        }
-      ],
+      "benefitEffects": [],
       "riskEffects": [
         {
           "kind": "pressure",
@@ -5186,6 +5189,24 @@
             "risk"
           ],
           "visible": false
+        },
+        {
+          "kind": "future_hook",
+          "target": "supplier_retaliation_brakka_mushroom_cart",
+          "amount": 12,
+          "readable": "Supplier may retaliate",
+          "tags": [
+            "future_hook"
+          ],
+          "targetKind": "other",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "supplier_retaliation_brakka_mushroom_cart",
+          "formatted": "Supplier may retaliate",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
@@ -5671,7 +5692,9 @@
           "direction": "neutral",
           "meterId": "food_poisoning_outbreak_brakka_mushroom_cart",
           "formatted": "Outbreak risk grows",
-          "roles": [],
+          "roles": [
+            "risk"
+          ],
           "visible": true
         }
       ],
@@ -5776,7 +5799,9 @@
           "direction": "neutral",
           "meterId": "food_poisoning_outbreak_brakka_mushroom_cart",
           "formatted": "Outbreak risk grows",
-          "roles": [],
+          "roles": [
+            "risk"
+          ],
           "visible": true
         }
       ],
@@ -5881,6 +5906,24 @@
           "meterLabel": "Food Safety Risk",
           "meterDisplayCategory": "bad_when_higher",
           "formatted": "Food Safety Risk +8",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "future_hook",
+          "target": "food_poisoning_outbreak_brakka_mushroom_cart",
+          "amount": 0,
+          "readable": "Outbreak risk grows",
+          "tags": [
+            "future_hook",
+            "risk"
+          ],
+          "targetKind": "other",
+          "direction": "neutral",
+          "meterId": "food_poisoning_outbreak_brakka_mushroom_cart",
+          "formatted": "Outbreak risk grows",
           "roles": [
             "risk"
           ],
@@ -6539,7 +6582,9 @@
       ],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": []
+      "warningFlags": [
+        "expected_cost_missing"
+      ]
     },
     {
       "cardFamily": "debt_rent",
@@ -6670,9 +6715,7 @@
       ],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_cost_missing"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "debt_rent",
@@ -8069,7 +8112,7 @@
           "meterId": "town_watch_goodwill",
           "formatted": "Watch may return with goodwill",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -8153,7 +8196,7 @@
           "meterId": "town_watch_goodwill",
           "formatted": "Watch may return with goodwill",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -8241,7 +8284,9 @@
             "benefit"
           ],
           "visible": false
-        },
+        }
+      ],
+      "riskEffects": [
         {
           "kind": "future_hook",
           "target": "town_watch_goodwill",
@@ -8256,17 +8301,14 @@
           "meterId": "town_watch_goodwill",
           "formatted": "Watch may return with goodwill",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
       ],
-      "riskEffects": [],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "possible_dominated_option"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "inspection",
@@ -8584,9 +8626,7 @@
       "riskEffects": [],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_cost_missing"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "inspection",
@@ -9663,7 +9703,7 @@
           "meterId": "coverage_gap_cleaner_bouncer",
           "formatted": "Coverage gap may resurface when Nash returns",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -9772,7 +9812,7 @@
           "meterId": "coverage_gap_cleaner_bouncer",
           "formatted": "Coverage gap may resurface when Nash returns",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -9862,7 +9902,9 @@
             "benefit"
           ],
           "visible": true
-        },
+        }
+      ],
+      "riskEffects": [
         {
           "kind": "future_hook",
           "target": "coverage_gap_cleaner_bouncer",
@@ -9879,12 +9921,11 @@
           "meterId": "coverage_gap_cleaner_bouncer",
           "formatted": "Coverage gap may resurface when Nash returns",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
       ],
-      "riskEffects": [],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
       "warningFlags": []
@@ -13084,7 +13125,7 @@
           "meterId": "regular_word_credibility_phase163_regular_brik",
           "formatted": "Regulars may judge the promise later",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -13172,7 +13213,7 @@
           "meterId": "regular_word_credibility_phase163_regular_brik",
           "formatted": "Regulars may judge the promise later",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -13218,26 +13259,6 @@
             "benefit"
           ],
           "visible": true
-        },
-        {
-          "kind": "future_hook",
-          "target": "regular_word_credibility_phase163_regular_brik",
-          "amount": 8,
-          "readable": "Regulars may judge the promise later",
-          "tags": [
-            "future_hook",
-            "reputation",
-            "risk"
-          ],
-          "targetKind": "other",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "regular_word_credibility_phase163_regular_brik",
-          "formatted": "Regulars may judge the promise later",
-          "roles": [
-            "benefit"
-          ],
-          "visible": true
         }
       ],
       "riskEffects": [
@@ -13258,6 +13279,26 @@
           "meterLabel": "Reputation Drift Pressure",
           "meterDisplayCategory": "bad_when_higher",
           "formatted": "Reputation Drift Pressure +5",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "future_hook",
+          "target": "regular_word_credibility_phase163_regular_brik",
+          "amount": 8,
+          "readable": "Regulars may judge the promise later",
+          "tags": [
+            "future_hook",
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "other",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "regular_word_credibility_phase163_regular_brik",
+          "formatted": "Regulars may judge the promise later",
           "roles": [
             "risk"
           ],
@@ -14037,7 +14078,7 @@
           "meterId": "regular_word_credibility_phase163_regular_brik",
           "formatted": "Regulars may judge the promise later",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -14125,7 +14166,7 @@
           "meterId": "regular_word_credibility_phase163_regular_brik",
           "formatted": "Regulars may judge the promise later",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -14171,26 +14212,6 @@
             "benefit"
           ],
           "visible": true
-        },
-        {
-          "kind": "future_hook",
-          "target": "regular_word_credibility_phase163_regular_brik",
-          "amount": 8,
-          "readable": "Regulars may judge the promise later",
-          "tags": [
-            "future_hook",
-            "reputation",
-            "risk"
-          ],
-          "targetKind": "other",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "regular_word_credibility_phase163_regular_brik",
-          "formatted": "Regulars may judge the promise later",
-          "roles": [
-            "benefit"
-          ],
-          "visible": true
         }
       ],
       "riskEffects": [
@@ -14211,6 +14232,26 @@
           "meterLabel": "Reputation Drift Pressure",
           "meterDisplayCategory": "bad_when_higher",
           "formatted": "Reputation Drift Pressure +5",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "future_hook",
+          "target": "regular_word_credibility_phase163_regular_brik",
+          "amount": 8,
+          "readable": "Regulars may judge the promise later",
+          "tags": [
+            "future_hook",
+            "reputation",
+            "risk"
+          ],
+          "targetKind": "other",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "regular_word_credibility_phase163_regular_brik",
+          "formatted": "Regulars may judge the promise later",
           "roles": [
             "risk"
           ],
@@ -16547,6 +16588,20 @@
       "responseSlotId": "hire_security",
       "responseLabel": "Hire security",
       "responseShape": "safe_costly",
+      "choiceContract": {
+        "archetype": "major_project",
+        "primaryTarget": "pressure:violence",
+        "solves": [
+          "violence_pressure"
+        ],
+        "costTypes": [
+          "coin",
+          "staff_fatigue"
+        ],
+        "payoffTiming": "mixed",
+        "mustShowDelayedPayoff": true,
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "pay"
       ],
@@ -16838,6 +16893,18 @@
       "responseSlotId": "ban_group",
       "responseLabel": "Ban the rowdiest group",
       "responseShape": "relationship_sacrifice",
+      "choiceContract": {
+        "archetype": "escalate",
+        "primaryTarget": "pressure:violence",
+        "solves": [
+          "immediate_violence"
+        ],
+        "costTypes": [
+          "relationship_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "ban"
       ],
@@ -16923,6 +16990,7 @@
           "readable": "ogres may try to return",
           "tags": [
             "future_hook",
+            "risk",
             "customer",
             "ogres"
           ],
@@ -16932,7 +17000,7 @@
           "meterId": "banned_group_returns_ogres",
           "formatted": "ogres may try to return",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -17005,6 +17073,7 @@
           "readable": "ogres may try to return",
           "tags": [
             "future_hook",
+            "risk",
             "customer",
             "ogres"
           ],
@@ -17014,7 +17083,7 @@
           "meterId": "banned_group_returns_ogres",
           "formatted": "ogres may try to return",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -17040,7 +17109,9 @@
             "benefit"
           ],
           "visible": true
-        },
+        }
+      ],
+      "riskEffects": [
         {
           "kind": "future_hook",
           "target": "banned_group_returns_ogres",
@@ -17048,6 +17119,7 @@
           "readable": "ogres may try to return",
           "tags": [
             "future_hook",
+            "risk",
             "customer",
             "ogres"
           ],
@@ -17057,17 +17129,14 @@
           "meterId": "banned_group_returns_ogres",
           "formatted": "ogres may try to return",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
       ],
-      "riskEffects": [],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "possible_dominated_option"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "violence",
@@ -17078,6 +17147,19 @@
       "responseSlotId": "embrace_rowdy",
       "responseLabel": "Embrace the chaos",
       "responseShape": "reputation_play",
+      "choiceContract": {
+        "archetype": "spin_or_rebrand",
+        "primaryTarget": "reputation.dangerous",
+        "doesNotSolve": [
+          "violence_pressure"
+        ],
+        "costTypes": [
+          "reputation_risk",
+          "relationship_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "rebrand"
       ],
@@ -17320,6 +17402,22 @@
       "responseSlotId": "repair_damage",
       "responseLabel": "Repair the damage",
       "responseShape": "short_term_patch",
+      "choiceContract": {
+        "archetype": "proper_repair",
+        "primaryTarget": "area.damage",
+        "solves": [
+          "brawl_damage"
+        ],
+        "doesNotSolve": [
+          "violence_pressure"
+        ],
+        "costTypes": [
+          "coin",
+          "staff_fatigue"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "repair"
       ],
@@ -17614,6 +17712,18 @@
       "responseSlotId": "appease_faction",
       "responseLabel": "Appease Town Watch",
       "responseShape": "safe_costly",
+      "choiceContract": {
+        "archetype": "appease",
+        "primaryTarget": "factions.town_watch.relationship",
+        "solves": [
+          "faction_anger"
+        ],
+        "costTypes": [
+          "coin"
+        ],
+        "payoffTiming": "immediate",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "appease",
         "pay"
@@ -17839,6 +17949,18 @@
       "responseSlotId": "negotiate_terms",
       "responseLabel": "Negotiate terms",
       "responseShape": "compromise",
+      "choiceContract": {
+        "archetype": "negotiate",
+        "primaryTarget": "factions.town_watch.relationship",
+        "solves": [
+          "faction_anger"
+        ],
+        "costTypes": [
+          "owner_time"
+        ],
+        "payoffTiming": "immediate",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "negotiate"
       ],
@@ -17848,13 +17970,13 @@
       "choiceLabel": "Strike a quick bargain",
       "renderedPreviewEffects": [
         "the order would warm a marked rise on terms",
-        "a notch of trust would settle with the guild",
-        "the faction's anger would settle a notch cooler"
+        "the faction's reading would ease a step by morning",
+        "owner time would spend a step away"
       ],
       "renderedMechanicalEffects": [
         "Relationship +10",
-        "Trust +8",
-        "Faction Anger Tension -6"
+        "Faction Anger Tension -6",
+        "Owner Time -5"
       ],
       "immediateEffects": [
         {
@@ -17895,7 +18017,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         },
         {
           "kind": "pressure",
@@ -17916,12 +18038,30 @@
             "benefit"
           ],
           "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "global.owner_time",
+          "amount": -5,
+          "readable": "Owner time spent bargaining",
+          "tags": [
+            "time"
+          ],
+          "targetKind": "global",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "owner_time",
+          "meterLabel": "owner time",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Owner Time -5",
+          "roles": [],
+          "visible": true
         }
       ],
       "delayedEffects": [],
       "expectedEffects": [
         "raise relationship",
-        "concede something"
+        "spend owner time"
       ],
       "visiblePreviewEffects": [
         {
@@ -17945,26 +18085,6 @@
           "visible": true
         },
         {
-          "kind": "state_change",
-          "target": "factions.town_watch.trust",
-          "amount": 8,
-          "readable": "Trust grows",
-          "tags": [
-            "faction"
-          ],
-          "targetKind": "faction",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "trust",
-          "meterLabel": "trust",
-          "meterDisplayCategory": "good_when_higher",
-          "formatted": "Trust +8",
-          "roles": [
-            "benefit"
-          ],
-          "visible": true
-        },
-        {
           "kind": "pressure",
           "target": "pressure:faction_anger",
           "amount": -6,
@@ -17982,6 +18102,24 @@
           "roles": [
             "benefit"
           ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "global.owner_time",
+          "amount": -5,
+          "readable": "Owner time spent bargaining",
+          "tags": [
+            "time"
+          ],
+          "targetKind": "global",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "owner_time",
+          "meterLabel": "owner time",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Owner Time -5",
+          "roles": [],
           "visible": true
         }
       ],
@@ -18025,7 +18163,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         },
         {
           "kind": "pressure",
@@ -18062,6 +18200,19 @@
       "responseSlotId": "refuse_faction",
       "responseLabel": "Refuse outright",
       "responseShape": "escalation",
+      "choiceContract": {
+        "archetype": "escalate",
+        "primaryTarget": "factions.town_watch.relationship",
+        "doesNotSolve": [
+          "faction_anger"
+        ],
+        "costTypes": [
+          "relationship_risk",
+          "pressure_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "blame",
         "ignore"
@@ -18074,7 +18225,7 @@
         "a sharp drop would freeze the guild against the bar",
         "a clear drop would harden the guild stance",
         "the faction's anger would climb a marked rise tonight",
-        "later: a thread would sit on the council slate"
+        "later: The accord would hold between our houses"
       ],
       "renderedMechanicalEffects": [
         "Relationship -20",
@@ -18147,13 +18298,17 @@
           "amount": 0,
           "readable": "Faction may retaliate",
           "tags": [
-            "future_hook"
+            "future_hook",
+            "risk",
+            "faction"
           ],
           "targetKind": "other",
           "direction": "neutral",
           "meterId": "faction_grudge_town_watch",
           "formatted": "Faction may retaliate",
-          "roles": [],
+          "roles": [
+            "risk"
+          ],
           "visible": true
         }
       ],
@@ -18224,13 +18379,17 @@
           "amount": 0,
           "readable": "Faction may retaliate",
           "tags": [
-            "future_hook"
+            "future_hook",
+            "risk",
+            "faction"
           ],
           "targetKind": "other",
           "direction": "neutral",
           "meterId": "faction_grudge_town_watch",
           "formatted": "Faction may retaliate",
-          "roles": [],
+          "roles": [
+            "risk"
+          ],
           "visible": true
         }
       ],
@@ -18256,6 +18415,25 @@
             "risk"
           ],
           "visible": true
+        },
+        {
+          "kind": "future_hook",
+          "target": "faction_grudge_town_watch",
+          "amount": 0,
+          "readable": "Faction may retaliate",
+          "tags": [
+            "future_hook",
+            "risk",
+            "faction"
+          ],
+          "targetKind": "other",
+          "direction": "neutral",
+          "meterId": "faction_grudge_town_watch",
+          "formatted": "Faction may retaliate",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
@@ -18271,6 +18449,19 @@
       "responseSlotId": "host_faction_night",
       "responseLabel": "Host Town Watch night",
       "responseShape": "long_term_investment",
+      "choiceContract": {
+        "archetype": "call_in_favor",
+        "primaryTarget": "factions.town_watch.relationship",
+        "solves": [
+          "faction_anger"
+        ],
+        "costTypes": [
+          "coin",
+          "pressure_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "invite"
       ],
@@ -18280,7 +18471,7 @@
       "choiceLabel": "Host Town Watch night",
       "renderedPreviewEffects": [
         "a clear lift would draw the faction closer",
-        "a step of goodwill would reach the order",
+        "a notch of trust would settle with the guild",
         "a measure of coppers would leave the till",
         "later: cultural tension would climb a step tonight"
       ],
@@ -18359,7 +18550,8 @@
           "amount": 5,
           "readable": "Other groups feel sidelined",
           "tags": [
-            "pressure"
+            "pressure",
+            "risk"
           ],
           "targetKind": "pressure",
           "direction": "positive",
@@ -18445,7 +18637,8 @@
           "amount": 5,
           "readable": "Other groups feel sidelined",
           "tags": [
-            "pressure"
+            "pressure",
+            "risk"
           ],
           "targetKind": "pressure",
           "direction": "positive",
@@ -18531,7 +18724,8 @@
           "amount": 5,
           "readable": "Other groups feel sidelined",
           "tags": [
-            "pressure"
+            "pressure",
+            "risk"
           ],
           "targetKind": "pressure",
           "direction": "positive",
@@ -18559,6 +18753,18 @@
       "responseSlotId": "call_watch",
       "responseLabel": "Call the watch",
       "responseShape": "escalation",
+      "choiceContract": {
+        "archetype": "escalate",
+        "primaryTarget": "pressure:faction_anger",
+        "solves": [
+          "immediate_faction_tension"
+        ],
+        "costTypes": [
+          "relationship_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "threaten"
       ],
@@ -18569,11 +18775,13 @@
       "renderedPreviewEffects": [
         "a heavy fall would sever ties with the faction",
         "the house would warm by a real step",
+        "the faction's anger would settle a notch cooler",
         "later: Faction may seek revenge"
       ],
       "renderedMechanicalEffects": [
         "Relationship -25",
         "Fear +15",
+        "Faction Anger Tension -8",
         "later: Faction may seek revenge"
       ],
       "immediateEffects": [
@@ -18614,6 +18822,26 @@
             "benefit"
           ],
           "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:faction_anger",
+          "amount": -8,
+          "readable": "Watch presence lowers open tension",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "faction_anger",
+          "meterLabel": "Faction Anger Tension",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Faction Anger Tension -8",
+          "roles": [
+            "benefit"
+          ],
+          "visible": true
         }
       ],
       "delayedEffects": [
@@ -18623,13 +18851,17 @@
           "amount": 0,
           "readable": "Faction may seek revenge",
           "tags": [
-            "future_hook"
+            "future_hook",
+            "risk",
+            "faction"
           ],
           "targetKind": "other",
           "direction": "neutral",
           "meterId": "faction_revenge_town_watch",
           "formatted": "Faction may seek revenge",
-          "roles": [],
+          "roles": [
+            "risk"
+          ],
           "visible": true
         }
       ],
@@ -18677,18 +18909,42 @@
           "visible": true
         },
         {
+          "kind": "pressure",
+          "target": "pressure:faction_anger",
+          "amount": -8,
+          "readable": "Watch presence lowers open tension",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "faction_anger",
+          "meterLabel": "Faction Anger Tension",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Faction Anger Tension -8",
+          "roles": [
+            "benefit"
+          ],
+          "visible": true
+        },
+        {
           "kind": "future_hook",
           "target": "faction_revenge_town_watch",
           "amount": 0,
           "readable": "Faction may seek revenge",
           "tags": [
-            "future_hook"
+            "future_hook",
+            "risk",
+            "faction"
           ],
           "targetKind": "other",
           "direction": "neutral",
           "meterId": "faction_revenge_town_watch",
           "formatted": "Faction may seek revenge",
-          "roles": [],
+          "roles": [
+            "risk"
+          ],
           "visible": true
         }
       ],
@@ -18713,14 +18969,52 @@
             "benefit"
           ],
           "visible": true
+        },
+        {
+          "kind": "pressure",
+          "target": "pressure:faction_anger",
+          "amount": -8,
+          "readable": "Watch presence lowers open tension",
+          "tags": [
+            "pressure"
+          ],
+          "targetKind": "pressure",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "faction_anger",
+          "meterLabel": "Faction Anger Tension",
+          "meterDisplayCategory": "bad_when_higher",
+          "formatted": "Faction Anger Tension -8",
+          "roles": [
+            "benefit"
+          ],
+          "visible": true
         }
       ],
-      "riskEffects": [],
+      "riskEffects": [
+        {
+          "kind": "future_hook",
+          "target": "faction_revenge_town_watch",
+          "amount": 0,
+          "readable": "Faction may seek revenge",
+          "tags": [
+            "future_hook",
+            "risk",
+            "faction"
+          ],
+          "targetKind": "other",
+          "direction": "neutral",
+          "meterId": "faction_revenge_town_watch",
+          "formatted": "Faction may seek revenge",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        }
+      ],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "possible_dominated_option"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "faction_request",
@@ -18731,6 +19025,19 @@
       "responseSlotId": "play_rival_faction",
       "responseLabel": "Play rival factions",
       "responseShape": "deception",
+      "choiceContract": {
+        "archetype": "cut_corners",
+        "primaryTarget": "factions.town_watch.relationship",
+        "doesNotSolve": [
+          "faction_anger"
+        ],
+        "costTypes": [
+          "relationship_risk",
+          "reputation_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "negotiate"
       ],
@@ -18739,7 +19046,7 @@
       ],
       "choiceLabel": "Set the factions against each other",
       "renderedPreviewEffects": [
-        "Shift relationship slightly",
+        "a step of goodwill would reach the order",
         "the order would cool by a step",
         "later: the rumour pressure would spread a step through the room",
         "later: Deception may surface"
@@ -18817,13 +19124,18 @@
           "amount": 0,
           "readable": "Deception may surface",
           "tags": [
-            "future_hook"
+            "future_hook",
+            "risk",
+            "faction",
+            "deception"
           ],
           "targetKind": "other",
           "direction": "neutral",
           "meterId": "faction_deception_exposed_town_watch",
           "formatted": "Deception may surface",
-          "roles": [],
+          "roles": [
+            "risk"
+          ],
           "visible": true
         }
       ],
@@ -18896,13 +19208,18 @@
           "amount": 0,
           "readable": "Deception may surface",
           "tags": [
-            "future_hook"
+            "future_hook",
+            "risk",
+            "faction",
+            "deception"
           ],
           "targetKind": "other",
           "direction": "neutral",
           "meterId": "faction_deception_exposed_town_watch",
           "formatted": "Deception may surface",
-          "roles": [],
+          "roles": [
+            "risk"
+          ],
           "visible": true
         }
       ],
@@ -18949,6 +19266,26 @@
             "risk"
           ],
           "visible": true
+        },
+        {
+          "kind": "future_hook",
+          "target": "faction_deception_exposed_town_watch",
+          "amount": 0,
+          "readable": "Deception may surface",
+          "tags": [
+            "future_hook",
+            "risk",
+            "faction",
+            "deception"
+          ],
+          "targetKind": "other",
+          "direction": "neutral",
+          "meterId": "faction_deception_exposed_town_watch",
+          "formatted": "Deception may surface",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
@@ -18964,6 +19301,18 @@
       "responseSlotId": "mediate_groups",
       "responseLabel": "Mediate between groups",
       "responseShape": "compromise",
+      "choiceContract": {
+        "archetype": "negotiate",
+        "primaryTarget": "pressure:cultural_tension",
+        "solves": [
+          "cultural_tension"
+        ],
+        "costTypes": [
+          "owner_time"
+        ],
+        "payoffTiming": "immediate",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "appease",
         "negotiate"
@@ -18974,13 +19323,13 @@
       "choiceLabel": "Mediate between groups",
       "renderedPreviewEffects": [
         "a clear lift would warm the people gathered",
-        "Comfort rises",
-        "cultural tension would settle a clear drop tonight"
+        "the tension reading would fall a real slip tonight",
+        "owner time would spend a step away"
       ],
       "renderedMechanicalEffects": [
         "Local Goblins Tension -15",
-        "Local Goblins Comfort +10",
-        "Cultural Tension -10"
+        "Cultural Tension -10",
+        "Owner Time -6"
       ],
       "immediateEffects": [
         {
@@ -19021,7 +19370,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         },
         {
           "kind": "pressure",
@@ -19041,6 +19390,24 @@
           "roles": [
             "benefit"
           ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "global.owner_time",
+          "amount": -6,
+          "readable": "Owner time spent mediating",
+          "tags": [
+            "time"
+          ],
+          "targetKind": "global",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "owner_time",
+          "meterLabel": "owner time",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Owner Time -6",
+          "roles": [],
           "visible": true
         }
       ],
@@ -19071,26 +19438,6 @@
           "visible": true
         },
         {
-          "kind": "state_change",
-          "target": "cultures.goblin_local.comfort",
-          "amount": 10,
-          "readable": "Comfort rises",
-          "tags": [
-            "culture"
-          ],
-          "targetKind": "culture",
-          "direction": "positive",
-          "magnitudeBand": "medium",
-          "meterId": "comfort",
-          "meterLabel": "comfort",
-          "meterDisplayCategory": "good_when_higher",
-          "formatted": "Local Goblins Comfort +10",
-          "roles": [
-            "benefit"
-          ],
-          "visible": true
-        },
-        {
           "kind": "pressure",
           "target": "pressure:cultural_tension",
           "amount": -10,
@@ -19108,6 +19455,24 @@
           "roles": [
             "benefit"
           ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "global.owner_time",
+          "amount": -6,
+          "readable": "Owner time spent mediating",
+          "tags": [
+            "time"
+          ],
+          "targetKind": "global",
+          "direction": "negative",
+          "magnitudeBand": "small",
+          "meterId": "owner_time",
+          "meterLabel": "owner time",
+          "meterDisplayCategory": "good_when_higher",
+          "formatted": "Owner Time -6",
+          "roles": [],
           "visible": true
         }
       ],
@@ -19151,7 +19516,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": true
+          "visible": false
         },
         {
           "kind": "pressure",
@@ -19177,9 +19542,7 @@
       "riskEffects": [],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_cost_missing"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "culture_conflict",
@@ -19467,9 +19830,7 @@
       "riskEffects": [],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "possible_dominated_option"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "culture_conflict",
@@ -20166,6 +20527,22 @@
       "responseSlotId": "ask_staff_to_intervene",
       "responseLabel": "Ask staff to intervene",
       "responseShape": "delay_problem",
+      "choiceContract": {
+        "archetype": "staff_push",
+        "primaryTarget": "cultures.goblin_local.tension",
+        "solves": [
+          "visible_cultural_tension"
+        ],
+        "doesNotSolve": [
+          "underlying_staff_strain"
+        ],
+        "costTypes": [
+          "staff_fatigue",
+          "pressure_risk"
+        ],
+        "payoffTiming": "mixed",
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "delegate"
       ],
@@ -20210,7 +20587,9 @@
           "amount": 8,
           "readable": "Staff carry the strain",
           "tags": [
-            "pressure"
+            "pressure",
+            "staff",
+            "risk"
           ],
           "targetKind": "pressure",
           "direction": "positive",
@@ -20232,7 +20611,9 @@
           "amount": 5,
           "readable": "Staff resent the burden",
           "tags": [
-            "pressure"
+            "pressure",
+            "staff",
+            "risk"
           ],
           "targetKind": "pressure",
           "direction": "positive",
@@ -20278,7 +20659,9 @@
           "amount": 8,
           "readable": "Staff carry the strain",
           "tags": [
-            "pressure"
+            "pressure",
+            "staff",
+            "risk"
           ],
           "targetKind": "pressure",
           "direction": "positive",
@@ -20298,7 +20681,9 @@
           "amount": 5,
           "readable": "Staff resent the burden",
           "tags": [
-            "pressure"
+            "pressure",
+            "staff",
+            "risk"
           ],
           "targetKind": "pressure",
           "direction": "positive",
@@ -20343,7 +20728,9 @@
           "amount": 8,
           "readable": "Staff carry the strain",
           "tags": [
-            "pressure"
+            "pressure",
+            "staff",
+            "risk"
           ],
           "targetKind": "pressure",
           "direction": "positive",
@@ -20363,7 +20750,9 @@
           "amount": 5,
           "readable": "Staff resent the burden",
           "tags": [
-            "pressure"
+            "pressure",
+            "staff",
+            "risk"
           ],
           "targetKind": "pressure",
           "direction": "positive",
@@ -20380,9 +20769,7 @@
       ],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "expected_cost_missing"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "reputation_shift",
@@ -20536,7 +20923,7 @@
           "meterId": "identity_lock_in_cheap",
           "formatted": "Big-spending patrons may visit less often",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -20649,7 +21036,7 @@
           "meterId": "identity_lock_in_cheap",
           "formatted": "Big-spending patrons may visit less often",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -20696,28 +21083,6 @@
             "benefit"
           ],
           "visible": true
-        },
-        {
-          "kind": "future_hook",
-          "target": "identity_lock_in_cheap",
-          "amount": 14,
-          "readable": "Big-spending patrons may visit less often",
-          "tags": [
-            "future_hook",
-            "reputation",
-            "cheap",
-            "audience",
-            "risk"
-          ],
-          "targetKind": "other",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "identity_lock_in_cheap",
-          "formatted": "Big-spending patrons may visit less often",
-          "roles": [
-            "benefit"
-          ],
-          "visible": true
         }
       ],
       "riskEffects": [
@@ -20760,6 +21125,28 @@
           "meterLabel": "Reputation Drift Pressure",
           "meterDisplayCategory": "bad_when_higher",
           "formatted": "Reputation Drift Pressure +4",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "future_hook",
+          "target": "identity_lock_in_cheap",
+          "amount": 14,
+          "readable": "Big-spending patrons may visit less often",
+          "tags": [
+            "future_hook",
+            "reputation",
+            "cheap",
+            "audience",
+            "risk"
+          ],
+          "targetKind": "other",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "identity_lock_in_cheap",
+          "formatted": "Big-spending patrons may visit less often",
           "roles": [
             "risk"
           ],
@@ -21027,9 +21414,7 @@
       "riskEffects": [],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "possible_dominated_option"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "reputation_shift",
@@ -21159,7 +21544,7 @@
           "meterId": "audience_lock_cheap",
           "formatted": "Big-spending patrons may visit less often",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -21249,7 +21634,7 @@
           "meterId": "audience_lock_cheap",
           "formatted": "Big-spending patrons may visit less often",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -21271,27 +21656,6 @@
           "meterLabel": "patronage",
           "meterDisplayCategory": "good_when_higher",
           "formatted": "Miners Patronage +8",
-          "roles": [
-            "benefit"
-          ],
-          "visible": true
-        },
-        {
-          "kind": "future_hook",
-          "target": "audience_lock_cheap",
-          "amount": 10,
-          "readable": "Big-spending patrons may visit less often",
-          "tags": [
-            "future_hook",
-            "reputation",
-            "cheap",
-            "audience"
-          ],
-          "targetKind": "other",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "audience_lock_cheap",
-          "formatted": "Big-spending patrons may visit less often",
           "roles": [
             "benefit"
           ],
@@ -21341,11 +21705,34 @@
             "risk"
           ],
           "visible": true
+        },
+        {
+          "kind": "future_hook",
+          "target": "audience_lock_cheap",
+          "amount": 10,
+          "readable": "Big-spending patrons may visit less often",
+          "tags": [
+            "future_hook",
+            "reputation",
+            "cheap",
+            "audience"
+          ],
+          "targetKind": "other",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "audience_lock_cheap",
+          "formatted": "Big-spending patrons may visit less often",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": []
+      "warningFlags": [
+        "contract_delayed_payoff_missing"
+      ]
     },
     {
       "cardFamily": "reputation_shift",
@@ -21494,7 +21881,7 @@
           "meterId": "audience_dilution_cheap",
           "formatted": "Cheap audience may broaden, but credibility may blur",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -21602,7 +21989,7 @@
           "meterId": "audience_dilution_cheap",
           "formatted": "Cheap audience may broaden, but credibility may blur",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -21624,27 +22011,6 @@
           "meterLabel": "patronage",
           "meterDisplayCategory": "good_when_higher",
           "formatted": "Merchants Patronage +4",
-          "roles": [
-            "benefit"
-          ],
-          "visible": true
-        },
-        {
-          "kind": "future_hook",
-          "target": "audience_dilution_cheap",
-          "amount": 12,
-          "readable": "Cheap audience may broaden, but credibility may blur",
-          "tags": [
-            "future_hook",
-            "reputation",
-            "cheap",
-            "dilution"
-          ],
-          "targetKind": "other",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "audience_dilution_cheap",
-          "formatted": "Cheap audience may broaden, but credibility may blur",
           "roles": [
             "benefit"
           ],
@@ -21694,11 +22060,34 @@
             "risk"
           ],
           "visible": true
+        },
+        {
+          "kind": "future_hook",
+          "target": "audience_dilution_cheap",
+          "amount": 12,
+          "readable": "Cheap audience may broaden, but credibility may blur",
+          "tags": [
+            "future_hook",
+            "reputation",
+            "cheap",
+            "dilution"
+          ],
+          "targetKind": "other",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "audience_dilution_cheap",
+          "formatted": "Cheap audience may broaden, but credibility may blur",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": []
+      "warningFlags": [
+        "contract_delayed_payoff_missing"
+      ]
     },
     {
       "cardFamily": "rumour_crisis",
@@ -22478,7 +22867,7 @@
           "meterId": "rumour_blame_grudge_supplier_brakka_mushroom_cart",
           "formatted": "Blamed party may grudge",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -22578,7 +22967,7 @@
           "meterId": "rumour_blame_grudge_supplier_brakka_mushroom_cart",
           "formatted": "Blamed party may grudge",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -22600,24 +22989,6 @@
           "meterLabel": "Rumour Pressure",
           "meterDisplayCategory": "bad_when_higher",
           "formatted": "Rumour Pressure -8",
-          "roles": [
-            "benefit"
-          ],
-          "visible": true
-        },
-        {
-          "kind": "future_hook",
-          "target": "rumour_blame_grudge_supplier_brakka_mushroom_cart",
-          "amount": 14,
-          "readable": "Blamed party may grudge",
-          "tags": [
-            "future_hook"
-          ],
-          "targetKind": "other",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "rumour_blame_grudge_supplier_brakka_mushroom_cart",
-          "formatted": "Blamed party may grudge",
           "roles": [
             "benefit"
           ],
@@ -22684,6 +23055,24 @@
             "risk"
           ],
           "visible": false
+        },
+        {
+          "kind": "future_hook",
+          "target": "rumour_blame_grudge_supplier_brakka_mushroom_cart",
+          "amount": 14,
+          "readable": "Blamed party may grudge",
+          "tags": [
+            "future_hook"
+          ],
+          "targetKind": "other",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "rumour_blame_grudge_supplier_brakka_mushroom_cart",
+          "formatted": "Blamed party may grudge",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
         }
       ],
       "hiddenDelayedBenefits": [],
@@ -23161,7 +23550,7 @@
           "meterId": "rumour_bribe_exposed_supplier_brakka_mushroom_cart",
           "formatted": "Bribe may be exposed",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -23262,7 +23651,7 @@
           "meterId": "rumour_bribe_exposed_supplier_brakka_mushroom_cart",
           "formatted": "Bribe may be exposed",
           "roles": [
-            "benefit"
+            "risk"
           ],
           "visible": true
         }
@@ -23309,24 +23698,6 @@
             "benefit"
           ],
           "visible": true
-        },
-        {
-          "kind": "future_hook",
-          "target": "rumour_bribe_exposed_supplier_brakka_mushroom_cart",
-          "amount": 15,
-          "readable": "Bribe may be exposed",
-          "tags": [
-            "future_hook"
-          ],
-          "targetKind": "other",
-          "direction": "positive",
-          "magnitudeBand": "medium",
-          "meterId": "rumour_bribe_exposed_supplier_brakka_mushroom_cart",
-          "formatted": "Bribe may be exposed",
-          "roles": [
-            "benefit"
-          ],
-          "visible": true
         }
       ],
       "riskEffects": [
@@ -23365,6 +23736,24 @@
           "meterLabel": "Rumour Pressure",
           "meterDisplayCategory": "bad_when_higher",
           "formatted": "Rumour Pressure +5",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "future_hook",
+          "target": "rumour_bribe_exposed_supplier_brakka_mushroom_cart",
+          "amount": 15,
+          "readable": "Bribe may be exposed",
+          "tags": [
+            "future_hook"
+          ],
+          "targetKind": "other",
+          "direction": "positive",
+          "magnitudeBand": "medium",
+          "meterId": "rumour_bribe_exposed_supplier_brakka_mushroom_cart",
+          "formatted": "Bribe may be exposed",
           "roles": [
             "risk"
           ],
@@ -24208,6 +24597,19 @@
       "responseSlotId": "host_counter_event",
       "responseLabel": "Host counter-event",
       "responseShape": "long_term_investment",
+      "choiceContract": {
+        "archetype": "major_project",
+        "primaryTarget": "customers.merchants.patronage",
+        "solves": [
+          "rival_tavern_pressure"
+        ],
+        "costTypes": [
+          "coin"
+        ],
+        "payoffTiming": "mixed",
+        "mustShowDelayedPayoff": true,
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "invite"
       ],
@@ -24219,13 +24621,15 @@
         "patronage would climb a real step among the regulars (Merchants)",
         "patronage would climb a real step among the regulars (Adventurers)",
         "a clear drop of silver would leave the till",
-        "later: the rival's pressure would recede a clear drop overnight"
+        "later: the rival's pressure would recede a clear drop overnight",
+        "later: the name would gain a step in the talk"
       ],
       "renderedMechanicalEffects": [
         "Merchants Patronage +12",
         "Adventurers Patronage +10",
         "Coin -20",
-        "later: Rival Tavern Pressure -12"
+        "later: Rival Tavern Pressure -12",
+        "later: Cozy Reputation +8"
       ],
       "immediateEffects": [
         {
@@ -24328,7 +24732,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "expectedEffects": [
@@ -24411,6 +24815,26 @@
           "meterLabel": "Rival Tavern Pressure",
           "meterDisplayCategory": "bad_when_higher",
           "formatted": "Rival Tavern Pressure -12",
+          "roles": [
+            "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "reputation.cozy",
+          "amount": 8,
+          "readable": "Tavern feels lively",
+          "tags": [
+            "reputation"
+          ],
+          "targetKind": "reputation",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "cozy",
+          "meterLabel": "cozy",
+          "meterDisplayCategory": "contextual",
+          "formatted": "Cozy Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -24518,37 +24942,13 @@
           "roles": [
             "benefit"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "riskEffects": [],
-      "hiddenDelayedBenefits": [
-        {
-          "kind": "state_change",
-          "target": "reputation.cozy",
-          "amount": 8,
-          "readable": "Tavern feels lively",
-          "tags": [
-            "reputation"
-          ],
-          "targetKind": "reputation",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "cozy",
-          "meterLabel": "cozy",
-          "meterDisplayCategory": "contextual",
-          "formatted": "Cozy Reputation +8",
-          "roles": [
-            "benefit"
-          ],
-          "visible": false
-        }
-      ],
+      "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "hidden_delayed_benefit",
-        "long_term_investment_without_visible_payoff"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "rival_tavern",
@@ -24922,7 +25322,9 @@
           "direction": "neutral",
           "meterId": "rival_rumour_exposed_rival_tavern_arc",
           "formatted": "Counter-rumour may be exposed",
-          "roles": [],
+          "roles": [
+            "risk"
+          ],
           "visible": true
         },
         {
@@ -25003,7 +25405,9 @@
           "direction": "neutral",
           "meterId": "rival_rumour_exposed_rival_tavern_arc",
           "formatted": "Counter-rumour may be exposed",
-          "roles": [],
+          "roles": [
+            "risk"
+          ],
           "visible": true
         },
         {
@@ -25086,6 +25490,23 @@
           "meterLabel": "Rumour Pressure",
           "meterDisplayCategory": "bad_when_higher",
           "formatted": "Rumour Pressure +10",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "future_hook",
+          "target": "rival_rumour_exposed_rival_tavern_arc",
+          "amount": 0,
+          "readable": "Counter-rumour may be exposed",
+          "tags": [
+            "future_hook"
+          ],
+          "targetKind": "other",
+          "direction": "neutral",
+          "meterId": "rival_rumour_exposed_rival_tavern_arc",
+          "formatted": "Counter-rumour may be exposed",
           "roles": [
             "risk"
           ],
@@ -25789,6 +26210,19 @@
       "responseSlotId": "host_counter_event",
       "responseLabel": "Host counter-event",
       "responseShape": "long_term_investment",
+      "choiceContract": {
+        "archetype": "major_project",
+        "primaryTarget": "customers.merchants.patronage",
+        "solves": [
+          "rival_tavern_pressure"
+        ],
+        "costTypes": [
+          "coin"
+        ],
+        "payoffTiming": "mixed",
+        "mustShowDelayedPayoff": true,
+        "requiresVisibleTradeoff": true
+      },
       "allowedVerbs": [
         "invite"
       ],
@@ -25800,13 +26234,15 @@
         "patronage would climb a real step among the regulars (Merchants)",
         "patronage would climb a real step among the regulars (Adventurers)",
         "a marked fall of silver would empty the till",
-        "later: the rival's pressure would recede a clear drop overnight"
+        "later: the rival's pressure would recede a clear drop overnight",
+        "later: a notch of standing would warm the word"
       ],
       "renderedMechanicalEffects": [
         "Merchants Patronage +12",
         "Adventurers Patronage +10",
         "Coin -20",
-        "later: Rival Tavern Pressure -12"
+        "later: Rival Tavern Pressure -12",
+        "later: Cozy Reputation +8"
       ],
       "immediateEffects": [
         {
@@ -25909,7 +26345,7 @@
           "roles": [
             "benefit"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "expectedEffects": [
@@ -25992,6 +26428,26 @@
           "meterLabel": "Rival Tavern Pressure",
           "meterDisplayCategory": "bad_when_higher",
           "formatted": "Rival Tavern Pressure -12",
+          "roles": [
+            "benefit"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "state_change",
+          "target": "reputation.cozy",
+          "amount": 8,
+          "readable": "Tavern feels lively",
+          "tags": [
+            "reputation"
+          ],
+          "targetKind": "reputation",
+          "direction": "positive",
+          "magnitudeBand": "small",
+          "meterId": "cozy",
+          "meterLabel": "cozy",
+          "meterDisplayCategory": "contextual",
+          "formatted": "Cozy Reputation +8",
           "roles": [
             "benefit"
           ],
@@ -26099,37 +26555,13 @@
           "roles": [
             "benefit"
           ],
-          "visible": false
+          "visible": true
         }
       ],
       "riskEffects": [],
-      "hiddenDelayedBenefits": [
-        {
-          "kind": "state_change",
-          "target": "reputation.cozy",
-          "amount": 8,
-          "readable": "Tavern feels lively",
-          "tags": [
-            "reputation"
-          ],
-          "targetKind": "reputation",
-          "direction": "positive",
-          "magnitudeBand": "small",
-          "meterId": "cozy",
-          "meterLabel": "cozy",
-          "meterDisplayCategory": "contextual",
-          "formatted": "Cozy Reputation +8",
-          "roles": [
-            "benefit"
-          ],
-          "visible": false
-        }
-      ],
+      "hiddenDelayedBenefits": [],
       "hiddenDelayedRisks": [],
-      "warningFlags": [
-        "hidden_delayed_benefit",
-        "long_term_investment_without_visible_payoff"
-      ]
+      "warningFlags": []
     },
     {
       "cardFamily": "rival_tavern",
@@ -26503,7 +26935,9 @@
           "direction": "neutral",
           "meterId": "rival_rumour_exposed_rival_tavern",
           "formatted": "Counter-rumour may be exposed",
-          "roles": [],
+          "roles": [
+            "risk"
+          ],
           "visible": true
         },
         {
@@ -26584,7 +27018,9 @@
           "direction": "neutral",
           "meterId": "rival_rumour_exposed_rival_tavern",
           "formatted": "Counter-rumour may be exposed",
-          "roles": [],
+          "roles": [
+            "risk"
+          ],
           "visible": true
         },
         {
@@ -26667,6 +27103,23 @@
           "meterLabel": "Rumour Pressure",
           "meterDisplayCategory": "bad_when_higher",
           "formatted": "Rumour Pressure +10",
+          "roles": [
+            "risk"
+          ],
+          "visible": true
+        },
+        {
+          "kind": "future_hook",
+          "target": "rival_rumour_exposed_rival_tavern",
+          "amount": 0,
+          "readable": "Counter-rumour may be exposed",
+          "tags": [
+            "future_hook"
+          ],
+          "targetKind": "other",
+          "direction": "neutral",
+          "meterId": "rival_rumour_exposed_rival_tavern",
+          "formatted": "Counter-rumour may be exposed",
           "roles": [
             "risk"
           ],

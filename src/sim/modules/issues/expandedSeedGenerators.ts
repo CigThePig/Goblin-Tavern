@@ -2237,6 +2237,14 @@ function generateFactionRequest(ctx: SimContext): IssueSeed[] {
       shape: 'safe_costly',
       targetOptions: [ref],
       expectedEffects: ['raise relationship', 'spend coin'],
+      choiceContract: {
+        archetype: 'appease',
+        primaryTarget: `factions.${chosen.id}.relationship`,
+        solves: ['faction_anger'],
+        costTypes: ['coin'],
+        payoffTiming: 'immediate',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'negotiate_terms',
@@ -2244,7 +2252,15 @@ function generateFactionRequest(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['negotiate'],
       shape: 'compromise',
       targetOptions: [ref],
-      expectedEffects: ['raise relationship', 'concede something'],
+      expectedEffects: ['raise relationship', 'spend owner time'],
+      choiceContract: {
+        archetype: 'negotiate',
+        primaryTarget: `factions.${chosen.id}.relationship`,
+        solves: ['faction_anger'],
+        costTypes: ['owner_time'],
+        payoffTiming: 'immediate',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'refuse_faction',
@@ -2253,6 +2269,14 @@ function generateFactionRequest(ctx: SimContext): IssueSeed[] {
       shape: 'escalation',
       targetOptions: [ref],
       expectedEffects: ['hold ground', 'raise faction anger'],
+      choiceContract: {
+        archetype: 'escalate',
+        primaryTarget: `factions.${chosen.id}.relationship`,
+        doesNotSolve: ['faction_anger'],
+        costTypes: ['relationship_risk', 'pressure_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'host_faction_night',
@@ -2261,6 +2285,14 @@ function generateFactionRequest(ctx: SimContext): IssueSeed[] {
       shape: 'long_term_investment',
       targetOptions: [ref],
       expectedEffects: ['raise relationship', 'narrow audience'],
+      choiceContract: {
+        archetype: 'call_in_favor',
+        primaryTarget: `factions.${chosen.id}.relationship`,
+        solves: ['faction_anger'],
+        costTypes: ['coin', 'pressure_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'call_watch',
@@ -2269,6 +2301,14 @@ function generateFactionRequest(ctx: SimContext): IssueSeed[] {
       shape: 'escalation',
       targetOptions: [ref],
       expectedEffects: ['lower tension', 'destroy relationship'],
+      choiceContract: {
+        archetype: 'escalate',
+        primaryTarget: 'pressure:faction_anger',
+        solves: ['immediate_faction_tension'],
+        costTypes: ['relationship_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'play_rival_faction',
@@ -2277,6 +2317,14 @@ function generateFactionRequest(ctx: SimContext): IssueSeed[] {
       shape: 'deception',
       targetOptions: [ref],
       expectedEffects: ['shift tension', 'risk discovery'],
+      choiceContract: {
+        archetype: 'cut_corners',
+        primaryTarget: `factions.${chosen.id}.relationship`,
+        doesNotSolve: ['faction_anger'],
+        costTypes: ['relationship_risk', 'reputation_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
   ]
 
@@ -2310,6 +2358,7 @@ function generateFactionRequest(ctx: SimContext): IssueSeed[] {
         ]),
         effect('state_change', `factions.${chosen.id}.trust`, 8, 'Trust grows', ['faction']),
         effect('pressure', 'pressure:faction_anger', -6, 'Anger softens', ['pressure']),
+        effect('state_change', 'global.owner_time', -5, 'Owner time spent bargaining', ['time']),
       ],
       delayedEffects: [],
       memories: [
@@ -2337,7 +2386,7 @@ function generateFactionRequest(ctx: SimContext): IssueSeed[] {
           `faction_grudge_${chosen.id}`,
           0,
           'Faction may retaliate',
-          ['future_hook'],
+          ['future_hook', 'risk', 'faction'],
         ),
       ],
       memories: [
@@ -2368,7 +2417,7 @@ function generateFactionRequest(ctx: SimContext): IssueSeed[] {
         effect('state_change', 'coin', -15, 'Event costs', ['coin']),
       ],
       delayedEffects: [
-        effect('pressure', 'pressure:cultural_tension', 5, 'Other groups feel sidelined', ['pressure']),
+        effect('pressure', 'pressure:cultural_tension', 5, 'Other groups feel sidelined', ['pressure', 'risk']),
       ],
       memories: [
         {
@@ -2389,6 +2438,9 @@ function generateFactionRequest(ctx: SimContext): IssueSeed[] {
         effect('state_change', `factions.${chosen.id}.fear`, 15, 'Faction fears retaliation', [
           'faction',
         ]),
+        effect('pressure', 'pressure:faction_anger', -8, 'Watch presence lowers open tension', [
+          'pressure',
+        ]),
       ],
       delayedEffects: [
         effect(
@@ -2396,7 +2448,7 @@ function generateFactionRequest(ctx: SimContext): IssueSeed[] {
           `faction_revenge_${chosen.id}`,
           0,
           'Faction may seek revenge',
-          ['future_hook'],
+          ['future_hook', 'risk', 'faction'],
         ),
       ],
       memories: [
@@ -2430,7 +2482,7 @@ function generateFactionRequest(ctx: SimContext): IssueSeed[] {
           `faction_deception_exposed_${chosen.id}`,
           0,
           'Deception may surface',
-          ['future_hook'],
+          ['future_hook', 'risk', 'faction', 'deception'],
         ),
       ],
       memories: [
@@ -2545,6 +2597,14 @@ function generateCultureConflict(ctx: SimContext): IssueSeed[] {
       shape: 'compromise',
       targetOptions: [ref],
       expectedEffects: ['lower tension', 'time cost'],
+      choiceContract: {
+        archetype: 'negotiate',
+        primaryTarget: 'pressure:cultural_tension',
+        solves: ['cultural_tension'],
+        costTypes: ['owner_time'],
+        payoffTiming: 'immediate',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'honour_custom',
@@ -2585,6 +2645,15 @@ function generateCultureConflict(ctx: SimContext): IssueSeed[] {
       shape: 'delay_problem',
       targetOptions: [systemRef('staff')],
       expectedEffects: ['lower visible tension', 'add staff stress'],
+      choiceContract: {
+        archetype: 'staff_push',
+        primaryTarget: `cultures.${chosen.id}.tension`,
+        solves: ['visible_cultural_tension'],
+        doesNotSolve: ['underlying_staff_strain'],
+        costTypes: ['staff_fatigue', 'pressure_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
   ]
 
@@ -2596,6 +2665,7 @@ function generateCultureConflict(ctx: SimContext): IssueSeed[] {
         effect('state_change', `cultures.${chosen.id}.tension`, -15, 'Tension drops', ['culture']),
         effect('state_change', `cultures.${chosen.id}.comfort`, 10, 'Comfort rises', ['culture']),
         effect('pressure', 'pressure:cultural_tension', -10, 'Tension eases', ['pressure']),
+        effect('state_change', 'global.owner_time', -6, 'Owner time spent mediating', ['time']),
       ],
       delayedEffects: [],
       memories: [
@@ -2712,10 +2782,10 @@ function generateCultureConflict(ctx: SimContext): IssueSeed[] {
         effect('state_change', `cultures.${chosen.id}.tension`, -8, 'Visible tension drops', [
           'culture',
         ]),
-        effect('pressure', 'pressure:staff_burnout', 8, 'Staff carry the strain', ['pressure']),
+        effect('pressure', 'pressure:staff_burnout', 8, 'Staff carry the strain', ['pressure', 'staff', 'risk']),
       ],
       delayedEffects: [
-        effect('pressure', 'pressure:staff_loyalty_risk', 5, 'Staff resent the burden', ['pressure']),
+        effect('pressure', 'pressure:staff_loyalty_risk', 5, 'Staff resent the burden', ['pressure', 'staff', 'risk']),
       ],
       memories: [
         {
@@ -6206,6 +6276,15 @@ function generateRivalTavern(ctx: SimContext): IssueSeed[] {
       shape: 'long_term_investment',
       targetOptions: [rivalRef],
       expectedEffects: ['raise patronage', 'spend coin'],
+      choiceContract: {
+        archetype: 'major_project',
+        primaryTarget: 'customers.merchants.patronage',
+        solves: ['rival_tavern_pressure'],
+        costTypes: ['coin'],
+        payoffTiming: 'mixed',
+        mustShowDelayedPayoff: true,
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'improve_quality',

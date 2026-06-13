@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'vitest'
 
 import { composeChoicesFromSeed } from '../../src/cards/cardHelpers'
+import { formatEffectPreview } from '../../src/cards/compose/formatEffectPreview'
 import { getIssueSeeds } from '../../src/sim/modules/issues/issueSeedQueries'
-import type { ChoiceArchetype } from '../../src/sim/modules/issues/issueSeedTypes'
+import { effect } from '../../src/sim/modules/issues/generatorHelpers'
+import type { ChoiceArchetype, IssueSeed } from '../../src/sim/modules/issues/issueSeedTypes'
+import type { TavernState } from '../../src/sim/state/TavernState'
 import { runOneDay } from '../../src/sim/testing/simRunner'
 import {
   buildAreaAtmosphereTriggeringState,
+  buildDebtRentTriggeringState,
+  buildFactionRequestTriggeringState,
+  buildMonthlyReviewTriggeringState,
   buildRegularCustomerRelationshipTriggeringState,
   buildReputationShiftTriggeringState,
+  buildViolenceTriggeringState,
 } from '../sim/triggeringStates'
 
 const EXPECTED_AREA_ARCHETYPES: Record<string, ChoiceArchetype> = {
@@ -19,9 +26,7 @@ const EXPECTED_AREA_ARCHETYPES: Record<string, ChoiceArchetype> = {
   ignore_area_problem: 'ignore',
 }
 
-
-
-function captureSeed(family: string, buildState: () => ReturnType<typeof buildAreaAtmosphereTriggeringState>, seed: string) {
+function captureSeed(family: string, buildState: () => TavernState, seed: string) {
   let result = runOneDay(buildState(), { seed })
   let captured = getIssueSeeds(result.state, { family })[0]
   if (captured === undefined) {
@@ -31,7 +36,7 @@ function captureSeed(family: string, buildState: () => ReturnType<typeof buildAr
   return { seed: captured, state: result.state }
 }
 
-function composeForContract(seed: NonNullable<ReturnType<typeof captureSeed>['seed']>, state: ReturnType<typeof buildAreaAtmosphereTriggeringState>) {
+function composeForContract(seed: IssueSeed, state: TavernState) {
   return composeChoicesFromSeed(seed, state, {
     labelPool: { slotId: 'choice_label', snippets: [] },
     previewPool: { slotId: 'effect_preview', snippets: [] },
@@ -117,7 +122,6 @@ describe('card choice contracts', () => {
     ])
   })
 
-
   it('makes Phase 8 regular word-of-mouth choices carry visible credibility stakes', () => {
     const captured = captureSeed(
       'regular_customer',
@@ -174,6 +178,198 @@ describe('card choice contracts', () => {
       'later: Big-spending patrons may visit less often',
     ]))
     expect([...embrace, ...advertise].join('\n')).not.toMatch(/Condition|Cleanliness|Damage/)
+  })
+
+  it('makes Phase 9 violence escalation and security choices show contracts, costs, and blowback', () => {
+    const captured = captureSeed(
+      'violence',
+      buildViolenceTriggeringState,
+      'card-choice-contracts-phase-11-violence',
+    )
+    expect(captured.seed).toBeDefined()
+
+    const choices = composeForContract(captured.seed!, captured.state)
+    const bySlot = new Map(choices.map((choice) => [choice.slotId, choice]))
+    const slots = new Map(captured.seed!.responseSlots.map((slot) => [slot.id, slot]))
+
+    expect(slots.get('hire_security')?.choiceContract).toMatchObject({
+      archetype: 'major_project',
+      costTypes: ['coin', 'staff_fatigue'],
+      mustShowDelayedPayoff: true,
+      requiresVisibleTradeoff: true,
+    })
+    expect(bySlot.get('hire_security')?.mechanicalEffects).toEqual(expect.arrayContaining([
+      'Coin -20',
+      'Violence Risk -15',
+      'later: Staff Burnout Risk +4',
+      'later: Security may become a routine fixture',
+    ]))
+
+    expect(slots.get('ban_group')?.choiceContract).toMatchObject({
+      archetype: 'escalate',
+      costTypes: ['relationship_risk'],
+      requiresVisibleTradeoff: true,
+    })
+    expect(bySlot.get('ban_group')?.mechanicalEffects).toEqual(expect.arrayContaining([
+      'Ogres Patronage -25',
+      'Violence Risk -12',
+      'Ogres -20',
+      'later: ogres may try to return',
+    ]))
+
+    expect(slots.get('embrace_rowdy')?.choiceContract).toMatchObject({
+      archetype: 'spin_or_rebrand',
+      doesNotSolve: ['violence_pressure'],
+      costTypes: ['reputation_risk', 'relationship_risk'],
+    })
+    expect(bySlot.get('embrace_rowdy')?.mechanicalEffects).toEqual(expect.arrayContaining([
+      'Dangerous Reputation +6',
+      'Respectable Reputation -4',
+      'later: Merchants Patronage -8',
+    ]))
+  })
+
+  it('makes Phase 9 faction escalation visibly trade immediate relief for relationship loss and revenge risk', () => {
+    const captured = captureSeed(
+      'faction_request',
+      buildFactionRequestTriggeringState,
+      'card-choice-contracts-phase-11-faction',
+    )
+    expect(captured.seed).toBeDefined()
+
+    const choices = composeForContract(captured.seed!, captured.state)
+    const bySlot = new Map(choices.map((choice) => [choice.slotId, choice]))
+    const slots = new Map(captured.seed!.responseSlots.map((slot) => [slot.id, slot]))
+
+    expect(slots.get('call_watch')?.choiceContract).toMatchObject({
+      archetype: 'escalate',
+      primaryTarget: 'pressure:faction_anger',
+      costTypes: ['relationship_risk'],
+      payoffTiming: 'mixed',
+      requiresVisibleTradeoff: true,
+    })
+    expect(bySlot.get('call_watch')?.mechanicalEffects).toEqual(expect.arrayContaining([
+      'Relationship -25',
+      'Faction Anger Tension -8',
+      'later: Faction may seek revenge',
+    ]))
+
+    expect(slots.get('host_faction_night')?.choiceContract).toMatchObject({
+      archetype: 'call_in_favor',
+      costTypes: ['coin', 'pressure_risk'],
+      payoffTiming: 'mixed',
+      requiresVisibleTradeoff: true,
+    })
+    expect(bySlot.get('host_faction_night')?.mechanicalEffects).toEqual(expect.arrayContaining([
+      'Relationship +18',
+      'Coin -15',
+      'later: Cultural Tension +5',
+    ]))
+
+    expect(slots.get('play_rival_faction')?.choiceContract).toMatchObject({
+      archetype: 'cut_corners',
+      costTypes: ['relationship_risk', 'reputation_risk'],
+      requiresVisibleTradeoff: true,
+    })
+    expect(bySlot.get('play_rival_faction')?.mechanicalEffects).toEqual(expect.arrayContaining([
+      'Trust -8',
+      'later: Rumour Pressure +8',
+      'later: Deception may surface',
+    ]))
+  })
+
+  it('makes Phase 10 debt deferral an intentional no-immediate-cost risk rather than a missing-cost bug', () => {
+    const captured = captureSeed(
+      'debt_rent',
+      buildDebtRentTriggeringState,
+      'card-choice-contracts-phase-11-debt',
+    )
+    expect(captured.seed).toBeDefined()
+
+    const choices = composeForContract(captured.seed!, captured.state)
+    const bySlot = new Map(choices.map((choice) => [choice.slotId, choice]))
+    const delaySlot = captured.seed!.responseSlots.find((slot) => slot.id === 'delay')
+
+    expect(delaySlot?.expectedEffects.join(' ').toLowerCase()).toContain('no immediate coin cost')
+    expect(delaySlot?.choiceContract).toMatchObject({
+      archetype: 'delay',
+      costTypes: ['none'],
+      payoffTiming: 'delayed',
+      requiresVisibleTradeoff: true,
+    })
+    expect(bySlot.get('delay')?.mechanicalEffects).toEqual([
+      'Landlord Pressure +10',
+      'Landlord may threaten eviction',
+    ])
+  })
+
+  it('makes Phase 10 monthly-review rent payment exact about coin already spent', () => {
+    const captured = captureSeed(
+      'monthly_review',
+      buildMonthlyReviewTriggeringState,
+      'card-choice-contracts-phase-11-monthly',
+    )
+    expect(captured.seed).toBeDefined()
+
+    const choices = composeForContract(captured.seed!, captured.state)
+    const bySlot = new Map(choices.map((choice) => [choice.slotId, choice]))
+    const paySlot = captured.seed!.responseSlots.find((slot) => slot.id === 'pay_landlord_on_time')
+
+    expect(paySlot?.choiceContract).toMatchObject({
+      archetype: 'compensate',
+      costTypes: ['none'],
+      payoffTiming: 'mixed',
+      requiresVisibleTradeoff: true,
+    })
+    expect(paySlot?.expectedEffects).toEqual(['lower landlord pressure', 'rent already paid'])
+    expect(bySlot.get('pay_landlord_on_time')?.mechanicalEffects).toEqual([
+      'Coin 0',
+      'Landlord Pressure -25',
+      'later: Debt Pressure +6',
+      'later: Landlord may offer a window of goodwill',
+    ])
+  })
+
+  it('keeps Phase 11 bad-when-higher mechanical labels explicit for state and pressure meters', () => {
+    const state = buildAreaAtmosphereTriggeringState()
+    const staffId = Object.keys(state.staff)[0]!
+
+    expect(
+      formatEffectPreview(
+        effect('pressure', 'pressure:maintenance', 10, 'Maintenance rises', ['pressure']),
+        state,
+      ),
+    ).toBe('Maintenance Backlog +10')
+    expect(
+      formatEffectPreview(
+        effect('state_change', `staff.${staffId}.fatigue`, 8, 'Fatigue rises', ['staff']),
+        state,
+      ),
+    ).toMatch(/ Fatigue \+8$/)
+    expect(
+      formatEffectPreview(
+        effect('pressure', 'pressure:cultural_tension', 5, 'Tension rises', ['pressure']),
+        state,
+      ),
+    ).toBe('Cultural Tension +5')
+    expect(
+      formatEffectPreview(
+        effect('state_change', 'areas.main_room.damage', 6, 'Damage rises', ['area']),
+        state,
+      ),
+    ).toBe('Main Room Damage +6')
+    expect(
+      formatEffectPreview(
+        effect('state_change', 'areas.main_room.smell', 12, 'Smell rises', ['area']),
+        state,
+      ),
+    ).toBe('Main Room Smell +12')
+    expect(
+      formatEffectPreview(
+        effect('pressure', 'pressure:landlord', 10, 'Landlord pressure rises', ['pressure']),
+        state,
+      ),
+    ).toBe('Landlord Pressure +10')
   })
 
 })

@@ -279,7 +279,19 @@
     "expectedEffects": [
       "raise staff morale",
       "spend coin"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "compensate",
+      "primaryTarget": "staff.morale",
+      "solves": [
+        "acute_burnout"
+      ],
+      "costTypes": [
+        "coin"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "pay_bonus_profile",
@@ -297,7 +309,8 @@
         "direction": "positive",
         "magnitudeBand": "large",
         "meterId": "morale",
-        "meterLabel": "morale"
+        "meterLabel": "morale",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -311,7 +324,8 @@
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "stress",
-        "meterLabel": "stress"
+        "meterLabel": "stress",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -325,7 +339,8 @@
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       }
     ],
     "delayedEffects": [
@@ -343,7 +358,8 @@
         "direction": "positive",
         "magnitudeBand": "tiny",
         "meterId": "debt",
-        "meterLabel": "Debt"
+        "meterLabel": "Debt Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "future_hook",
@@ -415,7 +431,19 @@
     "expectedEffects": [
       "lower stress",
       "reduce service capacity"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "staff_care",
+      "primaryTarget": "staff.stress",
+      "solves": [
+        "acute_burnout"
+      ],
+      "costTypes": [
+        "service_capacity"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "reduce_workload_profile",
@@ -433,7 +461,8 @@
         "direction": "positive",
         "magnitudeBand": "large",
         "meterId": "fatigue",
-        "meterLabel": "fatigue"
+        "meterLabel": "fatigue",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -447,7 +476,24 @@
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "stress",
-        "meterLabel": "stress"
+        "meterLabel": "stress",
+        "meterDisplayCategory": "bad_when_higher"
+      },
+      {
+        "kind": "state_change",
+        "target": "global.service_capacity",
+        "amount": -8,
+        "readable": "Service capacity drops while the rota is lightened",
+        "tags": [
+          "service",
+          "capacity"
+        ],
+        "targetKind": "global",
+        "direction": "negative",
+        "magnitudeBand": "small",
+        "meterId": "service_capacity",
+        "meterLabel": "service capacity",
+        "meterDisplayCategory": "good_when_higher"
       }
     ],
     "delayedEffects": [
@@ -465,7 +511,8 @@
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "fatigue",
-        "meterLabel": "fatigue"
+        "meterLabel": "fatigue",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "future_hook",
@@ -517,7 +564,7 @@
         ]
       }
     ],
-    "impactScore": 40
+    "impactScore": 48
   }
 }
 ```
@@ -542,7 +589,20 @@
     "expectedEffects": [
       "no cost",
       "risk staff quitting"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "staff_push",
+      "primaryTarget": "service.coverage",
+      "doesNotSolve": [
+        "acute_burnout"
+      ],
+      "costTypes": [
+        "relationship_risk",
+        "pressure_risk"
+      ],
+      "payoffTiming": "delayed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "push_through_profile",
@@ -561,7 +621,8 @@
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "staff_burnout",
-        "meterLabel": "Staff Burnout"
+        "meterLabel": "Staff Burnout Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "future_hook",
@@ -632,7 +693,20 @@
     "expectedEffects": [
       "shift workload",
       "side effects elsewhere"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "staff_push",
+      "primaryTarget": "staff.workload",
+      "solves": [
+        "acute_burnout"
+      ],
+      "costTypes": [
+        "staff_fatigue",
+        "pressure_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "reassign_profile",
@@ -650,7 +724,8 @@
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "stress",
-        "meterLabel": "stress"
+        "meterLabel": "stress",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -665,7 +740,8 @@
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "fatigue",
-        "meterLabel": "fatigue"
+        "meterLabel": "fatigue",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "delayedEffects": [
@@ -683,7 +759,8 @@
         "direction": "positive",
         "magnitudeBand": "tiny",
         "meterId": "staff_burnout",
-        "meterLabel": "Staff Burnout"
+        "meterLabel": "Staff Burnout Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "future_hook",
@@ -755,12 +832,14 @@ These are the current player-facing `CardChoice` objects after the production ca
       "morale would surge through the whole crew, a wide leap",
       "stress would lift a real step off the crew",
       "a notch of silver would slip from the purse",
-      "later: the rota would mark it for later"
+      "later: a hair of pressure would press onto the reading",
+      "later: a thread would loop back round"
     ],
     "mechanicalEffects": [
       "Nash Morale +15",
       "Nash Stress -10",
       "Coin -15",
+      "later: Debt Pressure +3",
       "later: Nash may expect another bonus"
     ]
   },
@@ -773,11 +852,15 @@ These are the current player-facing `CardChoice` objects after the production ca
     "previewEffects": [
       "fatigue would drop away, a wide leap for the crew",
       "stress would loosen a clear lift across the rota",
-      "later: a thread would loop back round"
+      "capacity would shrink by a measure",
+      "later: fatigue would creep a step across the shift (Ib Mudshank)",
+      "later: the rota would mark it for later"
     ],
     "mechanicalEffects": [
       "Nash Fatigue -15",
       "Nash Stress -10",
+      "Service Capacity -8",
+      "later: Ib Mudshank Fatigue +6",
       "later: Coverage gap may resurface when Nash returns"
     ]
   },
@@ -792,7 +875,7 @@ These are the current player-facing `CardChoice` objects after the production ca
       "a thread would loop back round"
     ],
     "mechanicalEffects": [
-      "Staff Burnout +8",
+      "Staff Burnout Risk +8",
       "Nash may quit"
     ]
   },
@@ -805,11 +888,13 @@ These are the current player-facing `CardChoice` objects after the production ca
     "previewEffects": [
       "Slight relief",
       "fatigue would creep a step across the shift (Ib Mudshank)",
+      "later: Cross-staff load creeps the burnout meter",
       "later: Ib Mudshank may grumble about the reassign"
     ],
     "mechanicalEffects": [
       "Nash Stress -8",
       "Ib Mudshank Fatigue +6",
+      "later: Staff Burnout Risk +3",
       "later: Ib Mudshank may grumble about the reassign"
     ]
   }
@@ -1478,8 +1563,20 @@ These are the current player-facing `CardChoice` objects after the production ca
     ],
     "expectedEffects": [
       "raise loyalty",
-      "time cost"
-    ]
+      "takes time"
+    ],
+    "choiceContract": {
+      "archetype": "staff_care",
+      "primaryTarget": "staff.loyalty",
+      "solves": [
+        "loyalty_shock"
+      ],
+      "costTypes": [
+        "owner_time"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "comfort_staff_profile",
@@ -1497,7 +1594,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -1511,7 +1609,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "stress",
-        "meterLabel": "stress"
+        "meterLabel": "stress",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -1525,7 +1624,24 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "morale",
-        "meterLabel": "morale"
+        "meterLabel": "morale",
+        "meterDisplayCategory": "good_when_higher"
+      },
+      {
+        "kind": "state_change",
+        "target": "global.owner_time",
+        "amount": -5,
+        "readable": "Owner time spent in a private talk",
+        "tags": [
+          "time",
+          "owner"
+        ],
+        "targetKind": "global",
+        "direction": "negative",
+        "magnitudeBand": "small",
+        "meterId": "owner_time",
+        "meterLabel": "owner time",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "cause",
@@ -1606,7 +1722,7 @@ These are the current player-facing `CardChoice` objects after the production ca
         ]
       }
     ],
-    "impactScore": 41
+    "impactScore": 46
   }
 }
 ```
@@ -1632,7 +1748,19 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "shift blame off staff",
       "risk owner reputation"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "staff_care",
+      "primaryTarget": "staff.loyalty",
+      "solves": [
+        "public_blame"
+      ],
+      "costTypes": [
+        "reputation_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "publicly_back_staff_profile",
@@ -1650,21 +1778,24 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
         "target": "reputation.respectable",
-        "amount": 5,
-        "readable": "Owner stood up for staff",
+        "amount": -4,
+        "readable": "Owner spends standing to back staff",
         "tags": [
-          "reputation"
+          "reputation",
+          "risk"
         ],
         "targetKind": "reputation",
-        "direction": "positive",
-        "magnitudeBand": "small",
+        "direction": "negative",
+        "magnitudeBand": "tiny",
         "meterId": "respectable",
-        "meterLabel": "respectable"
+        "meterLabel": "respectable",
+        "meterDisplayCategory": "contextual"
       },
       {
         "kind": "state_change",
@@ -1678,7 +1809,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "tiny",
         "meterId": "dangerous",
-        "meterLabel": "dangerous"
+        "meterLabel": "dangerous",
+        "meterDisplayCategory": "contextual"
       },
       {
         "kind": "pressure",
@@ -1692,7 +1824,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "staff_loyalty_risk",
-        "meterLabel": "Staff Loyalty Risk"
+        "meterLabel": "Staff Loyalty Risk",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "delayedEffects": [
@@ -1760,7 +1893,7 @@ These are the current player-facing `CardChoice` objects after the production ca
         ]
       }
     ],
-    "impactScore": 41
+    "impactScore": 40
   }
 }
 ```
@@ -1785,7 +1918,19 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "raise morale",
       "spend coin"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "compensate",
+      "primaryTarget": "staff.morale",
+      "solves": [
+        "loyalty_shock"
+      ],
+      "costTypes": [
+        "coin"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "pay_bonus_profile",
@@ -1803,7 +1948,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "morale",
-        "meterLabel": "morale"
+        "meterLabel": "morale",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -1817,7 +1963,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -1831,7 +1978,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "cause",
@@ -1859,10 +2007,28 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "staff_loyalty_risk",
-        "meterLabel": "Staff Loyalty Risk"
+        "meterLabel": "Staff Loyalty Risk",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "delayedEffects": [
+      {
+        "kind": "pressure",
+        "target": "pressure:debt",
+        "amount": 2,
+        "readable": "Bonus nudges wage pressure upward",
+        "tags": [
+          "pressure",
+          "debt",
+          "delay:5"
+        ],
+        "targetKind": "pressure",
+        "direction": "positive",
+        "magnitudeBand": "tiny",
+        "meterId": "debt",
+        "meterLabel": "Debt Pressure",
+        "meterDisplayCategory": "bad_when_higher"
+      },
       {
         "kind": "future_hook",
         "target": "wage_expectation_cleaner_bouncer",
@@ -1926,7 +2092,7 @@ These are the current player-facing `CardChoice` objects after the production ca
         ]
       }
     ],
-    "impactScore": 55
+    "impactScore": 56
   }
 }
 ```
@@ -1951,7 +2117,21 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "shed owner blame",
       "destroy loyalty"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "staff_push",
+      "primaryTarget": "owner.reputation",
+      "doesNotSolve": [
+        "loyalty_shock"
+      ],
+      "costTypes": [
+        "relationship_risk",
+        "reputation_risk",
+        "pressure_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "blame_staff_profile",
@@ -1969,7 +2149,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "large",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -1983,7 +2164,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "morale",
-        "meterLabel": "morale"
+        "meterLabel": "morale",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -1997,7 +2179,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "respectable",
-        "meterLabel": "respectable"
+        "meterLabel": "respectable",
+        "meterDisplayCategory": "contextual"
       },
       {
         "kind": "cause",
@@ -2026,7 +2209,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "rumour_pressure",
-        "meterLabel": "Rumour Pressure"
+        "meterLabel": "Rumour Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "delayedEffects": [
@@ -2042,7 +2226,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "staff_loyalty_risk",
-        "meterLabel": "Staff Loyalty Risk"
+        "meterLabel": "Staff Loyalty Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "future_hook",
@@ -2148,9 +2333,21 @@ These are the current player-facing `CardChoice` objects after the production ca
       }
     ],
     "expectedEffects": [
-      "lower stress",
+      "rest staff",
       "reduce service capacity"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "staff_care",
+      "primaryTarget": "staff.stress",
+      "solves": [
+        "loyalty_shock"
+      ],
+      "costTypes": [
+        "service_capacity"
+      ],
+      "payoffTiming": "immediate",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "change_priority_profile",
@@ -2168,7 +2365,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "stress",
-        "meterLabel": "stress"
+        "meterLabel": "stress",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -2182,7 +2380,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "fatigue",
-        "meterLabel": "fatigue"
+        "meterLabel": "fatigue",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -2196,10 +2395,45 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "staff_burnout",
-        "meterLabel": "Staff Burnout"
+        "meterLabel": "Staff Burnout Risk",
+        "meterDisplayCategory": "bad_when_higher"
+      },
+      {
+        "kind": "state_change",
+        "target": "global.service_capacity",
+        "amount": -4,
+        "readable": "Service capacity dips during the priority shift",
+        "tags": [
+          "service",
+          "capacity"
+        ],
+        "targetKind": "global",
+        "direction": "negative",
+        "magnitudeBand": "tiny",
+        "meterId": "service_capacity",
+        "meterLabel": "service capacity",
+        "meterDisplayCategory": "good_when_higher"
       }
     ],
-    "delayedEffects": [],
+    "delayedEffects": [
+      {
+        "kind": "pressure",
+        "target": "pressure:staff_loyalty_risk",
+        "amount": 3,
+        "readable": "Priority shuffle may spark grumbles",
+        "tags": [
+          "pressure",
+          "staff",
+          "delay:3"
+        ],
+        "targetKind": "pressure",
+        "direction": "positive",
+        "magnitudeBand": "tiny",
+        "meterId": "staff_loyalty_risk",
+        "meterLabel": "Staff Loyalty Risk",
+        "meterDisplayCategory": "bad_when_higher"
+      }
+    ],
     "memories": [
       {
         "id": "staff_priority_changed_cleaner_bouncer",
@@ -2234,7 +2468,7 @@ These are the current player-facing `CardChoice` objects after the production ca
       }
     ],
     "futureHooks": [],
-    "impactScore": 26
+    "impactScore": 32
   }
 }
 ```
@@ -2254,7 +2488,19 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "no cost",
       "risk staff quitting"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "ignore",
+      "primaryTarget": "staff.loyalty",
+      "doesNotSolve": [
+        "loyalty_shock"
+      ],
+      "costTypes": [
+        "none"
+      ],
+      "payoffTiming": "delayed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "ignore_request_profile",
@@ -2272,7 +2518,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -2286,7 +2533,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "stress",
-        "meterLabel": "stress"
+        "meterLabel": "stress",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "delayedEffects": [
@@ -2302,7 +2550,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "staff_loyalty_risk",
-        "meterLabel": "Staff Loyalty Risk"
+        "meterLabel": "Staff Loyalty Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "future_hook",
@@ -2394,7 +2643,21 @@ These are the current player-facing `CardChoice` objects after the production ca
       "raise loyalty sharply",
       "raise stress",
       "service capacity grows"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "major_project",
+      "primaryTarget": "staff.authority",
+      "solves": [
+        "loyalty_shock"
+      ],
+      "costTypes": [
+        "coin",
+        "staff_fatigue"
+      ],
+      "payoffTiming": "mixed",
+      "mustShowDelayedPayoff": true,
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "give_authority_profile",
@@ -2412,7 +2675,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "large",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -2426,7 +2690,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "stress",
-        "meterLabel": "stress"
+        "meterLabel": "stress",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -2440,7 +2705,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "pressure",
@@ -2454,7 +2720,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "staff_loyalty_risk",
-        "meterLabel": "Staff Loyalty Risk"
+        "meterLabel": "Staff Loyalty Risk",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "delayedEffects": [
@@ -2548,7 +2815,19 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "lower stress",
       "service capacity drops"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "staff_care",
+      "primaryTarget": "staff.stress",
+      "solves": [
+        "loyalty_shock"
+      ],
+      "costTypes": [
+        "service_capacity"
+      ],
+      "payoffTiming": "immediate",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "quieter_role_profile",
@@ -2566,7 +2845,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "stress",
-        "meterLabel": "stress"
+        "meterLabel": "stress",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -2580,7 +2860,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "fatigue",
-        "meterLabel": "fatigue"
+        "meterLabel": "fatigue",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -2594,7 +2875,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "pressure",
@@ -2608,7 +2890,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "staff_loyalty_risk",
-        "meterLabel": "Staff Loyalty Risk"
+        "meterLabel": "Staff Loyalty Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -2622,7 +2905,24 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "staff_burnout",
-        "meterLabel": "Staff Burnout"
+        "meterLabel": "Staff Burnout Risk",
+        "meterDisplayCategory": "bad_when_higher"
+      },
+      {
+        "kind": "state_change",
+        "target": "global.service_capacity",
+        "amount": -10,
+        "readable": "Service capacity drops in the quieter role",
+        "tags": [
+          "service",
+          "capacity"
+        ],
+        "targetKind": "global",
+        "direction": "negative",
+        "magnitudeBand": "small",
+        "meterId": "service_capacity",
+        "meterLabel": "service capacity",
+        "meterDisplayCategory": "good_when_higher"
       }
     ],
     "delayedEffects": [],
@@ -2660,7 +2960,7 @@ These are the current player-facing `CardChoice` objects after the production ca
       }
     ],
     "futureHooks": [],
-    "impactScore": 43
+    "impactScore": 53
   }
 }
 ```
@@ -2685,7 +2985,19 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "raise loyalty now",
       "future wage cost"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "compensate",
+      "primaryTarget": "staff.loyalty",
+      "solves": [
+        "loyalty_shock"
+      ],
+      "costTypes": [
+        "coin"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "promise_raise_profile",
@@ -2703,7 +3015,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -2717,7 +3030,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "morale",
-        "meterLabel": "morale"
+        "meterLabel": "morale",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "pressure",
@@ -2731,7 +3045,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "staff_loyalty_risk",
-        "meterLabel": "Staff Loyalty Risk"
+        "meterLabel": "Staff Loyalty Risk",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "delayedEffects": [
@@ -2748,7 +3063,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "future_hook",
@@ -2844,7 +3160,19 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "lower burnout",
       "spread context to peers"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "staff_care",
+      "primaryTarget": "pressure.staff_burnout",
+      "solves": [
+        "loyalty_shock"
+      ],
+      "costTypes": [
+        "owner_time"
+      ],
+      "payoffTiming": "immediate",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "staff_meeting_profile",
@@ -2862,7 +3190,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "morale",
-        "meterLabel": "morale"
+        "meterLabel": "morale",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "pressure",
@@ -2876,7 +3205,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "staff_loyalty_risk",
-        "meterLabel": "Staff Loyalty Risk"
+        "meterLabel": "Staff Loyalty Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -2890,7 +3220,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "staff_burnout",
-        "meterLabel": "Staff Burnout"
+        "meterLabel": "Staff Burnout Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "cause",
@@ -2905,6 +3236,22 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "cleaner_bouncer"
+      },
+      {
+        "kind": "state_change",
+        "target": "global.owner_time",
+        "amount": -5,
+        "readable": "Owner time spent in a staff meeting",
+        "tags": [
+          "time",
+          "owner"
+        ],
+        "targetKind": "global",
+        "direction": "negative",
+        "magnitudeBand": "small",
+        "meterId": "owner_time",
+        "meterLabel": "owner time",
+        "meterDisplayCategory": "good_when_higher"
       }
     ],
     "delayedEffects": [],
@@ -2955,7 +3302,7 @@ These are the current player-facing `CardChoice` objects after the production ca
       }
     ],
     "futureHooks": [],
-    "impactScore": 30
+    "impactScore": 35
   }
 }
 ```
@@ -2986,7 +3333,21 @@ These are the current player-facing `CardChoice` objects after the production ca
       "lower burnout",
       "raise peer loyalty",
       "service quality climbs"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "major_project",
+      "primaryTarget": "staff.training",
+      "solves": [
+        "loyalty_shock",
+        "burnout"
+      ],
+      "costTypes": [
+        "staff_fatigue"
+      ],
+      "payoffTiming": "mixed",
+      "mustShowDelayedPayoff": true,
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "training_helper_profile",
@@ -3004,7 +3365,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -3018,7 +3380,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "fatigue",
-        "meterLabel": "fatigue"
+        "meterLabel": "fatigue",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -3032,7 +3395,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -3046,7 +3410,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "morale",
-        "meterLabel": "morale"
+        "meterLabel": "morale",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "pressure",
@@ -3060,10 +3425,27 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "staff_burnout",
-        "meterLabel": "Staff Burnout"
+        "meterLabel": "Staff Burnout Risk",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "delayedEffects": [
+      {
+        "kind": "state_change",
+        "target": "global.service_quality",
+        "amount": 10,
+        "readable": "Service quality climbs once the helper is trained",
+        "tags": [
+          "service",
+          "training"
+        ],
+        "targetKind": "global",
+        "direction": "positive",
+        "magnitudeBand": "small",
+        "meterId": "service_quality",
+        "meterLabel": "service quality",
+        "meterDisplayCategory": "good_when_higher"
+      },
       {
         "kind": "future_hook",
         "target": "training_helper_cleaner_bouncer",
@@ -3130,7 +3512,7 @@ These are the current player-facing `CardChoice` objects after the production ca
         ]
       }
     ],
-    "impactScore": 47
+    "impactScore": 54
   }
 }
 ```
@@ -3150,13 +3532,13 @@ These are the current player-facing `CardChoice` objects after the production ca
     "previewEffects": [
       "loyalty would deepen a clear lift across the rota",
       "Stress drops",
-      "morale would warm a notch through the crew",
+      "owner time would spend a step away",
       "later: the rota would loop back to it"
     ],
     "mechanicalEffects": [
       "Nash Loyalty +10",
       "Nash Stress -8",
-      "Nash Morale +6",
+      "Owner Time -5",
       "later: Owner owes the moment back"
     ]
   },
@@ -3168,13 +3550,13 @@ These are the current player-facing `CardChoice` objects after the production ca
     "shape": "reputation_play",
     "previewEffects": [
       "loyalty would climb a real step with the crew",
-      "respectable standing would gain a step in talk",
+      "a hair of standing would slip from the name",
       "the loyalty risk would ease a step off the crew",
       "later: a thread would surface later"
     ],
     "mechanicalEffects": [
       "Nash Loyalty +12",
-      "Reputation Respectable +5",
+      "Respectable Reputation -4",
       "Staff Loyalty Risk -8",
       "later: Crew remembers being defended"
     ]
@@ -3189,12 +3571,14 @@ These are the current player-facing `CardChoice` objects after the production ca
       "morale would climb a clear lift in the crew",
       "the till would lighten by a step",
       "the loyalty risk would fall a clear drop tonight",
+      "later: a hair of pressure would press onto the reading",
       "later: Bonus becomes the new floor"
     ],
     "mechanicalEffects": [
       "Nash Morale +12",
       "Coin -10",
       "Staff Loyalty Risk -10",
+      "later: Debt Pressure +2",
       "later: Bonus becomes the new floor"
     ]
   },
@@ -3208,12 +3592,14 @@ These are the current player-facing `CardChoice` objects after the production ca
       "loyalty would collapse a heavy fall in the crew",
       "morale would sink a clear drop in the crew",
       "the rumour pressure would spread a step through the room",
+      "later: the loyalty risk would build a clear lift overnight",
       "later: Staff may quit"
     ],
     "mechanicalEffects": [
       "Nash Loyalty -20",
       "Nash Morale -12",
       "Rumour Pressure +6",
+      "later: Staff Loyalty Risk +12",
       "later: Staff may quit"
     ]
   },
@@ -3225,13 +3611,15 @@ These are the current player-facing `CardChoice` objects after the production ca
     "shape": "compromise",
     "previewEffects": [
       "stress would loosen a clear lift across the rota",
-      "fatigue would ease a step across the rota",
-      "the burnout meter would settle a step lower tonight"
+      "the burnout meter would settle a step lower tonight",
+      "service capacity would dip a hair",
+      "later: Priority shuffle may spark grumbles"
     ],
     "mechanicalEffects": [
       "Nash Stress -10",
-      "Nash Fatigue -5",
-      "Staff Burnout -6"
+      "Staff Burnout Risk -6",
+      "Service Capacity -4",
+      "later: Staff Loyalty Risk +3"
     ]
   },
   {
@@ -3242,11 +3630,13 @@ These are the current player-facing `CardChoice` objects after the production ca
     "previewEffects": [
       "loyalty would slip a step from the crew",
       "Unspoken stress lingers",
+      "later: the loyalty risk would climb a step higher tonight",
       "later: Quiet quitting watch"
     ],
     "mechanicalEffects": [
       "Nash Loyalty -3",
       "Nash Stress +4",
+      "later: Staff Loyalty Risk +6",
       "later: Quiet quitting watch"
     ]
   }
@@ -3643,9 +4033,22 @@ These are the current player-facing `CardChoice` objects after the production ca
       }
     ],
     "expectedEffects": [
-      "raise loyalty",
-      "time cost"
-    ]
+      "spend coin",
+      "takes time",
+      "raise loyalty"
+    ],
+    "choiceContract": {
+      "archetype": "appease",
+      "primaryTarget": "regular.loyalty",
+      "solves": [
+        "regular_irritation"
+      ],
+      "costTypes": [
+        "coin"
+      ],
+      "payoffTiming": "immediate",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "apologize_profile",
@@ -3655,7 +4058,7 @@ These are the current player-facing `CardChoice` objects after the production ca
         "kind": "cause",
         "target": "regular:phase163_regular_brik",
         "amount": 8,
-        "readable": "Loyalty rises",
+        "readable": "Regular loyalty rises",
         "tags": [
           "regular"
         ],
@@ -3663,6 +4066,22 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "phase163_regular_brik"
+      },
+      {
+        "kind": "state_change",
+        "target": "coin",
+        "amount": -1,
+        "readable": "Apology round cost",
+        "tags": [
+          "coin",
+          "time"
+        ],
+        "targetKind": "coin",
+        "direction": "negative",
+        "magnitudeBand": "tiny",
+        "meterId": "coin",
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       }
     ],
     "delayedEffects": [],
@@ -3683,7 +4102,7 @@ These are the current player-facing `CardChoice` objects after the production ca
       }
     ],
     "futureHooks": [],
-    "impactScore": 8
+    "impactScore": 9
   }
 }
 ```
@@ -3707,9 +4126,21 @@ These are the current player-facing `CardChoice` objects after the production ca
       }
     ],
     "expectedEffects": [
-      "raise loyalty",
-      "lose coin"
-    ]
+      "spend coin",
+      "raise loyalty"
+    ],
+    "choiceContract": {
+      "archetype": "compensate",
+      "primaryTarget": "regular.loyalty",
+      "solves": [
+        "regular_irritation"
+      ],
+      "costTypes": [
+        "coin"
+      ],
+      "payoffTiming": "immediate",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "comp_regular_profile",
@@ -3727,13 +4158,14 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "cause",
         "target": "regular:phase163_regular_brik",
         "amount": 10,
-        "readable": "Loyalty rises sharply",
+        "readable": "Regular loyalty rises sharply",
         "tags": [
           "regular"
         ],
@@ -3785,8 +4217,20 @@ These are the current player-facing `CardChoice` objects after the production ca
     ],
     "expectedEffects": [
       "hold the line",
-      "lose regular"
-    ]
+      "risk regular relationship"
+    ],
+    "choiceContract": {
+      "archetype": "appease",
+      "primaryTarget": "regular.boundary",
+      "doesNotSolve": [
+        "regular_irritation"
+      ],
+      "costTypes": [
+        "relationship_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "refuse_profile",
@@ -3880,7 +4324,20 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "raise reputation",
       "risk credibility"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "call_in_favor",
+      "primaryTarget": "regular.word_of_mouth",
+      "solves": [
+        "regular_customer_loss"
+      ],
+      "costTypes": [
+        "reputation_risk",
+        "relationship_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "ask_regular_word_profile",
@@ -3888,9 +4345,24 @@ These are the current player-facing `CardChoice` objects after the production ca
     "immediateEffects": [
       {
         "kind": "state_change",
+        "target": "world.regulars.phase163_regular_brik.loyalty",
+        "amount": 8,
+        "readable": "Regular loyalty backs the pitch",
+        "tags": [
+          "regular"
+        ],
+        "targetKind": "customer",
+        "direction": "positive",
+        "magnitudeBand": "medium",
+        "meterId": "loyalty",
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
+      },
+      {
+        "kind": "state_change",
         "target": "customers.miners.loyalty",
         "amount": 5,
-        "readable": "Word spreads",
+        "readable": "Word spreads to their crowd",
         "tags": [
           "customer"
         ],
@@ -3898,10 +4370,44 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
+      },
+      {
+        "kind": "pressure",
+        "target": "pressure:reputation_drift",
+        "amount": 5,
+        "readable": "Credibility risk rises",
+        "tags": [
+          "pressure",
+          "reputation",
+          "risk"
+        ],
+        "targetKind": "pressure",
+        "direction": "positive",
+        "magnitudeBand": "small",
+        "meterId": "reputation_drift",
+        "meterLabel": "Reputation Drift Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
-    "delayedEffects": [],
+    "delayedEffects": [
+      {
+        "kind": "future_hook",
+        "target": "regular_word_credibility_phase163_regular_brik",
+        "amount": 8,
+        "readable": "Regulars may judge the promise later",
+        "tags": [
+          "future_hook",
+          "reputation",
+          "risk"
+        ],
+        "targetKind": "other",
+        "direction": "positive",
+        "magnitudeBand": "small",
+        "meterId": "regular_word_credibility_phase163_regular_brik"
+      }
+    ],
     "memories": [
       {
         "id": "regular_word_phase163_regular_brik",
@@ -3917,8 +4423,23 @@ These are the current player-facing `CardChoice` objects after the production ca
         ]
       }
     ],
-    "futureHooks": [],
-    "impactScore": 8
+    "futureHooks": [
+      {
+        "id": "regular_word_credibility_phase163_regular_brik",
+        "actors": [
+          {
+            "kind": "regular",
+            "id": "phase163_regular_brik"
+          }
+        ],
+        "tags": [
+          "regular",
+          "reputation",
+          "risk"
+        ]
+      }
+    ],
+    "impactScore": 28
   }
 }
 ```
@@ -3941,9 +4462,18 @@ These are the current player-facing `CardChoice` objects after the production ca
       }
     ],
     "expectedEffects": [
-      "lose regular",
+      "risk regular relationship",
       "send signal"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "escalate",
+      "primaryTarget": "regular.boundary",
+      "costTypes": [
+        "relationship_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "ban_regular_profile",
@@ -4000,7 +4530,19 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "no cost",
       "raise regular loss pressure"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "ignore",
+      "primaryTarget": "pressure.regular_customer_loss",
+      "doesNotSolve": [
+        "regular_irritation"
+      ],
+      "costTypes": [
+        "none"
+      ],
+      "payoffTiming": "delayed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "ignore_regular_profile",
@@ -4019,7 +4561,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "regular_customer_loss",
-        "meterLabel": "Regular Customer Loss"
+        "meterLabel": "Regular Customer Loss Risk",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "memories": [
@@ -4056,10 +4599,12 @@ These are the current player-facing `CardChoice` objects after the production ca
     "targetId": "phase163_regular_brik",
     "shape": "safe_costly",
     "previewEffects": [
-      "Loyalty rises"
+      "Regular loyalty rises",
+      "Apology round cost"
     ],
     "mechanicalEffects": [
-      "Phase163 Regular Brik +8"
+      "Brik Tallowmug +8",
+      "Coin -1"
     ]
   },
   {
@@ -4070,11 +4615,11 @@ These are the current player-facing `CardChoice` objects after the production ca
     "shape": "safe_costly",
     "previewEffects": [
       "Comp cost",
-      "Loyalty rises sharply"
+      "Regular loyalty rises sharply"
     ],
     "mechanicalEffects": [
       "Coin -8",
-      "Phase163 Regular Brik +10"
+      "Brik Tallowmug +10"
     ]
   },
   {
@@ -4084,10 +4629,12 @@ These are the current player-facing `CardChoice` objects after the production ca
     "targetId": "phase163_regular_brik",
     "shape": "relationship_sacrifice",
     "previewEffects": [
-      "Regular grudges"
+      "Regular grudges",
+      "later: Regular may turn rival"
     ],
     "mechanicalEffects": [
-      "Phase163 Regular Brik -12"
+      "Brik Tallowmug -12",
+      "later: Regular may turn rival"
     ]
   },
   {
@@ -4097,10 +4644,16 @@ These are the current player-facing `CardChoice` objects after the production ca
     "targetId": "phase163_regular_brik",
     "shape": "long_term_investment",
     "previewEffects": [
-      "Word spreads"
+      "Regular loyalty backs the pitch",
+      "Word spreads to their crowd",
+      "Credibility risk rises",
+      "later: Regulars may judge the promise later"
     ],
     "mechanicalEffects": [
-      "Miners Loyalty +5"
+      "Brik Tallowmug Loyalty +8",
+      "Miners Loyalty +5",
+      "Reputation Drift Pressure +5",
+      "later: Regulars may judge the promise later"
     ]
   },
   {
@@ -4113,7 +4666,7 @@ These are the current player-facing `CardChoice` objects after the production ca
       "Regular banned"
     ],
     "mechanicalEffects": [
-      "Phase163 Regular Brik -25"
+      "Brik Tallowmug -25"
     ]
   },
   {
@@ -4121,8 +4674,12 @@ These are the current player-facing `CardChoice` objects after the production ca
     "label": "Ignore the regular",
     "verb": "ignore",
     "shape": "ignore",
-    "previewEffects": [],
-    "mechanicalEffects": []
+    "previewEffects": [
+      "Loss pressure rises"
+    ],
+    "mechanicalEffects": [
+      "Regular Customer Loss Risk +6"
+    ]
   }
 ]
 ```
@@ -4521,9 +5078,22 @@ These are the current player-facing `CardChoice` objects after the production ca
       }
     ],
     "expectedEffects": [
-      "raise loyalty",
-      "time cost"
-    ]
+      "spend coin",
+      "takes time",
+      "raise loyalty"
+    ],
+    "choiceContract": {
+      "archetype": "appease",
+      "primaryTarget": "regular.loyalty",
+      "solves": [
+        "regular_irritation"
+      ],
+      "costTypes": [
+        "coin"
+      ],
+      "payoffTiming": "immediate",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "apologize_profile",
@@ -4533,7 +5103,7 @@ These are the current player-facing `CardChoice` objects after the production ca
         "kind": "cause",
         "target": "regular:phase163_regular_brik",
         "amount": 8,
-        "readable": "Loyalty rises",
+        "readable": "Regular loyalty rises",
         "tags": [
           "regular"
         ],
@@ -4541,6 +5111,22 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "phase163_regular_brik"
+      },
+      {
+        "kind": "state_change",
+        "target": "coin",
+        "amount": -1,
+        "readable": "Apology round cost",
+        "tags": [
+          "coin",
+          "time"
+        ],
+        "targetKind": "coin",
+        "direction": "negative",
+        "magnitudeBand": "tiny",
+        "meterId": "coin",
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       }
     ],
     "delayedEffects": [],
@@ -4561,7 +5147,7 @@ These are the current player-facing `CardChoice` objects after the production ca
       }
     ],
     "futureHooks": [],
-    "impactScore": 8
+    "impactScore": 9
   }
 }
 ```
@@ -4585,9 +5171,21 @@ These are the current player-facing `CardChoice` objects after the production ca
       }
     ],
     "expectedEffects": [
-      "raise loyalty",
-      "lose coin"
-    ]
+      "spend coin",
+      "raise loyalty"
+    ],
+    "choiceContract": {
+      "archetype": "compensate",
+      "primaryTarget": "regular.loyalty",
+      "solves": [
+        "regular_irritation"
+      ],
+      "costTypes": [
+        "coin"
+      ],
+      "payoffTiming": "immediate",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "comp_regular_profile",
@@ -4605,13 +5203,14 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "cause",
         "target": "regular:phase163_regular_brik",
         "amount": 10,
-        "readable": "Loyalty rises sharply",
+        "readable": "Regular loyalty rises sharply",
         "tags": [
           "regular"
         ],
@@ -4663,8 +5262,20 @@ These are the current player-facing `CardChoice` objects after the production ca
     ],
     "expectedEffects": [
       "hold the line",
-      "lose regular"
-    ]
+      "risk regular relationship"
+    ],
+    "choiceContract": {
+      "archetype": "appease",
+      "primaryTarget": "regular.boundary",
+      "doesNotSolve": [
+        "regular_irritation"
+      ],
+      "costTypes": [
+        "relationship_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "refuse_profile",
@@ -4758,7 +5369,20 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "raise reputation",
       "risk credibility"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "call_in_favor",
+      "primaryTarget": "regular.word_of_mouth",
+      "solves": [
+        "regular_customer_loss"
+      ],
+      "costTypes": [
+        "reputation_risk",
+        "relationship_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "ask_regular_word_profile",
@@ -4766,9 +5390,24 @@ These are the current player-facing `CardChoice` objects after the production ca
     "immediateEffects": [
       {
         "kind": "state_change",
+        "target": "world.regulars.phase163_regular_brik.loyalty",
+        "amount": 8,
+        "readable": "Regular loyalty backs the pitch",
+        "tags": [
+          "regular"
+        ],
+        "targetKind": "customer",
+        "direction": "positive",
+        "magnitudeBand": "medium",
+        "meterId": "loyalty",
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
+      },
+      {
+        "kind": "state_change",
         "target": "customers.miners.loyalty",
         "amount": 5,
-        "readable": "Word spreads",
+        "readable": "Word spreads to their crowd",
         "tags": [
           "customer"
         ],
@@ -4776,10 +5415,44 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
+      },
+      {
+        "kind": "pressure",
+        "target": "pressure:reputation_drift",
+        "amount": 5,
+        "readable": "Credibility risk rises",
+        "tags": [
+          "pressure",
+          "reputation",
+          "risk"
+        ],
+        "targetKind": "pressure",
+        "direction": "positive",
+        "magnitudeBand": "small",
+        "meterId": "reputation_drift",
+        "meterLabel": "Reputation Drift Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
-    "delayedEffects": [],
+    "delayedEffects": [
+      {
+        "kind": "future_hook",
+        "target": "regular_word_credibility_phase163_regular_brik",
+        "amount": 8,
+        "readable": "Regulars may judge the promise later",
+        "tags": [
+          "future_hook",
+          "reputation",
+          "risk"
+        ],
+        "targetKind": "other",
+        "direction": "positive",
+        "magnitudeBand": "small",
+        "meterId": "regular_word_credibility_phase163_regular_brik"
+      }
+    ],
     "memories": [
       {
         "id": "regular_word_phase163_regular_brik",
@@ -4795,8 +5468,23 @@ These are the current player-facing `CardChoice` objects after the production ca
         ]
       }
     ],
-    "futureHooks": [],
-    "impactScore": 8
+    "futureHooks": [
+      {
+        "id": "regular_word_credibility_phase163_regular_brik",
+        "actors": [
+          {
+            "kind": "regular",
+            "id": "phase163_regular_brik"
+          }
+        ],
+        "tags": [
+          "regular",
+          "reputation",
+          "risk"
+        ]
+      }
+    ],
+    "impactScore": 28
   }
 }
 ```
@@ -4819,9 +5507,18 @@ These are the current player-facing `CardChoice` objects after the production ca
       }
     ],
     "expectedEffects": [
-      "lose regular",
+      "risk regular relationship",
       "send signal"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "escalate",
+      "primaryTarget": "regular.boundary",
+      "costTypes": [
+        "relationship_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "ban_regular_profile",
@@ -4878,7 +5575,19 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "no cost",
       "raise regular loss pressure"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "ignore",
+      "primaryTarget": "pressure.regular_customer_loss",
+      "doesNotSolve": [
+        "regular_irritation"
+      ],
+      "costTypes": [
+        "none"
+      ],
+      "payoffTiming": "delayed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "ignore_regular_profile",
@@ -4897,7 +5606,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "regular_customer_loss",
-        "meterLabel": "Regular Customer Loss"
+        "meterLabel": "Regular Customer Loss Risk",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "memories": [
@@ -4934,10 +5644,12 @@ These are the current player-facing `CardChoice` objects after the production ca
     "targetId": "phase163_regular_brik",
     "shape": "safe_costly",
     "previewEffects": [
-      "Loyalty rises"
+      "Regular loyalty rises",
+      "Apology round cost"
     ],
     "mechanicalEffects": [
-      "Phase163 Regular Brik +8"
+      "Brik Tallowmug +8",
+      "Coin -1"
     ]
   },
   {
@@ -4948,11 +5660,11 @@ These are the current player-facing `CardChoice` objects after the production ca
     "shape": "safe_costly",
     "previewEffects": [
       "Comp cost",
-      "Loyalty rises sharply"
+      "Regular loyalty rises sharply"
     ],
     "mechanicalEffects": [
       "Coin -8",
-      "Phase163 Regular Brik +10"
+      "Brik Tallowmug +10"
     ]
   },
   {
@@ -4962,10 +5674,12 @@ These are the current player-facing `CardChoice` objects after the production ca
     "targetId": "phase163_regular_brik",
     "shape": "relationship_sacrifice",
     "previewEffects": [
-      "Regular grudges"
+      "Regular grudges",
+      "later: Regular may turn rival"
     ],
     "mechanicalEffects": [
-      "Phase163 Regular Brik -12"
+      "Brik Tallowmug -12",
+      "later: Regular may turn rival"
     ]
   },
   {
@@ -4975,10 +5689,16 @@ These are the current player-facing `CardChoice` objects after the production ca
     "targetId": "phase163_regular_brik",
     "shape": "long_term_investment",
     "previewEffects": [
-      "Word spreads"
+      "Regular loyalty backs the pitch",
+      "Word spreads to their crowd",
+      "Credibility risk rises",
+      "later: Regulars may judge the promise later"
     ],
     "mechanicalEffects": [
-      "Miners Loyalty +5"
+      "Brik Tallowmug Loyalty +8",
+      "Miners Loyalty +5",
+      "Reputation Drift Pressure +5",
+      "later: Regulars may judge the promise later"
     ]
   },
   {
@@ -4991,7 +5711,7 @@ These are the current player-facing `CardChoice` objects after the production ca
       "Regular banned"
     ],
     "mechanicalEffects": [
-      "Phase163 Regular Brik -25"
+      "Brik Tallowmug -25"
     ]
   },
   {
@@ -4999,8 +5719,12 @@ These are the current player-facing `CardChoice` objects after the production ca
     "label": "Ignore the regular",
     "verb": "ignore",
     "shape": "ignore",
-    "previewEffects": [],
-    "mechanicalEffects": []
+    "previewEffects": [
+      "Loss pressure rises"
+    ],
+    "mechanicalEffects": [
+      "Regular Customer Loss Risk +6"
+    ]
   }
 ]
 ```
@@ -5340,7 +6064,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "satisfaction",
-        "meterLabel": "satisfaction"
+        "meterLabel": "satisfaction",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -5354,7 +6079,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "state_change",
@@ -5368,7 +6094,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -5382,7 +6109,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "cause",
@@ -5485,7 +6213,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "cleanliness",
-        "meterLabel": "cleanliness"
+        "meterLabel": "cleanliness",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -5499,7 +6228,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "tiny",
         "meterId": "damage",
-        "meterLabel": "damage"
+        "meterLabel": "damage",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -5513,7 +6243,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "pressure",
@@ -5527,7 +6258,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "reputation_drift",
-        "meterLabel": "Reputation Drift"
+        "meterLabel": "Reputation Drift Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -5541,7 +6273,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "satisfaction",
-        "meterLabel": "satisfaction"
+        "meterLabel": "satisfaction",
+        "meterDisplayCategory": "good_when_higher"
       }
     ],
     "delayedEffects": [
@@ -5655,7 +6388,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "large",
         "meterId": "satisfaction",
-        "meterLabel": "satisfaction"
+        "meterLabel": "satisfaction",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -5669,7 +6403,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -5683,7 +6418,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "respectable",
-        "meterLabel": "respectable"
+        "meterLabel": "respectable",
+        "meterDisplayCategory": "contextual"
       },
       {
         "kind": "cause",
@@ -5729,7 +6465,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "rumour_pressure",
-        "meterLabel": "Rumour Pressure"
+        "meterLabel": "Rumour Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -5743,7 +6480,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "cultural_tension",
-        "meterLabel": "Cultural Tension"
+        "meterLabel": "Cultural Tension",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "future_hook",
@@ -5870,7 +6608,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "tiny",
         "meterId": "respectable",
-        "meterLabel": "respectable"
+        "meterLabel": "respectable",
+        "meterDisplayCategory": "contextual"
       },
       {
         "kind": "state_change",
@@ -5884,7 +6623,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "tiny",
         "meterId": "goblinAuthentic",
-        "meterLabel": "goblin-authentic"
+        "meterLabel": "goblin-authentic",
+        "meterDisplayCategory": "contextual"
       },
       {
         "kind": "cause",
@@ -5912,7 +6652,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
       }
     ],
     "delayedEffects": [
@@ -6022,7 +6763,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "respectable",
-        "meterLabel": "respectable"
+        "meterLabel": "respectable",
+        "meterDisplayCategory": "contextual"
       },
       {
         "kind": "state_change",
@@ -6036,7 +6778,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "satisfaction",
-        "meterLabel": "satisfaction"
+        "meterLabel": "satisfaction",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "pressure",
@@ -6050,7 +6793,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "regular_customer_loss",
-        "meterLabel": "Regular Customer Loss"
+        "meterLabel": "Regular Customer Loss Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "cause",
@@ -6079,7 +6823,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "morale",
-        "meterLabel": "morale"
+        "meterLabel": "morale",
+        "meterDisplayCategory": "good_when_higher"
       }
     ],
     "delayedEffects": [
@@ -6209,7 +6954,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "cause",
@@ -6238,7 +6984,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "satisfaction",
-        "meterLabel": "satisfaction"
+        "meterLabel": "satisfaction",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -6252,7 +6999,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "tiny",
         "meterId": "respectable",
-        "meterLabel": "respectable"
+        "meterLabel": "respectable",
+        "meterDisplayCategory": "contextual"
       },
       {
         "kind": "cause",
@@ -6281,7 +7029,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "staff_loyalty_risk",
-        "meterLabel": "Staff Loyalty Risk"
+        "meterLabel": "Staff Loyalty Risk",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "delayedEffects": [
@@ -6392,7 +7141,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "cause",
@@ -6421,7 +7171,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -6435,7 +7186,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "morale",
-        "meterLabel": "morale"
+        "meterLabel": "morale",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "pressure",
@@ -6449,7 +7201,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "staff_loyalty_risk",
-        "meterLabel": "Staff Loyalty Risk"
+        "meterLabel": "Staff Loyalty Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -6463,7 +7216,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "regular_customer_loss",
-        "meterLabel": "Regular Customer Loss"
+        "meterLabel": "Regular Customer Loss Risk",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "delayedEffects": [
@@ -6573,7 +7327,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "tiny",
         "meterId": "respectable",
-        "meterLabel": "respectable"
+        "meterLabel": "respectable",
+        "meterDisplayCategory": "contextual"
       },
       {
         "kind": "pressure",
@@ -6587,7 +7342,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "cultural_tension",
-        "meterLabel": "Cultural Tension"
+        "meterLabel": "Cultural Tension",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -6601,7 +7357,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "policy_backlash",
-        "meterLabel": "Policy Backlash"
+        "meterLabel": "Policy Backlash Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -6615,7 +7372,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "regular_customer_loss",
-        "meterLabel": "Regular Customer Loss"
+        "meterLabel": "Regular Customer Loss Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "cause",
@@ -6744,7 +7502,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "state_change",
@@ -6758,7 +7517,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "satisfaction",
-        "meterLabel": "satisfaction"
+        "meterLabel": "satisfaction",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -6772,7 +7532,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "satisfaction",
-        "meterLabel": "satisfaction"
+        "meterLabel": "satisfaction",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "cause",
@@ -6816,7 +7577,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
       }
     ],
     "delayedEffects": [],
@@ -6882,7 +7644,7 @@ These are the current player-facing `CardChoice` objects after the production ca
     "mechanicalEffects": [
       "Main Room Cleanliness +18",
       "Coin -10",
-      "Reputation Drift -5",
+      "Reputation Drift Pressure -5",
       "later: Group may expect this standard"
     ]
   },
@@ -6894,14 +7656,14 @@ These are the current player-facing `CardChoice` objects after the production ca
     "shape": "relationship_sacrifice",
     "previewEffects": [
       "respectable standing would gain a step in talk",
-      "satisfaction would rise a real step with the patrons",
-      "pressure would fall back a clear drop",
+      "the reading would quiet by a real slip",
+      "morale would sink a clear drop in the crew (Mira the Resolute)",
       "later: Group may expect more apologies"
     ],
     "mechanicalEffects": [
-      "Reputation Respectable +8",
-      "Merchants Satisfaction +10",
-      "Regular Customer Loss -10",
+      "Respectable Reputation +8",
+      "Regular Customer Loss Risk -10",
+      "Mira the Resolute Morale -8",
       "later: Group may expect more apologies"
     ]
   },
@@ -6913,13 +7675,13 @@ These are the current player-facing `CardChoice` objects after the production ca
     "shape": "safe_costly",
     "previewEffects": [
       "loyalty would deepen a real step with the regular (Master Faline Cargoright)",
-      "Regular championed",
+      "loyalty would fall a clear drop across the rota (Mira the Resolute)",
       "the loyalty risk would climb a step higher tonight",
       "later: Staff remember being overruled"
     ],
     "mechanicalEffects": [
       "Master Faline Cargoright Loyalty +12",
-      "Master Faline Cargoright +12",
+      "Mira the Resolute Loyalty -10",
       "Staff Loyalty Risk +8",
       "later: Staff remember being overruled"
     ]
@@ -6937,9 +7699,9 @@ These are the current player-facing `CardChoice` objects after the production ca
       "later: House rule will see friction"
     ],
     "mechanicalEffects": [
-      "Reputation Respectable +4",
+      "Respectable Reputation +4",
       "Cultural Tension +6",
-      "Policy Backlash +10",
+      "Policy Backlash Risk +10",
       "later: House rule will see friction"
     ]
   },
@@ -6969,7 +7731,7 @@ These are the current player-facing `CardChoice` objects after the production ca
     "targetId": "merchants",
     "shape": "safe_costly",
     "previewEffects": [
-      "Discount appeases",
+      "satisfaction would rise a real step with the patrons",
       "a measure of coppers would leave the till",
       "loyalty would warm a step with the regular"
     ],
@@ -7259,7 +8021,21 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "lower violence pressure",
       "spend coin"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "major_project",
+      "primaryTarget": "pressure:violence",
+      "solves": [
+        "violence_pressure"
+      ],
+      "costTypes": [
+        "coin",
+        "staff_fatigue"
+      ],
+      "payoffTiming": "mixed",
+      "mustShowDelayedPayoff": true,
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "hire_security_profile",
@@ -7277,7 +8053,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "pressure",
@@ -7291,7 +8068,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "violence",
-        "meterLabel": "Violence"
+        "meterLabel": "Violence Risk",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "delayedEffects": [
@@ -7309,7 +8087,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "tiny",
         "meterId": "staff_burnout",
-        "meterLabel": "Staff Burnout"
+        "meterLabel": "Staff Burnout Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "future_hook",
@@ -7370,7 +8149,19 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "lower danger",
       "lose patronage"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "escalate",
+      "primaryTarget": "pressure:violence",
+      "solves": [
+        "immediate_violence"
+      ],
+      "costTypes": [
+        "relationship_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "ban_group_profile",
@@ -7388,7 +8179,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "large",
         "meterId": "patronage",
-        "meterLabel": "patronage"
+        "meterLabel": "patronage",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "pressure",
@@ -7402,7 +8194,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "violence",
-        "meterLabel": "Violence"
+        "meterLabel": "Violence Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "cause",
@@ -7428,6 +8221,7 @@ These are the current player-facing `CardChoice` objects after the production ca
         "readable": "ogres may try to return",
         "tags": [
           "future_hook",
+          "risk",
           "customer",
           "ogres"
         ],
@@ -7494,7 +8288,20 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "raise dangerous reputation",
       "lose merchants"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "spin_or_rebrand",
+      "primaryTarget": "reputation.dangerous",
+      "doesNotSolve": [
+        "violence_pressure"
+      ],
+      "costTypes": [
+        "reputation_risk",
+        "relationship_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "embrace_rowdy_profile",
@@ -7512,7 +8319,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "dangerous",
-        "meterLabel": "dangerous"
+        "meterLabel": "dangerous",
+        "meterDisplayCategory": "contextual"
       },
       {
         "kind": "state_change",
@@ -7526,7 +8334,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "tiny",
         "meterId": "respectable",
-        "meterLabel": "respectable"
+        "meterLabel": "respectable",
+        "meterDisplayCategory": "contextual"
       }
     ],
     "delayedEffects": [
@@ -7544,7 +8353,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "patronage",
-        "meterLabel": "patronage"
+        "meterLabel": "patronage",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "future_hook",
@@ -7606,7 +8416,23 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "lower damage",
       "spend coin"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "proper_repair",
+      "primaryTarget": "area.damage",
+      "solves": [
+        "brawl_damage"
+      ],
+      "doesNotSolve": [
+        "violence_pressure"
+      ],
+      "costTypes": [
+        "coin",
+        "staff_fatigue"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "repair_damage_profile",
@@ -7624,7 +8450,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "damage",
-        "meterLabel": "damage"
+        "meterLabel": "damage",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -7638,7 +8465,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       }
     ],
     "delayedEffects": [
@@ -7656,7 +8484,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "tiny",
         "meterId": "staff_burnout",
-        "meterLabel": "Staff Burnout"
+        "meterLabel": "Staff Burnout Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "future_hook",
@@ -7713,11 +8542,13 @@ These are the current player-facing `CardChoice` objects after the production ca
     "previewEffects": [
       "a clear drop of silver would leave the till",
       "the violence risk would fall a real slip back",
-      "later: A risk of return would remain on the slate"
+      "later: a hair of pressure would press onto the reading",
+      "later: A reminder would sit on the slate for later"
     ],
     "mechanicalEffects": [
       "Coin -20",
-      "Violence -15",
+      "Violence Risk -15",
+      "later: Staff Burnout Risk +4",
       "later: Security may become a routine fixture"
     ]
   },
@@ -7731,11 +8562,11 @@ These are the current player-facing `CardChoice` objects after the production ca
       "patronage would collapse a heavy fall among the regulars",
       "the violence risk would drain a clear drop tonight",
       "a heavy fall would empty the cohort table",
-      "later: A reminder would sit on the slate for later"
+      "later: A risk of return would remain on the slate"
     ],
     "mechanicalEffects": [
       "Ogres Patronage -25",
-      "Violence -12",
+      "Violence Risk -12",
       "Ogres -20",
       "later: ogres may try to return"
     ]
@@ -7749,11 +8580,13 @@ These are the current player-facing `CardChoice` objects after the production ca
     "previewEffects": [
       "a dangerous name would spread a step through talk",
       "talk would dim a touch around the tavern",
+      "later: patronage would fall a clear drop among the patrons (Merchants)",
       "later: The house would gain a rougher name"
     ],
     "mechanicalEffects": [
-      "Reputation Dangerous +6",
-      "Reputation Respectable -4",
+      "Dangerous Reputation +6",
+      "Respectable Reputation -4",
+      "later: Merchants Patronage -8",
       "later: Dangerous reputation may lock in"
     ]
   },
@@ -7766,11 +8599,13 @@ These are the current player-facing `CardChoice` objects after the production ca
     "previewEffects": [
       "a quick patch would lift the corner a step",
       "a notch of silver would slip from the purse",
+      "later: Repair shifts tire the crew",
       "later: main_room may shrug off later damage"
     ],
     "mechanicalEffects": [
       "Main Room Damage -20",
       "Coin -12",
+      "later: Staff Burnout Risk +3",
       "later: main_room may shrug off later damage"
     ]
   }

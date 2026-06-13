@@ -2606,6 +2606,14 @@ function generateDebtRent(ctx: SimContext): IssueSeed[] {
       shape: 'safe_costly',
       targetOptions: [systemRef('landlord')],
       expectedEffects: ['clear arrears', 'spend coin'],
+      choiceContract: {
+        archetype: 'compensate',
+        primaryTarget: 'pressure.landlord',
+        solves: ['rent_arrears', 'landlord_pressure'],
+        costTypes: ['coin'],
+        payoffTiming: 'immediate',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'borrow',
@@ -2613,7 +2621,16 @@ function generateDebtRent(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['borrow'],
       shape: 'risky_profitable',
       targetOptions: [systemRef('lender')],
-      expectedEffects: ['gain coin', 'create future debt'],
+      expectedEffects: ['gain coin now', 'create future debt'],
+      choiceContract: {
+        archetype: 'cut_corners',
+        primaryTarget: 'coin',
+        solves: ['immediate_coin_shortfall'],
+        doesNotSolve: ['debt_pressure'],
+        costTypes: ['pressure_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'delay',
@@ -2621,7 +2638,15 @@ function generateDebtRent(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['delay'],
       shape: 'delay_problem',
       targetOptions: [systemRef('landlord')],
-      expectedEffects: ['no immediate cost', 'raise landlord pressure'],
+      expectedEffects: ['no immediate coin cost', 'raise landlord pressure later'],
+      choiceContract: {
+        archetype: 'delay',
+        primaryTarget: 'pressure.landlord',
+        doesNotSolve: ['rent_arrears', 'landlord_pressure'],
+        costTypes: ['none'],
+        payoffTiming: 'delayed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'raise_prices',
@@ -2629,7 +2654,16 @@ function generateDebtRent(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['raise_price'],
       shape: 'compromise',
       targetOptions: [stockRef('ale')],
-      expectedEffects: ['raise margin', 'risk customer trust'],
+      expectedEffects: ['raise sale price', 'risk customer trust'],
+      choiceContract: {
+        archetype: 'cut_corners',
+        primaryTarget: 'stock.ale.salePrice',
+        solves: ['immediate_coin_shortfall'],
+        doesNotSolve: ['customer_trust'],
+        costTypes: ['relationship_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
   ]
 
@@ -3904,7 +3938,17 @@ function generateMonthlyReview(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['pay'],
       shape: 'safe_costly',
       targetOptions: [systemRef('landlord')],
-      expectedEffects: ['lower landlord pressure', 'spend coin'],
+      expectedEffects: rentDueNow > 0
+        ? ['lower landlord pressure', 'spend coin']
+        : ['lower landlord pressure', 'rent already paid'],
+      choiceContract: {
+        archetype: 'compensate',
+        primaryTarget: 'pressure.landlord',
+        solves: ['landlord_pressure'],
+        costTypes: rentDueNow > 0 ? ['coin'] : ['none'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'invest_in_cellar',
@@ -3912,7 +3956,17 @@ function generateMonthlyReview(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['upgrade'],
       shape: 'long_term_investment',
       targetOptions: [areaRef('cellar')],
-      expectedEffects: ['improve cellar', 'risk rent slip'],
+      expectedEffects: ['improve cellar', 'spend coin', 'risk rent slip'],
+      choiceContract: {
+        archetype: 'major_project',
+        primaryTarget: 'areas.cellar.condition',
+        solves: ['cellar_condition', 'future_cellar_capacity'],
+        doesNotSolve: ['landlord_pressure'],
+        costTypes: ['coin', 'pressure_risk'],
+        payoffTiming: 'mixed',
+        mustShowDelayedPayoff: true,
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'hold_reserves',
@@ -3920,7 +3974,16 @@ function generateMonthlyReview(ctx: SimContext): IssueSeed[] {
       allowedVerbs: ['delay'],
       shape: 'compromise',
       targetOptions: [systemRef('reserves')],
-      expectedEffects: ['lower debt', 'staff feel the squeeze'],
+      expectedEffects: ['lower debt', 'staff feel the squeeze later'],
+      choiceContract: {
+        archetype: 'delay',
+        primaryTarget: 'pressure.debt',
+        solves: ['debt_pressure'],
+        doesNotSolve: ['staff_loyalty_risk'],
+        costTypes: ['pressure_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     ...(rivalRef
       ? [
@@ -3930,7 +3993,16 @@ function generateMonthlyReview(ctx: SimContext): IssueSeed[] {
             allowedVerbs: ['negotiate'],
             shape: 'compromise',
             targetOptions: [rivalRef],
-            expectedEffects: ['lower rival pressure', 'fuel gossip'],
+            expectedEffects: ['lower rival pressure', 'spend coin', 'fuel gossip later'],
+            choiceContract: {
+              archetype: 'negotiate',
+              primaryTarget: 'pressure.rival_tavern_pressure',
+              solves: ['rival_pressure'],
+              doesNotSolve: ['rumour_pressure'],
+              costTypes: ['coin', 'pressure_risk'],
+              payoffTiming: 'mixed',
+              requiresVisibleTradeoff: true,
+            },
           } as ResponseSlot,
         ]
       : []),

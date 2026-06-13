@@ -253,9 +253,11 @@ function auditEffect(effect: EffectPreview, state: TavernState, choice: CardChoi
 function expectedClaims(expectedEffects: string[]): Set<string> {
   const claims = new Set<string>()
   const text = expectedEffects.join(' ').toLowerCase()
-  const costText = text.replace(/no cost/g, '')
+  const costText = text
+    .replace(/no (?:immediate )?(?:coin )?cost/g, '')
+    .replace(/rent already paid/g, '')
 
-  if (/pay|rent|bribe|discount|compensat|spend coin|coin|silver|coppers/.test(costText)) claims.add('coin cost')
+  if (/(?:pay|paid|spend|cost|lose|lost|discount|bribe|compensat|settle|payment).{0,24}(?:coin|silver|coppers|rent)|(?:coin|silver|coppers|rent).{0,24}(?:cost|spent|leave|leaves|slip|lose|lost|paid|payment|settle)/.test(costText)) claims.add('coin cost')
   if (/time cost|takes time|spend time|delay cost|wait cost|temporary closure|temporarily close/.test(costText)) claims.add('time cost')
   if (/capacity|close|shut|space|service capacity|lose service/.test(text)) claims.add('capacity loss')
   if (/fatigue|stress|burden|overwork|workload|rota|staff cost|staff time/.test(text)) claims.add('staff burden')

@@ -106,7 +106,7 @@
       },
       "source": "stock",
       "sourceType": "stock",
-      "target": "stock.stew.quantity",
+      "target": "stock:stew.quantity",
       "targetType": "stock",
       "amount": -30,
       "direction": "decrease",
@@ -208,7 +208,19 @@
     "expectedEffects": [
       "raise ale quantity",
       "spend coin"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "buy_stock",
+      "primaryTarget": "stock.ale.quantity",
+      "solves": [
+        "stock_shortage"
+      ],
+      "costTypes": [
+        "coin"
+      ],
+      "payoffTiming": "immediate",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "restock_profile",
@@ -226,7 +238,8 @@
         "direction": "positive",
         "magnitudeBand": "large",
         "meterId": "quantity",
-        "meterLabel": "quantity"
+        "meterLabel": "quantity",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "state_change",
@@ -240,7 +253,8 @@
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "pressure",
@@ -254,7 +268,8 @@
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "stock_shortage",
-        "meterLabel": "Stock Shortage"
+        "meterLabel": "Stock Shortage Risk",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "delayedEffects": [],
@@ -293,7 +308,19 @@
     "expectedEffects": [
       "raise margin",
       "risk customer satisfaction"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "policy_change",
+      "primaryTarget": "stock.ale.salePrice",
+      "doesNotSolve": [
+        "stock_shortage"
+      ],
+      "costTypes": [
+        "relationship_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "raise_prices_profile",
@@ -312,7 +339,8 @@
         "direction": "positive",
         "magnitudeBand": "tiny",
         "meterId": "salePrice",
-        "meterLabel": "sale price"
+        "meterLabel": "sale price",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -326,7 +354,8 @@
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "satisfaction",
-        "meterLabel": "satisfaction"
+        "meterLabel": "satisfaction",
+        "meterDisplayCategory": "good_when_higher"
       }
     ],
     "delayedEffects": [
@@ -342,7 +371,8 @@
         "direction": "positive",
         "magnitudeBand": "tiny",
         "meterId": "regular_customer_loss",
-        "meterLabel": "Regular Customer Loss"
+        "meterLabel": "Regular Customer Loss Risk",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "memories": [
@@ -389,7 +419,19 @@
       "raise quantity",
       "lower quality",
       "risk reputation"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "cut_corners",
+      "primaryTarget": "stock.ale.quantity",
+      "doesNotSolve": [
+        "real_stock_shortage"
+      ],
+      "costTypes": [
+        "reputation_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "water_down_profile",
@@ -407,7 +449,8 @@
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "quantity",
-        "meterLabel": "quantity"
+        "meterLabel": "quantity",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "state_change",
@@ -422,7 +465,8 @@
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "quality",
-        "meterLabel": "quality"
+        "meterLabel": "quality",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "pressure",
@@ -436,7 +480,8 @@
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "reputation_drift",
-        "meterLabel": "Reputation Drift"
+        "meterLabel": "Reputation Drift Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "delayedEffects": [
@@ -495,8 +540,23 @@
     ],
     "expectedEffects": [
       "conserve stock",
-      "lose income"
-    ]
+      "risk customer satisfaction"
+    ],
+    "choiceContract": {
+      "archetype": "delay",
+      "primaryTarget": "pressure.stock_shortage",
+      "solves": [
+        "demand_spike"
+      ],
+      "doesNotSolve": [
+        "low_stock_quantity"
+      ],
+      "costTypes": [
+        "relationship_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "limit_sales_profile",
@@ -514,7 +574,8 @@
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "satisfaction",
-        "meterLabel": "satisfaction"
+        "meterLabel": "satisfaction",
+        "meterDisplayCategory": "good_when_higher"
       }
     ],
     "delayedEffects": [
@@ -530,7 +591,8 @@
         "direction": "negative",
         "magnitudeBand": "tiny",
         "meterId": "stock_shortage",
-        "meterLabel": "Stock Shortage"
+        "meterLabel": "Stock Shortage Risk",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "memories": [
@@ -563,7 +625,19 @@
     "expectedEffects": [
       "no immediate change",
       "risk shortage backlash"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "ignore",
+      "primaryTarget": "pressure.stock_shortage",
+      "doesNotSolve": [
+        "stock_shortage"
+      ],
+      "costTypes": [
+        "none"
+      ],
+      "payoffTiming": "delayed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "ignore_profile",
@@ -582,7 +656,8 @@
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "stock_shortage",
-        "meterLabel": "Stock Shortage"
+        "meterLabel": "Stock Shortage Risk",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "memories": [
@@ -620,7 +695,7 @@ These are the current player-facing `CardChoice` objects after the production ca
     "mechanicalEffects": [
       "Ale Quantity +60",
       "Coin -30",
-      "Stock Shortage -15"
+      "Stock Shortage Risk -15"
     ]
   },
   {
@@ -631,11 +706,13 @@ These are the current player-facing `CardChoice` objects after the production ca
     "shape": "risky_profitable",
     "previewEffects": [
       "a hair would lift the shelf count",
-      "satisfaction would sour a clear drop among the patrons (Miners)"
+      "satisfaction would sour a clear drop among the patrons (Miners)",
+      "later: a hair of pressure would press onto the reading"
     ],
     "mechanicalEffects": [
       "Ale Sale Price +1",
-      "Miners Satisfaction -8"
+      "Miners Satisfaction -8",
+      "later: Regular Customer Loss Risk +4"
     ]
   },
   {
@@ -653,7 +730,7 @@ These are the current player-facing `CardChoice` objects after the production ca
     "mechanicalEffects": [
       "Ale Quantity +20",
       "Ale Quality -15",
-      "Reputation Drift +5",
+      "Reputation Drift Pressure +5",
       "later: Watered ale rumor may emerge"
     ]
   },
@@ -664,10 +741,12 @@ These are the current player-facing `CardChoice` objects after the production ca
     "targetId": "ale",
     "shape": "compromise",
     "previewEffects": [
-      "satisfaction would slip a step from the regulars (Miners)"
+      "satisfaction would slip a step from the regulars (Miners)",
+      "later: a hair of pressure would lift off the meter"
     ],
     "mechanicalEffects": [
-      "Miners Satisfaction -5"
+      "Miners Satisfaction -5",
+      "later: Stock Shortage Risk -4"
     ]
   },
   {
@@ -679,7 +758,7 @@ These are the current player-facing `CardChoice` objects after the production ca
       "a measure of risk would build with no answer"
     ],
     "mechanicalEffects": [
-      "Stock Shortage +6"
+      "Stock Shortage Risk +6"
     ]
   }
 ]
@@ -1182,7 +1261,19 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "clear debt",
       "spend coin"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "compensate",
+      "primaryTarget": "pressure.supplier_distrust",
+      "solves": [
+        "late_supplier_payment"
+      ],
+      "costTypes": [
+        "coin"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "pay_supplier_profile",
@@ -1200,7 +1291,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "pressure",
@@ -1214,7 +1306,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "supplier_distrust",
-        "meterLabel": "Supplier Distrust"
+        "meterLabel": "Supplier Distrust Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -1228,7 +1321,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "market_instability",
-        "meterLabel": "Market Instability"
+        "meterLabel": "Market Instability Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "cause",
@@ -1336,13 +1430,40 @@ These are the current player-facing `CardChoice` objects after the production ca
     ],
     "expectedEffects": [
       "shift price",
-      "risk relationship"
-    ]
+      "spend coin concession"
+    ],
+    "choiceContract": {
+      "archetype": "negotiate",
+      "primaryTarget": "pressure.stock_shortage",
+      "solves": [
+        "supplier_terms"
+      ],
+      "costTypes": [
+        "coin"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "negotiate_supplier_profile",
     "responseSlotId": "negotiate_supplier",
     "immediateEffects": [
+      {
+        "kind": "state_change",
+        "target": "coin",
+        "amount": -5,
+        "readable": "Concession sweetens the negotiation",
+        "tags": [
+          "coin"
+        ],
+        "targetKind": "coin",
+        "direction": "negative",
+        "magnitudeBand": "small",
+        "meterId": "coin",
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
+      },
       {
         "kind": "cause",
         "target": "supplier:brakka_mushroom_cart",
@@ -1370,7 +1491,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "stock_shortage",
-        "meterLabel": "Stock Shortage"
+        "meterLabel": "Stock Shortage Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -1384,7 +1506,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "market_instability",
-        "meterLabel": "Market Instability"
+        "meterLabel": "Market Instability Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -1398,7 +1521,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "tiny",
         "meterId": "relationship",
-        "meterLabel": "relationship"
+        "meterLabel": "relationship",
+        "meterDisplayCategory": "good_when_higher"
       }
     ],
     "delayedEffects": [
@@ -1464,7 +1588,7 @@ These are the current player-facing `CardChoice` objects after the production ca
         ]
       }
     ],
-    "impactScore": 33
+    "impactScore": 38
   }
 }
 ```
@@ -1489,7 +1613,20 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "shed blame",
       "destroy relationship"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "appease",
+      "primaryTarget": "supplier.relationship",
+      "doesNotSolve": [
+        "supplier_distrust"
+      ],
+      "costTypes": [
+        "relationship_risk",
+        "pressure_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "blame_supplier_profile",
@@ -1522,7 +1659,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "supplier_distrust",
-        "meterLabel": "Supplier Distrust"
+        "meterLabel": "Supplier Distrust Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -1536,7 +1674,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "rumour_pressure",
-        "meterLabel": "Rumour Pressure"
+        "meterLabel": "Rumour Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -1550,7 +1689,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "relationship",
-        "meterLabel": "relationship"
+        "meterLabel": "relationship",
+        "meterDisplayCategory": "good_when_higher"
       }
     ],
     "delayedEffects": [
@@ -1661,7 +1801,25 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "change goods quality",
       "lose relationship"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "major_project",
+      "primaryTarget": "supplier.reliability",
+      "solves": [
+        "supplier_distrust"
+      ],
+      "doesNotSolve": [
+        "today_stock_gap"
+      ],
+      "costTypes": [
+        "coin",
+        "relationship_risk",
+        "pressure_risk"
+      ],
+      "payoffTiming": "mixed",
+      "mustShowDelayedPayoff": true,
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "switch_supplier_profile",
@@ -1693,7 +1851,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "supplier_distrust",
-        "meterLabel": "Supplier Distrust"
+        "meterLabel": "Supplier Distrust Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -1707,7 +1866,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "stock_shortage",
-        "meterLabel": "Stock Shortage"
+        "meterLabel": "Stock Shortage Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -1721,7 +1881,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       }
     ],
     "delayedEffects": [
@@ -1822,41 +1983,76 @@ These are the current player-facing `CardChoice` objects after the production ca
       }
     ],
     "expectedEffects": [
-      "cheap stock",
-      "risk food safety"
-    ]
+      "cheap stock quantity",
+      "spend discounted coin",
+      "raise spoilage risk"
+    ],
+    "choiceContract": {
+      "archetype": "cheap_supplier",
+      "primaryTarget": "stock.mushrooms.quantity",
+      "solves": [
+        "stock_shortage"
+      ],
+      "doesNotSolve": [
+        "food_safety_risk"
+      ],
+      "costTypes": [
+        "coin",
+        "pressure_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "accept_suspicious_profile",
     "responseSlotId": "accept_suspicious_goods",
     "immediateEffects": [
       {
-        "kind": "pressure",
-        "target": "pressure:food_safety",
-        "amount": 8,
-        "readable": "Food safety risk rises",
+        "kind": "state_change",
+        "target": "stock.mushrooms.quantity",
+        "amount": 18,
+        "readable": "Discount goods added to stock",
         "tags": [
-          "pressure"
+          "stock"
         ],
-        "targetKind": "pressure",
+        "targetKind": "stock",
         "direction": "positive",
         "magnitudeBand": "small",
-        "meterId": "food_safety",
-        "meterLabel": "Food Safety"
+        "meterId": "quantity",
+        "meterLabel": "quantity",
+        "meterDisplayCategory": "resource"
       },
       {
-        "kind": "pressure",
-        "target": "pressure:inspection",
-        "amount": 6,
-        "readable": "Inspection risk rises",
+        "kind": "state_change",
+        "target": "coin",
+        "amount": -8,
+        "readable": "Pay discounted supplier cost",
         "tags": [
-          "pressure"
+          "coin"
         ],
-        "targetKind": "pressure",
-        "direction": "positive",
+        "targetKind": "coin",
+        "direction": "negative",
         "magnitudeBand": "small",
-        "meterId": "inspection",
-        "meterLabel": "Inspection"
+        "meterId": "coin",
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
+      },
+      {
+        "kind": "state_change",
+        "target": "stock.mushrooms.spoilage",
+        "amount": 6,
+        "readable": "Questionable goods spoil faster",
+        "tags": [
+          "stock",
+          "risk"
+        ],
+        "targetKind": "stock",
+        "direction": "negative",
+        "magnitudeBand": "tiny",
+        "meterId": "spoilage",
+        "meterLabel": "spoilage",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "cause",
@@ -1871,34 +2067,36 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "tiny",
         "meterId": "brakka_mushroom_cart"
-      },
-      {
-        "kind": "state_change",
-        "target": "coin",
-        "amount": 6,
-        "readable": "Cheap goods, immediate margin",
-        "tags": [
-          "coin"
-        ],
-        "targetKind": "coin",
-        "direction": "positive",
-        "magnitudeBand": "small",
-        "meterId": "coin",
-        "meterLabel": "coin"
       }
     ],
     "delayedEffects": [
       {
-        "kind": "future_hook",
-        "target": "food_poisoning_outbreak_brakka_mushroom_cart",
-        "amount": 12,
-        "readable": "Outbreak risk grows",
+        "kind": "pressure",
+        "target": "pressure:food_safety",
+        "amount": 8,
+        "readable": "Food safety risk rises",
         "tags": [
-          "future_hook"
+          "pressure",
+          "risk"
         ],
-        "targetKind": "other",
+        "targetKind": "pressure",
         "direction": "positive",
         "magnitudeBand": "small",
+        "meterId": "food_safety",
+        "meterLabel": "Food Safety Risk",
+        "meterDisplayCategory": "bad_when_higher"
+      },
+      {
+        "kind": "future_hook",
+        "target": "food_poisoning_outbreak_brakka_mushroom_cart",
+        "amount": 0,
+        "readable": "Outbreak risk grows",
+        "tags": [
+          "future_hook",
+          "risk"
+        ],
+        "targetKind": "other",
+        "direction": "neutral",
         "meterId": "food_poisoning_outbreak_brakka_mushroom_cart"
       }
     ],
@@ -1951,7 +2149,7 @@ These are the current player-facing `CardChoice` objects after the production ca
         ]
       }
     ],
-    "impactScore": 35
+    "impactScore": 50
   }
 }
 ```
@@ -1974,9 +2172,26 @@ These are the current player-facing `CardChoice` objects after the production ca
       }
     ],
     "expectedEffects": [
-      "no risk",
+      "avoid food safety risk",
+      "risk supplier relationship",
       "less stock"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "delay",
+      "primaryTarget": "pressure.food_safety",
+      "solves": [
+        "suspicious_goods"
+      ],
+      "doesNotSolve": [
+        "stock_shortage"
+      ],
+      "costTypes": [
+        "relationship_risk",
+        "pressure_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "refuse_supplier_profile",
@@ -2008,7 +2223,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "supplier_distrust",
-        "meterLabel": "Supplier Distrust"
+        "meterLabel": "Supplier Distrust Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -2022,7 +2238,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "relationship",
-        "meterLabel": "relationship"
+        "meterLabel": "relationship",
+        "meterDisplayCategory": "good_when_higher"
       }
     ],
     "delayedEffects": [
@@ -2038,7 +2255,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "tiny",
         "meterId": "stock_shortage",
-        "meterLabel": "Stock Shortage"
+        "meterLabel": "Stock Shortage Risk",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "memories": [
@@ -2102,8 +2320,22 @@ These are the current player-facing `CardChoice` objects after the production ca
     ],
     "expectedEffects": [
       "lock weekly volume",
+      "spend coin",
       "reduce market exposure"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "buy_stock",
+      "primaryTarget": "pressure.market_instability",
+      "solves": [
+        "market_exposure"
+      ],
+      "costTypes": [
+        "coin"
+      ],
+      "payoffTiming": "mixed",
+      "mustShowDelayedPayoff": true,
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "place_standing_order_profile",
@@ -2121,7 +2353,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "pressure",
@@ -2135,7 +2368,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "market_instability",
-        "meterLabel": "Market Instability"
+        "meterLabel": "Market Instability Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -2149,7 +2383,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "reliability",
-        "meterLabel": "reliability"
+        "meterLabel": "reliability",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "cause",
@@ -2261,8 +2496,21 @@ These are the current player-facing `CardChoice` objects after the production ca
     ],
     "expectedEffects": [
       "gate suspicious goods",
+      "spend inspection time",
       "show supplier you care"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "policy_change",
+      "primaryTarget": "pressure.food_safety",
+      "solves": [
+        "suspicious_goods"
+      ],
+      "costTypes": [
+        "coin"
+      ],
+      "payoffTiming": "immediate",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "inspect_delivery_profile",
@@ -2280,7 +2528,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "tiny",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "pressure",
@@ -2294,7 +2543,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "food_safety",
-        "meterLabel": "Food Safety"
+        "meterLabel": "Food Safety Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -2308,7 +2558,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "tiny",
         "meterId": "market_instability",
-        "meterLabel": "Market Instability"
+        "meterLabel": "Market Instability Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "cause",
@@ -2387,8 +2638,22 @@ These are the current player-facing `CardChoice` objects after the production ca
     ],
     "expectedEffects": [
       "dilute supply risk",
+      "spend coin",
       "spread relationship cost"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "major_project",
+      "primaryTarget": "pressure.market_instability",
+      "solves": [
+        "single_supplier_risk"
+      ],
+      "costTypes": [
+        "coin"
+      ],
+      "payoffTiming": "mixed",
+      "mustShowDelayedPayoff": true,
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "split_orders_profile",
@@ -2406,7 +2671,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "market_instability",
-        "meterLabel": "Market Instability"
+        "meterLabel": "Market Instability Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -2420,7 +2686,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "supplier_distrust",
-        "meterLabel": "Supplier Distrust"
+        "meterLabel": "Supplier Distrust Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -2434,7 +2701,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "cause",
@@ -2554,7 +2822,22 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "unlock discount",
       "single point of failure"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "cheap_supplier",
+      "primaryTarget": "coin",
+      "solves": [
+        "short_term_supplier_cost"
+      ],
+      "doesNotSolve": [
+        "single_supplier_risk"
+      ],
+      "costTypes": [
+        "pressure_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "supplier_exclusivity_profile",
@@ -2572,7 +2855,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "pressure",
@@ -2586,7 +2870,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "supplier_distrust",
-        "meterLabel": "Supplier Distrust"
+        "meterLabel": "Supplier Distrust Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -2600,7 +2885,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "market_instability",
-        "meterLabel": "Market Instability"
+        "meterLabel": "Market Instability Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "cause",
@@ -2711,8 +2997,21 @@ These are the current player-facing `CardChoice` objects after the production ca
     ],
     "expectedEffects": [
       "close food safety gap",
-      "spend hours"
-    ]
+      "spend coin on inspection hours"
+    ],
+    "choiceContract": {
+      "archetype": "policy_change",
+      "primaryTarget": "pressure.food_safety",
+      "solves": [
+        "suspicious_goods"
+      ],
+      "costTypes": [
+        "coin",
+        "relationship_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "investigate_suspicious_goods_profile",
@@ -2730,7 +3029,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "food_safety",
-        "meterLabel": "Food Safety"
+        "meterLabel": "Food Safety Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -2744,7 +3044,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "inspection",
-        "meterLabel": "Inspection"
+        "meterLabel": "Inspection Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "cause",
@@ -2772,7 +3073,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       }
     ],
     "delayedEffects": [
@@ -2859,8 +3161,8 @@ These are the current player-facing `CardChoice` objects after the production ca
     ],
     "mechanicalEffects": [
       "Coin -15",
-      "Supplier Distrust -10",
-      "Market Instability -8",
+      "Supplier Distrust Risk -10",
+      "Market Instability Risk -8",
       "later: Goodwill returns next delivery"
     ]
   },
@@ -2871,15 +3173,15 @@ These are the current player-facing `CardChoice` objects after the production ca
     "targetId": "brakka_mushroom_cart",
     "shape": "compromise",
     "previewEffects": [
-      "a marked rise would steady the merchant route",
-      "shortage risk would ease a step on the shelves",
-      "a touch of goodwill would reach the trader",
+      "a notch of silver would slip from the purse",
+      "the supplier would lift a real step closer",
+      "the shortage risk would settle a notch in the cellar",
       "later: Terms may need revisiting"
     ],
     "mechanicalEffects": [
+      "Coin -5",
       "Brakka Mushroom Cart +12",
-      "Stock Shortage -6",
-      "Brakka Mushroom Cart Relationship +3",
+      "Stock Shortage Risk -6",
       "later: Terms may need revisiting"
     ]
   },
@@ -2897,7 +3199,7 @@ These are the current player-facing `CardChoice` objects after the production ca
     ],
     "mechanicalEffects": [
       "Brakka Mushroom Cart -15",
-      "Supplier Distrust +8",
+      "Supplier Distrust Risk +8",
       "Brakka Mushroom Cart Relationship -10",
       "later: Supplier may retaliate"
     ]
@@ -2916,7 +3218,7 @@ These are the current player-facing `CardChoice` objects after the production ca
     ],
     "mechanicalEffects": [
       "Brakka Mushroom Cart -20",
-      "Supplier Distrust -8",
+      "Supplier Distrust Risk -8",
       "Coin -20",
       "later: Scrap Meat Vendor reliability unproven"
     ]
@@ -2928,15 +3230,17 @@ These are the current player-facing `CardChoice` objects after the production ca
     "targetId": "mushrooms",
     "shape": "risky_profitable",
     "previewEffects": [
-      "the food-safety risk would climb a step higher",
-      "Inspection risk rises",
-      "a step of coin would settle into the till",
+      "a step would deepen the pantry stores",
+      "the till would lighten by a step",
+      "a hair of stock would slip from the pantry",
+      "later: the food-safety risk would climb a step higher",
       "later: Outbreak risk grows"
     ],
     "mechanicalEffects": [
-      "Food Safety +8",
-      "Inspection +6",
-      "Coin +6",
+      "Mushrooms Quantity +18",
+      "Coin -8",
+      "Mushrooms Spoilage +6",
+      "later: Food Safety Risk +8",
       "later: Outbreak risk grows"
     ]
   },
@@ -2949,12 +3253,14 @@ These are the current player-facing `CardChoice` objects after the production ca
     "previewEffects": [
       "a marked fall would chill the merchant route",
       "Distrust rises",
-      "the trader would step back a notch"
+      "the trader would step back a notch",
+      "later: a hair of pressure would press onto the reading"
     ],
     "mechanicalEffects": [
       "Brakka Mushroom Cart -10",
-      "Supplier Distrust +6",
-      "Brakka Mushroom Cart Relationship -5"
+      "Supplier Distrust Risk +6",
+      "Brakka Mushroom Cart Relationship -5",
+      "later: Stock Shortage Risk +4"
     ]
   }
 ]
@@ -3243,7 +3549,20 @@ These are the current player-facing `CardChoice` objects after the production ca
     "expectedEffects": [
       "clear arrears",
       "spend coin"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "compensate",
+      "primaryTarget": "pressure.landlord",
+      "solves": [
+        "rent_arrears",
+        "landlord_pressure"
+      ],
+      "costTypes": [
+        "coin"
+      ],
+      "payoffTiming": "immediate",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "pay_profile",
@@ -3262,7 +3581,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "large",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "pressure",
@@ -3276,7 +3596,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "landlord",
-        "meterLabel": "Landlord"
+        "meterLabel": "Landlord Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -3290,7 +3611,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "debt",
-        "meterLabel": "Debt"
+        "meterLabel": "Debt Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "delayedEffects": [],
@@ -3327,9 +3649,24 @@ These are the current player-facing `CardChoice` objects after the production ca
       }
     ],
     "expectedEffects": [
-      "gain coin",
+      "gain coin now",
       "create future debt"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "cut_corners",
+      "primaryTarget": "coin",
+      "solves": [
+        "immediate_coin_shortfall"
+      ],
+      "doesNotSolve": [
+        "debt_pressure"
+      ],
+      "costTypes": [
+        "pressure_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "borrow_profile",
@@ -3347,7 +3684,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       }
     ],
     "delayedEffects": [
@@ -3363,7 +3701,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "debt",
-        "meterLabel": "Debt"
+        "meterLabel": "Debt Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "future_hook",
@@ -3419,9 +3758,22 @@ These are the current player-facing `CardChoice` objects after the production ca
       }
     ],
     "expectedEffects": [
-      "no immediate cost",
-      "raise landlord pressure"
-    ]
+      "no immediate coin cost",
+      "raise landlord pressure later"
+    ],
+    "choiceContract": {
+      "archetype": "delay",
+      "primaryTarget": "pressure.landlord",
+      "doesNotSolve": [
+        "rent_arrears",
+        "landlord_pressure"
+      ],
+      "costTypes": [
+        "none"
+      ],
+      "payoffTiming": "delayed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "delay_profile",
@@ -3440,7 +3792,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "landlord",
-        "meterLabel": "Landlord"
+        "meterLabel": "Landlord Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "future_hook",
@@ -3496,9 +3849,24 @@ These are the current player-facing `CardChoice` objects after the production ca
       }
     ],
     "expectedEffects": [
-      "raise margin",
+      "raise sale price",
       "risk customer trust"
-    ]
+    ],
+    "choiceContract": {
+      "archetype": "cut_corners",
+      "primaryTarget": "stock.ale.salePrice",
+      "solves": [
+        "immediate_coin_shortfall"
+      ],
+      "doesNotSolve": [
+        "customer_trust"
+      ],
+      "costTypes": [
+        "relationship_risk"
+      ],
+      "payoffTiming": "mixed",
+      "requiresVisibleTradeoff": true
+    }
   },
   "consequenceProfile": {
     "id": "raise_prices_profile",
@@ -3516,7 +3884,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "tiny",
         "meterId": "salePrice",
-        "meterLabel": "sale price"
+        "meterLabel": "sale price",
+        "meterDisplayCategory": "good_when_higher"
       }
     ],
     "delayedEffects": [
@@ -3532,7 +3901,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "satisfaction",
-        "meterLabel": "satisfaction"
+        "meterLabel": "satisfaction",
+        "meterDisplayCategory": "good_when_higher"
       }
     ],
     "memories": [
@@ -3569,8 +3939,8 @@ These are the current player-facing `CardChoice` objects after the production ca
     ],
     "mechanicalEffects": [
       "Coin -120",
-      "Landlord -15",
-      "Debt -10"
+      "Landlord Pressure -15",
+      "Debt Pressure -10"
     ]
   },
   {
@@ -3581,10 +3951,12 @@ These are the current player-facing `CardChoice` objects after the production ca
     "shape": "risky_profitable",
     "previewEffects": [
       "a real step of silver would land in the till",
-      "later: The landlord would loop back to the door"
+      "later: debt pressure would build a clear lift up the slate",
+      "later: A loan would come due in time"
     ],
     "mechanicalEffects": [
       "Coin +40",
+      "later: Debt Pressure +12",
       "later: Loan will come due"
     ]
   },
@@ -3596,10 +3968,10 @@ These are the current player-facing `CardChoice` objects after the production ca
     "shape": "delay_problem",
     "previewEffects": [
       "the landlord's pressure would mount a marked rise overhead",
-      "A reminder would sit on the slate for later"
+      "The landlord would loop back to the door"
     ],
     "mechanicalEffects": [
-      "Landlord +10",
+      "Landlord Pressure +10",
       "Landlord may threaten eviction"
     ]
   },
@@ -3610,10 +3982,12 @@ These are the current player-facing `CardChoice` objects after the production ca
     "targetId": "ale",
     "shape": "compromise",
     "previewEffects": [
-      "a hair would lift the shelf count"
+      "a hair would lift the shelf count",
+      "later: satisfaction would slip a step from the regulars (Miners)"
     ],
     "mechanicalEffects": [
-      "Ale Sale Price +1"
+      "Ale Sale Price +1",
+      "later: Miners Satisfaction -6"
     ]
   }
 ]
@@ -3936,7 +4310,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "cleanliness",
-        "meterLabel": "cleanliness"
+        "meterLabel": "cleanliness",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -3950,7 +4325,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "cleanliness",
-        "meterLabel": "cleanliness"
+        "meterLabel": "cleanliness",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -3964,7 +4340,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "cleanliness",
-        "meterLabel": "cleanliness"
+        "meterLabel": "cleanliness",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "pressure",
@@ -3978,7 +4355,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "inspection",
-        "meterLabel": "Inspection"
+        "meterLabel": "Inspection Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -3992,7 +4370,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "fatigue",
-        "meterLabel": "fatigue"
+        "meterLabel": "fatigue",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "cause",
@@ -4086,7 +4465,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "pressure",
@@ -4100,7 +4480,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "inspection",
-        "meterLabel": "Inspection"
+        "meterLabel": "Inspection Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -4114,7 +4495,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "medium",
         "meterId": "cultural_tension",
-        "meterLabel": "Cultural Tension"
+        "meterLabel": "Cultural Tension",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -4128,7 +4510,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "rumour_pressure",
-        "meterLabel": "Rumour Pressure"
+        "meterLabel": "Rumour Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "cause",
@@ -4254,7 +4637,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "inspection",
-        "meterLabel": "Inspection"
+        "meterLabel": "Inspection Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -4268,7 +4652,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "rumour_pressure",
-        "meterLabel": "Rumour Pressure"
+        "meterLabel": "Rumour Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -4282,7 +4667,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "loyalty",
-        "meterLabel": "loyalty"
+        "meterLabel": "loyalty",
+        "meterDisplayCategory": "good_when_higher"
       }
     ],
     "delayedEffects": [
@@ -4298,7 +4684,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "inspection",
-        "meterLabel": "Inspection"
+        "meterLabel": "Inspection Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "future_hook",
@@ -4406,7 +4793,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "quantity",
-        "meterLabel": "quantity"
+        "meterLabel": "quantity",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "state_change",
@@ -4420,7 +4808,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "quantity",
-        "meterLabel": "quantity"
+        "meterLabel": "quantity",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "pressure",
@@ -4434,7 +4823,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "inspection",
-        "meterLabel": "Inspection"
+        "meterLabel": "Inspection Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -4448,7 +4838,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "food_safety",
-        "meterLabel": "Food Safety"
+        "meterLabel": "Food Safety Risk",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -4462,7 +4853,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "morale",
-        "meterLabel": "morale"
+        "meterLabel": "morale",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "cause",
@@ -4477,7 +4869,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "food_safety",
-        "meterLabel": "Food Safety"
+        "meterLabel": "Food Safety Risk",
+        "meterDisplayCategory": "bad_when_higher"
       }
     ],
     "delayedEffects": [],
@@ -4537,7 +4930,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "inspection",
-        "meterLabel": "Inspection"
+        "meterLabel": "Inspection Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "pressure",
@@ -4551,7 +4945,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "rumour_pressure",
-        "meterLabel": "Rumour Pressure"
+        "meterLabel": "Rumour Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -4565,7 +4960,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "tiny",
         "meterId": "dangerous",
-        "meterLabel": "dangerous"
+        "meterLabel": "dangerous",
+        "meterDisplayCategory": "contextual"
       }
     ],
     "memories": [
@@ -4641,7 +5037,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "cleanliness",
-        "meterLabel": "cleanliness"
+        "meterLabel": "cleanliness",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -4655,7 +5052,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "cleanliness",
-        "meterLabel": "cleanliness"
+        "meterLabel": "cleanliness",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "state_change",
@@ -4669,7 +5067,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "cleanliness",
-        "meterLabel": "cleanliness"
+        "meterLabel": "cleanliness",
+        "meterDisplayCategory": "good_when_higher"
       },
       {
         "kind": "pressure",
@@ -4683,7 +5082,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "inspection",
-        "meterLabel": "Inspection"
+        "meterLabel": "Inspection Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -4697,7 +5097,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "fatigue",
-        "meterLabel": "fatigue"
+        "meterLabel": "fatigue",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "cause",
@@ -4833,7 +5234,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "small",
         "meterId": "coin",
-        "meterLabel": "coin"
+        "meterLabel": "coin",
+        "meterDisplayCategory": "resource"
       },
       {
         "kind": "pressure",
@@ -4847,7 +5249,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "inspection",
-        "meterLabel": "Inspection"
+        "meterLabel": "Inspection Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -4861,7 +5264,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "respectable",
-        "meterLabel": "respectable"
+        "meterLabel": "respectable",
+        "meterDisplayCategory": "contextual"
       },
       {
         "kind": "cause",
@@ -4987,7 +5391,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "negative",
         "magnitudeBand": "medium",
         "meterId": "inspection",
-        "meterLabel": "Inspection"
+        "meterLabel": "Inspection Pressure",
+        "meterDisplayCategory": "bad_when_higher"
       },
       {
         "kind": "state_change",
@@ -5001,7 +5406,8 @@ These are the current player-facing `CardChoice` objects after the production ca
         "direction": "positive",
         "magnitudeBand": "small",
         "meterId": "respectable",
-        "meterLabel": "respectable"
+        "meterLabel": "respectable",
+        "meterDisplayCategory": "contextual"
       },
       {
         "kind": "cause",
@@ -5111,13 +5517,13 @@ These are the current player-facing `CardChoice` objects after the production ca
     "shape": "long_term_investment",
     "previewEffects": [
       "fresh joinery would firm the floor a notch",
-      "Privy scrubbed",
-      "the inspection risk would fall a marked fall overhead"
+      "the inspection risk would fall a marked fall overhead",
+      "fatigue would drag the crew down a real slip (Ib Mudshank)"
     ],
     "mechanicalEffects": [
       "Kitchen Cleanliness +20",
-      "Privy Cleanliness +15",
-      "Inspection -12"
+      "Inspection Pressure -12",
+      "Ib Mudshank Fatigue +8"
     ]
   },
   {
@@ -5134,7 +5540,7 @@ These are the current player-facing `CardChoice` objects after the production ca
     ],
     "mechanicalEffects": [
       "Coin -30",
-      "Inspection -10",
+      "Inspection Pressure -10",
       "Cultural Tension +12",
       "later: Inspector may demand more"
     ]
@@ -5147,14 +5553,14 @@ These are the current player-facing `CardChoice` objects after the production ca
     "shape": "long_term_investment",
     "previewEffects": [
       "a measure of repair would steady the floor",
-      "Roster covers privy",
       "Routine keeps inspection at bay",
+      "fatigue would drag the crew down a real slip (Mira the Resolute)",
       "later: A reminder would sit on the slate for later"
     ],
     "mechanicalEffects": [
       "Kitchen Cleanliness +12",
-      "Privy Cleanliness +12",
-      "Inspection -12",
+      "Inspection Pressure -12",
+      "Mira the Resolute Fatigue +8",
       "later: Routine becomes a habit"
     ]
   },
@@ -5172,8 +5578,8 @@ These are the current player-facing `CardChoice` objects after the production ca
     ],
     "mechanicalEffects": [
       "Coin -5",
-      "Inspection -15",
-      "Reputation Respectable +5",
+      "Inspection Pressure -15",
+      "Respectable Reputation +5",
       "later: Watch may return with goodwill"
     ]
   },
@@ -5190,8 +5596,8 @@ These are the current player-facing `CardChoice` objects after the production ca
       "later: Watch may keep an open door"
     ],
     "mechanicalEffects": [
-      "Inspection -10",
-      "Reputation Respectable +5",
+      "Inspection Pressure -10",
+      "Respectable Reputation +5",
       "Town Watch +10",
       "later: Watch may keep an open door"
     ]
@@ -5206,12 +5612,14 @@ These are the current player-facing `CardChoice` objects after the production ca
       "the inspection risk would ease a step tonight",
       "the rumour pressure would spread a step through the room",
       "loyalty would slip a step from the crew (Ib Mudshank)",
+      "later: the inspection risk would climb a step overhead",
       "later: Inspectors may dig deeper"
     ],
     "mechanicalEffects": [
-      "Inspection -6",
+      "Inspection Pressure -6",
       "Rumour Pressure +8",
       "Ib Mudshank Loyalty -4",
+      "later: Inspection Pressure +6",
       "later: Inspectors may dig deeper"
     ]
   },
@@ -5226,9 +5634,9 @@ These are the current player-facing `CardChoice` objects after the production ca
       "a hair of repute would settle on the name"
     ],
     "mechanicalEffects": [
-      "Inspection +8",
+      "Inspection Pressure +8",
       "Rumour Pressure +6",
-      "Reputation Dangerous +4"
+      "Dangerous Reputation +4"
     ]
   }
 ]

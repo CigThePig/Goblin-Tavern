@@ -1246,6 +1246,10 @@ But they should not imply player failure.
 
 ## Phase 12: Final Card System Review
 
+### Completion Note
+
+Completed on 2026-06-13. The final review artifact is `docs/audits/2026-06-13-card-choice-final-review.md`; it records the refreshed sample baseline, the refreshed 113-row card-choice audit, a five-day first-run smoke review, domain-by-domain observations, and the small deferred warning backlog that remains after Phase 12.
+
 ### Goal
 
 Validate that the repaired system feels coherent in play, not just in tests.

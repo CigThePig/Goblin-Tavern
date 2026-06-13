@@ -2313,6 +2313,15 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
       shape: 'safe_costly',
       targetOptions: [systemRef('security')],
       expectedEffects: ['lower violence pressure', 'spend coin'],
+      choiceContract: {
+        archetype: 'major_project',
+        primaryTarget: 'pressure:violence',
+        solves: ['violence_pressure'],
+        costTypes: ['coin', 'staff_fatigue'],
+        payoffTiming: 'mixed',
+        mustShowDelayedPayoff: true,
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'ban_group',
@@ -2321,6 +2330,14 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
       shape: 'relationship_sacrifice',
       targetOptions: [target],
       expectedEffects: ['lower danger', 'lose patronage'],
+      choiceContract: {
+        archetype: 'escalate',
+        primaryTarget: 'pressure:violence',
+        solves: ['immediate_violence'],
+        costTypes: ['relationship_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'embrace_rowdy',
@@ -2329,6 +2346,14 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
       shape: 'reputation_play',
       targetOptions: [systemRef('reputation')],
       expectedEffects: ['raise dangerous reputation', 'lose merchants'],
+      choiceContract: {
+        archetype: 'spin_or_rebrand',
+        primaryTarget: 'reputation.dangerous',
+        doesNotSolve: ['violence_pressure'],
+        costTypes: ['reputation_risk', 'relationship_risk'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
     {
       id: 'repair_damage',
@@ -2337,6 +2362,15 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
       shape: 'short_term_patch',
       targetOptions: [pickRepairableArea(ctx, 'violence_repair')],
       expectedEffects: ['lower damage', 'spend coin'],
+      choiceContract: {
+        archetype: 'proper_repair',
+        primaryTarget: 'area.damage',
+        solves: ['brawl_damage'],
+        doesNotSolve: ['violence_pressure'],
+        costTypes: ['coin', 'staff_fatigue'],
+        payoffTiming: 'mixed',
+        requiresVisibleTradeoff: true,
+      },
     },
   ]
 
@@ -2393,7 +2427,7 @@ function generateViolence(ctx: SimContext): IssueSeed[] {
           `banned_group_returns_${target.id}`,
           14,
           `${target.id} may try to return`,
-          ['future_hook', 'customer', target.id],
+          ['future_hook', 'risk', 'customer', target.id],
         ),
       ],
       memories: [

@@ -192,7 +192,8 @@ function effectRoles(effect: EffectPreview): EffectRole[] {
       : (meter === 'morale' || meter === 'loyalty') && effect.direction === 'negative')
   const isRiskIncrease =
     (effect.targetKind === 'pressure' && effect.direction === 'positive') ||
-    (tags.includes('risk') && effect.direction === 'negative')
+    tags.includes('risk') ||
+    (effect.kind === 'future_hook' && /risk|revenge|retaliat|return|grudge|expos|less|gossip|blur|dilution/.test(readable))
   const isCapacityLoss =
     effect.direction === 'negative' &&
     (meter.includes('capacity') || target.includes('capacity') || readable.includes('capacity'))
@@ -202,7 +203,11 @@ function effectRoles(effect: EffectPreview): EffectRole[] {
 
   if (effect.targetKind === 'pressure') {
     if (effect.direction === 'negative') roles.push('benefit')
-  } else if (effect.direction === 'positive' && effect.targetKind !== 'coin') {
+  } else if (
+    effect.direction === 'positive' &&
+    effect.targetKind !== 'coin' &&
+    !roles.includes('risk')
+  ) {
     roles.push('benefit')
   }
 
@@ -250,7 +255,7 @@ function expectedClaims(expectedEffects: string[]): Set<string> {
   const text = expectedEffects.join(' ').toLowerCase()
   const costText = text.replace(/no cost/g, '')
 
-  if (/pay|spend|cost|rent|bribe|discount|compensat|lose coin|coin loss|coin cost/.test(costText)) claims.add('coin cost')
+  if (/pay|rent|bribe|discount|compensat|spend coin|coin|silver|coppers/.test(costText)) claims.add('coin cost')
   if (/time cost|takes time|spend time|delay cost|wait cost|temporary closure|temporarily close/.test(costText)) claims.add('time cost')
   if (/capacity|close|shut|space|service capacity|lose service/.test(text)) claims.add('capacity loss')
   if (/fatigue|stress|burden|overwork|workload|rota|staff cost|staff time/.test(text)) claims.add('staff burden')
@@ -268,7 +273,13 @@ function hasMechanicalCostForClaim(claim: string, effects: EffectAudit[]): boole
     case 'capacity loss':
       return effects.some((effect) => effect.roles.includes('cost') && /capacity|close|shut|service/.test(`${effect.target} ${effect.readable}`.toLowerCase()))
     case 'staff burden':
-      return effects.some((effect) => effect.targetKind === 'staff' && effect.roles.includes('cost'))
+      return effects.some(
+        (effect) =>
+          (effect.targetKind === 'staff' && effect.roles.includes('cost')) ||
+          (effect.targetKind === 'pressure' &&
+            effect.direction === 'positive' &&
+            (effect.tags.includes('staff') || /staff|burnout|loyalty/.test(effect.readable.toLowerCase()))),
+      )
     case 'risk relationship':
       return effects.some((effect) => effect.roles.includes('risk') || (['customer', 'staff', 'supplier', 'faction', 'culture', 'cohort'].includes(effect.targetKind ?? '') && effect.direction === 'negative'))
     case 'risk credibility':

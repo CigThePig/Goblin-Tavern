@@ -1,5 +1,5 @@
-import { z } from 'zod'
-import type { SimulationModule } from '../core/module'
+import { z } from "zod";
+import type { SimulationModule } from "../core/module";
 
 // Phase 6 §6.1 — Core schemas.
 //
@@ -8,9 +8,9 @@ import type { SimulationModule } from '../core/module'
 // specified. The 0–100 percentage range and the "stock quantity ≥ 0,
 // no NaN" rules come from `phases-06-10.md` §"State Safety Rules".
 
-const meter = () => z.number().min(0).max(100)
-const nonNegativeNumber = () => z.number().min(0)
-const nonNegativeInt = () => z.number().int().min(0)
+const meter = () => z.number().min(0).max(100);
+const nonNegativeNumber = () => z.number().min(0);
+const nonNegativeInt = () => z.number().int().min(0);
 
 // Phase 23 §"Schema Update" — adds `season` (enum) and `tags` (open
 // string array). Tags are intentionally not enum-constrained at this
@@ -24,24 +24,24 @@ export const CalendarStateSchema = z.object({
   totalDaysElapsed: nonNegativeInt(),
   dayOfWeek: z.number().int().min(1).max(7),
   dayType: z.enum([
-    'supplier_day',
-    'quiet_day',
-    'market_day',
-    'local_night',
-    'payday',
-    'brawl_night',
-    'maintenance_day',
+    "supplier_day",
+    "quiet_day",
+    "market_day",
+    "local_night",
+    "payday",
+    "brawl_night",
+    "maintenance_day",
   ]),
-  season: z.enum(['mudwake', 'highsun', 'redleaf', 'deepfrost']),
+  season: z.enum(["mudwake", "highsun", "redleaf", "deepfrost"]),
   tags: z.array(z.string()),
-})
+});
 
 export const TavernMetaStateSchema = z.object({
   tavernId: z.string(),
   tavernName: z.string(),
   simVersion: z.string(),
   createdAtDay: nonNegativeInt(),
-})
+});
 
 // Phase 28 §28.1 — Upgrade record carried on `AreaState.upgrades`. The
 // status enum mirrors `AreaUpgradeStatus` on the TS type; `progress` is
@@ -49,11 +49,17 @@ export const TavernMetaStateSchema = z.object({
 // `installedAtDay` is only set once an upgrade is actually installed.
 export const AreaUpgradeStateSchema = z.object({
   id: z.string(),
-  status: z.enum(['available', 'in_progress', 'installed', 'damaged', 'disabled']),
+  status: z.enum([
+    "available",
+    "in_progress",
+    "installed",
+    "damaged",
+    "disabled",
+  ]),
   progress: nonNegativeNumber().optional(),
   installedAtDay: nonNegativeInt().optional(),
   tags: z.array(z.string()),
-})
+});
 
 // Phase 28 §28.1 — Phase 8's `AreaState` is extended with `traits`,
 // `atmosphere`, and `upgrades`. Existing meter fields are unchanged.
@@ -73,15 +79,15 @@ export const AreaStateSchema = z.object({
   traits: z.array(z.string()),
   atmosphere: z.array(z.string()),
   upgrades: z.record(z.string(), AreaUpgradeStateSchema),
-})
+});
 
 // Phase 65 / ISSUE-025 §5.1 — `rarity` joins the stock state shape.
 export const StockRaritySchema = z.enum([
-  'common',
-  'uncommon',
-  'rare',
-  'legendary',
-])
+  "common",
+  "uncommon",
+  "rare",
+  "legendary",
+]);
 
 export const StockItemStateSchema = z.object({
   id: z.string(),
@@ -94,7 +100,7 @@ export const StockItemStateSchema = z.object({
   tags: z.array(z.string()),
   storageAreaId: z.string().optional(),
   rarity: StockRaritySchema,
-})
+});
 
 // Phase 65 / ISSUE-025 §5.2 — Recipe state slice schema. Runtime
 // tracking only; static config lives on `RecipeDefinition`.
@@ -106,21 +112,21 @@ export const RecipeStateSchema = z.object({
   timesServed: z.number().int().min(0),
   daysSinceLastServed: z.number().int().min(0),
   lastServedDay: z.number().int().min(0).nullable(),
-})
+});
 
 // Phase 70 / ISSUE-030 §5.3 — Expedition subsystem schemas.
-export const ExpeditionModeSchema = z.enum(['open', 'targeted'])
+export const ExpeditionModeSchema = z.enum(["open", "targeted"]);
 export const ExpeditionTargetTierSchema = z.enum([
-  'uncommon',
-  'rare',
-  'legendary',
-])
+  "uncommon",
+  "rare",
+  "legendary",
+]);
 export const ExpeditionOutcomeSchema = z.enum([
-  'success',
-  'partial',
-  'failure',
-  'runner_lost',
-])
+  "success",
+  "partial",
+  "failure",
+  "runner_lost",
+]);
 
 export const ExpeditionSchema = z.object({
   id: z.string(),
@@ -132,15 +138,15 @@ export const ExpeditionSchema = z.object({
   daysElapsed: z.number().int().min(0),
   costPaid: z.number().min(0),
   startedDay: z.number().int().min(0),
-  status: z.literal('in_progress'),
+  status: z.literal("in_progress"),
   seed: z.string(),
-})
+});
 
 export const ExpeditionReturnedIngredientSchema = z.object({
   ingredientId: z.string(),
   quantity: z.number().int().min(0),
   quality: z.number().min(0).max(100),
-})
+});
 
 export const ExpeditionRecordSchema = z.object({
   id: z.string(),
@@ -154,12 +160,12 @@ export const ExpeditionRecordSchema = z.object({
   resolvedDay: z.number().int().min(0),
   outcome: ExpeditionOutcomeSchema,
   returnedIngredients: z.array(ExpeditionReturnedIngredientSchema),
-})
+});
 
 export const ExpeditionsStateSchema = z.object({
   active: z.array(ExpeditionSchema),
   completed: z.array(ExpeditionRecordSchema),
-})
+});
 
 // Phase 22 / Phase 24 — `GeneratedName` is the structured output of the
 // deterministic name generator. The schema is declared early because
@@ -171,7 +177,7 @@ export const GeneratedNameSchema = z.object({
   parts: z.record(z.string(), z.string()),
   patternId: z.string(),
   generatedBy: z.string(),
-})
+});
 
 // Phase 31 §31.1 — persistent staff identity schema. Mirrors the
 // `StaffIdentityState` shape on the TS side. `cultureId` and
@@ -180,23 +186,23 @@ export const GeneratedNameSchema = z.object({
 // background hooks are filled in where the identity profile provides
 // them.
 export const StaffWorkStyleSchema = z.enum([
-  'steady',
-  'fast',
-  'careful',
-  'social',
-  'rough',
-  'methodical',
-  'improviser',
-])
+  "steady",
+  "fast",
+  "careful",
+  "social",
+  "rough",
+  "methodical",
+  "improviser",
+]);
 
 export const StaffStressResponseSchema = z.enum([
-  'withdraws',
-  'snaps',
-  'rushes',
-  'overworks',
-  'gets_sloppy',
-  'asks_for_help',
-])
+  "withdraws",
+  "snaps",
+  "rushes",
+  "overworks",
+  "gets_sloppy",
+  "asks_for_help",
+]);
 
 export const StaffIdentityStateSchema = z.object({
   groupId: z.string(),
@@ -208,7 +214,7 @@ export const StaffIdentityStateSchema = z.object({
   loyalties: z.array(z.string()),
   dislikes: z.array(z.string()),
   backgroundHook: z.string().optional(),
-})
+});
 
 // Phase 121 / ISSUE-090 — Living Cast Phase A.
 //
@@ -219,16 +225,14 @@ export const StaffIdentityStateSchema = z.object({
 // schema layer — the verbal-tic registry enforces membership at the
 // module/test layer (same pattern as `StaffState.role`).
 export const VoiceAxisIdSchema = z.enum([
-  'terseness',
-  'warmth',
-  'formality',
-  'floridity',
-])
-export const VoiceAxisValueSchema = z
-  .number()
-  .int()
-  .min(0)
-  .max(2) as z.ZodType<0 | 1 | 2>
+  "terseness",
+  "warmth",
+  "formality",
+  "floridity",
+]);
+export const VoiceAxisValueSchema = z.number().int().min(0).max(2) as z.ZodType<
+  0 | 1 | 2
+>;
 
 export const VoiceProfileSchema = z.object({
   axes: z.object({
@@ -238,20 +242,20 @@ export const VoiceProfileSchema = z.object({
     floridity: VoiceAxisValueSchema,
   }),
   verbalTic: z.string().optional(),
-})
+});
 
 export const AffinityAxisSchema = z.object({
   target: z.string(),
-  polarity: z.enum(['toward', 'away']),
+  polarity: z.enum(["toward", "away"]),
   strength: z.union([z.literal(1), z.literal(2)]),
-})
+});
 
 export const CastAttributesSchema = z.object({
   specialty: z.string(),
   blindspot: z.string(),
   affinities: z.array(AffinityAxisSchema),
   voice: VoiceProfileSchema,
-})
+});
 
 // Phase 128 / ISSUE-097 — Voiced Surface Phase 2 (Universal Cast).
 //
@@ -264,7 +268,7 @@ export const CastAttributesSchema = z.object({
 // `castTypes.ts` — no new schema needed for those three.
 export const CustomerGroupCastAttributesSchema = z.object({
   voice: VoiceProfileSchema,
-})
+});
 
 // Phase 11 §11.1 — `role` is a registry-validated string (`StaffRoleId`),
 // not a hard-coded union, per the "Role typing clarification" forward
@@ -299,7 +303,7 @@ export const StaffStateSchema = z.object({
   // Phase 121 / ISSUE-090 — optional during migration window;
   // `ensureCastAttributes` attaches defaults to pre-Phase-A saves.
   castAttributes: CastAttributesSchema.optional(),
-})
+});
 
 // Phase 30 §30.2 — schema extended with cultural linkage fields. The
 // numeric Phase 10 meters are unchanged; the new fields are required
@@ -332,7 +336,7 @@ export const CustomerGroupStateSchema = z.object({
   // Phase 128 / ISSUE-097 — optional during migration window;
   // `ensureCastAttributes` attaches defaults to pre-Phase-2 saves.
   castAttributes: CustomerGroupCastAttributesSchema.optional(),
-})
+});
 
 export const ReputationStateSchema = z.object({
   cheap: meter(),
@@ -348,7 +352,7 @@ export const ReputationStateSchema = z.object({
   // Phase 67 / ISSUE-027 §5.5 — `culinary_renown` tracks fame for
   // rare-ingredient sourcing and preparation. Initial value 10.
   culinary_renown: meter(),
-})
+});
 
 // Phase 16 §"Calendar Stamp" — stable timestamp shared by memories and
 // history entries. `absoluteDay` mirrors `CalendarState.totalDaysElapsed`.
@@ -358,7 +362,7 @@ export const CalendarStampSchema = z.object({
   week: z.number().int().min(1).max(4),
   day: z.number().int().min(1).max(28),
   absoluteDay: nonNegativeInt(),
-})
+});
 
 // Phase 25 §"EntityRef Expansion" — the `kind` enum is widened with
 // world-entity kinds so memories and causes can reference cultures,
@@ -366,28 +370,28 @@ export const CalendarStampSchema = z.object({
 // rumours, and the tavern's own identity record.
 export const EntityRefSchema = z.object({
   kind: z.enum([
-    'staff',
-    'customer_group',
-    'area',
-    'stock',
-    'role',
-    'system',
-    'other',
-    'culture',
-    'faction',
-    'supplier',
-    'regular',
-    'notable_npc',
-    'local_event',
-    'rumour',
-    'tavern_identity',
+    "staff",
+    "customer_group",
+    "area",
+    "stock",
+    "role",
+    "system",
+    "other",
+    "culture",
+    "faction",
+    "supplier",
+    "regular",
+    "notable_npc",
+    "local_event",
+    "rumour",
+    "tavern_identity",
     // Phase 67 / ISSUE-027 — culinary-renown drift attributes back to
     // the proximate recipe; reference validation handles `recipe`
     // refs by checking `state.recipes` membership.
-    'recipe',
+    "recipe",
   ]),
   id: z.string(),
-})
+});
 
 // Phase 16 §"Memory Shape" — replaces the Phase 5 placeholder. The
 // `'hook'` type was renamed to `'future_hook'` and `'pattern'` joined
@@ -397,7 +401,7 @@ export const EntityRefSchema = z.object({
 // later phases to reason about them.
 export const MemoryStateSchema = z.object({
   id: z.string(),
-  type: z.enum(['fact', 'timed', 'grudge', 'pattern', 'future_hook']),
+  type: z.enum(["fact", "timed", "grudge", "pattern", "future_hook"]),
   definitionId: z.string().optional(),
   label: z.string().optional(),
   strength: meter(),
@@ -412,21 +416,21 @@ export const MemoryStateSchema = z.object({
   tags: z.array(z.string()),
   source: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
-})
+});
 
 // Phase 16 §"History Log Shape" — append-only debug log.
 export const HistoryEntrySchema = z.object({
   id: z.string(),
   timestamp: CalendarStampSchema,
   category: z.enum([
-    'owner_action',
-    'service',
-    'weekly',
-    'monthly',
-    'state_change',
-    'memory',
-    'pressure',
-    'system',
+    "owner_action",
+    "service",
+    "weekly",
+    "monthly",
+    "state_change",
+    "memory",
+    "pressure",
+    "system",
   ]),
   summary: z.string(),
   tags: z.array(z.string()),
@@ -434,7 +438,7 @@ export const HistoryEntrySchema = z.object({
   relatedLocations: z.array(EntityRefSchema),
   relatedSystems: z.array(z.string()),
   mechanicalRefs: z.array(z.string()).optional(),
-})
+});
 
 // Phase 17 §"Cause Shape" — widened from the Phase 5 placeholder. The
 // shape now carries a calendar stamp, typed source/target enums, a
@@ -449,49 +453,49 @@ export const CauseEntrySchema = z.object({
   // expanded `ctx.modify*` helpers can attribute their changes through
   // the same cause contract as the Phase 7 originals.
   sourceType: z.enum([
-    'owner_action',
-    'service',
-    'area',
-    'stock',
-    'staff',
-    'customer',
-    'weekly',
-    'monthly',
-    'memory',
-    'pressure',
-    'system',
-    'culture',
-    'faction',
-    'supplier',
-    'regular',
-    'local_event',
-    'rumour',
+    "owner_action",
+    "service",
+    "area",
+    "stock",
+    "staff",
+    "customer",
+    "weekly",
+    "monthly",
+    "memory",
+    "pressure",
+    "system",
+    "culture",
+    "faction",
+    "supplier",
+    "regular",
+    "local_event",
+    "rumour",
   ]),
   target: z.string(),
   targetType: z.enum([
-    'coin',
-    'area',
-    'stock',
-    'staff',
-    'customer',
-    'reputation',
-    'pressure',
-    'memory',
-    'global',
-    'culture',
-    'faction',
-    'supplier',
-    'regular',
-    'notable_npc',
-    'local_event',
-    'rumour',
-    'tavern_identity',
+    "coin",
+    "area",
+    "stock",
+    "staff",
+    "customer",
+    "reputation",
+    "pressure",
+    "memory",
+    "global",
+    "culture",
+    "faction",
+    "supplier",
+    "regular",
+    "notable_npc",
+    "local_event",
+    "rumour",
+    "tavern_identity",
     // Phase 65 / ISSUE-025 — recipe state mutations carry the
     // `recipe` target type so the cause schema accepts them.
-    'recipe',
+    "recipe",
   ]),
   amount: z.number(),
-  direction: z.enum(['increase', 'decrease', 'neutral']),
+  direction: z.enum(["increase", "decrease", "neutral"]),
   weight: z.number().min(0),
   readable: z.string(),
   tags: z.array(z.string()),
@@ -500,7 +504,7 @@ export const CauseEntrySchema = z.object({
   relatedSystems: z.array(z.string()),
   ageDays: nonNegativeInt(),
   expiresAfterDays: nonNegativeInt().optional(),
-})
+});
 
 export const PressureStateSchema = z.object({
   id: z.string(),
@@ -509,7 +513,7 @@ export const PressureStateSchema = z.object({
   trend: z.number(),
   tags: z.array(z.string()),
   topCauses: z.array(z.string()),
-})
+});
 
 // Phase 25 §"Schema Additions" — schemas for the new top-level `world`
 // branch. Identity-style numbers (familiarity, comfort, tension,
@@ -523,7 +527,7 @@ export const PressureStateSchema = z.object({
 const RngStateSchema = z.object({
   seed: z.string(),
   calls: nonNegativeInt(),
-})
+});
 
 export const CultureWorldStateSchema = z.object({
   id: z.string(),
@@ -536,7 +540,7 @@ export const CultureWorldStateSchema = z.object({
   dislikedTags: z.array(z.string()),
   importantCalendarTags: z.array(z.string()),
   tags: z.array(z.string()),
-})
+});
 
 export const FactionWorldStateSchema = z.object({
   id: z.string(),
@@ -550,7 +554,7 @@ export const FactionWorldStateSchema = z.object({
   activeFlags: z.array(z.string()),
   // Phase 128 / ISSUE-097 — optional during migration window.
   castAttributes: CastAttributesSchema.optional(),
-})
+});
 
 export const SupplierWorldStateSchema = z.object({
   id: z.string(),
@@ -569,7 +573,7 @@ export const SupplierWorldStateSchema = z.object({
   activeFlags: z.array(z.string()),
   // Phase 128 / ISSUE-097 — optional during migration window.
   castAttributes: CastAttributesSchema.optional(),
-})
+});
 
 export const RegularWorldStateSchema = z.object({
   id: z.string(),
@@ -589,7 +593,7 @@ export const RegularWorldStateSchema = z.object({
   // Phase 121 / ISSUE-090 — optional during migration window;
   // `ensureCastAttributes` attaches defaults to pre-Phase-A saves.
   castAttributes: CastAttributesSchema.optional(),
-})
+});
 
 export const NotableNpcWorldStateSchema = z.object({
   id: z.string(),
@@ -605,7 +609,7 @@ export const NotableNpcWorldStateSchema = z.object({
   // Phase 128 / ISSUE-097 — optional during migration window;
   // runtime creation via `createNotableNpc` always populates it.
   castAttributes: CastAttributesSchema.optional(),
-})
+});
 
 // Phase 69 / ISSUE-029 §5.4 — Hireable adventurer roster schema.
 export const HireableAdventurerSchema = z.object({
@@ -622,23 +626,23 @@ export const HireableAdventurerSchema = z.object({
   joinedDay: nonNegativeInt(),
   tags: z.array(z.string()),
   activeFlags: z.array(z.string()),
-})
+});
 
 // Phase 35 §35.2 — arc lifecycle stages.
 export const LocalArcStageSchema = z.enum([
-  'seeded',
-  'rising',
-  'active',
-  'climax',
-  'resolved',
-  'failed',
-])
+  "seeded",
+  "rising",
+  "active",
+  "climax",
+  "resolved",
+  "failed",
+]);
 
 export const LocalArcHistoryRecordSchema = z.object({
   day: nonNegativeInt(),
   stage: LocalArcStageSchema,
   note: z.string(),
-})
+});
 
 // Phase 25 §"World State Schema" / Phase 35 §35.3 — extended with
 // optional arc fields. Legacy local-event records without arc semantics
@@ -663,20 +667,20 @@ export const LocalEventWorldStateSchema = z.object({
   relatedRefs: z.array(EntityRefSchema).optional(),
   activeEffects: z.array(z.string()).optional(),
   arcHistory: z.array(LocalArcHistoryRecordSchema).optional(),
-})
+});
 
 export const TavernIdentityStateSchema = z.object({
   foundingDay: nonNegativeInt(),
   knownFor: z.array(z.string()),
   houseRules: z.array(z.string()),
   atmosphereTags: z.array(z.string()),
-})
+});
 
 export const SocialRumourStateSchema = z.object({
   id: z.string(),
   label: z.string(),
   strength: meter(),
-  accuracy: z.enum(['true', 'partial', 'false', 'unknown']),
+  accuracy: z.enum(["true", "partial", "false", "unknown"]),
   sourceEntityId: z.string().optional(),
   targetEntityId: z.string().optional(),
   subject: EntityRefSchema.optional(),
@@ -684,7 +688,7 @@ export const SocialRumourStateSchema = z.object({
   lastSpreadDay: nonNegativeInt(),
   tags: z.array(z.string()),
   involvedRefs: z.array(EntityRefSchema).optional(),
-})
+});
 
 export const WorldStateSchema = z.object({
   cultures: z.record(z.string(), CultureWorldStateSchema),
@@ -698,7 +702,35 @@ export const WorldStateSchema = z.object({
   // Phase 69 / ISSUE-029 §5.4 — hireable adventurer roster.
   hireableAdventurers: z.record(z.string(), HireableAdventurerSchema),
   rngStreams: z.record(z.string(), RngStateSchema).optional(),
-})
+});
+
+export const TeleologyLifecycleStatusSchema = z.enum([
+  "active",
+  "completed",
+  "failed",
+  "paused",
+]);
+
+export const TeleologyEntrySchema = z.object({
+  id: z.string(),
+  kind: z.enum(["venture", "arc"]),
+  label: z.string(),
+  stage: z.string(),
+  progress: nonNegativeNumber(),
+  status: TeleologyLifecycleStatusSchema,
+  tags: z.array(z.string()),
+  createdAtDay: nonNegativeInt(),
+  updatedAtDay: nonNegativeInt(),
+});
+
+export const TransformationStateSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  active: z.boolean(),
+  tags: z.array(z.string()),
+  createdAtDay: nonNegativeInt(),
+  activatedAtDay: nonNegativeInt().optional(),
+});
 
 // Phase 6 §6.1.1 — Module schema composition.
 //
@@ -711,18 +743,22 @@ export const WorldStateSchema = z.object({
 export function buildModulesSchema(
   modules: ReadonlyArray<SimulationModule>,
 ): z.ZodType<Record<string, unknown>> {
-  const shape: Record<string, z.ZodType<unknown>> = {}
+  const shape: Record<string, z.ZodType<unknown>> = {};
   for (const mod of modules) {
     if (mod.stateSchema) {
-      shape[mod.id] = mod.stateSchema.optional()
+      shape[mod.id] = mod.stateSchema.optional();
     }
   }
-  return z.object(shape).passthrough() as unknown as z.ZodType<Record<string, unknown>>
+  return z.object(shape).passthrough() as unknown as z.ZodType<
+    Record<string, unknown>
+  >;
 }
 
 // Compose the full TavernState schema. The `modules` argument lets the
 // validator wire in currently-registered module schemas (Phase 6 §6.1.1).
-export function buildTavernStateSchema(modules: ReadonlyArray<SimulationModule>) {
+export function buildTavernStateSchema(
+  modules: ReadonlyArray<SimulationModule>,
+) {
   return z.object({
     meta: TavernMetaStateSchema,
     calendar: CalendarStateSchema,
@@ -738,14 +774,17 @@ export function buildTavernStateSchema(modules: ReadonlyArray<SimulationModule>)
     expeditions: ExpeditionsStateSchema,
     // Phase 25 §"Schema Additions" — top-level `world` branch.
     world: WorldStateSchema,
+    ventures: z.record(z.string(), TeleologyEntrySchema),
+    arcs: z.record(z.string(), TeleologyEntrySchema),
+    transformations: z.record(z.string(), TransformationStateSchema),
     memories: z.array(MemoryStateSchema),
     history: z.array(HistoryEntrySchema),
     causes: z.array(CauseEntrySchema),
     pressures: z.record(z.string(), PressureStateSchema),
     modules: buildModulesSchema(modules),
-  })
+  });
 }
 
 // Default static schema (no modules registered). Useful for simple use
 // and for tests that don't care about module-state composition.
-export const TavernStateSchema = buildTavernStateSchema([])
+export const TavernStateSchema = buildTavernStateSchema([]);

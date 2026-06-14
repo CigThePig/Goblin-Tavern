@@ -1,74 +1,74 @@
-import { createInitialCalendar } from '../modules/calendar/index'
+import { createInitialCalendar } from "../modules/calendar/index";
 import {
   areaRegistry,
   ensureRequiredAreasRegistered,
-} from '../registries/areaRegistry'
+} from "../registries/areaRegistry";
 import {
   ensureRequiredStockRegistered,
   stockRegistry,
-} from '../registries/stockRegistry'
+} from "../registries/stockRegistry";
 import {
   ensureRequiredRecipesRegistered,
   recipeRegistry,
-} from '../registries/recipeRegistry'
+} from "../registries/recipeRegistry";
 import {
   customerRegistry,
   ensureRequiredCustomerGroupsRegistered,
-} from '../registries/customerRegistry'
+} from "../registries/customerRegistry";
 import {
   ensureRequiredStaffRolesRegistered,
   staffRegistry,
-} from '../registries/staffRegistry'
-import { createInitialStockModuleState } from '../modules/stock/state'
-import { createInitialOwnerActionsModuleState } from '../modules/ownerActions/ownerActionsModule'
-import { createInitialWeeklyModuleState } from '../modules/weekly/state'
-import { createInitialMonthlyModuleState } from '../modules/monthly/monthlyModule'
-import { createInitialAttributionModuleState } from '../modules/attribution/attributionModule'
-import { createInitialResponsesModuleState } from '../modules/responses/responsesModule'
-import { createInitialCauseModuleState } from '../modules/causes/causeModule'
-import { createInitialPressureModuleState } from '../modules/pressures/pressureModule'
-import { createInitialFeedbackModuleState } from '../modules/feedback/feedbackLoopModule'
-import { createInitialIssueSeedModuleState } from '../modules/issues/issueSeedTypes'
-import { createInitialLocalArcsModuleState } from '../modules/localArcs/state'
-import { createInitialSupplierModuleState } from '../modules/suppliers/state'
+} from "../registries/staffRegistry";
+import { createInitialStockModuleState } from "../modules/stock/state";
+import { createInitialOwnerActionsModuleState } from "../modules/ownerActions/ownerActionsModule";
+import { createInitialWeeklyModuleState } from "../modules/weekly/state";
+import { createInitialMonthlyModuleState } from "../modules/monthly/monthlyModule";
+import { createInitialAttributionModuleState } from "../modules/attribution/attributionModule";
+import { createInitialResponsesModuleState } from "../modules/responses/responsesModule";
+import { createInitialCauseModuleState } from "../modules/causes/causeModule";
+import { createInitialPressureModuleState } from "../modules/pressures/pressureModule";
+import { createInitialFeedbackModuleState } from "../modules/feedback/feedbackLoopModule";
+import { createInitialIssueSeedModuleState } from "../modules/issues/issueSeedTypes";
+import { createInitialLocalArcsModuleState } from "../modules/localArcs/state";
+import { createInitialSupplierModuleState } from "../modules/suppliers/state";
 import {
   ensureRequiredSuppliersRegistered,
   supplierRegistry,
-} from '../content/suppliers/supplierRegistry'
-import { createStaffIdentity } from '../content/staff/staffIdentityFactory'
-import { ensureRequiredStaffIdentityProfilesRegistered } from '../content/staff/staffIdentityProfiles'
+} from "../content/suppliers/supplierRegistry";
+import { createStaffIdentity } from "../content/staff/staffIdentityFactory";
+import { ensureRequiredStaffIdentityProfilesRegistered } from "../content/staff/staffIdentityProfiles";
 import {
   createCustomerGroupCastAttributes,
   createFactionCastAttributes,
   createRegularCastAttributes,
   createStaffCastAttributes,
   createSupplierCastAttributes,
-} from '../content/cast/createCastAttributes'
-import { ensureRequiredVerbalTicsRegistered } from '../content/cast/verbalTics'
-import { createNotableNpc } from '../content/npc/npcFactory'
+} from "../content/cast/createCastAttributes";
+import { ensureRequiredVerbalTicsRegistered } from "../content/cast/verbalTics";
+import { createNotableNpc } from "../content/npc/npcFactory";
 import {
   createHireableAdventurer,
   ADVENTURER_CULTURE_ID,
-} from '../content/npc/adventurerFactory'
+} from "../content/npc/adventurerFactory";
 import {
   ensureRequiredNotableNpcProfilesRegistered,
   notableNpcProfileRegistry,
-} from '../content/npc/notableNpcProfiles'
-import { createRngStreams } from '../core/rng'
+} from "../content/npc/notableNpcProfiles";
+import { createRngStreams } from "../core/rng";
 import {
   cultureRegistry,
   ensureRequiredCulturesRegistered,
-} from '../content/cultures/cultureRegistry'
+} from "../content/cultures/cultureRegistry";
 import {
   ensureRequiredFactionsRegistered,
   factionRegistry,
-} from '../content/factions/factionRegistry'
-import { createInitialRegularModuleState } from '../modules/regulars/state'
-import { generateName } from '../content/naming/nameGenerator'
+} from "../content/factions/factionRegistry";
+import { createInitialRegularModuleState } from "../modules/regulars/state";
+import { generateName } from "../content/naming/nameGenerator";
 import {
   ensureStarterNamingProfilesRegistered,
   namingProfileRegistry,
-} from '../content/naming/namingProfiles'
+} from "../content/naming/namingProfiles";
 import type {
   AreaState,
   CultureWorldState,
@@ -78,6 +78,8 @@ import type {
   NotableNpcWorldState,
   PressureState,
   RecipeState,
+  TransformationState,
+  TeleologyEntry,
   RegularWorldState,
   ReputationState,
   StaffState,
@@ -85,20 +87,25 @@ import type {
   SupplierWorldState,
   TavernState,
   WorldState,
-} from './TavernState'
-import {
-  applyDifficultyToBase,
-  type DifficultyConfig,
-} from './difficulty'
+} from "./TavernState";
+import { applyDifficultyToBase, type DifficultyConfig } from "./difficulty";
 
 // Phase 8 §8.1 — Area defaults are sourced from `areaRegistry` rather than
 // inlined. The registry holds the same Phase 5 numbers, so this is a
 // consolidation rather than a value change. Importing the registry has the
 // side effect of self-registering the five required areas via
 // `ensureRequiredAreasRegistered`.
+function createInitialTeleologyEntries(): Record<string, TeleologyEntry> {
+  return {};
+}
+
+function createInitialTransformations(): Record<string, TransformationState> {
+  return {};
+}
+
 function createInitialAreas(): Record<string, AreaState> {
-  ensureRequiredAreasRegistered()
-  const areas: Record<string, AreaState> = {}
+  ensureRequiredAreasRegistered();
+  const areas: Record<string, AreaState> = {};
   for (const def of areaRegistry.all()) {
     areas[def.id] = {
       id: def.id,
@@ -106,9 +113,9 @@ function createInitialAreas(): Record<string, AreaState> {
       tags: [...def.tags],
       ...def.defaultState,
       activeProblems: [...def.defaultState.activeProblems],
-    }
+    };
   }
-  return areas
+  return areas;
 }
 
 // Phase 9 §9.1 — Stock defaults are sourced from `stockRegistry` rather
@@ -117,17 +124,17 @@ function createInitialAreas(): Record<string, AreaState> {
 // registry has the side effect of self-registering the six required
 // items via `ensureRequiredStockRegistered`.
 function createInitialStock(): Record<string, StockState> {
-  ensureRequiredStockRegistered()
-  const stock: Record<string, StockState> = {}
+  ensureRequiredStockRegistered();
+  const stock: Record<string, StockState> = {};
   for (const def of stockRegistry.all()) {
     stock[def.id] = {
       id: def.id,
       label: def.label,
       tags: [...def.tags],
       ...def.defaultState,
-    }
+    };
   }
-  return stock
+  return stock;
 }
 
 // Phase 65 / ISSUE-025 §5.2 — Recipe defaults are sourced from
@@ -136,17 +143,17 @@ function createInitialStock(): Record<string, StockState> {
 // `onMenu: true` so the default service flow keeps serving the same
 // stock items via 1:1 recipe wrappers.
 function createInitialRecipes(): Record<string, RecipeState> {
-  ensureRequiredRecipesRegistered()
-  const recipes: Record<string, RecipeState> = {}
+  ensureRequiredRecipesRegistered();
+  const recipes: Record<string, RecipeState> = {};
   for (const def of recipeRegistry.all()) {
     recipes[def.id] = {
       id: def.id,
       label: def.label,
       tags: [...def.tags],
       ...def.defaultState,
-    }
+    };
   }
-  return recipes
+  return recipes;
 }
 
 // Phase 11 §11.1 / Phase 31 §31.8 — Staff defaults are sourced from
@@ -164,32 +171,32 @@ function createInitialRecipes(): Record<string, RecipeState> {
 // `staff.name`; readers wanting just the display string use
 // `staff.name.display`.
 function createInitialStaff(): Record<string, StaffState> {
-  ensureRequiredStaffRolesRegistered()
-  ensureRequiredStaffIdentityProfilesRegistered()
-  ensureRequiredVerbalTicsRegistered()
-  const streams = createRngStreams('initial-staff-identity')
-  const identityRng = streams.get('staff_identity')
-  const existingNames = new Set<string>()
-  const staff: Record<string, StaffState> = {}
+  ensureRequiredStaffRolesRegistered();
+  ensureRequiredStaffIdentityProfilesRegistered();
+  ensureRequiredVerbalTicsRegistered();
+  const streams = createRngStreams("initial-staff-identity");
+  const identityRng = streams.get("staff_identity");
+  const existingNames = new Set<string>();
+  const staff: Record<string, StaffState> = {};
   // Phase 31 §31.8 — iterate in a stable registry order so a future
   // refactor of the registry's storage doesn't shift staff names.
   const orderedDefs = [...staffRegistry.all()].sort((a, b) =>
     a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
-  )
+  );
   for (const def of orderedDefs) {
     // Phase 71 / ISSUE-031 §4.3 — cook-tier roles (kitchen_hand,
     // seasoned_cook, master_chef) are registered as hireable role
     // definitions but not seeded on day zero. The flag defaults to
     // true so existing roles continue to spawn their canonical staff
     // member.
-    if (def.seedOnDayZero === false) continue
+    if (def.seedOnDayZero === false) continue;
     const { identity, generatedName } = createStaffIdentity({
       staffId: def.defaultStaffId,
       roleId: def.id,
       rng: identityRng,
       existingNames,
-    })
-    existingNames.add(generatedName.display)
+    });
+    existingNames.add(generatedName.display);
     // Phase 121 / ISSUE-090 — Living Cast Phase A. The cast attribute
     // rolls land on the SAME staff_identity stream, AFTER the existing
     // name + work-style + stress-response + background-hook rolls. That
@@ -202,7 +209,7 @@ function createInitialStaff(): Record<string, StaffState> {
         ? { cultureId: identity.cultureId }
         : {}),
       rng: identityRng,
-    })
+    });
     staff[def.defaultStaffId] = {
       id: def.defaultStaffId,
       name: generatedName,
@@ -212,9 +219,9 @@ function createInitialStaff(): Record<string, StaffState> {
       activeFlags: [...def.defaultState.activeFlags],
       identity,
       castAttributes,
-    }
+    };
   }
-  return staff
+  return staff;
 }
 
 // Phase 10 §10.1 — Customer-group defaults are sourced from
@@ -224,22 +231,22 @@ function createInitialStaff(): Record<string, StaffState> {
 // registry has the side effect of self-registering the five required
 // groups via `ensureRequiredCustomerGroupsRegistered`.
 function createInitialCustomerGroups(): Record<string, CustomerGroupState> {
-  ensureRequiredCustomerGroupsRegistered()
-  ensureRequiredVerbalTicsRegistered()
+  ensureRequiredCustomerGroupsRegistered();
+  ensureRequiredVerbalTicsRegistered();
   // Phase 128 / ISSUE-097 — one identity stream per actor kind, mirroring
   // the `'initial-staff-identity'` pattern. Sort by id so a future
   // registry-storage refactor doesn't shift assignments.
-  const streams = createRngStreams('initial-customer-group-identity')
-  const identityRng = streams.get('customer_group_identity')
-  const groups: Record<string, CustomerGroupState> = {}
+  const streams = createRngStreams("initial-customer-group-identity");
+  const identityRng = streams.get("customer_group_identity");
+  const groups: Record<string, CustomerGroupState> = {};
   const orderedDefs = [...customerRegistry.all()].sort((a, b) =>
     a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
-  )
+  );
   for (const def of orderedDefs) {
     const castAttributes = createCustomerGroupCastAttributes({
       cultureId: def.defaultState.cultureId,
       rng: identityRng,
-    })
+    });
     groups[def.id] = {
       id: def.id,
       label: def.label,
@@ -254,9 +261,9 @@ function createInitialCustomerGroups(): Record<string, CustomerGroupState> {
         ...def.defaultState.relationshipToOtherGroups,
       },
       castAttributes,
-    }
+    };
   }
-  return groups
+  return groups;
 }
 
 function createInitialReputation(): ReputationState {
@@ -278,7 +285,7 @@ function createInitialReputation(): ReputationState {
     // tavern starts with almost no culinary reputation; it serves
     // stew and ale and that's it.
     culinary_renown: 10,
-  }
+  };
 }
 
 // Phase 18 §"Naming reconciliation" — the canonical pressure id set drops
@@ -314,33 +321,33 @@ function createInitialPressures(): Record<string, PressureState> {
     rumour_pressure: 0,
     policy_backlash: 0,
     arc_escalation: 0,
-  }
+  };
 
   const labels: Record<string, string> = {
-    food_safety: 'Food Safety',
-    inspection: 'Inspection',
-    staff_burnout: 'Staff Burnout',
-    pests: 'Pests',
-    debt: 'Debt',
-    maintenance: 'Maintenance',
-    violence: 'Violence',
-    reputation_drift: 'Reputation Drift',
-    stock_shortage: 'Stock Shortage',
-    landlord: 'Landlord',
-    supplier_distrust: 'Supplier Distrust',
-    regular_customer_loss: 'Regular Customer Loss',
-    staff_loyalty_risk: 'Staff Loyalty Risk',
-    faction_anger: 'Faction Anger',
-    cultural_tension: 'Cultural Tension',
-    rival_tavern_pressure: 'Rival Tavern Pressure',
-    festival_readiness: 'Festival Readiness',
-    market_instability: 'Market Instability',
-    rumour_pressure: 'Rumour Pressure',
-    policy_backlash: 'Policy Backlash',
-    arc_escalation: 'Arc Escalation',
-  }
+    food_safety: "Food Safety",
+    inspection: "Inspection",
+    staff_burnout: "Staff Burnout",
+    pests: "Pests",
+    debt: "Debt",
+    maintenance: "Maintenance",
+    violence: "Violence",
+    reputation_drift: "Reputation Drift",
+    stock_shortage: "Stock Shortage",
+    landlord: "Landlord",
+    supplier_distrust: "Supplier Distrust",
+    regular_customer_loss: "Regular Customer Loss",
+    staff_loyalty_risk: "Staff Loyalty Risk",
+    faction_anger: "Faction Anger",
+    cultural_tension: "Cultural Tension",
+    rival_tavern_pressure: "Rival Tavern Pressure",
+    festival_readiness: "Festival Readiness",
+    market_instability: "Market Instability",
+    rumour_pressure: "Rumour Pressure",
+    policy_backlash: "Policy Backlash",
+    arc_escalation: "Arc Escalation",
+  };
 
-  const pressures: Record<string, PressureState> = {}
+  const pressures: Record<string, PressureState> = {};
   for (const id of Object.keys(baseValues)) {
     pressures[id] = {
       id,
@@ -349,9 +356,9 @@ function createInitialPressures(): Record<string, PressureState> {
       trend: 0,
       tags: [],
       topCauses: [],
-    }
+    };
   }
-  return pressures
+  return pressures;
 }
 
 // Phase 29 §29.2 — Seed `state.world.suppliers` from the supplier
@@ -363,21 +370,21 @@ function createInitialPressures(): Record<string, PressureState> {
 // will be produced later during `identityGeneration` when `ctx.rng` is
 // available.
 function createInitialSuppliers(): Record<string, SupplierWorldState> {
-  ensureRequiredSuppliersRegistered()
-  ensureRequiredVerbalTicsRegistered()
+  ensureRequiredSuppliersRegistered();
+  ensureRequiredVerbalTicsRegistered();
   // Phase 128 / ISSUE-097 — supplier identity stream, sorted iteration.
-  const streams = createRngStreams('initial-supplier-identity')
-  const identityRng = streams.get('supplier_identity')
-  const suppliers: Record<string, SupplierWorldState> = {}
+  const streams = createRngStreams("initial-supplier-identity");
+  const identityRng = streams.get("supplier_identity");
+  const suppliers: Record<string, SupplierWorldState> = {};
   const orderedDefs = [...supplierRegistry.all()].sort((a, b) =>
     a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
-  )
+  );
   for (const def of orderedDefs) {
     const castAttributes = createSupplierCastAttributes({
       supplierType: def.supplierType,
       ...(def.cultureId !== undefined ? { cultureId: def.cultureId } : {}),
       rng: identityRng,
-    })
+    });
     suppliers[def.id] = {
       id: def.id,
       label: def.label,
@@ -385,8 +392,8 @@ function createInitialSuppliers(): Record<string, SupplierWorldState> {
         display: def.label,
         profileId: def.namingProfileId,
         parts: {},
-        patternId: 'given_family',
-        generatedBy: 'supplier_registry',
+        patternId: "given_family",
+        generatedBy: "supplier_registry",
       },
       supplierType: def.supplierType,
       reliability: def.defaultReliability,
@@ -399,17 +406,17 @@ function createInitialSuppliers(): Record<string, SupplierWorldState> {
       tags: [...def.tags],
       activeFlags: [],
       castAttributes,
-    }
+    };
   }
-  return suppliers
+  return suppliers;
 }
 
 // Phase 30 §30.3 — Seed `state.world.cultures` from the culture
 // registry. Each registered culture becomes a persistent world entity
 // with the meters and tag lists declared in its definition.
 function createInitialCultures(): Record<string, CultureWorldState> {
-  ensureRequiredCulturesRegistered()
-  const cultures: Record<string, CultureWorldState> = {}
+  ensureRequiredCulturesRegistered();
+  const cultures: Record<string, CultureWorldState> = {};
   for (const def of cultureRegistry.all()) {
     cultures[def.id] = {
       id: def.id,
@@ -422,29 +429,29 @@ function createInitialCultures(): Record<string, CultureWorldState> {
       dislikedTags: [...def.dislikedTags],
       importantCalendarTags: [...def.importantCalendarTags],
       tags: [...def.tags],
-    }
+    };
   }
-  return cultures
+  return cultures;
 }
 
 // Phase 30 §30.5 — Seed `state.world.factions` from the faction
 // registry. Each registered faction becomes a persistent world entity
 // with its starting relationship/influence/trust/fear meters.
 function createInitialFactions(): Record<string, FactionWorldState> {
-  ensureRequiredFactionsRegistered()
-  ensureRequiredVerbalTicsRegistered()
+  ensureRequiredFactionsRegistered();
+  ensureRequiredVerbalTicsRegistered();
   // Phase 128 / ISSUE-097 — faction identity stream, sorted iteration.
-  const streams = createRngStreams('initial-faction-identity')
-  const identityRng = streams.get('faction_identity')
-  const factions: Record<string, FactionWorldState> = {}
+  const streams = createRngStreams("initial-faction-identity");
+  const identityRng = streams.get("faction_identity");
+  const factions: Record<string, FactionWorldState> = {};
   const orderedDefs = [...factionRegistry.all()].sort((a, b) =>
     a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
-  )
+  );
   for (const def of orderedDefs) {
     const castAttributes = createFactionCastAttributes({
       ...(def.cultureId !== undefined ? { cultureId: def.cultureId } : {}),
       rng: identityRng,
-    })
+    });
     factions[def.id] = {
       id: def.id,
       label: def.label,
@@ -456,9 +463,9 @@ function createInitialFactions(): Record<string, FactionWorldState> {
       tags: [...def.tags],
       activeFlags: [],
       castAttributes,
-    }
+    };
   }
-  return factions
+  return factions;
 }
 
 // Audit fixes pass 1 §1.3 — Seed a roster of starter regulars at day 0
@@ -469,67 +476,67 @@ function createInitialFactions(): Record<string, FactionWorldState> {
 // deterministically, through the `regular_identity` RNG stream so the
 // roster does not drift across re-renders.
 type StarterRegularSpec = {
-  groupId: string
-  loyalty: number
+  groupId: string;
+  loyalty: number;
   // Phase 50 / ISSUE-010 — Optional override that lets a starter regular
   // adopt a cross-cutting culture (religious / outsider / professional)
   // instead of inheriting the group's primary culture. This is how cross-
   // cutting cultures get members across multiple customer-group bases at
   // day 0.
-  cultureId?: string
+  cultureId?: string;
   // Phase 51 / ISSUE-011 — Optional faction binding so the
   // `regular ← faction` channel (notable-NPC factory pattern from
   // Phase 44) has day-0 reachable starter targets without waiting on
   // emergence.
-  factionId?: string
-}
+  factionId?: string;
+};
 
 const STARTER_REGULAR_SPECS: StarterRegularSpec[] = [
-  { groupId: 'local_goblins', loyalty: 72 },
-  { groupId: 'local_goblins', loyalty: 65, cultureId: 'shrine_devotees' },
-  { groupId: 'local_goblins', loyalty: 58 },
-  { groupId: 'miners', loyalty: 68, cultureId: 'shrine_devotees' },
-  { groupId: 'miners', loyalty: 70, factionId: 'miners_union' },
-  { groupId: 'merchants', loyalty: 62, cultureId: 'traveling_outsiders' },
+  { groupId: "local_goblins", loyalty: 72 },
+  { groupId: "local_goblins", loyalty: 65, cultureId: "shrine_devotees" },
+  { groupId: "local_goblins", loyalty: 58 },
+  { groupId: "miners", loyalty: 68, cultureId: "shrine_devotees" },
+  { groupId: "miners", loyalty: 70, factionId: "miners_union" },
+  { groupId: "merchants", loyalty: 62, cultureId: "traveling_outsiders" },
   {
-    groupId: 'merchants',
+    groupId: "merchants",
     loyalty: 70,
-    factionId: 'market_caravan_circle',
+    factionId: "market_caravan_circle",
   },
-  { groupId: 'ogres', loyalty: 60 },
-  { groupId: 'ogres', loyalty: 70 },
-  { groupId: 'adventurers', loyalty: 64, cultureId: 'traveling_outsiders' },
-  { groupId: 'adventurers', loyalty: 58 },
-]
+  { groupId: "ogres", loyalty: 60 },
+  { groupId: "ogres", loyalty: 70 },
+  { groupId: "adventurers", loyalty: 64, cultureId: "traveling_outsiders" },
+  { groupId: "adventurers", loyalty: 58 },
+];
 
 function createInitialRegulars(
   customerGroups: Record<string, CustomerGroupState>,
 ): Record<string, RegularWorldState> {
-  ensureStarterNamingProfilesRegistered()
-  const streams = createRngStreams('initial-regulars')
-  const rng = streams.get('regular_identity')
-  const regulars: Record<string, RegularWorldState> = {}
-  const existingDisplayNames = new Set<string>()
+  ensureStarterNamingProfilesRegistered();
+  const streams = createRngStreams("initial-regulars");
+  const rng = streams.get("regular_identity");
+  const regulars: Record<string, RegularWorldState> = {};
+  const existingDisplayNames = new Set<string>();
 
-  let perGroupIndex: Record<string, number> = {}
+  let perGroupIndex: Record<string, number> = {};
   for (const spec of STARTER_REGULAR_SPECS) {
-    const group = customerGroups[spec.groupId]
-    if (!group) continue
+    const group = customerGroups[spec.groupId];
+    if (!group) continue;
     const profileId = namingProfileRegistry.has(group.namingProfileId)
       ? group.namingProfileId
-      : 'goblin_common'
-    const profile = namingProfileRegistry.get(profileId)
-    const name = generateName(profile, rng, 'regular_customer', {
+      : "goblin_common";
+    const profile = namingProfileRegistry.get(profileId);
+    const name = generateName(profile, rng, "regular_customer", {
       existingDisplayNames,
-    })
-    existingDisplayNames.add(name.display)
+    });
+    existingDisplayNames.add(name.display);
 
-    perGroupIndex[spec.groupId] = (perGroupIndex[spec.groupId] ?? 0) + 1
-    const index = perGroupIndex[spec.groupId]!
-    const id = `starter_regular_${spec.groupId}_${index}`
-    const cultureId = spec.cultureId ?? group.cultureId
-    const tags = ['regular', 'starter']
-    if (cultureId) tags.push(`culture:${cultureId}`)
+    perGroupIndex[spec.groupId] = (perGroupIndex[spec.groupId] ?? 0) + 1;
+    const index = perGroupIndex[spec.groupId]!;
+    const id = `starter_regular_${spec.groupId}_${index}`;
+    const cultureId = spec.cultureId ?? group.cultureId;
+    const tags = ["regular", "starter"];
+    if (cultureId) tags.push(`culture:${cultureId}`);
 
     // Phase 121 / ISSUE-090 — Living Cast Phase A. Starter regulars get
     // cast attributes from the same regular_identity stream the name
@@ -540,7 +547,7 @@ function createInitialRegulars(
       ...(cultureId !== undefined ? { cultureId } : {}),
       customerGroupId: group.id,
       rng,
-    })
+    });
 
     regulars[id] = {
       id,
@@ -557,9 +564,9 @@ function createInitialRegulars(
       tags,
       activeFlags: [],
       castAttributes,
-    }
+    };
   }
-  return regulars
+  return regulars;
 }
 
 // Phase 44 §ISSUE-004 — Seed `state.world.notableNpcs` from the
@@ -581,72 +588,78 @@ function createInitialRegulars(
 // (`initial-hireable-adventurers`) so the default roster is
 // deterministic and never shifts when other systems advance the daily
 // RNG.
-function createInitialHireableAdventurers(): Record<string, HireableAdventurer> {
-  const streams = createRngStreams('initial-hireable-adventurers')
-  const rng = streams.get('npc_identity')
-  const existingNames = new Set<string>()
-  const result: Record<string, HireableAdventurer> = {}
+function createInitialHireableAdventurers(): Record<
+  string,
+  HireableAdventurer
+> {
+  const streams = createRngStreams("initial-hireable-adventurers");
+  const rng = streams.get("npc_identity");
+  const existingNames = new Set<string>();
+  const result: Record<string, HireableAdventurer> = {};
   // Three starter slots — names generate against the shared
   // `adventuring_bands` profile. The trio carries different opening
   // stat profiles so the player has variety from day zero.
   const seedRoster: Array<
-    Omit<Parameters<typeof createHireableAdventurer>[0], 'rng' | 'existingNames'>
+    Omit<
+      Parameters<typeof createHireableAdventurer>[0],
+      "rng" | "existingNames"
+    >
   > = [
     {
-      adventurerId: 'hireable_adv_alpha',
+      adventurerId: "hireable_adv_alpha",
       joinedDay: 0,
       experience: 60,
       reliability: 60,
       relationship: 50,
-      specialty: 'rare',
+      specialty: "rare",
       wageBase: 6,
-      tags: ['veteran'],
+      tags: ["veteran"],
     },
     {
-      adventurerId: 'hireable_adv_beta',
+      adventurerId: "hireable_adv_beta",
       joinedDay: 0,
       experience: 35,
       reliability: 55,
       relationship: 45,
-      specialty: 'uncommon',
+      specialty: "uncommon",
       wageBase: 4,
-      tags: ['scout'],
+      tags: ["scout"],
     },
     {
-      adventurerId: 'hireable_adv_gamma',
+      adventurerId: "hireable_adv_gamma",
       joinedDay: 0,
       experience: 25,
       reliability: 40,
       relationship: 35,
       specialty: null,
       wageBase: 3,
-      tags: ['rookie'],
+      tags: ["rookie"],
     },
-  ]
+  ];
   for (const spec of seedRoster) {
     const { adventurer, generatedName } = createHireableAdventurer({
       ...spec,
       rng,
       existingNames,
-    })
-    existingNames.add(generatedName.display)
-    result[adventurer.id] = adventurer
+    });
+    existingNames.add(generatedName.display);
+    result[adventurer.id] = adventurer;
   }
-  return result
+  return result;
 }
 
 function createInitialNotableNpcs(): Record<string, NotableNpcWorldState> {
-  ensureRequiredNotableNpcProfilesRegistered()
-  const streams = createRngStreams('initial-notable-npcs')
-  const rng = streams.get('npc_identity')
-  const existingNames = new Set<string>()
-  const result: Record<string, NotableNpcWorldState> = {}
+  ensureRequiredNotableNpcProfilesRegistered();
+  const streams = createRngStreams("initial-notable-npcs");
+  const rng = streams.get("npc_identity");
+  const existingNames = new Set<string>();
+  const result: Record<string, NotableNpcWorldState> = {};
   // Iterate in stable registry order so reordering the
   // REQUIRED_NOTABLE_NPC_PROFILES array does not shift the RNG sequence
   // and thereby the generated names.
   const orderedProfiles = [...notableNpcProfileRegistry.all()].sort((a, b) =>
     a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
-  )
+  );
   for (const profile of orderedProfiles) {
     const { npc, generatedName } = createNotableNpc({
       npcId: profile.defaultNpcId,
@@ -654,11 +667,11 @@ function createInitialNotableNpcs(): Record<string, NotableNpcWorldState> {
       rng,
       firstSeenDay: 0,
       existingNames,
-    })
-    existingNames.add(generatedName.display)
-    result[npc.id] = npc
+    });
+    existingNames.add(generatedName.display);
+    result[npc.id] = npc;
   }
-  return result
+  return result;
 }
 
 // Phase 25 §"Default World State" / Phase 29 §29.2 / Phase 30 §§30.3,
@@ -675,7 +688,7 @@ function createInitialNotableNpcs(): Record<string, NotableNpcWorldState> {
 export function createInitialWorldState(
   customerGroups?: Record<string, CustomerGroupState>,
 ): WorldState {
-  const groups = customerGroups ?? createInitialCustomerGroups()
+  const groups = customerGroups ?? createInitialCustomerGroups();
   return {
     cultures: createInitialCultures(),
     factions: createInitialFactions(),
@@ -690,26 +703,26 @@ export function createInitialWorldState(
       // isn't building from zero — they're inheriting a mess"). The
       // tavern-identity module will overwrite these on the first
       // endDay; the seeds make the day-zero strip carry meaning.
-      knownFor: ['cheap goblin food'],
+      knownFor: ["cheap goblin food"],
       houseRules: [],
-      atmosphereTags: ['grimy floors', 'goblin-flavored'],
+      atmosphereTags: ["grimy floors", "goblin-flavored"],
     },
     socialRumours: {},
     // Phase 69 / ISSUE-029 §5.4 — hireable adventurer roster.
     hireableAdventurers: createInitialHireableAdventurers(),
-  }
+  };
 }
 
 export function createInitialTavernState(
   overrides?: Partial<TavernState>,
   difficulty?: DifficultyConfig,
 ): TavernState {
-  const customerGroups = createInitialCustomerGroups()
+  const customerGroups = createInitialCustomerGroups();
   const initial: TavernState = {
     meta: {
-      tavernId: 'the_crooked_keg',
-      tavernName: 'The Crooked Keg',
-      simVersion: '0.1.0',
+      tavernId: "the_crooked_keg",
+      tavernName: "The Crooked Keg",
+      simVersion: "0.1.0",
       createdAtDay: 0,
     },
     calendar: createInitialCalendar(),
@@ -733,6 +746,9 @@ export function createInitialTavernState(
     // audit fixes pass 1 §1.3) starter regulars all come from the
     // registry/seed factories.
     world: createInitialWorldState(customerGroups),
+    ventures: createInitialTeleologyEntries(),
+    arcs: createInitialTeleologyEntries(),
+    transformations: createInitialTransformations(),
     memories: [],
     history: [],
     causes: [],
@@ -785,20 +801,22 @@ export function createInitialTavernState(
       // from day zero before any response intent has been processed.
       responses: createInitialResponsesModuleState(),
     },
-  }
+  };
 
   // Phase 98 — Difficulty is applied to the freshly-built base BEFORE
   // overrides merge. Overrides always win, which keeps the existing
   // test fixtures (which pass `overrides`) bit-for-bit unchanged.
-  const base = difficulty ? applyDifficultyToBase(initial, difficulty) : initial
+  const base = difficulty
+    ? applyDifficultyToBase(initial, difficulty)
+    : initial;
 
   if (!overrides) {
-    return base
+    return base;
   }
 
-  return { ...base, ...overrides }
+  return { ...base, ...overrides };
 }
 
 export function cloneTavernState(state: TavernState): TavernState {
-  return structuredClone(state)
+  return structuredClone(state);
 }

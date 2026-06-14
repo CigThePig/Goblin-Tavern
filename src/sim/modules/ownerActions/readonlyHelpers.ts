@@ -99,6 +99,7 @@ function makeReadOnlyCtx(state: TavernState): SimContext {
     getTopCausesForTarget: refuse("getTopCausesForTarget"),
     ageCausesEndOfDay: refuse("ageCausesEndOfDay"),
     modifyPressure: refuse("modifyPressure"),
+    addVenture: refuse("addVenture"),
     modifyVenture: refuse("modifyVenture"),
     modifyArc: refuse("modifyArc"),
     modifyTransformation: refuse("modifyTransformation"),

@@ -1420,6 +1420,20 @@ function createContext(
       }
     },
 
+    addVenture(venture, meta): void {
+      if (runtime.current.ventures[venture.id]) {
+        throw new Error(`addVenture: duplicate venture id '${venture.id}'`);
+      }
+      runtime.current = {
+        ...runtime.current,
+        ventures: { ...runtime.current.ventures, [venture.id]: venture },
+      };
+      addCauseInternal(meta, {
+        target: `venture:${venture.id}`,
+        targetType: "global",
+        tags: ["teleology", "venture", "start", venture.id],
+      });
+    },
     modifyVenture(id, changes, meta): void {
       const before = requireRecord<TeleologyEntry>(
         runtime.current.ventures,

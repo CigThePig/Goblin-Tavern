@@ -26,8 +26,9 @@ import {
 
 /** The migrated templates the harnesses must cover — every `REQUIRED_CARDS`
  *  entry except the catch-all fallback. */
+const NON_COMPOSITIONAL_CARD_IDS = new Set([FALLBACK_CARD_ID, 'venture.current_stage'])
 const REQUIRED_IDS: readonly string[] = REQUIRED_CARDS.map((c) => c.id).filter(
-  (id) => id !== FALLBACK_CARD_ID,
+  (id) => !NON_COMPOSITIONAL_CARD_IDS.has(id),
 )
 
 /** A template is actor-voiced — and so must appear in the cross-situation

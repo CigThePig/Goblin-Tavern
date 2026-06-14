@@ -72,6 +72,8 @@ export type SimInput = {
    * reference an unknown action id, or fail the action's `canApply`.
    */
   ownerActions?: ReadonlyArray<SimInputOwnerAction>;
+  /** Dev/test-only teleology affordances, ignored by production UI. */
+  devOptions?: { spawnVenture?: string };
   /**
    * Phase 11 §11.3 — per-day staff priority assignment. Keys are staff
    * ids; values are `StaffPriorityId`s validated against the role's
@@ -302,6 +304,7 @@ export type SimContext = {
     changes: Partial<TavernIdentityState>,
     meta: MutationMeta,
   ): void;
+  addVenture(venture: TeleologyEntry, meta: MutationMeta): void;
   modifyVenture(
     id: string,
     changes: Partial<TeleologyEntry>,

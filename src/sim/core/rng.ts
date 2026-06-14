@@ -154,6 +154,9 @@ export type RngStreamId =
   | 'supplier_identity'
   | 'faction_identity'
   | 'customer_group_identity'
+  | 'venture'
+  | 'arc'
+  | 'opening'
 
 export type RngStreamState = Record<RngStreamId, RngState>
 
@@ -190,6 +193,9 @@ const ALL_STREAM_IDS: ReadonlyArray<RngStreamId> = [
   'supplier_identity',
   'faction_identity',
   'customer_group_identity',
+  'venture',
+  'arc',
+  'opening',
 ]
 
 export function createRngStreams(

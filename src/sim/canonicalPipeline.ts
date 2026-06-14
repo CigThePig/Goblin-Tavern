@@ -39,6 +39,8 @@ import { regularModule } from './modules/regulars/index'
 import { adventurersModule } from './modules/adventurers/index'
 import { expeditionsModule } from './modules/expeditions/index'
 import { tavernIdentityModule } from './modules/tavernIdentity/index'
+import { kernelModule } from './modules/kernel/index'
+import { ventureModule } from './modules/ventures/index'
 
 export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   areasModule,
@@ -64,6 +66,8 @@ export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   attributionModule,
   pressuresModule,
   feedbackModule,
+  kernelModule,
+  ventureModule,
   issueSeedsModule,
   responsesModule,
 ]

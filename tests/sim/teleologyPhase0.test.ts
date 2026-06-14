@@ -1,10 +1,21 @@
 import { describe, expect, it } from "vitest";
 
 import type { EffectPreview } from "../../src/sim/core/effect";
+import { simulateDay } from "../../src/sim/core/engine";
+import { FULL_PIPELINE } from "../../src/sim/canonicalPipeline";
 import { createCloneApplier } from "../../src/sim/modules/responses/cloneApplier";
+import { LIQUOR_LICENSE_VENTURE_ID } from "../../src/sim/modules/ventures";
+import type {
+  ConsequenceProfile,
+  IssueSeed,
+} from "../../src/sim/modules/issues/issueSeedTypes";
 import { createInitialTavernState } from "../../src/sim/state/defaults";
 import { ensureTeleologySlices } from "../../src/sim/state/migrations";
 import { safeValidateState } from "../../src/sim/state/validation";
+
+function targetsPressure(target: string): boolean {
+  return target.startsWith("pressure:") || target.startsWith("pressures.");
+}
 
 describe("teleology phase 0 foundations", () => {
   it("seeds empty teleology collections and schema-validates them", () => {
@@ -81,38 +92,44 @@ describe("teleology phase 0 foundations", () => {
     expect(state.ventures.license.progress).toBe(2);
   });
 
-  it("guards authored teleology effects against pressure target ids", () => {
-    const teleologyEffects: EffectPreview[] = [
+  it("guards real authored teleology effects against pressure target ids", () => {
+    // Scan the *actually authored* consequence-profile effects that the
+    // teleology generators emit (not a hand-written inline array), so the
+    // guard catches a real regression. Constraint 3 / 4: teleology effects
+    // must target the venture/arc/identity/transformation collections,
+    // never a pressure id, or the pressure-polarity classifiers would see
+    // a teleology effect.
+    const result = simulateDay(
+      createInitialTavernState(),
       {
-        kind: "state_change",
-        target: "ventures.license.progress",
-        amount: 1,
-        readable: "Advance venture progress",
-        tags: ["teleology"],
+        seed: "teleology-pressure-guard",
+        devOptions: { spawnVenture: LIQUOR_LICENSE_VENTURE_ID },
       },
-      {
-        kind: "state_change",
-        target: "arcs.brewer.progress",
-        amount: 1,
-        readable: "Advance arc progress",
-        tags: ["teleology"],
-      },
-      {
-        kind: "state_change",
-        target: "transformations.licensed.active",
-        amount: 1,
-        readable: "Activate a transformation",
-        tags: ["teleology"],
-      },
-    ];
+      FULL_PIPELINE,
+    );
+    const seeds = (
+      result.state.modules.issueSeeds as { seedsToday: IssueSeed[] }
+    ).seedsToday;
 
-    expect(
-      teleologyEffects.every(
-        (effect) =>
-          effect.kind === "state_change" &&
-          !effect.target.startsWith("pressure:") &&
-          !effect.target.startsWith("pressures."),
-      ),
-    ).toBe(true);
+    const teleologyEffects: EffectPreview[] = seeds
+      .flatMap((seed) => seed.consequenceProfiles as ConsequenceProfile[])
+      .flatMap((profile) => [
+        ...profile.immediateEffects,
+        ...profile.delayedEffects,
+      ])
+      .filter((effect) => effect.tags.includes("teleology"));
+
+    // The venture seed must actually exist, or this guard is vacuous.
+    expect(teleologyEffects.length).toBeGreaterThan(0);
+    const offenders = teleologyEffects.filter((effect) =>
+      targetsPressure(effect.target),
+    );
+    expect(offenders).toEqual([]);
+
+    // And no teleology-tagged cause emitted this day landed on a pressure.
+    const teleologyCauses = result.state.causes.filter((c) =>
+      c.tags.includes("teleology"),
+    );
+    expect(teleologyCauses.every((c) => !targetsPressure(c.target))).toBe(true);
   });
 });

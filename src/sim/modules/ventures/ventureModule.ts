@@ -15,14 +15,14 @@ const investmentTrigger: LifecycleTrigger = (entry, ctx, definition) => {
   if (!milestone) return { advanced: false }
   const resolved = resolveBranchingMilestone(entry, ctx, milestone)
   if (!resolved) return { advanced: false }
-  return { advanced: true, toStage: resolved.nextStage, effects: resolved.effects, cause: { source: 'ventures.advance', readable: `${entry.label} advanced through owner investment.`, tags: ['teleology', 'venture', 'advance', entry.id] } }
+  return { advanced: true, toStage: resolved.nextStage, effects: resolved.effects, ...(resolved.terminal ? { status: 'completed' as const } : {}), cause: { source: 'ventures.advance', readable: `${entry.label} advanced through owner investment.`, tags: ['teleology', 'venture', 'advance', entry.id] } }
 }
 
 const startDayHook: SimulationHook = (ctx) => spawnDevVenture(ctx)
 const endDayHook: SimulationHook = (ctx) => {
   const entry = ctx.state.ventures[LIQUOR_LICENSE_VENTURE_ID]
   if (!entry || entry.status !== 'active') return
-  advanceLifecycleEntry(ctx, entry, liquorLicenseDefinition, investmentTrigger)
+  advanceLifecycleEntry(ctx, entry, liquorLicenseDefinition, investmentTrigger, (id, changes, meta) => ctx.modifyVenture(id, changes, meta))
 }
 
 export const ventureModule: SimulationModule = {

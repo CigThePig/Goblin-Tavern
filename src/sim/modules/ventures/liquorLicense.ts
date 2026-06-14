@@ -15,11 +15,13 @@ export const liquorLicenseDefinition: LifecycleDefinition = {
         {
           when: [{ kind: 'tag_present', tag: 'expedited' }],
           nextStage: 'licensed',
+          terminal: true,
           effects: [{ kind: 'transformation', id: LIQUOR_LICENSE_TRANSFORMATION_ID, label: 'Licensed liquor service', tags: ['liquor_license', 'ratchet'] }],
         },
       ],
       fallback: {
         nextStage: 'licensed',
+        terminal: true,
         effects: [{ kind: 'transformation', id: LIQUOR_LICENSE_TRANSFORMATION_ID, label: 'Licensed liquor service', tags: ['liquor_license', 'ratchet'] }],
       },
     },

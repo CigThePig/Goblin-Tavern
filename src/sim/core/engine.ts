@@ -1445,7 +1445,7 @@ function createContext(
         ...runtime.current,
         ventures: { ...runtime.current.ventures, [id]: next },
       };
-      emitDiffPathCausesForRecord(
+      const emitted = emitDiffPathCausesForRecord(
         meta,
         before as unknown as Record<string, unknown>,
         next as unknown as Record<string, unknown>,
@@ -1454,6 +1454,18 @@ function createContext(
         "global",
         ["teleology", "venture", id],
       );
+      // Lifecycle transitions move only `stage`/`status` (non-numeric), so
+      // no per-field cause is emitted and the engine-path
+      // `recordSynthesizedCause` is a no-op — fall back to an aggregate
+      // cause so the transition is still attributed. Mirrors the world
+      // mutators (`modifyCulture` et al.).
+      if (emitted === 0 && meta) {
+        addCauseInternal(meta, {
+          target: `venture:${id}`,
+          targetType: "global",
+          tags: ["teleology", "venture", id],
+        });
+      }
     },
     modifyArc(id, changes, meta): void {
       const before = requireRecord<TeleologyEntry>(
@@ -1466,7 +1478,7 @@ function createContext(
         ...runtime.current,
         arcs: { ...runtime.current.arcs, [id]: next },
       };
-      emitDiffPathCausesForRecord(
+      const emitted = emitDiffPathCausesForRecord(
         meta,
         before as unknown as Record<string, unknown>,
         next as unknown as Record<string, unknown>,
@@ -1475,6 +1487,15 @@ function createContext(
         "global",
         ["teleology", "arc", id],
       );
+      // See `modifyVenture` — non-numeric lifecycle transitions need an
+      // aggregate fallback cause so they are still attributed.
+      if (emitted === 0 && meta) {
+        addCauseInternal(meta, {
+          target: `arc:${id}`,
+          targetType: "global",
+          tags: ["teleology", "arc", id],
+        });
+      }
     },
     modifyTransformation(id, changes, meta): void {
       const before = runtime.current.transformations[id];

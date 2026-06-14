@@ -40,4 +40,34 @@ describe('teleology phase 1 kernel and venture spine', () => {
     expect(day3.state.transformations[LIQUOR_LICENSE_TRANSFORMATION_ID]?.active).toBe(true)
     expect(day3.state.causes.some((c) => c.tags.includes('teleology') && c.tags.includes('advance'))).toBe(true)
   })
+
+  it('surfaces venture advancement in the day diff (reports/projections can observe it)', () => {
+    // Regression for the diff walker not covering the teleology slices:
+    // before this, an invested venture left an empty top-level diff.
+    const day1 = run(createInitialTavernState(), { devOptions: { spawnVenture: LIQUOR_LICENSE_VENTURE_ID } })
+    const seed = (day1.state.modules.issueSeeds as { seedsToday: Array<{ id: string; family: string }> }).seedsToday.find((s) => s.family === 'venture')
+
+    const day2 = run(day1.state, { responseIntents: [investIntent(seed!.id)] })
+    const dayDiff = day2.diffs.find((d) => d.boundary === 'day')
+    const paths = dayDiff?.changes.map((c) => c.path) ?? []
+    expect(paths).toContain(`ventures.${LIQUOR_LICENSE_VENTURE_ID}.progress`)
+  })
+
+  it('emits a cause on a lifecycle stage/status transition', () => {
+    // Regression for the missing aggregate fallback: a stage flip with no
+    // numeric field move must still be attributed. Drive the venture to a
+    // resolvable milestone, then advance with no progress delta in the patch.
+    const state = createInitialTavernState()
+    state.ventures[LIQUOR_LICENSE_VENTURE_ID] = { ...createLiquorLicenseVenture(0), progress: 2 }
+
+    // endDay advances paperwork → licensed; progress 2 → 0 is numeric, but
+    // the stage/status flips are the lifecycle facts. Assert a teleology
+    // cause exists and none of them target a pressure.
+    const next = run(state)
+    const teleologyCauses = next.state.causes.filter((c) => c.tags.includes('teleology'))
+    expect(teleologyCauses.some((c) => c.tags.includes('advance'))).toBe(true)
+    // Teleology causes never target a pressure (constraint 3/4); entropy-half
+    // causes legitimately do, so this is scoped to teleology only.
+    expect(teleologyCauses.every((c) => !c.target.startsWith('pressure'))).toBe(true)
+  })
 })

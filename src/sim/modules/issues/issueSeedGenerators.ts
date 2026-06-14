@@ -49,6 +49,7 @@ import { COMPLAINT_THRESHOLD, getCustomerModuleState } from '../customers'
 import type { IssueSeedGenerator } from './issueSeedRegistry'
 import { recencyPenalty, recordPick } from './seedRotation'
 import { EXPANDED_SEED_GENERATORS } from './expandedSeedGenerators'
+import { ventureIssueSeedGenerator } from '../ventures/ventureIssueSeeds'
 // Phase 85 / ISSUE-045 — shared mechanical-descriptor pool. Used by
 // the violence generator's text ingredients (and any future family
 // that wants a stable severity-flavoured noun without inventing card
@@ -4324,6 +4325,7 @@ export const REQUIRED_SEED_GENERATORS: IssueSeedGenerator[] = [
 export const ALL_SEED_GENERATORS: IssueSeedGenerator[] = [
   ...REQUIRED_SEED_GENERATORS,
   ...EXPANDED_SEED_GENERATORS,
+  ventureIssueSeedGenerator,
 ]
 
 let initialized = false

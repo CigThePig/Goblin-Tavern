@@ -42,9 +42,9 @@ describe('salience completeness', () => {
     )
   })
 
-  it('there are 20 active families and all are covered', () => {
-    // Sanity: the union of generator families is the full 20-family roster.
-    expect(ACTIVE_FAMILIES.length).toBe(20)
+  it('there are 21 active families and all are covered', () => {
+    // Sanity: the union of generator families is the full 21-family roster.
+    expect(ACTIVE_FAMILIES.length).toBe(21)
     expect(ACTIVE_FAMILIES.every((f) => SALIENCE_TABLES[f] !== undefined)).toBe(true)
   })
 

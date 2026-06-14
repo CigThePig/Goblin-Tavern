@@ -80,6 +80,14 @@ export type SeedFamilySalience = {
 export const SALIENCE_TABLES: Partial<
   Record<IssueSeedFamilyId, SeedFamilySalience>
 > = {
+  venture: {
+    reads: [
+      { kind: 'hasTag', tag: 'teleology' },
+      { kind: 'hasTag', tag: 'paperwork' },
+      { kind: 'memory', tag: 'venture' },
+    ],
+  },
+
   supplier_relationship: {
     reads: [
       { kind: 'signal', role: 'primaryActor', signal: 'supplier.reliability' },

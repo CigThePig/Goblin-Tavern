@@ -36,6 +36,7 @@ export {
   rivalTavernCard,
   monthlyReviewCard,
   seasonalArcCard,
+  ventureCard,
   drinkOrderCard,
   staffAsideCard,
   fallbackCard,

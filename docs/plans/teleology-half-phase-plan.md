@@ -47,6 +47,18 @@ These are correctness constraints surfaced by mapping. A phase that violates one
 5. **Test tiers.** Fast-tier unit tests for kernel/trigger/branch logic run in `npm test`. Any behavior that only manifests over many days gets a heavy playtest registered **only** in `HEAVY_TEST_GLOBS` (`vitest.config.ts`), run under `test:full`.
 6. **Voice authoring.** Every teleology card family registers its own snippet pools/specs under `specs/cards/` and `src/cards/compose/pools/`, and must pass the existing `compose/gates/` legibility/preview gates. This is an authoring obligation per phase that ships cards, not optional polish.
 
+### 2a. Guardrails (from the Phase 0/1 review)
+
+These were real mistakes caught in review after Phase 0/1 merged. Each is now a binding check — a phase that touches the relevant seam is not done until it satisfies the matching rule. The §0/§1 cross-references explain *why*; these say *don't repeat it*.
+
+7. **A new top-level state slice is invisible until it is walked.** Adding a slice (or a meaningful field on one) is not finished at the schema/defaults/migration step. It must be wired into **`createStateDiff`** (`src/sim/core/diff.ts`) — a `diff*` walk for the slice's meters (numeric), lifecycle flips (`stage`/`status`, scalar), and entry spawn/removal (keyset) — or daily reports, missed-opportunity projections, and the cause-coverage audit silently never observe it. Skip per-day-incrementing timestamps/counters (they flood the diff), same omission shape as `regulars.lastSeenDay`. The matching mutator (`ctx.modify*`) emits per-field causes only for **numeric** moves, so any mutator that can change a **non-numeric-only** field (`stage`, `status`, a tag/flag) must emit an **aggregate fallback cause** when zero per-field causes were emitted (the `if (emitted === 0 && meta)` pattern the world mutators use). The engine-path `recordSynthesizedCause` is a no-op — without the fallback, a lifecycle transition lands with no `CauseEntry`.
+
+8. **Kernel purity is behavioral, not just the import fence.** "Free of any domain-registry import" (§1) is necessary but not sufficient. The kernel must also contain **no domain literal and no `if (kind === …)` branch**: a hardcoded terminal stage id (`if (toStage === 'licensed')`) or a venture-vs-arc write branch both belong in the calling module, not the kernel. Completion/terminality is **milestone data** (a `terminal` flag → `LifecycleTriggerResult.status`), and the slice a write lands in is supplied by the module as an injected mutator (`EntryMutator`). Reading `entry.kind` to build a tag string is fine; branching control flow on it is not.
+
+9. **Guard/coverage tests must bind to real authored content, not a hand-written sample.** A test that asserts a property over an inline array it defines in its own body is tautological — it can never catch a regression in the thing it claims to guard. The pressure-target guard (and any "teleology effects never target a pressure" / coverage check) must scan the **actually authored** consequence-profile effects the generators emit and/or the causes a simulated day produces, and assert it found ≥1 real effect first so the guard cannot pass vacuously.
+
+10. **Author every milestone branch onto a path the sim can reach; resolve entities from the seed, not a literal id.** A branching-milestone outcome gated on a condition nothing in the shipping content ever sets (e.g. an `expedited` tag with no producer) is dead on the real path — exercised only by a unit test that injects the condition directly. Either ship a producer for the condition or drop the outcome. Likewise, a card/template must resolve its entity from the seed's target (`venture:<id>` / `arc:<id>`) and read requirement counts from the entry's current milestone — **never** hardcode a specific venture/arc id or a literal threshold, which silently breaks the moment a second entry exists.
+
 ---
 
 ## 3. The phases
@@ -145,4 +157,4 @@ Sequencing principle: retire integration risk early while keeping each phase shi
 
 1. Pick the lowest unbuilt phase. Re-confirm the file paths it cites at the top of the session (they are a snapshot).
 2. Expand that single phase into a standalone implementation doc if needed — it should stand alone, carry its own context, and assume no chat history.
-3. Hold the §2 cross-cutting constraints as a checklist; a phase isn't done until all six are satisfied, not just the feature.
+3. Hold the §2 cross-cutting constraints (1–6) **and the §2a guardrails (7–10)** as a checklist; a phase isn't done until every one that touches its seam is satisfied, not just the feature.

@@ -16,6 +16,8 @@ import type {
   SupplierWorldState,
   TavernIdentityState,
   TavernState,
+  TeleologyEntry,
+  TransformationState,
 } from '../state/TavernState'
 
 // Phase 17 §17.1 — State diff helpers.
@@ -572,6 +574,79 @@ function diffHireableAdventurers(
   }
 }
 
+// Teleology half — `ventures` / `arcs` share the `TeleologyEntry` shape;
+// `transformations` is a separate ratchet flag. Before this walk, an
+// invested venture (or a lifecycle transition) produced an empty
+// top-level diff, so daily reports / missed-opportunity projections /
+// cause-coverage consumers never observed the advancement even though
+// state changed. `progress` is the meter; `stage`/`status` are the
+// lifecycle flips; entry spawn/removal is a meaningful keyset change.
+// Timestamps (`createdAtDay`/`updatedAtDay`) are skipped — they move
+// every advancement and would flood the diff, same omission shape as
+// `regulars.lastSeenDay`.
+function diffTeleologyEntries(
+  before: Record<string, TeleologyEntry>,
+  after: Record<string, TeleologyEntry>,
+  changes: StateChange[],
+  slice: 'ventures' | 'arcs',
+): void {
+  const kindTag = slice === 'ventures' ? 'venture' : 'arc'
+  diffRecordNumerics(
+    before,
+    after,
+    ['progress'],
+    changes,
+    (id, field) => `${slice}.${id}.${field}`,
+    (id, field) => ['teleology', kindTag, id, field],
+  )
+  const ids = new Set([...Object.keys(before), ...Object.keys(after)])
+  for (const id of ids) {
+    const a = before[id]
+    const b = after[id]
+    if (!a && b) {
+      pushScalarChange(changes, `${slice}.${id}`, null, b.stage, {
+        tags: ['teleology', kindTag, id, 'spawned'],
+      })
+      continue
+    }
+    if (a && !b) {
+      pushScalarChange(changes, `${slice}.${id}`, a.stage, null, {
+        tags: ['teleology', kindTag, id, 'removed'],
+      })
+      continue
+    }
+    if (!a || !b) continue
+    pushScalarChange(changes, `${slice}.${id}.stage`, a.stage, b.stage, {
+      tags: ['teleology', kindTag, id, 'stage'],
+    })
+    pushScalarChange(changes, `${slice}.${id}.status`, a.status, b.status, {
+      tags: ['teleology', kindTag, id, 'status'],
+    })
+  }
+}
+
+function diffTransformations(
+  before: Record<string, TransformationState>,
+  after: Record<string, TransformationState>,
+  changes: StateChange[],
+): void {
+  const ids = new Set([...Object.keys(before), ...Object.keys(after)])
+  for (const id of ids) {
+    const a = before[id]
+    const b = after[id]
+    if (!a && b) {
+      pushScalarChange(changes, `transformations.${id}.active`, false, b.active, {
+        tags: ['teleology', 'transformation', id, 'created'],
+      })
+      continue
+    }
+    if (!a || !b) continue
+    pushScalarChange(changes, `transformations.${id}.active`, a.active, b.active, {
+      tags: ['teleology', 'transformation', id, 'active'],
+    })
+  }
+}
+
 function diffTavernIdentity(
   before: TavernIdentityState,
   after: TavernIdentityState,
@@ -708,6 +783,10 @@ export function createStateDiff(
     after.world.hireableAdventurers,
     changes,
   )
+  // Teleology half — top-level ratchet/lifecycle slices.
+  diffTeleologyEntries(before.ventures, after.ventures, changes, 'ventures')
+  diffTeleologyEntries(before.arcs, after.arcs, changes, 'arcs')
+  diffTransformations(before.transformations, after.transformations, changes)
   diffModules(before.modules, after.modules, changes)
 
   const significantChanges = filterSignificantChanges(

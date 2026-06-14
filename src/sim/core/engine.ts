@@ -1,7 +1,11 @@
-import { advanceCalendar, isEndOfMonth, isEndOfWeek } from '../modules/calendar/index'
-import { cloneTavernState } from '../state/defaults'
-import { safeValidateState } from '../state/validation'
-import { freezeInDev } from './devGuard'
+import {
+  advanceCalendar,
+  isEndOfMonth,
+  isEndOfWeek,
+} from "../modules/calendar/index";
+import { cloneTavernState } from "../state/defaults";
+import { safeValidateState } from "../state/validation";
+import { freezeInDev } from "./devGuard";
 import type {
   AreaState,
   CauseEntry,
@@ -25,8 +29,10 @@ import type {
   SupplierWorldState,
   TavernIdentityState,
   TavernState,
-} from '../state/TavernState'
-import type { ValidationIssue, ValidationSummary } from '../state/types'
+  TeleologyEntry,
+  TransformationState,
+} from "../state/TavernState";
+import type { ValidationIssue, ValidationSummary } from "../state/types";
 import {
   MEMORIES_MODULE_ID,
   createInitialMemoryModuleState,
@@ -34,44 +40,45 @@ import {
   ageMemories,
   bumpStrength,
   stampFromCalendar,
-} from '../modules/memories/index'
+} from "../modules/memories/index";
+import type { MemoryModuleState } from "../modules/memories/memoryModule";
 import type {
-  MemoryModuleState,
-} from '../modules/memories/memoryModule'
-import type { MemoryDraft, MemoryDefinition } from '../modules/memories/memoryTypes'
+  MemoryDraft,
+  MemoryDefinition,
+} from "../modules/memories/memoryTypes";
 import {
   attachEntityOwnerToDraft,
   type EntityMemoryMetadata,
-} from '../modules/memories/entityMemory'
-import type { HistoryEntryDraft } from '../modules/history/types'
+} from "../modules/memories/entityMemory";
+import type { HistoryEntryDraft } from "../modules/history/types";
 import type {
   CauseDraft,
   CauseDirection,
   CauseSourceType,
   CauseTargetType,
-} from '../modules/causes/causeTypes'
-import { ageCauses } from '../modules/causes/causeAging'
+} from "../modules/causes/causeTypes";
+import { ageCauses } from "../modules/causes/causeAging";
 
-import { createRngStreams } from './rng'
-import type { SimRngStreams } from './rng'
+import { createRngStreams } from "./rng";
+import type { SimRngStreams } from "./rng";
 import type {
   AddLogInput,
   MutationMeta,
   SimContext,
   SimInput,
-} from './context'
-import { type SimulationPhase } from './phases'
+} from "./context";
+import { type SimulationPhase } from "./phases";
 import {
   DAY_SEGMENTS,
   phasesForSegment,
   segmentSeed,
   type DaySegment,
-} from './segments'
-import type { ReportSection, SimLog, SimLogLevel } from './reports'
-import type { SimulationModule } from './module'
-import type { SimResult } from './result'
-import { ChangeTracker } from './changeTracker'
-import type { PhaseBoundary, StateDiff, TaggedStateDiff } from './diff'
+} from "./segments";
+import type { ReportSection, SimLog, SimLogLevel } from "./reports";
+import type { SimulationModule } from "./module";
+import type { SimResult } from "./result";
+import { ChangeTracker } from "./changeTracker";
+import type { PhaseBoundary, StateDiff, TaggedStateDiff } from "./diff";
 
 // Phase 7 §7.4 / §7.5 — Engine entry point and module ordering.
 //
@@ -82,88 +89,98 @@ import type { PhaseBoundary, StateDiff, TaggedStateDiff } from './diff'
 // a complete cross-phase data-dependency map.
 // Validation, calendar advancement, and report collection are built in.
 
-const ENGINE_SOURCE = 'engine'
+const ENGINE_SOURCE = "engine";
 
 // Phase 16 §16.2 — Helpers for memory draft → memory state assembly.
 function mergeTags(
   draftTags: ReadonlyArray<string> | undefined,
   defTags: ReadonlyArray<string> | undefined,
 ): string[] {
-  const out: string[] = []
+  const out: string[] = [];
   for (const tag of defTags ?? []) {
-    if (!out.includes(tag)) out.push(tag)
+    if (!out.includes(tag)) out.push(tag);
   }
   for (const tag of draftTags ?? []) {
-    if (!out.includes(tag)) out.push(tag)
+    if (!out.includes(tag)) out.push(tag);
   }
-  return out
+  return out;
 }
 
 function mergeStrings(
   a: ReadonlyArray<string> | undefined,
   b: ReadonlyArray<string> | undefined,
 ): string[] {
-  const out: string[] = []
-  for (const s of a ?? []) if (!out.includes(s)) out.push(s)
-  for (const s of b ?? []) if (!out.includes(s)) out.push(s)
-  return out
+  const out: string[] = [];
+  for (const s of a ?? []) if (!out.includes(s)) out.push(s);
+  for (const s of b ?? []) if (!out.includes(s)) out.push(s);
+  return out;
 }
 
 function projectExpiry(
-  stamp: { year: number; month: number; week: number; day: number; absoluteDay: number },
+  stamp: {
+    year: number;
+    month: number;
+    week: number;
+    day: number;
+    absoluteDay: number;
+  },
   durationDays: number,
 ): typeof stamp {
   // Project an expiry stamp `durationDays` ahead. The calendar wraps
   // at 28 days per month / 12 months per year (Phase 3); replicate the
   // arithmetic here so the projected stamp stays JSON-safe.
-  const totalDays = stamp.absoluteDay + durationDays
+  const totalDays = stamp.absoluteDay + durationDays;
   // We do not have access to the engine's calendar helpers without a
   // circular import, so synthesize an approximate stamp directly. The
   // values are advisory — `ageDays >= durationDays` is the canonical
   // expiration check; `expiresAt` is for debug/report inspection.
-  let dayOfMonth = stamp.day + durationDays
-  let month = stamp.month
-  let year = stamp.year
+  let dayOfMonth = stamp.day + durationDays;
+  let month = stamp.month;
+  let year = stamp.year;
   while (dayOfMonth > 28) {
-    dayOfMonth -= 28
-    month += 1
+    dayOfMonth -= 28;
+    month += 1;
     if (month > 12) {
-      month = 1
-      year += 1
+      month = 1;
+      year += 1;
     }
   }
-  const week = Math.floor((dayOfMonth - 1) / 7) + 1
+  const week = Math.floor((dayOfMonth - 1) / 7) + 1;
   return {
     year,
     month,
     week,
     day: dayOfMonth,
     absoluteDay: totalDays,
-  }
+  };
 }
 
 function countByDefinition(
   memories: ReadonlyArray<MemoryState>,
   defId: string,
 ): number {
-  let count = 0
+  let count = 0;
   for (const m of memories) {
-    if (m.definitionId === defId || m.id === defId || m.id.startsWith(`${defId}__`)) {
-      count += 1
+    if (
+      m.definitionId === defId ||
+      m.id === defId ||
+      m.id.startsWith(`${defId}__`)
+    ) {
+      count += 1;
     }
   }
-  return count
+  return count;
 }
 
 function topologicallySortModules(
   modules: ReadonlyArray<SimulationModule>,
 ): SimulationModule[] {
-  const byId = new Map<string, SimulationModule>()
+  const byId = new Map<string, SimulationModule>();
   for (const mod of modules) {
     if (byId.has(mod.id)) {
-      throw new Error(`simulateDay: duplicate module id '${mod.id}'`)
+      throw new Error(`simulateDay: duplicate module id '${mod.id}'`);
     }
-    byId.set(mod.id, mod)
+    byId.set(mod.id, mod);
   }
 
   // Validate declared dependencies exist.
@@ -172,75 +189,81 @@ function topologicallySortModules(
       if (!byId.has(depId)) {
         throw new Error(
           `simulateDay: module '${mod.id}' declares missing dependency '${depId}'`,
-        )
+        );
       }
     }
   }
 
-  const sorted: SimulationModule[] = []
-  const tempMark = new Set<string>()
-  const permMark = new Set<string>()
-  const stack: string[] = []
+  const sorted: SimulationModule[] = [];
+  const tempMark = new Set<string>();
+  const permMark = new Set<string>();
+  const stack: string[] = [];
 
   const visit = (id: string): void => {
-    if (permMark.has(id)) return
+    if (permMark.has(id)) return;
     if (tempMark.has(id)) {
-      const cycleStart = stack.indexOf(id)
-      const cyclePath = [...stack.slice(cycleStart), id].join(' -> ')
-      throw new Error(`simulateDay: cyclic module dependency detected: ${cyclePath}`)
+      const cycleStart = stack.indexOf(id);
+      const cyclePath = [...stack.slice(cycleStart), id].join(" -> ");
+      throw new Error(
+        `simulateDay: cyclic module dependency detected: ${cyclePath}`,
+      );
     }
-    const mod = byId.get(id)
-    if (!mod) return
-    tempMark.add(id)
-    stack.push(id)
+    const mod = byId.get(id);
+    if (!mod) return;
+    tempMark.add(id);
+    stack.push(id);
     for (const depId of mod.dependsOn ?? []) {
-      visit(depId)
+      visit(depId);
     }
-    stack.pop()
-    tempMark.delete(id)
-    permMark.add(id)
-    sorted.push(mod)
-  }
+    stack.pop();
+    tempMark.delete(id);
+    permMark.add(id);
+    sorted.push(mod);
+  };
 
   for (const mod of modules) {
-    visit(mod.id)
+    visit(mod.id);
   }
 
-  return sorted
+  return sorted;
 }
 
 function normalizeLog(input: AddLogInput, fallbackSource: string): SimLog {
-  if (typeof input === 'string') {
-    return { source: fallbackSource, level: 'info', message: input }
+  if (typeof input === "string") {
+    return { source: fallbackSource, level: "info", message: input };
   }
-  if ('source' in input && typeof input.source === 'string' && 'level' in input) {
-    return input
+  if (
+    "source" in input &&
+    typeof input.source === "string" &&
+    "level" in input
+  ) {
+    return input;
   }
-  const level: SimLogLevel = (input as { level?: SimLogLevel }).level ?? 'info'
+  const level: SimLogLevel = (input as { level?: SimLogLevel }).level ?? "info";
   return {
     source: fallbackSource,
     level,
     message: input.message,
     ...(input.data !== undefined ? { data: input.data } : {}),
-  }
+  };
 }
 
 type EngineRuntime = {
-  current: TavernState
-  reports: ReportSection[]
-  logs: SimLog[]
-  hookSource: string
-  validationErrors: ValidationIssue[]
-  validationWarnings: ValidationIssue[]
-  changeTracker: ChangeTracker
-  causeCounter: number
+  current: TavernState;
+  reports: ReportSection[];
+  logs: SimLog[];
+  hookSource: string;
+  validationErrors: ValidationIssue[];
+  validationWarnings: ValidationIssue[];
+  changeTracker: ChangeTracker;
+  causeCounter: number;
   // Phase 186 (Cluster 2) — the active RNG stream set. Swapped per
   // segment (`reseedSegmentRng`) so each segment derives deterministic,
   // isolated rolls from its sub-seed without any RNG serialization
   // crossing a pause. `ctx` reads it through getters, so a swap is seen
   // by every later hook.
-  rngStreams: SimRngStreams
-}
+  rngStreams: SimRngStreams;
+};
 
 // Phase 186 (Cluster 2) — point the runtime's RNG at a segment's sub-seed.
 // Called at each segment boundary in `simulateDay` and once per
@@ -251,7 +274,7 @@ function reseedSegmentRng(
   baseSeed: string,
   segment: DaySegment,
 ): void {
-  runtime.rngStreams = createRngStreams(segmentSeed(baseSeed, segment))
+  runtime.rngStreams = createRngStreams(segmentSeed(baseSeed, segment));
 }
 
 // Phase 186 (Cluster 2) — derive the next per-day counter value from
@@ -262,13 +285,13 @@ function reseedSegmentRng(
 // highest existing `<prefix><n>` and continuing from there reproduces the
 // continuous numbering a single `simulateDay` call would have produced.
 function deriveDayCounter(ids: Iterable<string>, prefix: string): number {
-  let max = 0
+  let max = 0;
   for (const id of ids) {
-    if (!id.startsWith(prefix)) continue
-    const n = Number(id.slice(prefix.length))
-    if (Number.isInteger(n) && n > max) max = n
+    if (!id.startsWith(prefix)) continue;
+    const n = Number(id.slice(prefix.length));
+    if (Number.isInteger(n) && n > max) max = n;
   }
-  return max
+  return max;
 }
 
 // Phase 17 §"Cause Shape" — helpers to infer the `sourceType` and
@@ -277,54 +300,54 @@ function deriveDayCounter(ids: Iterable<string>, prefix: string): number {
 // (e.g. `ownerActions.clean_area` → `owner_action`).
 
 const SOURCE_PREFIX_TO_TYPE: ReadonlyArray<[string, CauseSourceType]> = [
-  ['ownerActions', 'owner_action'],
-  ['owner_action', 'owner_action'],
-  ['service', 'service'],
-  ['weekly', 'weekly'],
-  ['monthly', 'monthly'],
-  ['areas', 'area'],
-  ['stock', 'stock'],
-  ['staff', 'staff'],
-  ['customers', 'customer'],
-  ['customer', 'customer'],
-  ['memories', 'memory'],
-  ['memory', 'memory'],
-  ['pressures', 'pressure'],
-  ['pressure', 'pressure'],
+  ["ownerActions", "owner_action"],
+  ["owner_action", "owner_action"],
+  ["service", "service"],
+  ["weekly", "weekly"],
+  ["monthly", "monthly"],
+  ["areas", "area"],
+  ["stock", "stock"],
+  ["staff", "staff"],
+  ["customers", "customer"],
+  ["customer", "customer"],
+  ["memories", "memory"],
+  ["memory", "memory"],
+  ["pressures", "pressure"],
+  ["pressure", "pressure"],
   // Phase 27 §27.2 — world source prefixes.
-  ['cultures', 'culture'],
-  ['culture', 'culture'],
-  ['factions', 'faction'],
-  ['faction', 'faction'],
-  ['suppliers', 'supplier'],
-  ['supplier', 'supplier'],
-  ['regulars', 'regular'],
-  ['regular', 'regular'],
-  ['localEvents', 'local_event'],
-  ['local_event', 'local_event'],
-  ['rumours', 'rumour'],
-  ['rumour', 'rumour'],
-]
+  ["cultures", "culture"],
+  ["culture", "culture"],
+  ["factions", "faction"],
+  ["faction", "faction"],
+  ["suppliers", "supplier"],
+  ["supplier", "supplier"],
+  ["regulars", "regular"],
+  ["regular", "regular"],
+  ["localEvents", "local_event"],
+  ["local_event", "local_event"],
+  ["rumours", "rumour"],
+  ["rumour", "rumour"],
+];
 
 function inferSourceType(draft: CauseDraft): CauseSourceType {
-  if (draft.sourceType) return draft.sourceType
-  const src = draft.source
+  if (draft.sourceType) return draft.sourceType;
+  const src = draft.source;
   for (const [prefix, type] of SOURCE_PREFIX_TO_TYPE) {
-    if (src === prefix || src.startsWith(`${prefix}.`)) return type
+    if (src === prefix || src.startsWith(`${prefix}.`)) return type;
   }
-  return 'system'
+  return "system";
 }
 
 function inferDirection(amount: number): CauseDirection {
-  if (amount > 0) return 'increase'
-  if (amount < 0) return 'decrease'
-  return 'neutral'
+  if (amount > 0) return "increase";
+  if (amount < 0) return "decrease";
+  return "neutral";
 }
 
 function defaultReadable(draft: CauseDraft): string {
-  if (draft.readable && draft.readable.length > 0) return draft.readable
-  if (draft.reason && draft.reason.length > 0) return draft.reason
-  return draft.source
+  if (draft.readable && draft.readable.length > 0) return draft.readable;
+  if (draft.reason && draft.reason.length > 0) return draft.reason;
+  return draft.source;
 }
 
 function createContext(
@@ -342,19 +365,25 @@ function createContext(
   // swapped per segment, so `ctx.rng` / `ctx.rngStreams` / `getRngStream`
   // read it lazily rather than capturing a fixed reference.
 
-  const requireRecord = <T>(record: Record<string, T>, id: string, kind: string): T => {
-    const value = record[id]
+  const requireRecord = <T>(
+    record: Record<string, T>,
+    id: string,
+    kind: string,
+  ): T => {
+    const value = record[id];
     if (value === undefined) {
-      throw new Error(`ctx.modify${kind}: unknown ${kind.toLowerCase()} id '${id}'`)
+      throw new Error(
+        `ctx.modify${kind}: unknown ${kind.toLowerCase()} id '${id}'`,
+      );
     }
-    return value
-  }
+    return value;
+  };
 
   // ---------- Phase 16 §16.2 — memory helpers ----------
 
   const findMemoryIndex = (id: string): number => {
-    return runtime.current.memories.findIndex((m) => m.id === id)
-  }
+    return runtime.current.memories.findIndex((m) => m.id === id);
+  };
 
   const updateMemoryModuleState = (
     updater: (current: MemoryModuleState) => MemoryModuleState,
@@ -370,48 +399,47 @@ function createContext(
             | undefined) ?? createInitialMemoryModuleState(),
         ),
       },
-    }
-    void reason
-  }
+    };
+    void reason;
+  };
 
   const writeMemories = (next: MemoryState[]): void => {
-    runtime.current = { ...runtime.current, memories: next }
-  }
+    runtime.current = { ...runtime.current, memories: next };
+  };
 
   const recordNew = (id: string): void => {
     updateMemoryModuleState((current) => {
-      if (current.newToday.includes(id)) return current
-      return { ...current, newToday: [...current.newToday, id] }
-    }, 'memory_added')
-  }
+      if (current.newToday.includes(id)) return current;
+      return { ...current, newToday: [...current.newToday, id] };
+    }, "memory_added");
+  };
 
   const recordExpired = (ids: ReadonlyArray<string>): void => {
-    if (ids.length === 0) return
+    if (ids.length === 0) return;
     updateMemoryModuleState((current) => {
-      const merged = [...current.expiredToday]
+      const merged = [...current.expiredToday];
       for (const id of ids) {
-        if (!merged.includes(id)) merged.push(id)
+        if (!merged.includes(id)) merged.push(id);
       }
-      return { ...current, expiredToday: merged }
-    }, 'memory_expired')
-  }
+      return { ...current, expiredToday: merged };
+    }, "memory_expired");
+  };
 
   const buildMemoryFromDraft = (
     draft: MemoryDraft,
     definition: MemoryDefinition | undefined,
     instanceId: string,
   ): MemoryState => {
-    const type = draft.type ?? definition?.type ?? 'timed'
-    const strength = draft.strength ?? definition?.defaultStrength ?? 50
-    const durationDays =
-      draft.durationDays ?? definition?.defaultDurationDays
-    const decayRate = draft.decayRate ?? definition?.defaultDecayRate
-    const tags = mergeTags(draft.tags, definition?.tags)
+    const type = draft.type ?? definition?.type ?? "timed";
+    const strength = draft.strength ?? definition?.defaultStrength ?? 50;
+    const durationDays = draft.durationDays ?? definition?.defaultDurationDays;
+    const decayRate = draft.decayRate ?? definition?.defaultDecayRate;
+    const tags = mergeTags(draft.tags, definition?.tags);
     const relatedSystems = mergeStrings(
       draft.relatedSystems,
       definition?.relatedSystems,
-    )
-    const stamp = stampFromCalendar(runtime.current.calendar)
+    );
+    const stamp = stampFromCalendar(runtime.current.calendar);
     const memory: MemoryState = {
       id: instanceId,
       type,
@@ -419,148 +447,141 @@ function createContext(
       ageDays: 0,
       createdAt: stamp,
       actors: draft.actors ? draft.actors.map((a) => ({ ...a })) : [],
-      locations: draft.locations
-        ? draft.locations.map((l) => ({ ...l }))
-        : [],
+      locations: draft.locations ? draft.locations.map((l) => ({ ...l })) : [],
       relatedSystems,
       tags,
-    }
-    if (definition?.id !== undefined) memory.definitionId = definition.id
-    else memory.definitionId = draft.id
-    if (definition?.label !== undefined) memory.label = definition.label
-    if (draft.label !== undefined) memory.label = draft.label
+    };
+    if (definition?.id !== undefined) memory.definitionId = definition.id;
+    else memory.definitionId = draft.id;
+    if (definition?.label !== undefined) memory.label = definition.label;
+    if (draft.label !== undefined) memory.label = draft.label;
     if (durationDays !== undefined) {
-      memory.durationDays = durationDays
-      memory.expiresAt = projectExpiry(stamp, durationDays)
+      memory.durationDays = durationDays;
+      memory.expiresAt = projectExpiry(stamp, durationDays);
     }
-    if (decayRate !== undefined) memory.decayRate = decayRate
-    if (draft.source !== undefined) memory.source = draft.source
-    if (draft.metadata !== undefined) memory.metadata = { ...draft.metadata }
-    return memory
-  }
+    if (decayRate !== undefined) memory.decayRate = decayRate;
+    if (draft.source !== undefined) memory.source = draft.source;
+    if (draft.metadata !== undefined) memory.metadata = { ...draft.metadata };
+    return memory;
+  };
 
   const addMemoryInternal = (draft: MemoryDraft): MemoryState => {
     const def = memoryRegistry.has(draft.id)
       ? memoryRegistry.get(draft.id)
-      : undefined
-    const stacking = def?.stacking ?? 'replace'
-    const existingIdx = findMemoryIndex(draft.id)
+      : undefined;
+    const stacking = def?.stacking ?? "replace";
+    const existingIdx = findMemoryIndex(draft.id);
 
     // Stack strategy: keep all instances around with unique state ids
     // (definitionId stays equal to the registry id so queries can find
     // the whole group).
-    if (stacking === 'stack') {
-      const memories = [...runtime.current.memories]
-      const counter = countByDefinition(memories, draft.id) + 1
-      const instanceId = `${draft.id}__${counter}`
-      const built = buildMemoryFromDraft(draft, def, instanceId)
-      memories.push(built)
-      writeMemories(memories)
-      recordNew(instanceId)
-      return built
+    if (stacking === "stack") {
+      const memories = [...runtime.current.memories];
+      const counter = countByDefinition(memories, draft.id) + 1;
+      const instanceId = `${draft.id}__${counter}`;
+      const built = buildMemoryFromDraft(draft, def, instanceId);
+      memories.push(built);
+      writeMemories(memories);
+      recordNew(instanceId);
+      return built;
     }
 
     if (existingIdx === -1) {
-      const built = buildMemoryFromDraft(draft, def, draft.id)
-      writeMemories([...runtime.current.memories, built])
-      recordNew(built.id)
-      return built
+      const built = buildMemoryFromDraft(draft, def, draft.id);
+      writeMemories([...runtime.current.memories, built]);
+      recordNew(built.id);
+      return built;
     }
 
-    const existing = runtime.current.memories[existingIdx]!
+    const existing = runtime.current.memories[existingIdx]!;
 
-    if (stacking === 'replace') {
-      const built = buildMemoryFromDraft(draft, def, draft.id)
-      const memories = [...runtime.current.memories]
-      memories[existingIdx] = built
-      writeMemories(memories)
-      recordNew(built.id)
-      return built
+    if (stacking === "replace") {
+      const built = buildMemoryFromDraft(draft, def, draft.id);
+      const memories = [...runtime.current.memories];
+      memories[existingIdx] = built;
+      writeMemories(memories);
+      recordNew(built.id);
+      return built;
     }
 
-    if (stacking === 'refresh') {
-      const stamp = stampFromCalendar(runtime.current.calendar)
+    if (stacking === "refresh") {
+      const stamp = stampFromCalendar(runtime.current.calendar);
       const durationDays =
-        draft.durationDays ??
-        existing.durationDays ??
-        def?.defaultDurationDays
+        draft.durationDays ?? existing.durationDays ?? def?.defaultDurationDays;
       const refreshed: MemoryState = {
         ...existing,
         ageDays: 0,
         createdAt: stamp,
-      }
+      };
       if (durationDays !== undefined) {
-        refreshed.durationDays = durationDays
-        refreshed.expiresAt = projectExpiry(stamp, durationDays)
+        refreshed.durationDays = durationDays;
+        refreshed.expiresAt = projectExpiry(stamp, durationDays);
       }
       // A refresh may also lift the strength back to the default.
       if (draft.strength !== undefined) {
-        refreshed.strength = draft.strength
+        refreshed.strength = draft.strength;
       } else if (def?.defaultStrength !== undefined) {
-        refreshed.strength = bumpStrength(existing.strength, 0) // no-op floor/ceil
+        refreshed.strength = bumpStrength(existing.strength, 0); // no-op floor/ceil
         if (refreshed.strength < def.defaultStrength) {
-          refreshed.strength = def.defaultStrength
+          refreshed.strength = def.defaultStrength;
         }
       }
-      const memories = [...runtime.current.memories]
-      memories[existingIdx] = refreshed
-      writeMemories(memories)
-      recordNew(refreshed.id)
-      return refreshed
+      const memories = [...runtime.current.memories];
+      memories[existingIdx] = refreshed;
+      writeMemories(memories);
+      recordNew(refreshed.id);
+      return refreshed;
     }
 
     // increase_strength
-    const stamp = stampFromCalendar(runtime.current.calendar)
-    const bump =
-      draft.strength ?? def?.defaultStrength ?? 25
-    const nextStrength = bumpStrength(existing.strength, bump)
+    const stamp = stampFromCalendar(runtime.current.calendar);
+    const bump = draft.strength ?? def?.defaultStrength ?? 25;
+    const nextStrength = bumpStrength(existing.strength, bump);
     const durationDays =
-      draft.durationDays ??
-      existing.durationDays ??
-      def?.defaultDurationDays
+      draft.durationDays ?? existing.durationDays ?? def?.defaultDurationDays;
     const updated: MemoryState = {
       ...existing,
       strength: nextStrength,
       ageDays: 0,
       createdAt: stamp,
-    }
+    };
     if (durationDays !== undefined) {
-      updated.durationDays = durationDays
-      updated.expiresAt = projectExpiry(stamp, durationDays)
+      updated.durationDays = durationDays;
+      updated.expiresAt = projectExpiry(stamp, durationDays);
     }
-    const memories = [...runtime.current.memories]
-    memories[existingIdx] = updated
-    writeMemories(memories)
-    recordNew(updated.id)
-    return updated
-  }
+    const memories = [...runtime.current.memories];
+    memories[existingIdx] = updated;
+    writeMemories(memories);
+    recordNew(updated.id);
+    return updated;
+  };
 
   // ---------- Phase 17 §17.2 — cause helpers ----------
 
   const buildCauseFromDraft = (
     draft: CauseDraft,
     defaults: {
-      target?: string
-      targetType?: CauseTargetType
-      amount?: number
-      tags?: string[]
+      target?: string;
+      targetType?: CauseTargetType;
+      amount?: number;
+      tags?: string[];
     } = {},
   ): CauseEntry => {
-    runtime.causeCounter += 1
-    const stamp = stampFromCalendar(runtime.current.calendar)
-    const id = `c-${stamp.absoluteDay}-${runtime.causeCounter}`
-    const amount = draft.amount ?? defaults.amount ?? 0
-    const direction = draft.direction ?? inferDirection(amount)
-    const weight = draft.weight ?? Math.abs(amount)
-    const target = draft.target ?? defaults.target ?? 'global'
+    runtime.causeCounter += 1;
+    const stamp = stampFromCalendar(runtime.current.calendar);
+    const id = `c-${stamp.absoluteDay}-${runtime.causeCounter}`;
+    const amount = draft.amount ?? defaults.amount ?? 0;
+    const direction = draft.direction ?? inferDirection(amount);
+    const weight = draft.weight ?? Math.abs(amount);
+    const target = draft.target ?? defaults.target ?? "global";
     const targetType =
-      draft.targetType ?? defaults.targetType ?? ('global' as CauseTargetType)
-    const tags: string[] = []
+      draft.targetType ?? defaults.targetType ?? ("global" as CauseTargetType);
+    const tags: string[] = [];
     for (const t of defaults.tags ?? []) {
-      if (!tags.includes(t)) tags.push(t)
+      if (!tags.includes(t)) tags.push(t);
     }
     for (const t of draft.tags ?? []) {
-      if (!tags.includes(t)) tags.push(t)
+      if (!tags.includes(t)) tags.push(t);
     }
     return {
       id,
@@ -585,29 +606,29 @@ function createContext(
       ...(draft.expiresAfterDays !== undefined
         ? { expiresAfterDays: draft.expiresAfterDays }
         : {}),
-    }
-  }
+    };
+  };
 
   const appendCause = (entry: CauseEntry): void => {
     runtime.current = {
       ...runtime.current,
       causes: [...runtime.current.causes, entry],
-    }
-  }
+    };
+  };
 
   const addCauseInternal = (
     draft: CauseDraft,
     defaults: {
-      target?: string
-      targetType?: CauseTargetType
-      amount?: number
-      tags?: string[]
+      target?: string;
+      targetType?: CauseTargetType;
+      amount?: number;
+      tags?: string[];
     } = {},
   ): CauseEntry => {
-    const entry = buildCauseFromDraft(draft, defaults)
-    appendCause(entry)
-    return entry
-  }
+    const entry = buildCauseFromDraft(draft, defaults);
+    appendCause(entry);
+    return entry;
+  };
 
   // Phase 197 / ISSUE-164 — The Phase 7 `modify*` helpers each accept a
   // `MutationMeta` (alias `CauseDraft`) describing the change. This helper
@@ -630,28 +651,29 @@ function createContext(
     targetType: CauseTargetType,
     extraTags: string[],
   ): number => {
-    if (!meta) return 0
+    if (!meta) return 0;
     // Phase 197 Cluster 3 — strip caller-supplied target/targetType/amount so
     // the computed per-field values always win. The aggregate fallback
     // (emitted === 0) uses the original meta from the call site, preserving
     // caller intent there. direction/weight overrides are intentionally kept.
-    const { target: _t, targetType: _tt, amount: _a, ...metaRest } = meta
-    let emitted = 0
+    const { target: _t, targetType: _tt, amount: _a, ...metaRest } = meta;
+    let emitted = 0;
     for (const field of Object.keys(changes)) {
-      const beforeVal = before[field]
-      const afterVal = after[field]
-      if (typeof beforeVal !== 'number' || typeof afterVal !== 'number') continue
-      if (afterVal === beforeVal) continue
+      const beforeVal = before[field];
+      const afterVal = after[field];
+      if (typeof beforeVal !== "number" || typeof afterVal !== "number")
+        continue;
+      if (afterVal === beforeVal) continue;
       addCauseInternal(metaRest, {
         target: targetForField(field),
         targetType,
         amount: afterVal - beforeVal,
         tags: [...extraTags, field],
-      })
-      emitted += 1
+      });
+      emitted += 1;
     }
-    return emitted
-  }
+    return emitted;
+  };
 
   // ---------- Phase 16 §16.8 — history helpers ----------
 
@@ -661,22 +683,20 @@ function createContext(
   // the pre-`advanceCalendar` absolute day every id this run is stamped
   // with. For a fresh day (or a single `simulateDay` call) nothing matches
   // yet, so both counters start at 0 exactly as before.
-  const todayAbsolute = runtime.current.calendar.totalDaysElapsed
+  const todayAbsolute = runtime.current.calendar.totalDaysElapsed;
   runtime.causeCounter = deriveDayCounter(
     runtime.current.causes.map((c) => c.id),
     `c-${todayAbsolute}-`,
-  )
+  );
   let historyCounter = deriveDayCounter(
     runtime.current.history.map((h) => h.id),
     `h-${todayAbsolute}-`,
-  )
+  );
 
   const addHistoryInternal = (draft: HistoryEntryDraft): HistoryEntry => {
-    const stamp = stampFromCalendar(runtime.current.calendar)
-    historyCounter += 1
-    const id =
-      draft.id ??
-      `h-${stamp.absoluteDay}-${historyCounter}`
+    const stamp = stampFromCalendar(runtime.current.calendar);
+    historyCounter += 1;
+    const id = draft.id ?? `h-${stamp.absoluteDay}-${historyCounter}`;
     const entry: HistoryEntry = {
       id,
       timestamp: stamp,
@@ -690,130 +710,138 @@ function createContext(
         ? draft.relatedLocations.map((l) => ({ ...l }))
         : [],
       relatedSystems: draft.relatedSystems ? [...draft.relatedSystems] : [],
-    }
+    };
     if (draft.mechanicalRefs && draft.mechanicalRefs.length > 0) {
-      entry.mechanicalRefs = [...draft.mechanicalRefs]
+      entry.mechanicalRefs = [...draft.mechanicalRefs];
     }
     runtime.current = {
       ...runtime.current,
       history: [...runtime.current.history, entry],
-    }
-    return entry
-  }
+    };
+    return entry;
+  };
 
   const ctx: SimContext = {
     get state() {
-      return runtime.current
+      return runtime.current;
     },
     input,
     // Phase 186 (Cluster 2) — read the active (per-segment) stream set
     // from the runtime so a mid-day segment swap is seen by every hook.
     get rng() {
-      return runtime.rngStreams.get('service')
+      return runtime.rngStreams.get("service");
     },
     get rngStreams() {
-      return runtime.rngStreams
+      return runtime.rngStreams;
     },
     getRngStream(streamId) {
-      return runtime.rngStreams.get(streamId)
+      return runtime.rngStreams.get(streamId);
     },
     // Phase 70 / ISSUE-030 §6.3 — dynamic named stream.
     getRngStreamByName(name) {
-      return runtime.rngStreams.getByName(name)
+      return runtime.rngStreams.getByName(name);
     },
     get reports() {
-      return runtime.reports
+      return runtime.reports;
     },
     get logs() {
-      return runtime.logs
+      return runtime.logs;
     },
     addReportSection(section: ReportSection): void {
-      runtime.reports.push(section)
+      runtime.reports.push(section);
     },
     addLog(log, source): void {
-      runtime.logs.push(normalizeLog(log, source ?? runtime.hookSource))
+      runtime.logs.push(normalizeLog(log, source ?? runtime.hookSource));
     },
     getDayType() {
-      return runtime.current.calendar.dayType
+      return runtime.current.calendar.dayType;
     },
     isEndOfWeek() {
-      return isEndOfWeek(runtime.current.calendar)
+      return isEndOfWeek(runtime.current.calendar);
     },
     isEndOfMonth() {
-      return isEndOfMonth(runtime.current.calendar)
+      return isEndOfMonth(runtime.current.calendar);
     },
     validate(): ValidationSummary {
-      const result = safeValidateState(runtime.current, { modules })
+      const result = safeValidateState(runtime.current, { modules });
       if (result.success) {
-        return { errors: [], warnings: result.warnings }
+        return { errors: [], warnings: result.warnings };
       }
-      return { errors: result.errors, warnings: result.warnings }
+      return { errors: result.errors, warnings: result.warnings };
     },
     modifyArea(id, changes, meta): void {
-      const area = requireRecord<AreaState>(runtime.current.areas, id, 'Area')
-      const next = { ...area, ...changes }
+      const area = requireRecord<AreaState>(runtime.current.areas, id, "Area");
+      const next = { ...area, ...changes };
       runtime.current = {
         ...runtime.current,
         areas: {
           ...runtime.current.areas,
           [id]: next,
         },
-      }
+      };
       emitDiffPathCausesForRecord(
         meta,
         area as unknown as Record<string, unknown>,
         next as unknown as Record<string, unknown>,
         changes as unknown as Record<string, unknown>,
         (field) => `area:${id}.${field}`,
-        'area',
-        ['area', id],
-      )
+        "area",
+        ["area", id],
+      );
     },
     modifyStock(id, changes, meta): void {
-      const item = requireRecord<StockState>(runtime.current.stock, id, 'Stock')
-      const next = { ...item, ...changes }
+      const item = requireRecord<StockState>(
+        runtime.current.stock,
+        id,
+        "Stock",
+      );
+      const next = { ...item, ...changes };
       runtime.current = {
         ...runtime.current,
         stock: {
           ...runtime.current.stock,
           [id]: next,
         },
-      }
+      };
       emitDiffPathCausesForRecord(
         meta,
         item as unknown as Record<string, unknown>,
         next as unknown as Record<string, unknown>,
         changes as unknown as Record<string, unknown>,
         (field) => `stock:${id}.${field}`,
-        'stock',
-        ['stock', id],
-      )
+        "stock",
+        ["stock", id],
+      );
     },
     modifyStaff(id, changes, meta): void {
-      const member = requireRecord<StaffState>(runtime.current.staff, id, 'Staff')
-      const next = { ...member, ...changes }
+      const member = requireRecord<StaffState>(
+        runtime.current.staff,
+        id,
+        "Staff",
+      );
+      const next = { ...member, ...changes };
       runtime.current = {
         ...runtime.current,
         staff: {
           ...runtime.current.staff,
           [id]: next,
         },
-      }
+      };
       emitDiffPathCausesForRecord(
         meta,
         member as unknown as Record<string, unknown>,
         next as unknown as Record<string, unknown>,
         changes as unknown as Record<string, unknown>,
         (field) => `staff:${id}.${field}`,
-        'staff',
-        ['staff', id],
-      )
+        "staff",
+        ["staff", id],
+      );
     },
     addStaff(staff, meta): void {
       // Phase 86 / ISSUE-046 — duplicate id is a programmer error;
       // a bad action input would have been caught by canApply.
       if (runtime.current.staff[staff.id]) {
-        throw new Error(`addStaff: duplicate staff id '${staff.id}'`)
+        throw new Error(`addStaff: duplicate staff id '${staff.id}'`);
       }
       runtime.current = {
         ...runtime.current,
@@ -821,67 +849,67 @@ function createContext(
           ...runtime.current.staff,
           [staff.id]: staff,
         },
-      }
+      };
       if (meta) {
         addCauseInternal(meta, {
           target: `staff:${staff.id}`,
-          targetType: 'staff',
-        })
+          targetType: "staff",
+        });
       }
     },
     removeStaff(id, meta): void {
-      if (!runtime.current.staff[id]) return
-      const nextStaff = { ...runtime.current.staff }
-      delete nextStaff[id]
+      if (!runtime.current.staff[id]) return;
+      const nextStaff = { ...runtime.current.staff };
+      delete nextStaff[id];
       runtime.current = {
         ...runtime.current,
         staff: nextStaff,
-      }
+      };
       if (meta) {
         addCauseInternal(meta, {
           target: `staff:${id}`,
-          targetType: 'staff',
-        })
+          targetType: "staff",
+        });
       }
     },
     modifyCustomerGroup(id, changes, meta): void {
       const group = requireRecord<CustomerGroupState>(
         runtime.current.customerGroups,
         id,
-        'CustomerGroup',
-      )
-      const next = { ...group, ...changes }
+        "CustomerGroup",
+      );
+      const next = { ...group, ...changes };
       runtime.current = {
         ...runtime.current,
         customerGroups: {
           ...runtime.current.customerGroups,
           [id]: next,
         },
-      }
+      };
       emitDiffPathCausesForRecord(
         meta,
         group as unknown as Record<string, unknown>,
         next as unknown as Record<string, unknown>,
         changes as unknown as Record<string, unknown>,
         (field) => `customer:${id}.${field}`,
-        'customer',
-        ['customer', id],
-      )
+        "customer",
+        ["customer", id],
+      );
     },
     modifyRecipe(id, changes, meta): void {
       const recipe = requireRecord<RecipeState>(
         runtime.current.recipes,
         id,
-        'Recipe',
-      )
-      const next = { ...recipe, ...changes }
+        "Recipe",
+      );
+      const next = { ...recipe, ...changes };
       runtime.current = {
         ...runtime.current,
         recipes: {
           ...runtime.current.recipes,
           [id]: next,
         },
-      }
+      };
       // Phase 65 / ISSUE-025 — recipe state mutations are bookkeeping
       // (timesServed, daysSinceLastServed, lastServedDay, onMenu).
       // They still flow through the cause pipeline for parity with
@@ -893,62 +921,64 @@ function createContext(
         next as unknown as Record<string, unknown>,
         changes as unknown as Record<string, unknown>,
         (field) => `recipe:${id}.${field}`,
-        'recipe',
-        ['recipe', id],
-      )
+        "recipe",
+        ["recipe", id],
+      );
     },
     modifyExpeditions(updater, meta): void {
-      const before = runtime.current.expeditions
-      const next = updater(before)
+      const before = runtime.current.expeditions;
+      const next = updater(before);
       runtime.current = {
         ...runtime.current,
         expeditions: next,
-      }
+      };
       if (meta) {
         addCauseInternal(meta, {
-          target: 'expeditions',
-          targetType: 'global',
-        })
+          target: "expeditions",
+          targetType: "global",
+        });
       }
     },
     modifyCoin(delta, meta): void {
       if (!Number.isFinite(delta)) {
-        throw new Error(`ctx.modifyCoin: delta must be a finite number, got ${delta}`)
+        throw new Error(
+          `ctx.modifyCoin: delta must be a finite number, got ${delta}`,
+        );
       }
       runtime.current = {
         ...runtime.current,
         coin: runtime.current.coin + delta,
-      }
+      };
       if (delta !== 0 && meta) {
         addCauseInternal(meta, {
-          target: 'coin',
-          targetType: 'coin',
+          target: "coin",
+          targetType: "coin",
           amount: delta,
-          tags: ['coin'],
-        })
+          tags: ["coin"],
+        });
       }
     },
     modifyReputation(next: ReputationState, meta): void {
-      const before = runtime.current.reputation
+      const before = runtime.current.reputation;
       runtime.current = {
         ...runtime.current,
         reputation: { ...next },
-      }
+      };
       if (meta) {
         for (const key of Object.keys(before) as (keyof ReputationState)[]) {
-          const beforeVal = before[key]
-          const afterVal = next[key]
+          const beforeVal = before[key];
+          const afterVal = next[key];
           if (
-            typeof beforeVal === 'number' &&
-            typeof afterVal === 'number' &&
+            typeof beforeVal === "number" &&
+            typeof afterVal === "number" &&
             afterVal !== beforeVal
           ) {
             addCauseInternal(meta, {
               target: `reputation:${String(key)}`,
-              targetType: 'reputation',
+              targetType: "reputation",
               amount: afterVal - beforeVal,
-              tags: ['reputation', String(key)],
-            })
+              tags: ["reputation", String(key)],
+            });
           }
         }
       }
@@ -957,45 +987,46 @@ function createContext(
       if (!Number.isFinite(change)) {
         throw new Error(
           `ctx.modifyPressure: change must be a finite number, got ${change}`,
-        )
+        );
       }
-      const existing = runtime.current.pressures[id]
+      const existing = runtime.current.pressures[id];
       if (!existing) {
-        throw new Error(`ctx.modifyPressure: unknown pressure id '${id}'`)
+        throw new Error(`ctx.modifyPressure: unknown pressure id '${id}'`);
       }
-      const nextValue = Math.max(0, Math.min(100, existing.value + change))
-      const trend = nextValue > existing.value ? 1 : nextValue < existing.value ? -1 : 0
+      const nextValue = Math.max(0, Math.min(100, existing.value + change));
+      const trend =
+        nextValue > existing.value ? 1 : nextValue < existing.value ? -1 : 0;
       const updated: PressureState = {
         ...existing,
         value: nextValue,
         trend,
-      }
+      };
       runtime.current = {
         ...runtime.current,
         pressures: {
           ...runtime.current.pressures,
           [id]: updated,
         },
-      }
+      };
       if (cause && nextValue !== existing.value) {
         addCauseInternal(cause, {
           target: `pressure:${id}.value`,
-          targetType: 'pressure',
+          targetType: "pressure",
           amount: nextValue - existing.value,
-          tags: ['pressure', id],
-        })
+          tags: ["pressure", id],
+        });
       }
     },
     modifyModuleState(moduleId, updater, _meta): void {
-      const current = runtime.current.modules[moduleId]
-      const next = updater(current as never)
+      const current = runtime.current.modules[moduleId];
+      const next = updater(current as never);
       runtime.current = {
         ...runtime.current,
         modules: {
           ...runtime.current.modules,
           [moduleId]: next,
         },
-      }
+      };
     },
 
     // Phase 27 §27.2 — World mutation helpers.
@@ -1010,9 +1041,9 @@ function createContext(
       const before = requireRecord<CultureWorldState>(
         runtime.current.world.cultures,
         id,
-        'Culture',
-      )
-      const next = { ...before, ...changes }
+        "Culture",
+      );
+      const next = { ...before, ...changes };
       runtime.current = {
         ...runtime.current,
         world: {
@@ -1022,7 +1053,7 @@ function createContext(
             [id]: next,
           },
         },
-      }
+      };
       // ISSUE-002 (phase 42) — emit one cause per changed numeric field so
       // the cause-coverage audit can match `cause.target === change.path`
       // for world-entity mutations. If no numeric field moved, fall back
@@ -1034,20 +1065,20 @@ function createContext(
         next as unknown as Record<string, unknown>,
         changes as unknown as Record<string, unknown>,
         (field) => `culture:${id}.${field}`,
-        'culture',
-        ['culture', id],
-      )
+        "culture",
+        ["culture", id],
+      );
       if (emitted === 0 && meta) {
-        addCauseInternal(meta, { target: id, targetType: 'culture' })
+        addCauseInternal(meta, { target: id, targetType: "culture" });
       }
     },
     modifyFaction(id, changes, meta): void {
       const before = requireRecord<FactionWorldState>(
         runtime.current.world.factions,
         id,
-        'Faction',
-      )
-      const next = { ...before, ...changes }
+        "Faction",
+      );
+      const next = { ...before, ...changes };
       runtime.current = {
         ...runtime.current,
         world: {
@@ -1057,27 +1088,27 @@ function createContext(
             [id]: next,
           },
         },
-      }
+      };
       const emitted = emitDiffPathCausesForRecord(
         meta,
         before as unknown as Record<string, unknown>,
         next as unknown as Record<string, unknown>,
         changes as unknown as Record<string, unknown>,
         (field) => `faction:${id}.${field}`,
-        'faction',
-        ['faction', id],
-      )
+        "faction",
+        ["faction", id],
+      );
       if (emitted === 0 && meta) {
-        addCauseInternal(meta, { target: id, targetType: 'faction' })
+        addCauseInternal(meta, { target: id, targetType: "faction" });
       }
     },
     modifySupplier(id, changes, meta): void {
       const before = requireRecord<SupplierWorldState>(
         runtime.current.world.suppliers,
         id,
-        'Supplier',
-      )
-      const next = { ...before, ...changes }
+        "Supplier",
+      );
+      const next = { ...before, ...changes };
       runtime.current = {
         ...runtime.current,
         world: {
@@ -1087,27 +1118,27 @@ function createContext(
             [id]: next,
           },
         },
-      }
+      };
       const emitted = emitDiffPathCausesForRecord(
         meta,
         before as unknown as Record<string, unknown>,
         next as unknown as Record<string, unknown>,
         changes as unknown as Record<string, unknown>,
         (field) => `supplier:${id}.${field}`,
-        'supplier',
-        ['supplier', id],
-      )
+        "supplier",
+        ["supplier", id],
+      );
       if (emitted === 0 && meta) {
-        addCauseInternal(meta, { target: id, targetType: 'supplier' })
+        addCauseInternal(meta, { target: id, targetType: "supplier" });
       }
     },
     modifyRegular(id, changes, meta): void {
       const before = requireRecord<RegularWorldState>(
         runtime.current.world.regulars,
         id,
-        'Regular',
-      )
-      const next = { ...before, ...changes }
+        "Regular",
+      );
+      const next = { ...before, ...changes };
       runtime.current = {
         ...runtime.current,
         world: {
@@ -1117,27 +1148,27 @@ function createContext(
             [id]: next,
           },
         },
-      }
+      };
       const emitted = emitDiffPathCausesForRecord(
         meta,
         before as unknown as Record<string, unknown>,
         next as unknown as Record<string, unknown>,
         changes as unknown as Record<string, unknown>,
         (field) => `regular:${id}.${field}`,
-        'regular',
-        ['regular', id],
-      )
+        "regular",
+        ["regular", id],
+      );
       if (emitted === 0 && meta) {
-        addCauseInternal(meta, { target: id, targetType: 'regular' })
+        addCauseInternal(meta, { target: id, targetType: "regular" });
       }
     },
     modifyNotableNpc(id, changes, meta): void {
       const before = requireRecord<NotableNpcWorldState>(
         runtime.current.world.notableNpcs,
         id,
-        'NotableNpc',
-      )
-      const next = { ...before, ...changes }
+        "NotableNpc",
+      );
+      const next = { ...before, ...changes };
       runtime.current = {
         ...runtime.current,
         world: {
@@ -1147,18 +1178,18 @@ function createContext(
             [id]: next,
           },
         },
-      }
+      };
       const emitted = emitDiffPathCausesForRecord(
         meta,
         before as unknown as Record<string, unknown>,
         next as unknown as Record<string, unknown>,
         changes as unknown as Record<string, unknown>,
         (field) => `notable_npc:${id}.${field}`,
-        'notable_npc',
-        ['notable_npc', id],
-      )
+        "notable_npc",
+        ["notable_npc", id],
+      );
       if (emitted === 0 && meta) {
-        addCauseInternal(meta, { target: id, targetType: 'notable_npc' })
+        addCauseInternal(meta, { target: id, targetType: "notable_npc" });
       }
     },
     // Phase 69 / ISSUE-029 §5.4 — hireable adventurer record helpers.
@@ -1166,9 +1197,9 @@ function createContext(
       const before = requireRecord<HireableAdventurer>(
         runtime.current.world.hireableAdventurers,
         id,
-        'HireableAdventurer',
-      )
-      const next = { ...before, ...changes }
+        "HireableAdventurer",
+      );
+      const next = { ...before, ...changes };
       runtime.current = {
         ...runtime.current,
         world: {
@@ -1178,25 +1209,25 @@ function createContext(
             [id]: next,
           },
         },
-      }
+      };
       const emitted = emitDiffPathCausesForRecord(
         meta,
         before as unknown as Record<string, unknown>,
         next as unknown as Record<string, unknown>,
         changes as unknown as Record<string, unknown>,
         (field) => `world.hireableAdventurers.${id}.${field}`,
-        'global',
-        ['adventurer', id],
-      )
+        "global",
+        ["adventurer", id],
+      );
       if (emitted === 0 && meta) {
-        addCauseInternal(meta, { target: id, targetType: 'global' })
+        addCauseInternal(meta, { target: id, targetType: "global" });
       }
     },
     addHireableAdventurer(adventurer, meta): void {
       if (runtime.current.world.hireableAdventurers[adventurer.id]) {
         throw new Error(
           `addHireableAdventurer: duplicate adventurer id '${adventurer.id}'`,
-        )
+        );
       }
       runtime.current = {
         ...runtime.current,
@@ -1207,39 +1238,39 @@ function createContext(
             [adventurer.id]: adventurer,
           },
         },
-      }
+      };
       if (meta) {
         addCauseInternal(meta, {
           target: `world.hireableAdventurers.${adventurer.id}`,
-          targetType: 'global',
-        })
+          targetType: "global",
+        });
       }
     },
     removeHireableAdventurer(id, meta): void {
-      if (!runtime.current.world.hireableAdventurers[id]) return
-      const nextRoster = { ...runtime.current.world.hireableAdventurers }
-      delete nextRoster[id]
+      if (!runtime.current.world.hireableAdventurers[id]) return;
+      const nextRoster = { ...runtime.current.world.hireableAdventurers };
+      delete nextRoster[id];
       runtime.current = {
         ...runtime.current,
         world: {
           ...runtime.current.world,
           hireableAdventurers: nextRoster,
         },
-      }
+      };
       if (meta) {
         addCauseInternal(meta, {
           target: `world.hireableAdventurers.${id}`,
-          targetType: 'global',
-        })
+          targetType: "global",
+        });
       }
     },
     modifyLocalEvent(id, changes, meta): void {
       const before = requireRecord<LocalEventWorldState>(
         runtime.current.world.localEvents,
         id,
-        'LocalEvent',
-      )
-      const next = { ...before, ...changes }
+        "LocalEvent",
+      );
+      const next = { ...before, ...changes };
       runtime.current = {
         ...runtime.current,
         world: {
@@ -1249,27 +1280,27 @@ function createContext(
             [id]: next,
           },
         },
-      }
+      };
       const emitted = emitDiffPathCausesForRecord(
         meta,
         before as unknown as Record<string, unknown>,
         next as unknown as Record<string, unknown>,
         changes as unknown as Record<string, unknown>,
         (field) => `local_event:${id}.${field}`,
-        'local_event',
-        ['local_event', id],
-      )
+        "local_event",
+        ["local_event", id],
+      );
       if (emitted === 0 && meta) {
-        addCauseInternal(meta, { target: id, targetType: 'local_event' })
+        addCauseInternal(meta, { target: id, targetType: "local_event" });
       }
     },
     modifySocialRumour(id, changes, meta): void {
       const before = requireRecord<SocialRumourState>(
         runtime.current.world.socialRumours,
         id,
-        'SocialRumour',
-      )
-      const next = { ...before, ...changes }
+        "SocialRumour",
+      );
+      const next = { ...before, ...changes };
       runtime.current = {
         ...runtime.current,
         world: {
@@ -1279,18 +1310,18 @@ function createContext(
             [id]: next,
           },
         },
-      }
+      };
       const emitted = emitDiffPathCausesForRecord(
         meta,
         before as unknown as Record<string, unknown>,
         next as unknown as Record<string, unknown>,
         changes as unknown as Record<string, unknown>,
         (field) => `rumour:${id}.${field}`,
-        'rumour',
-        ['rumour', id],
-      )
+        "rumour",
+        ["rumour", id],
+      );
       if (emitted === 0 && meta) {
-        addCauseInternal(meta, { target: id, targetType: 'rumour' })
+        addCauseInternal(meta, { target: id, targetType: "rumour" });
       }
     },
     // World entity creation/removal. Mirrors the
@@ -1301,7 +1332,7 @@ function createContext(
     // `targetType` already set); the second-arg defaults are a fallback.
     addRegular(regular, meta): void {
       if (runtime.current.world.regulars[regular.id]) {
-        throw new Error(`addRegular: duplicate regular id '${regular.id}'`)
+        throw new Error(`addRegular: duplicate regular id '${regular.id}'`);
       }
       runtime.current = {
         ...runtime.current,
@@ -1312,27 +1343,25 @@ function createContext(
             [regular.id]: regular,
           },
         },
-      }
-      addCauseInternal(meta, { target: regular.id, targetType: 'regular' })
+      };
+      addCauseInternal(meta, { target: regular.id, targetType: "regular" });
     },
     removeRegular(id, meta): void {
-      if (!runtime.current.world.regulars[id]) return
-      const nextRegulars = { ...runtime.current.world.regulars }
-      delete nextRegulars[id]
+      if (!runtime.current.world.regulars[id]) return;
+      const nextRegulars = { ...runtime.current.world.regulars };
+      delete nextRegulars[id];
       runtime.current = {
         ...runtime.current,
         world: {
           ...runtime.current.world,
           regulars: nextRegulars,
         },
-      }
-      addCauseInternal(meta, { target: id, targetType: 'regular' })
+      };
+      addCauseInternal(meta, { target: id, targetType: "regular" });
     },
     addSocialRumour(rumour, meta): void {
       if (runtime.current.world.socialRumours[rumour.id]) {
-        throw new Error(
-          `addSocialRumour: duplicate rumour id '${rumour.id}'`,
-        )
+        throw new Error(`addSocialRumour: duplicate rumour id '${rumour.id}'`);
       }
       runtime.current = {
         ...runtime.current,
@@ -1343,14 +1372,14 @@ function createContext(
             [rumour.id]: rumour,
           },
         },
-      }
-      addCauseInternal(meta, { target: rumour.id, targetType: 'rumour' })
+      };
+      addCauseInternal(meta, { target: rumour.id, targetType: "rumour" });
     },
     addLocalEvent(event, meta): void {
       if (runtime.current.world.localEvents[event.id]) {
         throw new Error(
           `addLocalEvent: duplicate local event id '${event.id}'`,
-        )
+        );
       }
       runtime.current = {
         ...runtime.current,
@@ -1361,33 +1390,100 @@ function createContext(
             [event.id]: event,
           },
         },
-      }
-      addCauseInternal(meta, { target: event.id, targetType: 'local_event' })
+      };
+      addCauseInternal(meta, { target: event.id, targetType: "local_event" });
     },
     modifyTavernIdentity(changes, meta): void {
-      const before = runtime.current.world.tavernIdentity
-      const next: TavernIdentityState = { ...before, ...changes }
+      const before = runtime.current.world.tavernIdentity;
+      const next: TavernIdentityState = { ...before, ...changes };
       runtime.current = {
         ...runtime.current,
         world: {
           ...runtime.current.world,
           tavernIdentity: next,
         },
-      }
+      };
       const emitted = emitDiffPathCausesForRecord(
         meta,
         before as unknown as Record<string, unknown>,
         next as unknown as Record<string, unknown>,
         changes as unknown as Record<string, unknown>,
         (field) => `tavernIdentity.${field}`,
-        'tavern_identity',
-        ['tavern_identity'],
-      )
+        "tavern_identity",
+        ["tavern_identity"],
+      );
       if (emitted === 0 && meta) {
         addCauseInternal(meta, {
           target: runtime.current.meta.tavernId,
-          targetType: 'tavern_identity',
-        })
+          targetType: "tavern_identity",
+        });
+      }
+    },
+
+    modifyVenture(id, changes, meta): void {
+      const before = requireRecord<TeleologyEntry>(
+        runtime.current.ventures,
+        id,
+        "Venture",
+      );
+      const next = { ...before, ...changes };
+      runtime.current = {
+        ...runtime.current,
+        ventures: { ...runtime.current.ventures, [id]: next },
+      };
+      emitDiffPathCausesForRecord(
+        meta,
+        before as unknown as Record<string, unknown>,
+        next as unknown as Record<string, unknown>,
+        changes as unknown as Record<string, unknown>,
+        (field) => `venture:${id}.${field}`,
+        "global",
+        ["teleology", "venture", id],
+      );
+    },
+    modifyArc(id, changes, meta): void {
+      const before = requireRecord<TeleologyEntry>(
+        runtime.current.arcs,
+        id,
+        "Arc",
+      );
+      const next = { ...before, ...changes };
+      runtime.current = {
+        ...runtime.current,
+        arcs: { ...runtime.current.arcs, [id]: next },
+      };
+      emitDiffPathCausesForRecord(
+        meta,
+        before as unknown as Record<string, unknown>,
+        next as unknown as Record<string, unknown>,
+        changes as unknown as Record<string, unknown>,
+        (field) => `arc:${id}.${field}`,
+        "global",
+        ["teleology", "arc", id],
+      );
+    },
+    modifyTransformation(id, changes, meta): void {
+      const before = runtime.current.transformations[id];
+      const next: TransformationState = before
+        ? { ...before, ...changes }
+        : {
+            id,
+            label: id,
+            active: false,
+            tags: [],
+            createdAtDay: runtime.current.calendar.totalDaysElapsed,
+            ...changes,
+          };
+      runtime.current = {
+        ...runtime.current,
+        transformations: { ...runtime.current.transformations, [id]: next },
+      };
+      if (meta) {
+        addCauseInternal(meta, {
+          target: `transformation:${id}`,
+          targetType: "global",
+          tags: ["teleology", "transformation", id],
+        });
       }
     },
 
@@ -1397,67 +1493,67 @@ function createContext(
     // write (bypassing `ctx.modify*`) throw under tests while staying a
     // no-op in production.
     getCulture(id): CultureWorldState | undefined {
-      return freezeInDev(runtime.current.world.cultures[id])
+      return freezeInDev(runtime.current.world.cultures[id]);
     },
     getFaction(id): FactionWorldState | undefined {
-      return freezeInDev(runtime.current.world.factions[id])
+      return freezeInDev(runtime.current.world.factions[id]);
     },
     getSupplier(id): SupplierWorldState | undefined {
-      return freezeInDev(runtime.current.world.suppliers[id])
+      return freezeInDev(runtime.current.world.suppliers[id]);
     },
     getRegular(id): RegularWorldState | undefined {
-      return freezeInDev(runtime.current.world.regulars[id])
+      return freezeInDev(runtime.current.world.regulars[id]);
     },
     getNotableNpc(id): NotableNpcWorldState | undefined {
-      return freezeInDev(runtime.current.world.notableNpcs[id])
+      return freezeInDev(runtime.current.world.notableNpcs[id]);
     },
     getLocalEvent(id): LocalEventWorldState | undefined {
-      return freezeInDev(runtime.current.world.localEvents[id])
+      return freezeInDev(runtime.current.world.localEvents[id]);
     },
     getSocialRumour(id): SocialRumourState | undefined {
-      return freezeInDev(runtime.current.world.socialRumours[id])
+      return freezeInDev(runtime.current.world.socialRumours[id]);
     },
 
     // Phase 16 §16.2 — Memory context API.
     addMemory(draft): MemoryState {
-      return addMemoryInternal(draft)
+      return addMemoryInternal(draft);
     },
     // Phase 36 §36.4 — Entity-scoped memory creation.
     addEntityMemory(
       owner: EntityRef,
       draft: MemoryDraft,
-      metadata?: Omit<EntityMemoryMetadata, 'owner'>,
+      metadata?: Omit<EntityMemoryMetadata, "owner">,
     ): MemoryState {
-      const enriched = attachEntityOwnerToDraft(draft, owner, metadata)
-      return addMemoryInternal(enriched)
+      const enriched = attachEntityOwnerToDraft(draft, owner, metadata);
+      return addMemoryInternal(enriched);
     },
     removeMemory(id): boolean {
-      const idx = findMemoryIndex(id)
-      if (idx === -1) return false
-      const memories = [...runtime.current.memories]
-      memories.splice(idx, 1)
-      writeMemories(memories)
-      return true
+      const idx = findMemoryIndex(id);
+      if (idx === -1) return false;
+      const memories = [...runtime.current.memories];
+      memories.splice(idx, 1);
+      writeMemories(memories);
+      return true;
     },
     hasMemory(id): boolean {
-      return findMemoryIndex(id) !== -1
+      return findMemoryIndex(id) !== -1;
     },
     getMemory(id): MemoryState | undefined {
-      const idx = findMemoryIndex(id)
-      if (idx === -1) return undefined
-      return freezeInDev(runtime.current.memories[idx])
+      const idx = findMemoryIndex(id);
+      if (idx === -1) return undefined;
+      return freezeInDev(runtime.current.memories[idx]);
     },
     getMemoriesByTag(tag): MemoryState[] {
       return freezeInDev(
         runtime.current.memories.filter((m) => m.tags.includes(tag)),
-      )
+      );
     },
     getMemoriesForActor(actor: EntityRef): MemoryState[] {
       return freezeInDev(
         runtime.current.memories.filter((m) =>
           m.actors.some((a) => a.kind === actor.kind && a.id === actor.id),
         ),
-      )
+      );
     },
     getMemoriesForLocation(location: EntityRef): MemoryState[] {
       return freezeInDev(
@@ -1466,109 +1562,110 @@ function createContext(
             (l) => l.kind === location.kind && l.id === location.id,
           ),
         ),
-      )
+      );
     },
     getMemoryStrength(id): number {
-      const idx = findMemoryIndex(id)
-      if (idx === -1) return 0
-      return runtime.current.memories[idx]!.strength
+      const idx = findMemoryIndex(id);
+      if (idx === -1) return 0;
+      return runtime.current.memories[idx]!.strength;
     },
     ageMemoriesEndOfDay(): void {
-      const { next, expired } = ageMemories(runtime.current.memories, 1)
-      writeMemories(next)
+      const { next, expired } = ageMemories(runtime.current.memories, 1);
+      writeMemories(next);
       if (expired.length > 0) {
-        recordExpired(expired.map((m) => m.id))
+        recordExpired(expired.map((m) => m.id));
       }
     },
 
     // Phase 16 §16.8 — History context API.
     addHistory(draft): HistoryEntry {
-      return addHistoryInternal(draft)
+      return addHistoryInternal(draft);
     },
     getRecentHistory(days): HistoryEntry[] {
-      if (days <= 0) return []
-      const cutoff = runtime.current.calendar.totalDaysElapsed - days
+      if (days <= 0) return [];
+      const cutoff = runtime.current.calendar.totalDaysElapsed - days;
       return freezeInDev(
         runtime.current.history.filter(
           (e) => e.timestamp.absoluteDay >= cutoff,
         ),
-      )
+      );
     },
     getHistoryByTag(tag): HistoryEntry[] {
       return freezeInDev(
         runtime.current.history.filter((e) => e.tags.includes(tag)),
-      )
+      );
     },
     pruneHistoryBefore(absoluteDay): number {
-      const before = runtime.current.history.length
-      if (before === 0) return 0
+      const before = runtime.current.history.length;
+      if (before === 0) return 0;
       const next = runtime.current.history.filter(
         (e) => e.timestamp.absoluteDay >= absoluteDay,
-      )
-      if (next.length === before) return 0
-      runtime.current = { ...runtime.current, history: next }
-      return before - next.length
+      );
+      if (next.length === before) return 0;
+      runtime.current = { ...runtime.current, history: next };
+      return before - next.length;
     },
 
     // Phase 17 §17.2 — Cause context API.
     addCause(draft): CauseEntry {
-      return addCauseInternal(draft)
+      return addCauseInternal(draft);
     },
     getCausesForTarget(target): CauseEntry[] {
       return freezeInDev(
         runtime.current.causes.filter((c) => c.target === target),
-      )
+      );
     },
     getCausesByTag(tag): CauseEntry[] {
       return freezeInDev(
         runtime.current.causes.filter((c) => c.tags.includes(tag)),
-      )
+      );
     },
     getRecentCauses(days): CauseEntry[] {
-      if (days <= 0) return []
-      const cutoff = runtime.current.calendar.totalDaysElapsed - days
+      if (days <= 0) return [];
+      const cutoff = runtime.current.calendar.totalDaysElapsed - days;
       return freezeInDev(
-        runtime.current.causes.filter(
-          (c) => c.timestamp.absoluteDay >= cutoff,
-        ),
-      )
+        runtime.current.causes.filter((c) => c.timestamp.absoluteDay >= cutoff),
+      );
     },
     getTopCausesForTarget(target, limit): CauseEntry[] {
       const matching = runtime.current.causes
         .filter((c) => c.target === target)
-        .slice()
-      matching.sort((a, b) => b.weight - a.weight)
-      if (limit <= 0) return []
-      return freezeInDev(matching.slice(0, limit))
+        .slice();
+      matching.sort((a, b) => b.weight - a.weight);
+      if (limit <= 0) return [];
+      return freezeInDev(matching.slice(0, limit));
     },
     ageCausesEndOfDay(): void {
-      const { next, expired } = ageCauses(runtime.current.causes, 1)
-      runtime.current = { ...runtime.current, causes: next }
-      void expired
+      const { next, expired } = ageCauses(runtime.current.causes, 1);
+      runtime.current = { ...runtime.current, causes: next };
+      void expired;
     },
 
     // Phase 17 §17.8 — Phase-boundary state diffs.
     getDiff(boundary: PhaseBoundary): StateDiff | undefined {
-      const tagged = runtime.changeTracker.getByBoundary(boundary)
-      if (!tagged) return undefined
-      return { changes: tagged.changes, significantChanges: tagged.significantChanges }
+      const tagged = runtime.changeTracker.getByBoundary(boundary);
+      if (!tagged) return undefined;
+      return {
+        changes: tagged.changes,
+        significantChanges: tagged.significantChanges,
+      };
     },
     getDiffs(): ReadonlyArray<TaggedStateDiff> {
-      return runtime.changeTracker.all()
+      return runtime.changeTracker.all();
     },
     // Phase 197 / ISSUE-164 — Cluster 1. Live snapshot→now diff, usable
     // during `generateReports` before `finalize('day')` runs.
     getDiffSoFar(boundary: PhaseBoundary): StateDiff | undefined {
-      return runtime.changeTracker.diffAgainst(boundary, runtime.current)
+      return runtime.changeTracker.diffAgainst(boundary, runtime.current);
     },
-  }
+  };
 
   // The mutation helpers do not yet wire a real cause draft (Phase 17),
   // but `meta` is intentionally part of the signature so callers cannot
   // bypass the contract. Reference the parameter so unused-arg lint stays
   // quiet in strict configurations.
-  void ctx
-  return ctx
+  void ctx;
+  return ctx;
 }
 
 function runHooks(
@@ -1578,14 +1675,14 @@ function runHooks(
   runtime: EngineRuntime,
 ): void {
   for (const mod of modules) {
-    const hooks = mod.hooks?.[phase]
-    if (!hooks || hooks.length === 0) continue
-    runtime.hookSource = mod.id
+    const hooks = mod.hooks?.[phase];
+    if (!hooks || hooks.length === 0) continue;
+    runtime.hookSource = mod.id;
     for (const hook of hooks) {
-      hook(ctx)
+      hook(ctx);
     }
   }
-  runtime.hookSource = ENGINE_SOURCE
+  runtime.hookSource = ENGINE_SOURCE;
 }
 
 function collectReports(
@@ -1594,15 +1691,15 @@ function collectReports(
   runtime: EngineRuntime,
 ): void {
   for (const mod of modules) {
-    if (!mod.buildReport) continue
-    const result = mod.buildReport(ctx)
-    if (result === null || result === undefined) continue
+    if (!mod.buildReport) continue;
+    const result = mod.buildReport(ctx);
+    if (result === null || result === undefined) continue;
     if (Array.isArray(result)) {
       for (const section of result) {
-        runtime.reports.push(section)
+        runtime.reports.push(section);
       }
     } else {
-      runtime.reports.push(result)
+      runtime.reports.push(result);
     }
   }
 }
@@ -1613,10 +1710,10 @@ function collectModuleValidations(
   runtime: EngineRuntime,
 ): void {
   for (const mod of modules) {
-    if (!mod.validate) continue
-    const issues = mod.validate(ctx)
+    if (!mod.validate) continue;
+    const issues = mod.validate(ctx);
     for (const issue of issues) {
-      runtime.validationErrors.push(issue)
+      runtime.validationErrors.push(issue);
     }
   }
 }
@@ -1633,8 +1730,8 @@ function createRuntime(state: TavernState): EngineRuntime {
     causeCounter: 0,
     // Placeholder seed; `reseedSegmentRng` overwrites this before any hook
     // runs in either entry path, so the value is never observed.
-    rngStreams: createRngStreams('__unseeded__'),
-  }
+    rngStreams: createRngStreams("__unseeded__"),
+  };
 }
 
 // Phase 186 (Cluster 2) — run one contiguous slice of the pipeline. Shared
@@ -1649,14 +1746,14 @@ function runSegmentPhases(
   runtime: EngineRuntime,
 ): void {
   for (const phase of phases) {
-    if (phase === 'endWeek' && !isEndOfWeek(runtime.current.calendar)) {
-      continue
+    if (phase === "endWeek" && !isEndOfWeek(runtime.current.calendar)) {
+      continue;
     }
-    if (phase === 'endMonth' && !isEndOfMonth(runtime.current.calendar)) {
-      continue
+    if (phase === "endMonth" && !isEndOfMonth(runtime.current.calendar)) {
+      continue;
     }
 
-    runHooks(phase, sortedModules, ctx, runtime)
+    runHooks(phase, sortedModules, ctx, runtime);
 
     // Phase 91 / ISSUE-051 — `collectReports` runs AFTER the
     // `generateReports` hook so report builders see state mutations the
@@ -1664,22 +1761,22 @@ function runSegmentPhases(
     // SimResult.reports[issueSeeds] describing the previous day's seeds
     // while state already held today's. Modules that build reports from
     // settled state (everyone today) get the correct picture.
-    if (phase === 'generateReports') {
-      collectReports(sortedModules, ctx, runtime)
+    if (phase === "generateReports") {
+      collectReports(sortedModules, ctx, runtime);
     }
 
-    if (phase === 'validate') {
-      collectModuleValidations(sortedModules, ctx, runtime)
-      const summary = ctx.validate()
-      for (const e of summary.errors) runtime.validationErrors.push(e)
-      for (const w of summary.warnings) runtime.validationWarnings.push(w)
+    if (phase === "validate") {
+      collectModuleValidations(sortedModules, ctx, runtime);
+      const summary = ctx.validate();
+      for (const e of summary.errors) runtime.validationErrors.push(e);
+      for (const w of summary.warnings) runtime.validationWarnings.push(w);
     }
 
-    if (phase === 'advanceCalendar') {
+    if (phase === "advanceCalendar") {
       runtime.current = {
         ...runtime.current,
         calendar: advanceCalendar(runtime.current.calendar),
-      }
+      };
     }
   }
 }
@@ -1694,7 +1791,7 @@ function runtimeToResult(runtime: EngineRuntime): SimResult {
       warnings: runtime.validationWarnings,
     },
     diffs: [...runtime.changeTracker.all()],
-  }
+  };
 }
 
 export function simulateDay(
@@ -1702,9 +1799,9 @@ export function simulateDay(
   input: SimInput,
   modules: ReadonlyArray<SimulationModule>,
 ): SimResult {
-  const sortedModules = topologicallySortModules(modules)
-  const runtime = createRuntime(state)
-  const ctx = createContext(runtime, input, sortedModules)
+  const sortedModules = topologicallySortModules(modules);
+  const runtime = createRuntime(state);
+  const ctx = createContext(runtime, input, sortedModules);
 
   // Phase 17 §17.8 — Snapshot the full-day baseline up front. Phase 76
   // (ISSUE-036) dropped the `owner_actions` / `service` / `end_week` /
@@ -1712,22 +1809,22 @@ export function simulateDay(
   // test asserts (now reading `'day'`), no production code read them,
   // and the `service` boundary was finalized five phase slots before
   // `generateReports`, leaving any future consumer reading stale state.
-  runtime.changeTracker.snapshot('day', runtime.current)
+  runtime.changeTracker.snapshot("day", runtime.current);
 
   // Phase 186 (Cluster 2) — run the three segments in order, reseeding the
   // RNG at each boundary. This is exactly what `advanceDaySegment` does one
   // segment at a time, so the run-all and run-one paths produce identical
   // final state (asserted by the segmented-equivalence tests).
   for (const segment of DAY_SEGMENTS) {
-    reseedSegmentRng(runtime, input.seed, segment)
-    runSegmentPhases(phasesForSegment(segment), sortedModules, ctx, runtime)
+    reseedSegmentRng(runtime, input.seed, segment);
+    runSegmentPhases(phasesForSegment(segment), sortedModules, ctx, runtime);
   }
 
   // Phase 17 §17.8 — Close the day-level diff after the calendar tick.
   // The diff captures the full mechanical movement of the simulated day.
-  runtime.changeTracker.finalize('day', runtime.current)
+  runtime.changeTracker.finalize("day", runtime.current);
 
-  return runtimeToResult(runtime)
+  return runtimeToResult(runtime);
 }
 
 /**
@@ -1755,8 +1852,8 @@ export type AdvanceDaySegmentOptions = {
    * `state`, which is correct for Segment A (its input *is* start-of-day).
    * Segments B and C must pass the original Segment-A input state.
    */
-  dayBaseline?: TavernState
-}
+  dayBaseline?: TavernState;
+};
 
 export function advanceDaySegment(
   state: TavernState,
@@ -1765,27 +1862,27 @@ export function advanceDaySegment(
   segment: DaySegment,
   options: AdvanceDaySegmentOptions = {},
 ): SimResult {
-  const sortedModules = topologicallySortModules(modules)
-  const runtime = createRuntime(state)
-  const ctx = createContext(runtime, input, sortedModules)
+  const sortedModules = topologicallySortModules(modules);
+  const runtime = createRuntime(state);
+  const ctx = createContext(runtime, input, sortedModules);
 
-  reseedSegmentRng(runtime, input.seed, segment)
+  reseedSegmentRng(runtime, input.seed, segment);
 
   // GATE B — bracket the day-diff from the start-of-day baseline (defaults
   // to this segment's input, i.e. Segment A) to the end of this segment.
-  const baseline = options.dayBaseline ?? state
-  runtime.changeTracker.snapshot('day', baseline)
+  const baseline = options.dayBaseline ?? state;
+  runtime.changeTracker.snapshot("day", baseline);
 
-  runSegmentPhases(phasesForSegment(segment), sortedModules, ctx, runtime)
+  runSegmentPhases(phasesForSegment(segment), sortedModules, ctx, runtime);
 
-  runtime.changeTracker.finalize('day', runtime.current)
+  runtime.changeTracker.finalize("day", runtime.current);
 
-  return runtimeToResult(runtime)
+  return runtimeToResult(runtime);
 }
 
 // Legacy compatibility export kept for early Phase 2 callers/tests that
 // imported the placeholder name directly. `simulateDay` is the canonical
 // production entry point; no runtime host should call `runSimulation`.
 export function runSimulation(): SimResult {
-  throw new Error('runSimulation is deprecated; use simulateDay (Phase 7).')
+  throw new Error("runSimulation is deprecated; use simulateDay (Phase 7).");
 }

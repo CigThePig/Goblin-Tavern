@@ -20,17 +20,19 @@ import type {
   SupplierWorldState,
   TavernIdentityState,
   TavernState,
-} from '../state/TavernState'
-import type { ValidationSummary } from '../state/types'
-import type { DayType } from '../modules/calendar/types'
-import type { HistoryEntryDraft } from '../modules/history/types'
-import type { MemoryDraft } from '../modules/memories/memoryTypes'
-import type { EntityMemoryMetadata } from '../modules/memories/entityMemory'
-import type { CauseDraft } from '../modules/causes/causeTypes'
-import type { ResponseIntent } from '../modules/issues/issueSeedTypes'
-import type { RngStreamId, SimRng, SimRngStreams } from './rng'
-import type { ReportSection, SimLog, SimLogLevel } from './reports'
-import type { StateDiff, TaggedStateDiff, PhaseBoundary } from './diff'
+  TeleologyEntry,
+  TransformationState,
+} from "../state/TavernState";
+import type { ValidationSummary } from "../state/types";
+import type { DayType } from "../modules/calendar/types";
+import type { HistoryEntryDraft } from "../modules/history/types";
+import type { MemoryDraft } from "../modules/memories/memoryTypes";
+import type { EntityMemoryMetadata } from "../modules/memories/entityMemory";
+import type { CauseDraft } from "../modules/causes/causeTypes";
+import type { ResponseIntent } from "../modules/issues/issueSeedTypes";
+import type { RngStreamId, SimRng, SimRngStreams } from "./rng";
+import type { ReportSection, SimLog, SimLogLevel } from "./reports";
+import type { StateDiff, TaggedStateDiff, PhaseBoundary } from "./diff";
 
 // Phase 7 §7.3 — SimContext.
 //
@@ -53,15 +55,15 @@ import type { StateDiff, TaggedStateDiff, PhaseBoundary } from './diff'
  * same shape used by name only.
  */
 export type SimInputOwnerAction = {
-  actionId: string
-  targetId?: string
-  amount?: number
-  options?: Record<string, unknown>
-}
+  actionId: string;
+  targetId?: string;
+  amount?: number;
+  options?: Record<string, unknown>;
+};
 
 export type SimInput = {
   /** Seed for the deterministic RNG threaded through `ctx.rng`. */
-  seed: string
+  seed: string;
   /**
    * Phase 13 §13.2 — per-day owner action input. Owner actions draw from
    * a daily time budget (`DAY_MINUTES`; Phase 186 Cluster 3 converted the
@@ -69,14 +71,14 @@ export type SimInput = {
    * module enforces the budget and rejects entries that overflow it,
    * reference an unknown action id, or fail the action's `canApply`.
    */
-  ownerActions?: ReadonlyArray<SimInputOwnerAction>
+  ownerActions?: ReadonlyArray<SimInputOwnerAction>;
   /**
    * Phase 11 §11.3 — per-day staff priority assignment. Keys are staff
    * ids; values are `StaffPriorityId`s validated against the role's
    * `allowedPriorities` by the staff module. Staff members omitted from
    * this map fall back to the role's default priority.
    */
-  staffPriorities?: Record<string, string>
+  staffPriorities?: Record<string, string>;
   /**
    * Phase 41 / ISSUE-001 — per-day response intents. Each intent picks
    * a response slot on an active issue seed; the `responsesModule`
@@ -86,10 +88,10 @@ export type SimInput = {
    * `state.modules.issueSeeds.seedsToday` for the day the intent is
    * supplied — same-day resolution only; carry forward by re-issuing.
    */
-  responseIntents?: ReadonlyArray<ResponseIntent>
-}
+  responseIntents?: ReadonlyArray<ResponseIntent>;
+};
 
-export type { ResponseIntent }
+export type { ResponseIntent };
 
 /**
  * Phase 7 §7.3.1 / Phase 17 §17.2.1 — Mutation metadata.
@@ -105,17 +107,20 @@ export type { ResponseIntent }
  * and related actor/location refs — so the cause module can produce
  * useful reports.
  */
-export type MutationMeta = CauseDraft
+export type MutationMeta = CauseDraft;
 
-export type { CauseDraft }
+export type { CauseDraft };
 
-export type AddLogInput = SimLog | { message: string; level?: SimLogLevel; data?: Record<string, unknown> } | string
+export type AddLogInput =
+  | SimLog
+  | { message: string; level?: SimLogLevel; data?: Record<string, unknown> }
+  | string;
 
 export type SimContext = {
   /** Current tavern state. Always reflects the most recent mutation. */
-  readonly state: TavernState
-  readonly input: SimInput
-  readonly rng: SimRng
+  readonly state: TavernState;
+  readonly input: SimInput;
+  readonly rng: SimRng;
 
   // Phase 24 §"Context Changes" — named RNG streams.
   //
@@ -123,47 +128,63 @@ export type SimContext = {
   // must use named streams via `getRngStream(streamId)` so an extra
   // service roll does not shift a generated name. `ctx.rng` remains the
   // default service stream for backwards compatibility.
-  readonly rngStreams: SimRngStreams
-  getRngStream(streamId: RngStreamId): SimRng
+  readonly rngStreams: SimRngStreams;
+  getRngStream(streamId: RngStreamId): SimRng;
   // Phase 70 / ISSUE-030 §6.3 — dynamic named stream. Used by the
   // expeditions module for per-instance streams like
   // `expedition_<expeditionId>` and `ingredient_quality_<expeditionId>`
   // that cannot enumerate at compile time. Same `name` + same baseSeed
   // produces the same starting RNG state across reloads.
-  getRngStreamByName(name: string): SimRng
+  getRngStreamByName(name: string): SimRng;
 
-  readonly reports: ReadonlyArray<ReportSection>
-  readonly logs: ReadonlyArray<SimLog>
+  readonly reports: ReadonlyArray<ReportSection>;
+  readonly logs: ReadonlyArray<SimLog>;
 
-  addReportSection(section: ReportSection): void
-  addLog(log: AddLogInput, source?: string): void
+  addReportSection(section: ReportSection): void;
+  addLog(log: AddLogInput, source?: string): void;
 
-  getDayType(): DayType
-  isEndOfWeek(): boolean
-  isEndOfMonth(): boolean
+  getDayType(): DayType;
+  isEndOfWeek(): boolean;
+  isEndOfMonth(): boolean;
 
   /**
    * Run the full state validator on the current state and return the
    * resulting summary. Does not throw on failure — callers decide what to
    * do with errors. Engine `validate` phase calls this once per day.
    */
-  validate(): ValidationSummary
+  validate(): ValidationSummary;
 
   // Phase 7 §7.3.1 — Cause-required mutation helpers.
-  modifyArea(id: string, changes: Partial<AreaState>, meta: MutationMeta): void
-  modifyStock(id: string, changes: Partial<StockState>, meta: MutationMeta): void
-  modifyStaff(id: string, changes: Partial<StaffState>, meta: MutationMeta): void
+  modifyArea(id: string, changes: Partial<AreaState>, meta: MutationMeta): void;
+  modifyStock(
+    id: string,
+    changes: Partial<StockState>,
+    meta: MutationMeta,
+  ): void;
+  modifyStaff(
+    id: string,
+    changes: Partial<StaffState>,
+    meta: MutationMeta,
+  ): void;
   // Phase 86 / ISSUE-046 — hire / fire staff mutators. Mirrors the
   // adventurer add/remove pair: `addStaff` rejects duplicate ids;
   // `removeStaff` is a no-op when the id is unknown. Both emit a
   // cause for diff-coverage parity.
-  addStaff(staff: StaffState, meta: MutationMeta): void
-  removeStaff(id: string, meta: MutationMeta): void
-  modifyCustomerGroup(id: string, changes: Partial<CustomerGroupState>, meta: MutationMeta): void
+  addStaff(staff: StaffState, meta: MutationMeta): void;
+  removeStaff(id: string, meta: MutationMeta): void;
+  modifyCustomerGroup(
+    id: string,
+    changes: Partial<CustomerGroupState>,
+    meta: MutationMeta,
+  ): void;
   // Phase 65 / ISSUE-025 §6.1 — recipe-slice mutations. Recipes track
   // serving counters and the player's `onMenu` flag; mutations route
   // through the same cause-emitting helper as other record slices.
-  modifyRecipe(id: string, changes: Partial<RecipeState>, meta: MutationMeta): void
+  modifyRecipe(
+    id: string,
+    changes: Partial<RecipeState>,
+    meta: MutationMeta,
+  ): void;
   // Phase 70 / ISSUE-030 §5.3 — top-level expeditions slice mutator.
   // Used by the expeditions module for commission / resolution
   // transitions. The cause draft attaches a high-level lifecycle
@@ -171,7 +192,7 @@ export type SimContext = {
   modifyExpeditions(
     updater: (current: ExpeditionsState) => ExpeditionsState,
     meta: MutationMeta,
-  ): void
+  ): void;
 
   /**
    * Phase 9 §9.3 — Coin mutations route through `modifyCoin` so the
@@ -179,7 +200,7 @@ export type SimContext = {
    * `state.coin` directly. Defensive add per Phase 7 §7.3.1 forward note:
    * Phase 17 will turn `meta` into a full `CauseDraft`.
    */
-  modifyCoin(delta: number, meta: MutationMeta): void
+  modifyCoin(delta: number, meta: MutationMeta): void;
 
   /**
    * Phase 15 §15.5 — Reputation is multi-axis; the monthly module
@@ -188,7 +209,7 @@ export type SimContext = {
    * with every other `modify*` helper, `meta` is the Phase 7 §7.3.1
    * placeholder that Phase 17 will widen to `CauseDraft`.
    */
-  modifyReputation(next: ReputationState, meta: MutationMeta): void
+  modifyReputation(next: ReputationState, meta: MutationMeta): void;
 
   /**
    * Phase 9 §9.3 — Module-state mutations route through `modifyModuleState`
@@ -201,7 +222,7 @@ export type SimContext = {
     moduleId: string,
     updater: (current: T | undefined) => T,
     meta: MutationMeta,
-  ): void
+  ): void;
 
   // Phase 27 §27.2 — World mutation helpers.
   //
@@ -216,15 +237,31 @@ export type SimContext = {
   // Each helper throws when the target id does not exist on
   // `state.world.*`. `modifyTavernIdentity` operates on the singleton
   // record and does not need an id.
-  modifyCulture(id: string, changes: Partial<CultureWorldState>, meta: MutationMeta): void
-  modifyFaction(id: string, changes: Partial<FactionWorldState>, meta: MutationMeta): void
-  modifySupplier(id: string, changes: Partial<SupplierWorldState>, meta: MutationMeta): void
-  modifyRegular(id: string, changes: Partial<RegularWorldState>, meta: MutationMeta): void
+  modifyCulture(
+    id: string,
+    changes: Partial<CultureWorldState>,
+    meta: MutationMeta,
+  ): void;
+  modifyFaction(
+    id: string,
+    changes: Partial<FactionWorldState>,
+    meta: MutationMeta,
+  ): void;
+  modifySupplier(
+    id: string,
+    changes: Partial<SupplierWorldState>,
+    meta: MutationMeta,
+  ): void;
+  modifyRegular(
+    id: string,
+    changes: Partial<RegularWorldState>,
+    meta: MutationMeta,
+  ): void;
   modifyNotableNpc(
     id: string,
     changes: Partial<NotableNpcWorldState>,
     meta: MutationMeta,
-  ): void
+  ): void;
   // Phase 69 / ISSUE-029 §5.4 — hireable adventurer record helpers.
   // Roster grows and shrinks weekly via the adventurers module; the
   // dedicated add/remove helpers route through `addCauseInternal` so
@@ -233,22 +270,22 @@ export type SimContext = {
     id: string,
     changes: Partial<HireableAdventurer>,
     meta: MutationMeta,
-  ): void
+  ): void;
   addHireableAdventurer(
     adventurer: HireableAdventurer,
     meta: MutationMeta,
-  ): void
-  removeHireableAdventurer(id: string, meta: MutationMeta): void
+  ): void;
+  removeHireableAdventurer(id: string, meta: MutationMeta): void;
   modifyLocalEvent(
     id: string,
     changes: Partial<LocalEventWorldState>,
     meta: MutationMeta,
-  ): void
+  ): void;
   modifySocialRumour(
     id: string,
     changes: Partial<SocialRumourState>,
     meta: MutationMeta,
-  ): void
+  ): void;
   // World entity creation/removal helpers. The `modify*` helpers above only
   // update existing records; entity *creation* (a regular emerging, a rumour
   // starting, a local arc beginning) and removal (a regular decaying out)
@@ -257,27 +294,42 @@ export type SimContext = {
   // why — so attribution is never an afterthought a copy-paste site can
   // forget. `addRegular`/`addSocialRumour`/`addLocalEvent` throw on a
   // duplicate id; `removeRegular` is a no-op for an unknown id.
-  addRegular(regular: RegularWorldState, meta: MutationMeta): void
-  removeRegular(id: string, meta: MutationMeta): void
-  addSocialRumour(rumour: SocialRumourState, meta: MutationMeta): void
-  addLocalEvent(event: LocalEventWorldState, meta: MutationMeta): void
+  addRegular(regular: RegularWorldState, meta: MutationMeta): void;
+  removeRegular(id: string, meta: MutationMeta): void;
+  addSocialRumour(rumour: SocialRumourState, meta: MutationMeta): void;
+  addLocalEvent(event: LocalEventWorldState, meta: MutationMeta): void;
   modifyTavernIdentity(
     changes: Partial<TavernIdentityState>,
     meta: MutationMeta,
-  ): void
+  ): void;
+  modifyVenture(
+    id: string,
+    changes: Partial<TeleologyEntry>,
+    meta: MutationMeta,
+  ): void;
+  modifyArc(
+    id: string,
+    changes: Partial<TeleologyEntry>,
+    meta: MutationMeta,
+  ): void;
+  modifyTransformation(
+    id: string,
+    changes: Partial<TransformationState>,
+    meta: MutationMeta,
+  ): void;
 
   // Phase 27 §27.3 — World query helpers.
   //
   // Thin readers so modules do not scatter direct `state.world.*` paths
   // through the codebase. Each returns `undefined` for an unknown id,
   // matching the `Map.get` convention used by existing helpers.
-  getCulture(id: string): CultureWorldState | undefined
-  getFaction(id: string): FactionWorldState | undefined
-  getSupplier(id: string): SupplierWorldState | undefined
-  getRegular(id: string): RegularWorldState | undefined
-  getNotableNpc(id: string): NotableNpcWorldState | undefined
-  getLocalEvent(id: string): LocalEventWorldState | undefined
-  getSocialRumour(id: string): SocialRumourState | undefined
+  getCulture(id: string): CultureWorldState | undefined;
+  getFaction(id: string): FactionWorldState | undefined;
+  getSupplier(id: string): SupplierWorldState | undefined;
+  getRegular(id: string): RegularWorldState | undefined;
+  getNotableNpc(id: string): NotableNpcWorldState | undefined;
+  getLocalEvent(id: string): LocalEventWorldState | undefined;
+  getSocialRumour(id: string): SocialRumourState | undefined;
 
   // Phase 16 §16.2 — Memory context API.
   //
@@ -287,7 +339,7 @@ export type SimContext = {
   // stamps the entry with the current calendar coordinate, and records
   // the new id in the memory module's per-day slice so the report can
   // surface "new today" lines.
-  addMemory(draft: MemoryDraft): MemoryState
+  addMemory(draft: MemoryDraft): MemoryState;
   /**
    * Phase 36 §36.4 — Entity-scoped memory creation.
    *
@@ -302,38 +354,38 @@ export type SimContext = {
   addEntityMemory(
     owner: EntityRef,
     draft: MemoryDraft,
-    metadata?: Omit<EntityMemoryMetadata, 'owner'>,
-  ): MemoryState
-  removeMemory(id: string): boolean
-  hasMemory(id: string): boolean
-  getMemory(id: string): MemoryState | undefined
-  getMemoriesByTag(tag: string): MemoryState[]
-  getMemoriesForActor(actor: EntityRef): MemoryState[]
-  getMemoriesForLocation(location: EntityRef): MemoryState[]
-  getMemoryStrength(id: string): number
+    metadata?: Omit<EntityMemoryMetadata, "owner">,
+  ): MemoryState;
+  removeMemory(id: string): boolean;
+  hasMemory(id: string): boolean;
+  getMemory(id: string): MemoryState | undefined;
+  getMemoriesByTag(tag: string): MemoryState[];
+  getMemoriesForActor(actor: EntityRef): MemoryState[];
+  getMemoriesForLocation(location: EntityRef): MemoryState[];
+  getMemoryStrength(id: string): number;
 
   /**
    * Phase 16 §16.4 — Trigger memory aging/expiration. Invoked by the
    * memory module's `endDay` hook (and exposed on the context so future
    * phases can drive aging from elsewhere — e.g. multi-day jumps).
    */
-  ageMemoriesEndOfDay(): void
+  ageMemoriesEndOfDay(): void;
 
   // Phase 16 §16.8 — History log API.
   //
   // History entries are append-only debug records describing what
   // happened (owner actions, weekly summaries, monthly resolutions,
   // memory churn). Memories influence the sim; history records do not.
-  addHistory(draft: HistoryEntryDraft): HistoryEntry
-  getRecentHistory(days: number): HistoryEntry[]
-  getHistoryByTag(tag: string): HistoryEntry[]
+  addHistory(draft: HistoryEntryDraft): HistoryEntry;
+  getRecentHistory(days: number): HistoryEntry[];
+  getHistoryByTag(tag: string): HistoryEntry[];
   /**
    * Phase 62 / ISSUE-022 — Drop history entries whose
    * `timestamp.absoluteDay` is strictly less than `absoluteDay`.
    * Returns the count removed. History is debug-only, so no cause
    * emission or change-tracker entry is generated.
    */
-  pruneHistoryBefore(absoluteDay: number): number
+  pruneHistoryBefore(absoluteDay: number): number;
 
   // Phase 17 §17.2 — Cause context API.
   //
@@ -342,18 +394,18 @@ export type SimContext = {
   // and the cause report flags significant state diffs that have no
   // matching cause. The Phase 7 §7.3.1 forward note ("Phase 17 will widen
   // `meta` to `CauseDraft`") is fulfilled here.
-  addCause(draft: CauseDraft): CauseEntry
-  getCausesForTarget(target: string): CauseEntry[]
-  getCausesByTag(tag: string): CauseEntry[]
-  getRecentCauses(days: number): CauseEntry[]
-  getTopCausesForTarget(target: string, limit: number): CauseEntry[]
+  addCause(draft: CauseDraft): CauseEntry;
+  getCausesForTarget(target: string): CauseEntry[];
+  getCausesByTag(tag: string): CauseEntry[];
+  getRecentCauses(days: number): CauseEntry[];
+  getTopCausesForTarget(target: string, limit: number): CauseEntry[];
 
   /**
    * Phase 17 §17.6 — Trigger cause aging/expiration. Invoked by the
    * cause module's `endDay` hook (and exposed on the context so future
    * phases can drive aging from elsewhere — e.g. multi-day jumps).
    */
-  ageCausesEndOfDay(): void
+  ageCausesEndOfDay(): void;
 
   // Phase 17 §17.2.1 — Pressure mutation helper.
   //
@@ -361,7 +413,7 @@ export type SimContext = {
   // the full calculation/feedback loop pipeline). Phase 17 gates writes
   // through `modifyPressure` so the same cause contract that covers
   // coin/area/stock applies to pressure shifts.
-  modifyPressure(id: string, change: number, cause: CauseDraft): void
+  modifyPressure(id: string, change: number, cause: CauseDraft): void;
 
   // Phase 17 §17.8 — Phase-boundary state diffs.
   //
@@ -370,11 +422,11 @@ export type SimContext = {
   // the month, then publishes a tagged diff after each boundary closes.
   // Modules can read the current day's diffs via `getDiff(boundary)`;
   // `SimResult.diffs` carries them out of `simulateDay`.
-  getDiff(boundary: PhaseBoundary): StateDiff | undefined
-  getDiffs(): ReadonlyArray<TaggedStateDiff>
+  getDiff(boundary: PhaseBoundary): StateDiff | undefined;
+  getDiffs(): ReadonlyArray<TaggedStateDiff>;
   // Phase 197 / ISSUE-164 — Cluster 1. Computes snapshot→now without
   // finalizing, so modules running during `generateReports` (before
   // `finalize('day')`) can still read the full-day diff. `getDiff` /
   // `getDiffs` semantics are unchanged (post-finalize only).
-  getDiffSoFar(boundary: PhaseBoundary): StateDiff | undefined
-}
+  getDiffSoFar(boundary: PhaseBoundary): StateDiff | undefined;
+};

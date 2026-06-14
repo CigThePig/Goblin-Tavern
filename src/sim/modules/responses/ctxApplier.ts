@@ -1,5 +1,5 @@
-import type { SimContext } from '../../core/context'
-import type { EffectPreview, EffectResult } from '../../core/effect'
+import type { SimContext } from "../../core/context";
+import type { EffectPreview, EffectResult } from "../../core/effect";
 import type {
   AreaState,
   CustomerGroupState,
@@ -7,18 +7,27 @@ import type {
   StaffState,
   StockState,
   TavernState,
-} from '../../state/TavernState'
-import type { MemoryDraft } from '../memories/memoryTypes'
-import { addCoin, spendCoin } from '../stock/ledger'
+  TeleologyEntry,
+  TransformationState,
+} from "../../state/TavernState";
+import type { MemoryDraft } from "../memories/memoryTypes";
+import { addCoin, spendCoin } from "../stock/ledger";
 
-import type { EffectApplier, ApplyOrigin, ApplierLog } from './applyResponseProfile'
+import type {
+  EffectApplier,
+  ApplyOrigin,
+  ApplierLog,
+} from "./applyResponseProfile";
 import type {
   PendingResponseEntry,
   ResolvedIntentRecord,
   ResponsesModuleState,
-} from './types'
-import { createInitialResponsesModuleState, RESPONSES_MODULE_ID } from './types'
-import { makePendingId } from './pendingHelpers'
+} from "./types";
+import {
+  createInitialResponsesModuleState,
+  RESPONSES_MODULE_ID,
+} from "./types";
+import { makePendingId } from "./pendingHelpers";
 
 // Phase 41 / ISSUE-001 — engine-path applier.
 //
@@ -31,19 +40,19 @@ import { makePendingId } from './pendingHelpers'
 // The drain hook in `responsesModule` reuses this applier to fire
 // already-enqueued pending entries when their `scheduledFor` arrives.
 
-const CLAMP_MIN = 0
-const CLAMP_MAX = 100
+const CLAMP_MIN = 0;
+const CLAMP_MAX = 100;
 
 function clamp(value: number, lo = CLAMP_MIN, hi = CLAMP_MAX): number {
-  return Math.max(lo, Math.min(hi, value))
+  return Math.max(lo, Math.min(hi, value));
 }
 
 function readSlice(state: TavernState): ResponsesModuleState {
   const current = (state.modules as Record<string, unknown>)[
     RESPONSES_MODULE_ID
-  ] as ResponsesModuleState | undefined
-  const defaults = createInitialResponsesModuleState()
-  return current ? { ...defaults, ...current } : defaults
+  ] as ResponsesModuleState | undefined;
+  const defaults = createInitialResponsesModuleState();
+  return current ? { ...defaults, ...current } : defaults;
 }
 
 function writeSlice(
@@ -54,14 +63,14 @@ function writeSlice(
   ctx.modifyModuleState<ResponsesModuleState>(
     RESPONSES_MODULE_ID,
     (current) => {
-      const defaults = createInitialResponsesModuleState()
+      const defaults = createInitialResponsesModuleState();
       const base: ResponsesModuleState = current
         ? { ...defaults, ...current }
-        : defaults
-      return patch(base)
+        : defaults;
+      return patch(base);
     },
-    { source: 'responses', reason },
-  )
+    { source: "responses", reason },
+  );
 }
 
 /** Apply one immediate effect to live state via ctx helpers. Returns
@@ -71,240 +80,356 @@ export function applyEffectViaCtx(
   preview: EffectPreview,
   origin: ApplyOrigin,
 ): EffectResult {
-  const source = `response.${origin.verb}`
-  const readable = preview.readable
+  const source = `response.${origin.verb}`;
+  const readable = preview.readable;
 
   // Pressure
-  if (preview.kind === 'pressure') {
-    const id = preview.target.replace(/^pressure:/, '')
-    const existing = ctx.state.pressures[id]
+  if (preview.kind === "pressure") {
+    const id = preview.target.replace(/^pressure:/, "");
+    const existing = ctx.state.pressures[id];
     if (!existing) {
       return {
         ...preview,
         applied: false,
         notes: [`unknown pressure ${id}`],
-      }
+      };
     }
-    const delta = preview.amount ?? 0
-    if (delta === 0) return { ...preview, applied: true }
+    const delta = preview.amount ?? 0;
+    if (delta === 0) return { ...preview, applied: true };
     ctx.modifyPressure(id, delta, {
       source,
       readable,
-      tags: ['response', ...preview.tags],
-    })
-    return { ...preview, applied: true }
+      tags: ["response", ...preview.tags],
+    });
+    return { ...preview, applied: true };
   }
 
   // Cause: emit through ctx.addCause so it lands in state.causes.
-  if (preview.kind === 'cause') {
-    const amount = preview.amount ?? 0
+  if (preview.kind === "cause") {
+    const amount = preview.amount ?? 0;
     const direction =
-      amount > 0 ? 'increase' : amount < 0 ? 'decrease' : 'neutral'
+      amount > 0 ? "increase" : amount < 0 ? "decrease" : "neutral";
     ctx.addCause({
       source,
-      sourceType: 'system',
+      sourceType: "system",
       target: preview.target,
-      targetType: 'global',
+      targetType: "global",
       amount,
       direction,
       weight: Math.abs(amount),
       readable,
-      tags: ['response', ...preview.tags],
-    })
-    return { ...preview, applied: true, notes: ['cause emitted'] }
+      tags: ["response", ...preview.tags],
+    });
+    return { ...preview, applied: true, notes: ["cause emitted"] };
   }
 
   // Memory: route through ctx.addMemory (stacking dispatch lives there).
-  if (preview.kind === 'memory') {
+  if (preview.kind === "memory") {
     try {
       ctx.addMemory({
         id: preview.target,
         source,
-        tags: ['response', ...preview.tags],
-      })
-      return { ...preview, applied: true, notes: ['memory added'] }
+        tags: ["response", ...preview.tags],
+      });
+      return { ...preview, applied: true, notes: ["memory added"] };
     } catch (err) {
       return {
         ...preview,
         applied: false,
         notes: [`addMemory failed: ${(err as Error).message}`],
-      }
+      };
     }
   }
 
   // State change — dispatch by target prefix.
-  if (preview.kind !== 'state_change') {
+  if (preview.kind !== "state_change") {
     return {
       ...preview,
       applied: false,
       notes: [`unsupported effect kind ${preview.kind}`],
-    }
+    };
   }
 
-  const amount = preview.amount ?? 0
-  const path = preview.target
+  const amount = preview.amount ?? 0;
+  const path = preview.target;
 
-  if (path === 'coin') {
-    if (amount === 0) return { ...preview, applied: true }
+  if (path === "coin") {
+    if (amount === 0) return { ...preview, applied: true };
     const meta = {
       source,
       readable,
-      tags: ['response', ...preview.tags],
-      category: 'other' as const,
-    }
+      tags: ["response", ...preview.tags],
+      category: "other" as const,
+    };
     if (amount > 0) {
-      addCoin(ctx, amount, meta)
+      addCoin(ctx, amount, meta);
     } else {
-      spendCoin(ctx, -amount, meta)
+      spendCoin(ctx, -amount, meta);
     }
-    return { ...preview, applied: true }
+    return { ...preview, applied: true };
   }
 
-  if (path.startsWith('areas.')) {
-    const [, id, field] = path.split('.') as [string, string, keyof AreaState]
-    const area = ctx.state.areas[id]
+  if (path.startsWith("areas.")) {
+    const [, id, field] = path.split(".") as [string, string, keyof AreaState];
+    const area = ctx.state.areas[id];
     if (!area) {
-      return { ...preview, applied: false, notes: [`unknown area ${id}`] }
+      return { ...preview, applied: false, notes: [`unknown area ${id}`] };
     }
-    if (typeof area[field] !== 'number') {
+    if (typeof area[field] !== "number") {
       return {
         ...preview,
         applied: false,
         notes: [`unsupported area field ${field}`],
-      }
+      };
     }
     const isClamped =
-      field === 'condition' ||
-      field === 'cleanliness' ||
-      field === 'mess' ||
-      field === 'damage' ||
-      field === 'smell' ||
-      field === 'risk'
-    const before = area[field] as number
-    const raw = before + amount
-    const next = isClamped ? clamp(raw) : raw
-    ctx.modifyArea(
-      id,
-      { [field]: next } as Partial<AreaState>,
-      { source, readable, tags: ['response', ...preview.tags] },
-    )
-    return { ...preview, applied: true }
+      field === "condition" ||
+      field === "cleanliness" ||
+      field === "mess" ||
+      field === "damage" ||
+      field === "smell" ||
+      field === "risk";
+    const before = area[field] as number;
+    const raw = before + amount;
+    const next = isClamped ? clamp(raw) : raw;
+    ctx.modifyArea(id, { [field]: next } as Partial<AreaState>, {
+      source,
+      readable,
+      tags: ["response", ...preview.tags],
+    });
+    return { ...preview, applied: true };
   }
 
-  if (path.startsWith('stock.')) {
-    const [, id, field] = path.split('.') as [string, string, keyof StockState]
-    const item = ctx.state.stock[id]
+  if (path.startsWith("stock.")) {
+    const [, id, field] = path.split(".") as [string, string, keyof StockState];
+    const item = ctx.state.stock[id];
     if (!item) {
-      return { ...preview, applied: false, notes: [`unknown stock ${id}`] }
+      return { ...preview, applied: false, notes: [`unknown stock ${id}`] };
     }
-    let next: number | undefined
-    if (field === 'quantity') {
-      next = Math.max(0, item.quantity + amount)
-    } else if (field === 'quality' || field === 'spoilage') {
-      next = clamp((item[field] as number) + amount)
-    } else if (field === 'salePrice' || field === 'basePrice') {
-      next = Math.max(0, (item[field] as number) + amount)
+    let next: number | undefined;
+    if (field === "quantity") {
+      next = Math.max(0, item.quantity + amount);
+    } else if (field === "quality" || field === "spoilage") {
+      next = clamp((item[field] as number) + amount);
+    } else if (field === "salePrice" || field === "basePrice") {
+      next = Math.max(0, (item[field] as number) + amount);
     } else {
       return {
         ...preview,
         applied: false,
         notes: [`unsupported stock field ${field}`],
-      }
+      };
     }
-    ctx.modifyStock(
-      id,
-      { [field]: next } as Partial<StockState>,
-      { source, readable, tags: ['response', ...preview.tags] },
-    )
-    return { ...preview, applied: true }
+    ctx.modifyStock(id, { [field]: next } as Partial<StockState>, {
+      source,
+      readable,
+      tags: ["response", ...preview.tags],
+    });
+    return { ...preview, applied: true };
   }
 
-  if (path.startsWith('staff.')) {
-    const [, id, field] = path.split('.') as [string, string, keyof StaffState]
-    const member = ctx.state.staff[id]
+  if (path.startsWith("staff.")) {
+    const [, id, field] = path.split(".") as [string, string, keyof StaffState];
+    const member = ctx.state.staff[id];
     if (!member) {
-      return { ...preview, applied: false, notes: [`unknown staff ${id}`] }
+      return { ...preview, applied: false, notes: [`unknown staff ${id}`] };
     }
     if (
-      field !== 'morale' &&
-      field !== 'stress' &&
-      field !== 'fatigue' &&
-      field !== 'loyalty' &&
-      field !== 'skill'
+      field !== "morale" &&
+      field !== "stress" &&
+      field !== "fatigue" &&
+      field !== "loyalty" &&
+      field !== "skill"
     ) {
       return {
         ...preview,
         applied: false,
         notes: [`unsupported staff field ${field}`],
-      }
+      };
     }
-    const next = clamp((member[field] as number) + amount)
-    ctx.modifyStaff(
-      id,
-      { [field]: next } as Partial<StaffState>,
-      { source, readable, tags: ['response', ...preview.tags] },
-    )
-    return { ...preview, applied: true }
+    const next = clamp((member[field] as number) + amount);
+    ctx.modifyStaff(id, { [field]: next } as Partial<StaffState>, {
+      source,
+      readable,
+      tags: ["response", ...preview.tags],
+    });
+    return { ...preview, applied: true };
   }
 
-  if (path.startsWith('customers.')) {
-    const [, id, field] = path.split('.') as [
+  if (path.startsWith("customers.")) {
+    const [, id, field] = path.split(".") as [
       string,
       string,
       keyof CustomerGroupState,
-    ]
-    const group = ctx.state.customerGroups[id]
+    ];
+    const group = ctx.state.customerGroups[id];
     if (!group) {
       return {
         ...preview,
         applied: false,
         notes: [`unknown customer ${id}`],
-      }
+      };
     }
     if (
-      field !== 'satisfaction' &&
-      field !== 'patronage' &&
-      field !== 'loyalty' &&
-      field !== 'rowdiness'
+      field !== "satisfaction" &&
+      field !== "patronage" &&
+      field !== "loyalty" &&
+      field !== "rowdiness"
     ) {
       return {
         ...preview,
         applied: false,
         notes: [`unsupported customer field ${field}`],
-      }
+      };
     }
-    const next = clamp((group[field] as number) + amount)
+    const next = clamp((group[field] as number) + amount);
     ctx.modifyCustomerGroup(
       id,
       { [field]: next } as Partial<CustomerGroupState>,
-      { source, readable, tags: ['response', ...preview.tags] },
-    )
-    return { ...preview, applied: true }
+      { source, readable, tags: ["response", ...preview.tags] },
+    );
+    return { ...preview, applied: true };
   }
 
-  if (path.startsWith('reputation.')) {
-    const [, axis] = path.split('.') as [string, keyof ReputationState]
-    const current = ctx.state.reputation[axis]
+  if (path.startsWith("ventures.")) {
+    const [, id, field] = path.split(".") as [
+      string,
+      string,
+      keyof TeleologyEntry,
+    ];
+    const entry = ctx.state.ventures[id];
+    if (!entry)
+      return { ...preview, applied: false, notes: [`unknown venture ${id}`] };
+    if (field === "progress") {
+      ctx.modifyVenture(
+        id,
+        {
+          progress: Math.max(0, entry.progress + amount),
+          updatedAtDay: ctx.state.calendar.totalDaysElapsed,
+        },
+        { source, readable, tags: ["response", ...preview.tags] },
+      );
+      return { ...preview, applied: true };
+    }
+    if (field === "stage" || field === "status") {
+      const value = preview.tags
+        .find((tag) => tag.startsWith(`${String(field)}:`))
+        ?.slice(String(field).length + 1);
+      if (!value)
+        return {
+          ...preview,
+          applied: false,
+          notes: [`missing ${String(field)} tag`],
+        };
+      ctx.modifyVenture(
+        id,
+        {
+          [field]: value,
+          updatedAtDay: ctx.state.calendar.totalDaysElapsed,
+        } as Partial<TeleologyEntry>,
+        { source, readable, tags: ["response", ...preview.tags] },
+      );
+      return { ...preview, applied: true };
+    }
+    return {
+      ...preview,
+      applied: false,
+      notes: [`unsupported venture field ${String(field)}`],
+    };
+  }
+
+  if (path.startsWith("arcs.")) {
+    const [, id, field] = path.split(".") as [
+      string,
+      string,
+      keyof TeleologyEntry,
+    ];
+    const entry = ctx.state.arcs[id];
+    if (!entry)
+      return { ...preview, applied: false, notes: [`unknown arc ${id}`] };
+    if (field === "progress") {
+      ctx.modifyArc(
+        id,
+        {
+          progress: Math.max(0, entry.progress + amount),
+          updatedAtDay: ctx.state.calendar.totalDaysElapsed,
+        },
+        { source, readable, tags: ["response", ...preview.tags] },
+      );
+      return { ...preview, applied: true };
+    }
+    if (field === "stage" || field === "status") {
+      const value = preview.tags
+        .find((tag) => tag.startsWith(`${String(field)}:`))
+        ?.slice(String(field).length + 1);
+      if (!value)
+        return {
+          ...preview,
+          applied: false,
+          notes: [`missing ${String(field)} tag`],
+        };
+      ctx.modifyArc(
+        id,
+        {
+          [field]: value,
+          updatedAtDay: ctx.state.calendar.totalDaysElapsed,
+        } as Partial<TeleologyEntry>,
+        { source, readable, tags: ["response", ...preview.tags] },
+      );
+      return { ...preview, applied: true };
+    }
+    return {
+      ...preview,
+      applied: false,
+      notes: [`unsupported arc field ${String(field)}`],
+    };
+  }
+
+  if (path.startsWith("transformations.")) {
+    const [, id, field] = path.split(".") as [
+      string,
+      string,
+      keyof TransformationState,
+    ];
+    if (field !== "active")
+      return {
+        ...preview,
+        applied: false,
+        notes: [`unsupported transformation field ${String(field)}`],
+      };
+    ctx.modifyTransformation(
+      id,
+      amount >= 0
+        ? { active: true, activatedAtDay: ctx.state.calendar.totalDaysElapsed }
+        : { active: false },
+      { source, readable, tags: ["response", ...preview.tags] },
+    );
+    return { ...preview, applied: true };
+  }
+
+  if (path.startsWith("reputation.")) {
+    const [, axis] = path.split(".") as [string, keyof ReputationState];
+    const current = ctx.state.reputation[axis];
     if (current === undefined) {
       return {
         ...preview,
         applied: false,
         notes: [`unknown reputation axis ${String(axis)}`],
-      }
+      };
     }
     const next: ReputationState = {
       ...ctx.state.reputation,
       [axis]: clamp((current as number) + amount),
-    }
+    };
     ctx.modifyReputation(next, {
       source,
       readable,
-      tags: ['response', ...preview.tags],
-    })
-    return { ...preview, applied: true }
+      tags: ["response", ...preview.tags],
+    });
+    return { ...preview, applied: true };
   }
 
-  return { ...preview, applied: false, notes: [`unsupported target ${path}`] }
+  return { ...preview, applied: false, notes: [`unsupported target ${path}`] };
 }
 
 export function applyMemoryDraftViaCtx(
@@ -312,9 +437,9 @@ export function applyMemoryDraftViaCtx(
   draft: MemoryDraft,
   origin: ApplyOrigin,
 ): void {
-  const source = draft.source ?? `response.${origin.verb}`
+  const source = draft.source ?? `response.${origin.verb}`;
   try {
-    ctx.addMemory({ ...draft, source })
+    ctx.addMemory({ ...draft, source });
   } catch {
     // Memory layer rejects unknown ids in some configurations; keep
     // best-effort behavior so a missing definition does not crash the
@@ -333,7 +458,7 @@ export function enqueuePendingViaCtx(
       pending: [...current.pending, entry],
     }),
     `enqueue_${entry.payload.kind}`,
-  )
+  );
 }
 
 export function recordResolvedIntent(
@@ -347,8 +472,8 @@ export function recordResolvedIntent(
       resolvedToday: [...current.resolvedToday, record],
       totalResolved: current.totalResolved + 1,
     }),
-    'intent_resolved',
-  )
+    "intent_resolved",
+  );
 }
 
 export function recordPendingApplied(ctx: SimContext, id: string): void {
@@ -359,8 +484,8 @@ export function recordPendingApplied(ctx: SimContext, id: string): void {
       appliedFromPendingToday: [...current.appliedFromPendingToday, id],
       totalApplied: current.totalApplied + 1,
     }),
-    'pending_applied',
-  )
+    "pending_applied",
+  );
 }
 
 export function recordPendingExpired(ctx: SimContext, id: string): void {
@@ -371,21 +496,24 @@ export function recordPendingExpired(ctx: SimContext, id: string): void {
       expiredFromPendingToday: [...current.expiredFromPendingToday, id],
       totalExpired: current.totalExpired + 1,
     }),
-    'pending_expired',
-  )
+    "pending_expired",
+  );
 }
 
-export function removeFromPending(ctx: SimContext, ids: ReadonlyArray<string>): void {
-  if (ids.length === 0) return
-  const drop = new Set(ids)
+export function removeFromPending(
+  ctx: SimContext,
+  ids: ReadonlyArray<string>,
+): void {
+  if (ids.length === 0) return;
+  const drop = new Set(ids);
   writeSlice(
     ctx,
     (current) => ({
       ...current,
       pending: current.pending.filter((p) => !drop.has(p.id)),
     }),
-    'pending_drained',
-  )
+    "pending_drained",
+  );
 }
 
 export function createCtxApplier(ctx: SimContext): EffectApplier {
@@ -395,26 +523,26 @@ export function createCtxApplier(ctx: SimContext): EffectApplier {
       // Read+bump suffix on the slice. modifyModuleState callback runs
       // synchronously, so the suffix is visible immediately to the
       // next call within this same response apply pass.
-      let id = ''
+      let id = "";
       writeSlice(
         ctx,
         (current) => {
-          const suffix = current.nextPendingSuffix
-          id = makePendingId(today, suffix)
-          return { ...current, nextPendingSuffix: suffix + 1 }
+          const suffix = current.nextPendingSuffix;
+          id = makePendingId(today, suffix);
+          return { ...current, nextPendingSuffix: suffix + 1 };
         },
-        'mint_pending_id',
-      )
-      return id
+        "mint_pending_id",
+      );
+      return id;
     },
     applyImmediateEffect(effect, origin) {
-      return applyEffectViaCtx(ctx, effect, origin)
+      return applyEffectViaCtx(ctx, effect, origin);
     },
     applyMemoryDraft(draft, origin) {
-      applyMemoryDraftViaCtx(ctx, draft, origin)
+      applyMemoryDraftViaCtx(ctx, draft, origin);
     },
     enqueuePending(entry) {
-      enqueuePendingViaCtx(ctx, entry)
+      enqueuePendingViaCtx(ctx, entry);
     },
     recordSynthesizedCause(_record) {
       // The engine path already emits the cause via the ctx mutator
@@ -424,18 +552,22 @@ export function createCtxApplier(ctx: SimContext): EffectApplier {
       // state.causes by the time recordSynthesizedCause is called.
     },
     log(entry: ApplierLog) {
-      const log: { message: string; level: 'warn' | 'info'; data?: Record<string, unknown> } = {
+      const log: {
+        message: string;
+        level: "warn" | "info";
+        data?: Record<string, unknown>;
+      } = {
         message: entry.message,
-        level: entry.level === 'warn' ? 'warn' : 'info',
-      }
-      if (entry.data) log.data = entry.data
-      ctx.addLog(log, 'responses')
+        level: entry.level === "warn" ? "warn" : "info",
+      };
+      if (entry.data) log.data = entry.data;
+      ctx.addLog(log, "responses");
     },
-  }
+  };
 }
 
 export {
   RESPONSES_MODULE_ID,
   readSlice as readResponsesSlice,
   writeSlice as writeResponsesSlice,
-}
+};

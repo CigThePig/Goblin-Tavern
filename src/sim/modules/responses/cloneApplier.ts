@@ -26,6 +26,7 @@ import {
   createInitialResponsesModuleState,
 } from "./types";
 import { makePendingId } from "./pendingHelpers";
+import { getVentureBlueprint } from "../ventures/ventureCatalog";
 
 // Phase 41 / ISSUE-001 — pure-resolver applier.
 //
@@ -210,8 +211,22 @@ function applyStateChange(
     const [, id, field] = path.split(".") as [
       string,
       string,
-      keyof TeleologyEntry,
+      keyof TeleologyEntry | "spawn",
     ];
+    // Teleology Phase 2 — spawn the venture for this blueprint when an
+    // opening's "pursue" response commits. Mirrors the engine-path applier.
+    if (field === "spawn") {
+      if (state.ventures[id]) return { ...preview, applied: true };
+      const blueprint = getVentureBlueprint(id);
+      if (!blueprint)
+        return {
+          ...preview,
+          applied: false,
+          notes: [`unknown venture blueprint ${id}`],
+        };
+      state.ventures[id] = blueprint.createEntry(state.calendar.totalDaysElapsed);
+      return { ...preview, applied: true };
+    }
     const entry = state.ventures[id];
     if (!entry)
       return { ...preview, applied: false, notes: [`unknown venture ${id}`] };

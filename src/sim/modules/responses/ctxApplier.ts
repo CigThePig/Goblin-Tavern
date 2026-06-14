@@ -28,6 +28,7 @@ import {
   RESPONSES_MODULE_ID,
 } from "./types";
 import { makePendingId } from "./pendingHelpers";
+import { getVentureBlueprint } from "../ventures/ventureCatalog";
 
 // Phase 41 / ISSUE-001 — engine-path applier.
 //
@@ -295,8 +296,27 @@ export function applyEffectViaCtx(
     const [, id, field] = path.split(".") as [
       string,
       string,
-      keyof TeleologyEntry,
+      keyof TeleologyEntry | "spawn",
     ];
+    // Commit a "pursue" response on an opening: spawn the venture for this
+    // blueprint (teleology Phase 2). Spawning requires the entry NOT to
+    // exist yet, so this case precedes the existing-entry guard. Idempotent
+    // — re-applying when the venture already exists is a no-op success.
+    if (field === "spawn") {
+      if (ctx.state.ventures[id]) return { ...preview, applied: true };
+      const blueprint = getVentureBlueprint(id);
+      if (!blueprint)
+        return {
+          ...preview,
+          applied: false,
+          notes: [`unknown venture blueprint ${id}`],
+        };
+      ctx.addVenture(
+        blueprint.createEntry(ctx.state.calendar.totalDaysElapsed),
+        { source, readable, tags: ["response", ...preview.tags] },
+      );
+      return { ...preview, applied: true };
+    }
     const entry = ctx.state.ventures[id];
     if (!entry)
       return { ...preview, applied: false, notes: [`unknown venture ${id}`] };

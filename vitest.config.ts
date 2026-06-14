@@ -25,6 +25,7 @@ const HEAVY_TEST_GLOBS = [
   'tests/sim/phase91.monthlyPersistence.test.ts',
   'tests/reports/monthlyOverviewProjection.test.ts',
   'tests/sim/teleologyPhase1.heavy.test.ts',
+  'tests/sim/teleologyPhase2.heavy.test.ts',
 ]
 
 const TIER = process.env.TEST_TIER ?? 'all'

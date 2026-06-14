@@ -17,6 +17,7 @@ import {
   rankSeeds,
 } from './issueSeedRanking'
 import { validateSeed, validateSeedAgainstState } from './issueSeedValidation'
+import { applyHandBudget } from './handBudget'
 import { EXPANDED_ISSUE_SEED_FAMILIES } from './issueSeedTypes'
 import { buildIssueSeedReport } from './issueSeedReport'
 import { shouldSurfaceAsIssueSeed } from './fairness'
@@ -226,7 +227,11 @@ function runGenerationPass(
     )
   }
 
-  const ranked = rankSeeds([...existingSeeds, ...accepted])
+  // Phase 2 (teleology) — bound the hand to a budget, reserving slots for
+  // teleology vs triage seeds, sim-side for replay determinism. Applied
+  // after ranking on the accumulated union so each segment-local pass holds
+  // the hand within budget.
+  const ranked = applyHandBudget(rankSeeds([...existingSeeds, ...accepted]))
 
   writeSlice(
     ctx,

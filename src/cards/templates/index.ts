@@ -43,6 +43,7 @@ import { rivalTavernCard } from './rivalTavern'
 import { monthlyReviewCard } from './monthlyReview'
 import { seasonalArcCard } from './seasonalArc'
 import { ventureCard } from './venture'
+import { openingCard } from './opening'
 import { drinkOrderCard } from './drinkOrder'
 import { staffAsideCard } from './staffAside'
 import { fallbackCard, FALLBACK_CARD_ID } from './fallback'
@@ -68,6 +69,7 @@ export const REQUIRED_CARDS: ReadonlyArray<CardDefinition> = [
   monthlyReviewCard,
   seasonalArcCard,
   ventureCard,
+  openingCard,
   drinkOrderCard,
   staffAsideCard,
   fallbackCard,
@@ -94,6 +96,7 @@ export {
   monthlyReviewCard,
   seasonalArcCard,
   ventureCard,
+  openingCard,
   drinkOrderCard,
   staffAsideCard,
   fallbackCard,

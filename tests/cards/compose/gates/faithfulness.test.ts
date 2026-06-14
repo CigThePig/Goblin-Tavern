@@ -62,10 +62,12 @@ describe('Phase 167 — Faithfulness audit (live, runCardlessSim renders)', () =
 
   it('renders a meaningful number of cards — canary floor', () => {
     const report = checkFaithfulness({ samples: FAITHFULNESS_SAMPLES })
-    // The original ad-hoc audit was 2,578 cards. Floor a little under our
-    // measured count so a future seed-rate change doesn't silently render
-    // nothing and pass vacuously.
-    expect(report.observed.samplesEvaluated).toBeGreaterThanOrEqual(2000)
+    // The original ad-hoc audit was 2,578 cards. Teleology Phase 2 added a
+    // sim-side hand-composition budget (`handBudget.ts`) that bounds each
+    // day's hand and reserves teleology/triage slots, lowering the measured
+    // count to ~1,785. Floor a little under that so a future seed-rate change
+    // doesn't silently render nothing and pass vacuously.
+    expect(report.observed.samplesEvaluated).toBeGreaterThanOrEqual(1500)
   })
 
   it('exercises the direction and distress checks on real samples (not vacuous)', () => {

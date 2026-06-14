@@ -26,7 +26,7 @@ import {
 
 /** The migrated templates the harnesses must cover — every `REQUIRED_CARDS`
  *  entry except the catch-all fallback. */
-const NON_COMPOSITIONAL_CARD_IDS = new Set([FALLBACK_CARD_ID, 'venture.current_stage'])
+const NON_COMPOSITIONAL_CARD_IDS = new Set([FALLBACK_CARD_ID, 'venture.current_stage', 'opening.opportunity'])
 const REQUIRED_IDS: readonly string[] = REQUIRED_CARDS.map((c) => c.id).filter(
   (id) => !NON_COMPOSITIONAL_CARD_IDS.has(id),
 )

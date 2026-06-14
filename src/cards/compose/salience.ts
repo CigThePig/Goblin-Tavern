@@ -88,6 +88,17 @@ export const SALIENCE_TABLES: Partial<
     ],
   },
 
+  // Teleology Phase 2 — openings (the world offering opportunities). Leads
+  // with the teleology tag, then whether this is a causally-returned offer
+  // (more decision-relevant than a fresh one), then opening memories.
+  opening: {
+    reads: [
+      { kind: 'hasTag', tag: 'teleology' },
+      { kind: 'hasTag', tag: 'opening' },
+      { kind: 'memory', tag: 'opening' },
+    ],
+  },
+
   supplier_relationship: {
     reads: [
       { kind: 'signal', role: 'primaryActor', signal: 'supplier.reliability' },

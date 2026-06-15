@@ -47,6 +47,7 @@ import type { CalendarState } from '../../../../src/sim/modules/calendar/types'
 import type { SimInput } from '../../../../src/sim/core/context'
 import type { SimResult } from '../../../../src/sim/core/result'
 import type { IssueSeed } from '../../../../src/sim/modules/issues/issueSeedTypes'
+import { getResolvableSeedsToday } from '../../../../src/sim/modules/issues/issueSeedQueries'
 import {
   DAY_MINUTES,
   formatDuration,
@@ -573,6 +574,20 @@ class GameStore {
   /** Seeds filtered to a single timing slot. */
   seedsForTiming(timing: IssueSeed['timing']): IssueSeed[] {
     return this.todaysSeeds.filter((s) => s.timing === timing)
+  }
+
+  /**
+   * Phase 2 (teleology) — every seed resolvable by a response today: the
+   * visible hand (`seedsToday`) UNIONED with seeds surfaced in an earlier
+   * generation pass but displaced from the budgeted hand by a later,
+   * higher-ranked seed (`surfacedToday`). Response-intent construction reads
+   * this — NOT `todaysSeeds` — so a choice the player made against a card
+   * that Segment B later displaced from the visible hand still produces an
+   * intent (matching the engine's `getResolvableSeedsToday` lookup). Display
+   * surfaces keep reading `todaysSeeds` (the budgeted visible hand).
+   */
+  get resolvableSeeds(): IssueSeed[] {
+    return getResolvableSeedsToday(this.state)
   }
 
   /**

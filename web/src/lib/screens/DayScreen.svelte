@@ -54,7 +54,7 @@
   import { formatDuration } from '../sim/actionBuilder'
   import { gameStore, type ActionPickerRequest } from '../sim/gameStore.svelte'
   import { prefsStore } from '../prefs/prefsStore.svelte'
-  import { buildIntent, buildIgnoreIntent } from '../sim/intentBuilder'
+  import { buildResponseIntents } from '../sim/intentBuilder'
   import { buildDailyReport } from '../../../../src/reports/index'
   import {
     projectYesterdayDigest,
@@ -340,16 +340,19 @@
     // these all resolve against seeds produced earlier today). Segment C
     // applies them, runs the rollups, and builds the report. Picks and
     // staffPriorities were already consumed by Segment B.
-    const intents: ResponseIntent[] = []
-    for (const seed of [...morningSeeds, ...serviceSeeds, ...closingSeeds]) {
-      const pending = pendingBySeedId[seed.id]
-      if (!pending) continue
-      if (pending.kind === 'ignore') {
-        intents.push(buildIgnoreIntent(seed))
-      } else {
-        intents.push(buildIntent(seed, pending.choice))
-      }
-    }
+    //
+    // Phase 2 (teleology) — build against the store's RESOLVABLE seed set
+    // (visible hand ∪ surfaced-but-displaced), not the three visible-hand
+    // slices. On a crowded day Segment B can displace a seed from the
+    // budgeted hand after the player chose against its card; iterating only
+    // `morningSeeds/serviceSeeds/closingSeeds` would skip that seed and the
+    // pending choice would be silently dropped (no intent → the engine's
+    // `getResolvableSeedsToday` lookup is never reached). `resolvableSeeds`
+    // keeps the displaced seed's choice resolvable.
+    const intents: ResponseIntent[] = buildResponseIntents(
+      gameStore.resolvableSeeds,
+      pendingBySeedId,
+    )
     // Phase 97 / ISSUE-057 — Catch any throw from the engine (invariants,
     // validation, hook crashes). Without this the click handler dies
     // before `setBeat('report')` runs and the button appears to do

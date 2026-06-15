@@ -18,6 +18,7 @@ import type {
   ResponseIntent,
 } from '../../../../src/sim/modules/issues/issueSeedTypes'
 import type { CardChoice } from '../cards/types'
+import type { PendingChoice } from './daySession'
 
 let counter = 0
 
@@ -55,4 +56,36 @@ export function buildIgnoreIntent(seed: IssueSeed): ResponseIntent {
     intensity: 0,
     metadata: { responseSlotId: 'ignore' },
   }
+}
+
+/**
+ * Phase 2 (teleology) — flush the player's pending day-decisions into the
+ * response intents Segment C consumes. Built against the *resolvable* seed
+ * set (visible hand ∪ surfaced-but-displaced), not the visible hand alone:
+ * on a crowded day the budget can displace a seed from `seedsToday` after
+ * the player already chose against its card, so iterating only the visible
+ * slices would silently drop that valid choice (the engine's
+ * `getResolvableSeedsToday` lookup would never be reached because no intent
+ * was constructed for it). Iterating the resolvable set keeps a displaced
+ * seed's pending choice resolvable, mirroring the engine's `findSeed`.
+ *
+ * Pure so it is unit-testable away from the Svelte component; iterates the
+ * seed set (preserving its ranked order) and emits one intent per seed that
+ * carries a pending decision.
+ */
+export function buildResponseIntents(
+  resolvableSeeds: IssueSeed[],
+  pendingBySeedId: Record<string, PendingChoice>,
+): ResponseIntent[] {
+  const intents: ResponseIntent[] = []
+  for (const seed of resolvableSeeds) {
+    const pending = pendingBySeedId[seed.id]
+    if (!pending) continue
+    if (pending.kind === 'ignore') {
+      intents.push(buildIgnoreIntent(seed))
+    } else {
+      intents.push(buildIntent(seed, pending.choice))
+    }
+  }
+  return intents
 }

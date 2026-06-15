@@ -74,6 +74,7 @@ export type IssueSeedFamilyId =
   | 'opening'
   | 'liquor_compliance'
   | 'licensed_service'
+  | 'staff_arc'
 
 /** Phase 39 §39.1 — the original ten canonical families. */
 export const CORE_ISSUE_SEED_FAMILIES = [
@@ -105,6 +106,7 @@ export const EXPANDED_ISSUE_SEED_FAMILIES = [
   'opening',
   'liquor_compliance',
   'licensed_service',
+  'staff_arc',
 ] as const
 
 export type CoreIssueSeedFamilyId = (typeof CORE_ISSUE_SEED_FAMILIES)[number]

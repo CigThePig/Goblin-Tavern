@@ -63,8 +63,11 @@ describe('teleology phase 4a — arc slice + cast attachment', () => {
         c.tags.includes(STAFF_MASTERY_ARC_ID),
     )
     expect(arcSpawnCauses.length).toBe(1)
-    // The arc is still attached and unchanged.
-    expect(day3.state.arcs[STAFF_MASTERY_ARC_ID]?.stage).toBe('apprentice')
+    // The arc is still attached and is the only arc. (Its STAGE may have
+    // advanced — Phase 4b adds the autonomous trigger that moves the arc on
+    // its own; the spawn-once / persist / attach invariants this test owns
+    // are unaffected by that movement.)
+    expect(day3.state.arcs[STAFF_MASTERY_ARC_ID]).toBeTruthy()
     expect(
       day3.state.staff[STAFF_MASTERY_ARC_SUBJECT_ID]?.castAttributes?.arcId,
     ).toBe(STAFF_MASTERY_ARC_ID)

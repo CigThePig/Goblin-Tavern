@@ -1467,6 +1467,20 @@ function createContext(
         });
       }
     },
+    addArc(arc, meta): void {
+      if (runtime.current.arcs[arc.id]) {
+        throw new Error(`addArc: duplicate arc id '${arc.id}'`);
+      }
+      runtime.current = {
+        ...runtime.current,
+        arcs: { ...runtime.current.arcs, [arc.id]: arc },
+      };
+      addCauseInternal(meta, {
+        target: `arc:${arc.id}`,
+        targetType: "global",
+        tags: ["teleology", "arc", "start", arc.id],
+      });
+    },
     modifyArc(id, changes, meta): void {
       const before = requireRecord<TeleologyEntry>(
         runtime.current.arcs,

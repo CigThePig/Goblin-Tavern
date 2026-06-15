@@ -255,6 +255,9 @@ export const CastAttributesSchema = z.object({
   blindspot: z.string(),
   affinities: z.array(AffinityAxisSchema),
   voice: VoiceProfileSchema,
+  // Phase 4a (teleology) — optional link to a staged arc in `state.arcs`,
+  // tracked alongside loyalty. Optional so pre-4a saves validate untouched.
+  arcId: z.string().optional(),
 });
 
 // Phase 128 / ISSUE-097 — Voiced Surface Phase 2 (Universal Cast).

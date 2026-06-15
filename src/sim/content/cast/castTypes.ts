@@ -45,6 +45,12 @@ export type CastAttributes = {
   blindspot: string
   affinities: AffinityAxis[]
   voice: VoiceProfile
+  // Phase 4a (teleology) — optional link from a cast member to a staged
+  // arc entry in `state.arcs`. An arc is a trajectory tracked *alongside*
+  // the existing 0–100 loyalty meter, never a replacement for it; absence
+  // means the character carries no arc yet. The reverse lookup (arc →
+  // subject) lives on the arc entry's `subject:<castId>` tag.
+  arcId?: string
 }
 
 // Phase 128 / ISSUE-097 — Voiced Surface Phase 2 (Universal Cast).

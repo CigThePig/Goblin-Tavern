@@ -101,6 +101,7 @@ function makeReadOnlyCtx(state: TavernState): SimContext {
     modifyPressure: refuse("modifyPressure"),
     addVenture: refuse("addVenture"),
     modifyVenture: refuse("modifyVenture"),
+    addArc: refuse("addArc"),
     modifyArc: refuse("modifyArc"),
     modifyTransformation: refuse("modifyTransformation"),
     getDiff: () => undefined,

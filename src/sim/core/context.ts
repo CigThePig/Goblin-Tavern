@@ -310,6 +310,7 @@ export type SimContext = {
     changes: Partial<TeleologyEntry>,
     meta: MutationMeta,
   ): void;
+  addArc(arc: TeleologyEntry, meta: MutationMeta): void;
   modifyArc(
     id: string,
     changes: Partial<TeleologyEntry>,

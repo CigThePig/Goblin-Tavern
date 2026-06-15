@@ -42,10 +42,12 @@ describe('salience completeness', () => {
     )
   })
 
-  it('there are 22 active families and all are covered', () => {
+  it('there are 24 active families and all are covered', () => {
     // Sanity: the union of generator families is the full roster (21 entropy/
-    // venture families + the teleology `opening` family added in Phase 2).
-    expect(ACTIVE_FAMILIES.length).toBe(22)
+    // venture families + the teleology `opening` family added in Phase 2
+    // + the two transformation-gated families added in Phase 3:
+    // `liquor_compliance` (retirable) and `licensed_service` (locked)).
+    expect(ACTIVE_FAMILIES.length).toBe(24)
     expect(ACTIVE_FAMILIES.every((f) => SALIENCE_TABLES[f] !== undefined)).toBe(true)
   })
 

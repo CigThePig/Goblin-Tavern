@@ -51,6 +51,10 @@ import { recencyPenalty, recordPick } from './seedRotation'
 import { EXPANDED_SEED_GENERATORS } from './expandedSeedGenerators'
 import { ventureIssueSeedGenerator } from '../ventures/ventureIssueSeeds'
 import { openingIssueSeedGenerator } from '../openings/openingIssueSeeds'
+import {
+  generateLiquorCompliance,
+  generateLicensedService,
+} from './transformationGatedGenerators'
 // Phase 85 / ISSUE-045 — shared mechanical-descriptor pool. Used by
 // the violence generator's text ingredients (and any future family
 // that wants a stable severity-flavoured noun without inventing card
@@ -4323,11 +4327,30 @@ export const REQUIRED_SEED_GENERATORS: IssueSeedGenerator[] = [
 // regulars, factions, cultures, arcs, policies) self-skip when those
 // entities aren't present, so the expanded set is safe to register on
 // every initialization.
+//
+// Phase 3 (teleology) — transformation-gated generators. These are
+// registered unconditionally; they gate themselves via
+// `getActiveTransformationTags` so they safely no-op when the
+// corresponding transformation is absent or not yet active.
 export const ALL_SEED_GENERATORS: IssueSeedGenerator[] = [
   ...REQUIRED_SEED_GENERATORS,
   ...EXPANDED_SEED_GENERATORS,
   ventureIssueSeedGenerator,
   openingIssueSeedGenerator,
+  {
+    id: 'liquor_compliance_unlicensed_risk',
+    family: 'liquor_compliance',
+    domain: ['inspection', 'compliance', 'stock'],
+    timing: ['morning_prep'],
+    generate: generateLiquorCompliance,
+  },
+  {
+    id: 'licensed_service_opportunity',
+    family: 'licensed_service',
+    domain: ['teleology', 'service', 'licensed_service'],
+    timing: ['morning_prep'],
+    generate: generateLicensedService,
+  },
 ]
 
 let initialized = false

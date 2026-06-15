@@ -663,6 +663,47 @@ export const SALIENCE_TABLES: Partial<
       { kind: 'repeat', subjectTag: 'policy', atLeast: 3 },
     ],
   },
+
+  // Phase 3 (teleology) — transformation-gated families. These are
+  // narrator-voiced (primaryActor is a `system` ref with no castAttributes).
+  // Reads are pressure / memory / hasTag / severity / repeat only (Phase 149
+  // narrator shape). No new SalienceRead kinds.
+  //
+  // `liquor_compliance` is a retirable family: fires before the liquor
+  // licence is active; retired once the `liquor_license` transformation fires.
+  // Leads with the `compliance` hasTag (categorical what-is-this-about fact),
+  // then inspection pressure (the direct mechanical trigger). Memory order
+  // mirrors the response profiles' emitted tags: `compliance`, `stock`, `ignored`.
+  // `severity >= 70` crisis floor and repeat-count close the rung.
+  //
+  // `licensed_service` is a locked family: locked until the `liquor_license`
+  // transformation fires. Leads with the `teleology` hasTag (categorically an
+  // unlock) and `licensed_service` (the specific unlock kind). Memory order
+  // mirrors the response profiles: `licensed_service`, `reputation`.
+  // `severity >= 70` and repeat-count close.
+  liquor_compliance: {
+    reads: [
+      { kind: 'hasTag', tag: 'compliance' },
+      { kind: 'hasTag', tag: 'risk' },
+      { kind: 'pressure', pressureId: 'inspection' },
+      { kind: 'memory', tag: 'compliance' },
+      { kind: 'memory', tag: 'stock' },
+      { kind: 'memory', tag: 'ignored' },
+      { kind: 'severity', atLeast: 70 },
+      { kind: 'repeat', subjectTag: 'compliance', atLeast: 3 },
+    ],
+  },
+  licensed_service: {
+    reads: [
+      { kind: 'hasTag', tag: 'teleology' },
+      { kind: 'hasTag', tag: 'licensed_service' },
+      { kind: 'hasTag', tag: 'opportunity' },
+      { kind: 'memory', tag: 'licensed_service' },
+      { kind: 'memory', tag: 'reputation' },
+      { kind: 'severity', atLeast: 70 },
+      { kind: 'repeat', subjectTag: 'licensed_service', atLeast: 3 },
+    ],
+  },
 }
 
 /**

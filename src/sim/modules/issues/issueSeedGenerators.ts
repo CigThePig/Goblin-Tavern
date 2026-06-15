@@ -50,6 +50,7 @@ import type { IssueSeedGenerator } from './issueSeedRegistry'
 import { recencyPenalty, recordPick } from './seedRotation'
 import { EXPANDED_SEED_GENERATORS } from './expandedSeedGenerators'
 import { ventureIssueSeedGenerator } from '../ventures/ventureIssueSeeds'
+import { signatureBrewIssueSeedGenerator } from '../ventures/signatureBrewIssueSeeds'
 import { openingIssueSeedGenerator } from '../openings/openingIssueSeeds'
 import { arcIssueSeedGenerator } from '../arcs/arcIssueSeeds'
 import {
@@ -4337,6 +4338,7 @@ export const ALL_SEED_GENERATORS: IssueSeedGenerator[] = [
   ...REQUIRED_SEED_GENERATORS,
   ...EXPANDED_SEED_GENERATORS,
   ventureIssueSeedGenerator,
+  signatureBrewIssueSeedGenerator,
   openingIssueSeedGenerator,
   arcIssueSeedGenerator,
   {

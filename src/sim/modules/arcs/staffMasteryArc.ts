@@ -1,5 +1,9 @@
 import type { TeleologyEntry } from '../../state/TavernState'
-import type { LifecycleDefinition } from '../kernel'
+import type { LifecycleDefinition, LifecycleEffect } from '../kernel'
+import {
+  MASTER_ON_STAFF_TAG,
+  MASTER_ON_STAFF_TRANSFORMATION_ID,
+} from '../teleologyCrossLinks'
 
 // Phase 4b (teleology) — the hardcoded staff-mastery arc now MOVES on its
 // own and FORKS on character state. 4a declared the entry shape with an
@@ -45,6 +49,31 @@ const APPRENTICE_REQUIREMENT = 3
 const JOURNEYMAN_REQUIREMENT = 4
 const STEADY_REQUIREMENT = 4
 
+// Phase 4c (teleology) — the cross-pollination payoff. Every road to
+// `mastered` writes TWO effects: the `mastered` ratchet tag onto the arc
+// itself (4b behaviour, unchanged) AND a `master_on_staff` transformation —
+// a permanent global fact that "behaves like a transformation" (plan
+// §"Phase 4c"). That fact is what reaches back across the teleology machine:
+// a venture stage can gate on it via the kernel's existing
+// `transformation_active` condition, so an arc milestone unlocks a venture
+// stage with no new engine concept. Authored once and reused on both
+// terminal branches so every reachable mastery path produces the fact.
+const MASTERED_EFFECTS: LifecycleEffect[] = [
+  {
+    kind: 'entry_patch',
+    target: 'self',
+    changes: {
+      tags: ['staff_arc', `${STAFF_MASTERY_SUBJECT_TAG_PREFIX}${STAFF_MASTERY_ARC_SUBJECT_ID}`, MASTERED_TAG],
+    },
+  },
+  {
+    kind: 'transformation',
+    id: MASTER_ON_STAFF_TRANSFORMATION_ID,
+    label: 'A master on the staff',
+    tags: [MASTER_ON_STAFF_TAG, 'staff_mastery', 'ratchet'],
+  },
+]
+
 export const staffMasteryArcDefinition: LifecycleDefinition = {
   id: STAFF_MASTERY_ARC_ID,
   milestones: [
@@ -78,7 +107,7 @@ export const staffMasteryArcDefinition: LifecycleDefinition = {
       fallback: {
         nextStage: 'mastered',
         terminal: true,
-        effects: [{ kind: 'entry_patch', target: 'self', changes: { tags: ['staff_arc', `${STAFF_MASTERY_SUBJECT_TAG_PREFIX}${STAFF_MASTERY_ARC_SUBJECT_ID}`, MASTERED_TAG] } }],
+        effects: MASTERED_EFFECTS,
       },
     },
     {
@@ -101,7 +130,7 @@ export const staffMasteryArcDefinition: LifecycleDefinition = {
         // path reaches `mastered` and the arc never loops forever.
         nextStage: 'mastered',
         terminal: true,
-        effects: [{ kind: 'entry_patch', target: 'self', changes: { tags: ['staff_arc', `${STAFF_MASTERY_SUBJECT_TAG_PREFIX}${STAFF_MASTERY_ARC_SUBJECT_ID}`, MASTERED_TAG] } }],
+        effects: MASTERED_EFFECTS,
       },
     },
   ],

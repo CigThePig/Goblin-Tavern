@@ -118,6 +118,7 @@ function runGenerationPass(
   // through `slice` as we go.
   let slice = getSlice(ctx)
   const existingSeeds = slice.seedsToday
+  const baseSurfaced = slice.surfacedToday ?? []
   const baseRejected = slice.rejectedToday
   const baseTotalGenerated = slice.totalGenerated
   const baseTotalRejected = slice.totalRejected
@@ -233,10 +234,23 @@ function runGenerationPass(
   // the hand within budget.
   const ranked = applyHandBudget(rankSeeds([...existingSeeds, ...accepted]))
 
+  // Phase 2 (teleology) — preserve every seed that has been part of the
+  // visible hand at the end of any pass today. The hand budget can displace
+  // an earlier-surfaced seed from `seedsToday` when a later pass adds a
+  // higher-ranked seed, but a card the player was shown must remain
+  // resolvable by `applyResponses`. Union by id, with the latest ranked
+  // version winning for a seed present in both, so a displaced seed survives
+  // here while the visible hand stays budget-bounded.
+  const surfacedById = new Map<string, IssueSeed>()
+  for (const seed of baseSurfaced) surfacedById.set(seed.id, seed)
+  for (const seed of ranked) surfacedById.set(seed.id, seed)
+  const surfacedToday = [...surfacedById.values()]
+
   writeSlice(
     ctx,
     {
       seedsToday: ranked,
+      surfacedToday,
       rejectedToday: [...baseRejected, ...rejected],
       cooldowns: slice.cooldowns,
       totalGenerated: baseTotalGenerated + allCandidates.length,
@@ -255,7 +269,11 @@ function runGenerationPass(
 // so the morning surface is legitimately empty until a closing has run.
 const startDayHook: SimulationHook = (ctx: SimContext): void => {
   ensureRequiredSeedGeneratorsRegistered(issueSeedGeneratorRegistry)
-  writeSlice(ctx, { seedsToday: [], rejectedToday: [] }, 'day_initialize')
+  writeSlice(
+    ctx,
+    { seedsToday: [], surfacedToday: [], rejectedToday: [] },
+    'day_initialize',
+  )
   runGenerationPass(ctx, ['morning_prep'])
 }
 
@@ -334,6 +352,9 @@ function validateIssueSeeds(ctx: SimContext): ValidationIssue[] {
 // every nested field in Zod. The shape is JSON-safe.
 const IssueSeedModuleStateSchema = z.object({
   seedsToday: z.array(z.unknown()),
+  // Optional so saves written before Phase 2 (which lack the field) still
+  // validate; `startDay` rewrites it every day and reads default to `[]`.
+  surfacedToday: z.array(z.unknown()).optional(),
   cooldowns: z.record(z.string(), z.unknown()),
   rejectedToday: z.array(z.unknown()),
   totalGenerated: z.number().int().min(0),

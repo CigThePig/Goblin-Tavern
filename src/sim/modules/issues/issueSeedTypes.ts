@@ -458,8 +458,19 @@ export type CooldownEntry = {
 }
 
 export type IssueSeedModuleState = {
-  /** Seeds generated today, ordered by ranking. */
+  /** Seeds generated today, ordered by ranking. This is the budget-bounded
+   *  *visible* hand: each segment-local generation pass re-ranks and
+   *  re-applies the hand budget, so a seed surfaced in an earlier pass can
+   *  be displaced from this list by a later, higher-ranked seed. */
   seedsToday: IssueSeed[]
+  /** Phase 2 (teleology) — every seed that has been part of the visible
+   *  hand (`seedsToday`) at the end of *any* generation pass today, unioned
+   *  by id and cleared each `startDay`. The hand budget truncates the
+   *  visible hand per pass, but a seed shown to the player in segment A must
+   *  stay resolvable in `applyResponses` even after segment B/C displace it
+   *  from the budgeted hand. Response lookup resolves against this set so a
+   *  valid player choice is never silently dropped on a crowded day. */
+  surfacedToday: IssueSeed[]
   /** Cooldown tracking for novelty/repetition control. */
   cooldowns: Record<string, CooldownEntry>
   /** Rejected seeds with reasons (debug). */
@@ -483,6 +494,7 @@ export type IssueSeedModuleState = {
 export function createInitialIssueSeedModuleState(): IssueSeedModuleState {
   return {
     seedsToday: [],
+    surfacedToday: [],
     cooldowns: {},
     rejectedToday: [],
     totalGenerated: 0,

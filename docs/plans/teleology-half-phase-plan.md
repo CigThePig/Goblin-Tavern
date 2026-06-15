@@ -138,18 +138,81 @@ Sequencing principle: retire integration risk early while keeping each phase shi
 
 ### Phase 4 — Character arcs (the depth mass)
 
-**Goal.** Give staff/regulars/factions their own wants and trajectories, advancing autonomously, cross-pollinating with ventures and transformations.
+Phase 4 is the largest phase in the plan: it adds a whole new top-level slice *and* an autonomous advancement loop *and* cross-system gating *and* the biggest card-authoring mass in the project. That is too much to land as one shippable unit, and bundling them couples unrelated integration risks (a new persisted slice, a new autonomous tick, a cross-module gating seam, and a per-family voice-authoring obligation) into one reviewable change. So Phase 4 is split into four independently shippable subphases that follow the same risk-retirement order the master plan uses everywhere else: **state foundation first (invisible) → autonomous mechanics made visible through a single card family → cross-pollination on now-stable arc machinery → the full per-family card-authoring mass last.**
+
+Each subphase below is self-contained against this file plus the codebase, carries its own Exit criteria, and obeys the §2 constraints (1–6) and §2a guardrails (7–10) that touch its seam. Build them in order; each ships alone.
+
+Original Phase 4 framing (the umbrella goal): *give staff/regulars/factions their own wants and trajectories, advancing autonomously, cross-pollinating with ventures and transformations.*
+
+---
+
+#### Phase 4a — Arc slice + cast attachment (invisible foundation)
+
+**Goal.** Make the arc state real and safe to grow into, without shipping any autonomous behaviour or player-visible card. This is the arc analogue of Phase 0/1's state work: prove persistence, diff/cause wiring, and the loyalty-coexistence invariant before any movement exists.
 
 **Scope (src/sim).**
-- `arcModule` (`dependsOn: ['kernel']`, sibling to `ventureModule`, importing neither): the arc slice, attached to cast members via a `castAttributes` arc id. An arc adds a staged trajectory *alongside* the existing 0–100 loyalty meter, never replacing it.
-- Autonomous/hybrid trigger: arcs advance on `startDay` (or a dedicated `arcUpdate` phase) by reading character trajectory/driving meters, with no player investment — hooking into the existing autonomous-tick pattern used by regulars/expeditions/culture/supplier/faction updates. Rolls use the `'arc'` RNG stream.
-- Cross-pollination: arc milestones reference/gate ventures and vice versa via the shared kernel type; arc payoffs may behave like transformations or opening-biases.
+- `arcModule` (`dependsOn: ['kernel']`, sibling to `ventureModule`, importing neither): the `state.arcs` slice built from the shared kernel `LifecycleEntry` type (stage, milestones, conditions, effects, cooldowns), via the established 5-step additive pattern (type → Zod schema → defaults → idempotent migration → load-chain wiring), mirroring how `state.ventures`/`state.arcs` were stubbed in Phase 0. (Phase 0 added the empty collection; this fills in the arc entry shape and the module that owns it.)
+- Attach arcs to cast members via a `castAttributes` arc id, so an arc is *linked to* a character without touching the existing 0–100 loyalty meter. An arc adds a staged trajectory *alongside* loyalty, never replacing it.
+- One hardcoded arc seeded onto a starter cast member (no autonomy yet — it just exists at its initial stage), the arc analogue of Phase 1's single hardcoded venture, so the slice has real content to round-trip and diff.
+- **Guardrail §7 (slice visibility):** wire `state.arcs` into `createStateDiff` (`src/sim/core/diff.ts`) — a `diff*` walk for arc meters (numeric), the `stage`/`status` lifecycle flip (scalar), and entry spawn/removal (keyset); skip per-day timestamps. The arc spawn/attach mutator must emit an **aggregate fallback cause** when no per-field numeric cause was emitted (the `if (emitted === 0 && meta)` pattern), so a stage/attach transition never lands without a `CauseEntry`.
+- **Guardrail §8 (kernel purity):** arcs reuse the kernel unchanged; any arc-specific terminality or write target stays in `arcModule` as milestone data / an injected `EntryMutator`, never an `if (kind === 'arc')` branch or a domain literal inside the kernel.
 
-**Scope (src/cards).** Snippet pools/specs per arc family — the largest authoring mass (constraint 6).
+**Scope (src/cards).** None. This subphase ships no card; existing fallback rendering is acceptable for the dormant hardcoded arc if a seed surfaces at all (prefer no seed yet).
 
-**Exit criteria.** A character advances their own arc with no player input, can fork on character state, and at least one cross-pollination case works (an arc milestone unlocks a venture stage, or a venture failure wounds an arc). Existing loyalty behavior is unchanged.
+**Exit criteria.** Schema validates with a populated `state.arcs`; a save round-trips through serialize→load; the migration is idempotent; the hardcoded arc attaches to a cast member and persists across days and a save/load cycle; `state.arcs` is walked in `createStateDiff` and an attach/spawn emits a cause; existing loyalty behaviour is byte-identical to before (a regression test asserts loyalty is unchanged by the arc slice's presence). All existing tests green.
 
-**Tests.** Fast tier: autonomous advancement, fork-on-state, the cross-gate. Heavy tier: arc autonomy over many days plus a cross-pollination scenario, with a replay/determinism check.
+**Tests.** Fast tier only: arc schema round-trip, migration idempotency, the diff walk emits arc changes, the spawn/attach cause is emitted, loyalty-unchanged invariant.
+
+---
+
+#### Phase 4b — Autonomous advancement + fork-on-state (made visible)
+
+**Goal.** Make arcs *move* on their own and surface that movement to the player through exactly one arc card family — proving the autonomous trigger, branching (fork-on-state) milestones, causality-on-advancement, and the named RNG stream end to end.
+
+**Scope (src/sim).**
+- Autonomous/hybrid trigger supplied by `arcModule` to the kernel: arcs advance on `startDay` (or a dedicated `arcUpdate` phase) by reading character trajectory/driving meters, with **no player investment** — hooking into the existing autonomous-tick pattern used by regulars/expeditions/culture/supplier/faction updates. (Contrast Phase 1's venture trigger, which reads owner-time investment.)
+- **Constraint 2 (named RNG):** any roll uses the `'arc'` stream via `ctx.getRngStream('arc')` after adding `'arc'` to the `RngStreamId` union and `ALL_STREAM_IDS` in `src/sim/core/rng.ts`. Never add an unnamed roll.
+- Branching (fork-on-state) milestones using the existing `LocalArcCondition`/`SnippetCondition` vocabulary, so an arc forks on character state (e.g. high vs low driving meter → different next stage). **Guardrail §10:** every authored fork outcome must be gated on a condition the shipping content can actually reach — ship the producer for the condition or drop the branch; no dead branch exercised only by a unit test that injects the condition directly.
+- A causality entry on **every** advancement (the kernel already requires this; verify the arc trigger path emits it). **Guardrail §8** still applies: terminality is milestone data, not a hardcoded stage id in the kernel.
+- Register an arc `IssueSeedGenerator` emitting the arc-milestone seed for **one** arc family so advancement surfaces in the same ranked `seedsToday` hand. Add the arc family/type to the central `IssueSeedFamilyId`/`IssueSeedType` unions before emitting.
+
+**Scope (src/cards).** **One** compose template for that single arc family, resolving its entity from the seed's `arc:<id>` target and reading requirement/stage data from the entry's current milestone — **never** a hardcoded arc id or literal threshold (guardrail §10). Register its snippet pools/specs and pass the existing `compose/gates/` legibility/preview gates (constraint 6). This is the one card family 4b ships; the rest are deferred to 4d.
+
+**Exit criteria.** A character advances their own arc with no player input; the arc forks on character state down at least two reachable branches; each advancement writes a causality entry; the milestone surfaces as a card in the daily hand that passes the legibility/preview gates; existing loyalty behaviour is unchanged; everything replays deterministically under a fixed seed.
+
+**Tests.** Fast tier: autonomous advancement (no intent in input), fork-on-state branch resolution on real content, causality emitted on advancement, the arc card passes its gates. Heavy tier (`HEAVY_TEST_GLOBS`): arc autonomy over many days with a replay/determinism check.
+
+---
+
+#### Phase 4c — Cross-pollination (arc ↔ venture / transformation)
+
+**Goal.** Couple arcs to the rest of the teleology machine: arc milestones gate ventures and vice versa, and arc payoffs can behave like transformations or opening-biases — built on the now-stable arc slice (4a) and autonomous loop (4b).
+
+**Scope (src/sim).**
+- Cross-gating via the shared kernel type: at least one arc milestone references/gates a venture stage, and at least one venture outcome reaches back into an arc (e.g. a venture failure wounds an arc). Both directions route through the existing effect/condition vocabulary — **arc/venture effects target the arc/venture/identity/transformation collections, never a pressure id** (constraint 3/4).
+- Arc payoffs that behave like transformations (write a fact/tag, reusing the Phase 3 transformation seam) or like opening-biases (bias the Phase 2 opening generator). No new engine concept — reuse the proven seams (`activeIssueSeedTags`-style gating, the transformation tag write, the opening generator's keying meters).
+- **Guardrail §9 (real-content guards):** the cross-pollination guard test must scan the **actually authored** arc/venture consequence-profile effects (and/or the causes a simulated day produces), assert it found ≥1 real cross-effect first so it cannot pass vacuously, then assert the cross-gate holds and that no cross-effect targets a pressure id.
+- **Guardrail §10:** the venture-failure-wounds-arc path (and any cross-gate) must resolve its target arc/venture from the seed/entry, not a hardcoded id, so it survives a second arc/venture existing.
+
+**Scope (src/cards).** Only what's needed to keep the cross-pollination legible on the already-shipped 4b card family (e.g. a snippet noting "blocked until <arc> reaches <stage>"); no new families. New families land in 4d.
+
+**Exit criteria.** At least one cross-pollination case works in each direction (an arc milestone unlocks a venture stage; a venture failure wounds an arc), verified to hold across many days; the real-content guard finds ≥1 authored cross-effect and none target a pressure; existing loyalty behaviour is unchanged; replay is deterministic.
+
+**Tests.** Fast tier: the cross-gate (arc→venture) on real content; the reach-back (venture→arc) on real content; the no-pressure-target guard scanning authored effects. Heavy tier: a multi-day cross-pollination scenario (ignore/advance an arc and observe a venture stage unlock, or fail a venture and observe an arc wound) with a replay/determinism check.
+
+---
+
+#### Phase 4d — Arc card-authoring mass (the depth content)
+
+**Goal.** Ship the remaining arc card families — the largest authoring obligation in the project — now that the mechanics (4a–4c) are proven and stable. This subphase is content/voice, not new mechanics.
+
+**Scope (src/sim).** Register the issue-seed generators for the remaining arc families (add each new family/type to the central unions first). No new kernel/trigger/cross-gate mechanics — those are owned by 4a–4c. If the family count is large, this subphase may itself be sequenced as 4d-i, 4d-ii, … by family group (e.g. staff arcs, regular arcs, faction arcs), each group shippable on its own.
+
+**Scope (src/cards).** Snippet pools/specs per remaining arc family under `specs/cards/` and `src/cards/compose/pools/`, each passing the `compose/gates/` legibility/preview gates (constraint 6). Each family resolves its entity from the seed target and reads thresholds from the entry's milestone (guardrail §10) — no hardcoded ids/thresholds.
+
+**Exit criteria.** Each shipped arc family renders a legible card that passes the preview/legibility gates; no family ships a dead milestone branch (guardrail §10); existing loyalty behaviour is unchanged; the full suite (`test:full`) is green.
+
+**Tests.** Fast tier: per-family gate/legibility coverage bound to the real authored pools (guardrail §9 — no tautological inline samples). Heavy tier: a long playtest exercising the arc families together, with a replay/determinism check.
 
 ---
 

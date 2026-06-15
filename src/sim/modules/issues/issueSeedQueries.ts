@@ -28,6 +28,30 @@ export function getAllSeedsToday(state: TavernState): IssueSeed[] {
   return slice.seedsToday
 }
 
+/**
+ * Phase 2 (teleology) — every seed that is resolvable by a response today:
+ * the union of the budget-bounded visible hand (`seedsToday`) and every seed
+ * that was surfaced in an earlier generation pass but later displaced from
+ * the hand (`surfacedToday`). Use this for response/intent lookup so a valid
+ * player choice against a displaced card is never silently dropped on a
+ * crowded day. Display surfaces still read `seedsToday` (the visible hand).
+ */
+export function getResolvableSeedsToday(state: TavernState): IssueSeed[] {
+  const slice = getIssueSeedSlice(state)
+  if (!slice) return []
+  const surfaced = slice.surfacedToday ?? []
+  if (surfaced.length === 0) return slice.seedsToday
+  const byId = new Map<string, IssueSeed>()
+  for (const seed of surfaced) byId.set(seed.id, seed)
+  // Defensive: include any visible-hand seed not yet captured in
+  // `surfacedToday` (e.g. an older save mid-migration) so resolution never
+  // regresses relative to `seedsToday`.
+  for (const seed of slice.seedsToday) {
+    if (!byId.has(seed.id)) byId.set(seed.id, seed)
+  }
+  return [...byId.values()]
+}
+
 export function getIssueSeeds(
   state: TavernState,
   query: IssueSeedQuery = {},

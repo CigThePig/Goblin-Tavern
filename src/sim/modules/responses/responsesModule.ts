@@ -2,7 +2,7 @@ import type { SimContext } from '../../core/context'
 import type { SimulationHook, SimulationModule } from '../../core/module'
 import type { ReportSection } from '../../core/reports'
 import type { ValidationIssue } from '../../state/types'
-import { getAllSeedsToday } from '../issues/issueSeedQueries'
+import { getResolvableSeedsToday } from '../issues/issueSeedQueries'
 
 import {
   applyResponseProfile,
@@ -166,7 +166,14 @@ function findSeed(ctx: SimContext, seedId: string): IssueSeed | undefined {
   // two-pause model the day-clock contract is moving toward. (The seam
   // is timing-agnostic, so morning/service/closing seeds all resolve
   // through this one path — contract §1.9.)
-  return getAllSeedsToday(ctx.state).find((s) => s.id === seedId)
+  //
+  // Phase 2 (teleology) — resolve against `getResolvableSeedsToday`, not the
+  // visible hand alone. Each generation pass re-applies the hand budget, so a
+  // seed surfaced in an earlier pass can be displaced from `seedsToday` by a
+  // later, higher-ranked seed. A card the player was shown must still resolve
+  // its response; `getResolvableSeedsToday` adds those displaced-but-surfaced
+  // seeds back so a valid choice on a crowded day is never silently dropped.
+  return getResolvableSeedsToday(ctx.state).find((s) => s.id === seedId)
 }
 
 const applyResponsesHook: SimulationHook = (ctx: SimContext): void => {

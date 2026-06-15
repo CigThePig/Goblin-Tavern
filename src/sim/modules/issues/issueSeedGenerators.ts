@@ -51,6 +51,7 @@ import { recencyPenalty, recordPick } from './seedRotation'
 import { EXPANDED_SEED_GENERATORS } from './expandedSeedGenerators'
 import { ventureIssueSeedGenerator } from '../ventures/ventureIssueSeeds'
 import { openingIssueSeedGenerator } from '../openings/openingIssueSeeds'
+import { arcIssueSeedGenerator } from '../arcs/arcIssueSeeds'
 import {
   generateLiquorCompliance,
   generateLicensedService,
@@ -4337,6 +4338,7 @@ export const ALL_SEED_GENERATORS: IssueSeedGenerator[] = [
   ...EXPANDED_SEED_GENERATORS,
   ventureIssueSeedGenerator,
   openingIssueSeedGenerator,
+  arcIssueSeedGenerator,
   {
     id: 'liquor_compliance_unlicensed_risk',
     family: 'liquor_compliance',

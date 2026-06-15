@@ -31,6 +31,7 @@ import type {
 } from '../../../../src/sim/content/cast'
 import { createInitialTavernState } from '../../../../src/sim/state/defaults'
 import type {
+  ConsequenceProfile,
   IssueSeed,
   ResponseIntentShape,
   ResponseIntentVerb,
@@ -5150,6 +5151,165 @@ export function buildSeasonalArcEffectPreviewContext(
     SEASONAL_ARC_RESPONSE_SLOTS[i % SEASONAL_ARC_RESPONSE_SLOTS.length]!
   const effect = SEASONAL_ARC_EFFECTS[i % SEASONAL_ARC_EFFECTS.length]!
   return { currentResponseSlot: slot, currentEffect: effect }
+}
+
+// ---- staffArc state-perturbation sampler (Phase 4b teleology) ----
+
+const STAFF_ARC_ID = 'arc_staff_mastery'
+
+type StaffArcPerturbation = {
+  stage: string
+  proven: boolean
+  severity: number
+}
+
+const STAFF_ARC_PERTURBATIONS: readonly StaffArcPerturbation[] = [
+  { stage: 'apprentice', proven: false, severity: 40 },
+  { stage: 'apprentice', proven: true, severity: 45 },
+  { stage: 'journeyman', proven: true, severity: 50 },
+  { stage: 'journeyman', proven: false, severity: 45 },
+  { stage: 'steady', proven: false, severity: 40 },
+]
+
+function staffArcRef(): EntityRef {
+  return { kind: 'system', id: `arc:${STAFF_ARC_ID}` }
+}
+
+const STAFF_ARC_RESPONSE_SLOTS: readonly ResponseSlot[] = [
+  {
+    id: 'mark_milestone',
+    labelHint: 'Mark the milestone with them',
+    allowedVerbs: ['promote'] as ResponseIntentVerb[],
+    shape: 'long_term_investment' as ResponseIntentShape,
+    targetOptions: [staffArcRef()],
+    expectedEffects: ['Recognise the growth'],
+  },
+  {
+    id: 'let_it_unfold',
+    labelHint: 'Let them find their own way',
+    allowedVerbs: ['delay'] as ResponseIntentVerb[],
+    shape: 'delay_problem' as ResponseIntentShape,
+    targetOptions: [staffArcRef()],
+    expectedEffects: ['Say nothing of it'],
+  },
+]
+
+const STAFF_ARC_CONSEQUENCE_PROFILES: readonly ConsequenceProfile[] = [
+  {
+    id: 'mark_milestone',
+    responseSlotId: 'mark_milestone',
+    immediateEffects: [
+      {
+        kind: 'cause',
+        target: STAFF_ARC_ID,
+        amount: 0,
+        readable: 'The owner takes note of how far they have come.',
+        tags: ['teleology', 'arc', 'staff_arc', STAFF_ARC_ID],
+      },
+    ],
+    delayedEffects: [],
+    memories: [],
+    futureHooks: [],
+    impactScore: 8,
+  },
+  {
+    id: 'let_it_unfold',
+    responseSlotId: 'let_it_unfold',
+    immediateEffects: [
+      {
+        kind: 'cause',
+        target: STAFF_ARC_ID,
+        amount: 0,
+        readable: 'The owner lets the moment pass without remark.',
+        tags: ['teleology', 'arc', 'staff_arc', 'quiet', STAFF_ARC_ID],
+      },
+    ],
+    delayedEffects: [],
+    memories: [],
+    futureHooks: [],
+    impactScore: 1,
+  },
+]
+
+function staffArcSeedFor(id: string, perturbation: StaffArcPerturbation): IssueSeed {
+  const toneHints = ['teleology', 'arc', 'staff_arc', `stage:${perturbation.stage}`]
+  if (perturbation.proven) toneHints.push('proven')
+  return makeSeed({
+    id,
+    family: 'staff_arc',
+    type: 'arc_milestone',
+    timing: 'morning_prep',
+    severity: perturbation.severity,
+    domain: ['teleology', 'arc', 'staff_arc', `stage:${perturbation.stage}`],
+    toneHints,
+    primaryActor: staffArcRef(),
+    affectedActors: [staffArcRef()],
+    responseSlots: [...STAFF_ARC_RESPONSE_SLOTS],
+    consequenceProfiles: [...STAFF_ARC_CONSEQUENCE_PROFILES],
+    stakes: [
+      {
+        id: `${STAFF_ARC_ID}_trajectory`,
+        target: STAFF_ARC_ID,
+        readable: 'A character is growing into who they will become.',
+        direction: 'gain',
+        tags: ['teleology', 'arc', 'staff_arc'],
+      },
+    ],
+    textIngredients: {
+      subject: "the server's path to mastery",
+      sensoryDetails: ['a steadier hand at the work'],
+      recentContext: [`stage ${perturbation.stage}`],
+      stakesReadable: ['A character settling into who they are'],
+    },
+  })
+}
+
+function buildStaffArcState(
+  baseState: TavernState,
+  perturbation: StaffArcPerturbation,
+): TavernState {
+  const tags = ['staff_arc', 'subject:server']
+  if (perturbation.proven) tags.push('proven')
+  return {
+    ...baseState,
+    arcs: {
+      ...baseState.arcs,
+      [STAFF_ARC_ID]: {
+        id: STAFF_ARC_ID,
+        kind: 'arc',
+        label: "Mira's path to mastery",
+        stage: perturbation.stage,
+        progress: 1,
+        status: 'active',
+        tags,
+        createdAtDay: 0,
+        updatedAtDay: 0,
+      },
+    },
+  }
+}
+
+export function buildStaffArcDeterminismSamples(): DeterminismSample[] {
+  const baseState = createInitialTavernState()
+  return STAFF_ARC_PERTURBATIONS.map((perturbation, i) => ({
+    seed: staffArcSeedFor(`staff-arc-determinism-${i}`, perturbation),
+    state: buildStaffArcState(baseState, perturbation),
+  }))
+}
+
+export function buildStaffArcDiversitySampler(
+  options: DiversitySamplerOptions = {},
+): DiversitySampler {
+  void options.rngSeed
+  const baseState = createInitialTavernState()
+  return (i: number) => {
+    const perturbation =
+      STAFF_ARC_PERTURBATIONS[i % STAFF_ARC_PERTURBATIONS.length]!
+    return {
+      seed: staffArcSeedFor(`staff-arc-diversity-${i}`, perturbation),
+      state: buildStaffArcState(baseState, perturbation),
+    }
+  }
 }
 
 export const __testing = {

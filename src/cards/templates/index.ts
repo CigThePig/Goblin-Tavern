@@ -42,6 +42,7 @@ import { rumourCrisisCard } from './rumourCrisis'
 import { rivalTavernCard } from './rivalTavern'
 import { monthlyReviewCard } from './monthlyReview'
 import { seasonalArcCard } from './seasonalArc'
+import { staffArcCard } from './staffArc'
 import { ventureCard } from './venture'
 import { openingCard } from './opening'
 import { drinkOrderCard } from './drinkOrder'
@@ -68,6 +69,7 @@ export const REQUIRED_CARDS: ReadonlyArray<CardDefinition> = [
   rivalTavernCard,
   monthlyReviewCard,
   seasonalArcCard,
+  staffArcCard,
   ventureCard,
   openingCard,
   drinkOrderCard,
@@ -95,6 +97,7 @@ export {
   rivalTavernCard,
   monthlyReviewCard,
   seasonalArcCard,
+  staffArcCard,
   ventureCard,
   openingCard,
   drinkOrderCard,

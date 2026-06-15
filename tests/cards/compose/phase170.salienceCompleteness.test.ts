@@ -42,12 +42,13 @@ describe('salience completeness', () => {
     )
   })
 
-  it('there are 24 active families and all are covered', () => {
+  it('there are 25 active families and all are covered', () => {
     // Sanity: the union of generator families is the full roster (21 entropy/
     // venture families + the teleology `opening` family added in Phase 2
     // + the two transformation-gated families added in Phase 3:
-    // `liquor_compliance` (retirable) and `licensed_service` (locked)).
-    expect(ACTIVE_FAMILIES.length).toBe(24)
+    // `liquor_compliance` (retirable) and `licensed_service` (locked)
+    // + the teleology `staff_arc` family added in Phase 4b).
+    expect(ACTIVE_FAMILIES.length).toBe(25)
     expect(ACTIVE_FAMILIES.every((f) => SALIENCE_TABLES[f] !== undefined)).toBe(true)
   })
 
@@ -141,6 +142,7 @@ describe('matrix-cell read', () => {
       'rival_tavern',
       'monthly_review',
       'seasonal_arc',
+      'staff_arc',
     ] as IssueSeedFamilyId[]) {
       expect(matrixMetersForFamily(f)).toEqual([])
       expect(enumerateMatrixCells(f)).toEqual([])

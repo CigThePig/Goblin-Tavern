@@ -1,0 +1,110 @@
+# Phase 4b (teleology) — generation spec for the staff_arc compositional
+# template. First dedicated arc card. It REVEALS a character arc's
+# autonomous movement (advancement happens in `arcModule`, with no player
+# investment); the card does not drive it.
+#
+# Narrator-voiced: the seed's primaryActor is a `system` ref `arc:<id>`
+# carrying no castAttributes, so every pool gates on the seed's live stage
+# tags (`stage:apprentice` / `stage:journeyman` / `stage:steady`, plus
+# `proven`), never on actor voice. The arc's stored label is rendered as a
+# dynamic title prefix `${arcLabel}: ${snippet}` at the template layer,
+# resolved from `state.arcs[<id>]` — never a hardcoded id.
+
+templateId: staff_arc
+voiceRegister: civic_floor
+status: phase_4b_teleology_shipped
+purpose: >
+  Surface a staff character arc's autonomous milestone in the daily hand.
+  The body names the character's current point on their trajectory
+  (apprentice / journeyman / steady, proven or not) and frames the room's
+  read of someone coming into themselves. Both choices are
+  acknowledgement-only — the arc advances on its own.
+
+appliesTo:
+  seedFamilies: ['staff_arc']
+  seedTypes: ['arc_milestone']
+  timings: ['morning_prep']
+
+slots:
+  - id: title
+    required: true
+    claims: flavor
+    maxWords: 6
+    description: >
+      Short stage contextualiser, rendered with a dynamic prefix
+      `${arcLabel}: ${snippet}` at the template layer (arcLabel resolved
+      from `state.arcs[<id>].label`; falls back to a generic phrase for a
+      malformed seed). Gated on the seed's live `stage:` / `proven` tags.
+
+  - id: establishing_line
+    required: true
+    claims: flavor
+    maxWords: 14
+    description: >
+      Names where the character is on their path — apprentice still
+      learning, journeyman in command of the work, steady hand settled in,
+      proven journeyman near mastery. Gated on live stage tags; the
+      unconditional fallback states only that a character is growing.
+
+  - id: reaction_line
+    required: true
+    claims: flavor
+    maxWords: 12
+    description: >
+      The room's read of the character's trajectory, narrator voice. No
+      named NPC (the seed's actor is a `system` arc ref, not a cast
+      member). Gated on stage tags.
+
+  - id: manner_note
+    required: false
+    claims: flavor
+    maxWords: 10
+    description: >
+      Optional sensory/gesture beat. Omitted rather than weak; carries a
+      couple of unconditional fillers so the body usually fires a third
+      line.
+
+voiceAxesInPlay: (none — see voiceRegister)
+verbalTicsCovered: (none — ownerless / arc-centred)
+
+simSignalsInUse:
+  - { kind: hasTag, tags: [stage:apprentice, stage:journeyman, stage:steady, proven] }
+
+mustNotInvent:
+  - the character's name (no cast member is on the seed — the actor is a
+    `system` arc ref; the card resolves only the arc's stored label)
+  - the staff member's ROLE noun (`the server` / `the cook` etc.) — the
+    sim-coherence role-claim detector forbids it on a flavor line
+  - specific arc-progress numbers or stage thresholds
+  - felt-state distress/calm claims with no state-lookup condition
+
+hardBounds:
+  perSlotWords:
+    title: 6
+    establishing_line: 14
+    reaction_line: 12
+    manner_note: 10
+  punctuation: normal prose punctuation only
+  noFragmentsThatRequireConcatenation: true
+  noMadLibPlaceholders: true
+  noModernSlang: true
+  noEarthIdioms: true
+
+choices:
+  description: >
+    Two acknowledgement-only choices — `promote` ("mark the milestone")
+    and `delay` ("let them find their own way") — each carrying a single
+    `cause`-kind effect. Cause effects carry no player-facing magnitude, so
+    the legibility magnitude / meter / cost / risk rules all skip them; the
+    effect-preview pool only gives each choice a distinct line (gated on
+    the cause's `effectTag`). The arc advances autonomously regardless of
+    the choice (cross-pollination payoffs are deferred to 4c).
+
+mustPass:
+  coverage: required slots title, establishing_line, reaction_line each have an unconditional fallback
+  specificityGradient: pools contain fallback + stage-conditioned middle rung + a two-tag top rung (establishing_line)
+  voiceBounds: every snippet within slot.maxWords; title authored short (no trailing ellipsis / duplicate token)
+  simCoherence: flavor slots invent no name, role, history, or felt-state claim
+  determinism: same seed + same state + same slot returns same snippet after FNV tie-break
+  dedupe: no near-duplicate pair (>=0.85 similarity) within slot; no canonical-equal text across slots
+  legibility: no saliencePolicy slots (Q1 N/A); cause-only choices keep Q2 magnitude/meter/cost/risk N/A; distinct choice labels

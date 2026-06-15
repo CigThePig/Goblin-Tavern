@@ -30,6 +30,7 @@ import { reputationShiftTemplate } from '../../../../src/cards/templates/reputat
 import { rivalTavernTemplate } from '../../../../src/cards/templates/rivalTavern'
 import { rumourCrisisTemplate } from '../../../../src/cards/templates/rumourCrisis'
 import { seasonalArcTemplate } from '../../../../src/cards/templates/seasonalArc'
+import { staffArcTemplate } from '../../../../src/cards/templates/staffArc'
 import { staffAsideTemplate } from '../../../../src/cards/templates/staffAside'
 import { staffBurnoutTemplate } from '../../../../src/cards/templates/staffBurnout'
 import { stockShortageTemplate } from '../../../../src/cards/templates/stockShortage'
@@ -52,6 +53,7 @@ import {
   buildRivalTavernDeterminismSamples,
   buildRumourCrisisDeterminismSamples,
   buildSeasonalArcDeterminismSamples,
+  buildStaffArcDeterminismSamples,
   buildStaffBurnoutDeterminismSamples,
   buildStaffDeterminismSamples,
   buildStockShortageDeterminismSamples,
@@ -172,5 +174,11 @@ export const LEGIBILITY_SITUATIONS: readonly LegibilitySituation[] = [
     templateId: seasonalArcTemplate.id,
     template: seasonalArcTemplate,
     buildSamples: () => buildSeasonalArcDeterminismSamples(),
+  },
+  // Character Arcs — Phase 4b (teleology)
+  {
+    templateId: staffArcTemplate.id,
+    template: staffArcTemplate,
+    buildSamples: () => buildStaffArcDeterminismSamples(),
   },
 ]

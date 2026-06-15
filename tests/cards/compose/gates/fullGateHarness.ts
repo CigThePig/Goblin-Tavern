@@ -53,6 +53,7 @@ import { reputationShiftTemplate } from '../../../../src/cards/templates/reputat
 import { rivalTavernTemplate } from '../../../../src/cards/templates/rivalTavern'
 import { rumourCrisisTemplate } from '../../../../src/cards/templates/rumourCrisis'
 import { seasonalArcTemplate } from '../../../../src/cards/templates/seasonalArc'
+import { staffArcTemplate } from '../../../../src/cards/templates/staffArc'
 import { staffAsideTemplate } from '../../../../src/cards/templates/staffAside'
 import { staffBurnoutTemplate } from '../../../../src/cards/templates/staffBurnout'
 import { stockShortageTemplate } from '../../../../src/cards/templates/stockShortage'
@@ -121,6 +122,10 @@ import {
   seasonalArcEffectPreviewPool,
 } from '../../../../src/cards/compose/pools/seasonalArc'
 import {
+  staffArcChoiceLabelPool,
+  staffArcEffectPreviewPool,
+} from '../../../../src/cards/compose/pools/staffArc'
+import {
   staffAsideChoiceLabelPool,
   staffAsideEffectPreviewPool,
 } from '../../../../src/cards/compose/pools/staffAside'
@@ -158,6 +163,7 @@ import {
   buildRivalTavernDeterminismSamples,
   buildRumourCrisisDeterminismSamples,
   buildSeasonalArcDeterminismSamples,
+  buildStaffArcDeterminismSamples,
   buildStaffBurnoutDeterminismSamples,
   buildStaffDeterminismSamples,
   buildStockShortageDeterminismSamples,
@@ -341,6 +347,13 @@ export const FULL_GATE_SITUATIONS: readonly FullGateSituation[] = [
     labelPool: seasonalArcChoiceLabelPool,
     previewPool: seasonalArcEffectPreviewPool,
     buildSamples: () => buildSeasonalArcDeterminismSamples(),
+  },
+  {
+    templateId: staffArcTemplate.id,
+    template: staffArcTemplate,
+    labelPool: staffArcChoiceLabelPool,
+    previewPool: staffArcEffectPreviewPool,
+    buildSamples: () => buildStaffArcDeterminismSamples(),
   },
 ]
 

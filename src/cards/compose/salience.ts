@@ -624,6 +624,24 @@ export const SALIENCE_TABLES: Partial<
     ],
   },
 
+  // Phase 4b (teleology) — the staff_arc card. Narrator-voiced: the seed's
+  // primaryActor is a `system` arc ref with no castAttributes, so there is
+  // no banded signal on the subject — reads are the seed's live stage tags
+  // plus the teleology marker (a zero-cell matrix, like seasonal_arc). The
+  // staff_arc template declares no `saliencePolicy` slot, so this table is
+  // not consulted at render today; it exists so the derived
+  // salience-completeness contract has no hole for the new family.
+  staff_arc: {
+    reads: [
+      { kind: 'hasTag', tag: 'teleology' },
+      { kind: 'hasTag', tag: 'staff_arc' },
+      { kind: 'hasTag', tag: 'stage:apprentice' },
+      { kind: 'hasTag', tag: 'stage:journeyman' },
+      { kind: 'hasTag', tag: 'stage:steady' },
+      { kind: 'hasTag', tag: 'proven' },
+    ],
+  },
+
   // Phase 170 / ISSUE-138 — Complete Surface arc, Phase 3 (Salience
   // Completeness). The one tableless family with an active generator
   // (`generatePolicyBacklash`, expandedSeedGenerators.ts:4495). It routes

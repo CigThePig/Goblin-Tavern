@@ -2,6 +2,7 @@ import type { SimContext } from '../../core/context'
 import { createStaffIdentity } from '../../content/staff/staffIdentityFactory'
 import { createStaffCastAttributes } from '../../content/cast/createCastAttributes'
 import { staffRegistry } from '../../registries/staffRegistry'
+import { REQUIRED_STAFF_IDS } from '../staff/staffModule'
 import { spendCoin } from '../stock/ledger'
 import type { StaffState } from '../../state/TavernState'
 
@@ -195,12 +196,20 @@ export const FIRE_STAFF_ACTION_ID = 'fire_staff'
 // Modest but real — witnessing a firing tightens up but stings.
 const FIRE_MORALE_HIT = 5
 
+// The three founding roles are a hard simulation contract: the staff
+// module's `startDayHook` throws when one is missing, so firing one
+// bricked the run on the *next* day (state validated dirty, then the
+// following `simulateDay` threw). They are never offered as targets.
+const UNDISMISSABLE_STAFF_IDS: ReadonlySet<string> = new Set(REQUIRED_STAFF_IDS)
+
 function listFireableStaff(ctx: SimContext): ActionTarget[] {
-  return Object.values(ctx.state.staff).map((s) => ({
-    id: s.id,
-    label: s.name.display,
-    hint: `${s.role}, morale ${s.morale}`,
-  }))
+  return Object.values(ctx.state.staff)
+    .filter((s) => !UNDISMISSABLE_STAFF_IDS.has(s.id))
+    .map((s) => ({
+      id: s.id,
+      label: s.name.display,
+      hint: `${s.role}, morale ${s.morale}`,
+    }))
 }
 
 const fireStaffAction: OwnerActionDefinition = {
@@ -218,6 +227,12 @@ const fireStaffAction: OwnerActionDefinition = {
     }
     if (!ctx.state.staff[input.targetId]) {
       return reject('unknown_target', `Unknown staff '${input.targetId}'`)
+    }
+    if (UNDISMISSABLE_STAFF_IDS.has(input.targetId)) {
+      return reject(
+        'required_staff',
+        `'${input.targetId}' is a founding role and cannot be let go.`,
+      )
     }
     if (Object.keys(ctx.state.staff).length <= 1) {
       return reject(

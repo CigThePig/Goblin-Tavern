@@ -61,7 +61,13 @@ import type {
 export const STAFF_MODULE_ID = 'staff'
 const SOURCE = STAFF_MODULE_ID
 
-const REQUIRED_STAFF_IDS = ['cook', 'server', 'cleaner_bouncer'] as const
+/**
+ * Staff ids the simulation cannot run without. `startDayHook` throws when
+ * one is missing and `validateStaff` reports it as an error, so any code
+ * path that can remove staff (e.g. the `fire_staff` owner action) must
+ * treat these as undismissable — see `staffManagementActions.ts`.
+ */
+export const REQUIRED_STAFF_IDS = ['cook', 'server', 'cleaner_bouncer'] as const
 
 const DAILY_STRESS_RECOVERY = 1
 const DAILY_FATIGUE_RECOVERY = 2

@@ -45,6 +45,7 @@ import {
   urgencyFromPressures,
 } from './generatorHelpers'
 import type { EntityRef } from '../../state/TavernState'
+import { clampPercent } from '../../state/normalize'
 import { COMPLAINT_THRESHOLD, getCustomerModuleState } from '../customers'
 import type { IssueSeedGenerator } from './issueSeedRegistry'
 import { recencyPenalty, recordPick } from './seedRotation'
@@ -2759,8 +2760,13 @@ function generateDebtRent(ctx: SimContext): IssueSeed[] {
       type: 'debt_pressure',
       timing: 'end_month',
       domain: ['economy', 'monthly', 'landlord'],
-      severity: Math.max(40, debt, landlord) + (rentDueSoon ? 10 : 0),
-      urgency: Math.max(45, landlord + 10) + (rentDueSoon ? 10 : 0),
+      // Both bands are 0–100 (enforced by `validateIssueSeeds`). `debt` and
+      // `landlord` are pressure values that reach 100, so the `+10`
+      // rent-due-soon bump and the `landlord + 10` urgency term both
+      // overflow without a clamp — that dirtied state validation for the
+      // rest of the run once landlord pressure maxed out.
+      severity: clampPercent(Math.max(40, debt, landlord) + (rentDueSoon ? 10 : 0)),
+      urgency: clampPercent(Math.max(45, landlord + 10) + (rentDueSoon ? 10 : 0)),
       // Audit fixes pass 1 §5.3 — No real landlord entity exists; omit
       // primaryActor (was singleton system:landlord) and let domain +
       // location stand in.

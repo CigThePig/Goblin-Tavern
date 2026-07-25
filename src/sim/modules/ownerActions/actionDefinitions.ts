@@ -3,6 +3,7 @@ import { clampPercent } from '../../state/normalize'
 import { areaRegistry } from '../../registries/areaRegistry'
 import { staffRegistry } from '../../registries/staffRegistry'
 import { stockRegistry } from '../../registries/stockRegistry'
+import { recipeRegistry } from '../../registries/recipeRegistry'
 import { restockItem } from '../stock/sales'
 import { spendCoin } from '../stock/ledger'
 import {
@@ -958,6 +959,17 @@ const buyMugs: OwnerActionDefinition = {
 // not a labor action. If the cook lacks the skill or the kitchen lacks
 // the ingredients, the service code already refuses to serve the dish;
 // charging time for the toggle itself would punish menu experimentation.
+// Phase 117 — `upkeep`-tagged recipes (firewood, mugs, raw ingredients)
+// are consumption pipelines, not menu choices: the Recipes panel filters
+// them out and the glossary states they "never appear on the customer
+// menu". They must not be toggleable either — `flipUpkeepRecipesOffMenu`
+// runs on every load, so an upkeep recipe switched on in-session was
+// silently switched back off the next time the save was opened.
+function isUpkeepRecipe(recipeId: string): boolean {
+  if (!recipeRegistry.has(recipeId)) return false
+  return recipeRegistry.get(recipeId).tags.includes('upkeep')
+}
+
 const toggleRecipeMenu: OwnerActionDefinition = {
   id: 'toggle_recipe_menu',
   label: 'Toggle Recipe On/Off Menu',
@@ -967,15 +979,23 @@ const toggleRecipeMenu: OwnerActionDefinition = {
   targetType: 'recipe',
   timeCost: TIME_COST_TRIVIAL,
   getValidTargets: (ctx) =>
-    Object.values(ctx.state.recipes).map((r) => ({
-      id: r.id,
-      label: r.label,
-      hint: r.onMenu ? 'on menu' : 'off menu',
-    })),
+    Object.values(ctx.state.recipes)
+      .filter((r) => !isUpkeepRecipe(r.id))
+      .map((r) => ({
+        id: r.id,
+        label: r.label,
+        hint: r.onMenu ? 'on menu' : 'off menu',
+      })),
   canApply: (ctx, input) => {
     if (!input.targetId) return reject('missing_target', 'toggle_recipe_menu requires targetId')
     if (!ctx.state.recipes[input.targetId]) {
       return reject('unknown_target', `Unknown recipe '${input.targetId}'`)
+    }
+    if (isUpkeepRecipe(input.targetId)) {
+      return reject(
+        'upkeep_recipe',
+        `'${input.targetId}' is upkeep, not a menu dish.`,
+      )
     }
     return OK
   },

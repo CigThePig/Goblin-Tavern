@@ -175,4 +175,37 @@ describe('Phase 61 / ISSUE-021 — debt_rent seed amplification', () => {
     expect(seedWithTag.severity).toBeGreaterThan(seedWithout.severity)
     expect(seedWithTag.urgency).toBeGreaterThan(seedWithout.urgency)
   })
+
+  // Regression — `severity`/`urgency` are 0–100 bands enforced by
+  // `validateIssueSeeds`. `debt_rent` derived them as
+  // `max(40, debt, landlord) + 10` and `max(45, landlord + 10) + 10`, so
+  // once landlord pressure climbed near its 100 ceiling every generated
+  // seed overflowed and the run validated dirty from then on.
+  it('keeps debt_rent bands within 0–100 at maximum landlord pressure', () => {
+    let base = createInitialTavernState()
+    base = withLandlordPressure(base, 100, 6)
+    base = withRentArrears(base, 500, false)
+    base = { ...base, coin: 0 }
+
+    const warm = runDay(base).state
+    const maxed = withCalendarTags(
+      withLandlordPressure(warm, 100, 6),
+      ['quiet_day', 'rent_due_soon'],
+    )
+    const result = runDay(maxed)
+
+    const seeds = getIssueSeeds(result.state, { family: 'debt_rent' })
+    expect(seeds.length).toBeGreaterThan(0)
+    for (const seed of seeds) {
+      expect(seed.severity).toBeGreaterThanOrEqual(0)
+      expect(seed.severity).toBeLessThanOrEqual(100)
+      expect(seed.urgency).toBeGreaterThanOrEqual(0)
+      expect(seed.urgency).toBeLessThanOrEqual(100)
+    }
+    expect(
+      result.validation.errors.filter((e) =>
+        e.path.startsWith('modules.issueSeeds'),
+      ),
+    ).toEqual([])
+  })
 })

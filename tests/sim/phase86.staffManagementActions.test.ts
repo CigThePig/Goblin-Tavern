@@ -13,6 +13,7 @@ import {
   ensureRequiredOwnerActionsRegistered,
 } from '../../src/sim/modules/ownerActions/ownerActionsModule'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
+import { REQUIRED_STAFF_IDS } from '../../src/sim/modules/staff/staffModule'
 import type { TavernState } from '../../src/sim/state/TavernState'
 
 // Phase 86 — ISSUE-046: hire / fire / ban owner actions.
@@ -123,23 +124,67 @@ describe('Phase 86 / ISSUE-046 — staff-management owner actions', () => {
     // Verifying via the engine path would crash the staff module's
     // startDay required-roster check before fire_staff could even be
     // evaluated. Test the canApply guard directly instead — it owns
-    // the rule.
+    // the rule. The lone survivor must be a non-required hire, or the
+    // founding-role guard (below) short-circuits first.
     const fireStaff = actionRegistry.get(FIRE_STAFF_ACTION_ID)
     const state = createInitialTavernState()
-    const ids = Object.keys(state.staff)
-    const keepId = ids[0]!
+    const hiredId = 'hire_server_test'
     const lonely = {
       ...state,
-      staff: { [keepId]: state.staff[keepId]! },
+      staff: {
+        [hiredId]: { ...state.staff['server']!, id: hiredId },
+      },
     }
     const result = fireStaff.canApply(
       { state: lonely } as never,
-      { actionId: FIRE_STAFF_ACTION_ID, targetId: keepId },
+      { actionId: FIRE_STAFF_ACTION_ID, targetId: hiredId },
     )
     expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.code).toBe('last_staff')
     }
+  })
+
+  // Regression — the three founding roles (cook / server / cleaner_bouncer)
+  // are a hard simulation contract: `staffModule`'s startDay hook throws
+  // when one is missing. `fire_staff` used to offer them as targets, so
+  // firing one left state validating dirty and made the *next* day's
+  // `simulateDay` throw, bricking the run.
+  it('fire_staff never offers or accepts a founding role', () => {
+    const fireStaff = actionRegistry.get(FIRE_STAFF_ACTION_ID)
+    const state = createInitialTavernState()
+
+    const targetIds = fireStaff
+      .getValidTargets({ state } as never)
+      .map((t) => t.id)
+    for (const requiredId of REQUIRED_STAFF_IDS) {
+      expect(state.staff[requiredId]).toBeDefined()
+      expect(targetIds).not.toContain(requiredId)
+
+      const verdict = fireStaff.canApply(
+        { state } as never,
+        { actionId: FIRE_STAFF_ACTION_ID, targetId: requiredId },
+      )
+      expect(verdict.ok).toBe(false)
+      if (!verdict.ok) expect(verdict.code).toBe('required_staff')
+    }
+  })
+
+  // The consequence the guard prevents: the day after a founding-role
+  // firing used to throw. Queuing the (now-refused) action must leave the
+  // roster intact and the next day runnable.
+  it('a queued founding-role firing leaves the run playable the next day', () => {
+    let state = createInitialTavernState()
+    state = runOneDay(state, {
+      seed: `${SEED}-fire-required`,
+      ownerActions: [{ actionId: FIRE_STAFF_ACTION_ID, targetId: 'cook' }],
+    }).state
+
+    expect(state.staff['cook']).toBeDefined()
+
+    const next = runOneDay(state, { seed: `${SEED}-fire-required-next` })
+    expect(next.validation.errors).toEqual([])
+    expect(next.state.staff['cook']).toBeDefined()
   })
 
   it('ban_customer_group suppresses patronage and charges reputation', () => {

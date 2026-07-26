@@ -37,47 +37,45 @@ how to verify the fix.
 
 ## Current work
 
-Two arcs are open. The **card-layer surface arcs** are the active
-frontier; the **Tier 4 onboarding arc** is planned but not yet started.
+**Only one arc is active: ISSUE-166 — the 2026-07-26 gameplay-audit
+remediation.** Every other arc below is **paused** until it closes. Work
+the waves in order from
+`docs/audits/2026-07-26-gameplay-audit/REMEDIATION_QUEUE.md` (the queue,
+not this file, tracks the 29 findings); start at Wave 0 / `P2-RT-001`.
 
-1. **Card layer — Complete Surface arc** (active work). Design contract:
-   `docs/plans/complete-surface-arc.md`. Movement I (ISSUE-136…138) and
-   the first Movement II phases (ISSUE-139…140) are `done`; **ISSUE-141…148**
-   (phases 173–180) are `open` and land next, in arc order: Movement II
-   content phases (141–146, reorderable — except **ISSUE-144** carries the
-   `inspection` actor-asymmetry correctness fix and must not be deferred),
-   then the Coverage Gate (**ISSUE-147**), then the standing Deepening
-   phase (**ISSUE-148**). **ISSUE-130** (Legible Surface Phase 17, standing
-   recalibration) is `in-progress`.
+### Paused arcs — resume points
+
+Nothing here is abandoned; these are the exact restart points.
+
+1. **Card layer — Complete Surface arc** (was the active frontier).
+   Contract: `docs/plans/complete-surface-arc.md`. Movement I
+   (ISSUE-136…138) and Movement II's first phases (ISSUE-139…140) are
+   `done`. **Resume at ISSUE-141…148** (phases 173–180), in arc order:
+   Movement II content phases 141–146 (reorderable — except **ISSUE-144**,
+   which carries the `inspection` actor-asymmetry correctness fix and must
+   not be deferred), then the Coverage Gate (**ISSUE-147**), then the
+   standing Deepening phase (**ISSUE-148**). **ISSUE-130** (Legible
+   Surface Phase 17, standing recalibration) is `in-progress`.
 2. **Tier 4 Progressive Onboarding arc** — **ISSUE-060…077** (phases
-   99–116), all `open`, strictly linear. Locked design contract:
+   99–116), all `open`, strictly linear, never started. Locked contract:
    `docs/plans/progressive-onboarding.md`. Reframes Day 1 as "first time
-   opening a tavern" and unlocks systems across the first ~10 in-game weeks.
-
-The **Choice-Preview Legibility arc** (Tier 6, `docs/plans/choice-preview-legibility-arc.md`)
-is otherwise complete: ISSUE-149…152 (contract → policy → prose → gate) are
-`done`; only **ISSUE-153** (Phase 5, the standing drive/tune/deepen tail) is
-`in-progress` — part (a), driving the three audit-unsampled families through the
-live gate, has landed; part (b), prose-deepening and band-cutoff recalibration,
-stays standing. **ISSUE-156** (phase 189) extended that arc's legibility rule to
-the two consequence axes it left untouched — the **delayed** effect (a `later:`
-line) and the **cross-actor** blast radius (naming the non-primary actor) — and
-is `done`.
-
-The **UI/UX Intuitiveness arc** (Tier 5, revived — locked contract
-`docs/plans/ui-ux-intuitiveness-arc.md`) is now wired into this tracker as
-**ISSUE-157…163** (phases 190–196). It makes the *standing* UI legible and
-navigable, orthogonal to the card-layer choice-legibility arcs. ISSUE-157
-is split into **ISSUE-157a** (phase 190a — interconnection primitives +
-routing + drilldown paths, `done`) and **ISSUE-157b** (phase 190b —
-consumer wiring, `done`). **ISSUE-158** (phase 191 — pressure stakes and
-danger zones), **ISSUE-159** (phase 192 — TopBar stakes reframe), and
-**ISSUE-160** (phase 193 — action effect previews + suggestions), and
-**ISSUE-161** (phase 194 — typography scan-speed pass), **ISSUE-162**
-(phase 195 — Reports → Action conversion), and **ISSUE-163** (phase 196 —
-Day dominance and cleanups) are now `done` — the latter closes the arc;
-see the Tier 5 section for per-issue detail. **The UI/UX Intuitiveness arc
-is complete.**
+   opening a tavern" and unlocks systems across the first ~10 in-game
+   weeks. Audit record **DC-09** questions onboarding vs. complete-surface
+   exposure — settle it before this arc restarts.
+3. **Choice-Preview Legibility arc** (Tier 6,
+   `docs/plans/choice-preview-legibility-arc.md`) — ISSUE-149…152
+   (contract → policy → prose → gate) `done`; **ISSUE-153** (phase 185,
+   the standing drive/tune/deepen tail) is `in-progress`: part (a)
+   (driving the three audit-unsampled families through the live gate)
+   landed, part (b) (prose-deepening + band-cutoff recalibration) is the
+   resume point. **ISSUE-156** (phase 189) extended the rule to the
+   delayed effect (`later:` line) and cross-actor blast radius — `done`.
+4. **UI/UX Intuitiveness arc** (Tier 5 revived,
+   `docs/plans/ui-ux-intuitiveness-arc.md`) — **complete**: ISSUE-157a/b
+   through ISSUE-163 (phases 190a–196) reported `done` when the arc closed.
+   Note an unresolved bookkeeping conflict: the index table still lists
+   **ISSUE-158** (phase 191) and **ISSUE-159** (phase 192) as `open`.
+   Reconcile against the Tier 5 section before treating either as shipped.
 
 The card-layer arcs ran Living Cast → Voiced → Legible → Faithful →
 Complete; each has a locked roadmap (`docs/plans/*-surface-arc.md`,
@@ -248,6 +246,8 @@ next.
 | ISSUE-162 | UI Intuitiveness Phase 6 — Reports → Action conversion | thin | done | 195 |
 | ISSUE-163 | UI Intuitiveness Phase 7 — Day dominance and cleanups | thin | done | 196 |
 | ISSUE-164 | Cause-coverage instrument repair (dead check, convention split, meta clobbering) | broken | done | 197 |
+| ISSUE-165 | UX polish pass: ID leaks, theme unlock, CTA hierarchy, service feedback | solid | done | 198 |
+| ISSUE-166 | **Gameplay-audit remediation arc (2026-07-26, 29 findings, Waves 0–7)** | broken | in-progress | 199+ |
 | ISSUE-116 | Legible Surface Phase 3 — Choice Distinctness Gate & Legible Choice-Set Cap | broken | done | 148 |
 
 ---
@@ -3410,6 +3410,21 @@ action points (phase 186) throughout.
 - **Depends on:** ISSUE-163 (builds on the UI Intuitiveness arc's typography/hierarchy conventions).
 - **Test approach:** No new persisted sim state (theme prefs sanitized with fallback; `serviceOutcome` deliberately unpersisted). Existing suites cover all touched surfaces; `npm run test:full` (3582 tests), `npm run typecheck`, `npm run check` (0 errors), `npm run build` all green. Manual Playwright drive-through of start → morning → plan → picker → service → closing → report in dark + parchment at 420px and 1280px.
 
+## Tier 7 — Gameplay-audit remediation (active; all other arcs paused)
+
+One tracker entry covers the whole arc on purpose. Per-finding state lives
+in the queue file, which is short and cheap to read; duplicating 29
+findings here would bloat the tracker without adding tracking value.
+
+### ISSUE-166 — Gameplay-audit remediation arc (2026-07-26)
+
+- **Grade:** broken · **Status:** in-progress · **Phase:** 199+ (one phase doc per wave, `docs/plans/phase-NNN-audit-wave-N-*.md`) · **Record:** `docs/audits/2026-07-26-gameplay-audit/` — queue: `REMEDIATION_QUEUE.md`, consolidated findings: `reports/GOBLIN_TAVERN_AUDIT_PHASE_08_FINAL_FINDINGS_AND_PRIORITIZATION.md`.
+- **Evidence:** Eight-phase external gameplay audit of the shipped build (`Goblin-Tavern-main (8).zip` + the GitHub Pages deployment) confirmed **29 defects** with runtime routes and reproducible fixtures: 1 Critical, 9 High, 16 Medium, 3 Low. The loop is playable and strategies genuinely differentiate (4,479-coin spread across eight shared-seed 28-day bots), but the build is not progress-safe: save serialization throws on a Svelte proxy so every reload returns to Start (`P2-RT-001`); a rent response spends into negative coin without paying rent, breaching the schema's zero minimum (`P7-EXP-001`); three ordinary restocks are free (`P7-EXP-002`); compact and rich pressure state disagree and reports render pre-response snapshots (`P4-SEAM-003`, `P7-EXP-004`); cards cite the wrong actor/room and Fix Root repairs a different room (`P5-PLAY-003`, `P5-PLAY-004`); closed reports mutate after the next day begins (`P4-SEAM-002`, `P6-COMP-006`); coaching recommends destructive choices (`P7-EXP-003`). None of the 29 was caught by the existing suite, which was green at audit time.
+- **Impact:** No balance, content, or onboarding conclusion drawn from the current build is trustworthy — hence the pause on every other arc. The audit's own verdict: an interconnected prototype, not yet a progress-safe management game.
+- **Scope:** Eight sequential waves, each ending at an evidence gate rather than at code completion — W0 durable progress · W1 canonical state + economy · W2 authoritative causality and closed reports · W3 decision lifecycle · W4 action reachability and contextual transfer · W5 secondary surfaces and identity · W6 issue relevance and attention load · W7 balance re-evaluation. Findings, wave membership, gates and per-finding status: `REMEDIATION_QUEUE.md`. Twelve design questions (`P2-OBS-001`, `P3-DC-001`, `DC-01…DC-10`) are decisions, not defects; answer each inside the wave that reaches it and record the answer in the queue.
+- **Depends on:** none — Wave 0 starts immediately. Internally the waves are hard-ordered (a later wave's gate assumes the earlier fixes); `DC-09` (onboarding vs. complete surface) must be settled before the Tier 4 arc resumes.
+- **Test approach:** Every wave ships regression coverage for its gate, per Phase 8 §8 (required routes R01–R15, state invariants, existing gates to retain). Bar for closing a finding: the audit's own route reproduces the defect before the fix and passes after, plus an automated assertion — reload-survival for W0, `coin >= 0` and pressure-authority equality across eight shared-seed 28-day runs for W1, field-stable closed reports across reload for W2, and so on. The `fixtures/` probes import the live `src/` tree and run as-is (`npx tsx docs/audits/2026-07-26-gameplay-audit/fixtures/phase2_quickday_probe.ts` verified after extraction) — reuse them as harnesses rather than rebuilding the routes. W7 re-runs the strategy matrix only after W0–W6 close.
+
 ## Related notes
 
 External documents that inform tracker work but are not themselves
@@ -3417,6 +3432,10 @@ tracked issues:
 
 - `docs/plans/seven-pass-investigation-plan.md` — cross-cutting audit
   that surfaced most of ISSUE-034…057.
+- `docs/audits/2026-07-26-gameplay-audit/` — the eight-phase gameplay
+  audit behind ISSUE-166. `GAMEPLAY_AUDIT_FRAMEWORK.md` is its method and
+  repository map; `reports/` holds the per-phase evidence; `fixtures/` the
+  runnable probes.
 - `docs/plans/phase-53-59-tier2-followups.md` — perf notes from the
   Tier 2 pass: `phase20.cardlessPlaytest` RAM growth and
   `phase40.expandedReadiness` long runtime. Not currently tracked

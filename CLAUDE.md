@@ -38,8 +38,20 @@ gets an exit marker). Both `npm test` (~3 min) and `npm run test:full`
 
 ## Current status
 
+> ### 🛑 All feature development is paused — gameplay-audit remediation only
+>
+> The 2026-07-26 eight-phase gameplay audit confirmed **29 defects** in the shipped build (1 Critical, 9 High, 16 Medium, 3 Low), including a deterministic save failure that loses every run on reload. Fixing them is **the only active work** (tracked as **ISSUE-166**).
+>
+> - **Work queue:** `docs/audits/2026-07-26-gameplay-audit/REMEDIATION_QUEUE.md` — per-finding checklist, ordered into Waves 0–7. Start at Wave 0 (`P2-RT-001`); waves are sequential and each ends at an evidence gate, not at code completion.
+> - **Why / detail:** `docs/audits/2026-07-26-gameplay-audit/reports/GOBLIN_TAVERN_AUDIT_PHASE_08_FINAL_FINDINGS_AND_PRIORITIZATION.md` (§4 order, §6 clusters, §7 waves, §8 regression, §9 design questions, §11 acceptance gates). Per-phase evidence sits beside it in `reports/`; runnable probes in `fixtures/`.
+> - **Track per-finding status in the queue file, not in the tracker** — `docs/ISSUE_TRACKER.md` carries one entry (ISSUE-166) for the whole arc.
+> - **Do not start card-layer, onboarding, content, or UI work** while this arc is open. No balance or content conclusion from the current build is trustworthy until Wave 1 restores canonical state and economy.
+
+Progress up to the pause (unchanged, and resumable — the tracker's **"Current work" → "Paused arcs — resume points"** holds the exact restart point for each):
+
 - **Phases 1–40 — foundation (done).** The headless simulation under `src/sim/`: core engine, registries, ~26 domain modules, a content layer (naming, cultures, factions, suppliers, npc, staff, tavern, events, text), Zod-schema state, and testing utilities.
-- **Phases 41+ — repair pass, then the card layer (ongoing).** Post-40 fixes (Tiers 0–3), the Rare Ingredients economy (Tier 1.5), Progressive Onboarding (Tier 4), UI/UX clarity (Tier 5), and the card-layer arcs (Living Cast → Voiced → Legible → Faithful → Complete Surface) that build the compositional card runtime under `src/cards/compose/` and the report projection layer under `src/reports/`.
+- **Phases 41–198 — repair pass, then the card layer.** Post-40 fixes (Tiers 0–3), the Rare Ingredients economy (Tier 1.5), UI/UX clarity (Tier 5), and the card-layer arcs (Living Cast → Voiced → Legible → Faithful → Complete Surface) that build the compositional card runtime under `src/cards/compose/` and the report projection layer under `src/reports/`.
+- **Paused mid-arc:** Complete Surface (resume at ISSUE-141…148), Choice-Preview Legibility part (b) (ISSUE-153), Legible Surface standing recalibration (ISSUE-130). **Paused before starting:** Tier 4 Progressive Onboarding (ISSUE-060…077) — audit record `DC-09` questions onboarding vs. complete-surface exposure, so settle that before it restarts.
 
 `docs/ISSUE_TRACKER.md` is the **authoritative record** of what shipped and what's next — every phase has an `ISSUE-NNN` entry there with status, phase number, evidence, scope, dependencies, and test approach. Do not maintain a duplicate changelog here; read the tracker's **"Current work"** callout for the next-up issue. Per-phase design/implementation detail lives in `docs/plans/phase-NNN-*.md`.
 
@@ -47,6 +59,7 @@ gets an exit marker). Both `npm test` (~3 min) and `npm run test:full`
 
 ## Where things are documented
 
+- `docs/audits/2026-07-26-gameplay-audit/` — **the active work.** `REMEDIATION_QUEUE.md` (queue + status), `reports/` (per-phase evidence, Phase 8 is the consolidated deliverable), `GAMEPLAY_AUDIT_FRAMEWORK.md` (method + repository/route map, R01–R15), `fixtures/` (probes that import the live `src/` tree; reuse them as regression harnesses).
 - `docs/ISSUE_TRACKER.md` — authoritative tracker (current work, full per-issue detail, status legend, how to add an issue).
 - `docs/plans/phase-NNN-*.md` — one plan per phase, each with explicit "Acceptance Criteria" + "Do Not Do" sections. Read the matching plan before implementing.
 
@@ -111,12 +124,14 @@ specs/cards/    # Per-template authoring specs (design records for snippet pools
 scripts/        # Diagnostic + test-runner scripts (not sim code)
 tests/          # sim/ cards/ reports/ web/ — per-phase + per-gate coverage
 docs/           # ISSUE_TRACKER.md + plans/ (per-phase docs + locked contracts)
+                # + audits/2026-07-26-gameplay-audit/ (the active remediation arc)
 ```
 
 ## Working conventions
 
 - **Read the matching tracker entry and phase doc before implementing.** The tracker carries Evidence/Scope/Depends-on/Test-approach; `Depends on` is hard (the dependency must be `done` first). Update an issue's `Status`/`Phase` fields inline as work progresses; closed issues stay in the tracker as history.
 - **Workflow per issue:** plan mode → read tracker entry → write a `docs/plans/phase-NNN-*.md` plan → implement → keep the tracker current.
+- **Workflow during the audit arc (now):** pick the next wave from `REMEDIATION_QUEUE.md` → read each finding's phase report section → write one `docs/plans/phase-NNN-audit-wave-N-*.md` plan for the wave → reproduce each finding on its audit route *before* fixing → fix → add the regression coverage Phase 8 §8 requires → flip that finding's `St` in the queue. A finding is only `done` once its route fails before the fix and passes after, with an automated assertion behind it. A wave is only closed when its evidence gate passes. Design records (`P2-OBS-001`, `P3-DC-001`, `DC-01…DC-10`) need a decision from the user, not an implementation guess — record the answer in the queue.
 - **Do not skip ahead.** Don't add cards, UI, narrative text, or issue-seed *content* before the phase that introduces them. The plans are sequential by design.
 - **No `Math.random()` and no browser/runtime deps in `src/sim/`.** Use the seeded RNG from context; the sim must run headless.
 - **Keep state serializable.** Convert any `Map`/class/closure to plain JSON at the boundary.

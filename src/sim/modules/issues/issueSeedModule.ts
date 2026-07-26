@@ -62,9 +62,9 @@ import { ISSUE_SEEDS_MODULE_ID } from './issueSeedQueries'
 //     still reads the fully-accumulated `seedsToday`).
 //   - Validate module slice shape on `validate`.
 //
-// See docs/plans/phase-186-day-clock-implementation-notes.md for the
-// grounded findings that shaped this (esp. the during-service generator
-// set and the pressure-snapshot timing that GATE A turns on).
+// See docs/plans/phase-186-day-clock-time-economy.md for the contract this
+// implements (the during-service generator set and the pressure-snapshot
+// timing that GATE A turns on).
 
 const SOURCE = ISSUE_SEEDS_MODULE_ID
 

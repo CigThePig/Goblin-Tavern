@@ -29,8 +29,11 @@ Grade: `broken` · `thin` · `solid` · `design`.
 **Only one arc is active: ISSUE-166 — remediation of the 2026-07-26 gameplay
 audit.** Everything else is paused until it closes. Work the waves in order
 from `docs/audits/2026-07-26-gameplay-audit/REMEDIATION_QUEUE.md`, which
-tracks the 29 findings; this file carries one entry for the arc. Start at
-Wave 0 (`P2-RT-001`, the save-serialization blocker).
+tracks the 29 findings; this file carries one entry for the arc.
+
+**Wave 0 is closed** (`P2-RT-001`, the save-serialization blocker; phase
+199). **Next: Wave 1 — restore canonical state and economy** (`P7-EXP-001`,
+`P7-EXP-002`, `P4-SEAM-003`, `P7-EXP-004`, `P4-SEAM-001`).
 
 ### Paused arcs — resume points
 
@@ -236,6 +239,7 @@ above.
 - **Impact:** No balance, content, or onboarding conclusion drawn from the current build is trustworthy — hence the pause on every other arc. The audit's own verdict: an interconnected prototype, not yet a progress-safe management game.
 - **Scope:** Eight sequential waves, each ending at an evidence gate rather than at code completion — W0 durable progress · W1 canonical state + economy · W2 authoritative causality and closed reports · W3 decision lifecycle · W4 action reachability and contextual transfer · W5 secondary surfaces and identity · W6 issue relevance and attention load · W7 balance re-evaluation. Findings, wave membership, gates and per-finding status: `REMEDIATION_QUEUE.md`. Twelve design questions (`P2-OBS-001`, `P3-DC-001`, `DC-01…DC-10`) are decisions, not defects; answer each inside the wave that reaches it and record the answer in the queue.
 - **Depends on:** none — Wave 0 starts immediately. Internally the waves are hard-ordered (a later wave's gate assumes the earlier fixes); `DC-09` (onboarding vs. complete surface) must be settled before the Tier 4 arc resumes.
+- **Progress:** **Wave 0 done** (phase 199, `docs/plans/phase-199-audit-wave-0-durable-progress.md`) — `P2-RT-001` fixed and verified, its gate (R11/R12 at every beat and segment) passing under `tests/web/phase199.wave0.durableProgress.test.ts`. The run now survives reload: the envelope is built by a proxy-safe serializer, a serialization failure is a reportable save error with a working Retry instead of an uncaught throw, and the two gate fields that were never persisted — the Service outcome strip and the start-of-day baseline (now a patch against `state`, 218 KB against 1 585 KB at day 28) — cross the boundary. One observation raised for scheduling, recorded in the queue: `TavernState` grows without bound (the attribution ledger is 985 KB of a 1 691 KB day-28 state), so a long run will eventually exhaust the storage quota for reasons unrelated to this arc. **Next: Wave 1.**
 - **Test approach:** Every wave ships regression coverage for its gate, per Phase 8 §8 (required routes R01–R15, state invariants, existing gates to retain). Bar for closing a finding: the audit's own route reproduces the defect before the fix and passes after, plus an automated assertion — reload-survival for W0, `coin >= 0` and pressure-authority equality across eight shared-seed 28-day runs for W1, field-stable closed reports across reload for W2, and so on. The `fixtures/` probes import the live `src/` tree and run as-is (`npx tsx docs/audits/2026-07-26-gameplay-audit/fixtures/phase2_quickday_probe.ts` verified after extraction) — reuse them as harnesses rather than rebuilding the routes. W7 re-runs the strategy matrix only after W0–W6 close.
 
 ### Tier 6 — Choice-Preview Legibility (standing tail)

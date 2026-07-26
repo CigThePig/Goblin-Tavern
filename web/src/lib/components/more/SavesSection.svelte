@@ -33,12 +33,17 @@
 
   let {
     onreplaced,
+    onretrysave,
   }: {
     /** Called when an Import or snapshot Load successfully replaces
      * the current run — the parent (App.svelte) re-routes to the
      * just-hydrated run's route so the new world is immediately
      * playable. */
     onreplaced: () => void
+    /** Phase 199 / audit Wave 0 — re-attempt the failed save now. The
+     * banner had no way to act on the failure it reported; the player
+     * could only dismiss it and keep playing an unsaved run. */
+    onretrysave: () => void
   } = $props()
 
   let snapshots = $state<SnapshotMeta[]>(listSnapshots())
@@ -97,7 +102,16 @@
     const name =
       creatingName.trim() ||
       `Day ${gameStore.state.calendar.totalDaysElapsed}`
-    const session = gameStore.serializeForSave()
+    // Phase 199 / audit Wave 0 — snapshot creation shares the autosave's
+    // serializer, so it shared P2-RT-001's uncaught throw: "Snapshot now"
+    // produced no snapshot and no message. Report the failure instead.
+    let session: ReturnType<typeof gameStore.serializeForSave>
+    try {
+      session = gameStore.serializeForSave()
+    } catch {
+      creatingError = "Couldn't package the run for a snapshot."
+      return
+    }
     const result = createSnapshot(name, session)
     if (!result.ok) {
       if (result.reason === 'storage_budget') {
@@ -161,7 +175,17 @@
   }
 
   function exportCurrent() {
-    exportSessionToFile(gameStore.serializeForSave())
+    // Same serializer, same Wave 0 reasoning as `takeSnapshot`. Export is
+    // the recovery path the save-error banner points at, so it must not
+    // fail silently.
+    // `importError` is the message line rendered under this row — it
+    // reports either direction of the export/import pair.
+    importError = undefined
+    try {
+      exportSessionToFile(gameStore.serializeForSave())
+    } catch {
+      importError = "Couldn't package the run for export."
+    }
   }
 
   function pickImportFile() {
@@ -223,13 +247,20 @@
         {:else if gameStore.saveError.reason === 'unavailable'}
           The browser blocked save writes (private mode or storage off).
           Retry once storage is available.
+        {:else if gameStore.saveError.reason === 'serialize'}
+          Couldn't package the run for saving, so your latest progress
+          isn't saved. Retry, and if it keeps failing, export the run
+          and report the problem.
         {:else}
           Couldn't write the latest autosave. Retry, and if it keeps
           failing, export the run so you don't lose progress.
         {/if}
       </p>
       <div class="confirm-actions">
-        <button class="primary-btn" type="button" onclick={clearSaveError}>
+        <button class="primary-btn" type="button" onclick={onretrysave}>
+          Retry
+        </button>
+        <button class="ghost-btn" type="button" onclick={clearSaveError}>
           Dismiss
         </button>
       </div>

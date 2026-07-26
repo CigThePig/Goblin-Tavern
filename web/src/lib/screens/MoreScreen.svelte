@@ -18,14 +18,18 @@
 
   let {
     onreplaced,
+    onretrysave,
   }: {
     onreplaced: () => void
+    /** Re-attempt the last failed save now, without waiting for the
+     * next autosave debounce (Phase 199 / audit Wave 0). */
+    onretrysave: () => void
   } = $props()
 </script>
 
 <div class="more-screen">
   <SettingsSection />
-  <SavesSection {onreplaced} />
+  <SavesSection {onreplaced} {onretrysave} />
   <HelpSection />
   <DiagnosticsSection />
   <AboutSection />

@@ -67,7 +67,10 @@ import {
   type Beat,
   type DaySegment,
   type PendingChoice,
+  type ServiceOutcome,
 } from './daySession'
+import { encodeBaselinePatch } from './baselinePatch'
+import { toPlainSaveData } from './plainSave'
 import type {
   LatestResultLite,
   PersistedSession,
@@ -223,12 +226,13 @@ class GameStore {
    * Headline outcome of the day's service run (Segment B), captured so
    * the service beat can SHOW the day that just happened — patrons
    * through the door, net coin movement, incident count — instead of an
-   * empty screen while the topbar coin silently jumps. Ephemeral view
-   * state: not persisted; a mid-day reload simply omits the strip.
+   * empty screen while the topbar coin silently jumps.
+   *
+   * Phase 199 / audit Wave 0 — persisted. It was session-only, so a
+   * mid-day reload dropped the strip while the coin it explains had
+   * already moved; the Wave 0 gate requires it to survive unchanged.
    */
-  serviceOutcome:
-    | { patrons: number; netCoin: number; incidents: number }
-    | undefined = $state(undefined)
+  serviceOutcome: ServiceOutcome | undefined = $state(undefined)
 
   /**
    * Phase 97 — Per-day dismissed missed-opportunity ids. Used by the
@@ -493,10 +497,13 @@ class GameStore {
     // guarantees a value (derived from `beat` for pre-Cluster-5 saves).
     this.segment = save.daySession.segment ?? 'C'
     // The start-of-day baseline is only present mid-day (segment 'A'/'B').
-    // Without it, a resumed end-of-day would produce a partial full-day
-    // diff — the segment methods fall back to the current state, which is
-    // the documented edge Cluster 7's migration will harden.
-    this.dayBaseline = save.dayBaseline ? structuredClone(save.dayBaseline) : undefined
+    // Phase 199 / audit Wave 0 restored it to the envelope as a patch
+    // against `state`; the loader has already rebuilt, migrated and
+    // validated it, so what arrives here is a plain `TavernState`. When
+    // it's absent the segment methods fall back to the current state,
+    // costing only the resumed day's full-day diff bracket.
+    this.dayBaseline = save.dayBaseline
+    this.serviceOutcome = save.serviceOutcome
     this.dayLogs = []
     this.route = save.route
     this.reportsSubview = save.subroutes?.reports ?? 'today'
@@ -517,35 +524,46 @@ class GameStore {
    * storage and (post-save) on `lastSavedAt`.
    */
   serializeForSave(): PersistedSession {
+    // Phase 199 / audit Wave 0 (P2-RT-001) — every field here is read
+    // straight off `$state`, so in the browser every one of them is a deep
+    // proxy. This method used to call `structuredClone` on two of them,
+    // which throws `DataCloneError` on a Proxy and so failed EVERY save
+    // from day zero. The single `toPlainSaveData` at the end unwraps the
+    // whole envelope instead — one guarantee point that covers `state`,
+    // `picks` and any field added later, and one that also enforces the
+    // "save data is plain JSON" rule rather than assuming it.
+    //
     // Diffs are included but with module-container values already excluded
     // by the 10 k-char threshold in diffModules, so the changes array is
-    // typically a few KB. Reports/logs/validation are cloned so a future
-    // in-place edit cannot silently corrupt the next autosave's payload.
+    // typically a few KB.
     const latestResultLite: LatestResultLite | undefined = this.latestResult
-      ? structuredClone({
+      ? {
           reports: this.latestResult.reports,
           logs: this.latestResult.logs,
           validation: this.latestResult.validation,
           diffs: this.latestResult.diffs,
-        })
+        }
       : undefined
-    return {
+
+    // The start-of-day baseline, as a patch against the `state` already in
+    // the envelope (see baselinePatch.ts). Only exists mid-day; at segment
+    // 'C' the day is closed and there is no baseline to carry.
+    const dayBaselinePatch = this.dayBaseline
+      ? encodeBaselinePatch(this.state, this.dayBaseline)
+      : undefined
+
+    const envelope: PersistedSession = {
       saveVersion: 1,
       savedAt: new Date().toISOString(),
       simSeed: this.seedString,
       state: this.state,
       ...(this.previousCalendar
-        ? {
-            previousCalendar: {
-              ...this.previousCalendar,
-              tags: [...this.previousCalendar.tags],
-            },
-          }
+        ? { previousCalendar: this.previousCalendar }
         : {}),
       ...(latestResultLite ? { latestResultLite } : {}),
-      picks: [...this.picks],
-      staffPriorities: { ...this.staffPriorities },
-      pendingBySeedId: structuredClone(this.pendingBySeedId),
+      picks: this.picks,
+      staffPriorities: this.staffPriorities,
+      pendingBySeedId: this.pendingBySeedId,
       daySession: {
         beat: this.beat,
         serviceComplete: this.serviceComplete,
@@ -559,7 +577,11 @@ class GameStore {
         world: this.worldSubview,
       },
       dismissedMissedOpportunityIds: [...this.dismissedMissedOpportunityIds],
+      ...(this.serviceOutcome ? { serviceOutcome: this.serviceOutcome } : {}),
+      ...(dayBaselinePatch ? { dayBaselinePatch } : {}),
     }
+
+    return toPlainSaveData(envelope)
   }
 
   /** Issue seeds the sim produced on the most recent day, valid only. */

@@ -15,7 +15,7 @@ acceptance gates live in
 `reports/GOBLIN_TAVERN_AUDIT_PHASE_08_FINAL_FINDINGS_AND_PRIORITIZATION.md`
 (§4 order, §6 clusters, §7 waves, §8 regression, §11 acceptance).
 
-## Wave 0 — Restore durable progress
+## Wave 0 — Restore durable progress ✅ gate passed
 
 Gate: R11/R12 pass at every beat and segment; pending choice, queued action,
 baseline, Service outcome, report archive, RNG and calendar survive reload
@@ -23,7 +23,40 @@ unchanged.
 
 | ID | St | Sev/Pri | Finding | Evidence |
 |---|---|---|---|---|
-| P2-RT-001 | open | Crit/P0 | Save serialization throws on a Svelte proxy — autosave, Continue, snapshot, export/import and error-reload all lose the run | P2 §9 |
+| P2-RT-001 | done | Crit/P0 | Save serialization throws on a Svelte proxy — autosave, Continue, snapshot, export/import and error-reload all lose the run | P2 §9 |
+
+**Closed 2026-07-26.** Plan:
+`docs/plans/phase-199-audit-wave-0-durable-progress.md`. Regression:
+`tests/web/phase199.wave0.durableProgress.test.ts` (19 assertions) —
+verified failing against the pre-fix serializer with the audit's own
+`DataCloneError`, passing after.
+
+- Root cause: two `structuredClone` calls on `$state` deep proxies inside
+  `GameStore.serializeForSave()`. Replaced by `web/src/lib/sim/plainSave.ts`
+  (`toPlainSaveData`), a proxy-safe JSON-faithful clone applied once to the
+  whole envelope, which also throws a located error on anything non-JSON
+  instead of persisting `{}`.
+- The throw happened before `saveSession()` produced its typed result, so
+  no banner appeared. `persistence.saveSessionFrom()` now builds and writes
+  as one operation with a `'serialize'` failure reason; autosave, snapshot
+  and export all route through it, and the banner gained a working Retry
+  (it previously offered only Dismiss).
+- Gate fields that were not persisted at all are now: the Service outcome
+  strip, and the start-of-day baseline — the latter as a patch against the
+  envelope's `state` (`baselinePatch.ts`, 218 KB against 1 585 KB at day
+  28), which restores the report's full-day diff after a mid-day reload
+  without re-breaking the quota the 2026-06-11 audit §1 fix protected.
+- Gates re-run green: `npm test` (3 550), `npm run test:heavy` (129),
+  `npm run typecheck`, `npm run check` (0/0), `npm run build`.
+
+**Observation raised, not fixed (needs scheduling):** `TavernState` grows
+without bound — `modules.attribution.attributions` is 985 KB of a 1 691 KB
+day-28 state, ahead of `issueSeeds` (209 KB), `causes` (182 KB) and
+`history` (150 KB). localStorage is UTF-16, so a day-28 save already sits
+at roughly 4 MB of a typical 5 MB origin budget and a long run will
+eventually fail to save for reasons unrelated to `P2-RT-001`. The audit ran
+28–30 days and did not reach it; no finding covers it. Pruning those
+ledgers is a simulation change — decide where it belongs.
 
 ## Wave 1 — Restore canonical state and economy
 

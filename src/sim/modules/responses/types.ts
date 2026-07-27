@@ -53,6 +53,17 @@ export type PendingOrigin = {
   verb: string
   /** Absolute day the entry was enqueued. */
   enqueuedDay: number
+  /**
+   * Phase 202 / audit Wave 3 (`P6-COMP-002`) — the choice that promised
+   * this, in the player's own wording, captured at enqueue time.
+   *
+   * It has to live HERE rather than be looked up later: `resolvedToday`
+   * is cleared every morning, and a delayed effect fires days after the
+   * decision that created it. Without it, "link the later result to its
+   * original choice" degrades to "an earlier decision" — which is exactly
+   * the unexplained-number problem the finding is about.
+   */
+  selectionLabel?: string
 }
 
 export type PendingResponseEntry = {
@@ -76,6 +87,16 @@ export type PendingResponseEntry = {
  * Optional so records written before the wave still parse.
  */
 export type ResolvedIntentOutcome = 'applied' | 'skipped_unaffordable'
+
+/** Phase 202 / audit Wave 3 — one drained pending entry, as the report reads it. */
+export type DrainedConsequenceRecord = {
+  entryId: string
+  status: 'applied' | 'expired'
+  /** The choice that promised it, in the player's own wording. */
+  originLabel: string
+  /** What it did (or would have done), from the effect's own preview. */
+  readable: string
+}
 
 export type ResolvedIntentRecord = {
   intentId: string
@@ -115,6 +136,14 @@ export type ResponsesModuleState = {
   appliedFromPendingToday: string[]
   /** Pending entry ids that expired today (cleared on startDay). */
   expiredFromPendingToday: string[]
+  /**
+   * Phase 202 / audit Wave 3 (`P6-COMP-002`) — what drained today, with
+   * enough of each entry to name it. The id arrays above cannot be
+   * attributed after the fact: the entry is removed from the queue during
+   * the drain, and its id (`pending-<day>-<n>`) carries no origin.
+   * Optional so saves written before the wave still load.
+   */
+  drainedToday?: DrainedConsequenceRecord[]
   /** Lifetime: number of response intents resolved. */
   totalResolved: number
   /** Lifetime: number of pending entries applied. */
@@ -131,6 +160,7 @@ export function createInitialResponsesModuleState(): ResponsesModuleState {
     resolvedToday: [],
     appliedFromPendingToday: [],
     expiredFromPendingToday: [],
+    drainedToday: [],
     totalResolved: 0,
     totalApplied: 0,
     totalExpired: 0,
@@ -202,6 +232,7 @@ const PendingOriginSchema = z.object({
   responseSlotId: z.string(),
   verb: z.string(),
   enqueuedDay: z.number().int(),
+  selectionLabel: z.string().optional(),
 })
 
 const PendingResponseEntrySchema = z.object({
@@ -235,6 +266,16 @@ export const ResponsesModuleStateSchema = z.object({
   resolvedToday: z.array(ResolvedIntentRecordSchema),
   appliedFromPendingToday: z.array(z.string()),
   expiredFromPendingToday: z.array(z.string()),
+  drainedToday: z
+    .array(
+      z.object({
+        entryId: z.string(),
+        status: z.enum(['applied', 'expired']),
+        originLabel: z.string(),
+        readable: z.string(),
+      }),
+    )
+    .optional(),
   totalResolved: z.number().int().min(0),
   totalApplied: z.number().int().min(0),
   totalExpired: z.number().int().min(0),

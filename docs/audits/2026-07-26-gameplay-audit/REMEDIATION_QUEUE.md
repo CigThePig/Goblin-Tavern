@@ -236,6 +236,39 @@ Work landed:
 - `humanizePath` maps `customers.<id>.<field>`, so four groups' satisfaction
   changes stop rendering as four identical rows.
 
+## Review of Waves 0–3 (2026-07-27)
+
+A pass over the whole arc before pausing, beyond re-running the gates.
+Two real defects in the arc's own work were found and fixed:
+
+1. **Delayed consequences were not actually attributed** (`P6-COMP-002`).
+   `PendingOrigin` carried no selection label, and the projection tried to
+   recover one by matching the drained entry's id against the day's
+   resolved intents — but a pending id is `pending-<day>-<n>` and embeds
+   no intent, so every applied/expired row fell back to "An earlier
+   decision". The Wave 3 test passed because it only asserted the label
+   was not the engine verb. Fixed: the label is captured onto `origin` at
+   enqueue time (so it survives to the day the effect fires, days after
+   `resolvedToday` was cleared), the drain records each entry with its
+   origin, and the tests now assert the actual label end-to-end through
+   the real pipeline.
+2. **The same state was stored twice mid-day.** Wave 0 added a
+   start-of-day baseline patch and Wave 2 a closed-day patch, both encoded
+   against `state` — but mid-day the baseline IS the previous day's
+   closing state, so the two patches were identical. Measured at day 28
+   mid-day, the save was **4.86 MB UTF-16** against a typical 5 MB origin
+   budget. The baseline is now encoded against the closed-day state, which
+   makes its patch empty in the common case: **4.43 MB**, with the
+   reconstruction still exact (asserted).
+
+**Standing quota warning — unchanged and now measured.** A day-28 mid-day
+save is 2 267 KB of JSON (~4.43 MB UTF-16), of which `state` alone is
+1 702 KB. The Wave 0 observation about unbounded `TavernState` growth is
+the binding constraint on run length, and the arc's additions cost about
+0.4 MB of the remaining headroom. Wave 0's save-error banner means this
+fails visibly rather than silently, but a long run will still hit it.
+Pruning the attribution / causes / history ledgers remains unscheduled.
+
 ## Wave 4 — Restore action reachability and contextual transfer
 
 Gate: R02/R06 pass through every normal entry; one contextual target stays

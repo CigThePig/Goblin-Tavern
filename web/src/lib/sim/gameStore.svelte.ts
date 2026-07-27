@@ -578,16 +578,29 @@ class GameStore {
     // The start-of-day baseline, as a patch against the `state` already in
     // the envelope (see baselinePatch.ts). Only exists mid-day; at segment
     // 'C' the day is closed and there is no baseline to carry.
-    const dayBaselinePatch = this.dayBaseline
-      ? encodeBaselinePatch(this.state, this.dayBaseline)
-      : undefined
-
-    // Phase 201 / audit Wave 2 — the closed day's state, same encoding.
-    // At the report beat it equals `state` and the patch is empty; once
-    // the next morning opens it covers one segment of divergence.
+    // Phase 201 / audit Wave 2 — the closed day's state. At the report
+    // beat it equals `state` and the patch is empty; once the next
+    // morning opens it covers one segment of divergence.
     const closedDayStatePatch = this.closedDayState
       ? encodeBaselinePatch(this.state, this.closedDayState)
       : undefined
+
+    // The start-of-day baseline is encoded against the CLOSED-DAY state,
+    // not against `state`, because mid-day those two are the same value:
+    // a day opens from the previous day's close, so `dayBaseline` is
+    // exactly `closedDayState` until the next day closes. Encoding
+    // against `state` stored the same ~220 KB twice (measured at day 28),
+    // which matters — a day-28 mid-day save is already close to the
+    // typical 5 MB origin budget. Against the closed day the patch is
+    // empty in the common case and still exact when they do differ (a
+    // session resumed from a save that carried no closed day).
+    const baselineBase = this.closedDayState ?? this.state
+    const dayBaselinePatch = this.dayBaseline
+      ? encodeBaselinePatch(baselineBase, this.dayBaseline)
+      : undefined
+    const dayBaselineBase: 'closedDay' | 'state' = this.closedDayState
+      ? 'closedDay'
+      : 'state'
 
     const envelope: PersistedSession = {
       saveVersion: 1,
@@ -615,9 +628,10 @@ class GameStore {
       },
       dismissedMissedOpportunityIds: [...this.dismissedMissedOpportunityIds],
       ...(this.serviceOutcome ? { serviceOutcome: this.serviceOutcome } : {}),
-      ...(dayBaselinePatch ? { dayBaselinePatch } : {}),
       ...(closedDayStatePatch ? { closedDayStatePatch } : {}),
       ...(this.closedDayState ? { hasClosedDayState: true } : {}),
+      ...(dayBaselinePatch ? { dayBaselinePatch } : {}),
+      ...(this.dayBaseline ? { hasDayBaseline: true, dayBaselineBase } : {}),
     }
 
     return toPlainSaveData(envelope)

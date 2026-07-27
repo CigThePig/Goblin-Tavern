@@ -308,8 +308,11 @@
           <li class="hook">
             <span class="hook-mark">{c.status === 'applied' ? '◆' : '◇'}</span>
             <span class="hook-text">
-              {c.originLabel} —
-              {c.status === 'applied' ? 'came due' : 'lapsed unused'}
+              {c.expectedEffect ?? c.originLabel}
+              <span class="hook-origin">
+                from “{c.originLabel}” ·
+                {c.status === 'applied' ? 'came due' : 'lapsed unused'}
+              </span>
             </span>
           </li>
         {/each}

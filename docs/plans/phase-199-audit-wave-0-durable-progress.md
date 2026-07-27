@@ -97,7 +97,10 @@ days, both mid-day segments, round-tripping exactly:
 | 28 | 1 585 KB | 190 KB (A) · 218 KB (B) |
 
 The patch is written only while a day is in flight (segment `A` or `B`) —
-at segment `C` there is no baseline to hold. On load the patch is applied
+at segment `C` there is no baseline to hold. (Phase 202 review: it is
+encoded against the *closed-day* state rather than against `state`, since
+mid-day the two are the same value — a day opens from the previous day's
+close — so the patch is normally empty rather than a second copy.) On load the patch is applied
 to the raw saved state and the reconstruction runs through the same
 migration + Zod pipeline as `state`; a patch that fails to apply or
 validate is dropped with a warning and the existing fall-back (baseline =

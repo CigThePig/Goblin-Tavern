@@ -155,6 +155,8 @@ export type ReportResolvedConsequence = {
   status: 'applied' | 'expired'
   /** The decision it came from, in the player's own wording. */
   originLabel: string
+  /** What it did, from the effect's own preview. Absent on legacy saves. */
+  expectedEffect?: string
 }
 
 export type ReportOwnerActionLine = {

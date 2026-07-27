@@ -56,15 +56,19 @@ function expectedEffectOf(entry: PendingResponseEntry): string {
 }
 
 /**
- * The choice that created this entry, as the player saw it. The resolved
- * record for the originating intent carries the label (Wave 3,
- * `P6-COMP-001`); when the record has aged out of `resolvedToday` the
- * slot id is the honest fallback rather than the engine verb.
+ * The choice that created this entry, as the player saw it.
+ *
+ * The label is captured onto `origin` at enqueue time precisely so it
+ * survives to the day the effect fires — `resolvedToday` is cleared every
+ * morning, and a delayed effect lands days later. The same-day record is
+ * a secondary source; the slot id is the honest last resort, never the
+ * engine verb.
  */
 function originLabelOf(
   entry: PendingResponseEntry,
   resolvedById: Map<string, ResolvedIntentRecord>,
 ): string {
+  if (entry.origin.selectionLabel) return entry.origin.selectionLabel
   const record = resolvedById.get(entry.origin.intentId)
   if (record?.selectionLabel) return record.selectionLabel
   return entry.origin.responseSlotId.replace(/_/g, ' ')
@@ -136,36 +140,28 @@ export function projectResolvedConsequences(
   const expired = slice.expiredFromPendingToday ?? []
   if (applied.length === 0 && expired.length === 0) return []
 
-  const resolvedById = new Map<string, ResolvedIntentRecord>()
-  for (const record of slice.resolvedToday ?? []) {
-    resolvedById.set(record.intentId, record)
+  // The drain records each entry with its origin as it removes it from
+  // the queue; the id arrays are kept for back-compat and for saves
+  // written before Wave 3.
+  const drained = slice.drainedToday ?? []
+  if (drained.length > 0) {
+    return drained
+      .map((record) => ({
+        entryId: record.entryId,
+        status: record.status,
+        originLabel: record.originLabel,
+        expectedEffect: record.readable,
+      }))
+      .slice(0, RESOLVED_CAP)
   }
 
   const rows: ReportResolvedConsequence[] = []
   for (const entryId of applied) {
-    rows.push({ entryId, status: 'applied', ...describeDrained(entryId, resolvedById) })
+    rows.push({ entryId, status: 'applied', originLabel: 'An earlier decision' })
   }
   for (const entryId of expired) {
-    rows.push({ entryId, status: 'expired', ...describeDrained(entryId, resolvedById) })
+    rows.push({ entryId, status: 'expired', originLabel: 'An earlier decision' })
   }
   return rows.slice(0, RESOLVED_CAP)
 }
 
-/**
- * A drained entry's id embeds its day and suffix, not its origin, and the
- * entry itself is gone by the time the report runs. Where the originating
- * intent resolved on the same day we can still name it; otherwise the row
- * says plainly that an earlier commitment came due, which is true and
- * more useful than silence.
- */
-function describeDrained(
-  entryId: string,
-  resolvedById: Map<string, ResolvedIntentRecord>,
-): { originLabel: string } {
-  for (const record of resolvedById.values()) {
-    if (entryId.includes(record.intentId)) {
-      return { originLabel: record.selectionLabel ?? record.responseSlotId }
-    }
-  }
-  return { originLabel: 'An earlier decision' }
-}

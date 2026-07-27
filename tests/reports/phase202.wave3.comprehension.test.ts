@@ -74,7 +74,7 @@ describe('P5-PLAY-002 — report rows name their customer group', () => {
 
 describe('P6-COMP-001 — the record keeps the player’s words', () => {
   it('carries the chosen label through the report, not the engine verb', () => {
-    let state = runDay(createInitialTavernState()).state
+    const state = runDay(createInitialTavernState()).state
     const seed = getIssueSeeds(state, {}).find(
       (candidate) => candidate.responseSlots.length > 0,
     )
@@ -103,11 +103,10 @@ describe('P6-COMP-001 — the record keeps the player’s words', () => {
     // The verb is still on the record for debug surfaces, but it is not
     // what the player-facing summary reads.
     expect(row!.selectionLabel).not.toBe(row!.verb)
-    void state
   })
 
   it('leaves the label absent — not fabricated — for engine-built intents', () => {
-    let state = runDay(createInitialTavernState()).state
+    const state = runDay(createInitialTavernState()).state
     const seed = getIssueSeeds(state, {}).find((s) => s.responseSlots.length > 0)!
     const slot = seed.responseSlots[0]!
     const day = runDay(state, {
@@ -156,6 +155,7 @@ describe('P6-COMP-002 — delayed consequences have a lifecycle', () => {
                 responseSlotId: 'start_project',
                 verb: 'upgrade',
                 enqueuedDay: today,
+                selectionLabel: 'Start a real Main Room project',
               },
               payload: {
                 kind: 'state_change',
@@ -186,8 +186,9 @@ describe('P6-COMP-002 — delayed consequences have a lifecycle', () => {
     expect(row.expectedEffect).toContain('Main Room condition')
     expect(row.daysAway).toBe(1)
     expect(row.status).toBe('pending')
-    // The choice that promised it is named, not the engine verb.
-    expect(row.originLabel).not.toBe('upgrade')
+    // The choice that promised it is named in the player's own words —
+    // not the engine verb, and not a generic stand-in.
+    expect(row.originLabel).toBe('Start a real Main Room project')
   })
 
   it('marks an entry due once its day arrives', () => {
@@ -216,6 +217,10 @@ describe('P6-COMP-002 — delayed consequences have a lifecycle', () => {
     const resolved = projectResolvedConsequences(after)
     expect(resolved.length).toBe(1)
     expect(resolved[0]!.status).toBe('applied')
+    // The link back to the originating choice is the whole point of the
+    // finding: a later effect must not arrive unattributed.
+    expect(resolved[0]!.originLabel).toBe('Start a real Main Room project')
+    expect(resolved[0]!.expectedEffect).toContain('Main Room condition')
 
     // And it is no longer promised.
     expect(
@@ -246,6 +251,7 @@ describe('P6-COMP-002 — delayed consequences have a lifecycle', () => {
                 responseSlotId: 'delay',
                 verb: 'delay',
                 enqueuedDay: today - 6,
+                selectionLabel: 'Delay the payment',
               },
               payload: {
                 kind: 'state_change',
@@ -267,6 +273,67 @@ describe('P6-COMP-002 — delayed consequences have a lifecycle', () => {
     const resolved = projectResolvedConsequences(after)
     expect(resolved.length).toBe(1)
     expect(resolved[0]!.status).toBe('expired')
+    expect(resolved[0]!.originLabel).toBe('Delay the payment')
+  })
+
+  it('the real pipeline stamps the label onto anything it queues', () => {
+    // The fixture cases above set `origin.selectionLabel` by hand. This
+    // one proves the sim actually puts it there — without it, the link
+    // survives only for the day the choice was made, and a delayed
+    // effect (which by definition lands later) arrives unattributed.
+    // A response resolves against seeds generated the SAME day, so build
+    // the intents from a probe of the day we are about to run (the
+    // Phase 41 pattern). Two days in, the surface carries slots with
+    // delayed effects.
+    const warmState = runDay(createInitialTavernState()).state
+    const probe = runDay(warmState)
+    const intents: ResponseIntent[] = getIssueSeeds(probe.state, {}).flatMap((seed) => {
+      // Pick a slot that actually queues something — a slot with only
+      // immediate effects never reaches the pending queue.
+      const slot = seed.responseSlots.find((candidate) => {
+        const profile = seed.consequenceProfiles.find(
+          (p) => p.responseSlotId === candidate.id,
+        )
+        return (
+          (profile?.delayedEffects.length ?? 0) > 0 ||
+          (profile?.futureHooks.length ?? 0) > 0
+        )
+      })
+      if (!slot) return []
+      return [
+        {
+          id: `r-${seed.id}`,
+          seedId: seed.id,
+          verb: slot.allowedVerbs[0]!,
+          shape: slot.shape,
+          tags: [],
+          intensity: 50,
+          metadata: {
+            responseSlotId: slot.id,
+            selectionLabel: `Chose ${slot.labelHint}`,
+          },
+        },
+      ]
+    })
+    expect(intents.length, 'test setup: no resolvable seeds').toBeGreaterThan(0)
+
+    const state = runDay(warmState, { responseIntents: intents }).state
+    const queued = (
+      state.modules[RESPONSES_MODULE_ID] as {
+        pending: Array<{ origin: { selectionLabel?: string } }>
+      }
+    ).pending
+    expect(queued.length, 'test setup: nothing was queued').toBeGreaterThan(0)
+    for (const entry of queued) {
+      expect(entry.origin.selectionLabel).toMatch(/^Chose /)
+    }
+
+    // And it reaches the projection as the row's origin.
+    const rows = projectPendingConsequences(state, state.calendar.totalDaysElapsed)
+    expect(rows.length).toBeGreaterThan(0)
+    for (const row of rows) {
+      expect(row.originLabel).toMatch(/^Chose /)
+    }
   })
 
   it('the report carries both halves of the lifecycle', () => {

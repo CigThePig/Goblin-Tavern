@@ -37,9 +37,15 @@
 //   - `daySession` — beat, segment, and the two deck-completion flags,
 //     always written together so beat and segment cannot disagree on
 //     resume.
-//   - `dayBaselinePatch` — the start-of-day baseline, encoded against
-//     `state` (see `baselinePatch.ts`). Present only while a day is in
-//     flight; without it a resumed day's report shows a partial diff.
+//   - `closedDayStatePatch` — the state the most recent day CLOSED at,
+//     encoded as a patch against `state` (see `baselinePatch.ts`). The
+//     daily report projects from it, so a closed report keeps its own
+//     rows instead of following the next morning (Wave 2).
+//   - `dayBaselinePatch` — the start-of-day baseline, encoded against the
+//     CLOSED-DAY state (mid-day the two are the same value, so the patch
+//     is normally empty; `dayBaselineBase` records which base was used).
+//     Present only while a day is in flight; without it a resumed day's
+//     report shows a partial diff.
 //   - `serviceOutcome` — the service beat's headline strip.
 //   - `route` + `subroutes`, so Continue lands on the tab and sub-tab the
 //     player was reading.
@@ -159,6 +165,17 @@ export type PersistedSession = {
    * segment 'A' or 'B'. Ignored when `dayBaseline` is also present.
    */
   dayBaselinePatch?: BaselinePatch;
+  /** True when a start-of-day baseline exists, even if its patch is empty. */
+  hasDayBaseline?: boolean;
+  /**
+   * Which state `dayBaselinePatch` was encoded against. Mid-day the
+   * baseline IS the previous day's closing state, so encoding against
+   * `closedDayState` makes the patch empty instead of a second ~220 KB
+   * copy of the same thing. `'state'` is the fallback for a session with
+   * no closed day yet. Absent on pre-Wave-3 saves, which encoded against
+   * `state`.
+   */
+  dayBaselineBase?: 'closedDay' | 'state';
   /**
    * Phase 201 / audit Wave 2 (`P4-SEAM-002`, `P6-COMP-006`) — the state
    * the most recent day CLOSED at, encoded as a patch against `state`
@@ -460,6 +477,49 @@ export function validatePersistedSession(parsed: unknown): ValidationOutcome {
   }
   const migratedState = stateOutcome.state;
 
+  // Phase 201 / audit Wave 2 — rebuild the closed day's state. Runs
+  // BEFORE the start-of-day baseline below, which is encoded against it
+  // (see `dayBaselineBase`). Failure policy: a patch that will not apply
+  // or validate is dropped with a warning, and the report falls back to
+  // projecting from `state` — the pre-Wave-2 behaviour for one report,
+  // rather than a failed load.
+  const closedDayPatchRaw = (parsed as { closedDayStatePatch?: unknown })
+    .closedDayStatePatch;
+  const hasClosedDay =
+    (parsed as { hasClosedDayState?: unknown }).hasClosedDayState === true;
+  let closedDayState: TavernState | undefined;
+  // The RAW (pre-migration) reconstruction, kept because the day-baseline
+  // patch below is encoded against it.
+  let rawClosedDayState: TavernState | undefined;
+  if (closedDayPatchRaw !== undefined) {
+    if (!isBaselinePatch(closedDayPatchRaw)) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "goblin-tavern: dropped malformed closedDayStatePatch during load",
+      );
+    } else {
+      try {
+        rawClosedDayState = applyBaselinePatch(
+          rawState as unknown as TavernState,
+          closedDayPatchRaw,
+        );
+        closedDayState = migrateBaseline(
+          rawClosedDayState as unknown as Record<string, unknown>,
+          "closedDayStatePatch",
+        );
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `goblin-tavern: closedDayStatePatch failed to apply during load (${describeErr(err)})`,
+        );
+      }
+    }
+  } else if (hasClosedDay) {
+    // Empty patch: the day closed and nothing has moved since.
+    rawClosedDayState = rawState as unknown as TavernState;
+    closedDayState = migratedState;
+  }
+
   // Phase 186 / Day-Clock Cluster 5 — the start-of-day baseline (present
   // only mid-day) runs through the same pipeline. If it's missing or
   // fails, drop it: the store's segment methods fall back to the current
@@ -475,19 +535,32 @@ export function validatePersistedSession(parsed: unknown): ValidationOutcome {
   const dayBaselineRaw = (parsed as { dayBaseline?: unknown }).dayBaseline;
   const dayBaselinePatchRaw = (parsed as { dayBaselinePatch?: unknown })
     .dayBaselinePatch;
+  const hasDayBaseline =
+    (parsed as { hasDayBaseline?: unknown }).hasDayBaseline === true;
+  const dayBaselineBase =
+    (parsed as { dayBaselineBase?: unknown }).dayBaselineBase === "closedDay"
+      ? "closedDay"
+      : "state";
   let dayBaseline: TavernState | undefined;
   if (isObject(dayBaselineRaw)) {
     dayBaseline = migrateBaseline(dayBaselineRaw, "dayBaseline");
-  } else if (dayBaselinePatchRaw !== undefined) {
-    if (!isBaselinePatch(dayBaselinePatchRaw)) {
+  } else if (hasDayBaseline || dayBaselinePatchRaw !== undefined) {
+    // Mirror the base the store encoded against — see `dayBaselineBase`.
+    // Both bases are the RAW (pre-migration) forms so the reconstruction
+    // is byte-identical to what was encoded.
+    const base =
+      dayBaselineBase === "closedDay" && rawClosedDayState
+        ? rawClosedDayState
+        : (rawState as unknown as TavernState);
+    if (dayBaselinePatchRaw !== undefined && !isBaselinePatch(dayBaselinePatchRaw)) {
       // eslint-disable-next-line no-console
       console.warn("goblin-tavern: dropped malformed dayBaselinePatch during load");
     } else {
       try {
-        const rebuilt = applyBaselinePatch(
-          rawState as unknown as TavernState,
-          dayBaselinePatchRaw,
-        );
+        const rebuilt =
+          dayBaselinePatchRaw === undefined
+            ? base
+            : applyBaselinePatch(base, dayBaselinePatchRaw);
         dayBaseline = migrateBaseline(
           rebuilt as unknown as Record<string, unknown>,
           "dayBaselinePatch",
@@ -571,44 +644,6 @@ export function validatePersistedSession(parsed: unknown): ValidationOutcome {
   const dismissedMissedOpportunityIds: string[] = Array.isArray(dismissedRaw)
     ? dismissedRaw.filter((v): v is string => typeof v === "string")
     : [];
-
-  // Phase 201 / audit Wave 2 — rebuild the closed day's state. Same
-  // encoding and the same failure policy as the baseline above: a patch
-  // that will not apply or validate is dropped with a warning, and the
-  // report falls back to projecting from `state` — the pre-Wave-2
-  // behaviour for one report, rather than a failed load.
-  const closedDayPatchRaw = (parsed as { closedDayStatePatch?: unknown })
-    .closedDayStatePatch;
-  const hasClosedDay =
-    (parsed as { hasClosedDayState?: unknown }).hasClosedDayState === true;
-  let closedDayState: TavernState | undefined;
-  if (closedDayPatchRaw !== undefined) {
-    if (!isBaselinePatch(closedDayPatchRaw)) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        "goblin-tavern: dropped malformed closedDayStatePatch during load",
-      );
-    } else {
-      try {
-        const rebuilt = applyBaselinePatch(
-          rawState as unknown as TavernState,
-          closedDayPatchRaw,
-        );
-        closedDayState = migrateBaseline(
-          rebuilt as unknown as Record<string, unknown>,
-          "closedDayStatePatch",
-        );
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn(
-          `goblin-tavern: closedDayStatePatch failed to apply during load (${describeErr(err)})`,
-        );
-      }
-    }
-  } else if (hasClosedDay) {
-    // Empty patch: the day closed and nothing has moved since.
-    closedDayState = migratedState;
-  }
 
   // Phase 199 / audit Wave 0 — the service beat's headline strip. Three
   // finite numbers or nothing; a partial object is dropped rather than

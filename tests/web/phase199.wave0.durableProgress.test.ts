@@ -336,6 +336,30 @@ describe('start-of-day baseline patch', () => {
     expect(patchBytes).toBeLessThan(baselineBytes / 2)
   })
 
+  it('does not store the same state twice mid-day', () => {
+    // Mid-day the start-of-day baseline IS the previous day's closing
+    // state — a day opens from where the last one ended. Encoding the
+    // baseline against `closedDayState` rather than against `state` makes
+    // that patch empty instead of a second ~220 KB copy, which matters:
+    // a day-28 mid-day save is already ~4.4 MB UTF-16 against a typical
+    // 5 MB origin budget.
+    gameStore.runDay({})
+    gameStore.beginDay()
+    gameStore.runService()
+
+    const session = gameStore.serializeForSave()
+    expect(session.closedDayStatePatch).toBeDefined()
+    expect(session.dayBaselinePatch).toBeUndefined()
+    expect(session.hasDayBaseline).toBe(true)
+    expect(session.dayBaselineBase).toBe('closedDay')
+
+    // And the reconstruction is still exact.
+    const baseline = structuredClone(gameStore.dayBaseline!)
+    reload()
+    expect(gameStore.dayBaseline).toEqual(baseline)
+    expect(gameStore.closedDayState).toEqual(baseline)
+  })
+
   it('drops a malformed patch instead of failing the load', () => {
     gameStore.beginDay()
     gameStore.runService()

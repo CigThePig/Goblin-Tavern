@@ -51,6 +51,7 @@
   import DailyReport from '../components/DailyReport.svelte'
   import YesterdayDigest from '../components/YesterdayDigest.svelte'
   import { renderCard } from '../cards/realCardRegistry'
+  import { committedCoinCost, gateChoicesByCoin } from '../cards/affordability'
   import { formatDuration } from '../sim/actionBuilder'
   import { gameStore, type ActionPickerRequest } from '../sim/gameStore.svelte'
   import { prefsStore } from '../prefs/prefsStore.svelte'
@@ -173,10 +174,21 @@
     return `Quick Day · ${picks.length} actions queued`
   })
 
+  // Phase 200 / audit Wave 1 (`P7-EXP-001`) — a choice the till cannot
+  // cover is disabled here, before the player commits, rather than
+  // silently refused at End Day. Priced against the choices already
+  // committed today, with the same cost function the sim enforces.
   const morningCards = $derived(
     morningSeeds.map((seed) => ({
       seed,
-      view: renderCard(seed, gameStore.state),
+      view: gateChoicesByCoin(renderCard(seed, gameStore.state), seed, {
+        coin: gameStore.state.coin,
+        committed: committedCoinCost(
+          gameStore.todaysSeeds,
+          pendingBySeedId,
+          seed.id,
+        ),
+      }),
       pending: pendingBySeedId[seed.id],
     })),
   )

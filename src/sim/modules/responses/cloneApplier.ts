@@ -14,6 +14,11 @@ import type {
 } from "../../state/TavernState";
 import type { MemoryDraft } from "../memories/memoryTypes";
 import type { CoinLedgerEntry, StockModuleState } from "../stock/types";
+import type { RentState } from "../monthly/types";
+import {
+  MONTHLY_MODULE_ID,
+  RENT_PAYMENT_EFFECT_TARGET,
+} from "../monthly/types";
 
 import type {
   EffectApplier,
@@ -95,6 +100,47 @@ function applyStateChange(
 ): EffectResult {
   const amount = preview.amount ?? 0;
   const path = preview.target;
+
+  // Phase 200 / audit Wave 1 (`P7-EXP-001`) — mirror of the engine
+  // applier's rent branch, so the pure resolver's preview of a rent
+  // payment matches what the engine actually does: affordable or nothing,
+  // and the month is marked paid with arrears cleared rather than the
+  // coin simply vanishing.
+  if (path === RENT_PAYMENT_EFFECT_TARGET) {
+    const monthly = state.modules[MONTHLY_MODULE_ID] as
+      | { rent?: RentState }
+      | undefined;
+    const rent = monthly?.rent;
+    if (!rent) {
+      return { ...preview, applied: false, notes: ["no rent state"] };
+    }
+    if (rent.paidThisMonth && rent.arrears <= 0) {
+      return { ...preview, applied: false, notes: ["rent already settled"] };
+    }
+    const amountDue = rent.monthlyAmount + rent.arrears;
+    if (state.coin < amountDue) {
+      return {
+        ...preview,
+        applied: false,
+        notes: [`rent payment needs ${amountDue} coin, ${state.coin} on hand`],
+      };
+    }
+    state.coin -= amountDue;
+    appendCoinLedgerEntry(state, {
+      source,
+      amount: -amountDue,
+      category: "rent",
+      tags: ["response", "rent"],
+    });
+    state.modules = {
+      ...state.modules,
+      [MONTHLY_MODULE_ID]: {
+        ...(monthly as object),
+        rent: { ...rent, paidThisMonth: true, arrears: 0 },
+      },
+    };
+    return { ...preview, amount: -amountDue, applied: true };
+  }
 
   if (path === "coin") {
     const before = state.coin;

@@ -69,6 +69,14 @@ export type PendingResponseEntry = {
   preconditions?: Array<{ kind: string; readable: string }>
 }
 
+/**
+ * Phase 200 / audit Wave 1 (`P7-EXP-001`) — what became of an intent.
+ * `skipped_unaffordable` means the day's earlier responses had already
+ * spent the coin this one needed; nothing of its profile was applied.
+ * Optional so records written before the wave still parse.
+ */
+export type ResolvedIntentOutcome = 'applied' | 'skipped_unaffordable'
+
 export type ResolvedIntentRecord = {
   intentId: string
   seedId: string
@@ -77,6 +85,9 @@ export type ResolvedIntentRecord = {
   verb: string
   /** Absolute day the intent was resolved. */
   resolvedOn: number
+  outcome?: ResolvedIntentOutcome
+  /** Player-readable explanation when the outcome is not `applied`. */
+  note?: string
 }
 
 export type ResponsesModuleState = {

@@ -70,7 +70,13 @@ describe('Phase 10 card-choice coherence — economy, debt, and recurring pressu
   it('shows exact debt_rent money values and the future risks of deferring payment', () => {
     const rendered = renderFamily('debt_rent', buildDebtRentTriggeringState)
 
-    expect(mechanicalText(choiceBySlot(rendered, 'pay'))).toContain('Coin -120')
+    // Phase 200 / audit Wave 1 (`P7-EXP-001`) — the fixture owes 120 for
+    // the month on top of 250 in arrears. The preview used to quote only
+    // the month's 120 while the payment settles the whole debt, so the
+    // card understated its own cost by 250. It now quotes what is
+    // actually due, which is also the amount the affordability check and
+    // the applied transition use.
+    expect(mechanicalText(choiceBySlot(rendered, 'pay'))).toContain('Coin -370')
     expect(mechanicalText(choiceBySlot(rendered, 'borrow'))).toContain('Coin +40')
     expect(mechanicalText(choiceBySlot(rendered, 'borrow'))).toContain('later: Debt Pressure +12')
     expect(mechanicalText(choiceBySlot(rendered, 'delay'))).toContain('Landlord Pressure +10')

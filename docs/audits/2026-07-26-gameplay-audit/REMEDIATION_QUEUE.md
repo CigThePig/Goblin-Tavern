@@ -58,7 +58,7 @@ eventually fail to save for reasons unrelated to `P2-RT-001`. The audit ran
 28–30 days and did not reach it; no finding covers it. Pruning those
 ledgers is a simulation change — decide where it belongs.
 
-## Wave 1 — Restore canonical state and economy
+## Wave 1 — Restore canonical state and economy ✅ gate passed
 
 Gate: `coin >= 0` on every supported route; rent applies once; ordinary stock
 obeys the minimum price; compact pressure == rich pressure at every stable
@@ -67,11 +67,62 @@ beat; one significant pressure change → one canonical cause; eight shared-seed
 
 | ID | St | Sev/Pri | Finding | Evidence |
 |---|---|---|---|---|
-| P7-EXP-001 | open | High/P1 | Unaffordable rent response overspends into negative coin without paying rent | P7 §7 |
-| P7-EXP-002 | open | High/P1 | Three ordinary restocks cost zero coin | P7 §7 |
-| P4-SEAM-003 | open | High/P1 | Compact and rich pressure state diverge (no single authority) | P4 §5 |
-| P7-EXP-004 | open | Med/P1 | Reports render pre-response pressure snapshots | P7 §7 |
-| P4-SEAM-001 | open | Med/P2 | Significant pressure changes logged twice | P4 §5 |
+| P7-EXP-001 | done | High/P1 | Unaffordable rent response overspends into negative coin without paying rent | P7 §7 |
+| P7-EXP-002 | done | High/P1 | Three ordinary restocks cost zero coin | P7 §7 |
+| P4-SEAM-003 | done | High/P1 | Compact and rich pressure state diverge (no single authority) | P4 §5 |
+| P7-EXP-004 | done | Med/P1 | Reports render pre-response pressure snapshots | P7 §7 |
+| P4-SEAM-001 | done | Med/P2 | Significant pressure changes logged twice | P4 §5 |
+
+**Closed 2026-07-27.** Plan:
+`docs/plans/phase-200-audit-wave-1-canonical-state-and-economy.md`.
+Regression: `tests/sim/phase200.wave1.canonicalStateAndEconomy.test.ts` (15
+assertions) and `tests/sim/phase200.wave1.strategyMatrix.test.ts` (the
+eight-strategy half of the gate, per-day invariants). Every finding was
+reproduced first: coin reached −22 and −1 on the rent route, the three
+named items quoted 0, and pressures disagreed on day 2 and after segment B.
+
+**Decisions taken (user) — these were design questions, not defects:**
+
+- **DC-07 — response-portfolio resource policy: gate at selection, re-check
+  atomically.** A choice is disabled with a readable reason when its cost
+  exceeds coin minus what today's other committed choices need; the
+  portfolio is re-validated at resolution and anything that no longer fits
+  is skipped WHOLE. `coin >= 0` stays a hard invariant — no modelled debt.
+- **`P7-EXP-002` — price floor: minimum 1 coin per unit.** `priceBias`
+  keeps its additive form and current tuning; the floor moved into
+  `getEffectiveBasePrice` so quote, application, report and supplier screen
+  cannot disagree. Chosen over percentage bias so Wave 1 does not move the
+  economy under Wave 7's balance evaluation.
+- **`P4-SEAM-003` — direct response pressure effects persist.** Recorded as
+  an adjustment the calculator's value is combined with, decaying over
+  `PRESSURE_ADJUSTMENT_DECAY_DAYS` (5). The alternative — the calculator
+  supersedes it and the pressure rebounds next morning — would make a
+  card's own preview untrue by the following day.
+
+Work landed:
+
+- `state.pressures[id].value` is now the single pressure authority, synced
+  to the rich snapshot on every pass rather than only on a significant
+  move. The day calculates twice: at `closing` (values + sync, so
+  closing-time seed generation reads today's numbers) and at `endDay`,
+  immediately after `applyResponses` — the second pass is the only emitter
+  of pressure causes and history, which is `P7-EXP-004` and `P4-SEAM-001`
+  fixed by construction.
+- One rent transition (`payRentInFull`) shared by month-end settlement and
+  the card, reached through a named `monthly.rent.payment` effect target;
+  affordability is checked before any of a profile is applied; `spendCoin`
+  now throws rather than driving the till negative.
+
+**Consequence worth knowing before Wave 7:** the duplicate pressure cause
+was feeding the attribution ledger, so blame strength was running at
+roughly double. Removing it halves attribution weight and slows pressure
+escalation — day-3 policy backlash in the Phase 53 fixture now reads 57
+where it read 71. Two existing tests encoded the inflated numbers and were
+updated to drive real state instead of stamping values the recalculation
+now corrects (`phase38.expandedPressures`, `phase191.economyDebtCoherence`
+— the latter's rent preview also moved from `Coin -120` to `Coin -370`,
+which is what the fixture actually owes). **Any pressure or attribution
+tuning judged against the pre-Wave-1 build is suspect.**
 
 ## Wave 2 — Make causality and closed reports authoritative
 

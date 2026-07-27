@@ -16,6 +16,7 @@
   import { untrack } from 'svelte'
   import CardRenderer from '../cards/CardRenderer.svelte'
   import { renderCard } from '../cards/realCardRegistry'
+  import { committedCoinCost, gateChoicesByCoin } from '../cards/affordability'
   import { gameStore } from '../sim/gameStore.svelte'
   import type { IssueSeed } from '../cards/types'
   import type { CardChoice } from '../cards/types'
@@ -38,10 +39,22 @@
 
   // Cards rendered once per seed; CardView is a pure function of (seed, state)
   // so this is safe and avoids re-rendering on every keystroke.
+  //
+  // Phase 200 / audit Wave 1 (`P7-EXP-001`) — a choice the till cannot
+  // cover is disabled before the player commits, priced against the
+  // choices already committed today with the same cost function the sim
+  // enforces at resolution.
   const cards = $derived(
     seeds.map((seed) => ({
       seed,
-      view: renderCard(seed, gameStore.state),
+      view: gateChoicesByCoin(renderCard(seed, gameStore.state), seed, {
+        coin: gameStore.state.coin,
+        committed: committedCoinCost(
+          gameStore.todaysSeeds,
+          pendingBySeedId,
+          seed.id,
+        ),
+      }),
     })),
   )
 

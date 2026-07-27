@@ -350,18 +350,29 @@ describe('Phase 38 §38.4 — Regular customer loss pressure', () => {
 describe('Phase 38 §38.6 — Faction anger pressure', () => {
   it('rises when policy backlash is high', () => {
     const base = plentyOfStock(createInitialTavernState())
-    // Stamp the policy backlash on-state value so the bleed-in fires.
+    // Phase 200 / audit Wave 1 — this used to stamp `policy_backlash` to
+    // 60 on compact state and rely on `faction_anger` being calculated
+    // before the pressure pass recalculated it. Now that the pressure
+    // value has one authority and is recalculated to what the state
+    // actually supports, a stamped number no longer survives to be read.
+    // Drive REAL backlash instead: irritated regulars push the
+    // calculated value past the bleed-in's threshold of 35.
     const seeded: TavernState = {
       ...base,
-      pressures: {
-        ...base.pressures,
-        policy_backlash: {
-          ...base.pressures['policy_backlash']!,
-          value: 60,
-        },
+      world: {
+        ...base.world,
+        regulars: Object.fromEntries(
+          Object.entries(base.world.regulars).map(([id, regular]) => [
+            id,
+            { ...regular, irritation: 80, loyalty: 30 },
+          ]),
+        ),
       },
     }
     const result = runDay(seeded)
+    expect(
+      result.state.pressures['policy_backlash']!.value,
+    ).toBeGreaterThanOrEqual(35)
     const snapshot = getPressureSnapshot(result.state, 'faction_anger')!
     expect(snapshot).toBeDefined()
     // Confirm a policy-backlash cause appears in the breakdown.

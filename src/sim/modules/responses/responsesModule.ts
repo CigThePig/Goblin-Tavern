@@ -20,6 +20,7 @@ import {
   writeResponsesSlice,
 } from './ctxApplier'
 import { selectConsequence } from './selectConsequence'
+import { immediateCoinCost } from './responseCost'
 import {
   RESPONSES_MODULE_ID,
   ResponsesModuleStateSchema,
@@ -212,6 +213,44 @@ const applyResponsesHook: SimulationHook = (ctx: SimContext): void => {
       )
       continue
     }
+    // Phase 200 / audit Wave 1 (`P7-EXP-001`), DC-07 — the day's
+    // responses are priced against the till as it stands at each
+    // intent's turn, and an intent that no longer fits is skipped
+    // WHOLE. Nothing checked this before: several individually
+    // affordable choices resolved together into 183 coin of spending
+    // against 98 coin on hand, took the coin negative, and broke the
+    // state schema's `coin >= 0`. Skipping whole (rather than letting
+    // the first unaffordable effect throw mid-profile) is what keeps a
+    // refused response from leaving half its consequences behind.
+    const cost = immediateCoinCost(profile)
+    if (cost > ctx.state.coin) {
+      ctx.addLog(
+        {
+          message: `Response intent ${intent.id} skipped: costs ${cost} coin, ${ctx.state.coin} available`,
+          level: 'info',
+          data: {
+            intentId: intent.id,
+            seedId: seed.id,
+            responseSlotId: slot.id,
+            cost,
+            coin: ctx.state.coin,
+          },
+        },
+        SOURCE,
+      )
+      recordResolvedIntent(ctx, {
+        intentId: intent.id,
+        seedId: seed.id,
+        responseSlotId: slot.id,
+        profileId: profile.id,
+        verb: intent.verb,
+        resolvedOn: today,
+        outcome: 'skipped_unaffordable',
+        note: `Needed ${cost} coin; only ${ctx.state.coin} on hand.`,
+      })
+      continue
+    }
+
     const origin: ApplyOrigin = {
       seedId: seed.id,
       intentId: intent.id,
@@ -229,6 +268,7 @@ const applyResponsesHook: SimulationHook = (ctx: SimContext): void => {
       profileId: profile.id,
       verb: intent.verb,
       resolvedOn: today,
+      outcome: 'applied',
     })
   }
 }

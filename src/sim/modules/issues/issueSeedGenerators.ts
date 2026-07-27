@@ -53,6 +53,7 @@ import { EXPANDED_SEED_GENERATORS } from './expandedSeedGenerators'
 import { ventureIssueSeedGenerator } from '../ventures/ventureIssueSeeds'
 import { openingIssueSeedGenerator } from '../openings/openingIssueSeeds'
 import { arcIssueSeedGenerator } from '../arcs/arcIssueSeeds'
+import { RENT_PAYMENT_EFFECT_TARGET } from '../monthly/types'
 import {
   generateLiquorCompliance,
   generateLicensedService,
@@ -2680,7 +2681,20 @@ function generateDebtRent(ctx: SimContext): IssueSeed[] {
       id: 'pay_profile',
       responseSlotId: 'pay',
       immediateEffects: [
-        effect('state_change', 'coin', -(rent?.monthlyAmount ?? 30), 'Pay rent', ['coin', 'rent']),
+        // Phase 200 / audit Wave 1 (`P7-EXP-001`) — the payment is a rent
+        // transition, not a bare coin spend. The old `coin` effect took
+        // the money and left `paidThisMonth` false and arrears untouched,
+        // so the same obligation was charged again every following day.
+        // The amount previewed is what is actually due (this month plus
+        // arrears), and `monthly.rent.payment` routes the application
+        // through the same function the month-end settlement uses.
+        effect(
+          'state_change',
+          RENT_PAYMENT_EFFECT_TARGET,
+          -((rent?.monthlyAmount ?? 30) + (rent?.arrears ?? 0)),
+          'Pay rent',
+          ['coin', 'rent'],
+        ),
         effect('pressure', 'pressure:landlord', -15, 'Lower landlord pressure', ['pressure']),
         effect('pressure', 'pressure:debt', -10, 'Lower debt pressure', ['pressure']),
       ],

@@ -44,6 +44,26 @@ function conditionAppliesTo(
   return false
 }
 
+/**
+ * Phase 200 / audit Wave 1 (`P7-EXP-002`) — the floor under every
+ * ordinary purchase.
+ *
+ * `priceBias` is additive, and Mushrooms and Ingredients have base price 1
+ * against a −1 bias while Stew has 2 against −2 — so all three reached
+ * exactly 0, and `pickRestockSupplier` preferred precisely those
+ * suppliers because it sorts by cheapest. The audit bought 240 units in a
+ * day for nothing, which removes coin (the central procurement
+ * constraint) from shortage recovery, supplier tradeoffs and sale margins
+ * alike.
+ *
+ * The floor lives here rather than in the callers so the quote, the
+ * application, the daily report and the supplier screen cannot disagree
+ * about it. A deliberate free-price rule — a promotion, a gift, barter —
+ * would be modelled as its own effect, not as a bias that happens to
+ * reach zero.
+ */
+export const MIN_UNIT_PRICE = 1
+
 export function getEffectiveBasePrice(
   stock: StockState,
   supplier: SupplierWorldState | undefined,
@@ -67,7 +87,7 @@ export function getEffectiveBasePrice(
   if (supplier) {
     price *= getRelationshipPriceMultiplier(supplier)
   }
-  return price
+  return Math.max(MIN_UNIT_PRICE, price)
 }
 
 // Exported for the supplier report so the player can see how
@@ -118,10 +138,10 @@ export function pickRestockSupplier(
   let best: RestockSupplierPick | undefined
   for (const supplier of Object.values(state.world.suppliers)) {
     if (!supplier.goodsProvided.includes(stockId)) continue
-    const effectivePrice = Math.max(
-      0,
-      getEffectiveBasePrice(stock, supplier, activeConditions),
-    )
+    // `getEffectiveBasePrice` already applies the MIN_UNIT_PRICE floor
+    // (Phase 200 / audit Wave 1); the old `Math.max(0, …)` here was what
+    // let a zero price through as a legitimate "cheapest" pick.
+    const effectivePrice = getEffectiveBasePrice(stock, supplier, activeConditions)
     if (!best) {
       best = { supplier, effectivePrice }
       continue

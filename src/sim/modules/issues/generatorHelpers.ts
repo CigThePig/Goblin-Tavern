@@ -34,6 +34,7 @@ import {
   attributionsByTarget,
 } from '../attribution/attributionQueries'
 import { pressureRegistry } from '../pressures/pressureRegistry'
+import { RENT_PAYMENT_EFFECT_TARGET } from '../monthly/types'
 import type {
   AttributionState,
   AttributionType,
@@ -196,6 +197,12 @@ export function classifyTargetKind(target: string): EffectTargetKind {
     return 'customer'
   if (target.startsWith('rumour:')) return 'memory'
   if (target === 'coin' || target.startsWith('coin.')) return 'coin'
+  // Phase 200 / audit Wave 1 (`P7-EXP-001`) — paying the rent moves coin;
+  // it just moves it through a transition rather than a bare spend. The
+  // card layer keys its preview prose, its cost-contract audit and its
+  // preview selection off `targetKind`, so without this the rent choice
+  // lost its magnitude token, its `Coin -N` chip and its declared coin cost.
+  if (target === RENT_PAYMENT_EFFECT_TARGET) return 'coin'
   if (target.startsWith('stock.')) return 'stock'
   if (target.startsWith('areas.')) return 'area'
   if (target.startsWith('customers.')) return 'customer'

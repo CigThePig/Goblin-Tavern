@@ -16,7 +16,12 @@
   import { untrack } from 'svelte'
   import CardRenderer from '../cards/CardRenderer.svelte'
   import { renderCard } from '../cards/realCardRegistry'
-  import { committedCoinCost, gateChoicesByCoin } from '../cards/affordability'
+  import {
+    committedCoinCost,
+    committedOwnerTimeCost,
+    gateChoicesByCoin,
+    gateChoicesByTime,
+  } from '../cards/affordability'
   import { selectionLabelOf } from '../sim/selectionLabel'
   import { gameStore } from '../sim/gameStore.svelte'
   import type { IssueSeed } from '../cards/types'
@@ -48,14 +53,27 @@
   const cards = $derived(
     seeds.map((seed) => ({
       seed,
-      view: gateChoicesByCoin(renderCard(seed, gameStore.state), seed, {
-        coin: gameStore.state.coin,
-        committed: committedCoinCost(
-          gameStore.todaysSeeds,
-          pendingBySeedId,
-          seed.id,
-        ),
-      }),
+      // Phase 203 / audit Wave 4 (`P6-COMP-005`) — and the same gate for
+      // the day clock, which owner actions and card choices share.
+      view: gateChoicesByTime(
+        gateChoicesByCoin(renderCard(seed, gameStore.state), seed, {
+          coin: gameStore.state.coin,
+          committed: committedCoinCost(
+            gameStore.todaysSeeds,
+            pendingBySeedId,
+            seed.id,
+          ),
+        }),
+        seed,
+        {
+          queuedMinutes: gameStore.minutesQueued,
+          committed: committedOwnerTimeCost(
+            gameStore.todaysSeeds,
+            pendingBySeedId,
+            seed.id,
+          ),
+        },
+      ),
     })),
   )
 

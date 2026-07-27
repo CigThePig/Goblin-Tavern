@@ -1,5 +1,7 @@
 import type { IssueSeedGenerator } from '../issues/issueSeedRegistry'
-import { buildSeed } from '../issues/generatorHelpers'
+import { buildSeed, effect } from '../issues/generatorHelpers'
+import { OWNER_TIME_EFFECT_TARGET } from '../responses/responseCost'
+import { TIME_COST_SHORT } from '../ownerActions/stateHelpers'
 import { getVentureBlueprint } from '../ventures/ventureCatalog'
 import { teleologyUnlocked } from './teleologyUnlock'
 import {
@@ -113,6 +115,16 @@ export const openingIssueSeedGenerator: IssueSeedGenerator = {
                   meterLabel: 'new venture',
                   meterDisplayCategory: 'good_when_higher',
                 },
+                // Phase 203 / audit Wave 4 (`P6-COMP-005`) — the slot's
+                // contract declares `owner_time`; committing to a venture
+                // now costs the hour it always said it did.
+                effect(
+                  'state_change',
+                  OWNER_TIME_EFFECT_TARGET,
+                  -TIME_COST_SHORT,
+                  'An hour goes into getting it started',
+                  ['time', 'owner', 'teleology'],
+                ),
               ],
               delayedEffects: [],
               memories: [

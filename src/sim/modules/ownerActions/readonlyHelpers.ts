@@ -145,6 +145,26 @@ export function canApplyAction(
 }
 
 /**
+ * Phase 203 / audit Wave 4 (`P3-BHV-002`) — may the player begin
+ * specifying this action? Falls back to `canApply` with a bare input for
+ * every definition that does not declare `canOpen`, which is the
+ * pre-Wave-4 behaviour.
+ */
+export function canOpenAction(
+  def: OwnerActionDefinition,
+  state: TavernState,
+): { ok: true } | { ok: false; reason: string } {
+  if (!def.canOpen) return canApplyAction(def, state, { actionId: def.id });
+  try {
+    const result = def.canOpen(makeReadOnlyCtx(state));
+    if (result.ok) return { ok: true };
+    return { ok: false, reason: result.reason };
+  } catch (err) {
+    return { ok: false, reason: (err as Error).message };
+  }
+}
+
+/**
  * Reason an action should be disabled in a picker UI, or `undefined` if
  * it's selectable. Mirrors the engine's applyOwnerActions validation so
  * the UI doesn't silently queue actions the engine will reject.
@@ -161,6 +181,14 @@ export function actionDisabledReason(
   pointsLeft: number,
 ): string | undefined {
   if (def.timeCost > pointsLeft) return "budget full";
+
+  // Phase 203 / audit Wave 4 (`P3-BHV-002`) — a form-driven action is
+  // asked whether it can be OPENED. Asking it `canApply` with an empty
+  // input is asking whether an unfilled form is valid, which it never is.
+  if (def.canOpen) {
+    const verdict = canOpenAction(def, state);
+    return verdict.ok ? undefined : verdict.reason;
+  }
 
   if (!def.targetType || def.targetType === "global") {
     const verdict = canApplyAction(def, state, { actionId: def.id });
@@ -208,6 +236,37 @@ export function actionDisabledReasonForTarget(
   if (!targets.some((t) => t.id === targetId)) return "invalid target";
 
   const verdict = canApplyAction(def, state, { actionId: def.id, targetId });
+  return verdict.ok ? undefined : verdict.reason;
+}
+
+/**
+ * Phase 203 / audit Wave 4 (`P3-BHV-002`) — reason the *complete input the
+ * player specified* is currently invalid, or `undefined` if it will queue
+ * and apply.
+ *
+ * The two helpers above answer questions about a definition ("is anything
+ * doable with this action?"). This one answers a question about a payload,
+ * which is what a queue needs: it forwards `targetId`, `amount` and
+ * `options` to `canApply` instead of dropping them. The audit's expedition
+ * commission was refused for a missing runner it had already named,
+ * because the queue asked the definition-shaped question about a
+ * fully-specified pick.
+ */
+export function actionDisabledReasonForInput(
+  def: OwnerActionDefinition,
+  state: TavernState,
+  input: OwnerActionInput,
+  pointsLeft: number,
+): string | undefined {
+  if (def.timeCost > pointsLeft) return "budget full";
+
+  if (def.targetType && def.targetType !== "global") {
+    if (!input.targetId) return "no target";
+    const targets = listValidTargets(def, state);
+    if (!targets.some((t) => t.id === input.targetId)) return "invalid target";
+  }
+
+  const verdict = canApplyAction(def, state, input);
   return verdict.ok ? undefined : verdict.reason;
 }
 

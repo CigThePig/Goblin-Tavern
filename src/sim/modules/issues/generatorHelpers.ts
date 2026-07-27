@@ -35,6 +35,7 @@ import {
 } from '../attribution/attributionQueries'
 import { pressureRegistry } from '../pressures/pressureRegistry'
 import { RENT_PAYMENT_EFFECT_TARGET } from '../monthly/types'
+import { OWNER_TIME_EFFECT_TARGET } from '../responses/responseCost'
 import type {
   AttributionState,
   AttributionType,
@@ -232,16 +233,27 @@ export function classifyDirection(
   return signed > 0 ? 'positive' : 'negative'
 }
 
+// Phase 203 / audit Wave 4 (`P6-COMP-005`) — owner time is MINUTES of a
+// 360-minute day, not a 0–100 meter, so the `global` cutoffs would band
+// every real cost as `large` (a half-hour and a whole afternoon reading
+// alike). Its ladder is the owner-action registry's own: a quiet word is
+// small, an hour is medium, a serious chore is large.
+const OWNER_TIME_BAND_CUTOFFS: readonly number[] = [30, 60, 120]
+
 /** Band the absolute amount against the per-targetKind cutoff table.
  *  Returns `undefined` when amount is missing or 0 (no meter movement
- *  to band). */
+ *  to band). `target` selects a per-meter ladder where the targetKind's
+ *  own scale does not apply. */
 export function classifyMagnitudeBand(
   targetKind: EffectTargetKind,
   amount?: number,
+  target?: string,
 ): EffectMagnitudeBand | undefined {
   if (amount === undefined || amount === 0) return undefined
   const abs = Math.abs(amount)
-  const cutoffs = MAGNITUDE_BAND_CUTOFFS[targetKind]
+  const overrideCutoffs =
+    target === OWNER_TIME_EFFECT_TARGET ? OWNER_TIME_BAND_CUTOFFS : undefined
+  const cutoffs = overrideCutoffs ?? MAGNITUDE_BAND_CUTOFFS[targetKind]
   for (const [i, cutoff] of cutoffs.entries()) {
     if (abs < cutoff) return BANDS[i] ?? 'large'
   }
@@ -358,7 +370,7 @@ export function effect(
 ): EffectPreview {
   const targetKind = classifyTargetKind(target)
   const direction = classifyDirection(amount, target)
-  const magnitudeBand = classifyMagnitudeBand(targetKind, amount)
+  const magnitudeBand = classifyMagnitudeBand(targetKind, amount, target)
   const meterId = classifyMeterId(target)
   const meterLabel = resolveMeterLabel(targetKind, target, meterId)
   const meterDisplayCategory = classifyMeterDisplayCategory(

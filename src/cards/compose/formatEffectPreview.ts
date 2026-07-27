@@ -1,6 +1,8 @@
 import type { EffectPreview } from '../../sim/core/effect'
 import type { TavernState } from '../../sim/state/TavernState'
 import { RENT_PAYMENT_EFFECT_TARGET } from '../../sim/modules/monthly/types'
+import { OWNER_TIME_EFFECT_TARGET } from '../../sim/modules/responses/responseCost'
+import { formatDuration } from '../../sim/modules/ownerActions/stateHelpers'
 
 function titleCase(text: string): string {
   return text
@@ -132,5 +134,14 @@ export function formatEffectPreview(
   }
   const label = effectLabel(effect, state)
   if (!label) return effect.readable
+  // Phase 203 / audit Wave 4 (`P6-COMP-005`) — owner time is minutes off
+  // the day clock, and the player reads the day clock in hours and
+  // minutes everywhere else (Top Bar, planner, action costs). `Owner Time
+  // -60` would be the amount without being the answer; `Owner Time -1h`
+  // compares directly against the six hours the day is made of.
+  if (effect.target === OWNER_TIME_EFFECT_TARGET) {
+    const sign = effect.amount > 0 ? '+' : '-'
+    return `${label} ${sign}${formatDuration(Math.abs(effect.amount))}`
+  }
   return `${label} ${compactAmount(effect.amount)}`
 }

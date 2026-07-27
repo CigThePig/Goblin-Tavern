@@ -13,6 +13,8 @@ import {
   stampFromState,
   systemRef,
 } from './generatorHelpers'
+import { OWNER_TIME_EFFECT_TARGET } from '../responses/responseCost'
+import { TIME_COST_QUICK } from '../ownerActions/stateHelpers'
 
 // Phase 3 (teleology) — generator-level family gating.
 //
@@ -351,6 +353,15 @@ export function generateLicensedService(ctx: SimContext): IssueSeed[] {
               -3,
               'Extra effort in promotion',
               ['coin'],
+            ),
+            // Phase 203 / audit Wave 4 (`P6-COMP-005`) — the slot's contract
+            // declares `owner_time`; the profile now carries it.
+            effect(
+              'state_change',
+              OWNER_TIME_EFFECT_TARGET,
+              -TIME_COST_QUICK,
+              'Owner time spent talking the offering up',
+              ['time', 'owner'],
             ),
           ],
           delayedEffects: [],

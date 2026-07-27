@@ -843,8 +843,12 @@ function projectPolicies(
       : `enable_${starter.policyType}`
     const toggleDef = actionRegistry.get(toggleActionId)
     const toggleActionLabel = toggleDef?.label
+    // Phase 203 / audit Wave 4 (`P3-BHV-001`) — ask about THIS policy. The
+    // untargeted query answered for the toggle definition in general, so
+    // the row could read "available" while the queue rejected the pick the
+    // row built.
     const toggleDisabledReason = toggleDef
-      ? actionDisabledReason(toggleDef, state, DAY_MINUTES)
+      ? actionDisabledReasonForTarget(toggleDef, state, starter.id, DAY_MINUTES)
       : 'toggle action missing'
 
     const row: PolicyRow = {

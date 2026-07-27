@@ -83,10 +83,17 @@
     })
   }
 
+  // Phase 203 / audit Wave 4 (`P3-BHV-001`) — the inline pick carries the
+  // policy it is showing. Without `targetId` every tap failed with
+  // "Couldn't queue: no target", because the queue asks a `policy`-typed
+  // action about a target this control never supplied; the central
+  // planner's row worked only because it passed `policyId`. The
+  // queued/removal checks are scoped to the same target so two policy rows
+  // hold independent queue state.
   function togglePolicy(row: PolicyRow) {
     if (!row.toggleActionId) return
-    if (isQueued(row.toggleActionId)) {
-      gameStore.removePicksFor(row.toggleActionId)
+    if (isQueued(row.toggleActionId, row.id)) {
+      gameStore.removePicksFor(row.toggleActionId, row.id)
       liveReason = undefined
       return
     }
@@ -97,6 +104,8 @@
       label: row.toggleActionLabel ?? row.toggleActionId,
       category: 'policy',
       targetType: def?.targetType ?? 'global',
+      targetId: row.id,
+      targetLabel: row.label,
       timeCost: def?.timeCost ?? 1,
     })
   }
@@ -226,7 +235,7 @@
     <ul class="rows">
       {#each data.policies as policy (policy.id)}
         {@const queued = policy.toggleActionId
-          ? isQueued(policy.toggleActionId)
+          ? isQueued(policy.toggleActionId, policy.id)
           : false}
         <li class="policy" class:on={policy.enabled}>
           <header class="head">

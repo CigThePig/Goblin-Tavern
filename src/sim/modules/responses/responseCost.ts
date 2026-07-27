@@ -52,3 +52,41 @@ export function coinCostOfSlot(seed: IssueSeed, slotId: string): number {
   )
   return profile ? immediateCoinCost(profile) : 0
 }
+
+// Phase 203 / audit Wave 4 (`P6-COMP-005`) — the same three-place contract
+// for the OTHER resource a response can spend.
+//
+// The audit's failure was subtler than the coin one: `Spend owner time on
+// the licence` declared `costTypes: ['owner_time']`, showed no amount,
+// took none, and advanced the venture anyway. Four other profiles carried
+// a `global.owner_time` effect that the applier silently discarded. There
+// was no number to show, gate or spend — so there is one now, and it comes
+// from the profile, like coin does.
+
+/** The effect target that takes minutes off the owner's working day. */
+export const OWNER_TIME_EFFECT_TARGET = 'global.owner_time'
+
+/**
+ * Minutes of the owner's day this profile consumes the moment it is
+ * applied, as a positive number. Effects that give time back net off.
+ */
+export function immediateOwnerTimeCost(profile: ConsequenceProfile): number {
+  let net = 0
+  for (const effect of profile.immediateEffects) {
+    if (effect.kind !== 'state_change') continue
+    if (effect.target !== OWNER_TIME_EFFECT_TARGET) continue
+    net += effect.amount ?? 0
+  }
+  return net < 0 ? -net : 0
+}
+
+/**
+ * Owner-time cost in minutes of taking `slotId` on `seed`, or 0 when the
+ * slot has no profile or claims no time.
+ */
+export function ownerTimeCostOfSlot(seed: IssueSeed, slotId: string): number {
+  const profile = seed.consequenceProfiles?.find(
+    (candidate) => candidate.responseSlotId === slotId,
+  )
+  return profile ? immediateOwnerTimeCost(profile) : 0
+}

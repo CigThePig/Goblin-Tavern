@@ -14,7 +14,14 @@
 // (`coinCostOfSlot`), so the number shown and the number enforced cannot
 // drift.
 
-import { coinCostOfSlot } from '../../../../src/sim/modules/responses/responseCost'
+import {
+  coinCostOfSlot,
+  ownerTimeCostOfSlot,
+} from '../../../../src/sim/modules/responses/responseCost'
+import {
+  DAY_MINUTES,
+  formatDuration,
+} from '../../../../src/sim/modules/ownerActions/stateHelpers'
 import type { IssueSeed } from '../../../../src/sim/modules/issues/issueSeedTypes'
 import type { PendingChoice } from '../sim/daySession'
 import type { CardChoice, CardView } from './types'
@@ -63,6 +70,56 @@ export function gateChoicesByCoin(
         options.committed > 0
           ? `Needs ${cost} coin; ${available} left after today's other choices.`
           : `Needs ${cost} coin; you have ${options.coin}.`,
+    }
+  })
+  return changed ? { ...view, choices } : view
+}
+
+// Phase 203 / audit Wave 4 (`P6-COMP-005`) — the same selection-time
+// contract for the day clock. `Spend owner time on the licence` claimed a
+// cost, took none, and left the planner reading six hours; now that the
+// hour is real, a choice the day has no room for is disabled here rather
+// than skipped in silence at End Day.
+
+/**
+ * Minutes of the owner's day already spoken for by today's committed
+ * choices, excluding `exceptSeedId`.
+ */
+export function committedOwnerTimeCost(
+  seeds: ReadonlyArray<IssueSeed>,
+  pendingBySeedId: Record<string, PendingChoice>,
+  exceptSeedId?: string,
+): number {
+  let total = 0
+  for (const seed of seeds) {
+    if (seed.id === exceptSeedId) continue
+    const pending = pendingBySeedId[seed.id]
+    if (!pending || pending.kind !== 'choice') continue
+    total += ownerTimeCostOfSlot(seed, pending.slotId)
+  }
+  return total
+}
+
+/**
+ * Return `view` with any choice the day has no time for disabled and given
+ * a readable reason. `queuedMinutes` is the owner-action queue's claim on
+ * the same budget — the two spend one day between them.
+ */
+export function gateChoicesByTime(
+  view: CardView,
+  seed: IssueSeed,
+  options: { queuedMinutes: number; committed: number },
+): CardView {
+  const available = DAY_MINUTES - options.queuedMinutes - options.committed
+  let changed = false
+  const choices: CardChoice[] = view.choices.map((choice) => {
+    if (choice.disabledReason !== undefined) return choice
+    const cost = ownerTimeCostOfSlot(seed, choice.slotId)
+    if (cost <= 0 || cost <= available) return choice
+    changed = true
+    return {
+      ...choice,
+      disabledReason: `Needs ${formatDuration(cost)}; ${formatDuration(Math.max(0, available))} of your day left.`,
     }
   })
   return changed ? { ...view, choices } : view

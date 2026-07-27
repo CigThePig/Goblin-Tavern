@@ -62,6 +62,15 @@ export type PickedAction = {
    * (commission_expedition, etc.). Forwarded verbatim to the engine.
    */
   options?: Record<string, unknown>
+  /**
+   * Phase 203 / audit Wave 4 (`P7-EXP-006`) — the problem this pick was
+   * queued to answer ("lost mushrooms yesterday", "Food Safety rising"),
+   * when it came from a suggestion or a cause drilldown. Display only: the
+   * queue chip and the plan summary say which recommendation the action
+   * came from, so `notice problem → ask why → plan remedy` closes without
+   * the player re-deriving it. Not sent to the engine.
+   */
+  contextReason?: string
 }
 
 let pickIdCounter = 0
@@ -213,6 +222,11 @@ function sanitizeSinglePick(
       ? (optionsRaw as Record<string, unknown>)
       : undefined
 
+  // Phase 203 / audit Wave 4 (`P7-EXP-006`) — display-only provenance;
+  // survives reload with the pick it belongs to.
+  const contextReason =
+    typeof r.contextReason === 'string' ? r.contextReason : undefined
+
   const sanitized: PickedAction = {
     pickId,
     actionId,
@@ -224,6 +238,7 @@ function sanitizeSinglePick(
     ...(targetLabel !== undefined ? { targetLabel } : {}),
     ...(amount !== undefined ? { amount } : {}),
     ...(options !== undefined ? { options } : {}),
+    ...(contextReason !== undefined ? { contextReason } : {}),
   }
   return sanitized
 }

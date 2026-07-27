@@ -111,12 +111,20 @@ function findStarter(policyType: string): PolicyStarterDefinition | undefined {
   return POLICY_STARTERS.find((p) => p.policyType === policyType)
 }
 
-function listPolicies(_ctx: SimContext): ActionTarget[] {
-  return POLICY_STARTERS.map((p) => ({
-    id: p.id,
-    label: p.label,
-    hint: p.effects[0] ?? '',
-  }))
+// Phase 203 / audit Wave 4 (`P3-BHV-001`) — a toggle's valid targets are
+// its OWN policy, not the whole catalogue. Each definition closes over one
+// starter and ignores `input.targetId` entirely, so listing the other six
+// advertised targets that could never take effect — which is what made
+// `invalid target` meaningless and let the inline control queue against a
+// target the row was not showing.
+function listOwnPolicy(starter: PolicyStarterDefinition) {
+  return (_ctx: SimContext): ActionTarget[] => [
+    {
+      id: starter.id,
+      label: starter.label,
+      hint: starter.effects[0] ?? '',
+    },
+  ]
 }
 
 function recordPolicyChange(
@@ -194,7 +202,7 @@ function buildEnableDefinition(
     tags: [...starter.tags, 'enable'],
     targetType: 'policy',
     timeCost: TIME_COST_QUICK,
-    getValidTargets: listPolicies,
+    getValidTargets: listOwnPolicy(starter),
     canApply: (ctx) => {
       const slice = getOwnerActionsModuleState(ctx.state)
       const existing = slice.policies[starter.id]
@@ -227,7 +235,7 @@ function buildDisableDefinition(
     tags: [...starter.tags, 'disable'],
     targetType: 'policy',
     timeCost: TIME_COST_QUICK,
-    getValidTargets: listPolicies,
+    getValidTargets: listOwnPolicy(starter),
     canApply: (ctx) => {
       const slice = getOwnerActionsModuleState(ctx.state)
       const existing = slice.policies[starter.id]

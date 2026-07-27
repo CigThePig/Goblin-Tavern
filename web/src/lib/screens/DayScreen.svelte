@@ -51,7 +51,12 @@
   import DailyReport from '../components/DailyReport.svelte'
   import YesterdayDigest from '../components/YesterdayDigest.svelte'
   import { renderCard } from '../cards/realCardRegistry'
-  import { committedCoinCost, gateChoicesByCoin } from '../cards/affordability'
+  import {
+    committedCoinCost,
+    committedOwnerTimeCost,
+    gateChoicesByCoin,
+    gateChoicesByTime,
+  } from '../cards/affordability'
   import { selectionLabelOf } from '../sim/selectionLabel'
   import { formatDuration } from '../sim/actionBuilder'
   import { staffPriorityRegistry } from '../../../../src/sim/registries/staffPriorityRegistry'
@@ -183,14 +188,27 @@
   const morningCards = $derived(
     morningSeeds.map((seed) => ({
       seed,
-      view: gateChoicesByCoin(renderCard(seed, gameStore.state), seed, {
-        coin: gameStore.state.coin,
-        committed: committedCoinCost(
-          gameStore.todaysSeeds,
-          pendingBySeedId,
-          seed.id,
-        ),
-      }),
+      // Phase 203 / audit Wave 4 (`P6-COMP-005`) — and the same gate for
+      // the day clock, which owner actions and card choices share.
+      view: gateChoicesByTime(
+        gateChoicesByCoin(renderCard(seed, gameStore.state), seed, {
+          coin: gameStore.state.coin,
+          committed: committedCoinCost(
+            gameStore.todaysSeeds,
+            pendingBySeedId,
+            seed.id,
+          ),
+        }),
+        seed,
+        {
+          queuedMinutes: gameStore.minutesQueued,
+          committed: committedOwnerTimeCost(
+            gameStore.todaysSeeds,
+            pendingBySeedId,
+            seed.id,
+          ),
+        },
+      ),
       pending: pendingBySeedId[seed.id],
     })),
   )
@@ -849,6 +867,9 @@
   previousReport={dailyReport.ok === 'success' ? dailyReport.data : undefined}
   requestedTab={pickerRequest?.tab}
   focusSuggested={pickerRequest?.focusSuggested ?? false}
+  preferredTargetId={pickerRequest?.preferredTargetId}
+  preferredTargetLabel={pickerRequest?.preferredTargetLabel}
+  handoffReason={pickerRequest?.reason}
 />
 <StaffPrioritySheet open={staffSheetOpen} onclose={() => (staffSheetOpen = false)} />
 

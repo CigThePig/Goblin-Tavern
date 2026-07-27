@@ -54,6 +54,15 @@ import {
   tavernIdentityRef,
   urgencyFromPressures,
 } from './generatorHelpers'
+// Phase 203 / audit Wave 4 (`P6-COMP-005`) — these four profiles carried
+// owner-time amounts on the pre-Phase-186 action-point scale (`-5`, `-6`),
+// which the applier discarded. Now that the target is real, the amounts are
+// restated in minutes on the registry's own ladder.
+import { OWNER_TIME_EFFECT_TARGET } from '../responses/responseCost'
+import {
+  TIME_COST_QUICK,
+  TIME_COST_SHORT,
+} from '../ownerActions/stateHelpers'
 import type { IssueSeedGenerator } from './issueSeedRegistry'
 import {
   pickCustomerFacingArea,
@@ -398,7 +407,7 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
         effect('state_change', `staff.${chosen.id}.loyalty`, 10, 'Loyalty rises', ['staff']),
         effect('state_change', `staff.${chosen.id}.stress`, -8, 'Stress drops', ['staff']),
         effect('state_change', `staff.${chosen.id}.morale`, 6, 'Morale lifts', ['staff']),
-        effect('state_change', 'global.owner_time', -5, 'Owner time spent in a private talk', [
+        effect('state_change', OWNER_TIME_EFFECT_TARGET, -TIME_COST_QUICK, 'Owner time spent in a private talk', [
           'time',
           'owner',
         ]),
@@ -797,7 +806,7 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
           'staff',
           'attribution',
         ]),
-        effect('state_change', 'global.owner_time', -5, 'Owner time spent in a staff meeting', [
+        effect('state_change', OWNER_TIME_EFFECT_TARGET, -TIME_COST_QUICK, 'Owner time spent in a staff meeting', [
           'time',
           'owner',
         ]),
@@ -2392,7 +2401,7 @@ function generateFactionRequest(ctx: SimContext): IssueSeed[] {
         ]),
         effect('state_change', `factions.${chosen.id}.trust`, 8, 'Trust grows', ['faction']),
         effect('pressure', 'pressure:faction_anger', -6, 'Anger softens', ['pressure']),
-        effect('state_change', 'global.owner_time', -5, 'Owner time spent bargaining', ['time']),
+        effect('state_change', OWNER_TIME_EFFECT_TARGET, -TIME_COST_QUICK, 'Owner time spent bargaining', ['time']),
       ],
       delayedEffects: [],
       memories: [
@@ -2706,7 +2715,7 @@ function generateCultureConflict(ctx: SimContext): IssueSeed[] {
         effect('state_change', `cultures.${chosen.id}.tension`, -15, 'Tension drops', ['culture']),
         effect('state_change', `cultures.${chosen.id}.comfort`, 10, 'Comfort rises', ['culture']),
         effect('pressure', 'pressure:cultural_tension', -10, 'Tension eases', ['pressure']),
-        effect('state_change', 'global.owner_time', -6, 'Owner time spent mediating', ['time']),
+        effect('state_change', OWNER_TIME_EFFECT_TARGET, -TIME_COST_SHORT, 'Owner time spent mediating', ['time']),
       ],
       delayedEffects: [],
       memories: [

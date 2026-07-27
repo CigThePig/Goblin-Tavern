@@ -1,5 +1,7 @@
 import type { IssueSeedGenerator } from '../issues/issueSeedRegistry'
-import { buildSeed } from '../issues/generatorHelpers'
+import { buildSeed, effect } from '../issues/generatorHelpers'
+import { OWNER_TIME_EFFECT_TARGET } from '../responses/responseCost'
+import { TIME_COST_SHORT } from '../ownerActions/stateHelpers'
 import { LIQUOR_LICENSE_VENTURE_ID } from './liquorLicense'
 
 export const ventureIssueSeedGenerator: IssueSeedGenerator = {
@@ -28,7 +30,12 @@ export const ventureIssueSeedGenerator: IssueSeedGenerator = {
         { id: 'set_aside', labelHint: 'Set the licence aside today', allowedVerbs: ['delay'], shape: 'delay_problem', targetOptions: [target], expectedEffects: ['No licence progress today'], choiceContract: { archetype: 'delay', primaryTarget: `ventures.${venture.id}.progress`, costTypes: ['none'], payoffTiming: 'none' } },
       ],
       consequenceProfiles: [
-        { id: 'invest_owner_time', responseSlotId: 'invest_owner_time', immediateEffects: [{ kind: 'state_change', target: `ventures.${venture.id}.progress`, amount: 1, readable: 'Licence paperwork advances.', tags: ['teleology', 'venture', venture.id], targetKind: 'global', direction: 'positive', magnitudeBand: 'small', meterId: 'progress', meterLabel: 'progress', meterDisplayCategory: 'good_when_higher' }], delayedEffects: [], memories: [{ id: 'venture_liquor_license_invested', type: 'fact', label: 'Owner time went into the liquor licence.', strength: 30, tags: ['teleology', 'venture'] }], futureHooks: [], impactScore: 25 },
+        // Phase 203 / audit Wave 4 (`P6-COMP-005`) — the slot's contract
+        // declares `costTypes: ['owner_time']`; until this wave the profile
+        // spent none, so the card promised an opportunity cost the model
+        // did not have. The hour is now real, named on the preview, gated
+        // at selection and taken at resolution.
+        { id: 'invest_owner_time', responseSlotId: 'invest_owner_time', immediateEffects: [{ kind: 'state_change', target: `ventures.${venture.id}.progress`, amount: 1, readable: 'Licence paperwork advances.', tags: ['teleology', 'venture', venture.id], targetKind: 'global', direction: 'positive', magnitudeBand: 'small', meterId: 'progress', meterLabel: 'progress', meterDisplayCategory: 'good_when_higher' }, effect('state_change', OWNER_TIME_EFFECT_TARGET, -TIME_COST_SHORT, 'An hour of the day goes into the paperwork', ['time', 'owner', 'teleology'])], delayedEffects: [], memories: [{ id: 'venture_liquor_license_invested', type: 'fact', label: 'Owner time went into the liquor licence.', strength: 30, tags: ['teleology', 'venture'] }], futureHooks: [], impactScore: 25 },
         { id: 'set_aside', responseSlotId: 'set_aside', immediateEffects: [{ kind: 'cause', target: venture.id, amount: 0, readable: 'The licence waits for another day.', tags: ['teleology', 'venture', 'delayed'] }], delayedEffects: [], memories: [{ id: 'venture_liquor_license_waits', type: 'fact', label: 'The licence paperwork waited.', strength: 10, tags: ['teleology', 'venture'] }], futureHooks: [], impactScore: 1 },
       ],
       toneHints: ['teleology', 'paperwork', venture.stage],

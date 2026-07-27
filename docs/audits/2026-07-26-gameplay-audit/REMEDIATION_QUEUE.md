@@ -269,7 +269,7 @@ the binding constraint on run length, and the arc's additions cost about
 fails visibly rather than silently, but a long run will still hit it.
 Pruning the attribution / causes / history ledgers remains unscheduled.
 
-## Wave 4 — Restore action reachability and contextual transfer
+## Wave 4 — Restore action reachability and contextual transfer ✅ gate passed
 
 Gate: R02/R06 pass through every normal entry; one contextual target stays
 consistent from CTA through picker, quote, queue, Segment B, report and
@@ -278,11 +278,73 @@ expeditions complete naturally end to end.
 
 | ID | St | Sev/Pri | Finding | Evidence |
 |---|---|---|---|---|
-| P3-BHV-001 | open | Med/P2 | Inline policy toggles never queue (payload omits the target) | P3 §5 |
-| P3-BHV-002 | open | Med/P2 | Expedition commissioning cannot open | P3 §5 |
-| P5-PLAY-001 | open | Med/P2 | After-service planning says "today", queues tomorrow | P5 §6 |
-| P6-COMP-005 | open | Med/P2 | Licence claims owner time but spends none | P6 §6 |
-| P7-EXP-006 | open | Med/P2 | Planner handoff loses the problem target | P7 §7 |
+| P3-BHV-001 | done | Med/P2 | Inline policy toggles never queue (payload omits the target) | P3 §5 |
+| P3-BHV-002 | done | Med/P2 | Expedition commissioning cannot open | P3 §5 |
+| P5-PLAY-001 | done | Med/P2 | After-service planning says "today", queues tomorrow | P5 §6 |
+| P6-COMP-005 | done | Med/P2 | Licence claims owner time but spends none | P6 §6 |
+| P7-EXP-006 | done | Med/P2 | Planner handoff loses the problem target | P7 §7 |
+
+**Closed 2026-07-27.** Plan:
+`docs/plans/phase-203-audit-wave-4-action-reachability.md`. Regression:
+`tests/sim/phase203.wave4.actionReachability.test.ts` (12 assertions) and
+`tests/web/phase203.wave4.planningHorizon.test.ts` (17). All five were
+reproduced against the pre-fix build first, with the audit's own strings:
+the inline policy pick returned `no target`, a fully specified commission
+returned `commission_expedition requires a runner targetId`, two stock
+shortages collapsed into one targetless suggestion, `stock.ale.quantity`
+mapped to no CTA at all, and no planning-horizon authority existed.
+
+**Contract decisions taken (these were choices the audit left open):**
+
+- **`P5-PLAY-001` — keep pre-planning, label it tomorrow.** The queue
+  behaviour was already right (`beginDay` preserves picks on purpose);
+  only the copy lied. Restricting the planner after Segment B would
+  remove reach, which is the opposite of this wave's purpose.
+  `gameStore.planningHorizon` reads `segment`, not `beat`, and the Top
+  Bar chip, picker title, unspent line and a queue banner all read it.
+- **`P6-COMP-005` — owner time becomes a real, named, enforced cost.**
+  `phase-186-day-clock-time-economy.md` is locked (the budget is time),
+  and four other profiles already claimed `global.owner_time` on effects
+  the applier silently discarded. Removing the claim would have deleted
+  the only lever card responses have on the day clock.
+
+Work landed:
+
+- Every finding is one payload losing a field between two surfaces, so
+  each fix is the same shape. The inline policy pick carries `targetId` /
+  `targetLabel` and scopes its queue checks to them; `enable_*`/`disable_*`
+  `getValidTargets` now returns its own policy rather than all seven.
+- `OwnerActionDefinition` gains `canOpen` ("may the player begin
+  specifying this?", distinct from `canApply`) and `composer` (the form
+  that owns an input a generic picker cannot assemble).
+  `actionDisabledReasonForInput` validates a COMPLETE payload — target,
+  amount and options — and `tryAddPick` uses it, so a global-typed
+  action's own `targetId` and `options` stop being dropped at the queue.
+- `global.owner_time` is a first-class effect target landing on
+  `modules.ownerActions.timeSpent`, with `immediateOwnerTimeCost` /
+  `ownerTimeCostOfSlot` beside the coin pair, a `gateChoicesByTime`
+  selection gate, and a DC-07 atomic re-check that skips a
+  no-longer-affordable intent WHOLE.
+- `SuggestedAction` and `ActionPickerRequest` carry `targetId` /
+  `preferredTargetId` / `reason`; suggestions de-duplicate by action AND
+  target; `planActionCtaForPath` handles `stock.<id>.*`; the picker
+  preselects a valid preferred target and otherwise sorts and marks it.
+
+**Consequence worth knowing before Wave 7:** the four pre-existing
+`global.owner_time` amounts (`-5`, `-6`) were on the retired
+action-point scale and cost nothing at all, because the applier had no
+branch for the target. Restated in minutes on the registry ladder
+(`TIME_COST_QUICK` 30m, `TIME_COST_SHORT` 60m) they are **new spend in
+the model** — five profiles now take real hours off the day.
+**Owner-time tuning judged against the pre-Wave-4 build is suspect.**
+Two derived rulers moved with it: owner time gets its own magnitude
+ladder (`[30, 60, 120]` — minutes of a 360-minute day are not a 0–100
+meter), and `audit-card-choices`' dominance heuristic normalises
+owner-time minutes onto the 0–100 scale it sums everything else on,
+which otherwise let a half-hour outweigh a 4-coin cost.
+
+Gates re-run green: `npm test` (3 635), `npm run test:heavy` (129),
+`npm run typecheck`, `npm run check` (0/0), `npm run build`.
 
 ## Wave 5 — Repair secondary surfaces and identity
 

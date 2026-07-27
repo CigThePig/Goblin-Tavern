@@ -30,6 +30,19 @@ export type SuggestedAction = {
   action: OwnerActionDefinition
   /** Short, literal trigger — e.g. "Food Safety rising", "lost ale yesterday". */
   reason: string
+  /**
+   * Phase 203 / audit Wave 4 (`P7-EXP-006`) — the entity the trigger names,
+   * when it names one. A stock loss knows exactly which item ran out; the
+   * suggestion used to put it in prose and then hand the picker a bare
+   * action definition, so tapping it opened all twenty stock targets and
+   * the player re-derived what the suggestion already knew.
+   *
+   * Pressure triggers carry no target: `pressureAffinity` maps an action to
+   * a pressure, not to one room or one item, and inventing a target from
+   * that would be the card layer asserting sim truth it does not have.
+   */
+  targetId?: string
+  targetLabel?: string
 }
 
 /** At most three suggestions, so the section stays a pointer, not a list. */
@@ -41,6 +54,8 @@ const RESTOCK_ACTION_ID = 'restock_item'
 type Candidate = {
   action: OwnerActionDefinition
   reason: string
+  targetId?: string
+  targetLabel?: string
   /** Severity of the source pressure (0 for loss-triggered). Sort key 1, desc. */
   severity: number
   /** Sort key 2, asc — the day budget is time, never action points. */
@@ -56,18 +71,41 @@ type Candidate = {
  */
 export function suggestActions(
   state: TavernState,
-  picks: ReadonlyArray<{ actionId: string }>,
+  picks: ReadonlyArray<{ actionId: string; targetId?: string }>,
   previousReport?: DailyReportData,
 ): SuggestedAction[] {
-  const takenIds = new Set(picks.map((p) => p.actionId))
+  // Phase 203 / audit Wave 4 (`P7-EXP-006`) — identity is action AND
+  // target. Two shortages need two remedies; de-duplicating by action id
+  // alone collapsed them into one suggestion that named only the first
+  // item, and a pick already queued for ale suppressed the suggestion to
+  // restock stew.
+  const key = (actionId: string, targetId?: string) =>
+    targetId ? `${actionId}::${targetId}` : actionId
+  const takenIds = new Set(picks.map((p) => key(p.actionId, p.targetId)))
   const seen = new Set<string>()
   const candidates: Candidate[] = []
   let order = 0
 
-  const push = (action: OwnerActionDefinition, reason: string, severity: number) => {
-    if (takenIds.has(action.id) || seen.has(action.id)) return
-    seen.add(action.id)
-    candidates.push({ action, reason, severity, timeCost: action.timeCost, order: order++ })
+  const push = (
+    action: OwnerActionDefinition,
+    reason: string,
+    severity: number,
+    target?: { id: string; label: string },
+  ) => {
+    const k = key(action.id, target?.id)
+    // A targeted suggestion is also suppressed by an untargeted pick of
+    // the same action, and vice versa — either way the action is on the
+    // day's list already.
+    if (takenIds.has(k) || takenIds.has(action.id) || seen.has(k)) return
+    seen.add(k)
+    candidates.push({
+      action,
+      reason,
+      severity,
+      timeCost: action.timeCost,
+      order: order++,
+      ...(target ? { targetId: target.id, targetLabel: target.label } : {}),
+    })
   }
 
   // 1. Rising-pressure triggers, highest severity first so an action with
@@ -92,7 +130,10 @@ export function suggestActions(
         const itemId = stockIdFromPath(loss.path)
         if (!itemId) continue
         const label = state.stock[itemId]?.label ?? itemId
-        push(action, `lost ${label.toLowerCase()} yesterday`, 0)
+        push(action, `lost ${label.toLowerCase()} yesterday`, 0, {
+          id: itemId,
+          label,
+        })
       }
     }
   }
@@ -101,7 +142,13 @@ export function suggestActions(
     (a, b) => b.severity - a.severity || a.timeCost - b.timeCost || a.order - b.order,
   )
 
-  return candidates.slice(0, MAX_SUGGESTIONS).map((c) => ({ action: c.action, reason: c.reason }))
+  return candidates.slice(0, MAX_SUGGESTIONS).map((c) => ({
+    action: c.action,
+    reason: c.reason,
+    ...(c.targetId !== undefined
+      ? { targetId: c.targetId, targetLabel: c.targetLabel ?? c.targetId }
+      : {}),
+  }))
 }
 
 /** Registered actions tagged as relieving `pressureId`, cheapest first. */

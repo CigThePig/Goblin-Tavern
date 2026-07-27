@@ -20,7 +20,11 @@ import {
   writeResponsesSlice,
 } from './ctxApplier'
 import { selectConsequence } from './selectConsequence'
-import { immediateCoinCost } from './responseCost'
+import { immediateCoinCost, immediateOwnerTimeCost } from './responseCost'
+import {
+  formatDuration,
+  getOwnerActionsModuleState,
+} from '../ownerActions/stateHelpers'
 import {
   RESPONSES_MODULE_ID,
   ResponsesModuleStateSchema,
@@ -295,6 +299,42 @@ const applyResponsesHook: SimulationHook = (ctx: SimContext): void => {
         resolvedOn: today,
         outcome: 'skipped_unaffordable',
         note: `Needed ${cost} coin; only ${ctx.state.coin} on hand.`,
+      })
+      continue
+    }
+
+    // Phase 203 / audit Wave 4 (`P6-COMP-005`) — the same DC-07 rule for
+    // the day clock. Segment B has already written the minutes the day's
+    // owner actions took, so what is left here is what is genuinely left;
+    // a response the owner has no hours for is skipped WHOLE rather than
+    // applying its consequences and quietly dropping the cost.
+    const timeCost = immediateOwnerTimeCost(profile)
+    const clock = getOwnerActionsModuleState(ctx.state)
+    const timeFree = clock.timeBudget - clock.timeSpent
+    if (timeCost > timeFree) {
+      ctx.addLog(
+        {
+          message: `Response intent ${intent.id} skipped: costs ${timeCost}m of owner time, ${timeFree}m left`,
+          level: 'info',
+          data: {
+            intentId: intent.id,
+            seedId: seed.id,
+            responseSlotId: slot.id,
+            timeCost,
+            timeFree,
+          },
+        },
+        SOURCE,
+      )
+      recordResolvedIntent(ctx, {
+        intentId: intent.id,
+        seedId: seed.id,
+        responseSlotId: slot.id,
+        profileId: profile.id,
+        verb: intent.verb,
+        resolvedOn: today,
+        outcome: 'skipped_unaffordable',
+        note: `Needed ${formatDuration(timeCost)} of your day; only ${formatDuration(timeFree)} left.`,
       })
       continue
     }

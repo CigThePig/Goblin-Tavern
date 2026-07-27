@@ -34,7 +34,18 @@ export type PlanActionCta = {
    * thing the player sees.
    */
   focusSuggested: boolean
+  /**
+   * Phase 203 / audit Wave 4 (`P7-EXP-006`) — the entity the drilldown is
+   * about, when the path names one. Carried through the picker request so
+   * a shortage in Mushrooms opens the Mushrooms quote instead of a
+   * twenty-row stock list the player must search.
+   */
+  preferredTargetId?: string
+  preferredTargetLabel?: string
 }
+
+/** The action a stock-level drilldown points at. */
+const RESTOCK_ACTION_ID = 'restock_item'
 
 /**
  * Context for a "Plan an action against this" drilldown CTA, or
@@ -54,8 +65,24 @@ export function planActionCtaForPath(
     const focusSuggested = (snapshot?.consequences.length ?? 0) > 0
     return { tab: actions[0]!.category, focusSuggested }
   }
-  // coin / reputation / inventory paths: no owner-action affinity in the
-  // model maps to them, so there is nothing honest to suggest. Omit.
+  // Phase 203 / audit Wave 4 (`P7-EXP-006`) — a stock path DOES name an
+  // owner action, and names the item too. This returned `undefined` for
+  // inventory paths, so the audit's shortage route reached the picker
+  // through the Suggested list and arrived with the item stripped off.
+  if (path.startsWith('stock.')) {
+    const itemId = path.split('.')[1]
+    if (!itemId || !state.stock[itemId]) return undefined
+    if (!actionRegistry.has(RESTOCK_ACTION_ID)) return undefined
+    const def = actionRegistry.get(RESTOCK_ACTION_ID)
+    return {
+      tab: def.category,
+      focusSuggested: false,
+      preferredTargetId: itemId,
+      preferredTargetLabel: state.stock[itemId]!.label,
+    }
+  }
+  // coin / reputation paths: no owner-action affinity in the model maps to
+  // them, so there is nothing honest to suggest. Omit.
   return undefined
 }
 

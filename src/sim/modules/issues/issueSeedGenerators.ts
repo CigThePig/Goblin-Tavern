@@ -34,6 +34,7 @@ import {
   pressureCauseRefsAsEntries,
   pressureSnapshot,
   recentCauseEntries,
+  scopedCauseEntries,
   regularRef,
   seedId,
   severityFromPressures,
@@ -80,6 +81,7 @@ import {
 // (or `kitchen` for kitchen-adjacent picks) only when no tagged area
 // qualifies — never as the default behaviour.
 import {
+  pickComplaintArea,
   pickCustomerFacingArea,
   pickKitchenAdjacentArea,
   pickRepairableArea,
@@ -491,7 +493,12 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
   const highDemand = HIGH_DEMAND_DAY_TYPES.has(dayType)
 
   const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'stock_shortage', 3)
-  for (const c of recentCauseEntries(ctx, ['stock', chosen.id, 'sales'], 5, 2)) {
+  for (const c of scopedCauseEntries(
+    ctx,
+    { entityIds: [chosen.id], domains: ['stock', 'sales'], includeGlobal: true },
+    5,
+    2,
+  )) {
     if (!causes.find((existing) => existing.id === c.id)) causes.push(c)
   }
   if (causes.length === 0) return []
@@ -782,7 +789,12 @@ function generateMaintenance(ctx: SimContext): IssueSeed[] {
   const worst = chosen
 
   const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'maintenance', 3)
-  for (const c of recentCauseEntries(ctx, ['area', worst.id, 'damage'], 5, 2)) {
+  for (const c of scopedCauseEntries(
+    ctx,
+    { entityIds: [worst.id], domains: ['damage'], includeGlobal: true },
+    5,
+    2,
+  )) {
     if (!causes.find((existing) => existing.id === c.id)) causes.push(c)
   }
   if (causes.length === 0) return []
@@ -1443,7 +1455,13 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
   // private_booth / stage_corner / private rooms get rotation time
   // alongside main_room. The chosen id replaces the hardcoded
   // `main_room` paths in this family's effect strings.
-  const complaintAreaRef = pickCustomerFacingArea(ctx, 'customer_complaint')
+  // Phase 201 / audit Wave 2 (`P5-PLAY-004`) — anchor on the room that
+  // actually has the problem, not on the day's rotation. `fix_root`
+  // writes to `areas.${complaintAreaId}.*`, so a rotating anchor meant a
+  // costly "Fix the root cause" cleaned a room the card never mentioned
+  // while the cited one kept getting worse. Rotation survives inside
+  // `pickComplaintArea` as the tie-break when no room stands out.
+  const complaintAreaRef = pickComplaintArea(ctx, 'customer_complaint')
   const complaintAreaId = complaintAreaRef.id
 
   // Pull a named regular from the group's starter roster (rotates via a
@@ -1486,14 +1504,26 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
   const staffEntityRef = staffOnHook ? staffRef(staffOnHook.id) : undefined
 
   const causes: CauseEntry[] = []
-  const recent = recentCauseEntries(
+  // Phase 201 / audit Wave 2 (`P5-PLAY-003`) — evidence must belong to
+  // THIS group or the room the complaint anchors to. The old any-tag
+  // query let a generic `area`/`cleanliness`/`reputation` cause about a
+  // different group or room explain this card.
+  const recent = scopedCauseEntries(
     ctx,
-    ['customer', group.id, 'area', 'reputation', 'cleanliness'],
+    {
+      entityIds: [group.id, complaintAreaId],
+      domains: ['reputation', 'cleanliness', 'service'],
+      includeGlobal: true,
+    },
     7,
     4,
   )
   causes.push(...recent)
-  causes.push(...pressureCauseRefsAsEntries(ctx, 'reputation_drift', 2))
+  causes.push(
+    ...pressureCauseRefsAsEntries(ctx, 'reputation_drift', 2, {
+      entityIds: [group.id, complaintAreaId],
+    }),
+  )
   if (causes.length < 1) return []
 
   // Phase 188 / ISSUE-155 — derive the seed's stated cause from the SAME
@@ -1522,8 +1552,10 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
       labelHint: 'Fix the root cause',
       allowedVerbs: ['clean', 'repair'],
       shape: 'long_term_investment',
+      // The room the profile actually repairs leads the options, so
+      // preview, target and applied path cannot name different places.
       targetOptions: [
-        pickCustomerFacingArea(ctx, 'customer_complaint'),
+        complaintAreaRef,
         pickKitchenAdjacentArea(ctx, 'customer_complaint'),
       ],
       expectedEffects: ['raise cleanliness', 'time/coin cost'],

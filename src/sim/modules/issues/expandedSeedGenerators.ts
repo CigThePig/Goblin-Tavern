@@ -39,6 +39,7 @@ import {
   pressureCauseRefsAsEntries,
   pressureSnapshot,
   recentCauseEntries,
+  scopedCauseEntries,
   regularRef,
   rumourRef,
   seedId,
@@ -187,9 +188,20 @@ function generateStaffIdentity(ctx: SimContext): IssueSeed[] {
   const creditAttribution = strongestAttributionText(ctx.state, ref, ['credit', 'gratitude'])
   if (memories.length === 0 && !blameAttribution && !creditAttribution) return []
 
-  const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'staff_loyalty_risk', 2)
-  causes.push(...pressureCauseRefsAsEntries(ctx, 'staff_burnout', 2))
-  for (const c of recentCauseEntries(ctx, ['staff', chosen.id, 'blame'], 7, 3)) {
+  // Phase 201 / audit Wave 2 — scoped to THIS staff member, so the
+  // pressure's per-actor breakdown lines about other staff stay off this
+  // card. Entity-less lines (shared conditions) still come through.
+  const scope = { entityIds: [chosen.id] }
+  const causes: CauseEntry[] = pressureCauseRefsAsEntries(
+    ctx,
+    'staff_loyalty_risk',
+    2,
+    scope,
+  )
+  causes.push(...pressureCauseRefsAsEntries(ctx, 'staff_burnout', 2, scope))
+  // Phase 201 / audit Wave 2 (`P5-PLAY-003`) — a generic `staff` or
+  // `blame` tag used to admit another staff member's event.
+  for (const c of scopedCauseEntries(ctx, { entityIds: [chosen.id] }, 7, 3)) {
     if (!causes.find((existing) => existing.id === c.id)) causes.push(c)
   }
   if (causes.length === 0) return []
@@ -997,8 +1009,18 @@ function generateRegularCustomer(ctx: SimContext): IssueSeed[] {
   const trendingNegative = chosen.irritation > 30 || chosen.loyalty < 60
   if (memories.length === 0 && !trendingNegative) return []
 
-  const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'regular_customer_loss', 2)
-  for (const c of recentCauseEntries(ctx, ['regular', chosen.id, chosen.customerGroupId], 14, 3)) {
+  const causes: CauseEntry[] = pressureCauseRefsAsEntries(
+    ctx,
+    'regular_customer_loss',
+    2,
+    { entityIds: [chosen.id, chosen.customerGroupId] },
+  )
+  for (const c of scopedCauseEntries(
+    ctx,
+    { entityIds: [chosen.id, chosen.customerGroupId] },
+    14,
+    3,
+  )) {
     if (!causes.find((existing) => existing.id === c.id)) causes.push(c)
   }
   if (causes.length === 0) return []
@@ -1370,9 +1392,19 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
     ? cultureRef(chosen.cultureId)
     : undefined
 
-  const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'supplier_distrust', 2)
+  const causes: CauseEntry[] = pressureCauseRefsAsEntries(
+    ctx,
+    'supplier_distrust',
+    2,
+    { entityIds: [chosen.id] },
+  )
   causes.push(...pressureCauseRefsAsEntries(ctx, 'market_instability', 2))
-  for (const c of recentCauseEntries(ctx, ['supplier', chosen.id, 'delivery'], 14, 3)) {
+  for (const c of scopedCauseEntries(
+    ctx,
+    { entityIds: [chosen.id], domains: ['delivery'], includeGlobal: true },
+    14,
+    3,
+  )) {
     if (!causes.find((existing) => existing.id === c.id)) causes.push(c)
   }
   if (causes.length === 0) return []
@@ -2223,8 +2255,10 @@ function generateFactionRequest(ctx: SimContext): IssueSeed[] {
   if (!guard.allowed) return []
   recordPick(ctx, 'faction_request', `faction:${chosen.id}`)
 
-  const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'faction_anger', 3)
-  for (const c of recentCauseEntries(ctx, ['faction', chosen.id, 'culture'], 14, 3)) {
+  const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'faction_anger', 3, {
+    entityIds: [chosen.id],
+  })
+  for (const c of scopedCauseEntries(ctx, { entityIds: [chosen.id] }, 14, 3)) {
     if (!causes.find((existing) => existing.id === c.id)) causes.push(c)
   }
   if (causes.length === 0) return []
@@ -2577,8 +2611,15 @@ function generateCultureConflict(ctx: SimContext): IssueSeed[] {
   const ref = cultureRef(chosen.id)
   recordPick(ctx, 'culture_conflict', `culture:${chosen.id}`)
 
-  const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'cultural_tension', 3)
-  for (const c of recentCauseEntries(ctx, ['culture', chosen.id, 'cultural'], 14, 3)) {
+  const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'cultural_tension', 3, {
+    entityIds: [chosen.id],
+  })
+  for (const c of scopedCauseEntries(
+    ctx,
+    { entityIds: [chosen.id], domains: ['cultural'], includeGlobal: true },
+    14,
+    3,
+  )) {
     if (!causes.find((existing) => existing.id === c.id)) causes.push(c)
   }
   if (causes.length === 0) return []
@@ -2877,10 +2918,21 @@ function generateAreaAtmosphere(ctx: SimContext): IssueSeed[] {
   const ref = areaRef(chosen.id)
   recordPick(ctx, 'area_atmosphere', `area:${chosen.id}`)
   const causes: CauseEntry[] = []
-  for (const c of recentCauseEntries(ctx, ['area', chosen.id, 'cleanliness', 'damage'], 14, 4)) {
+  // Phase 201 / audit Wave 2 — a room's card explains itself with that
+  // room's evidence, not with any room's cleanliness cause.
+  for (const c of scopedCauseEntries(
+    ctx,
+    { entityIds: [chosen.id], domains: ['cleanliness', 'damage'], includeGlobal: true },
+    14,
+    4,
+  )) {
     causes.push(c)
   }
-  causes.push(...pressureCauseRefsAsEntries(ctx, 'maintenance', 2))
+  causes.push(
+    ...pressureCauseRefsAsEntries(ctx, 'maintenance', 2, {
+      entityIds: [chosen.id],
+    }),
+  )
   if (causes.length === 0) return []
 
   // Optional unfinished project in this area.
@@ -4783,9 +4835,19 @@ function generateSeasonalArc(ctx: SimContext): IssueSeed[] {
   }
 
   const causes: CauseEntry[] = []
-  for (const c of recentCauseEntries(
+  // Phase 201 / audit Wave 2 (`P4-SEAM-004`) — the generic `arc` tag used
+  // to pull teleological staff-arc causes onto an anticipated mushroom
+  // blight, so the card's stakes concerned mushroom supply while its
+  // explanation concerned an employee's path to mastery. Scope to this
+  // arc's own key and theme; the calendar/market path below supplies the
+  // synthetic cause when the arc has no evidence of its own yet.
+  for (const c of scopedCauseEntries(
     ctx,
-    ['arc', 'local_arc', arcKey, theme, 'festival'],
+    {
+      entityIds: [arcKey, theme].filter(Boolean),
+      domains: ['local_arc', 'festival', 'market'],
+      includeGlobal: true,
+    },
     14,
     4,
   )) {
@@ -4943,7 +5005,19 @@ function generatePolicyBacklash(ctx: SimContext): IssueSeed[] {
   const candidates = policies
     .map((p) => ({
       policy: p,
-      policyCauses: recentCauseEntries(ctx, ['policy', p.id, 'backlash'], 14, 3),
+      // Phase 201 / audit Wave 2 (`P5-PLAY-003`) — real per-policy
+      // linkage. The old any-tag query matched any cause carrying the
+      // generic `policy` tag, so the card named a policy that nothing
+      // had shown to be driving the pressure. The backlash calculator
+      // now emits one breakdown line per policy (tagged with its id);
+      // those, plus any recorded cause that names the policy, are the
+      // only evidence that lets a policy be named.
+      policyCauses: [
+        ...pressureCauseRefsAsEntries(ctx, 'policy_backlash', 3, {
+          entityIds: [p.id],
+        }).filter((c) => c.tags.includes(p.id)),
+        ...scopedCauseEntries(ctx, { entityIds: [p.id] }, 14, 3),
+      ],
     }))
     .filter((e) => e.policyCauses.length > 0)
     .sort((a, b) => {

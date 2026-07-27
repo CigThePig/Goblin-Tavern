@@ -234,7 +234,12 @@
     const result = gameStore.latestResult
     if (!result) return { ok: 'empty' }
     return safeProject(() =>
-      buildDailyReport(result, gameStore.state, {
+      // Phase 201 / audit Wave 2 (`P4-SEAM-002`, `P6-COMP-006`) — a daily
+      // report describes ONE day and must project from that day's state.
+      // Passing the live store state made a closed report follow the next
+      // morning: its missed opportunities became today's cards and its
+      // resolved-choice ledger emptied.
+      buildDailyReport(result, gameStore.closedDayState ?? gameStore.state, {
         ...(gameStore.previousCalendar ? { previousCalendar: gameStore.previousCalendar } : {}),
         dismissedMissedOpportunityIds: gameStore.dismissedMissedOpportunityIds,
       }),

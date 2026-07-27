@@ -430,8 +430,167 @@ export function urgencyFromPressures(
   return Math.round(total / count)
 }
 
+// Phase 201 / audit Wave 2 (`P5-PLAY-003`, `P4-SEAM-004`) — evidence must
+// belong to the thing the card is about.
+//
+// `recentCauseEntries` below matches ANY supplied tag, and call sites mix
+// an entity id in with domain tags:
+//
+//   ['customer', group.id, 'area', 'reputation', 'cleanliness']
+//
+// so a generic `area` or `cleanliness` cause qualifies even when it
+// belongs to a different group or a different room. Every customer
+// complaint across the audit's seven-day route carried foreign evidence —
+// a Merchants card explaining itself with an Adventurers/Main Room
+// cleanliness cause, an Ib Mudshank card citing Nash being blamed. The
+// seasonal-arc case is the same bug through the generic `arc` tag, which
+// pulled four staff-mastery causes onto a mushroom-blight card.
+//
+// `scopedCauseEntries` replaces the flat query at entity-sensitive call
+// sites. A cause qualifies when it NAMES one of the scope's entities — by
+// tag, `relatedActors` or `relatedLocations`. A cause that names no entity
+// at all is admitted only when `includeGlobal` is set and it carries one
+// of the domain tags: that is the deliberate actor-agnostic path for
+// genuinely shared conditions (a market shift, a calendar event). A cause
+// naming a DIFFERENT entity never qualifies, whatever its domain tags say.
+
+export type CauseScope = {
+  /**
+   * Ids of the entities this seed is about — the customer group, the
+   * staff member, the room, the arc key. A cause must name one of these.
+   */
+  entityIds: readonly string[]
+  /**
+   * Tags that make an entity-less cause topically relevant. Only consulted
+   * when `includeGlobal` is set.
+   */
+  domains?: readonly string[]
+  /**
+   * Admit causes that name no entity at all but match a domain tag.
+   * Off by default: silence is better than borrowed evidence.
+   */
+  includeGlobal?: boolean
+  /**
+   * Admit a cause that names one of ours AND someone else's entity.
+   * Off by default — a Merchants card explained by "cleanliness fell
+   * below Adventurers tolerance" names the shared room and so would slip
+   * through an in-scope-only test, while still telling the player about
+   * the wrong group's standards. Set this where genuinely shared context
+   * is worth the ambiguity.
+   */
+  allowForeignCompany?: boolean
+}
+
+/** Every entity id a cause names, through tags or entity refs. */
+function causeNamedIds(cause: CauseEntry): Set<string> {
+  const out = new Set<string>(cause.tags)
+  for (const ref of cause.relatedActors ?? []) out.add(ref.id)
+  for (const ref of cause.relatedLocations ?? []) out.add(ref.id)
+  return out
+}
+
+/**
+ * True when a cause names an actor or location outside the scope. Only
+ * entity REFS count — a tag is a domain word (`staff`, `cleanliness`) far
+ * more often than an id, so tags would reject almost everything.
+ */
+function namesForeignEntity(cause: CauseEntry, wanted: Set<string>): boolean {
+  for (const ref of cause.relatedActors ?? []) {
+    if (!wanted.has(ref.id)) return true
+  }
+  for (const ref of cause.relatedLocations ?? []) {
+    if (!wanted.has(ref.id)) return true
+  }
+  return false
+}
+
+/**
+ * Every id in the world that a tag could be naming. Built once per query
+ * so the global test below can tell "this cause is about the whole
+ * tavern" apart from "this cause is about main_room and simply never
+ * filled in its entity refs" — the latter reached area cards as a
+ * `traffic:ogres` line tagged `main_room` on a private_booth card.
+ */
+function knownEntityIds(state: TavernState): Set<string> {
+  const out = new Set<string>()
+  for (const id of Object.keys(state.areas)) out.add(id)
+  for (const id of Object.keys(state.staff)) out.add(id)
+  for (const id of Object.keys(state.customerGroups)) out.add(id)
+  for (const id of Object.keys(state.stock)) out.add(id)
+  for (const id of Object.keys(state.world.regulars)) out.add(id)
+  for (const id of Object.keys(state.world.suppliers)) out.add(id)
+  for (const id of Object.keys(state.world.factions)) out.add(id)
+  for (const id of Object.keys(state.world.cultures)) out.add(id)
+  for (const id of Object.keys(state.world.notableNpcs)) out.add(id)
+  return out
+}
+
+/**
+ * True when a cause points at nothing in particular — no entity refs, and
+ * no tag that happens to be an out-of-scope entity id.
+ */
+function causeIsGlobal(
+  cause: CauseEntry,
+  known: Set<string>,
+  wanted: Set<string>,
+): boolean {
+  if ((cause.relatedActors ?? []).length > 0) return false
+  if ((cause.relatedLocations ?? []).length > 0) return false
+  for (const tag of cause.tags) {
+    if (known.has(tag) && !wanted.has(tag)) return false
+  }
+  return true
+}
+
+/**
+ * Recent causes (created within `days`) scoped to the seed's own
+ * entities. Heaviest first, capped at `limit`.
+ */
+export function scopedCauseEntries(
+  ctx: SimContext,
+  scope: CauseScope,
+  days: number = 3,
+  limit: number = 4,
+): CauseEntry[] {
+  const wanted = new Set(scope.entityIds.filter(Boolean))
+  const domains = new Set(scope.domains ?? [])
+  const known = scope.includeGlobal
+    ? knownEntityIds(ctx.state)
+    : new Set<string>()
+  const matching: CauseEntry[] = []
+
+  for (const cause of ctx.getRecentCauses(days)) {
+    const named = causeNamedIds(cause)
+    let claimed = false
+    for (const id of wanted) {
+      if (named.has(id)) {
+        claimed = true
+        break
+      }
+    }
+    if (claimed) {
+      if (scope.allowForeignCompany || !namesForeignEntity(cause, wanted)) {
+        matching.push(cause)
+      }
+      continue
+    }
+    if (!scope.includeGlobal) continue
+    if (!causeIsGlobal(cause, known, wanted)) continue
+    if (domains.size === 0) continue
+    if (cause.tags.some((tag) => domains.has(tag))) matching.push(cause)
+  }
+
+  matching.sort((a, b) => b.weight - a.weight)
+  return matching.slice(0, limit)
+}
+
 /** Filter recent causes (created within `days`) matching any of the
- *  given tags. */
+ *  given tags.
+ *
+ *  Phase 201 / audit Wave 2 — this stays for the call sites that are
+ *  legitimately entity-agnostic (`['rent','coin','wages']`,
+ *  `['kitchen','spoilage','food']`). Anything anchored to a named actor,
+ *  room or arc must use `scopedCauseEntries` instead. */
 export function recentCauseEntries(
   ctx: SimContext,
   tags: string[],
@@ -458,6 +617,7 @@ export function pressureCauseRefsAsEntries(
   ctx: SimContext,
   pressureId: string,
   limit: number = 3,
+  scope?: Pick<CauseScope, 'entityIds'>,
 ): CauseEntry[] {
   const snapshots = (ctx.state.modules.pressures as
     | {
@@ -471,6 +631,9 @@ export function pressureCauseRefsAsEntries(
               weight: number
               direction: 'increase' | 'decrease' | 'neutral'
               tags: string[]
+              relatedActors?: EntityRef[]
+              relatedLocations?: EntityRef[]
+              relatedSystems?: string[]
             }>
           }
         >
@@ -479,7 +642,34 @@ export function pressureCauseRefsAsEntries(
   const snap = snapshots[pressureId]
   if (!snap) return []
   const stamp = stampFromState(ctx.state)
-  return snap.causes.slice(0, limit).map((ref, idx) => ({
+  // Phase 201 / audit Wave 2 (`P5-PLAY-003`) — a pressure's breakdown has
+  // one line per contributing actor, so pulling "the top N" onto a card
+  // about ONE staff member handed it another member's blame line: the
+  // cook's card explained itself with "Nash is publicly blamed". The refs
+  // now keep the actors and locations they were emitted with (they used
+  // to be flattened to empty arrays, which made scoping impossible), and
+  // an optional scope keeps only the lines about this seed's own
+  // entities — plus the entity-less lines, which are genuinely shared
+  // conditions ("3 staff with unpaid wages").
+  const wanted = scope ? new Set(scope.entityIds.filter(Boolean)) : undefined
+  const relevant = wanted
+    ? snap.causes.filter((ref) => {
+        // A line that names one of ours in its TAGS is about us even when
+        // its actor refs are somebody else: "2 groups object to cheap
+        // payday specials" is the policy's own evidence, and the groups
+        // are what the evidence is about.
+        if (ref.tags.some((tag) => wanted.has(tag))) return true
+        const entities = [
+          ...(ref.relatedActors ?? []),
+          ...(ref.relatedLocations ?? []),
+        ]
+        // Entity-less lines are shared conditions and always belong.
+        if (entities.length === 0) return true
+        // Otherwise every entity the line names must be one of ours.
+        return entities.every((entity) => wanted.has(entity.id))
+      })
+    : snap.causes
+  return relevant.slice(0, limit).map((ref, idx) => ({
     id: `pressure-${pressureId}-${idx}-${stamp.absoluteDay}`,
     timestamp: stamp,
     source: `pressures.${pressureId}`,
@@ -491,9 +681,9 @@ export function pressureCauseRefsAsEntries(
     weight: ref.weight,
     readable: ref.readable,
     tags: [...ref.tags],
-    relatedActors: [],
-    relatedLocations: [],
-    relatedSystems: [],
+    relatedActors: (ref.relatedActors ?? []).map((entity) => ({ ...entity })),
+    relatedLocations: (ref.relatedLocations ?? []).map((entity) => ({ ...entity })),
+    relatedSystems: [...(ref.relatedSystems ?? [])],
     ageDays: 0,
   }))
 }

@@ -36,6 +36,7 @@ import type {
 import type { ResolvedIntentRecord } from '../sim/modules/responses/types'
 import { actionRegistry } from '../sim/registries/actionRegistry'
 import { canApplyAction } from '../sim/modules/ownerActions/readonlyHelpers'
+import { profileUtility } from '../sim/modules/issues/impactScoring'
 import { pathToCauseTarget } from './causeLookup'
 import { resolveEntityLabel } from './entityLabels'
 import {
@@ -228,26 +229,40 @@ function bestNonIgnoreSlot(
     list.push(profile)
     profilesBySlot.set(profile.responseSlotId, list)
   }
+  // Phase 201 / audit Wave 2 (`P7-EXP-003`) — rank by DESIRABILITY, not
+  // magnitude. This used to take the slot with the highest `impactScore`,
+  // which sums absolute amounts, so the most destructive option won on
+  // size alone: the audit's 28-day route recommended `blame` 29 times,
+  // including mocking a customer group toward a boycott. `profileUtility`
+  // signs each contribution by the effect's own declared direction, and a
+  // slot that would leave things worse on balance is not an opportunity
+  // the player missed — it is one they were right to skip.
   let bestSlot: ResponseSlot | undefined
   let bestProfile: ConsequenceProfile | undefined
-  let bestScore = -Infinity
+  let bestUtility = -Infinity
   for (const slot of seed.responseSlots) {
     if (slot.shape === 'ignore') continue
     if (slot.allowedVerbs.length === 0) continue
     if (slot.allowedVerbs[0] === 'ignore') continue
     const profiles = profilesBySlot.get(slot.id) ?? []
-    const top = profiles.reduce<ConsequenceProfile | undefined>(
-      (acc, p) => (acc === undefined || p.impactScore > acc.impactScore ? p : acc),
-      undefined,
-    )
-    const score = top?.impactScore ?? 0
-    if (score > bestScore) {
-      bestScore = score
+    const top = profiles.reduce<
+      { profile: ConsequenceProfile; utility: number } | undefined
+    >((acc, p) => {
+      const utility = profileUtility(p)
+      return acc === undefined || utility > acc.utility ? { profile: p, utility } : acc
+    }, undefined)
+    if (!top) continue
+    if (top.utility > bestUtility) {
+      bestUtility = top.utility
       bestSlot = slot
-      bestProfile = top
+      bestProfile = top.profile
     }
   }
-  if (!bestSlot) return undefined
+  // Every slot would have left things worse — the seed produces no
+  // coaching line at all rather than dressing up the least-bad harm as an
+  // opportunity. A slot with NO signed effects scores 0 (unknown, not
+  // harmful) and is still offered, as it was before this change.
+  if (!bestSlot || bestUtility < 0) return undefined
   // bestProfile may still be undefined for slots with no profiles — in
   // that case we still surface the slot with a 0-impact rationale.
   return {

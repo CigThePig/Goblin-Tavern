@@ -124,7 +124,7 @@ now corrects (`phase38.expandedPressures`, `phase191.economyDebtCoherence`
 which is what the fixture actually owes). **Any pressure or attribution
 tuning judged against the pre-Wave-1 build is suspect.**
 
-## Wave 2 — Make causality and closed reports authoritative
+## Wave 2 — Make causality and closed reports authoritative ✅ gate passed
 
 Gate: a closed report is field-stable immediately, next day, days later and
 after reload; simultaneous causes for two staff / groups / rooms never cross
@@ -133,12 +133,56 @@ cannot become positive coaching on magnitude alone.
 
 | ID | St | Sev/Pri | Finding | Evidence |
 |---|---|---|---|---|
-| P4-SEAM-002 | open | High/P1 | Yesterday's missed opportunities are rebuilt from today's state | P4 §5 |
-| P6-COMP-006 | open | Med/P2 | Historical reports lose resolved choices | P6 §6 |
-| P5-PLAY-003 | open | High/P1 | Issue evidence crosses actor/location boundaries (shared cause-query contract) | P5 §6 |
-| P4-SEAM-004 | open | Med/P2 | Seasonal arc card absorbs staff-arc causes | P4 §5 |
-| P5-PLAY-004 | open | High/P1 | Fix Root applies to the wrong room | P5 §6 |
-| P7-EXP-003 | open | High/P1 | Missed-opportunity coaching recommends destructive choices | P7 §7 |
+| P4-SEAM-002 | done | High/P1 | Yesterday's missed opportunities are rebuilt from today's state | P4 §5 |
+| P6-COMP-006 | done | Med/P2 | Historical reports lose resolved choices | P6 §6 |
+| P5-PLAY-003 | done | High/P1 | Issue evidence crosses actor/location boundaries (shared cause-query contract) | P5 §6 |
+| P4-SEAM-004 | done | Med/P2 | Seasonal arc card absorbs staff-arc causes | P4 §5 |
+| P5-PLAY-004 | done | High/P1 | Fix Root applies to the wrong room | P5 §6 |
+| P7-EXP-003 | done | High/P1 | Missed-opportunity coaching recommends destructive choices | P7 §7 |
+
+**Closed 2026-07-27.** Plan:
+`docs/plans/phase-201-audit-wave-2-authoritative-causality.md`. Regression:
+`tests/sim/phase201.wave2.causality.test.ts` and
+`tests/web/phase201.wave2.closedReports.test.ts` (12 assertions). All six
+reproduced first.
+
+Work landed:
+
+- **Closed reports project from the day they describe.** The store keeps
+  `closedDayState` at `endDay` and both report screens read it; it is
+  persisted as a `baselinePatch` against live state, reusing the Wave 0
+  codec, so it costs a fraction of a second `TavernState`. This stabilises
+  every field, not only the two the audit caught — `projectRisingPressures`
+  and `projectFutureHooks` read live state by the same mistake.
+- **`scopedCauseEntries` replaces the any-tag query** at entity-sensitive
+  call sites. A cause qualifies only when it names one of the seed's own
+  entities and names no foreign one; entity-less causes need an explicit
+  `includeGlobal` plus a domain-tag match. Two further leaks turned up
+  while fixing it: `pressureCauseRefsAsEntries` was flattening every
+  breakdown line's actors to `[]` (making scoping impossible, and handing
+  one staff member's blame line to another's card), and the Wave 1 pressure
+  cause was borrowing the dominant line's *words* with the snapshot's
+  *aggregate* actors. Both now carry the attribution they assert.
+- **The complaint anchors on the room with the problem** (`pickComplaintArea`),
+  not the day's rotation, and the `fix_root` slot offers that same room —
+  so cause, preview, target, applied path and report name one place.
+  Rotation survives as the tie-break when no room stands out.
+- **Missed-opportunity ranking uses signed utility** (`profileUtility`),
+  not `impactScore`'s absolute magnitude. A slot that would leave things
+  worse is not offered at all; a slot with no signed effects still is
+  (unknown, not harmful). `impactScore` keeps its meaning for prominence
+  and pacing.
+
+**`DC-03` (long-term player objective) is still open** and this ranking is
+deliberately objective-agnostic — it answers only "better or worse", which
+needs no objective. A strategy-aware ranking should wait for `DC-03`.
+
+**Consequence worth knowing:** the `policy_backlash` family required
+per-policy evidence that the sim never emitted — the old any-tag query
+faked it, so the card named a policy on no evidence. The backlash
+calculator now emits one breakdown line per policy (tagged with its id);
+the pressure VALUE is unchanged (each group is still counted once). Two
+tests that keyed on the old aggregate cause id were updated.
 
 ## Wave 3 — Complete the decision lifecycle
 

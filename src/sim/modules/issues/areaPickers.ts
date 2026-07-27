@@ -47,6 +47,64 @@ export function pickCustomerFacingArea(
   return pickByTag(ctx, family, 'customer_facing')
 }
 
+/** How bad a room is, as a customer would experience it. */
+function complaintScore(area: {
+  cleanliness?: number
+  mess?: number
+  damage?: number
+  smell?: number
+}): number {
+  return (
+    100 -
+    (area.cleanliness ?? 50) +
+    (area.mess ?? 0) +
+    (area.damage ?? 0) +
+    (area.smell ?? 0)
+  )
+}
+
+/**
+ * Phase 201 / audit Wave 2 (`P5-PLAY-004`) — the room a complaint is
+ * actually about.
+ *
+ * `pickCustomerFacingArea` rotates by day so every room gets narrative
+ * time (Phase 95 / ISSUE-055), which is right for flavour but wrong as
+ * the anchor for a complaint the player can pay to fix: the audit's Fix
+ * Root spent 10 coin cleaning the Private Booth while the Main Room the
+ * card cited fell 18 → 0 the same day. The repair, the evidence and the
+ * card have to name one room, and that room has to be a room with a
+ * problem.
+ *
+ * So: the worst customer-facing room wins. Rotation survives as the
+ * tie-break among rooms that are equally bad, and as the whole answer
+ * when no room stands out — a complaint about nothing in particular can
+ * anchor anywhere.
+ */
+export function pickComplaintArea(ctx: SimContext, family: string): EntityRef {
+  const candidates = Object.values(ctx.state.areas).filter((a) =>
+    a.tags.includes('customer_facing'),
+  )
+  if (candidates.length === 0) return pickCustomerFacingArea(ctx, family)
+
+  let worst = candidates[0]!
+  let worstScore = complaintScore(worst)
+  for (const area of candidates.slice(1)) {
+    const score = complaintScore(area)
+    if (score > worstScore) {
+      worstScore = score
+      worst = area
+    }
+  }
+
+  // Nothing is meaningfully wrong anywhere — keep the rotation.
+  const rotating = pickCustomerFacingArea(ctx, family)
+  const rotatingArea = ctx.state.areas[rotating.id]
+  if (rotatingArea && worstScore - complaintScore(rotatingArea) < 15) {
+    return rotating
+  }
+  return areaRef(worst.id)
+}
+
 // Kitchen-adjacent: kitchen + herb_garden + any area tagged
 // `food`/`kitchen_adjacent`. Used by seeds whose narrative anchor is
 // food production (food safety, supply, prep) rather than the public

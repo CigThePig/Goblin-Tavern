@@ -160,6 +160,26 @@ export type PersistedSession = {
    */
   dayBaselinePatch?: BaselinePatch;
   /**
+   * Phase 201 / audit Wave 2 (`P4-SEAM-002`, `P6-COMP-006`) — the state
+   * the most recent day CLOSED at, encoded as a patch against `state`
+   * exactly like `dayBaselinePatch`. The daily report projects from this,
+   * so a closed report keeps its own missed opportunities and resolved
+   * choices instead of being rebuilt from whatever the next morning
+   * generated.
+   *
+   * Absent when the closed state equals `state` (the report beat, before
+   * the next day opens) — the empty patch carries no information, so
+   * `hasClosedDayState` records that a closed day exists at all.
+   */
+  closedDayStatePatch?: BaselinePatch;
+  /** True when a day has closed, even if its patch is empty. */
+  hasClosedDayState?: boolean;
+  /**
+   * Reconstructed at load from `closedDayStatePatch` + `state`. Never
+   * written to storage — `validatePersistedSession` fills it in.
+   */
+  closedDayState?: TavernState;
+  /**
    * Phase 199 / audit Wave 0 — the service beat's headline strip
    * (patrons / net coin / incidents). Session-only until Wave 0, whose
    * gate requires the Service outcome to survive reload unchanged.
@@ -552,6 +572,44 @@ export function validatePersistedSession(parsed: unknown): ValidationOutcome {
     ? dismissedRaw.filter((v): v is string => typeof v === "string")
     : [];
 
+  // Phase 201 / audit Wave 2 — rebuild the closed day's state. Same
+  // encoding and the same failure policy as the baseline above: a patch
+  // that will not apply or validate is dropped with a warning, and the
+  // report falls back to projecting from `state` — the pre-Wave-2
+  // behaviour for one report, rather than a failed load.
+  const closedDayPatchRaw = (parsed as { closedDayStatePatch?: unknown })
+    .closedDayStatePatch;
+  const hasClosedDay =
+    (parsed as { hasClosedDayState?: unknown }).hasClosedDayState === true;
+  let closedDayState: TavernState | undefined;
+  if (closedDayPatchRaw !== undefined) {
+    if (!isBaselinePatch(closedDayPatchRaw)) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "goblin-tavern: dropped malformed closedDayStatePatch during load",
+      );
+    } else {
+      try {
+        const rebuilt = applyBaselinePatch(
+          rawState as unknown as TavernState,
+          closedDayPatchRaw,
+        );
+        closedDayState = migrateBaseline(
+          rebuilt as unknown as Record<string, unknown>,
+          "closedDayStatePatch",
+        );
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `goblin-tavern: closedDayStatePatch failed to apply during load (${describeErr(err)})`,
+        );
+      }
+    }
+  } else if (hasClosedDay) {
+    // Empty patch: the day closed and nothing has moved since.
+    closedDayState = migratedState;
+  }
+
   // Phase 199 / audit Wave 0 — the service beat's headline strip. Three
   // finite numbers or nothing; a partial object is dropped rather than
   // rendered as a strip with holes in it.
@@ -579,6 +637,7 @@ export function validatePersistedSession(parsed: unknown): ValidationOutcome {
     dismissedMissedOpportunityIds,
     ...(Object.keys(subroutes).length > 0 ? { subroutes } : {}),
     ...(serviceOutcome ? { serviceOutcome } : {}),
+    ...(closedDayState ? { closedDayState, hasClosedDayState: true } : {}),
     ...(dayBaseline ? { dayBaseline } : {}),
     ...(previousCalendar ? { previousCalendar } : {}),
     ...(latestResultLite ? { latestResultLite } : {}),

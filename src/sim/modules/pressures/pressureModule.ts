@@ -415,8 +415,14 @@ function runPressurePass(ctx: SimContext, emitCauses: boolean): void {
       readable: dominant?.readable ?? buildSummaryReadable(definition, snapshot),
       tags: ['pressure', definition.id, ...(definition.tags ?? [])],
       relatedSystems: snapshot.relatedSystems,
-      relatedActors: snapshot.relatedActors,
-      relatedLocations: snapshot.relatedLocations,
+      // Phase 201 / audit Wave 2 (`P5-PLAY-003`) — when the cause borrows
+      // the DOMINANT breakdown line's words ("Nash is publicly blamed"),
+      // it must borrow that line's actors too. Attaching the snapshot's
+      // aggregate actor list instead made one staff member's blame read
+      // as evidence about every staff member, and seeds scoped by actor
+      // picked it up accordingly.
+      relatedActors: dominant?.relatedActors ?? snapshot.relatedActors,
+      relatedLocations: dominant?.relatedLocations ?? snapshot.relatedLocations,
       expiresAfterDays: 7,
     })
     ctx.addHistory({

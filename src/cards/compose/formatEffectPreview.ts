@@ -1,5 +1,6 @@
 import type { EffectPreview } from '../../sim/core/effect'
 import type { TavernState } from '../../sim/state/TavernState'
+import { RENT_PAYMENT_EFFECT_TARGET } from '../../sim/modules/monthly/types'
 
 function titleCase(text: string): string {
   return text
@@ -56,6 +57,9 @@ function labelFromDottedTarget(effect: EffectPreview, state?: TavernState): stri
   const parts = effect.target.split('.')
   if (parts.length === 0) return undefined
   if (effect.target === 'coin') return 'Coin'
+  // Phase 200 / audit Wave 1 — the rent payment is a coin cost that runs
+  // through a transition; the player reads it as coin leaving the till.
+  if (effect.target === RENT_PAYMENT_EFFECT_TARGET) return 'Coin'
   if (parts[0] === 'reputation' && parts[1]) {
     return `${meterLabel(effect) ?? titleCase(parts[1])} Reputation`
   }

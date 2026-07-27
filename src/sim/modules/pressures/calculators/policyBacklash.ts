@@ -23,7 +23,10 @@ export function calculatePolicyBacklash(
   const causes: PressureCauseRef[] = []
   const relatedActors: EntityRef[] = []
 
-  const policies = Object.values(ownerPolicies(ctx.state))
+  const policies = Object.entries(ownerPolicies(ctx.state)).map(([id, p]) => ({
+    ...p,
+    id,
+  }))
   const activePolicies = policies.filter((p) => p.enabled)
   if (activePolicies.length === 0) {
     return {
@@ -45,29 +48,40 @@ export function calculatePolicyBacklash(
   })
 
   // Customer-group dislikes against policy tags.
-  let dislikingGroups = 0
-  const dislikingActors: EntityRef[] = []
+  //
+  // Phase 201 / audit Wave 2 (`P5-PLAY-003`) — this used to emit ONE
+  // aggregate "N group/policy dislike pair(s)" cause naming no policy at
+  // all. The policy_backlash card wants to name the policy that is
+  // actually driving the pressure, and with no per-policy evidence it
+  // was reaching for any cause that merely carried the generic `policy`
+  // tag — so it named a policy on no evidence. The breakdown is now one
+  // line per policy, tagged and attributed with that policy's id, which
+  // is real linkage the card can cite. Each group is still counted once
+  // (against the first policy it objects to), so the pressure VALUE is
+  // unchanged.
+  const groupsByPolicy = new Map<string, EntityRef[]>()
   for (const group of Object.values(ctx.state.customerGroups)) {
     if (group.patronage < 25) continue
     for (const policy of activePolicies) {
-      for (const tag of policy.tags) {
-        if (group.dislikedTags.includes(tag)) {
-          dislikingGroups += 1
-          const ref: EntityRef = { kind: 'customer_group', id: group.id }
-          relatedActors.push(ref)
-          dislikingActors.push(ref)
-          break
-        }
-      }
+      const objects = policy.tags.some((tag) => group.dislikedTags.includes(tag))
+      if (!objects) continue
+      const ref: EntityRef = { kind: 'customer_group', id: group.id }
+      relatedActors.push(ref)
+      const existing = groupsByPolicy.get(policy.id) ?? []
+      existing.push(ref)
+      groupsByPolicy.set(policy.id, existing)
+      break
     }
   }
-  if (dislikingGroups > 0) {
+  for (const policy of activePolicies) {
+    const objectors = groupsByPolicy.get(policy.id)
+    if (!objectors || objectors.length === 0) continue
     pushCause(causes, {
-      id: 'disliking_groups',
-      readable: `${dislikingGroups} group/policy dislike pair(s).`,
-      amount: DISLIKE_PER_GROUP * dislikingGroups,
-      tags: ['customers', 'policy'],
-      relatedActors: dislikingActors,
+      id: `disliking_groups_${policy.id}`,
+      readable: `${objectors.length} group(s) object to ${policy.label}.`,
+      amount: DISLIKE_PER_GROUP * objectors.length,
+      tags: ['customers', 'policy', 'backlash', policy.id],
+      relatedActors: objectors,
       relatedSystems: ['customers', 'policies'],
     })
   }

@@ -417,7 +417,15 @@ export type SimContext = {
   // the full calculation/feedback loop pipeline). Phase 17 gates writes
   // through `modifyPressure` so the same cause contract that covers
   // coin/area/stock applies to pressure shifts.
-  modifyPressure(id: string, change: number, cause: CauseDraft): void;
+  //
+  // Phase 200 / audit Wave 1 — `cause` is optional for ONE use: the
+  // pressure module reconciling its canonical compact value to the value
+  // it just calculated. That write is bookkeeping, not a new fact, and
+  // the module raises the day's single cause itself with the real
+  // day-over-day amount (`P4-SEAM-001`: passing a draft here as well as
+  // calling `addCause` is what logged every significant pressure change
+  // twice). Every other caller still owes a cause.
+  modifyPressure(id: string, change: number, cause?: CauseDraft): void;
 
   // Phase 17 §17.8 — Phase-boundary state diffs.
   //

@@ -9,6 +9,20 @@ import type { WeeklySignalTotals } from '../weekly/types'
 
 export const MONTHLY_MODULE_ID = 'monthly'
 
+/**
+ * Phase 200 / audit Wave 1 (`P7-EXP-001`) — the effect target a response
+ * uses to pay the rent.
+ *
+ * Routing the debt/rent card through a named target instead of a bare
+ * `coin` spend is what makes paying from the card and paying at month end
+ * the same transition — the card's old `coin` effect took the money and
+ * left `paidThisMonth` false, so the obligation was charged again the
+ * next day. It lives in this constants module (not in `rent.ts`) so the
+ * card layer's target classification can import it without pulling the
+ * monthly module's implementation into the issue generators.
+ */
+export const RENT_PAYMENT_EFFECT_TARGET = 'monthly.rent.payment'
+
 // ---------- Rent / landlord / inspection / rival ----------
 
 export type RentState = {

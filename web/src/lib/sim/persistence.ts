@@ -10,21 +10,56 @@
 // `src/sim/state/migrations.ts` plus `safeValidateState`, so a save
 // created before a schema-additive sim change can still load.
 //
-// What's persisted:
-//   - sim state (the source of truth)
-//   - previousCalendar snapshot (the Daily Report needs the
-//     pre-runDay calendar to label the just-closed day)
-//   - latestResult MINUS its state (deduped — we already have state)
-//   - the cross-screen action queue (`picks`) and sticky
-//     `staffPriorities`
-//   - the day-session view state (current beat + the two complete
-//     flags) and the day's pending intents
-//   - the last route, so the player returns to the same tab
+// ── The persistence contract ──────────────────────────────────────
 //
-// What's NOT persisted:
-//   - `transitioning` (UI-only pacing animation, always restored false)
-//   - any in-flight bottom sheet state (drawers / pickers)
-//   - debug-only fields
+// Written out in full by Phase 199 / audit Wave 0, whose gate is that a
+// reload at any beat or segment changes nothing the player can observe.
+// A field belongs on one of these two lists, deliberately.
+//
+// PERSISTED — everything the resumed session cannot re-derive:
+//   - `state`, the canonical sim state and sole source of truth. The
+//     calendar rides inside it, so "the calendar survives reload" needs
+//     nothing extra.
+//   - `simSeed`. Together with `state.calendar.totalDaysElapsed` it
+//     re-derives the per-day RNG stream, so a resumed day rolls exactly
+//     what an uninterrupted one would. The named identity streams
+//     (rule 7) keep their cursors in `state.world.rngStreams` and so
+//     travel with state. Nothing else about RNG is persisted, and
+//     nothing else needs to be.
+//   - `previousCalendar` — the just-closed day's calendar. The engine
+//     advances the calendar in Segment C, so `state.calendar` is already
+//     tomorrow's by the time the Daily Report renders.
+//   - `latestResultLite` — the report archive: `latestResult` minus its
+//     state (deduped; we already have state) plus its diffs.
+//   - `picks` (the cross-screen owner-action queue) and the sticky
+//     `staffPriorities`.
+//   - `pendingBySeedId` — the day's unresolved response choices.
+//   - `daySession` — beat, segment, and the two deck-completion flags,
+//     always written together so beat and segment cannot disagree on
+//     resume.
+//   - `closedDayStatePatch` — the state the most recent day CLOSED at,
+//     encoded as a patch against `state` (see `baselinePatch.ts`). The
+//     daily report projects from it, so a closed report keeps its own
+//     rows instead of following the next morning (Wave 2).
+//   - `dayBaselinePatch` — the start-of-day baseline, encoded against the
+//     CLOSED-DAY state (mid-day the two are the same value, so the patch
+//     is normally empty; `dayBaselineBase` records which base was used).
+//     Present only while a day is in flight; without it a resumed day's
+//     report shows a partial diff.
+//   - `serviceOutcome` — the service beat's headline strip.
+//   - `route` + `subroutes`, so Continue lands on the tab and sub-tab the
+//     player was reading.
+//   - `dismissedMissedOpportunityIds`, pruned to a 7-day window.
+//
+// TRANSIENT — reconstructed on resume, and correct to reconstruct:
+//   - `transitioning`, the pacing animation flag (always restored false);
+//   - bottom sheets, drawers and pickers — an open sheet is a gesture in
+//     progress, not a decision;
+//   - `tavernSubviewTarget` / `worldSubviewTarget` /
+//     `actionPickerRequest` — one-shot routing hints, consumed on arrival;
+//   - the store's per-day accumulated `dayLogs`, which only feed the
+//     debug bundle's log count;
+//   - debug-only fields.
 //
 // Failure modes return a typed `LoadOutcome`. Callers should treat
 // `'invalid'` and `'incompatible'` as "show start screen with a clear
@@ -52,7 +87,17 @@ import type { SimResult } from "../../../../src/sim/core/result";
 import type { TaggedStateDiff } from "../../../../src/sim/core/diff";
 import type { IssueSeed } from "../../../../src/sim/modules/issues/issueSeedTypes";
 import { sanitizePicks, type PickedAction } from "./actionBuilder";
-import type { Beat, DaySessionSnapshot, PendingChoice } from "./daySession";
+import type {
+  Beat,
+  DaySessionSnapshot,
+  PendingChoice,
+  ServiceOutcome,
+} from "./daySession";
+import {
+  applyBaselinePatch,
+  isBaselinePatch,
+  type BaselinePatch,
+} from "./baselinePatch";
 
 export const SAVE_STORAGE_KEY = "goblin-tavern:save:v1";
 export const SAVE_VERSION = 1 as const;
@@ -104,12 +149,59 @@ export type PersistedSession = {
   simSeed: string;
   state: TavernState;
   /**
-   * Phase 186 / Day-Clock Cluster 5 — no longer written (removed to fix
-   * mid-day save quota overflow; see 2026-06-11 audit §1). Kept in the
-   * type so old saves that carry it still parse; hydration falls back to
-   * the current state as the baseline when this field is absent.
+   * Phase 186 / Day-Clock Cluster 5 — the full start-of-day baseline. No
+   * longer *written* (a second whole `TavernState` mid-day crossed the
+   * ~5 MB origin quota from about day 22; see 2026-06-11 audit §1), but
+   * still read, so saves that predate `dayBaselinePatch` keep loading.
    */
   dayBaseline?: TavernState;
+  /**
+   * Phase 199 / audit Wave 0 — the start-of-day baseline, encoded as a
+   * patch against `state` (`baselinePatch.ts`). This is how the baseline
+   * is written now: a fraction of a second full state (218 KB against
+   * 1 585 KB at day 28), so it fits the quota the 2026-06-11 fix was
+   * protecting while still restoring the daily report's full-day diff
+   * after a mid-day reload. Present only while a day is in flight —
+   * segment 'A' or 'B'. Ignored when `dayBaseline` is also present.
+   */
+  dayBaselinePatch?: BaselinePatch;
+  /** True when a start-of-day baseline exists, even if its patch is empty. */
+  hasDayBaseline?: boolean;
+  /**
+   * Which state `dayBaselinePatch` was encoded against. Mid-day the
+   * baseline IS the previous day's closing state, so encoding against
+   * `closedDayState` makes the patch empty instead of a second ~220 KB
+   * copy of the same thing. `'state'` is the fallback for a session with
+   * no closed day yet. Absent on pre-Wave-3 saves, which encoded against
+   * `state`.
+   */
+  dayBaselineBase?: 'closedDay' | 'state';
+  /**
+   * Phase 201 / audit Wave 2 (`P4-SEAM-002`, `P6-COMP-006`) — the state
+   * the most recent day CLOSED at, encoded as a patch against `state`
+   * exactly like `dayBaselinePatch`. The daily report projects from this,
+   * so a closed report keeps its own missed opportunities and resolved
+   * choices instead of being rebuilt from whatever the next morning
+   * generated.
+   *
+   * Absent when the closed state equals `state` (the report beat, before
+   * the next day opens) — the empty patch carries no information, so
+   * `hasClosedDayState` records that a closed day exists at all.
+   */
+  closedDayStatePatch?: BaselinePatch;
+  /** True when a day has closed, even if its patch is empty. */
+  hasClosedDayState?: boolean;
+  /**
+   * Reconstructed at load from `closedDayStatePatch` + `state`. Never
+   * written to storage — `validatePersistedSession` fills it in.
+   */
+  closedDayState?: TavernState;
+  /**
+   * Phase 199 / audit Wave 0 — the service beat's headline strip
+   * (patrons / net coin / incidents). Session-only until Wave 0, whose
+   * gate requires the Service outcome to survive reload unchanged.
+   */
+  serviceOutcome?: ServiceOutcome;
   previousCalendar?: CalendarState;
   latestResultLite?: LatestResultLite;
   picks: PickedAction[];
@@ -236,7 +328,18 @@ export type SaveResult =
   | { ok: true; savedAt: string }
   | { ok: false; reason: SaveFailureReason; message: string };
 
-export type SaveFailureReason = "quota" | "unavailable" | "unknown";
+/**
+ * `'serialize'` was added by Phase 199 / audit Wave 0. `P2-RT-001` threw
+ * while *building* the envelope, before `saveSession` was ever reached, so
+ * the failure never became a `SaveResult` and the banner never appeared:
+ * the player's run stopped being saved with no indication at all. Build
+ * failures are now a save failure like any other — see `saveSessionFrom`.
+ */
+export type SaveFailureReason =
+  | "quota"
+  | "unavailable"
+  | "unknown"
+  | "serialize";
 
 let quotaWarned = false;
 
@@ -282,6 +385,30 @@ export function saveSession(session: PersistedSession): SaveResult {
     }
     return { ok: false, reason, message: describeErr(err) };
   }
+}
+
+/**
+ * Build a session and write it, as one operation with one typed outcome.
+ *
+ * Phase 199 / audit Wave 0 — every save call site should use this rather
+ * than calling `serializeForSave()` itself and passing the result to
+ * `saveSession`. A throw inside the builder is the failure mode
+ * `P2-RT-001` actually had, and splitting build from write is what let it
+ * escape as an uncaught exception instead of a banner the player could
+ * act on.
+ */
+export function saveSessionFrom(build: () => PersistedSession): SaveResult {
+  let session: PersistedSession;
+  try {
+    session = build();
+  } catch (err) {
+    return {
+      ok: false,
+      reason: "serialize",
+      message: describeErr(err),
+    };
+  }
+  return saveSession(session);
 }
 
 export function clearSession(): void {
@@ -350,23 +477,100 @@ export function validatePersistedSession(parsed: unknown): ValidationOutcome {
   }
   const migratedState = stateOutcome.state;
 
+  // Phase 201 / audit Wave 2 — rebuild the closed day's state. Runs
+  // BEFORE the start-of-day baseline below, which is encoded against it
+  // (see `dayBaselineBase`). Failure policy: a patch that will not apply
+  // or validate is dropped with a warning, and the report falls back to
+  // projecting from `state` — the pre-Wave-2 behaviour for one report,
+  // rather than a failed load.
+  const closedDayPatchRaw = (parsed as { closedDayStatePatch?: unknown })
+    .closedDayStatePatch;
+  const hasClosedDay =
+    (parsed as { hasClosedDayState?: unknown }).hasClosedDayState === true;
+  let closedDayState: TavernState | undefined;
+  // The RAW (pre-migration) reconstruction, kept because the day-baseline
+  // patch below is encoded against it.
+  let rawClosedDayState: TavernState | undefined;
+  if (closedDayPatchRaw !== undefined) {
+    if (!isBaselinePatch(closedDayPatchRaw)) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "goblin-tavern: dropped malformed closedDayStatePatch during load",
+      );
+    } else {
+      try {
+        rawClosedDayState = applyBaselinePatch(
+          rawState as unknown as TavernState,
+          closedDayPatchRaw,
+        );
+        closedDayState = migrateBaseline(
+          rawClosedDayState as unknown as Record<string, unknown>,
+          "closedDayStatePatch",
+        );
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `goblin-tavern: closedDayStatePatch failed to apply during load (${describeErr(err)})`,
+        );
+      }
+    }
+  } else if (hasClosedDay) {
+    // Empty patch: the day closed and nothing has moved since.
+    rawClosedDayState = rawState as unknown as TavernState;
+    closedDayState = migratedState;
+  }
+
   // Phase 186 / Day-Clock Cluster 5 — the start-of-day baseline (present
   // only mid-day) runs through the same pipeline. If it's missing or
   // fails, drop it: the store's segment methods fall back to the current
   // state, which only loses the full-day-diff bracket for the single
   // resumed day. (Cluster 7 also drops it when an in-flight pre-Cluster-5
   // day is reset to a clean morning — see `restoreDaySession`.)
+  //
+  // Phase 199 / audit Wave 0 — two accepted forms. `dayBaseline` is the
+  // whole state, written by saves older than Wave 0. `dayBaselinePatch`
+  // is the current form: applied to the *raw* (pre-migration) state so
+  // the reconstruction is byte-identical to what was encoded, then put
+  // through the same migration + validation as `state`.
   const dayBaselineRaw = (parsed as { dayBaseline?: unknown }).dayBaseline;
+  const dayBaselinePatchRaw = (parsed as { dayBaselinePatch?: unknown })
+    .dayBaselinePatch;
+  const hasDayBaseline =
+    (parsed as { hasDayBaseline?: unknown }).hasDayBaseline === true;
+  const dayBaselineBase =
+    (parsed as { dayBaselineBase?: unknown }).dayBaselineBase === "closedDay"
+      ? "closedDay"
+      : "state";
   let dayBaseline: TavernState | undefined;
   if (isObject(dayBaselineRaw)) {
-    const baselineOutcome = migrateAndValidateState(dayBaselineRaw);
-    if (baselineOutcome.ok) {
-      dayBaseline = baselineOutcome.state;
-    } else {
+    dayBaseline = migrateBaseline(dayBaselineRaw, "dayBaseline");
+  } else if (hasDayBaseline || dayBaselinePatchRaw !== undefined) {
+    // Mirror the base the store encoded against — see `dayBaselineBase`.
+    // Both bases are the RAW (pre-migration) forms so the reconstruction
+    // is byte-identical to what was encoded.
+    const base =
+      dayBaselineBase === "closedDay" && rawClosedDayState
+        ? rawClosedDayState
+        : (rawState as unknown as TavernState);
+    if (dayBaselinePatchRaw !== undefined && !isBaselinePatch(dayBaselinePatchRaw)) {
       // eslint-disable-next-line no-console
-      console.warn(
-        `goblin-tavern: dropped invalid dayBaseline during load (${baselineOutcome.reason})`,
-      );
+      console.warn("goblin-tavern: dropped malformed dayBaselinePatch during load");
+    } else {
+      try {
+        const rebuilt =
+          dayBaselinePatchRaw === undefined
+            ? base
+            : applyBaselinePatch(base, dayBaselinePatchRaw);
+        dayBaseline = migrateBaseline(
+          rebuilt as unknown as Record<string, unknown>,
+          "dayBaselinePatch",
+        );
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `goblin-tavern: dayBaselinePatch failed to apply during load (${describeErr(err)})`,
+        );
+      }
     }
   }
 
@@ -441,6 +645,13 @@ export function validatePersistedSession(parsed: unknown): ValidationOutcome {
     ? dismissedRaw.filter((v): v is string => typeof v === "string")
     : [];
 
+  // Phase 199 / audit Wave 0 — the service beat's headline strip. Three
+  // finite numbers or nothing; a partial object is dropped rather than
+  // rendered as a strip with holes in it.
+  const serviceOutcome = readServiceOutcome(
+    (parsed as { serviceOutcome?: unknown }).serviceOutcome,
+  );
+
   // Phase 93 / ISSUE-053 — Sanitise subroutes. Unknown enum values
   // drop the field so the screen falls back to its default subview.
   const subroutesRaw = (parsed as { subroutes?: unknown }).subroutes;
@@ -460,12 +671,33 @@ export function validatePersistedSession(parsed: unknown): ValidationOutcome {
     route,
     dismissedMissedOpportunityIds,
     ...(Object.keys(subroutes).length > 0 ? { subroutes } : {}),
+    ...(serviceOutcome ? { serviceOutcome } : {}),
+    ...(closedDayState ? { closedDayState, hasClosedDayState: true } : {}),
     ...(dayBaseline ? { dayBaseline } : {}),
     ...(previousCalendar ? { previousCalendar } : {}),
     ...(latestResultLite ? { latestResultLite } : {}),
   };
 
   return { kind: "loaded", save };
+}
+
+/**
+ * Run a reconstructed start-of-day baseline through the same migration +
+ * validation pipeline as `state`. A baseline that fails is dropped with a
+ * warning rather than failing the load: the store then falls back to the
+ * current state, costing only the resumed day's full-day diff bracket.
+ */
+function migrateBaseline(
+  raw: Record<string, unknown>,
+  source: string,
+): TavernState | undefined {
+  const outcome = migrateAndValidateState(raw);
+  if (outcome.ok) return outcome.state;
+  // eslint-disable-next-line no-console
+  console.warn(
+    `goblin-tavern: dropped invalid ${source} during load (${outcome.reason})`,
+  );
+  return undefined;
 }
 
 type StateMigrationOutcome =
@@ -571,6 +803,24 @@ function readString(obj: unknown, key: string): string | undefined {
 function readRoute(obj: unknown, key: string): Route | undefined {
   const v = readString(obj, key);
   return v && VALID_ROUTES.has(v as Route) ? (v as Route) : undefined;
+}
+
+function readServiceOutcome(raw: unknown): ServiceOutcome | undefined {
+  if (!isObject(raw)) return undefined;
+  const patrons = raw["patrons"];
+  const netCoin = raw["netCoin"];
+  const incidents = raw["incidents"];
+  if (
+    typeof patrons !== "number" ||
+    typeof netCoin !== "number" ||
+    typeof incidents !== "number" ||
+    !Number.isFinite(patrons) ||
+    !Number.isFinite(netCoin) ||
+    !Number.isFinite(incidents)
+  ) {
+    return undefined;
+  }
+  return { patrons, netCoin, incidents };
 }
 
 function sanitizeSubroutes(raw: Record<string, unknown>): SubroutesState {

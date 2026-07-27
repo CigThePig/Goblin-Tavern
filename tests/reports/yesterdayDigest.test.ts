@@ -40,6 +40,9 @@ function baseReport(overrides: Partial<DailyReportData> = {}): DailyReportData {
     dayArc: [],
     risingPressures: [],
     futureHooks: [],
+    staffFocus: [],
+    pendingConsequences: [],
+    resolvedConsequences: [],
     isQuiet: false,
     ...overrides,
   }

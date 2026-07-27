@@ -34,6 +34,7 @@ import {
   pressureCauseRefsAsEntries,
   pressureSnapshot,
   recentCauseEntries,
+  scopedCauseEntries,
   regularRef,
   seedId,
   severityFromPressures,
@@ -53,6 +54,7 @@ import { EXPANDED_SEED_GENERATORS } from './expandedSeedGenerators'
 import { ventureIssueSeedGenerator } from '../ventures/ventureIssueSeeds'
 import { openingIssueSeedGenerator } from '../openings/openingIssueSeeds'
 import { arcIssueSeedGenerator } from '../arcs/arcIssueSeeds'
+import { RENT_PAYMENT_EFFECT_TARGET } from '../monthly/types'
 import {
   generateLiquorCompliance,
   generateLicensedService,
@@ -79,6 +81,7 @@ import {
 // (or `kitchen` for kitchen-adjacent picks) only when no tagged area
 // qualifies — never as the default behaviour.
 import {
+  pickComplaintArea,
   pickCustomerFacingArea,
   pickKitchenAdjacentArea,
   pickRepairableArea,
@@ -490,7 +493,12 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
   const highDemand = HIGH_DEMAND_DAY_TYPES.has(dayType)
 
   const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'stock_shortage', 3)
-  for (const c of recentCauseEntries(ctx, ['stock', chosen.id, 'sales'], 5, 2)) {
+  for (const c of scopedCauseEntries(
+    ctx,
+    { entityIds: [chosen.id], domains: ['stock', 'sales'], includeGlobal: true },
+    5,
+    2,
+  )) {
     if (!causes.find((existing) => existing.id === c.id)) causes.push(c)
   }
   if (causes.length === 0) return []
@@ -781,7 +789,12 @@ function generateMaintenance(ctx: SimContext): IssueSeed[] {
   const worst = chosen
 
   const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'maintenance', 3)
-  for (const c of recentCauseEntries(ctx, ['area', worst.id, 'damage'], 5, 2)) {
+  for (const c of scopedCauseEntries(
+    ctx,
+    { entityIds: [worst.id], domains: ['damage'], includeGlobal: true },
+    5,
+    2,
+  )) {
     if (!causes.find((existing) => existing.id === c.id)) causes.push(c)
   }
   if (causes.length === 0) return []
@@ -1442,7 +1455,13 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
   // private_booth / stage_corner / private rooms get rotation time
   // alongside main_room. The chosen id replaces the hardcoded
   // `main_room` paths in this family's effect strings.
-  const complaintAreaRef = pickCustomerFacingArea(ctx, 'customer_complaint')
+  // Phase 201 / audit Wave 2 (`P5-PLAY-004`) — anchor on the room that
+  // actually has the problem, not on the day's rotation. `fix_root`
+  // writes to `areas.${complaintAreaId}.*`, so a rotating anchor meant a
+  // costly "Fix the root cause" cleaned a room the card never mentioned
+  // while the cited one kept getting worse. Rotation survives inside
+  // `pickComplaintArea` as the tie-break when no room stands out.
+  const complaintAreaRef = pickComplaintArea(ctx, 'customer_complaint')
   const complaintAreaId = complaintAreaRef.id
 
   // Pull a named regular from the group's starter roster (rotates via a
@@ -1485,14 +1504,26 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
   const staffEntityRef = staffOnHook ? staffRef(staffOnHook.id) : undefined
 
   const causes: CauseEntry[] = []
-  const recent = recentCauseEntries(
+  // Phase 201 / audit Wave 2 (`P5-PLAY-003`) — evidence must belong to
+  // THIS group or the room the complaint anchors to. The old any-tag
+  // query let a generic `area`/`cleanliness`/`reputation` cause about a
+  // different group or room explain this card.
+  const recent = scopedCauseEntries(
     ctx,
-    ['customer', group.id, 'area', 'reputation', 'cleanliness'],
+    {
+      entityIds: [group.id, complaintAreaId],
+      domains: ['reputation', 'cleanliness', 'service'],
+      includeGlobal: true,
+    },
     7,
     4,
   )
   causes.push(...recent)
-  causes.push(...pressureCauseRefsAsEntries(ctx, 'reputation_drift', 2))
+  causes.push(
+    ...pressureCauseRefsAsEntries(ctx, 'reputation_drift', 2, {
+      entityIds: [group.id, complaintAreaId],
+    }),
+  )
   if (causes.length < 1) return []
 
   // Phase 188 / ISSUE-155 — derive the seed's stated cause from the SAME
@@ -1521,8 +1552,10 @@ function generateCustomerComplaint(ctx: SimContext): IssueSeed[] {
       labelHint: 'Fix the root cause',
       allowedVerbs: ['clean', 'repair'],
       shape: 'long_term_investment',
+      // The room the profile actually repairs leads the options, so
+      // preview, target and applied path cannot name different places.
       targetOptions: [
-        pickCustomerFacingArea(ctx, 'customer_complaint'),
+        complaintAreaRef,
         pickKitchenAdjacentArea(ctx, 'customer_complaint'),
       ],
       expectedEffects: ['raise cleanliness', 'time/coin cost'],
@@ -2680,7 +2713,20 @@ function generateDebtRent(ctx: SimContext): IssueSeed[] {
       id: 'pay_profile',
       responseSlotId: 'pay',
       immediateEffects: [
-        effect('state_change', 'coin', -(rent?.monthlyAmount ?? 30), 'Pay rent', ['coin', 'rent']),
+        // Phase 200 / audit Wave 1 (`P7-EXP-001`) — the payment is a rent
+        // transition, not a bare coin spend. The old `coin` effect took
+        // the money and left `paidThisMonth` false and arrears untouched,
+        // so the same obligation was charged again every following day.
+        // The amount previewed is what is actually due (this month plus
+        // arrears), and `monthly.rent.payment` routes the application
+        // through the same function the month-end settlement uses.
+        effect(
+          'state_change',
+          RENT_PAYMENT_EFFECT_TARGET,
+          -((rent?.monthlyAmount ?? 30) + (rent?.arrears ?? 0)),
+          'Pay rent',
+          ['coin', 'rent'],
+        ),
         effect('pressure', 'pressure:landlord', -15, 'Lower landlord pressure', ['pressure']),
         effect('pressure', 'pressure:debt', -10, 'Lower debt pressure', ['pressure']),
       ],

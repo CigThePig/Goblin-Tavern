@@ -53,6 +53,17 @@ export type PendingOrigin = {
   verb: string
   /** Absolute day the entry was enqueued. */
   enqueuedDay: number
+  /**
+   * Phase 202 / audit Wave 3 (`P6-COMP-002`) — the choice that promised
+   * this, in the player's own wording, captured at enqueue time.
+   *
+   * It has to live HERE rather than be looked up later: `resolvedToday`
+   * is cleared every morning, and a delayed effect fires days after the
+   * decision that created it. Without it, "link the later result to its
+   * original choice" degrades to "an earlier decision" — which is exactly
+   * the unexplained-number problem the finding is about.
+   */
+  selectionLabel?: string
 }
 
 export type PendingResponseEntry = {
@@ -69,6 +80,24 @@ export type PendingResponseEntry = {
   preconditions?: Array<{ kind: string; readable: string }>
 }
 
+/**
+ * Phase 200 / audit Wave 1 (`P7-EXP-001`) — what became of an intent.
+ * `skipped_unaffordable` means the day's earlier responses had already
+ * spent the coin this one needed; nothing of its profile was applied.
+ * Optional so records written before the wave still parse.
+ */
+export type ResolvedIntentOutcome = 'applied' | 'skipped_unaffordable'
+
+/** Phase 202 / audit Wave 3 — one drained pending entry, as the report reads it. */
+export type DrainedConsequenceRecord = {
+  entryId: string
+  status: 'applied' | 'expired'
+  /** The choice that promised it, in the player's own wording. */
+  originLabel: string
+  /** What it did (or would have done), from the effect's own preview. */
+  readable: string
+}
+
 export type ResolvedIntentRecord = {
   intentId: string
   seedId: string
@@ -77,6 +106,25 @@ export type ResolvedIntentRecord = {
   verb: string
   /** Absolute day the intent was resolved. */
   resolvedOn: number
+  outcome?: ResolvedIntentOutcome
+  /** Player-readable explanation when the outcome is not `applied`. */
+  note?: string
+  /**
+   * Phase 202 / audit Wave 3 (`P6-COMP-001`) — the choice AS THE PLAYER
+   * SAW IT. Every confirmation surface used to render `verb`, so "Back
+   * Mira against the Ogres" was reported back as `blame`, and four
+   * unrelated commitments all as `upgrade`. The label rides on the intent
+   * and is stored here, so the sim owns the player-facing summary and the
+   * report archive cannot re-derive it wrongly. Optional: intents built
+   * outside the card layer (tests, bots) carry no label.
+   */
+  selectionLabel?: string
+  /**
+   * The choice's target. Stored as a ref, not a label, so the report
+   * resolves the current display name through `resolveEntityLabel`
+   * rather than freezing a name that may since have changed.
+   */
+  targetRef?: { kind: string; id: string }
 }
 
 export type ResponsesModuleState = {
@@ -88,6 +136,14 @@ export type ResponsesModuleState = {
   appliedFromPendingToday: string[]
   /** Pending entry ids that expired today (cleared on startDay). */
   expiredFromPendingToday: string[]
+  /**
+   * Phase 202 / audit Wave 3 (`P6-COMP-002`) — what drained today, with
+   * enough of each entry to name it. The id arrays above cannot be
+   * attributed after the fact: the entry is removed from the queue during
+   * the drain, and its id (`pending-<day>-<n>`) carries no origin.
+   * Optional so saves written before the wave still load.
+   */
+  drainedToday?: DrainedConsequenceRecord[]
   /** Lifetime: number of response intents resolved. */
   totalResolved: number
   /** Lifetime: number of pending entries applied. */
@@ -104,6 +160,7 @@ export function createInitialResponsesModuleState(): ResponsesModuleState {
     resolvedToday: [],
     appliedFromPendingToday: [],
     expiredFromPendingToday: [],
+    drainedToday: [],
     totalResolved: 0,
     totalApplied: 0,
     totalExpired: 0,
@@ -175,6 +232,7 @@ const PendingOriginSchema = z.object({
   responseSlotId: z.string(),
   verb: z.string(),
   enqueuedDay: z.number().int(),
+  selectionLabel: z.string().optional(),
 })
 
 const PendingResponseEntrySchema = z.object({
@@ -195,6 +253,12 @@ const ResolvedIntentRecordSchema = z.object({
   profileId: z.string(),
   verb: z.string(),
   resolvedOn: z.number().int(),
+  // Wave 1 outcome + Wave 3 player-facing wording. Listed so a zod parse
+  // does not strip them out of a loaded save.
+  outcome: z.enum(['applied', 'skipped_unaffordable']).optional(),
+  note: z.string().optional(),
+  selectionLabel: z.string().optional(),
+  targetRef: z.object({ kind: z.string(), id: z.string() }).optional(),
 })
 
 export const ResponsesModuleStateSchema = z.object({
@@ -202,6 +266,16 @@ export const ResponsesModuleStateSchema = z.object({
   resolvedToday: z.array(ResolvedIntentRecordSchema),
   appliedFromPendingToday: z.array(z.string()),
   expiredFromPendingToday: z.array(z.string()),
+  drainedToday: z
+    .array(
+      z.object({
+        entryId: z.string(),
+        status: z.enum(['applied', 'expired']),
+        originLabel: z.string(),
+        readable: z.string(),
+      }),
+    )
+    .optional(),
   totalResolved: z.number().int().min(0),
   totalApplied: z.number().int().min(0),
   totalExpired: z.number().int().min(0),

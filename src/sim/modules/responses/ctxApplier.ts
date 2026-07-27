@@ -29,6 +29,9 @@ import {
 } from "./types";
 import { makePendingId } from "./pendingHelpers";
 import { getVentureBlueprint } from "../ventures/ventureCatalog";
+import { recordPressureAdjustment } from "../pressures/pressureModule";
+import { payRentFromResponse } from "../monthly/rent";
+import { RENT_PAYMENT_EFFECT_TARGET } from "../monthly/types";
 
 // Phase 41 / ISSUE-001 — engine-path applier.
 //
@@ -102,6 +105,14 @@ export function applyEffectViaCtx(
       readable,
       tags: ["response", ...preview.tags],
     });
+    // Phase 200 / audit Wave 1 (`P4-SEAM-003`) — a direct pressure delta
+    // changes no state the pressure's calculator reads, so without a
+    // record of it the next recalculation would simply put the pressure
+    // back and the card's own preview would stop being true. Record it as
+    // a decaying adjustment the calculator's result is combined with.
+    // This is the single path both immediate and drained-pending response
+    // effects take to a pressure, so recording here covers both.
+    recordPressureAdjustment(ctx, id, delta, source);
     return { ...preview, applied: true };
   }
 
@@ -153,6 +164,25 @@ export function applyEffectViaCtx(
 
   const amount = preview.amount ?? 0;
   const path = preview.target;
+
+  // Phase 200 / audit Wave 1 (`P7-EXP-001`) — paying the rent is a
+  // transition, not a coin spend. Routing the card through the same
+  // function the month-end settlement uses is what makes the payment
+  // actually mark the month paid and clear arrears, instead of taking the
+  // coin and leaving the obligation outstanding to be charged again
+  // tomorrow. It also fails closed: an unaffordable payment mutates
+  // nothing and reports itself as not applied.
+  if (path === RENT_PAYMENT_EFFECT_TARGET) {
+    const paidAmount = payRentFromResponse(ctx, source);
+    if (paidAmount === 0) {
+      return {
+        ...preview,
+        applied: false,
+        notes: ["rent payment not applied (nothing owed, or not affordable)"],
+      };
+    }
+    return { ...preview, amount: -paidAmount, applied: true };
+  }
 
   if (path === "coin") {
     if (amount === 0) return { ...preview, applied: true };

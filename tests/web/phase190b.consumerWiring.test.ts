@@ -198,6 +198,9 @@ describe('DailyReport resolved-intent subject (Phase 190b)', () => {
       dayArc: [{ id: 'reckoning', title: 'The reckoning', entries }],
       risingPressures: [],
       futureHooks: [],
+    staffFocus: [],
+    pendingConsequences: [],
+    resolvedConsequences: [],
       isQuiet: false,
     }
   }

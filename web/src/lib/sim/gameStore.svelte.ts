@@ -67,7 +67,10 @@ import {
   type Beat,
   type DaySegment,
   type PendingChoice,
+  type ServiceOutcome,
 } from './daySession'
+import { encodeBaselinePatch } from './baselinePatch'
+import { toPlainSaveData } from './plainSave'
 import type {
   LatestResultLite,
   PersistedSession,
@@ -151,6 +154,25 @@ class GameStore {
   dayBaseline: TavernState | undefined = $state(undefined)
 
   /**
+   * Phase 201 / audit Wave 2 (`P4-SEAM-002`, `P6-COMP-006`) — the state
+   * as it stood when the most recent day closed.
+   *
+   * A daily report describes one specific day, and must project from THAT
+   * day's state. Both report screens used to hand `buildDailyReport` the
+   * live store state, so the moment Segment A of the next morning ran —
+   * replacing `seedsToday`, clearing `resolvedToday`, recalculating
+   * pressures — yesterday's report started describing today: its missed
+   * opportunities became today's cards and its resolved-choice ledger
+   * emptied out.
+   *
+   * Held here and persisted (as a patch against `state`, so it costs a
+   * fraction of a second `TavernState` — see `baselinePatch.ts`) so the
+   * closed report is identical immediately, after the next morning, days
+   * later and after a reload.
+   */
+  closedDayState: TavernState | undefined = $state(undefined)
+
+  /**
    * Phase 186 / Day-Clock Cluster 5 — accumulated logs across the day's
    * segments. Each `advanceDaySegment` call has its own runtime and so
    * its own `result.logs`; the daily report's `latestResult.logs` should
@@ -223,12 +245,13 @@ class GameStore {
    * Headline outcome of the day's service run (Segment B), captured so
    * the service beat can SHOW the day that just happened — patrons
    * through the door, net coin movement, incident count — instead of an
-   * empty screen while the topbar coin silently jumps. Ephemeral view
-   * state: not persisted; a mid-day reload simply omits the strip.
+   * empty screen while the topbar coin silently jumps.
+   *
+   * Phase 199 / audit Wave 0 — persisted. It was session-only, so a
+   * mid-day reload dropped the strip while the coin it explains had
+   * already moved; the Wave 0 gate requires it to survive unchanged.
    */
-  serviceOutcome:
-    | { patrons: number; netCoin: number; incidents: number }
-    | undefined = $state(undefined)
+  serviceOutcome: ServiceOutcome | undefined = $state(undefined)
 
   /**
    * Phase 97 — Per-day dismissed missed-opportunity ids. Used by the
@@ -396,6 +419,10 @@ class GameStore {
       tags: [...closingCalendar.tags],
     }
     this.state = result.state
+    // Phase 201 / audit Wave 2 — freeze the state the day closed at. The
+    // report projects from this, not from the live state that the next
+    // morning is about to move on from.
+    this.closedDayState = result.state
     // The report's `latestResult.logs` should read the whole day, so
     // prepend A's and B's logs to C's.
     this.latestResult = { ...result, logs: [...this.dayLogs, ...result.logs] }
@@ -442,6 +469,7 @@ class GameStore {
     // 'C' = ready to begin day one; the first `beginDay()` opens it.
     this.segment = INITIAL_DAY_SESSION.segment
     this.dayBaseline = undefined
+    this.closedDayState = undefined
     this.dayLogs = []
     this.serviceOutcome = undefined
     this.route = 'day'
@@ -470,11 +498,17 @@ class GameStore {
     this.seedString = save.simSeed
     this.state = save.state
     this.previousCalendar = save.previousCalendar
+    // Phase 201 / audit Wave 2 — the closed day's state, rebuilt by the
+    // loader from its patch. Absent when no day has closed, and equal to
+    // `state` when the day just closed (an empty patch is not written).
+    this.closedDayState = save.closedDayState
     this.latestResult = save.latestResultLite
       ? {
           ...save.latestResultLite,
           diffs: save.latestResultLite.diffs ?? [],
-          state: save.state,
+          // The result describes the closed day, so it carries that day's
+          // state — not the live one, which the next morning moves on.
+          state: save.closedDayState ?? save.state,
         }
       : undefined
     // Phase 89 / ISSUE-049 — Re-run pick sanitation against the
@@ -493,10 +527,13 @@ class GameStore {
     // guarantees a value (derived from `beat` for pre-Cluster-5 saves).
     this.segment = save.daySession.segment ?? 'C'
     // The start-of-day baseline is only present mid-day (segment 'A'/'B').
-    // Without it, a resumed end-of-day would produce a partial full-day
-    // diff — the segment methods fall back to the current state, which is
-    // the documented edge Cluster 7's migration will harden.
-    this.dayBaseline = save.dayBaseline ? structuredClone(save.dayBaseline) : undefined
+    // Phase 199 / audit Wave 0 restored it to the envelope as a patch
+    // against `state`; the loader has already rebuilt, migrated and
+    // validated it, so what arrives here is a plain `TavernState`. When
+    // it's absent the segment methods fall back to the current state,
+    // costing only the resumed day's full-day diff bracket.
+    this.dayBaseline = save.dayBaseline
+    this.serviceOutcome = save.serviceOutcome
     this.dayLogs = []
     this.route = save.route
     this.reportsSubview = save.subroutes?.reports ?? 'today'
@@ -517,35 +554,66 @@ class GameStore {
    * storage and (post-save) on `lastSavedAt`.
    */
   serializeForSave(): PersistedSession {
+    // Phase 199 / audit Wave 0 (P2-RT-001) — every field here is read
+    // straight off `$state`, so in the browser every one of them is a deep
+    // proxy. This method used to call `structuredClone` on two of them,
+    // which throws `DataCloneError` on a Proxy and so failed EVERY save
+    // from day zero. The single `toPlainSaveData` at the end unwraps the
+    // whole envelope instead — one guarantee point that covers `state`,
+    // `picks` and any field added later, and one that also enforces the
+    // "save data is plain JSON" rule rather than assuming it.
+    //
     // Diffs are included but with module-container values already excluded
     // by the 10 k-char threshold in diffModules, so the changes array is
-    // typically a few KB. Reports/logs/validation are cloned so a future
-    // in-place edit cannot silently corrupt the next autosave's payload.
+    // typically a few KB.
     const latestResultLite: LatestResultLite | undefined = this.latestResult
-      ? structuredClone({
+      ? {
           reports: this.latestResult.reports,
           logs: this.latestResult.logs,
           validation: this.latestResult.validation,
           diffs: this.latestResult.diffs,
-        })
+        }
       : undefined
-    return {
+
+    // The start-of-day baseline, as a patch against the `state` already in
+    // the envelope (see baselinePatch.ts). Only exists mid-day; at segment
+    // 'C' the day is closed and there is no baseline to carry.
+    // Phase 201 / audit Wave 2 — the closed day's state. At the report
+    // beat it equals `state` and the patch is empty; once the next
+    // morning opens it covers one segment of divergence.
+    const closedDayStatePatch = this.closedDayState
+      ? encodeBaselinePatch(this.state, this.closedDayState)
+      : undefined
+
+    // The start-of-day baseline is encoded against the CLOSED-DAY state,
+    // not against `state`, because mid-day those two are the same value:
+    // a day opens from the previous day's close, so `dayBaseline` is
+    // exactly `closedDayState` until the next day closes. Encoding
+    // against `state` stored the same ~220 KB twice (measured at day 28),
+    // which matters — a day-28 mid-day save is already close to the
+    // typical 5 MB origin budget. Against the closed day the patch is
+    // empty in the common case and still exact when they do differ (a
+    // session resumed from a save that carried no closed day).
+    const baselineBase = this.closedDayState ?? this.state
+    const dayBaselinePatch = this.dayBaseline
+      ? encodeBaselinePatch(baselineBase, this.dayBaseline)
+      : undefined
+    const dayBaselineBase: 'closedDay' | 'state' = this.closedDayState
+      ? 'closedDay'
+      : 'state'
+
+    const envelope: PersistedSession = {
       saveVersion: 1,
       savedAt: new Date().toISOString(),
       simSeed: this.seedString,
       state: this.state,
       ...(this.previousCalendar
-        ? {
-            previousCalendar: {
-              ...this.previousCalendar,
-              tags: [...this.previousCalendar.tags],
-            },
-          }
+        ? { previousCalendar: this.previousCalendar }
         : {}),
       ...(latestResultLite ? { latestResultLite } : {}),
-      picks: [...this.picks],
-      staffPriorities: { ...this.staffPriorities },
-      pendingBySeedId: structuredClone(this.pendingBySeedId),
+      picks: this.picks,
+      staffPriorities: this.staffPriorities,
+      pendingBySeedId: this.pendingBySeedId,
       daySession: {
         beat: this.beat,
         serviceComplete: this.serviceComplete,
@@ -559,7 +627,14 @@ class GameStore {
         world: this.worldSubview,
       },
       dismissedMissedOpportunityIds: [...this.dismissedMissedOpportunityIds],
+      ...(this.serviceOutcome ? { serviceOutcome: this.serviceOutcome } : {}),
+      ...(closedDayStatePatch ? { closedDayStatePatch } : {}),
+      ...(this.closedDayState ? { hasClosedDayState: true } : {}),
+      ...(dayBaselinePatch ? { dayBaselinePatch } : {}),
+      ...(this.dayBaseline ? { hasDayBaseline: true, dayBaselineBase } : {}),
     }
+
+    return toPlainSaveData(envelope)
   }
 
   /** Issue seeds the sim produced on the most recent day, valid only. */

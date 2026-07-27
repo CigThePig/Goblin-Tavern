@@ -202,12 +202,20 @@ describe('Phase 43 — policyBacklash per-cause relatedActors', () => {
     }
     const seeded = seedTavernBlame(seededWithRegular)
     const result = calculatePolicyBacklash(stubContext(seeded))
-    const disliking = result.causes.find((c) => c.id === 'disliking_groups')
+    // Phase 201 / audit Wave 2 — the aggregate `disliking_groups` cause
+    // became one line PER POLICY (`disliking_groups_<policyId>`), tagged
+    // with that policy's id, so the policy_backlash card can name the
+    // policy on real evidence instead of on a generic `policy` tag. The
+    // per-cause actor attribution this test guards is unchanged.
+    const disliking = result.causes.find((c) =>
+      c.id.startsWith('disliking_groups'),
+    )
     const irritation = result.causes.find((c) => c.id === 'regular_irritation')
     const blame = result.causes.find((c) => c.id === 'tavern_blame')
     expect(disliking?.relatedActors).toEqual([
       { kind: 'customer_group', id: 'merchants' },
     ])
+    expect(disliking?.tags).toContain('cheap_payday_specials')
     expect(irritation?.relatedActors).toContainEqual({
       kind: 'regular',
       id: 'phase43_irritated',

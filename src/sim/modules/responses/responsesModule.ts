@@ -20,6 +20,7 @@ import {
   writeResponsesSlice,
 } from './ctxApplier'
 import { selectConsequence } from './selectConsequence'
+import { immediateCoinCost } from './responseCost'
 import {
   RESPONSES_MODULE_ID,
   ResponsesModuleStateSchema,
@@ -85,6 +86,46 @@ function applyPendingEntry(
   applyEffectViaCtx(ctx, effect, origin)
 }
 
+/**
+ * Phase 202 / audit Wave 3 (`P6-COMP-002`) — record a drained entry so the
+ * report can name it.
+ *
+ * The id arrays alone cannot be attributed after the fact: the entry is
+ * removed from the queue during this same drain, and `pending-<day>-<n>`
+ * carries no origin. Capturing the origin label and the effect's own
+ * readable here is what turns "an unexplained number changed" into "the
+ * thing you chose on Day 2 came due".
+ */
+function recordDrained(
+  ctx: SimContext,
+  entry: PendingResponseEntry,
+  status: 'applied' | 'expired',
+): void {
+  const payload = entry.payload
+  const readable =
+    payload.kind === 'memory' || payload.kind === 'memory_future_hook'
+      ? (payload.draft.label ?? 'Something is remembered.')
+      : payload.effect.readable
+  writeResponsesSlice(
+    ctx,
+    (current) => ({
+      ...current,
+      drainedToday: [
+        ...(current.drainedToday ?? []),
+        {
+          entryId: entry.id,
+          status,
+          originLabel:
+            entry.origin.selectionLabel ??
+            entry.origin.responseSlotId.replace(/_/g, ' '),
+          readable,
+        },
+      ],
+    }),
+    'record_drained',
+  )
+}
+
 const startDayHook: SimulationHook = (ctx: SimContext): void => {
   // 1) Reset per-day bookkeeping AND the suffix counter (suffixes
   //    are per-day; tomorrow's enqueues start at 0 again so ids
@@ -96,6 +137,7 @@ const startDayHook: SimulationHook = (ctx: SimContext): void => {
       resolvedToday: [],
       appliedFromPendingToday: [],
       expiredFromPendingToday: [],
+      drainedToday: [],
       nextPendingSuffix: 0,
     }),
     'day_initialize',
@@ -134,12 +176,14 @@ const startDayHook: SimulationHook = (ctx: SimContext): void => {
       SOURCE,
     )
     recordPendingExpired(ctx, entry.id)
+    recordDrained(ctx, entry, 'expired')
   }
 
   for (const entry of toApply) {
     try {
       applyPendingEntry(ctx, entry)
       recordPendingApplied(ctx, entry.id)
+      recordDrained(ctx, entry, 'applied')
     } catch (err) {
       ctx.addLog(
         {
@@ -212,6 +256,49 @@ const applyResponsesHook: SimulationHook = (ctx: SimContext): void => {
       )
       continue
     }
+    // Phase 200 / audit Wave 1 (`P7-EXP-001`), DC-07 — the day's
+    // responses are priced against the till as it stands at each
+    // intent's turn, and an intent that no longer fits is skipped
+    // WHOLE. Nothing checked this before: several individually
+    // affordable choices resolved together into 183 coin of spending
+    // against 98 coin on hand, took the coin negative, and broke the
+    // state schema's `coin >= 0`. Skipping whole (rather than letting
+    // the first unaffordable effect throw mid-profile) is what keeps a
+    // refused response from leaving half its consequences behind.
+    // Phase 202 / audit Wave 3 (`P6-COMP-001`) — the player's own wording,
+    // carried on the intent by the card layer.
+    const meta = intent.metadata as
+      | { selectionLabel?: unknown; targetRef?: { kind?: unknown; id?: unknown } }
+      | undefined
+    const cost = immediateCoinCost(profile)
+    if (cost > ctx.state.coin) {
+      ctx.addLog(
+        {
+          message: `Response intent ${intent.id} skipped: costs ${cost} coin, ${ctx.state.coin} available`,
+          level: 'info',
+          data: {
+            intentId: intent.id,
+            seedId: seed.id,
+            responseSlotId: slot.id,
+            cost,
+            coin: ctx.state.coin,
+          },
+        },
+        SOURCE,
+      )
+      recordResolvedIntent(ctx, {
+        intentId: intent.id,
+        seedId: seed.id,
+        responseSlotId: slot.id,
+        profileId: profile.id,
+        verb: intent.verb,
+        resolvedOn: today,
+        outcome: 'skipped_unaffordable',
+        note: `Needed ${cost} coin; only ${ctx.state.coin} on hand.`,
+      })
+      continue
+    }
+
     const origin: ApplyOrigin = {
       seedId: seed.id,
       intentId: intent.id,
@@ -219,6 +306,13 @@ const applyResponsesHook: SimulationHook = (ctx: SimContext): void => {
       responseSlotId: slot.id,
       verb: intent.verb,
       enqueuedDay: today,
+      // Phase 202 / audit Wave 3 (`P6-COMP-002`) — the label travels with
+      // anything this profile queues, so a delayed effect can still name
+      // the choice that promised it days later, when `resolvedToday` has
+      // long since been cleared.
+      ...(typeof meta?.selectionLabel === 'string'
+        ? { selectionLabel: meta.selectionLabel }
+        : {}),
     }
     const applier = createCtxApplier(ctx)
     applyResponseProfile(profile, origin, applier)
@@ -229,6 +323,14 @@ const applyResponsesHook: SimulationHook = (ctx: SimContext): void => {
       profileId: profile.id,
       verb: intent.verb,
       resolvedOn: today,
+      outcome: 'applied',
+      ...(typeof meta?.selectionLabel === 'string'
+        ? { selectionLabel: meta.selectionLabel }
+        : {}),
+      ...(typeof meta?.targetRef?.kind === 'string' &&
+      typeof meta.targetRef.id === 'string'
+        ? { targetRef: { kind: meta.targetRef.kind, id: meta.targetRef.id } }
+        : {}),
     })
   }
 }

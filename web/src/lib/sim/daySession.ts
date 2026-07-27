@@ -55,6 +55,19 @@ export const INITIAL_DAY_SESSION: Required<DaySessionSnapshot> = {
 }
 
 /**
+ * Headline of the day's Segment B — what the service beat shows the
+ * player about the day that just happened. Phase 199 / audit Wave 0 made
+ * it a persisted field: it was session-only, so a mid-day reload dropped
+ * the strip while the topbar coin had already moved, and the Wave 0 gate
+ * requires the Service outcome to survive reload unchanged.
+ */
+export type ServiceOutcome = {
+  patrons: number
+  netCoin: number
+  incidents: number
+}
+
+/**
  * Phase 97 — How long (in days) a per-line missed-opportunity dismissal
  * survives in the save before being pruned. Seven days keeps a window
  * wide enough for a player who flips back to a recent day's report to

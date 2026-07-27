@@ -20,6 +20,7 @@
 import { stockRegistry } from '../../sim/registries/stockRegistry'
 import { recipeRegistry } from '../../sim/registries/recipeRegistry'
 import { areaRegistry } from '../../sim/registries/areaRegistry'
+import { customerRegistry } from '../../sim/registries/customerRegistry'
 import { staffRegistry } from '../../sim/registries/staffRegistry'
 import { staffPriorityRegistry } from '../../sim/registries/staffPriorityRegistry'
 import { actionRegistry } from '../../sim/registries/actionRegistry'
@@ -32,6 +33,7 @@ export type IdCategory =
   | 'pressure'
   | 'reputation'
   | 'area'
+  | 'customerGroup'
   | 'staffRole'
   | 'staffPriority'
   | 'policy'
@@ -194,6 +196,8 @@ export function idLabel(category: IdCategory, id: string): string {
       return registryLabel(recipeRegistry, id) ?? humanizeId(id)
     case 'area':
       return registryLabel(areaRegistry, id) ?? humanizeId(id)
+    case 'customerGroup':
+      return registryLabel(customerRegistry, id) ?? humanizeId(id)
     case 'staffRole':
       return registryLabel(staffRegistry, id) ?? humanizeId(id)
     case 'staffPriority':

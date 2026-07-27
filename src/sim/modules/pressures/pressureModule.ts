@@ -42,11 +42,48 @@ const SOURCE = PRESSURES_MODULE_ID
 const TREND_HISTORY_LIMIT = 7
 const SIGNIFICANT_DELTA = 2
 
+/**
+ * Phase 200 / audit Wave 1 (`P4-SEAM-003`) — how long a response's direct
+ * pressure effect keeps mattering.
+ *
+ * A response that eases Maintenance by 10 does not change any of the
+ * state the maintenance calculator reads, so without this the calculator
+ * would put the pressure straight back the next morning and the card's
+ * own preview would have been a lie by breakfast. The delta is recorded
+ * as an adjustment the calculated value is combined with, at full weight
+ * on the day it lands and fading linearly to nothing across this window.
+ */
+export const PRESSURE_ADJUSTMENT_DECAY_DAYS = 5
+
+/**
+ * A direct pressure delta applied by a response, still in effect.
+ * Written by the response applier, consumed (and pruned) here.
+ */
+export type PressureAdjustment = {
+  amount: number
+  appliedDay: number
+  /** Days from `appliedDay` over which the amount fades to zero. */
+  decayDays: number
+  source: string
+}
+
 export type PressureModuleState = {
   snapshots: Record<string, PressureSnapshot>
   /** Rolling history of recent values, oldest first, up to TREND_HISTORY_LIMIT. */
   history: Record<string, number[]>
   lastCalculatedDay: number
+  /**
+   * Phase 200 / audit Wave 1 — the value each pressure closed the
+   * previous day at. `previousValue` (and so the day-over-day delta and
+   * the day's single cause) is measured from here rather than from the
+   * last snapshot written, because the day now calculates twice: once at
+   * `closing` and once at `endDay` after responses have run. Measuring
+   * from the last snapshot would make the second pass report only the
+   * response's share of the move.
+   */
+  openingValues?: Record<string, number>
+  /** Live direct-response adjustments per pressure id. */
+  adjustments?: Record<string, PressureAdjustment[]>
 }
 
 export function createInitialPressureModuleState(): PressureModuleState {
@@ -54,7 +91,75 @@ export function createInitialPressureModuleState(): PressureModuleState {
     snapshots: {},
     history: {},
     lastCalculatedDay: -1,
+    openingValues: {},
+    adjustments: {},
   }
+}
+
+/**
+ * Total adjustment still in effect for `id` on `today`, and the entries
+ * worth keeping. An entry at or past its decay window contributes
+ * nothing and is dropped.
+ */
+export function activeAdjustment(
+  entries: ReadonlyArray<PressureAdjustment> | undefined,
+  today: number,
+): { total: number; live: PressureAdjustment[] } {
+  if (!entries || entries.length === 0) return { total: 0, live: [] }
+  let total = 0
+  const live: PressureAdjustment[] = []
+  for (const entry of entries) {
+    const age = today - entry.appliedDay
+    if (age < 0) {
+      // Scheduled ahead of today (shouldn't happen) — keep, ignore for now.
+      live.push(entry)
+      continue
+    }
+    const span = Math.max(1, entry.decayDays)
+    if (age >= span) continue
+    const weight = 1 - age / span
+    total += entry.amount * weight
+    live.push(entry)
+  }
+  return { total, live }
+}
+
+/**
+ * Record a direct pressure delta so it survives the next recalculation.
+ * Called by the response applier — the single path through which both
+ * immediate and drained-pending response effects reach a pressure.
+ */
+export function recordPressureAdjustment(
+  ctx: SimContext,
+  id: string,
+  amount: number,
+  source: string,
+): void {
+  if (amount === 0) return
+  const today = ctx.state.calendar.totalDaysElapsed
+  ctx.modifyModuleState<PressureModuleState>(
+    PRESSURES_MODULE_ID,
+    (current) => {
+      const base = current ?? createInitialPressureModuleState()
+      const existing = base.adjustments?.[id] ?? []
+      return {
+        ...base,
+        adjustments: {
+          ...(base.adjustments ?? {}),
+          [id]: [
+            ...existing,
+            {
+              amount,
+              appliedDay: today,
+              decayDays: PRESSURE_ADJUSTMENT_DECAY_DAYS,
+              source,
+            },
+          ],
+        },
+      }
+    },
+    { source: SOURCE, reason: 'record_adjustment' },
+  )
 }
 
 export function getPressureModuleState(state: {
@@ -189,75 +294,146 @@ function buildSummaryReadable(
   return `${definition.label} pressure ${snapshot.previousValue} → ${snapshot.value} (${sign}${delta}, ${trendLabel}).`
 }
 
-const calculatePressuresHook: SimulationHook = (ctx: SimContext): void => {
+// Phase 200 / audit Wave 1 — one pressure authority.
+//
+// `state.pressures[id].value` is THE pressure value. The rich snapshot in
+// this slice records how it got there and always carries the same number;
+// `compact.value === snapshot.value` at every stable beat.
+//
+// Before this, `previousValue` was read from the rich snapshot while the
+// compact value was written only when `|delta| >= 2`, so a sub-threshold
+// move left the two stores permanently apart, and a delayed response that
+// moved compact at `startDay` made the calculator measure against a stale
+// previous value, compute a delta of 0, decline to write compact, and
+// leave the two 10 apart (`P4-SEAM-003`).
+//
+// The day now calculates twice:
+//
+//   `closing` — values + compact sync, so closing-time seed generation
+//               reads today's pressure. No cause, no history.
+//   `endDay`  — recalculated against post-response state (it runs right
+//               after `applyResponses`), compact synced again, and the
+//               ONLY place the day's pressure causes and history entries
+//               are emitted.
+//
+// That makes the report and the next morning read post-response truth
+// (`P7-EXP-004`) and gives one significant change exactly one cause
+// (`P4-SEAM-001`) — where the old code emitted two, once through
+// `modifyPressure`'s cause metadata and once through an explicit
+// `addCause` written against a stale comment claiming the engine did not
+// log. Compact is now synced by a `modifyPressure` call carrying NO cause
+// metadata, and the single cause is raised explicitly with the
+// day-over-day amount.
+function runPressurePass(ctx: SimContext, emitCauses: boolean): void {
   ensureRequiredPressuresRegistered()
   const slice = getPressureModuleState(ctx.state)
+  const today = ctx.state.calendar.totalDaysElapsed
   const nextSnapshots: Record<string, PressureSnapshot> = { ...slice.snapshots }
   const nextHistory: Record<string, number[]> = {}
   for (const [id, samples] of Object.entries(slice.history)) {
     nextHistory[id] = [...samples]
   }
+  const nextOpeningValues: Record<string, number> = { ...(slice.openingValues ?? {}) }
+  const nextAdjustments: Record<string, PressureAdjustment[]> = {}
 
   for (const definition of pressureRegistry.all()) {
     const onState = ctx.state.pressures[definition.id]
+    // Day-over-day is measured from yesterday's close, not from whatever
+    // the earlier pass of today happened to write. `openingValues` is the
+    // authority for that; the snapshot/compact fallbacks only cover the
+    // very first pass of the very first day, before any opening value
+    // has been recorded. (Reading the snapshot unconditionally is what
+    // made the second pass measure against the FIRST pass of the same
+    // day and report a delta of ~0 for every pressure.)
     const previousValue =
-      slice.snapshots[definition.id]?.value ?? onState?.value ?? 0
+      slice.openingValues?.[definition.id] ??
+      slice.snapshots[definition.id]?.value ??
+      onState?.value ??
+      0
+
     const result = definition.calculate(ctx)
-    const snapshot = buildSnapshot(ctx, definition, result, previousValue)
+    const { total: adjustment, live } = activeAdjustment(
+      slice.adjustments?.[definition.id],
+      today,
+    )
+    if (live.length > 0) nextAdjustments[definition.id] = live
+
+    const snapshot = buildSnapshot(
+      ctx,
+      definition,
+      adjustment === 0 ? result : { ...result, value: result.value + adjustment },
+      previousValue,
+    )
 
     // Apply the multi-day trend on top of the day-over-day snapshot so
-    // reports can distinguish a long climb from a single-day blip.
+    // reports can distinguish a long climb from a single-day blip. Only
+    // the cause-emitting pass appends a sample, so a day contributes one
+    // point to the trend window rather than two.
     const history = nextHistory[definition.id] ?? []
     snapshot.trend = trendFromHistory(history, snapshot.value)
-    history.push(snapshot.value)
-    if (history.length > TREND_HISTORY_LIMIT) history.shift()
+    if (emitCauses) {
+      history.push(snapshot.value)
+      if (history.length > TREND_HISTORY_LIMIT) history.shift()
+    }
     nextHistory[definition.id] = history
 
     nextSnapshots[definition.id] = snapshot
 
     if (!onState) continue
-    if (Math.abs(snapshot.delta) >= SIGNIFICANT_DELTA) {
-      const dominant = snapshot.causes
-        .slice()
-        .sort((a, b) => b.weight - a.weight)[0]
-      const direction: 'increase' | 'decrease' | 'neutral' =
-        snapshot.delta > 0 ? 'increase' : snapshot.delta < 0 ? 'decrease' : 'neutral'
-      const causeDraft = {
-        source: `pressures.${definition.id}`,
-        sourceType: 'pressure' as const,
-        target: `pressure:${definition.id}`,
-        targetType: 'pressure' as const,
-        amount: snapshot.delta,
-        direction,
-        weight: Math.abs(snapshot.delta),
-        readable:
-          dominant?.readable ?? buildSummaryReadable(definition, snapshot),
-        tags: ['pressure', definition.id, ...(definition.tags ?? [])],
-        relatedSystems: snapshot.relatedSystems,
-        relatedActors: snapshot.relatedActors,
-        relatedLocations: snapshot.relatedLocations,
-        expiresAfterDays: 7,
-      }
-      ctx.modifyPressure(definition.id, snapshot.delta, causeDraft)
-      // Phase 17 §17.2.1 — modifyPressure carries the contract, but the
-      // engine does not auto-log the draft on `state.causes` (mirrors
-      // how Phase 17 modules — e.g. monthly rent — call `addCause`
-      // alongside the mutation helper). Log the cause explicitly so the
-      // diff/report layer sees a matched entry.
-      ctx.addCause(causeDraft)
+
+    // Sync the canonical compact value to the snapshot — always, not only
+    // on a significant move. No cause metadata: this is bookkeeping, and
+    // the day's single cause is raised below with the real amount.
+    const syncDelta = snapshot.value - onState.value
+    if (syncDelta !== 0) ctx.modifyPressure(definition.id, syncDelta)
+
+    if (emitCauses) {
+      // Today's final value is tomorrow's opening value.
+      nextOpeningValues[definition.id] = snapshot.value
+    } else if (nextOpeningValues[definition.id] === undefined) {
+      // First pass of the first day: record where the day opened so the
+      // finalizing pass has a real anchor to measure against.
+      nextOpeningValues[definition.id] = previousValue
     }
 
-    if (Math.abs(snapshot.delta) >= SIGNIFICANT_DELTA) {
-      ctx.addHistory({
-        category: 'pressure',
-        summary: buildSummaryReadable(definition, snapshot),
-        tags: ['pressure', definition.id, snapshot.trend],
-        relatedActors: snapshot.relatedActors,
-        relatedLocations: snapshot.relatedLocations,
-        relatedSystems: snapshot.relatedSystems,
-        mechanicalRefs: [`pressure:${definition.id}`],
-      })
-    }
+    if (!emitCauses) continue
+    if (Math.abs(snapshot.delta) < SIGNIFICANT_DELTA) continue
+
+    const dominant = snapshot.causes
+      .slice()
+      .sort((a, b) => b.weight - a.weight)[0]
+    const direction: 'increase' | 'decrease' | 'neutral' =
+      snapshot.delta > 0 ? 'increase' : snapshot.delta < 0 ? 'decrease' : 'neutral'
+    ctx.addCause({
+      source: `pressures.${definition.id}`,
+      sourceType: 'pressure',
+      target: `pressure:${definition.id}`,
+      targetType: 'pressure',
+      amount: snapshot.delta,
+      direction,
+      weight: Math.abs(snapshot.delta),
+      readable: dominant?.readable ?? buildSummaryReadable(definition, snapshot),
+      tags: ['pressure', definition.id, ...(definition.tags ?? [])],
+      relatedSystems: snapshot.relatedSystems,
+      // Phase 201 / audit Wave 2 (`P5-PLAY-003`) — when the cause borrows
+      // the DOMINANT breakdown line's words ("Nash is publicly blamed"),
+      // it must borrow that line's actors too. Attaching the snapshot's
+      // aggregate actor list instead made one staff member's blame read
+      // as evidence about every staff member, and seeds scoped by actor
+      // picked it up accordingly.
+      relatedActors: dominant?.relatedActors ?? snapshot.relatedActors,
+      relatedLocations: dominant?.relatedLocations ?? snapshot.relatedLocations,
+      expiresAfterDays: 7,
+    })
+    ctx.addHistory({
+      category: 'pressure',
+      summary: buildSummaryReadable(definition, snapshot),
+      tags: ['pressure', definition.id, snapshot.trend],
+      relatedActors: snapshot.relatedActors,
+      relatedLocations: snapshot.relatedLocations,
+      relatedSystems: snapshot.relatedSystems,
+      mechanicalRefs: [`pressure:${definition.id}`],
+    })
   }
 
   // Persist the day's snapshots and the multi-day trend history. The
@@ -269,10 +445,20 @@ const calculatePressuresHook: SimulationHook = (ctx: SimContext): void => {
     {
       snapshots: nextSnapshots,
       history: nextHistory,
-      lastCalculatedDay: ctx.state.calendar.totalDaysElapsed,
+      lastCalculatedDay: today,
+      openingValues: nextOpeningValues,
+      adjustments: nextAdjustments,
     },
-    'recalculate',
+    emitCauses ? 'finalize' : 'recalculate',
   )
+}
+
+const calculatePressuresHook: SimulationHook = (ctx: SimContext): void => {
+  runPressurePass(ctx, false)
+}
+
+const finalizePressuresHook: SimulationHook = (ctx: SimContext): void => {
+  runPressurePass(ctx, true)
 }
 
 function buildReport(ctx: SimContext): ReportSection {
@@ -394,10 +580,21 @@ const PressureSnapshotSchema = z.object({
   lastUpdated: CalendarStampSchema,
 })
 
+const PressureAdjustmentSchema = z.object({
+  amount: z.number(),
+  appliedDay: z.number().int(),
+  decayDays: z.number().int().positive(),
+  source: z.string(),
+})
+
 const PressureModuleStateSchema = z.object({
   snapshots: z.record(z.string(), PressureSnapshotSchema),
   history: z.record(z.string(), z.array(z.number())),
   lastCalculatedDay: z.number().int(),
+  // Phase 200 / audit Wave 1. Optional so a save written before the wave
+  // still validates; the migration fills them in.
+  openingValues: z.record(z.string(), z.number()).optional(),
+  adjustments: z.record(z.string(), z.array(PressureAdjustmentSchema)).optional(),
 })
 
 export const pressuresModule: SimulationModule = {
@@ -409,9 +606,14 @@ export const pressuresModule: SimulationModule = {
   hooks: {
     // Run during `closing` (after service, before endDay/Week/Month
     // hooks decide their finalisation) so the pressure values reflect
-    // the full day's mechanical movement and so any pressure-driven
-    // history entries land before generateReports.
+    // the full day's mechanical movement and closing-time seed
+    // generation reads today's numbers.
     closing: [calculatePressuresHook],
+    // Phase 200 / audit Wave 1 — and again on `endDay`, immediately after
+    // `applyResponses`, so the report, the ribbon and the next morning
+    // read the same post-response value the player carries forward. This
+    // is the pass that owns the day's pressure causes and history.
+    endDay: [finalizePressuresHook],
   },
   buildReport: buildReport,
   validate: validatePressures,

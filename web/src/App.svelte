@@ -18,7 +18,7 @@
   import {
     clearSession,
     loadSession,
-    saveSession,
+    saveSessionFrom,
     type LoadOutcome,
     type Route,
   } from './lib/sim/persistence'
@@ -74,8 +74,13 @@
   // `gameStore.saveError` so the More → Saves section can surface a
   // banner with a Retry affordance. The banner clears on the next
   // successful save.
-  function commitSaveResult(session: ReturnType<typeof gameStore.serializeForSave>) {
-    const result = saveSession(session)
+  //
+  // Phase 199 / audit Wave 0 — building the envelope happens INSIDE
+  // `saveSessionFrom`, so a serialization throw (P2-RT-001) becomes a
+  // typed failure the banner can show instead of an uncaught exception
+  // that silently ends autosaving.
+  function commitSave() {
+    const result = saveSessionFrom(() => gameStore.serializeForSave())
     if (result.ok) {
       gameStore.lastSavedAt = result.savedAt
       gameStore.saveError = undefined
@@ -91,8 +96,7 @@
       clearTimeout(saveTimer)
       saveTimer = undefined
     }
-    const session = gameStore.serializeForSave()
-    commitSaveResult(session)
+    commitSave()
   }
 
   function scheduleSave() {
@@ -101,8 +105,7 @@
     if (saveTimer !== undefined) clearTimeout(saveTimer)
     saveTimer = setTimeout(() => {
       saveTimer = undefined
-      const session = gameStore.serializeForSave()
-      commitSaveResult(session)
+      commitSave()
     }, 300)
   }
 
@@ -269,6 +272,7 @@
         <WorldScreen />
       {:else if view === 'more'}
         <MoreScreen
+          onretrysave={retrySaveNow}
           onreplaced={() => {
             // Phase 98 — Snapshot load or import has replaced the current
             // run. Drop the player into Day on the just-hydrated state so

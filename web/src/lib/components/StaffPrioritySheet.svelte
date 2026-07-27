@@ -69,7 +69,13 @@
                   aria-checked={priorityId === selected ? 'true' : 'false'}
                   onclick={() => setPriority(member.id, priorityId)}
                 >
-                  {def.label}
+                  <span class="opt-label">{def.label}</span>
+                  <!-- Phase 202 / audit Wave 3 (`P6-COMP-004`) — the sheet
+                       used to show only the label, so a repeatable
+                       strategic lever offered no forecast. Directional by
+                       design: the service model cannot promise a count. -->
+                  <span class="opt-benefit">{def.benefit}</span>
+                  <span class="opt-tradeoff">{def.tradeoff}</span>
                 </button>
               {/if}
             {/each}
@@ -126,6 +132,26 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--sp-xs);
+  }
+
+  .opt-label {
+    display: block;
+    font-weight: 500;
+  }
+
+  .opt-benefit,
+  .opt-tradeoff {
+    display: block;
+    font-size: 0.85em;
+    line-height: 1.35;
+  }
+
+  .opt-benefit {
+    color: var(--gain);
+  }
+
+  .opt-tradeoff {
+    color: var(--text-faint);
   }
 
   .opt {

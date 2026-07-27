@@ -70,6 +70,19 @@ export function spendCoin(ctx: SimContext, amount: number, meta: LedgerMeta): vo
     )
   }
   if (amount === 0) return
+  // Phase 200 / audit Wave 1 (`P7-EXP-001`) — the floor under every
+  // ordinary spend. `spendCoin` used to validate only the SIGN of the
+  // request, so any caller that forgot to check affordability drove the
+  // till negative and broke the state schema's `coin >= 0`; the audit's
+  // rent response did exactly that, five days running. Callers are
+  // expected to check first and give the player a readable reason — this
+  // throw is the backstop that stops a future path reintroducing the
+  // same defect silently.
+  if (amount > ctx.state.coin) {
+    throw new Error(
+      `spendCoin: cannot spend ${amount} coin from a till holding ${ctx.state.coin} (source: ${meta.source})`,
+    )
+  }
   ctx.modifyCoin(-amount, meta)
   appendEntry(
     ctx,

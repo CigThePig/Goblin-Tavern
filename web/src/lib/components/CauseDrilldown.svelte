@@ -9,6 +9,12 @@
   import BottomSheet from './BottomSheet.svelte'
   import { gameStore } from '../sim/gameStore.svelte'
   import {
+    causeShareOfChange,
+    describeShare,
+    humanizeCauseEntities,
+    humanizeCauseReadable,
+  } from '../../../../src/reports/labels/causePresentation'
+  import {
     causesForPath,
     formatDiffPathTitle,
     buildPressureConsequenceLines,
@@ -65,13 +71,10 @@
     return '·'
   }
 
+  // Phase 202 / audit Wave 3 (`P6-COMP-003`) — this rendered raw
+  // `kind/id` pairs. Names, not references.
   function actorLabel(c: CauseEntry): string {
-    const refs = [...c.relatedActors, ...c.relatedLocations]
-    if (refs.length === 0) return ''
-    return refs
-      .slice(0, 2)
-      .map((r) => `${r.kind}/${r.id}`)
-      .join(', ')
+    return humanizeCauseEntities(gameStore.state, c).join(', ')
   }
 
   // Phase 195 / ISSUE-162 — close the loop from insight to action. When an
@@ -119,7 +122,7 @@
         <li class="cause">
           <div class="cause-head">
             <span class="mark" data-dir={cause.direction}>{directionMark(cause.direction)}</span>
-            <span class="readable">{cause.readable}</span>
+            <span class="readable">{humanizeCauseReadable(gameStore.state, cause)}</span>
             <span class="amount mono" data-dir={cause.direction}>
               {cause.amount > 0 ? '+' : ''}{cause.amount}
             </span>
@@ -128,7 +131,9 @@
             <div class="weight-fill" style="width: {weightPct(cause)}%"></div>
           </div>
           <div class="cause-meta tag">
-            <span>weight {Math.round(cause.weight)}</span>
+            <!-- Phase 202 / audit Wave 3 — `weight 72` meant nothing to a
+                 player; a share of the change means something. -->
+            <span>{describeShare(causeShareOfChange(cause, causes))}</span>
             {#if actorLabel(cause)}
               <span>· {actorLabel(cause)}</span>
             {/if}

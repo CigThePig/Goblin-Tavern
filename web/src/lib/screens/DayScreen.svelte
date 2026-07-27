@@ -52,7 +52,9 @@
   import YesterdayDigest from '../components/YesterdayDigest.svelte'
   import { renderCard } from '../cards/realCardRegistry'
   import { committedCoinCost, gateChoicesByCoin } from '../cards/affordability'
+  import { selectionLabelOf } from '../sim/selectionLabel'
   import { formatDuration } from '../sim/actionBuilder'
+  import { staffPriorityRegistry } from '../../../../src/sim/registries/staffPriorityRegistry'
   import { gameStore, type ActionPickerRequest } from '../sim/gameStore.svelte'
   import { prefsStore } from '../prefs/prefsStore.svelte'
   import { buildResponseIntents } from '../sim/intentBuilder'
@@ -194,6 +196,24 @@
   )
 
   const staffCount = $derived(Object.keys(gameStore.state.staff).length)
+
+  // Phase 202 / audit Wave 3 (`P6-COMP-004`) — name the staff member and
+  // the focus they are on, so the plan beat answers "what did I set?"
+  // without opening the sheet.
+  const staffPrioritySummary = $derived.by(() => {
+    const entries = Object.entries(staffPriorities)
+    if (entries.length === 0) return 'using defaults'
+    const named = entries.slice(0, 2).map(([staffId, priorityId]) => {
+      const member = gameStore.state.staff[staffId]
+      const who = member?.name.display ?? staffId
+      const focus = staffPriorityRegistry.has(priorityId)
+        ? staffPriorityRegistry.get(priorityId).label
+        : priorityId
+      return `${who}: ${focus}`
+    })
+    const rest = entries.length - named.length
+    return rest > 0 ? `${named.join(' · ')} +${rest}` : named.join(' · ')
+  })
 
   // Phase 186 / Day-Clock Cluster 5 — forecast-as-expected (contract
   // §3.6). `forecastTraffic` runs at the end of Segment A, so by the
@@ -553,11 +573,12 @@
                   aria-label="Revise this decision"
                   title="Revise"
                 >
-                  {#if pending.kind === 'ignore'}
-                    ignored
-                  {:else}
-                    noted: <strong>{pending.verb}</strong>
-                  {/if}
+                  <!-- Phase 202 / audit Wave 3 (`P6-COMP-001`) — the
+                       player's wording, plus the finality answer. -->
+                  <strong>{selectionLabelOf(pending)}</strong>
+                  <span class="selection-status"
+                    >Selected — revisable until End Day</span
+                  >
                   <span class="revise-hint" aria-hidden="true">↺</span>
                 </button>
               {/if}
@@ -635,10 +656,10 @@
         >
           <span class="plan-main">
             <span class="plan-title">Staff priorities</span>
+            <!-- Phase 202 / audit Wave 3 (`P6-COMP-004`) — "1 customised"
+                 told the player nothing about who was doing what. -->
             <span class="plan-sub chip">
-              {Object.keys(staffPriorities).length === 0
-                ? 'using defaults'
-                : `${Object.keys(staffPriorities).length} customised`}
+              {staffPrioritySummary}
             </span>
           </span>
           <span class="plan-hint">Set</span>
@@ -1001,6 +1022,12 @@
   .pending strong {
     color: var(--accent);
     font-weight: 500;
+  }
+
+  .selection-status {
+    display: block;
+    font-size: 0.85em;
+    opacity: 0.75;
   }
 
   .revise-hint {

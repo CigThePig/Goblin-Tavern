@@ -40,11 +40,26 @@ export function buildIntent(
     shape: choice.shape,
     tags: [],
     intensity: 1,
-    metadata: { responseSlotId: choice.slotId },
+    metadata: {
+      responseSlotId: choice.slotId,
+      // Phase 202 / audit Wave 3 (`P6-COMP-001`) — the player's own words
+      // travel with the intent, so the resolved record and the report can
+      // repeat the choice instead of the engine's verb.
+      selectionLabel: choice.label,
+      ...(target ? { targetRef: { kind: target.kind, id: target.id } } : {}),
+    },
   }
   if (target) intent.target = target
   return intent
 }
+
+/**
+ * Phase 202 / audit Wave 3, `DC-02` — an explicit Ignore is a DECISION,
+ * and is recorded as one. A card the player simply never answered leaves
+ * no resolved-intent record at all, so the day's ledger can tell a
+ * considered pass apart from a card that was never reached.
+ */
+export const IGNORE_SELECTION_LABEL = 'You let it stand'
 
 export function buildIgnoreIntent(seed: IssueSeed): ResponseIntent {
   return {
@@ -54,7 +69,10 @@ export function buildIgnoreIntent(seed: IssueSeed): ResponseIntent {
     shape: 'ignore',
     tags: ['player_ignored'],
     intensity: 0,
-    metadata: { responseSlotId: 'ignore' },
+    metadata: {
+      responseSlotId: 'ignore',
+      selectionLabel: IGNORE_SELECTION_LABEL,
+    },
   }
 }
 

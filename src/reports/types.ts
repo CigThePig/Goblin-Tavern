@@ -108,6 +108,53 @@ export type ReportResolvedIntent = {
    */
   subjectRef?: { kind: EntityRef['kind']; id: string }
   responseSlotId: string
+  /**
+   * Phase 202 / audit Wave 3 (`P6-COMP-001`) — the choice as the player
+   * saw it ("Back Mira against the Ogres"), not the engine verb
+   * (`blame`). Absent for intents built outside the card layer, where the
+   * UI falls back to the verb.
+   */
+  selectionLabel?: string
+  /** The choice's target, resolved to a display name. Secondary. */
+  targetLabel?: string
+  /** Wave 1: `skipped_unaffordable` rows say so instead of implying success. */
+  outcome?: 'applied' | 'skipped_unaffordable'
+  /** Player-readable reason when the outcome is not `applied`. */
+  note?: string
+}
+
+export type ReportStaffFocusLine = {
+  staffId: string
+  staffName: string
+  priorityId: string
+  priorityLabel: string
+  /** What that focus was buying, in player terms. */
+  benefit: string
+}
+
+/** Phase 202 / audit Wave 3 — lifecycle position of a queued effect. */
+export type PendingConsequenceStatus = 'pending' | 'due' | 'expiring'
+
+export type ReportPendingConsequence = {
+  entryId: string
+  /** The choice that promised this, in the player's own wording. */
+  originLabel: string
+  /** What it will do, from the choice's own preview. */
+  expectedEffect: string
+  /** Absolute day it is scheduled to fire. */
+  scheduledFor: number
+  /** Days from the day that just closed; 0 means the next morning. */
+  daysAway: number
+  status: PendingConsequenceStatus
+  seedId: string
+}
+
+export type ReportResolvedConsequence = {
+  entryId: string
+  /** `applied` — it happened. `expired` — its window closed unused. */
+  status: 'applied' | 'expired'
+  /** The decision it came from, in the player's own wording. */
+  originLabel: string
 }
 
 export type ReportOwnerActionLine = {
@@ -250,6 +297,25 @@ export type DailyReportData = {
   surfaceNarrative?: DayNarrative
   risingPressures: ReportPressureLine[]
   futureHooks: ReportHookLine[]
+  /**
+   * Phase 202 / audit Wave 3 (`P6-COMP-002`) — what the player is still
+   * waiting on, from the response pending queue: the choice that made the
+   * promise, what it will do, and when. Empty when nothing is queued.
+   */
+  /**
+   * Phase 202 / audit Wave 3 (`P6-COMP-004`) — who worked to what focus
+   * today. A sticky strategic choice produced no report evidence at all,
+   * so the player could not tell whether it had done anything. The line
+   * is directional, never a fabricated count.
+   */
+  staffFocus: ReportStaffFocusLine[]
+  pendingConsequences: ReportPendingConsequence[]
+  /**
+   * Phase 202 / audit Wave 3 — delayed effects that landed (or lapsed)
+   * today, each named with the decision that created it, so a later state
+   * movement is recognisable as the result of an earlier choice.
+   */
+  resolvedConsequences: ReportResolvedConsequence[]
   /** Phase 97 — "What you could have done" block. Up to 3 lines. */
   missedOpportunities?: MissedOpportunityLine[]
   weeklyDigest?: ReportDigest

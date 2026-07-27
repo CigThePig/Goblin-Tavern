@@ -293,6 +293,56 @@
     </section>
   {/if}
 
+  <!-- ── Waiting on / came due ───────────────────────────────────── -->
+  <!-- Phase 202 / audit Wave 3 (`P6-COMP-002`) — a promised later effect
+       used to vanish at selection and return days later as an
+       unexplained number. These two blocks are the lifecycle: what is
+       still queued (with the choice that promised it and when it lands),
+       and what landed or lapsed today, named with the decision it came
+       from. -->
+  {#if report.resolvedConsequences.length > 0}
+    <section class="block hooks">
+      <h2 class="block-label section-label">Came due today</h2>
+      <ul class="hook-list">
+        {#each report.resolvedConsequences as c (c.entryId)}
+          <li class="hook">
+            <span class="hook-mark">{c.status === 'applied' ? '◆' : '◇'}</span>
+            <span class="hook-text">
+              {c.originLabel} —
+              {c.status === 'applied' ? 'came due' : 'lapsed unused'}
+            </span>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
+
+  {#if report.pendingConsequences.length > 0}
+    <section class="block hooks">
+      <h2 class="block-label section-label">Still waiting</h2>
+      <ul class="hook-list">
+        {#each report.pendingConsequences as c (c.entryId)}
+          <li class="hook">
+            <span class="hook-mark">◇</span>
+            <span class="hook-text">
+              {c.expectedEffect}
+              <span class="hook-origin">
+                from “{c.originLabel}” ·
+                {#if c.status === 'expiring'}
+                  last chance
+                {:else if c.daysAway === 0}
+                  tomorrow
+                {:else}
+                  in {c.daysAway} days
+                {/if}
+              </span>
+            </span>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
+
   <!-- ── Week / month coda (boundary days only) ──────────────────── -->
   <!-- The longer-horizon digests close the report — the day's story
        first, then the zoom-out. Read-only by design (contract §3.5);
@@ -583,6 +633,12 @@
   .hook-mark {
     color: var(--accent-soft);
     font-size: 12px;
+  }
+
+  .hook-origin {
+    display: block;
+    font-size: 0.85em;
+    color: var(--text-faint);
   }
 
   .hook-text {

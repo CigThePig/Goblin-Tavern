@@ -88,6 +88,22 @@ export type ResolvedIntentRecord = {
   outcome?: ResolvedIntentOutcome
   /** Player-readable explanation when the outcome is not `applied`. */
   note?: string
+  /**
+   * Phase 202 / audit Wave 3 (`P6-COMP-001`) — the choice AS THE PLAYER
+   * SAW IT. Every confirmation surface used to render `verb`, so "Back
+   * Mira against the Ogres" was reported back as `blame`, and four
+   * unrelated commitments all as `upgrade`. The label rides on the intent
+   * and is stored here, so the sim owns the player-facing summary and the
+   * report archive cannot re-derive it wrongly. Optional: intents built
+   * outside the card layer (tests, bots) carry no label.
+   */
+  selectionLabel?: string
+  /**
+   * The choice's target. Stored as a ref, not a label, so the report
+   * resolves the current display name through `resolveEntityLabel`
+   * rather than freezing a name that may since have changed.
+   */
+  targetRef?: { kind: string; id: string }
 }
 
 export type ResponsesModuleState = {
@@ -206,6 +222,12 @@ const ResolvedIntentRecordSchema = z.object({
   profileId: z.string(),
   verb: z.string(),
   resolvedOn: z.number().int(),
+  // Wave 1 outcome + Wave 3 player-facing wording. Listed so a zod parse
+  // does not strip them out of a loaded save.
+  outcome: z.enum(['applied', 'skipped_unaffordable']).optional(),
+  note: z.string().optional(),
+  selectionLabel: z.string().optional(),
+  targetRef: z.object({ kind: z.string(), id: z.string() }).optional(),
 })
 
 export const ResponsesModuleStateSchema = z.object({

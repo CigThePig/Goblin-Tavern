@@ -17,6 +17,7 @@
   import CardRenderer from '../cards/CardRenderer.svelte'
   import { renderCard } from '../cards/realCardRegistry'
   import { committedCoinCost, gateChoicesByCoin } from '../cards/affordability'
+  import { selectionLabelOf } from '../sim/selectionLabel'
   import { gameStore } from '../sim/gameStore.svelte'
   import type { IssueSeed } from '../cards/types'
   import type { CardChoice } from '../cards/types'
@@ -137,12 +138,13 @@
             onignore={ignore(seed)}
           />
           {#if pendingBySeedId[seed.id]}
+            <!-- Phase 202 / audit Wave 3 (`P6-COMP-001`) — repeat the
+                 player's own choice wording, not the engine verb: this
+                 rendered "Back Mira against the Ogres" as `noted: blame`.
+                 The status line answers "which choices are final". -->
             <div class="resolved-overlay chip">
-              {#if pendingBySeedId[seed.id]!.kind === 'ignore'}
-                ignored
-              {:else}
-                noted: <strong>{(pendingBySeedId[seed.id] as { verb: string }).verb}</strong>
-              {/if}
+              <strong>{selectionLabelOf(pendingBySeedId[seed.id]!)}</strong>
+              <span class="selection-status">Selected — revisable until End Day</span>
             </div>
           {/if}
         </div>
@@ -221,6 +223,12 @@
 
   .active-card {
     position: relative;
+  }
+
+  .selection-status {
+    display: block;
+    font-size: 0.85em;
+    opacity: 0.75;
   }
 
   .resolved-overlay {

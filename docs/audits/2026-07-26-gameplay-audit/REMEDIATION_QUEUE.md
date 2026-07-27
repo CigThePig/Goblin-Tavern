@@ -184,7 +184,7 @@ calculator now emits one breakdown line per policy (tagged with its id);
 the pressure VALUE is unchanged (each group is still counted once). Two
 tests that keyed on the old aggregate cause id were updated.
 
-## Wave 3 — Complete the decision lifecycle
+## Wave 3 — Complete the decision lifecycle ✅ gate passed
 
 Gate: the seven Phase 6 comprehension questions are answerable from the
 interface for one immediate response, one delayed response, one project, one
@@ -193,11 +193,48 @@ reload and historical revisit.
 
 | ID | St | Sev/Pri | Finding | Evidence |
 |---|---|---|---|---|
-| P6-COMP-001 | open | High/P1 | Confirmations replace player choice language with internal verbs | P6 §6 |
-| P6-COMP-002 | open | High/P1 | Delayed choices have no pending/applied/expired lifecycle | P6 §6 |
-| P6-COMP-003 | open | Med/P2 | Cause drilldowns expose machine metadata | P6 §6 |
-| P6-COMP-004 | open | Med/P2 | Staff priorities hide tradeoffs and results | P6 §6 |
-| P5-PLAY-002 | open | Med/P2 | Satisfaction rows omit the customer group | P5 §6 |
+| P6-COMP-001 | done | High/P1 | Confirmations replace player choice language with internal verbs | P6 §6 |
+| P6-COMP-002 | done | High/P1 | Delayed choices have no pending/applied/expired lifecycle | P6 §6 |
+| P6-COMP-003 | done | Med/P2 | Cause drilldowns expose machine metadata | P6 §6 |
+| P6-COMP-004 | done | Med/P2 | Staff priorities hide tradeoffs and results | P6 §6 |
+| P5-PLAY-002 | done | Med/P2 | Satisfaction rows omit the customer group | P5 §6 |
+
+**Closed 2026-07-27.** Plan:
+`docs/plans/phase-202-audit-wave-3-decision-lifecycle.md`. Regression:
+`tests/reports/phase202.wave3.comprehension.test.ts` (18 assertions).
+
+**Decisions taken (user):**
+
+- **`DC-02` / `P3-DC-001` — deliberate Ignore and no answer are DIFFERENT
+  facts.** An explicit Ignore is recorded as a decision ("You let it
+  stand"); an unanswered card leaves no resolved-intent record, so the
+  day's ledger distinguishes a considered pass from a card never reached.
+  No blocking Closing prompt — the audit asked for comprehension, not a new
+  gate in the day loop. **`P3-DC-001` is answered; mark it resolved.**
+- **`P6-COMP-003` — cause importance reads as a share of the change**, not
+  a raw `weight 72` on a scale the player has no reference for.
+
+Work landed:
+
+- The visible choice label rides on the intent (`selectionLabel`), is
+  stored on the `ResolvedIntentRecord` by the sim, and reaches the report
+  and the pending chips — which also now say **"Selected — revisable until
+  End Day"**, the missing answer to *which choices are final*. The engine
+  verb stays out of default copy.
+- `projectPendingConsequences` / `projectResolvedConsequences` give delayed
+  effects a real lifecycle (**pending → due → applied | expired**), each row
+  naming the choice that promised it and when it lands. The queue always
+  held `origin`, `scheduledFor` and `expiresAt`; nothing projected them.
+- Cause drilldowns translate known machine sources, resolve actor and
+  location refs to display names, and show a share of the change. An
+  unknown source falls back to a safe sentence rather than leaking a path.
+- Every staff priority carries a `benefit` and a `tradeoff` line; the sheet
+  renders both, the plan summary names who is on what focus, and the report
+  carries a directional `staffFocus` line. Deliberately directional — the
+  service model cannot attribute a fight to a priority, and the audit says
+  inventing that precision would be worse than silence.
+- `humanizePath` maps `customers.<id>.<field>`, so four groups' satisfaction
+  changes stop rendering as four identical rows.
 
 ## Wave 4 — Restore action reachability and contextual transfer
 
@@ -252,7 +289,7 @@ balance. Detail: Phase 8 §7 (Wave 7).
 | ID | St | Record | Decision needed |
 |---|---|---|---|
 | P2-OBS-001 | open | P2 §9 | Quick Day is never naturally eligible — keep it as a route (and build a supported zero-card fixture) or retire it |
-| P3-DC-001 | open | P3 §5 | Explicit Ignore and no-response share wording — are deliberate refusal and inaction the same fact? |
+| P3-DC-001 | done | P3 §5 | Explicit Ignore and no-response share wording — are deliberate refusal and inaction the same fact? **Answered in Wave 3: different facts.** |
 
 Ten broader design questions (`DC-01`…`DC-10`: long-term objective, failure
 and recovery contract, intended reactive workload, onboarding vs complete

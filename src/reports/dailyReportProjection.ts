@@ -37,6 +37,12 @@ import {
 } from './compose/sections'
 import { projectMissedOpportunities } from './missedOpportunityProjection'
 import { buildDayNarrative } from '../surface/dayNarrativeProjection'
+import { resolveEntityLabel } from './entityLabels'
+import { staffPriorityRegistry } from '../sim/registries/staffPriorityRegistry'
+import {
+  projectPendingConsequences,
+  projectResolvedConsequences,
+} from './pendingConsequenceProjection'
 import { humanizeDiff, humanizePath } from './labels/humanizePath'
 import { idLabel, humanizeId } from './labels/idLabel'
 import { actionRegistry } from '../sim/registries/actionRegistry'
@@ -55,6 +61,7 @@ import type {
   ReportResolvedIntent,
   ReportServiceLine,
   ReportDigest,
+  ReportStaffFocusLine,
 } from './types'
 
 const REPUTATION_AXIS_LABELS: Record<keyof ReputationState, string> = {
@@ -136,6 +143,14 @@ export function buildDailyReport(
   )
   const risingPressures = projectRisingPressures(result, state)
   const futureHooks = projectFutureHooks(state, closedDay)
+  // Phase 202 / audit Wave 3 (`P6-COMP-002`) — the delayed-consequence
+  // lifecycle. `futureHooks` above lists only future_hook MEMORIES created
+  // today; the response pending queue — which is where a delayed choice
+  // actually waits, with its origin and due day — went unprojected, so a
+  // promised effect vanished at selection and returned as a bare number.
+  const staffFocus = projectStaffFocus(state)
+  const pendingConsequences = projectPendingConsequences(state, closedDay)
+  const resolvedConsequences = projectResolvedConsequences(state)
   const missedOpportunities: MissedOpportunityLine[] = projectMissedOpportunities(
     result,
     state,
@@ -157,6 +172,8 @@ export function buildDailyReport(
     serviceLines.length === 0 &&
     risingPressures.length === 0 &&
     futureHooks.length === 0 &&
+    pendingConsequences.length === 0 &&
+    resolvedConsequences.length === 0 &&
     missedOpportunities.length === 0 &&
     coinDelta === 0 &&
     reputationDeltas.length === 0
@@ -184,6 +201,9 @@ export function buildDailyReport(
     surfaceNarrative,
     risingPressures,
     futureHooks,
+    staffFocus,
+    pendingConsequences,
+    resolvedConsequences,
     ...(missedOpportunities.length > 0 ? { missedOpportunities } : {}),
     ...(weeklyDigest ? { weeklyDigest } : {}),
     ...(monthlyDigest ? { monthlyDigest } : {}),
@@ -506,8 +526,50 @@ function projectResolvedIntents(state: TavernState): ReportResolvedIntent[] {
       subject: subjectsById.get(r.seedId) ?? r.seedId,
       ...(ref ? { subjectRef: ref } : {}),
       responseSlotId: r.responseSlotId,
+      // Phase 202 / audit Wave 3 (`P6-COMP-001`) — carry the player's own
+      // wording into the archive. The projection used to drop it here,
+      // which is why even a correct pending chip became `blame` in the
+      // report.
+      ...(r.selectionLabel ? { selectionLabel: r.selectionLabel } : {}),
+      ...(r.targetRef
+        ? {
+            targetLabel: resolveEntityLabel(state, {
+              kind: r.targetRef.kind as EntityRef['kind'],
+              id: r.targetRef.id,
+            }),
+          }
+        : {}),
+      ...(r.outcome ? { outcome: r.outcome } : {}),
+      ...(r.note ? { note: r.note } : {}),
     }
   })
+}
+
+/**
+ * Phase 202 / audit Wave 3 (`P6-COMP-004`) — attribute the day's work to
+ * the focus each staff member was on.
+ *
+ * Deliberately directional. The service model resolves a day in
+ * aggregate; it cannot say "Nash deterred two fights", and the audit is
+ * explicit that inventing that precision would be worse than a plain
+ * statement of what each person was working toward.
+ */
+function projectStaffFocus(state: TavernState): ReportStaffFocusLine[] {
+  const out: ReportStaffFocusLine[] = []
+  for (const member of Object.values(state.staff)) {
+    const priorityId = member.currentPriority
+    if (!priorityId) continue
+    if (!staffPriorityRegistry.has(priorityId)) continue
+    const def = staffPriorityRegistry.get(priorityId)
+    out.push({
+      staffId: member.id,
+      staffName: member.name.display,
+      priorityId,
+      priorityLabel: def.label,
+      benefit: def.benefit,
+    })
+  }
+  return out
 }
 
 // ---------- Service lines ----------

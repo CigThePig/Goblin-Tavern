@@ -66,6 +66,15 @@ export function humanizePath(path: string): string {
     return `${name} ${field}`
   }
 
+  // Phase 202 / audit Wave 3 (`P5-PLAY-002`) — customer paths used to fall
+  // through to the last segment, so four groups' satisfaction changes all
+  // rendered as "Satisfaction: 46 → 41 (−5)" and the player had to open
+  // every row to learn which audience had moved.
+  if (segments.length === 3 && segments[0] === 'customers') {
+    const name = idLabel('customerGroup', segments[1]!)
+    return `${name} ${humanizeId(segments[2]!).toLowerCase()}`
+  }
+
   if (path.startsWith('staff.')) {
     return humanizeId(segments[segments.length - 1] ?? path)
   }

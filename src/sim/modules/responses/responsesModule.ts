@@ -261,6 +261,12 @@ const applyResponsesHook: SimulationHook = (ctx: SimContext): void => {
     }
     const applier = createCtxApplier(ctx)
     applyResponseProfile(profile, origin, applier)
+    // Phase 202 / audit Wave 3 (`P6-COMP-001`) — carry the player's own
+    // wording onto the record, so the report repeats what they chose
+    // rather than the engine's intent verb.
+    const meta = intent.metadata as
+      | { selectionLabel?: unknown; targetRef?: { kind?: unknown; id?: unknown } }
+      | undefined
     recordResolvedIntent(ctx, {
       intentId: intent.id,
       seedId: seed.id,
@@ -269,6 +275,13 @@ const applyResponsesHook: SimulationHook = (ctx: SimContext): void => {
       verb: intent.verb,
       resolvedOn: today,
       outcome: 'applied',
+      ...(typeof meta?.selectionLabel === 'string'
+        ? { selectionLabel: meta.selectionLabel }
+        : {}),
+      ...(typeof meta?.targetRef?.kind === 'string' &&
+      typeof meta.targetRef.id === 'string'
+        ? { targetRef: { kind: meta.targetRef.kind, id: meta.targetRef.id } }
+        : {}),
     })
   }
 }

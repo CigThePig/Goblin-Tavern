@@ -211,7 +211,14 @@
                 <p class="summary">{row.summary}</p>
                 {#if row.tags.length > 0}
                   <div class="tags">
-                    {#each row.tags as t (t)}
+                    <!--
+                      Phase 204 / audit Wave 5 (`P2-RT-003`) — keyed on
+                      row+index. The projection deduplicates tags, so the
+                      tag string is unique in practice; keying on the
+                      index means a stray duplicate can never abort the
+                      render and take the Log down again.
+                    -->
+                    {#each row.tags as t, i (`${row.id}:${i}`)}
                       <button
                         type="button"
                         class="tag-pill"

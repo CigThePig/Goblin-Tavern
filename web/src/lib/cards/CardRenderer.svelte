@@ -2,6 +2,7 @@
   import Icon from '../components/Icon.svelte'
   import { prefsStore } from '../prefs/prefsStore.svelte'
   import type { CardView, CardChoice, CardContextLine } from './types'
+  import { idLabel } from '../../../../src/reports/labels/idLabel'
 
   let {
     card,
@@ -17,6 +18,20 @@
   // player has hidden it via Preferences. The data is always available;
   // visibility is a player preference.
   const showSeedTag = $derived(prefsStore.preferences.showSeedTags)
+
+  // Phase 204 / audit Wave 5 (`P6-COMP-007`) — the corner tag rendered
+  // `card.tag` raw, so first-contact cards were labelled `staff_arc` and
+  // `area_atmosphere`. `familyTag()` still returns the family id (sim data
+  // is unchanged); this is the render boundary naming it. The raw id is
+  // still reachable, behind the diagnostics preference.
+  const showDiagnostics = $derived(prefsStore.preferences.showDiagnostics)
+  const seedTagText = $derived(
+    card.tag === undefined
+      ? undefined
+      : showDiagnostics
+        ? card.tag
+        : idLabel('seedFamily', card.tag),
+  )
 
   const stakeIcon = (d: 'loss' | 'gain' | 'risk') =>
     d === 'loss' ? 'stake-loss' : d === 'gain' ? 'stake-gain' : 'stake-risk'
@@ -57,8 +72,8 @@
 <article class="card rise-in" aria-label={card.title}>
   <header class="head">
     <h2 class="title display">{card.title}</h2>
-    {#if card.tag && showSeedTag}
-      <span class="tag">{card.tag}</span>
+    {#if seedTagText && showSeedTag}
+      <span class="tag">{seedTagText}</span>
     {/if}
     {#if showSeal}
       <span class="seal" aria-label="High-severity">

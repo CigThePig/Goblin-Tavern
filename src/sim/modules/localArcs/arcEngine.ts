@@ -7,6 +7,7 @@ import {
   ARC_REPEAT_COOLDOWN_DAYS,
   MAX_ACTIVE_LOCAL_ARCS,
   isActiveArcStage,
+  isPresentedArcStage,
   isTerminalArcStage,
   type LocalArcCondition,
   type LocalArcDefinition,
@@ -116,6 +117,24 @@ export function listActiveArcs(state: TavernState): LocalEventWorldState[] {
   for (const event of Object.values(state.world.localEvents)) {
     if (!isArcRecord(event)) continue
     if (event.stage !== undefined && isActiveArcStage(event.stage)) arcs.push(event)
+  }
+  return arcs
+}
+
+/**
+ * Phase 204 / audit Wave 5 (`P4-SEAM-005`) — arcs the player should see
+ * as in play. Everything non-terminal, so a `seeded` arc is present from
+ * the moment it exists. Shared by the engine's report section and the
+ * monthly overview projection so the two cannot disagree again;
+ * `listActiveArcs` above keeps its narrower, cap-counting meaning.
+ */
+export function listPresentedArcs(state: TavernState): LocalEventWorldState[] {
+  const arcs: LocalEventWorldState[] = []
+  for (const event of Object.values(state.world.localEvents)) {
+    if (!isArcRecord(event)) continue
+    if (event.stage !== undefined && isPresentedArcStage(event.stage)) {
+      arcs.push(event)
+    }
   }
   return arcs
 }

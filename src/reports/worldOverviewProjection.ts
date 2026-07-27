@@ -25,6 +25,7 @@ import {
 } from '../sim/modules/attribution/attributionQueries'
 import { stockRegistry } from '../sim/registries/stockRegistry'
 import { resolveEntityLabel, resolveBareEntityId } from './entityLabels'
+import { humanizeId } from './labels/idLabel'
 import {
   pickFactionRelationNoun,
   type FactionRelationKey,
@@ -559,7 +560,9 @@ function projectMemoriesForActor(
   collected.sort((a, b) => a.ageDays - b.ageDays)
   return collected.slice(0, MEMORY_LIMIT).map((m) => ({
     id: m.id,
-    label: m.label ?? m.definitionId ?? m.id,
+    // Phase 204 / audit Wave 5 (`P6-COMP-007`) — a memory with no
+    // authored label used to surface its raw key (`ogres_dismissed`).
+    label: m.label ?? humanizeId(m.definitionId ?? m.id),
     type: m.type,
     ageDays: m.ageDays,
     strength: m.strength,

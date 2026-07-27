@@ -218,7 +218,13 @@
             >
               {queued ? 'queued · tap to remove' : 'queue start'}
               {#if avail.disabledReason && !queued}
-                <span class="r">·{avail.disabledReason}</span>
+                <!--
+                  Phase 204 / audit Wave 5 (`P6-COMP-007`) — engine
+                  rejection strings are written for the engine
+                  ("adjust_prices requires a numeric amount delta"). The
+                  row above already translated them; this one did not.
+                -->
+                <span class="r">·{humanizeActionReason(avail.disabledReason)}</span>
               {/if}
             </button>
           </li>

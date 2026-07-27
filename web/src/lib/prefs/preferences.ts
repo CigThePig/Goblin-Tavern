@@ -36,6 +36,14 @@ export type Preferences = {
   reducedMotion: ReducedMotionMode
   theme: ThemeMode
   showSeedTags: boolean
+  /**
+   * Phase 204 / audit Wave 5 (`P6-COMP-007`) — show raw simulation
+   * identifiers instead of their player labels. Off by default: the audit
+   * found `staff_arc`, `fumigate_cellar` and `cleanliness_negative` on
+   * default surfaces, and its correction direction is to keep raw ids
+   * available only behind an explicit debug preference.
+   */
+  showDiagnostics: boolean
   confirmEndDay: boolean
   showFirstEncounterHints: boolean
   seenTerms: string[]
@@ -75,6 +83,7 @@ export function getDefaultPreferences(): Preferences {
     reducedMotion: 'auto',
     theme: 'dark',
     showSeedTags: true,
+    showDiagnostics: false,
     confirmEndDay: false,
     showFirstEncounterHints: true,
     seenTerms: [],
@@ -200,6 +209,10 @@ function sanitize(raw: Record<string, unknown>): Preferences {
         ? (theme as ThemeMode)
         : defaults.theme,
     showSeedTags: typeof raw['showSeedTags'] === 'boolean' ? raw['showSeedTags'] : defaults.showSeedTags,
+    showDiagnostics:
+      typeof raw['showDiagnostics'] === 'boolean'
+        ? raw['showDiagnostics']
+        : defaults.showDiagnostics,
     confirmEndDay: typeof raw['confirmEndDay'] === 'boolean' ? raw['confirmEndDay'] : defaults.confirmEndDay,
     showFirstEncounterHints:
       typeof raw['showFirstEncounterHints'] === 'boolean'

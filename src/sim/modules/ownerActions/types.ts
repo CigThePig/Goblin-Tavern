@@ -71,6 +71,22 @@ export type OwnerActionApplied = {
   label: string
   targetId?: string
   /**
+   * Phase 204 / audit Wave 5 (`P3-BHV-003`) — the target's display name,
+   * captured from the definition's own `getValidTargets` at the moment
+   * the action ran, and immutable from then on.
+   *
+   * The report used to resolve `targetId` against post-action state,
+   * which cannot work for an action whose purpose is to remove the
+   * record: firing `Caravanmaster Willem Threepence` reported as
+   * `Hire kitchen hand 4 0`, the shape of a dead lookup. Capturing the
+   * label while the entity still exists means the name survives the
+   * removal, the day close, the next morning and a reload.
+   *
+   * Optional so pre-Wave-5 saves still parse; the report falls back to
+   * live resolution when it is absent.
+   */
+  targetLabel?: string
+  /**
    * Time this action drew from the daily budget, in MINUTES. Phase 186
    * Cluster 3 converted the action-point economy to time; Cluster 7 renamed
    * the field from `actionPointCost` to `timeCost` (pre-Cluster-7 saves

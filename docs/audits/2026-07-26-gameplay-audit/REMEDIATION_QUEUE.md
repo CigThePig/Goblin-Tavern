@@ -346,18 +346,83 @@ which otherwise let a half-hour outweigh a 4-coin cost.
 Gates re-run green: `npm test` (3 635), `npm run test:heavy` (129),
 `npm run typecheck`, `npm run check` (0/0), `npm run build`.
 
-## Wave 5 — Repair secondary surfaces and identity
+## Wave 5 — Repair secondary surfaces and identity ✅ gate passed
 
 Gate: R15 crosses every root/detail/support surface without error; entity
 names and historical labels survive removal, close, next day and reload.
 
 | ID | St | Sev/Pri | Finding | Evidence |
 |---|---|---|---|---|
-| P2-RT-002 | open | Med/P2 | Duplicate glossary ID crashes rendering | P2 §9 |
-| P2-RT-003 | open | Med/P2 | Duplicate tags crash a populated Tavern Log | P2 §9 |
-| P3-BHV-003 | open | Low/P3 | Fired staff name lost in the report heading | P3 §5 |
-| P4-SEAM-005 | open | Low/P3 | New local-arc projections disagree by one boundary | P4 §5 |
-| P6-COMP-007 | open | Low/P3 | Internal vocabulary leaks onto default surfaces | P6 §6 |
+| P2-RT-002 | done | Med/P2 | Duplicate glossary ID crashes rendering | P2 §9 |
+| P2-RT-003 | done | Med/P2 | Duplicate tags crash a populated Tavern Log | P2 §9 |
+| P3-BHV-003 | done | Low/P3 | Fired staff name lost in the report heading | P3 §5 |
+| P4-SEAM-005 | done | Low/P3 | New local-arc projections disagree by one boundary | P4 §5 |
+| P6-COMP-007 | done | Low/P3 | Internal vocabulary leaks onto default surfaces | P6 §6 |
+
+**Closed 2026-07-27.** Plan:
+`docs/plans/phase-204-audit-wave-5-secondary-surfaces-and-identity.md`.
+Regression: `tests/sim/phase204.wave5.identityAndSurfaces.test.ts` (8
+assertions) and `tests/web/phase204.wave5.vocabulary.test.ts` (10, which
+also carries the R15 gate sweep). All five reproduced first: the glossary
+held two `atmosphere` ids, seven of three days' history entries carried a
+duplicate tag, the fired staffer's label was absent from the applied
+record, and no shared arc predicate existed.
+
+Where Wave 4's findings were a payload losing a field, Wave 5's are
+**surfaces asserting things the data does not guarantee** — so each fix
+makes the guarantee real at the source rather than defending at the leaf.
+
+Work landed:
+
+- **Unique keys, guaranteed rather than assumed.** The tavern-wide
+  atmosphere term becomes `tavern_atmosphere` (the two concepts are
+  genuinely different, and `TavernIdentityStrip` was already linking to
+  the wrong definition before the duplicate crashed anything).
+  `ctx.addHistory` deduplicates tags on write, `buildTavernLog`
+  deduplicates on projection so pre-Wave-5 saves render, and both `each`
+  blocks key on something unique by construction.
+- **Removal actions keep the name they acted on.** `applyOwnerActionsHook`
+  captures the target's label from the definition's own `getValidTargets`
+  *before* `apply` runs and stores it on `OwnerActionApplied.targetLabel`
+  — the same label the picker showed, captured while the entity still
+  exists. Answers the finding's open question with **yes, and for every
+  action**: one lookup closes the class rather than the instance.
+- **One age, one presence for a local arc.** `isPresentedArcStage` /
+  `listPresentedArcs` answer "is this arc in play" for both player
+  surfaces; `listActiveArcs` keeps its narrower cap-counting meaning, so
+  arc seeding behaviour is untouched. The monthly overview reads the
+  `ageDays` the sim stores instead of re-deriving it from the calendar.
+- **One vocabulary layer.** `idLabel` gains `seedFamily` and
+  `mechanicalTag` categories; `humanizeActionReason` moved to
+  `src/reports/labels/actionReason.ts` so the *projection* emits
+  player-ready rejection text rather than each component remembering the
+  call. Memory labels, atmosphere tags and project-starter target labels
+  humanize; the staff-priority hint stopped describing the engine. A new
+  **`showDiagnostics`** preference (default off) is where raw ids live now.
+
+**Decision taken:** `P6-COMP-007` offered "hide seed-family tags by default
+OR map them to deliberate player labels" — **mapped.** The card corner
+shows what the card is about ("Your people", "The rooms"); `familyTag()`
+still returns `seed.family`, so sim data and card-composition conditions
+are untouched and only the render boundary changed.
+
+**Two things found while fixing, not in the audit:** the project-starter
+actions returned the area *id* as their target label (which Wave 4 had
+just made the source of the immutable applied-action label, so it would
+have propagated into the report), and `AvailableProjectRow.disabledReason`
+was the one Tavern row that rendered an engine rejection string verbatim.
+Both are fixed and covered by the vocabulary scan.
+
+**Worth knowing:** the now-shared arc `ageDays` advances on the monthly
+tick, not daily, so a seeded arc reads `0d` for the rest of its creating
+month. That is the arc engine's own design ("existing arcs age by 28 days"
+per tick) and it is now coarse *consistently*; the alternative on offer
+was the projection's private daily count, which is what disagreed with
+everything else. A finer age belongs in the engine, where both surfaces
+would pick it up for free.
+
+Gates re-run green: `npm test` (3 653), `npm run test:heavy` (129),
+`npm run typecheck`, `npm run check` (0/0), `npm run build`.
 
 ## Wave 6 — Tune issue relevance and attention load
 

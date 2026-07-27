@@ -14,6 +14,7 @@ import {
   getReputationTier,
 } from '../sim/modules/monthly/monthlyModule'
 import { REPUTATION_AXIS_IDS } from '../sim/modules/monthly/types'
+import { listPresentedArcs } from '../sim/modules/localArcs/arcEngine'
 import type {
   LocalArcStageId,
   LocalEventWorldState,
@@ -404,8 +405,11 @@ function projectPressures(state: TavernState): MonthlyOverviewPressures {
 }
 
 function projectActiveArcs(state: TavernState): MonthlyOverviewArc[] {
-  const events = Object.values(state.world.localEvents)
-  const active = events.filter((event) => isActiveArc(event))
+  // Phase 204 / audit Wave 5 (`P4-SEAM-005`) — this inlined its own
+  // "not resolved and not failed" test while the engine's report section
+  // used the narrower cap-counting predicate, so the two disagreed about
+  // whether a just-seeded arc existed. One shared predicate now.
+  const active = [...listPresentedArcs(state)]
   // Most-recently-updated arcs first; fall back to startedDay desc.
   active.sort((a, b) => {
     const aLast = a.lastUpdatedDay ?? a.startedDay
@@ -417,18 +421,20 @@ function projectActiveArcs(state: TavernState): MonthlyOverviewArc[] {
   return active.map((event) => projectArc(event, state))
 }
 
-function isActiveArc(event: LocalEventWorldState): boolean {
-  if (!event.stage) return false
-  return event.stage !== 'resolved' && event.stage !== 'failed'
-}
-
 function projectArc(
   event: LocalEventWorldState,
   state: TavernState,
 ): MonthlyOverviewArc {
+  // Phase 204 / audit Wave 5 (`P4-SEAM-005`) — read the age the SIM
+  // stores. Re-deriving it from the calendar read one day higher the
+  // moment the calendar advanced past the creating day, so at month close
+  // a brand-new arc was reported as a day old. The sim is the source of
+  // truth; a projection that recomputes a fact the sim already owns is how
+  // the two come to disagree. `startedDay` remains the fallback for legacy
+  // records written before `ageDays` existed.
   const ageDays = Math.max(
     0,
-    state.calendar.totalDaysElapsed - event.startedDay,
+    event.ageDays ?? state.calendar.totalDaysElapsed - event.startedDay,
   )
   const relatedFactionLabels = event.relatedFactionIds.map(
     (id) => state.world.factions[id]?.label ?? id,
@@ -445,7 +451,7 @@ function projectArc(
   return {
     id: event.id,
     label: event.label,
-    // Filtered by `isActiveArc` — `stage` is guaranteed defined here.
+    // Filtered by `listPresentedArcs` — `stage` is guaranteed defined here.
     stage: event.stage as LocalArcStageId,
     intensity: event.intensity,
     startedDay: event.startedDay,

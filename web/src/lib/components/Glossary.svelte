@@ -73,7 +73,14 @@
         <section class="bucket" aria-label={GLOSSARY_CATEGORY_LABELS[category]}>
           <h3 class="bucket-label section-label">{GLOSSARY_CATEGORY_LABELS[category]}</h3>
           <ul class="terms">
-            {#each filteredByCategory[category] as term (term.id)}
+            <!--
+              Phase 204 / audit Wave 5 (`P2-RT-002`) — keyed on
+              category+index, which is unique by construction. A duplicate
+              term id used to abort this render and take the whole
+              glossary with it; now the worst a collision can do is show
+              the same term twice.
+            -->
+            {#each filteredByCategory[category] as term, i (`${category}:${i}`)}
               <li
                 id={`glossary-term-${term.id}`}
                 class="term"

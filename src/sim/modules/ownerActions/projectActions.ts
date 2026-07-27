@@ -187,10 +187,17 @@ function buildStartProjectDefinition(
       : {}),
     targetType: 'area',
     timeCost: TIME_COST_STANDARD,
-    getValidTargets: () => [
+    // Phase 204 / audit Wave 5 (`P6-COMP-007`) — the label was the id, so
+    // the project starter row and the picker's target list both offered
+    // the player `main_room`. Every other definition returns a real
+    // label; this one is now no exception. Wave 4 also made this the
+    // source of the immutable applied-action label, so a raw id here
+    // would have propagated into the report.
+    getValidTargets: (ctx: SimContext) => [
       {
         id: starter.targetAreaId,
-        label: starter.targetAreaId,
+        label:
+          ctx.state.areas[starter.targetAreaId]?.label ?? starter.targetAreaId,
         hint: `requires ${starter.initialCoinCost} coin`,
       },
     ],

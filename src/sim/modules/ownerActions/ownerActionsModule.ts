@@ -11,6 +11,7 @@ import {
 } from '../../registries/actionRegistry'
 
 import { describeTargetLabel } from './actionDefinitions'
+import { listValidTargets } from './readonlyHelpers'
 import {
   DAY_MINUTES,
   OWNER_ACTIONS_MODULE_ID,
@@ -153,8 +154,36 @@ const applyOwnerActionsHook: SimulationHook = (ctx: SimContext): void => {
       })
       continue
     }
+    // Phase 204 / audit Wave 5 (`P3-BHV-003`) — resolve the target's
+    // display name BEFORE applying. `fire_staff` removes the record it
+    // targets, so any label resolved afterwards is a dead lookup; the
+    // report showed `humanizeId(targetId)` where the person's name
+    // belonged. This is the same label the picker showed the player (both
+    // read `getValidTargets`), captured while the entity still exists.
+    // Done for every action, not just removals: it costs one lookup and
+    // closes the whole class rather than the one case the audit found.
+    const targetLabel =
+      input.targetId !== undefined
+        ? listValidTargets(def, ctx.state).find((t) => t.id === input.targetId)
+            ?.label
+        : undefined
+
     const result = def.apply(ctx, input)
-    applied.push(result)
+    // Rebuilt in the schema's key order rather than spread-and-append.
+    // `readable` diff lines JSON.stringify this record, and a zod parse on
+    // reload rebuilds it in schema order — so appending `targetLabel` last
+    // made the same state serialize two different ways depending on
+    // whether it had round-tripped through a save.
+    const label = result.targetLabel ?? targetLabel
+    applied.push({
+      actionId: result.actionId,
+      label: result.label,
+      ...(result.targetId !== undefined ? { targetId: result.targetId } : {}),
+      ...(label !== undefined ? { targetLabel: label } : {}),
+      timeCost: result.timeCost,
+      effects: result.effects,
+      data: result.data,
+    })
     timeSpent += result.timeCost
   }
 
@@ -352,6 +381,9 @@ const OwnerActionAppliedSchema = z.object({
   actionId: z.string(),
   label: z.string(),
   targetId: z.string().optional(),
+  // Phase 204 / audit Wave 5 (`P3-BHV-003`) — optional so pre-Wave-5
+  // saves still parse.
+  targetLabel: z.string().optional(),
   timeCost: z.number().int().min(0),
   effects: z.array(z.string()),
   data: z.record(z.string(), z.unknown()),

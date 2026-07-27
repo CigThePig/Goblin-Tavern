@@ -179,3 +179,21 @@ export function isActiveArcStage(stage: LocalArcStage): boolean {
 export function isTerminalArcStage(stage: LocalArcStage): boolean {
   return stage === 'resolved' || stage === 'failed'
 }
+
+/**
+ * Phase 204 / audit Wave 5 (`P4-SEAM-005`) — is this arc IN PLAY, as the
+ * player would judge it?
+ *
+ * Distinct from `isActiveArcStage`, which answers a mechanical question:
+ * does this arc count against `MAX_ACTIVE_LOCAL_ARCS` and block another
+ * of its definition from seeding. `seeded` deliberately does not, and
+ * that must not change.
+ *
+ * The two player-facing surfaces wanted this question and each guessed a
+ * different answer: the Local Arcs report section used the mechanical
+ * predicate and reported a just-created arc as `(none)`, while the
+ * monthly overview inlined "not resolved and not failed" and listed it.
+ */
+export function isPresentedArcStage(stage: LocalArcStage): boolean {
+  return !isTerminalArcStage(stage)
+}

@@ -36,7 +36,18 @@ function tavernRef(state: TavernState): EntityRef {
 
 function recentCauses(state: TavernState, days: number): CauseEntry[] {
   const cutoff = state.calendar.totalDaysElapsed - days
-  return state.causes.filter((c) => c.timestamp.absoluteDay >= cutoff)
+  // Phase 206 / audit Wave 7 — the attribution module's own propagated
+  // causes are excluded HERE, centrally, so no rule can ever eat them.
+  // `propagateToCauses` tags everything it emits with 'attribution', and
+  // a rule that matched one (the service-blame rule matches any
+  // 'service'-tagged cause with a staff actor) turned belief into
+  // evidence for more belief: each propagated cause spawned a draft per
+  // customer group, each refresh re-propagated, and the pass went
+  // geometric within a week. Beliefs must be built from simulation
+  // events, never from the belief layer's own output.
+  return state.causes.filter(
+    (c) => c.timestamp.absoluteDay >= cutoff && !c.tags.includes('attribution'),
+  )
 }
 
 function recentMemories(state: TavernState, days: number): MemoryState[] {

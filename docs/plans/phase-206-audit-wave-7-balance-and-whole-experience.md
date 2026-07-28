@@ -11,8 +11,17 @@ thing most likely to be wrong is not the simulation but the instrument, so
 this phase begins with the instrument and does not begin the verdict until
 the instrument is calibrated against evidence that already exists.
 
-**Status: the framework is built and calibrated. The balance pass itself
-has not started, and cannot start until §5's decisions are taken.**
+**Status: CLOSED 2026-07-28.** The framework landed first (PR #242); the
+balance pass followed in the same wave — §5's decisions were taken (the
+user delegated them; recorded in the queue's Wave 7 section with anchors),
+the ten Codex review findings on the instrument were fixed before any
+number was trusted, five evidence-backed tuning changes landed
+(recurrence cap, rumour decay, attribution narrative merge, Segment-A
+snapshot sync, visible-turn rotation), and the 360-cell sweep's verdict,
+residual gaps, and the Day-29+ route evidence are recorded in
+`REMEDIATION_QUEUE.md` under Wave 7. This document remains as the
+framework's design record; §§5–7 below describe the state *before* the
+pass ran.
 
 ---
 

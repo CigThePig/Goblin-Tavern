@@ -34,9 +34,17 @@ import {
   balanceMatrixSize,
   checkDifficultyMonotonicity,
   compareVariants,
+  metricSpreadOf,
   runBalanceMatrix,
+  type BalanceCellAggregate,
+  type BalanceMetricKey,
+  type MetricSpread,
 } from '../../src/sim/testing/balanceMatrix'
-import { PHASE_20_POLICY_BOTS } from '../../src/sim/testing/policyBots'
+import { scoreBalanceSlice } from '../../src/sim/testing/balanceScoring'
+import {
+  PHASE_20_POLICY_BOTS,
+  type PolicyBotId,
+} from '../../src/sim/testing/policyBots'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import { FULL_DAY_CARD_CEILING } from '../../src/sim/modules/issues/handBudget'
 
@@ -127,15 +135,20 @@ describe('Wave 7 harness — the levers it claims to control', () => {
   })
 })
 
-describe('Wave 7 harness — agreement with the Wave 6 DC-06 gate', () => {
-  // `docs/audits/2026-07-26-gameplay-audit/REMEDIATION_QUEUE.md`, Wave 6
-  // gate evidence: the audit's own passive 28-day route on
-  // `phase7-integrated-shared` measured 3.46 cards/day, peaking at 5.
+describe('Wave 7 harness — agreement with the published calibration route', () => {
+  // The harness's calibration point: the audit's own passive 28-day
+  // route on `phase7-integrated-shared`. It reads the SAME
+  // `surfacedToday` ledger the Wave 6 ceiling gate reads, so a change to
+  // what counts as "exposed" fails here rather than silently re-scaling
+  // every Wave 7 decision-load number.
   //
-  // This is the harness's calibration point. It reads the SAME
-  // `surfacedToday` ledger the ceiling gate reads, so a change to what
-  // counts as "exposed" fails here rather than silently re-scaling every
-  // Wave 7 decision-load number.
+  // Wave 7's tuning pass moved the card-load figures on this route and
+  // re-pinned them here, with the movement recorded in the queue's Wave 7
+  // section: rumour decay and the attribution narrative merge changed
+  // which seeds fire on the passive route, so 3.46 cards/day (Wave 6
+  // gate) became 3.36. The ECONOMY figures did not move — Wave 7 tuned no
+  // economic lever, and 1,043 coin / 828 patrons matching Phase 7 §5.1
+  // exactly is the proof.
   let audit: BalanceRunMetrics
 
   beforeAll(() => {
@@ -150,31 +163,35 @@ describe('Wave 7 harness — agreement with the Wave 6 DC-06 gate', () => {
   })
 
   it('reproduces the published card load exactly', () => {
-    expect(audit.meanCardsPerDay).toBe(3.46)
+    // Wave 6 gate: 3.46 · 5. Post-Wave-7 tuning: 3.36 · 5.
+    expect(audit.meanCardsPerDay).toBe(3.36)
     expect(audit.maxCardsPerDay).toBe(5)
     expect(audit.maxCardsPerDay).toBeLessThanOrEqual(FULL_DAY_CARD_CEILING)
   })
 
   it('reproduces the published run outcome exactly', () => {
     // Phase 7 §5.1, no-action row: 1,043 coin and 828 patrons over 28
-    // standard days. Unchanged since the audit, so the harness is driving
-    // the same route the audit drove.
+    // standard days. Unchanged through the Wave 7 tuning, so the harness
+    // is driving the same route the audit drove and no economic lever
+    // moved.
     expect(audit.finalCoin).toBe(1043)
     expect(audit.totalPatrons).toBe(828)
   })
 
   it('prices choices as an upper bound on the real render', () => {
-    // Wave 6 measured 15.68 choices/day and 439 over 28 days with the real
-    // card renderer. The sim-side `renderedChoiceCost` is deliberately an
-    // upper bound, so the harness's default must sit at or above that and
-    // must never be quoted against the 24-button ceiling without
-    // `--render`.
-    expect(audit.meanChoicesPerDay).toBeGreaterThanOrEqual(15.68)
-    expect(audit.totalChoicesRendered).toBeGreaterThanOrEqual(439)
+    // The sim-side `renderedChoiceCost` is deliberately an upper bound on
+    // the real card render (Wave 6 measured the render at 15.68/day —
+    // never quote a default-priced figure against the 24-button `DC-06`
+    // ceiling; that comparison needs `--render`). Post-Wave-7 tuning the
+    // upper bound reads 15.71/day, 440 over 28 days.
+    expect(audit.meanChoicesPerDay).toBe(15.71)
+    expect(audit.totalChoicesRendered).toBe(440)
   })
 
   it('reproduces the published family-streak figure', () => {
-    // Wave 6 cut the passive route's longest streaks to 3/2/3/2.
+    // Wave 6 cut the passive route's longest streaks to 3/2/3/2, and the
+    // Wave 7 exemption cap does not touch the passive route (nothing is
+    // answered, so the exemption is never reached).
     expect(audit.longestFamilyStreak).toBeLessThanOrEqual(3)
   })
 })
@@ -301,4 +318,240 @@ describe('Wave 7 matrix — shape and analysis', () => {
       checkDifficultyMonotonicity(aggregateBalanceCells(matrix.rows)),
     ).toEqual([])
   })
+})
+
+// ----------------------------------------------------------------------
+// Codex review of PR #242 — the instrument fixes, pinned.
+// ----------------------------------------------------------------------
+
+describe('Wave 7 analysis — Codex review fixes', () => {
+  // Build a synthetic slice: every metric identical across strategies
+  // except the ones a test overrides, so leads come only from the
+  // overridden axes.
+  const makeCell = (
+    botId: PolicyBotId,
+    overrides: Partial<Record<BalanceMetricKey, number[]>>,
+    seeds: string[] = ['s1', 's2'],
+  ): BalanceCellAggregate => {
+    const metrics = {} as Record<BalanceMetricKey, MetricSpread>
+    for (const metric of Object.keys(METRIC_DIRECTION) as BalanceMetricKey[]) {
+      metrics[metric] = metricSpreadOf(
+        metric,
+        overrides[metric] ?? seeds.map(() => 50),
+      )
+    }
+    return {
+      botId,
+      botLabel: botId,
+      difficulty: 'standard',
+      variant: 'full',
+      seeds,
+      metrics,
+      identityKeys: [`${botId}-identity`],
+      dominantCustomerGroups: ['local_goblins'],
+      trustworthy: true,
+      untrustworthyReason: undefined,
+    }
+  }
+
+  it('a shared environmental shift across seeds is not noise', () => {
+    // Seed s2 is better for everyone by ~100 — a common shift. The
+    // strategy gap is a consistent 20 on every seed, so the metric is
+    // rankable even though the absolute spread (100) dwarfs the gap.
+    const cells = [
+      makeCell('auto_clean_focused', { finalCoin: [100, 200] }),
+      makeCell('auto_profit_focused', { finalCoin: [120, 220] }),
+    ]
+    const analysis = analyzeBalanceSlice(cells, 'standard', 'full')
+    expect(analysis.noisyMetrics).not.toContain('finalCoin')
+    expect(
+      analysis.leadership.find((row) => row.botId === 'auto_profit_focused')
+        ?.leadsOn,
+    ).toContain('finalCoin')
+  })
+
+  it('a seed-unstable ranking is noise and hands out no leadership', () => {
+    // The leader flips between seeds: clean wins s1, profit wins s2.
+    const cells = [
+      makeCell('auto_clean_focused', { finalCoin: [200, 100] }),
+      makeCell('auto_profit_focused', { finalCoin: [100, 210] }),
+    ]
+    const analysis = analyzeBalanceSlice(cells, 'standard', 'full')
+    expect(analysis.noisyMetrics).toContain('finalCoin')
+    for (const row of analysis.leadership) {
+      expect(row.leadsOn).not.toContain('finalCoin')
+      expect(row.trailsOn).not.toContain('finalCoin')
+    }
+  })
+
+  it('a balanced compromise that leads nowhere is not dead', () => {
+    // profit wins coin, clean wins satisfaction, merchant is second on
+    // both — Pareto-nondominated, optimal under a mixed objective, and
+    // the pre-fix "leads on nothing = dead" rule would have killed it.
+    const cells = [
+      makeCell('auto_profit_focused', {
+        finalCoin: [300, 300],
+        meanSatisfaction: [10, 10],
+      }),
+      makeCell('auto_clean_focused', {
+        finalCoin: [100, 100],
+        meanSatisfaction: [60, 60],
+      }),
+      makeCell('auto_merchant_focused', {
+        finalCoin: [200, 200],
+        meanSatisfaction: [40, 40],
+      }),
+    ]
+    const analysis = analyzeBalanceSlice(cells, 'standard', 'full')
+    expect(analysis.deadStrategies).not.toContain('auto_merchant_focused')
+    expect(analysis.allStrategiesTied).toBe(false)
+  })
+
+  it('a strictly worse strategy is dead, and shared bests are not a tie', () => {
+    // ignore_repairs is beaten by both others everywhere it differs and
+    // better nowhere — Pareto-dominated. clean and profit tie on coin at
+    // the top (a shared best), which must NOT read as "all strategies
+    // tied" — and a tie on one axis with a real trade-off on another
+    // (profit trails satisfaction but is not beaten on coin) is not
+    // domination either.
+    const cells = [
+      makeCell('auto_clean_focused', {
+        finalCoin: [300, 300],
+        meanSatisfaction: [60, 60],
+      }),
+      makeCell('auto_profit_focused', {
+        finalCoin: [300, 300],
+        meanSatisfaction: [40, 40],
+        meanMorale: [70, 70],
+      }),
+      makeCell('auto_ignore_repairs', {
+        finalCoin: [100, 100],
+        meanSatisfaction: [20, 20],
+      }),
+    ]
+    const analysis = analyzeBalanceSlice(cells, 'standard', 'full')
+    expect(analysis.allStrategiesTied).toBe(false)
+    expect(analysis.deadStrategies).toContain('auto_ignore_repairs')
+    expect(analysis.deadStrategies).not.toContain('auto_profit_focused')
+  })
+
+  it('untrustworthy cells are excluded from agency and difficulty checks', () => {
+    const broken: BalanceCellAggregate = {
+      ...makeCell('auto_clean_focused', { finalCoin: [999, 999] }),
+      variant: 'no_action',
+      trustworthy: false,
+      untrustworthyReason: 'synthetic failure',
+    }
+    const compared = makeCell('auto_clean_focused', { finalCoin: [100, 100] })
+    expect(compareVariants([broken, compared], 'no_action', 'full')).toEqual([])
+
+    const easy = { ...makeCell('auto_clean_focused', {}), difficulty: 'easy' as const }
+    const standard = makeCell('auto_clean_focused', {})
+    const hard = {
+      ...makeCell('auto_clean_focused', {}),
+      difficulty: 'hard' as const,
+      trustworthy: false,
+      untrustworthyReason: 'synthetic failure',
+    }
+    expect(checkDifficultyMonotonicity([easy, standard, hard])).toEqual([])
+  })
+
+  it('labels each observation with the day it simulated, not the next', () => {
+    const run = runBalanceScenario({
+      botId: BOT,
+      days: 2,
+      seed: 'phase206-daytype',
+      difficulty: 'standard',
+    })
+    // The initial calendar opens on a supplier day; pre-fix the first
+    // observation read the day-2 type because Segment C had already
+    // advanced the calendar.
+    expect(run.days[0]?.dayType).toBe('supplier_day')
+  })
+})
+
+describe('Wave 7 scoring layer — DC-03 identity through viability', () => {
+  it('scores a healthy slice balanced and a dominated intended strategy as a problem', () => {
+    const healthy = [
+      cellWithOutcomes('auto_clean_focused', 300, 60),
+      cellWithOutcomes('auto_profit_focused', 900, 20),
+    ]
+    const verdict = scoreBalanceSlice(healthy, 'standard', 'full')
+    expect(verdict.balanced).toBe(true)
+    expect(verdict.scores.every((score) => score.viable)).toBe(true)
+
+    // merchant_focused strictly worse than clean on both axes → dominated,
+    // and NOT a foil → a balance problem.
+    const withDominated = [
+      ...healthy,
+      cellWithOutcomes('auto_merchant_focused', 200, 40),
+    ]
+    const worse = scoreBalanceSlice(withDominated, 'standard', 'full')
+    expect(worse.balanced).toBe(false)
+    expect(
+      worse.problems.some((problem) =>
+        problem.includes('auto_merchant_focused'),
+      ),
+    ).toBe(true)
+
+    // The same domination on a listed foil is expected and not a problem.
+    const withFoil = [
+      ...healthy,
+      cellWithOutcomes('auto_ignore_repairs', 200, 40),
+    ]
+    expect(scoreBalanceSlice(withFoil, 'standard', 'full').balanced).toBe(true)
+  })
+
+  it('fails viability on the DC-04 floors', () => {
+    const cells = [
+      cellWithOutcomes('auto_clean_focused', 300, 60),
+      cellWithOutcomes('auto_profit_focused', 900, 20, {
+        endingRentArrears: [120, 120],
+        totalPatrons: [200, 200],
+      }),
+    ]
+    const verdict = scoreBalanceSlice(cells, 'standard', 'full')
+    expect(verdict.balanced).toBe(false)
+    const profit = verdict.scores.find(
+      (score) => score.botId === 'auto_profit_focused',
+    )
+    expect(profit?.viable).toBe(false)
+    expect(profit?.viabilityFailures.length).toBeGreaterThan(0)
+  })
+
+  function cellWithOutcomes(
+    botId: PolicyBotId,
+    coin: number,
+    satisfaction: number,
+    overrides: Partial<Record<BalanceMetricKey, number[]>> = {},
+  ): BalanceCellAggregate {
+    const metrics = {} as Record<BalanceMetricKey, MetricSpread>
+    for (const metric of Object.keys(METRIC_DIRECTION) as BalanceMetricKey[]) {
+      const defaults: number[] =
+        metric === 'finalCoin'
+          ? [coin, coin]
+          : metric === 'meanSatisfaction'
+            ? [satisfaction, satisfaction]
+            : metric === 'totalPatrons'
+              ? [800, 800]
+              : metric === 'meanMorale'
+                ? [60, 60]
+                : metric === 'endingRentArrears'
+                  ? [0, 0]
+                  : [50, 50]
+      metrics[metric] = metricSpreadOf(metric, overrides[metric] ?? defaults)
+    }
+    return {
+      botId,
+      botLabel: botId,
+      difficulty: 'standard',
+      variant: 'full',
+      seeds: ['s1', 's2'],
+      metrics,
+      identityKeys: [`${botId}-identity`],
+      dominantCustomerGroups: ['local_goblins'],
+      trustworthy: true,
+      untrustworthyReason: undefined,
+    }
+  }
 })

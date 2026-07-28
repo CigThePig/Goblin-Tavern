@@ -25,6 +25,7 @@ import {
   type BalanceVariantId,
 } from '../src/sim/testing/balanceMatrix'
 import { getPolicyBot, type PolicyBotId } from '../src/sim/testing/policyBots'
+import { scoreBalance } from '../src/sim/testing/balanceScoring'
 import { pickCard } from '../src/cards/registry'
 
 // Phase 206 / gameplay-audit Wave 7 — the balance matrix driver.
@@ -134,6 +135,17 @@ function parseOptions(argv: string[]): Options {
   const workerShard = flag(argv, 'worker-shard')
   const workerTotal = flag(argv, 'worker-total')
 
+  // Codex review of PR #242 — a fractional concurrency used to truncate
+  // the worker count while sharding by the untruncated value, silently
+  // dropping every cell assigned to the phantom shard. Malformed input
+  // fails loudly instead of producing a partial matrix that looks whole.
+  const concurrencyRaw = Number(flag(argv, 'concurrency') ?? 1)
+  if (!Number.isInteger(concurrencyRaw) || concurrencyRaw < 1) {
+    throw new Error(
+      `--concurrency must be a positive integer, got "${flag(argv, 'concurrency')}".`,
+    )
+  }
+
   return {
     days: Number(flag(argv, 'days') ?? 28),
     seeds:
@@ -143,7 +155,7 @@ function parseOptions(argv: string[]): Options {
     difficulties,
     variants,
     bots,
-    concurrency: Math.max(1, Number(flag(argv, 'concurrency') ?? 1)),
+    concurrency: concurrencyRaw,
     render: flag(argv, 'render') !== undefined,
     format,
     out: flag(argv, 'out') || undefined,
@@ -383,6 +395,23 @@ function renderMarkdown(
   )
   out.push('')
 
+  // The DC-03 verdict — identity through viability. Rendered first so
+  // the report leads with the answer; the per-slice tables below are its
+  // evidence.
+  const verdict = scoreBalance(cells)
+  out.push('## Verdict — DC-03: identity through viability')
+  out.push('')
+  if (verdict.balanced) {
+    out.push(
+      '**Balanced.** Every intended strategy is viable under the DC-04 floors, none is dominant, none is Pareto-dominated (foils excepted), and the strategy set expresses distinct identities.',
+    )
+  } else {
+    out.push(`**Not balanced.** ${verdict.problems.length} problem(s):`)
+    out.push('')
+    for (const problem of verdict.problems) out.push(`- ${problem}`)
+  }
+  out.push('')
+
   const broken = cells.filter((cell) => !cell.trustworthy)
   out.push('## Trust')
   out.push('')
@@ -455,8 +484,17 @@ function renderMarkdown(
       out.push('')
 
       const analysis = analyzeBalanceSlice(cells, difficulty, variant)
+      // Noise is stated BEFORE any ranking is rendered — a reader must
+      // never meet a leadership claim earlier than the warning that a
+      // metric was excluded from it (Codex review of PR #242).
+      if (analysis.noisyMetrics.length > 0) {
+        out.push(
+          `- **Seed-unstable metrics excluded from every ranking below: ${analysis.noisyMetrics.join(', ')}** — the best-vs-worst comparison flips on at least one seed; add seeds before ranking on these.`,
+        )
+        out.push('')
+      }
       out.push('**Leadership** (seed median; a strategy leading on every')
-      out.push('outcome axis would be a balance failure under any objective):')
+      out.push('rankable outcome axis would be a balance failure under any objective):')
       out.push('')
       out.push(
         table(
@@ -478,7 +516,7 @@ function renderMarkdown(
           `- Dominant strategy: **${analysis.dominantStrategy ?? 'none'}**`,
         )
         out.push(
-          `- Strategies leading on nothing: ${analysis.deadStrategies.join(', ') || 'none'}`,
+          `- Pareto-dominated strategies (some other strategy is at least as good on every rankable axis and better on one): ${analysis.deadStrategies.join(', ') || 'none'}`,
         )
       }
       out.push(
@@ -487,11 +525,6 @@ function renderMarkdown(
       out.push(
         `- Distinct dominant customer groups: ${analysis.distinctDominantCustomerGroups.join(', ') || '—'}`,
       )
-      if (analysis.noisyMetrics.length > 0) {
-        out.push(
-          `- **Seed noise exceeds the strategy gap on: ${analysis.noisyMetrics.join(', ')}** — do not rank on these without more seeds.`,
-        )
-      }
       out.push('')
     }
   }
@@ -572,6 +605,15 @@ function renderMarkdown(
 
 type BaselineFile = {
   generatedAt?: string
+  /** Codex review of PR #242 — the measurement mode and run shape are
+   *  recorded so a `--render` run can never be silently diffed against an
+   *  upper-bound-priced baseline (the script's own rule: never mix the
+   *  two pricings in one comparison). Baselines written before this field
+   *  existed produce a warning instead of a hard failure. */
+  spec?: {
+    days: number
+    render: boolean
+  }
   rows: BalanceRunMetrics[]
 }
 
@@ -592,10 +634,33 @@ const DIFF_METRICS: ReadonlyArray<BalanceMetricKey> = [
 function renderBaselineDiff(
   rows: BalanceRunMetrics[],
   baselinePath: string,
+  options: Options,
 ): string {
   const baseline = JSON.parse(
     readFileSync(baselinePath, 'utf8'),
   ) as BaselineFile
+  const modeWarnings: string[] = []
+  if (baseline.spec) {
+    if (baseline.spec.render !== options.render) {
+      throw new Error(
+        `Baseline ${baselinePath} was measured with ` +
+          `${baseline.spec.render ? '--render' : 'the upper-bound estimator'} ` +
+          `but this run uses ${options.render ? '--render' : 'the upper-bound estimator'}. ` +
+          'Never mix the two pricings in one comparison.',
+      )
+    }
+    if (baseline.spec.days !== options.days) {
+      throw new Error(
+        `Baseline ${baselinePath} ran ${baseline.spec.days} days but this run ` +
+          `uses ${options.days} — the rows are not comparable.`,
+      )
+    }
+  } else {
+    modeWarnings.push(
+      '**Baseline predates the recorded measurement mode** — confirm by hand ' +
+        'that it was generated with the same pricing (`--render`) and day count.',
+    )
+  }
   const byCell = new Map(baseline.rows.map((row) => [row.cellId, row]))
 
   const changed: string[][] = []
@@ -626,6 +691,10 @@ function renderBaselineDiff(
   out.push('')
   out.push(`Baseline: \`${baselinePath}\`${baseline.generatedAt ? ` (generated ${baseline.generatedAt})` : ''}`)
   out.push('')
+  for (const warning of modeWarnings) {
+    out.push(warning)
+    out.push('')
+  }
   if (missing > 0) {
     out.push(`${missing} cell(s) in this run have no baseline row.`)
     out.push('')
@@ -692,7 +761,13 @@ async function main(): Promise<void> {
 
   let output: string
   if (options.format === 'json') {
-    const payload = { generatedAt: new Date().toISOString(), rows }
+    const payload = {
+      generatedAt: new Date().toISOString(),
+      // Codex review of PR #242 — record the measurement mode so a future
+      // diff can refuse a baseline priced differently.
+      spec: { days: options.days, render: options.render },
+      rows,
+    }
     // Committed baselines are machine-read and diffed by this script, not
     // by eye, so `--compact` keeps them to a third of the pretty-printed
     // size in the repository.
@@ -702,7 +777,7 @@ async function main(): Promise<void> {
   } else {
     output = renderMarkdown(rows, options)
     if (options.baseline) {
-      output += `\n\n${renderBaselineDiff(rows, options.baseline)}\n`
+      output += `\n\n${renderBaselineDiff(rows, options.baseline, options)}\n`
     }
   }
 

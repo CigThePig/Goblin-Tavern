@@ -11,9 +11,19 @@ import {
 import { getAttributions, totalMemoryStrengthByTags } from './expandedHelpers'
 
 // Phase 38 §38.11 — Rumour pressure.
+//
+// Phase 206 / audit Wave 7 — recalibrated against the post-decay rumour
+// regime. The original 0.3/0.2 slopes were set when nothing decayed
+// rumour strength, so any sustained run pinned the meter at 100 (all 360
+// balance-sweep cells peaked AND ended there — a meter with no signal).
+// With `RUMOUR_DAILY_RETENTION` the live total now settles around
+// 250–400 strength between weekly community passes; at 0.15/0.1 that
+// reads mid-band (~50–75) on a neglected tavern, spikes toward the
+// ceiling on a genuinely rumour-swamped one, and leaves managed routes
+// measurably lower — which is what a meter is for.
 
-const RUMOUR_PER_STRENGTH = 0.3
-const FALSE_RUMOUR_BONUS = 0.2
+const RUMOUR_PER_STRENGTH = 0.15
+const FALSE_RUMOUR_BONUS = 0.1
 const PUBLIC_ATTRIBUTION_DIVISOR = 12
 const FALSE_BLAME_MEMORY_DIVISOR = 10
 const REPUTATION_DRIFT_DIVISOR = 10
@@ -45,6 +55,12 @@ export function calculateRumourPressure(
 
   // Per-rumour causes for the strongest few, so the calculator carries
   // named actor refs (the rumour itself plus its subject) into the audit.
+  //
+  // Phase 206 / audit Wave 7 — amount 0: these rumours' strength is
+  // already inside `active_rumours` above, and giving the named entries
+  // an amount as well counted the loudest rumours twice (up to ~30 extra
+  // points at the old slope). The entries stay for their actor refs and
+  // readable lines; `weight` keeps them ranked in cause displays.
   const sortedRumours = Object.values(ctx.state.world.socialRumours)
     .filter((r) => r.strength >= 30)
     .sort((a, b) => b.strength - a.strength)
@@ -55,7 +71,8 @@ export function calculateRumourPressure(
     pushCause(causes, {
       id: `rumour_${rumour.id}`,
       readable: `${rumour.label} circulating (strength ${Math.round(rumour.strength)}).`,
-      amount: Math.round(rumour.strength * RUMOUR_PER_STRENGTH),
+      amount: 0,
+      weight: Math.round(rumour.strength * RUMOUR_PER_STRENGTH),
       tags: ['rumour', ...rumour.tags],
       relatedActors: actors,
       relatedSystems: ['rumours'],

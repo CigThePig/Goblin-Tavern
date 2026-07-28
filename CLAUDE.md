@@ -31,16 +31,15 @@ budget.
 
 ## Current status
 
-> ### 🛑 All feature development is paused — gameplay-audit remediation only
+> ### ✅ The gameplay-audit remediation arc (ISSUE-166) closed 2026-07-28 — the pause is lifted
 >
-> The 2026-07-26 eight-phase gameplay audit confirmed **29 defects** in the shipped build (1 Critical, 9 High, 16 Medium, 3 Low), including a deterministic save failure that loses every run on reload. Fixing them is **the only active work** (tracked as **ISSUE-166**).
+> The 2026-07-26 eight-phase audit's **29 defects are all fixed and gate-verified across Waves 0–7**, and Wave 7's balance evaluation ran to a recorded verdict: no dominant strategy on any of the 15 difficulty × variant slices, agency positive, four distinct reputation identities on the standard route, the DC-06 attention ceilings holding, and the DC-03 scoring layer reading the standard slice **balanced** — with residual gaps recorded as ISSUE-167/168/169 rather than silently tuned.
 >
-> - **Work queue:** `docs/audits/2026-07-26-gameplay-audit/REMEDIATION_QUEUE.md` — per-finding checklist, ordered into Waves 0–7; waves are sequential and each ends at an evidence gate, not at code completion. **Waves 0–6 are closed. Wave 7 (balance) is prepared but blocked on design decisions** — its framework (`npm run balance:matrix`) and baseline are in place; see the queue's Wave 7 section and `docs/plans/phase-206-audit-wave-7-balance-and-whole-experience.md`.
-> - **Why / detail:** `docs/audits/2026-07-26-gameplay-audit/reports/GOBLIN_TAVERN_AUDIT_PHASE_08_FINAL_FINDINGS_AND_PRIORITIZATION.md` (§4 order, §6 clusters, §7 waves, §8 regression, §9 design questions, §11 acceptance gates). Per-phase evidence sits beside it in `reports/`; runnable probes in `fixtures/`.
-> - **Track per-finding status in the queue file, not in the tracker** — `docs/ISSUE_TRACKER.md` carries one entry (ISSUE-166) for the whole arc.
-> - **Do not start card-layer, onboarding, content, or UI work** while this arc is open. No balance or content conclusion from the current build is trustworthy until Wave 1 restores canonical state and economy.
+> - **The record:** `docs/audits/2026-07-26-gameplay-audit/REMEDIATION_QUEUE.md` — now a closed checklist, including Wave 7's recorded design decisions (`DC-01`, `DC-03`, `DC-04`, `DC-05`, `DC-06`, `DC-08`), the tuning pass with before/after evidence, and the sweep verdict. Balance instrument: `npm run balance:matrix` (baselines under `baselines/`).
+> - **Still open from the audit's design register:** `DC-09` (onboarding vs. complete-surface exposure — settle before the Tier 4 onboarding arc restarts) and `DC-10` (supported environments / persistence promise).
+> - **What's next:** the tracker's **"Current work" → resume points** — the Complete Surface arc (ISSUE-141…148) was the active frontier; ISSUE-168 (demand elasticity) re-baselines the balance matrix and should precede any further balance tuning.
 
-Progress up to the pause (unchanged, and resumable — the tracker's **"Current work" → "Paused arcs — resume points"** holds the exact restart point for each):
+Progress before and through the arc (the tracker's **"Current work"** holds the live picture):
 
 - **Phases 1–40 — foundation (done).** The headless simulation under `src/sim/`: core engine, registries, ~26 domain modules, a content layer (naming, cultures, factions, suppliers, npc, staff, tavern, events, text), Zod-schema state, and testing utilities.
 - **Phases 41–198 — repair pass, then the card layer.** Post-40 fixes (Tiers 0–3), the Rare Ingredients economy (Tier 1.5), UI/UX clarity (Tier 5), and the card-layer arcs (Living Cast → Voiced → Legible → Faithful → Complete Surface) that build the compositional card runtime under `src/cards/compose/` and the report projection layer under `src/reports/`.

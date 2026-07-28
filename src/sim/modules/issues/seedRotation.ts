@@ -30,6 +30,48 @@ export function recencyPenalty(
   return RECENCY_PENALTY
 }
 
+/**
+ * Phase 206 / audit Wave 7 — a rotation turn only counts when the player
+ * actually SAW the seed.
+ *
+ * Generators call `recordPick` while generating, but Wave 6's family
+ * cooldown and full-day hand budget can rest or withhold the generated
+ * seed afterwards. The pick was still recorded, so an invisible day
+ * consumed the entity's rotation turn: on the Phase 56 violence route,
+ * the ledger rotated ogres → adventurers → miners exactly as designed
+ * while every seed the player actually saw was the ogres one — the
+ * non-ogres turns were all spent on rested days. This reconciles a
+ * family's picks against what surfaced: an entry recorded TODAY whose
+ * entity did not surface in that family today is dropped, so the entity
+ * keeps its turn for the next visible day.
+ *
+ * Note the same at-generation `recordPick` pattern exists in other
+ * rotating families (food_safety, stock_shortage, maintenance,
+ * staff_identity, …) whose key formats are family-private; the queue's
+ * Wave 7 section records that as follow-up. Violence is reconciled now
+ * because its rotation is a shipped finding gate (ISSUE-016).
+ */
+export function reconcilePicksWithSurfaced(
+  recentPicks: Record<string, Record<string, number>> | undefined,
+  family: string,
+  surfacedEntityKeys: ReadonlySet<string>,
+  today: number,
+): Record<string, Record<string, number>> | undefined {
+  const familyPicks = recentPicks?.[family]
+  if (!recentPicks || !familyPicks) return recentPicks
+  const kept: Record<string, number> = {}
+  let changed = false
+  for (const [entityKey, day] of Object.entries(familyPicks)) {
+    if (day === today && !surfacedEntityKeys.has(entityKey)) {
+      changed = true
+      continue
+    }
+    kept[entityKey] = day
+  }
+  if (!changed) return recentPicks
+  return { ...recentPicks, [family]: kept }
+}
+
 export function recordPick(
   ctx: SimContext,
   family: string,

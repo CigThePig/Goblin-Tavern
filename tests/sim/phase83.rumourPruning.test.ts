@@ -35,12 +35,18 @@ function withRumours(
 }
 
 function stale(id: string): SocialRumourState {
-  // A stale rumour: lastSpreadDay far in the past, strength below
-  // the floor. Should be dropped.
+  // A stale rumour: lastSpreadDay far in the past, strength below the
+  // prune's stale floor. Should be dropped by the endMonth prune.
+  //
+  // Phase 206 / audit Wave 7 — strength 8, not 5: the daily decay hook
+  // now runs earlier in the same simulated day and removes anything that
+  // falls under `RUMOUR_FADE_FLOOR` (5). 8 × 0.85 = 6.8 survives decay
+  // but sits under `RUMOUR_STALE_STRENGTH` (10), so these fixtures still
+  // exercise the prune path rather than being eaten by decay first.
   return {
     id,
     label: `stale ${id}`,
-    strength: 5,
+    strength: 8,
     accuracy: 'partial',
     firstHeardDay: 0,
     lastSpreadDay: 0,

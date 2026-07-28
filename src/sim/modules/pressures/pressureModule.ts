@@ -597,6 +597,59 @@ const PressureModuleStateSchema = z.object({
   adjustments: z.record(z.string(), z.array(PressureAdjustmentSchema)).optional(),
 })
 
+// Phase 206 / audit Wave 7 — reconcile the snapshots with the canonical
+// compact values at the END of Segment A, after every Morning-phase
+// writer has moved them.
+//
+// The Phase 8 §8.2 invariant (`snapshot.value === compact.value`) is a
+// stable-beat contract, and the Morning pause is a stable beat. The two
+// recalculation passes below run at `closing` (end of Segment B) and
+// `endDay` (Segment C, after responses), so a compact write during
+// Segment A — a local-arc effect on `localEventUpdate`, a supplier event
+// on `supplierUpdate`, both of which go through `ctx.modifyPressure` —
+// left the Morning pause showing two different numbers for one pressure.
+// The Wave 7 balance harness's per-segment invariant check surfaced it
+// on every managed 28-day route (the end-of-day checks had always
+// passed, because the divergence healed at the next recalculation).
+//
+// The sync folds the compact delta into the snapshot and says why, so
+// causality survives: the writer's own cause entry is already in
+// `state.causes` with full attribution, and the snapshot gains a line
+// noting the morning adjustment rather than silently teleporting.
+const syncSnapshotsToCompactHook: SimulationHook = (ctx: SimContext): void => {
+  const slice = getPressureModuleState(ctx.state)
+  let changed = false
+  const nextSnapshots: Record<string, PressureSnapshot> = {}
+  for (const [id, snapshot] of Object.entries(slice.snapshots)) {
+    const compact = ctx.state.pressures[id]
+    if (!compact || compact.value === snapshot.value) {
+      nextSnapshots[id] = snapshot
+      continue
+    }
+    const delta = compact.value - snapshot.value
+    changed = true
+    nextSnapshots[id] = {
+      ...snapshot,
+      value: compact.value,
+      delta: compact.value - snapshot.previousValue,
+      trend: computeTrend(snapshot.previousValue, compact.value),
+      causes: [
+        ...snapshot.causes,
+        {
+          id: `${id}_morning_adjustment`,
+          readable: `Adjusted ${delta > 0 ? '+' : ''}${delta} by a morning event (arc, supplier or delayed effect) after yesterday's calculation.`,
+          amount: delta,
+          weight: Math.abs(delta),
+          direction: delta > 0 ? 'increase' : 'decrease',
+          tags: ['pressure', id, 'morning_adjustment'],
+        },
+      ],
+      lastUpdated: stampFromState(ctx.state),
+    }
+  }
+  if (changed) writeSlice(ctx, { snapshots: nextSnapshots }, 'segment_a_sync')
+}
+
 export const pressuresModule: SimulationModule = {
   id: PRESSURES_MODULE_ID,
   version: '0.1.0',
@@ -604,6 +657,10 @@ export const pressuresModule: SimulationModule = {
   // modules that maintain those slices.
   dependsOn: ['causes', 'memories'],
   hooks: {
+    // Phase 206 / audit Wave 7 — reconcile snapshots with compact values
+    // before the Morning pause; `forecastTraffic` is the last Segment A
+    // phase, after every Morning writer has run.
+    forecastTraffic: [syncSnapshotsToCompactHook],
     // Run during `closing` (after service, before endDay/Week/Month
     // hooks decide their finalisation) so the pressure values reflect
     // the full day's mechanical movement and closing-time seed

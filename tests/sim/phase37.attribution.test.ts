@@ -520,11 +520,25 @@ describe('Phase 37 §37.6 — Attribution propagation', () => {
     for (let i = 0; i < 3; i += 1) {
       current = runDay(current).state
     }
-    // A new attribution-fed rumour should appear, OR the existing
-    // rumour's strength should climb because the rule keeps firing.
+    // The seeded rumour breeds a distrust attribution, and the
+    // attribution feeds a rumour of its own that it keeps strengthening.
+    //
+    // Phase 206 / audit Wave 7 — rumours now DECAY daily, so the original
+    // seeded rumour fades unless something re-spreads it, while the
+    // attribution-fed rumour must outpace decay because the propagation
+    // pass strengthens it while the belief stays strong. Pre-decay this
+    // test's `>= 50` held trivially (nothing ever reduced strength) and
+    // proved nothing about propagation.
     const rumours = current.world.socialRumours
-    expect(Object.keys(rumours).length).toBeGreaterThanOrEqual(1)
-    expect(rumours[rumourId]!.strength).toBeGreaterThanOrEqual(50)
+    const attributionFed = Object.values(rumours).filter((rumour) =>
+      rumour.id.startsWith('rumour_distrust_'),
+    )
+    expect(attributionFed.length).toBeGreaterThanOrEqual(1)
+    expect(
+      Math.max(...attributionFed.map((rumour) => rumour.strength)),
+    ).toBeGreaterThanOrEqual(50)
+    // The unfed original decays instead of accumulating forever.
+    expect(rumours[rumourId]!.strength).toBeLessThan(50)
   })
 })
 

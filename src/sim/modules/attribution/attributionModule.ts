@@ -100,18 +100,34 @@ function writeSlice(
 
 // ---------- Dedup / aging ----------
 
+// Phase 206 / audit Wave 7 — an attribution's identity is its NARRATIVE
+// (who believes what about whom), not the evidence that fed it.
+//
+// The key used to include the draft's `sourceCauseIds`/`sourceEventId`,
+// which made the merge branch below unreachable for the commonest case:
+// every day's service failures carry fresh cause ids, so "customers blame
+// the staff for the service failure" could never match yesterday's copy
+// of the same belief. On a managed 28-day route that stacked 612 separate
+// live blame attributions against one server (public-blame sum 13,822
+// against pressure divisors sized for hundreds), pinning
+// `staff_loyalty_risk` at 100 on all 360 balance-sweep cells and growing
+// state without bound — the same accumulation Wave 0 flagged and the
+// rumour prune already guards against.
+//
+// Keyed on (perceiver, target, type, tags), a recurring belief refreshes
+// instead: strength bumps by `STRENGTH_BUMP` toward the cap, `ageDays`
+// resets, and the new evidence ids are folded into `sourceCauseIds` by
+// the merge (which has always done exactly that — the merge machinery
+// anticipated cross-evidence merging; the key just never let it happen).
+// The live set is now bounded by distinct narratives rather than by
+// event count, so a grudge held by every customer group tops out at
+// (perceivers × 100 × publicness) instead of growing forever.
 function attributionKey(a: {
   perceivedBy: EntityRef
   target: EntityRef
   attributionType: AttributionState['attributionType']
-  sourceEventId?: string
-  sourceCauseIds?: string[]
   tags: string[]
 }): string {
-  const causeKey =
-    a.sourceCauseIds && a.sourceCauseIds.length > 0
-      ? [...a.sourceCauseIds].sort().join(',')
-      : (a.sourceEventId ?? '')
   const tagKey = [...a.tags].sort().join(',')
   return [
     a.perceivedBy.kind,
@@ -119,7 +135,6 @@ function attributionKey(a: {
     a.target.kind,
     a.target.id,
     a.attributionType,
-    causeKey,
     tagKey,
   ].join('|')
 }
@@ -195,13 +210,25 @@ function applyDrafts(
   drafts: ReadonlyArray<AttributionDraft>,
   current: AttributionModuleState,
   state: TavernState,
-): { next: AttributionModuleState; addedOrRefreshed: AttributionState[] } {
+): {
+  next: AttributionModuleState
+  addedOrRefreshed: AttributionState[]
+  /** Ids whose strength CROSSED `CAUSE_THRESHOLD` in this pass — new
+   *  arrivals at or above it, or merges that lifted an entry over it.
+   *  `propagateToCauses` fires only for these: a standing strong belief
+   *  is one cause when it becomes strong, not a fresh cause every day it
+   *  stays strong (Wave 7 — the daily re-emission also fed the module's
+   *  own causes back into rules that scan recent causes, which went
+   *  geometric once merged beliefs held high strength). */
+  crossedCauseThreshold: Set<string>
+} {
   const byKey = new Map<string, AttributionState>()
   for (const attribution of current.attributions) {
     byKey.set(attributionKey(attribution), attribution)
   }
   const generatedToday: string[] = [...current.generatedToday]
   const addedOrRefreshed: AttributionState[] = []
+  const crossedCauseThreshold = new Set<string>()
   // Determine the next id suffix from existing attributions on this day
   // so duplicate calls within a day stay deterministic.
   const today = state.calendar.totalDaysElapsed
@@ -219,18 +246,20 @@ function applyDrafts(
       target: draft.target,
       attributionType: draft.attributionType,
       tags: draft.tags ?? [],
-      ...(draft.sourceEventId !== undefined
-        ? { sourceEventId: draft.sourceEventId }
-        : {}),
-      ...(draft.sourceCauseIds !== undefined
-        ? { sourceCauseIds: draft.sourceCauseIds }
-        : {}),
     })
     const existing = byKey.get(key)
     if (existing) {
       const merged: AttributionState = {
         ...existing,
-        strength: clampMeter(existing.strength + STRENGTH_BUMP),
+        // Recurrence bumps strength toward the cap, but a strong fresh
+        // draft is never diluted by a weak existing entry — the belief is
+        // at least as strong as its strongest evidence.
+        strength: clampMeter(
+          Math.max(
+            existing.strength + STRENGTH_BUMP,
+            draft.strength ?? 0,
+          ),
+        ),
         confidence: clampMeter(
           Math.max(existing.confidence, draft.confidence ?? existing.confidence),
         ),
@@ -264,12 +293,21 @@ function applyDrafts(
         generatedToday.push(merged.id)
       }
       addedOrRefreshed.push(merged)
+      if (
+        existing.strength < CAUSE_THRESHOLD &&
+        merged.strength >= CAUSE_THRESHOLD
+      ) {
+        crossedCauseThreshold.add(merged.id)
+      }
     } else {
       suffix += 1
       const built = buildAttributionFromDraft(draft, state, suffix)
       byKey.set(key, built)
       generatedToday.push(built.id)
       addedOrRefreshed.push(built)
+      if (built.strength >= CAUSE_THRESHOLD) {
+        crossedCauseThreshold.add(built.id)
+      }
     }
   }
 
@@ -293,7 +331,7 @@ function applyDrafts(
     lastUpdatedDay: state.calendar.totalDaysElapsed,
     recentDistrustByRumour: rumourCooldown,
   }
-  return { next, addedOrRefreshed }
+  return { next, addedOrRefreshed, crossedCauseThreshold }
 }
 
 function ageAttributions(
@@ -391,9 +429,10 @@ function pickMemoryDefinition(attribution: AttributionState): string | undefined
 function propagateToCauses(
   ctx: SimContext,
   added: ReadonlyArray<AttributionState>,
+  crossedCauseThreshold: ReadonlySet<string>,
 ): void {
   for (const attribution of added) {
-    if (attribution.strength < CAUSE_THRESHOLD) continue
+    if (!crossedCauseThreshold.has(attribution.id)) continue
     const targetType = mapTargetTypeToCauseTarget(attribution.target.kind)
     if (!targetType) continue
     const sign = isPositive(attribution.attributionType) ? +1 : -1
@@ -538,17 +577,19 @@ function runRulesAndApply(ctx: SimContext, reason: string): void {
     return
   }
   let addedOrRefreshed: AttributionState[] = []
+  let crossedCauseThreshold: ReadonlySet<string> = new Set<string>()
   writeSlice(
     ctx,
     (current) => {
       const result = applyDrafts(drafts, current, ctx.state)
       addedOrRefreshed = result.addedOrRefreshed
+      crossedCauseThreshold = result.crossedCauseThreshold
       return result.next
     },
     reason,
   )
   propagateToMemories(ctx, addedOrRefreshed)
-  propagateToCauses(ctx, addedOrRefreshed)
+  propagateToCauses(ctx, addedOrRefreshed, crossedCauseThreshold)
   propagateToRumours(ctx, addedOrRefreshed)
 }
 

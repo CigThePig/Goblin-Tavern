@@ -1,7 +1,9 @@
 import { profileUtility } from './impactScoring'
 import {
+  ANSWERED_FAMILY_STREAK_LIMIT,
   CONTINUATION_CHOICE_CAP,
   FAMILY_STREAK_LIMIT,
+  isTeleologyFamily,
   isUrgentSeed,
 } from './handBudget'
 import {
@@ -131,15 +133,26 @@ export function shouldRestFamily(
   // A thread the player ANSWERED last time it appeared is engagement, not
   // noise: they committed to something and are owed the outcome. A venture
   // being invested in on consecutive days is the clearest case — resting
-  // it strands the loop the player is deliberately running. Unlike an
-  // urgency or "new entity" exemption, this one cannot reopen the audit's
-  // streaks: it is keyed on the thread AND requires a recorded decision on
-  // it, and the 25–27-day streaks were measured on a route that answered
-  // nothing at all.
+  // it strands the loop the player is deliberately running.
+  //
+  // Phase 206 / audit Wave 7 (`DC-06` re-opened) — the exemption is now
+  // CAPPED for ordinary families. Wave 6's uncapped version reasoned it
+  // could not reopen the audit's streaks because those were measured on a
+  // route that answered nothing — which was exactly the gap: the exemption
+  // is only reachable by answering, so the Wave 7 balance sweep (the first
+  // instrument to answer cards) measured `staff_identity` at 17–26
+  // consecutive days on every answering route. The recorded decision:
+  // engagement buys a longer run (`ANSWERED_FAMILY_STREAK_LIMIT` days),
+  // not an unbounded one. Teleology families stay uncapped — a venture
+  // answered daily IS the loop the reserve exists for — and material
+  // worsening already returned `false` above, so a genuine crisis is
+  // never held back.
   if (
     thread &&
     thread.lastAnsweredDay !== undefined &&
-    thread.lastAnsweredDay >= thread.lastSurfacedDay
+    thread.lastAnsweredDay >= thread.lastSurfacedDay &&
+    (isTeleologyFamily(seed.family as string) ||
+      streak.consecutiveDays < ANSWERED_FAMILY_STREAK_LIMIT)
   ) {
     return false
   }

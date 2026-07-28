@@ -284,13 +284,22 @@ export type MetricSpread = {
   /** `spread / |mean|`, or `undefined` when the mean is ~0. */
   relativeSpread: number | undefined
   samples: number
+  /** Per-seed values, aligned with the cell's `seeds` list. Kept so the
+   *  noise check can pair seed-for-seed across strategies (Codex review
+   *  of PR #242): every strategy runs the same seeds, so a shared
+   *  environmental shift (a hard seed for everyone) must not read as
+   *  uncertainty about the strategy comparison. */
+  values: number[]
 }
 
 function round(value: number): number {
   return Math.round(value * 100) / 100
 }
 
-function spreadOf(
+/** Build a `MetricSpread` from raw per-seed values. Exported so tests and
+ *  tooling can construct synthetic aggregates without re-implementing the
+ *  statistics. */
+export function metricSpreadOf(
   metric: BalanceMetricKey,
   values: number[],
 ): MetricSpread {
@@ -304,6 +313,7 @@ function spreadOf(
       spread: 0,
       relativeSpread: undefined,
       samples: 0,
+      values: [],
     }
   }
   const sorted = [...values].sort((left, right) => left - right)
@@ -325,6 +335,7 @@ function spreadOf(
     relativeSpread:
       Math.abs(mean) < 1e-6 ? undefined : round(Math.abs((max - min) / mean)),
     samples: values.length,
+    values: [...values],
   }
 }
 
@@ -371,7 +382,7 @@ export function aggregateBalanceCells(
     if (!first) continue
     const metrics = {} as Record<BalanceMetricKey, MetricSpread>
     for (const metric of Object.keys(METRIC_DIRECTION) as BalanceMetricKey[]) {
-      metrics[metric] = spreadOf(
+      metrics[metric] = metricSpreadOf(
         metric,
         bucket.map((row) => row[metric] as number),
       )
@@ -421,22 +432,33 @@ export type BalanceAnalysis = {
   difficulty: DifficultyId
   variant: BalanceVariantId
   leadership: StrategyLeadership[]
-  /** A strategy that leads on every outcome metric — a balance failure
-   *  under any objective, because nothing trades off against it. */
+  /** A strategy that leads on every rankable (non-noisy) outcome metric —
+   *  a balance failure under any objective, because nothing trades off
+   *  against it. */
   dominantStrategy: PolicyBotId | undefined
-  /** Every strategy produced the same outcome on every axis. Expected for
-   *  `no_action`, where no lever the bot controls is ever pulled; a
-   *  balance failure anywhere else. */
+  /** Every usable cell has the same median on every outcome metric —
+   *  the outcomes really are identical, not merely lead-free. Expected
+   *  for `no_action`, where no lever the bot controls is ever pulled; a
+   *  balance failure anywhere else. (Codex review of PR #242: inferring
+   *  this from "nobody leads" also fired when every best value was merely
+   *  shared, which suppressed the dead-strategy analysis.) */
   allStrategiesTied: boolean
-  /** Strategies that lead on nothing — no reason to ever pick them.
-   *  Empty when `allStrategiesTied`, which is a different diagnosis. */
+  /** Strategies that are Pareto-DOMINATED on the rankable outcome
+   *  metrics: some other strategy is at least as good everywhere and
+   *  strictly better somewhere. (Codex review of PR #242: "leads on
+   *  nothing" is not a dead strategy — a balanced compromise can lead on
+   *  no single axis while being the best pick under a plausible
+   *  objective.) Empty when `allStrategiesTied`. */
   deadStrategies: PolicyBotId[]
   /** Cells excluded from ranking because a seed failed an invariant. */
   excludedCells: Array<{ botId: PolicyBotId; reason: string }>
   distinctIdentityKeys: string[]
   distinctDominantCustomerGroups: string[]
-  /** Metrics whose seed-to-seed spread exceeds the gap between the best
-   *  and worst strategy — a comparison on these is seed noise. */
+  /** Metrics on which the best-vs-worst comparison is not seed-stable:
+   *  paired seed-for-seed (every strategy runs the same seeds), the sign
+   *  of the difference flips or vanishes on at least one seed. Rankings
+   *  on these metrics are seed noise; leadership, dominance and the dead
+   *  test all skip them. */
   noisyMetrics: BalanceMetricKey[]
 }
 
@@ -481,9 +503,9 @@ export function analyzeBalanceSlice(
     })
   }
 
-  const noisyMetrics: BalanceMetricKey[] = []
-  for (const metric of OUTCOME_METRICS) {
-    if (usable.length < 2) continue
+  const bestAndWorst = (
+    metric: BalanceMetricKey,
+  ): { best: BalanceCellAggregate; worst: BalanceCellAggregate } => {
     let best = usable[0]!
     let worst = usable[0]!
     for (const cell of usable) {
@@ -494,6 +516,40 @@ export function analyzeBalanceSlice(
         worst = cell
       }
     }
+    return { best, worst }
+  }
+
+  // Noise FIRST, so a noisy metric never hands out leadership before the
+  // warning is computed (Codex review of PR #242).
+  //
+  // Every strategy runs the SAME seeds, so noise is judged on the paired
+  // seed-for-seed differences between the best and worst strategy, not on
+  // absolute within-cell spread — a seed that is hard for everyone shifts
+  // every cell together and says nothing about the comparison. The metric
+  // is unrankable when the extreme pairing is not seed-stable: on some
+  // seed the "better" strategy fails to actually beat the "worse" one.
+  const noisyMetrics: BalanceMetricKey[] = []
+  if (usable.length >= 2) {
+    for (const metric of OUTCOME_METRICS) {
+      const { best, worst } = bestAndWorst(metric)
+      const bestValues = best.metrics[metric].values
+      const worstValues = worst.metrics[metric].values
+      if (best.metrics[metric].median === worst.metrics[metric].median) continue
+      if (bestValues.length !== worstValues.length) continue
+      const sign = METRIC_DIRECTION[metric] === 'higher' ? 1 : -1
+      const pairedDiffs = bestValues.map(
+        (value, index) => sign * (value - (worstValues[index] ?? 0)),
+      )
+      if (pairedDiffs.some((diff) => diff <= 0)) noisyMetrics.push(metric)
+    }
+  }
+  const rankableMetrics = OUTCOME_METRICS.filter(
+    (metric) => !noisyMetrics.includes(metric),
+  )
+
+  for (const metric of rankableMetrics) {
+    if (usable.length < 2) continue
+    const { best, worst } = bestAndWorst(metric)
     // A lead has to be strict. The `no_action` variant makes every
     // strategy identical by construction (no lever the bot controls is
     // pulled), and a non-strict comparison would report the first bot in
@@ -508,28 +564,49 @@ export function analyzeBalanceSlice(
         .length === 1
     if (bestIsUnique) leadership.get(best.botId)?.leadsOn.push(metric)
     if (worstIsUnique) leadership.get(worst.botId)?.trailsOn.push(metric)
-
-    // Seed noise check: if the widest within-cell spread is as large as
-    // the between-strategy gap, the ranking on this metric means nothing.
-    const strategyGap = Math.abs(
-      best.metrics[metric].median - worst.metrics[metric].median,
-    )
-    const widestSeedSpread = Math.max(
-      ...usable.map((cell) => cell.metrics[metric].spread),
-    )
-    if (strategyGap > 0 && widestSeedSpread >= strategyGap) {
-      noisyMetrics.push(metric)
-    }
   }
 
   const rows = [...leadership.values()]
-  const dominant = rows.find(
-    (row) => row.leadsOn.length === OUTCOME_METRICS.length,
-  )
-  // Nobody led anywhere — every strategy produced the same outcome. That
-  // is the expected shape of `no_action` (the bot controls nothing), and
-  // it is NOT eight dead strategies.
-  const allTied = rows.length > 1 && rows.every((row) => row.leadsOn.length === 0)
+  const dominant =
+    rankableMetrics.length > 0
+      ? rows.find((row) => row.leadsOn.length === rankableMetrics.length)
+      : undefined
+
+  // A true tie is equal MEDIANS everywhere, not merely an absence of
+  // unique leads — shared bests must not suppress the dead-strategy
+  // analysis (Codex review of PR #242).
+  const allTied =
+    usable.length > 1 &&
+    OUTCOME_METRICS.every((metric) => {
+      const first = usable[0]!.metrics[metric].median
+      return usable.every((cell) => cell.metrics[metric].median === first)
+    })
+
+  // Dead = Pareto-DOMINATED on the rankable metrics: someone else is at
+  // least as good on every axis and strictly better on at least one. A
+  // compromise strategy that leads nowhere but is dominated by no one is
+  // a legitimate pick under some objective and must not be reported dead.
+  const dominates = (
+    candidate: BalanceCellAggregate,
+    over: BalanceCellAggregate,
+  ): boolean => {
+    let strictlyBetterSomewhere = false
+    for (const metric of rankableMetrics) {
+      const a = candidate.metrics[metric].median
+      const b = over.metrics[metric].median
+      if (better(metric, b, a)) return false
+      if (better(metric, a, b)) strictlyBetterSomewhere = true
+    }
+    return strictlyBetterSomewhere
+  }
+  const deadStrategies =
+    allTied || rankableMetrics.length === 0
+      ? []
+      : usable
+          .filter((cell) =>
+            usable.some((other) => other !== cell && dominates(other, cell)),
+          )
+          .map((cell) => cell.botId)
 
   return {
     difficulty,
@@ -537,9 +614,7 @@ export function analyzeBalanceSlice(
     leadership: rows,
     dominantStrategy: dominant?.botId,
     allStrategiesTied: allTied,
-    deadStrategies: allTied
-      ? []
-      : rows.filter((row) => row.leadsOn.length === 0).map((row) => row.botId),
+    deadStrategies,
     excludedCells,
     distinctIdentityKeys: [
       ...new Set(usable.flatMap((cell) => cell.identityKeys)),
@@ -583,13 +658,18 @@ export function compareVariants(
   const out: AgencyComparison[] = []
   for (const compared of cells) {
     if (compared.variant !== comparedVariant) continue
+    // Codex review of PR #242 — a cell that failed validation or an
+    // invariant is excluded from EVERY ranking, agency included; the
+    // slice analysis already refused to rank it and this comparison must
+    // not readmit it.
+    if (!compared.trustworthy) continue
     const baseline = cells.find(
       (cell) =>
         cell.botId === compared.botId &&
         cell.difficulty === compared.difficulty &&
         cell.variant === baselineVariant,
     )
-    if (!baseline) continue
+    if (!baseline || !baseline.trustworthy) continue
     for (const metric of metrics) {
       const baseValue = baseline.metrics[metric].median
       const value = compared.metrics[metric].median
@@ -634,12 +714,15 @@ export function checkDifficultyMonotonicity(
   const keys = new Set(cells.map((cell) => `${cell.botId}|${cell.variant}`))
   for (const key of keys) {
     const [botId, variant] = key.split('|') as [PolicyBotId, BalanceVariantId]
+    // Codex review of PR #242 — an ordering built on an invalid arm is
+    // not an ordering; every one of the three cells must be trustworthy.
     const find = (difficulty: DifficultyId) =>
       cells.find(
         (cell) =>
           cell.botId === botId &&
           cell.variant === variant &&
-          cell.difficulty === difficulty,
+          cell.difficulty === difficulty &&
+          cell.trustworthy,
       )
     const easy = find('easy')
     const standard = find('standard')

@@ -376,6 +376,14 @@ export function runBalanceScenario(
       'A',
     )
     state = segmentA.state
+    // Codex review of the Wave 7 prep (PR #242) — §8.2 requires the
+    // invariants at EVERY stable beat, and A and B are player-visible
+    // pauses. Checking only end-of-day let a transient violation that
+    // Segment C repaired vanish from the balance evidence.
+    const segmentFailures = coreStateInvariantFailures(
+      state,
+      `day ${day} segment A`,
+    )
 
     // --- Segment B: Plan + Service ------------------------------------
     const ownerActions: SimInputOwnerAction[] =
@@ -399,6 +407,9 @@ export function runBalanceScenario(
       { dayBaseline: baseline },
     )
     state = segmentB.state
+    segmentFailures.push(
+      ...coreStateInvariantFailures(state, `day ${day} segment B`),
+    )
 
     // --- Segment C: React + Close -------------------------------------
     const { offered, intents } = chooseResponses(
@@ -439,7 +450,14 @@ export function runBalanceScenario(
         choicesRendered,
         responsesOffered: offered,
         responsesSelected: intents.length,
-        validationErrorCount: segmentC.validation.errors.length,
+        // Codex review of PR #242 — every segment's validation counts, not
+        // just Segment C's; an invalid Morning is invalid evidence even
+        // when the evening parses.
+        validationErrorCount:
+          segmentA.validation.errors.length +
+          segmentB.validation.errors.length +
+          segmentC.validation.errors.length,
+        segmentInvariantFailures: segmentFailures,
       }),
     )
   }
@@ -470,6 +488,8 @@ function observeDay(input: {
   responsesOffered: number
   responsesSelected: number
   validationErrorCount: number
+  /** Invariant failures already collected after Segments A and B. */
+  segmentInvariantFailures: string[]
 }): BalanceDayObservation {
   const { state, baseline } = input
   const service = serviceResult(state)
@@ -488,7 +508,10 @@ function observeDay(input: {
 
   return {
     day: input.day,
-    dayType: String(state.calendar.dayType),
+    // Codex review of PR #242 — Segment C has already advanced the
+    // calendar, so `state.calendar.dayType` names TOMORROW. The day this
+    // observation describes is the baseline's.
+    dayType: String(baseline.calendar.dayType),
 
     coin: state.coin,
     coinDelta: state.coin - baseline.coin,
@@ -524,7 +547,13 @@ function observeDay(input: {
 
     responsesOffered: input.responsesOffered,
     responsesSelected: input.responsesSelected,
-    responsesResolved: resolvedToday.length,
+    // Codex review of PR #242 — `resolvedToday` includes records whose
+    // portfolio check refused them (`skipped_unaffordable`), and a metric
+    // ranked higher-is-better must not reward attempts that applied
+    // nothing. "Resolved" here means the profile actually applied.
+    responsesResolved: resolvedToday.filter(
+      (record) => record.outcome !== 'skipped_unaffordable',
+    ).length,
     responsesSkippedUnaffordable: resolvedToday.filter(
       (record) => record.outcome === 'skipped_unaffordable',
     ).length,
@@ -543,7 +572,10 @@ function observeDay(input: {
     rentPaidThisMonth: rent?.paidThisMonth === true,
 
     validationErrorCount: input.validationErrorCount,
-    invariantFailures: coreStateInvariantFailures(state, `day ${input.day}`),
+    invariantFailures: [
+      ...input.segmentInvariantFailures,
+      ...coreStateInvariantFailures(state, `day ${input.day}`),
+    ],
   }
 }
 

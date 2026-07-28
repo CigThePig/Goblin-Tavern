@@ -18,6 +18,7 @@ import {
 } from './issueSeedRanking'
 import { validateSeed, validateSeedAgainstState } from './issueSeedValidation'
 import { selectVisibleHand } from './handBudget'
+import { reconcilePicksWithSurfaced } from './seedRotation'
 import {
   applyContinuity,
   continuesThread,
@@ -318,6 +319,30 @@ function runGenerationPass(
   for (const seed of ranked) surfacedById.set(seed.id, seed)
   const surfacedToday = [...surfacedById.values()]
 
+  // Phase 206 / audit Wave 7 — a rotation turn only counts when the seed
+  // surfaced. The violence generator records its rotation pick while
+  // generating, but a rest or withhold afterwards spent the entity's
+  // turn on a day the player never saw, collapsing the visible rotation
+  // onto one group. See `reconcilePicksWithSurfaced`.
+  const liveRecentPicks = (
+    ctx.state.modules[ISSUE_SEEDS_MODULE_ID] as IssueSeedModuleState | undefined
+  )?.recentPicks
+  const surfacedViolenceKeys = new Set(
+    surfacedToday
+      .filter((seed) => (seed.family as string) === 'violence')
+      .flatMap((seed) =>
+        seed.primaryActor
+          ? [`${seed.primaryActor.kind}:${seed.primaryActor.id}`]
+          : [],
+      ),
+  )
+  const recentPicks = reconcilePicksWithSurfaced(
+    liveRecentPicks,
+    'violence',
+    surfacedViolenceKeys,
+    absoluteDay,
+  )
+
   writeSlice(
     ctx,
     {
@@ -326,6 +351,7 @@ function runGenerationPass(
       withheldToday: [...withheldById.values()],
       rejectedToday: [...baseRejected, ...rejected],
       cooldowns: slice.cooldowns,
+      ...(recentPicks ? { recentPicks } : {}),
       // Phase 205 / Wave 6 — the streak/thread ledgers record what the
       // player was actually SHOWN (the exposure union), so a seed that
       // generation produced but the ceiling withheld neither extends a

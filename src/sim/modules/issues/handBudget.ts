@@ -89,6 +89,23 @@ export const URGENT_URGENCY_THRESHOLD = 70
  *  absent material worsening. */
 export const FAMILY_STREAK_LIMIT = 2
 
+/** Phase 206 / audit Wave 7 (`DC-06` re-opened) — the ceiling on the
+ *  answered-thread exemption for ordinary families.
+ *
+ *  Wave 6's exemption let a thread the player answered come back the next
+ *  day, reasoning that consecutive-day investment is engagement. Measured
+ *  on routes that actually answer (the Wave 7 balance sweep), that
+ *  exemption ran `staff_identity` for 17–26 consecutive days — an order
+ *  of magnitude past the approved two-days-then-rest target, because the
+ *  passive route Wave 6 validated against could never reach the
+ *  exemption. The recorded decision: engagement earns a *longer* run,
+ *  not an unbounded one. An answered ordinary family may surface up to
+ *  this many consecutive days, then rests like any other; teleology
+ *  families (`venture`, `opening`) stay uncapped because consecutive-day
+ *  investment is their whole loop, and escalation still overrides
+ *  everything. */
+export const ANSWERED_FAMILY_STREAK_LIMIT = 4
+
 /** DC-06 — how many response slots a non-escalated continuation offers. */
 export const CONTINUATION_CHOICE_CAP = 3
 
@@ -112,6 +129,13 @@ export const DEFAULT_HAND_BUDGET: HandBudgetOptions = {
 
 function isTeleology(seed: IssueSeed): boolean {
   return TELEOLOGY_FAMILIES.has(seed.family as string)
+}
+
+/** Is this family one of the teleology families (`venture`, `opening`)?
+ *  Exposed for the answered-thread exemption in `issueThreads`, which
+ *  scopes its streak cap to non-teleology families. */
+export function isTeleologyFamily(family: string): boolean {
+  return TELEOLOGY_FAMILIES.has(family)
 }
 
 export function isUrgentSeed(seed: IssueSeed): boolean {

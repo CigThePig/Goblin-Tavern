@@ -52,6 +52,43 @@ export function getResolvableSeedsToday(state: TavernState): IssueSeed[] {
   return [...byId.values()]
 }
 
+/**
+ * Phase 205 / audit Wave 6 (`P7-EXP-005`) — everything the generators
+ * produced and validated today, whether or not the attention budget let it
+ * reach the player: the visible hand, anything displaced from it, and
+ * anything the ceiling or the family cooldown withheld.
+ *
+ * This is a GENERATION-level read and must not be used to decide what to
+ * show or what a response may resolve against — `getAllSeedsToday` is the
+ * visible hand and `getResolvableSeedsToday` is the resolution set. It
+ * exists for two callers: diagnostics ("what did the sim know this
+ * morning?") and the card-template gates, which ask what shape a family's
+ * generator produces — a question about the template, not about whether
+ * today happened to have room for it.
+ */
+export function getGeneratedSeedsToday(
+  state: TavernState,
+  query: Pick<IssueSeedQuery, 'family' | 'timing' | 'types'> = {},
+): IssueSeed[] {
+  const slice = getIssueSeedSlice(state)
+  if (!slice) return []
+  const byId = new Map<string, IssueSeed>()
+  for (const seed of slice.seedsToday) byId.set(seed.id, seed)
+  for (const seed of slice.surfacedToday ?? []) {
+    if (!byId.has(seed.id)) byId.set(seed.id, seed)
+  }
+  for (const seed of slice.withheldToday ?? []) {
+    if (!byId.has(seed.id)) byId.set(seed.id, seed)
+  }
+  return [...byId.values()].filter((seed) => {
+    if (!seed.validation.valid) return false
+    if (query.family && seed.family !== query.family) return false
+    if (query.timing && seed.timing !== query.timing) return false
+    if (query.types && !query.types.includes(seed.type)) return false
+    return true
+  })
+}
+
 export function getIssueSeeds(
   state: TavernState,
   query: IssueSeedQuery = {},

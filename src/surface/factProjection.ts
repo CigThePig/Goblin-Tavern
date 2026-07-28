@@ -1,4 +1,7 @@
-import type { IssueSeed } from '../sim/modules/issues/issueSeedTypes'
+import type {
+  IssueSeed,
+  SeedContinuity,
+} from '../sim/modules/issues/issueSeedTypes'
 import type { PressureSnapshot } from '../sim/modules/pressures/pressureTypes'
 import type { TavernState } from '../sim/state/TavernState'
 import { buildPressureConsequenceLine } from '../reports/pressureConsequenceLine'
@@ -92,6 +95,43 @@ export function projectSurfaceFactsForSeed(
       toneTags: cause.tags,
       ...(cause.relatedActors[0] ? { subject: cause.relatedActors[0] } : subject ? { subject } : {}),
       target: cause.target,
+    })
+  }
+
+  // Phase 205 / audit Wave 6 (`P7-EXP-005`) — continuity. A recurring
+  // issue used to arrive with no statement that it was the same issue: the
+  // audit saw `staff_identity` and `stock_shortage` return for 25
+  // consecutive days as if each morning were the first. The sim now tracks
+  // the thread (`seed.continuity`), so the card can say how long the
+  // problem has stood and what the player already decided about it.
+  //
+  // Salience is above every other history fact on purpose: "this is the
+  // same problem, and here is what you did last time" outranks flavour
+  // when the two compete for the History section's two lines.
+  if (seed.continuity) {
+    const line = continuityLine(seed.continuity)
+    addSurfaceFact(facts, {
+      id: `seed:${seed.id}:continuity`,
+      kind: 'memory',
+      readable: line,
+      evidence: [
+        seed.continuity.lastSelectionLabel !== undefined
+          ? evidenceRef('resolved_intent', {
+              id: seed.continuity.threadKey,
+              readable: seed.continuity.lastSelectionLabel,
+            })
+          : evidenceRef('issue_seed', {
+              id: seed.id,
+              path: 'continuity',
+              readable: line,
+            }),
+      ],
+      salience: 100,
+      toneTags: [
+        'continuity',
+        seed.continuity.escalated ? 'escalating' : 'standing',
+      ],
+      ...(subject ? { subject } : {}),
     })
   }
 
@@ -232,6 +272,36 @@ function humanizeFamily(family: string): string {
 
 function humanizeTiming(timing: string): string {
   return timing.replace(/[_-]+/g, ' ')
+}
+
+/**
+ * Phase 205 / audit Wave 6 (`P7-EXP-005`) — one line stating that this is
+ * the same problem, how long it has stood, and what the player decided
+ * last time.
+ *
+ * The decision half preserves the Wave 3 / `DC-02` distinction: a
+ * deliberate "let it stand" arrives here as a real choice label, while a
+ * card that was never answered says so. Collapsing the two would undo the
+ * decision Wave 3 recorded.
+ */
+function continuityLine(continuity: SeedContinuity): string {
+  const age =
+    continuity.daysStanding <= 0
+      ? 'Still open from earlier today'
+      : continuity.daysStanding === 1
+        ? 'Standing since yesterday'
+        : `Standing ${continuity.daysStanding} days`
+  const worse = continuity.escalated ? ', and worse than last time' : ''
+  // Three cases, not two: answered with a label the sim can quote,
+  // answered by an intent that carried none (bots, tests), and never
+  // answered at all. Only the last one may say so.
+  const decision =
+    continuity.lastSelectionLabel !== undefined
+      ? `. You chose: ${continuity.lastSelectionLabel}`
+      : continuity.unanswered
+        ? '. You have not answered it yet'
+        : ''
+  return `${age}${worse}${decision}`
 }
 
 function stableKey(value: string): string {

@@ -11,7 +11,7 @@ import type {
   IssueSeed,
   ResponseSlot,
 } from '../src/sim/modules/issues/issueSeedTypes'
-import { getIssueSeeds } from '../src/sim/modules/issues/issueSeedQueries'
+import { getGeneratedSeedsToday } from '../src/sim/modules/issues/issueSeedQueries'
 import { runOneDay } from '../src/sim/testing/simRunner'
 import type { TavernState } from '../src/sim/state/TavernState'
 import {
@@ -82,7 +82,10 @@ const SCENARIOS: Scenario[] = [
 ]
 
 function seedsForScenario(state: TavernState, scenario: Scenario): IssueSeed[] {
-  let seeds = getIssueSeeds(state, { family: scenario.family })
+  // Phase 205 / audit Wave 6 — generation-level read: this tool audits
+  // what each family OFFERS, not whether a given day's attention ceiling
+  // had room to show it.
+  let seeds = getGeneratedSeedsToday(state, { family: scenario.family })
   if (scenario.type) seeds = seeds.filter((seed) => seed.type === scenario.type)
   return seeds
 }

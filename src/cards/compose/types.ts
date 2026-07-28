@@ -85,11 +85,21 @@ export type SnippetCondition =
   // resolved entity, so a different group's memory can't satisfy the
   // claim. `minAgeDays` requires the memory to be at least that many days
   // old, so a same-evening memory can't back an "unanswered" claim.
+  // Phase 205 / audit Wave 6 (`P5-PLAY-005`) — `sharesSeedTag` is also
+  // OPTIONAL and also preserves existing semantics when omitted. It
+  // requires the memory to carry at least one tag from the seed's own tag
+  // set (`domain ∪ toneHints ∪ stake tags`, the same set `hasTag` reads),
+  // so a memory about a DIFFERENT subject cannot back a claim on this
+  // card. The audit caught a watered-ale memory titling a Bog Truffle
+  // shortage; `tag` alone cannot express "and it must be about this",
+  // because the subject is per-seed data an authored condition has no way
+  // to name.
   | {
       kind: 'memoryPresent'
       tag?: string
       scopeToActor?: string
       minAgeDays?: number
+      sharesSeedTag?: boolean
     }
   | { kind: 'repeatCount'; subjectTag: string; atLeast: number }
   // — Phase 188 / ISSUE-155 — Causal Establishing Line. State-lookup

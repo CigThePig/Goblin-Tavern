@@ -31,10 +31,20 @@ audit.** Everything else is paused until it closes. Work the waves in order
 from `docs/audits/2026-07-26-gameplay-audit/REMEDIATION_QUEUE.md`, which
 tracks the 29 findings; this file carries one entry for the arc.
 
-**Waves 0–6 are closed** (phases 199–205). **Next: Wave 7 — re-evaluate
-balance and the whole experience.** It has no findings of its own; it re-runs
-the strategy matrix and the design questions against everything the earlier
-waves moved, which the queue's "Carried forward into Wave 7" table lists.
+**Waves 0–6 are closed** (phases 199–205). **Wave 7 — re-evaluate balance
+and the whole experience — is prepared but not started.** It has no findings
+of its own; it re-runs the strategy matrix and the design questions against
+everything the earlier waves moved, which the queue's "Carried forward into
+Wave 7" table lists.
+
+Phase 206 built and calibrated the measurement framework Wave 7 needs
+(`npm run balance:matrix`; plan:
+`docs/plans/phase-206-audit-wave-7-balance-and-whole-experience.md`) and
+recorded a post-Wave-6 baseline. **The balance pass itself is blocked on
+design decisions** — `DC-03` (long-term objective) and `DC-04` (failure
+contract) above all, since Phase 8 §11.4 gates balance evaluation on them
+being recorded. The queue's Wave 7 section lists the full set with the
+baseline evidence each one now has.
 
 ### Paused arcs — resume points
 

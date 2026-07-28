@@ -35,7 +35,7 @@ budget.
 >
 > The 2026-07-26 eight-phase gameplay audit confirmed **29 defects** in the shipped build (1 Critical, 9 High, 16 Medium, 3 Low), including a deterministic save failure that loses every run on reload. Fixing them is **the only active work** (tracked as **ISSUE-166**).
 >
-> - **Work queue:** `docs/audits/2026-07-26-gameplay-audit/REMEDIATION_QUEUE.md` — per-finding checklist, ordered into Waves 0–7. Start at Wave 0 (`P2-RT-001`); waves are sequential and each ends at an evidence gate, not at code completion.
+> - **Work queue:** `docs/audits/2026-07-26-gameplay-audit/REMEDIATION_QUEUE.md` — per-finding checklist, ordered into Waves 0–7; waves are sequential and each ends at an evidence gate, not at code completion. **Waves 0–6 are closed. Wave 7 (balance) is prepared but blocked on design decisions** — its framework (`npm run balance:matrix`) and baseline are in place; see the queue's Wave 7 section and `docs/plans/phase-206-audit-wave-7-balance-and-whole-experience.md`.
 > - **Why / detail:** `docs/audits/2026-07-26-gameplay-audit/reports/GOBLIN_TAVERN_AUDIT_PHASE_08_FINAL_FINDINGS_AND_PRIORITIZATION.md` (§4 order, §6 clusters, §7 waves, §8 regression, §9 design questions, §11 acceptance gates). Per-phase evidence sits beside it in `reports/`; runnable probes in `fixtures/`.
 > - **Track per-finding status in the queue file, not in the tracker** — `docs/ISSUE_TRACKER.md` carries one entry (ISSUE-166) for the whole arc.
 > - **Do not start card-layer, onboarding, content, or UI work** while this arc is open. No balance or content conclusion from the current build is trustworthy until Wave 1 restores canonical state and economy.

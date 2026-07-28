@@ -444,6 +444,51 @@ variants, re-run a human public route past Day 29, and reassess every Phase 7
 design question. The current strategy matrix proves differentiation, not
 balance. Detail: Phase 8 §7 (Wave 7).
 
+### Carried forward into Wave 7 by earlier waves
+
+Things earlier waves changed or deliberately left standing that a balance
+pass needs as context. **Any tuning judged against a build older than the
+wave named here is suspect.**
+
+| From | What moved | Why Wave 7 needs it |
+|---|---|---|
+| Wave 1 | The duplicate pressure cause was doubling attribution weight; removing it halves blame strength and slows pressure escalation (day-3 policy backlash in the Phase 53 fixture reads 57 where it read 71) | Every pressure and attribution number predates the fix |
+| Wave 4 | Owner time became a real, enforced cost. Five consequence profiles now take real minutes off the 360-minute day; their previous `-5`/`-6` amounts were on the retired action-point scale and the applier had no branch for the target, so they cost **nothing at all** | New spend in the day-clock economy that no prior playtest included. Also moved: owner time's magnitude ladder (`[30, 60, 120]`) and `audit-card-choices`' dominance heuristic, which now normalises minutes onto the 0–100 scale it sums everything else on |
+| Wave 4 | Ordinary supplier purchases gained a 1-coin floor (Wave 1) and the response portfolio is gated at selection + re-checked atomically (DC-07) | Coin pacing differs from the audit's runs |
+| Wave 5 | Local-arc `ageDays` is now read from the sim by **both** player surfaces instead of the monthly overview re-deriving it | See the open item below — this one may need a change *during* Wave 7 |
+
+**Open item — local-arc age granularity (`P4-SEAM-005` follow-on, not a
+finding).** Wave 5 made canonical state, the engine's Local Arcs report
+section and the monthly overview agree on one age. That age advances on
+the **monthly tick, not daily** (the arc engine's design: "existing arcs
+age by 28 days" per tick), so a seeded arc reads `0d` for the rest of the
+month it was created in and then jumps by 28.
+
+That is now coarse *consistently*, which is what the finding asked for —
+the alternative on offer was the monthly overview's private daily count,
+and that private count is precisely what disagreed with everything else.
+It is left as-is deliberately: no finding asks for a finer age, and
+inventing one during a repair wave would have been scope the audit did not
+authorise.
+
+**If Wave 7 needs finer arc-age resolution** — e.g. to reason about arc
+pacing across a 28-day run, or because an arc's `afterDays` progress gates
+read wrong at a daily granularity — **change it in the arc engine, not in
+a projection.** `listPresentedArcs` and the stored `ageDays` are now the
+single source both surfaces read, so advancing the age daily in
+`localArcsModule`'s tick makes every surface finer for free and cannot
+reintroduce the disagreement. Changing it in `monthlyOverviewProjection`
+instead would re-create `P4-SEAM-005` exactly.
+
+Regression cover already in place for whichever way this goes:
+`tests/sim/phase204.wave5.identityAndSurfaces.test.ts` compares the report
+section and the monthly overview against *whatever* canonical state holds,
+rather than against a literal. The one literal it does assert is that an
+arc caught on its creation day is `0d` old, which stays true under any
+granularity. So a granularity change lands without rewriting the test, and
+the test still fails the moment the two surfaces diverge from the sim
+again.
+
 ## Decide before implementing (P4)
 
 | ID | St | Record | Decision needed |

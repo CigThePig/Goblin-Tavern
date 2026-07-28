@@ -143,13 +143,20 @@ export function evalCondition(
     }
 
     case 'memoryPresent': {
-      const { tag, scopeToActor, minAgeDays } = condition
-      // Fast path: original global, any-age semantics when neither
-      // optional field is set (preserves every pre-Phase-187 caller).
-      if (scopeToActor === undefined && minAgeDays === undefined) {
+      const { tag, scopeToActor, minAgeDays, sharesSeedTag } = condition
+      // Fast path: original global, any-age semantics when none of the
+      // optional fields is set (preserves every pre-Phase-187 caller).
+      if (
+        scopeToActor === undefined &&
+        minAgeDays === undefined &&
+        sharesSeedTag === undefined
+      ) {
         if (tag === undefined) return state.memories.length > 0
         return state.memories.some((m) => m.tags.includes(tag))
       }
+      // Phase 205 / Wave 6 — subject scope. Computed once per condition,
+      // not per memory.
+      const seedTags = sharesSeedTag ? collectSeedTags(seed) : undefined
       // Phase 187 / ISSUE-154 — scoped / age-gated lookup. Resolve the
       // actor once; an unresolvable actor means no memory can match
       // (graceful degradation, framework §5).
@@ -175,6 +182,7 @@ export function evalCondition(
         ) {
           return false
         }
+        if (seedTags && !m.tags.some((t) => seedTags.has(t))) return false
         return true
       })
     }

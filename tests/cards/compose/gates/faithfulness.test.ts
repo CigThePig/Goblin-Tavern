@@ -65,9 +65,13 @@ describe('Phase 167 — Faithfulness audit (live, runCardlessSim renders)', () =
     // The original ad-hoc audit was 2,578 cards. Teleology Phase 2 added a
     // sim-side hand-composition budget (`handBudget.ts`) that bounds each
     // day's hand and reserves teleology/triage slots, lowering the measured
-    // count to ~1,785. Floor a little under that so a future seed-rate change
-    // doesn't silently render nothing and pass vacuously.
-    expect(report.observed.samplesEvaluated).toBeGreaterThanOrEqual(1500)
+    // count to ~1,785. Phase 205 / audit Wave 6 turned that per-pass cap
+    // into the approved full-day attention ceiling (`DC-06`: 5 cards / 24
+    // rendered choices) and added a family cooldown, which is a deliberate
+    // ~25% cut in cards shown — measured at ~1,342. Floor a little under
+    // that so a future seed-rate change still cannot silently render
+    // nothing and pass vacuously.
+    expect(report.observed.samplesEvaluated).toBeGreaterThanOrEqual(1200)
   })
 
   it('exercises the direction and distress checks on real samples (not vacuous)', () => {

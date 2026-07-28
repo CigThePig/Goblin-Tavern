@@ -424,7 +424,7 @@ would pick it up for free.
 Gates re-run green: `npm test` (3 653), `npm run test:heavy` (129),
 `npm run typecheck`, `npm run check` (0/0), `npm run build`.
 
-## Wave 6 — Tune issue relevance and attention load
+## Wave 6 — Tune issue relevance and attention load ✅ gate passed
 
 Gate: no off-menu unused item claims recent demand; long-run card and
 rendered-choice ceilings meet an approved target; recurring issues keep state
@@ -433,8 +433,122 @@ stay reachable.
 
 | ID | St | Sev/Pri | Finding | Evidence |
 |---|---|---|---|---|
-| P5-PLAY-005 | open | Med/P2 | Stock shortage invents demand for unused items | P5 §6 |
-| P7-EXP-005 | open | Med/P2 | Full-day card load and repetition unbounded (157 cards / 891 buttons over 28 days) | P7 §7 |
+| P5-PLAY-005 | done | Med/P2 | Stock shortage invents demand for unused items | P5 §6 |
+| P7-EXP-005 | done | Med/P2 | Full-day card load and repetition unbounded (157 cards / 891 buttons over 28 days) | P7 §7 |
+
+**Closed 2026-07-28.** Plan:
+`docs/plans/phase-205-audit-wave-6-issue-relevance-and-attention-load.md`.
+Regression: `tests/sim/phase205.wave6.issueRelevance.test.ts` (8 tests) and
+`tests/cards/phase205.wave6.attentionLoad.test.ts` (6, which counts what
+the card layer actually renders). Both findings reproduced on the current
+build first: the audit's own route (commons drained to just under the
+low-stock threshold) put `bog truffle sales heavy this week` /
+`Bog Truffle may run out` on a day-5 card for an item at quantity 0,
+off-menu, never served — while ale, also at 0, was warned it "may run
+out"; and the 28-day passive probe measured 4.93 cards / 27.64 rendered
+choices per day, peaking at 7 / 35, with four families running 25–27
+consecutive days.
+
+**Decision taken (user) — `DC-06`, the approved reactive-workload target:**
+
+| Dimension | Target |
+|---|---|
+| Cards per full day (Morning ∪ Service) | **5**, hard |
+| Rendered choice buttons per full day | **24**, hard |
+| Family recurrence | **2 consecutive days, then one rest day**, unless materially worse |
+| Urgent Service incidents | admitted at a full ceiling by **displacing** the weakest non-urgent card, never dropped |
+| Persistent threads | a **continuity line** (days standing + the prior decision) and a **trimmed choice set** |
+| Periodic / teleology reserve | preserved — Morning holds back one card slot *and* one card's worth of buttons for Service, and the teleology/triage reserves survive |
+
+**Gate evidence — the audit's own probe re-run**
+(`fixtures/phase7-whole-experience-probes.ts pacingAndCoachingProbe`):
+
+| Metric | Audit | Pre-Wave-6 | Now |
+|---|---:|---:|---:|
+| Cards / day (avg · max) | 5.61 · 7 | 4.93 · 7 | **3.46 · 5** |
+| Rendered choices / day (avg · max) | 31.82 · — | 27.64 · 35 | **15.68 · 24** |
+| Rendered choices, 28 days | 891 | 774 | **439** |
+| Longest family streaks | 27 / 27 / 25 / 20 | 27 / 27 / 25 / 25 | **3 / 2 / 3 / 2** |
+
+Weekly boundaries still land on days 7/14/21/28 and the monthly on 28;
+`violence`, `debt_rent`, `opening` and `staff_arc` all still reach the
+hand, so the ceiling did not buy its numbers by starving periodic or
+teleology content.
+
+Work landed:
+
+- **The hand budget became a full-day ledger.** `applyHandBudget` bounded
+  one ranked pass, which is why Morning + Service summed to seven cards:
+  neither pass could see the other. `selectVisibleHand` now prices the
+  day's exposure (`surfacedToday`) in cards AND in rendered buttons, so
+  the two passes spend one budget. Reserves and budgets resolve in a
+  single admission pass — selecting winners by rank first and testing
+  affordability second let an unaffordable high-ranked card occupy the
+  day's last slot and block a cheaper one behind it (a five-button brawl
+  lost its slot to an eight-button complaint that then could not pay).
+  The sim owns the per-card choice cap now (`RENDERED_CHOICE_CAP_PER_CARD`);
+  `cards/cardHelpers.ts` re-exports it as `DEFAULT_LEGIBLE_CHOICE_CAP` so
+  the budget cannot price a card differently from how it renders.
+- **Family cooldown, keyed on family.** Two consecutive days, then a rest
+  day, unless severity crossed a quarter band or rose ≥ 8.
+- **Continuity threads.** `attention.threads[family:entity]` carries first
+  and last appearance, times surfaced, peak severity, the slots already
+  tried and the label of the last decision (folded in by a new `endDay`
+  hook — `responses` depends on `issueSeeds`, so the reverse dependency is
+  impossible, but `applyResponses` runs before `endDay`). A recurrence
+  carries `seed.continuity`; the card's History section states how long it
+  has stood and what the player chose (or that it went unanswered — the
+  Wave 3 `DC-02` distinction is preserved), and a non-escalating repeat is
+  trimmed to three options: the inaction slot plus the best-utility
+  choices not already tried.
+- **Shortage cards need real demand.** `generateStockShortage` scored by
+  `30 - quantity`, so every never-stocked specialty ingredient (registry
+  default `quantity: 0`) outscored a genuinely depleted staple. A
+  candidate now needs a use signal — an unfilled order in today's service,
+  a recipe served within 7 days, or a recipe on the menu — and the card's
+  "recent context" is derived from whichever signal qualified it rather
+  than asserted. `recentContext` is a `signal-backed` ingredient role, so
+  the fabricated sales history was a contract violation as well as a lie.
+  Zero stock now reads "has run out", not "may run out", and carries an
+  `already_out` tone hint the title pool can use.
+- **Time-relative title claims verify themselves.** `last week was already
+  stretched` gained `minAgeDays: 7` (a memory that old guarantees a prior
+  week exists) and a new optional `sharesSeedTag` scope on the existing
+  `memoryPresent` primitive, so the memory must be about the item the card
+  is about — a watered-ale memory can no longer title a truffle card.
+
+**Two things worth knowing:**
+
+- **Urgency is deliberately NOT a cooldown exemption.** The obvious rule —
+  let urgent incidents through — hands the streak straight back:
+  `customer_complaint` is a `during_service` family that sat at urgency 80
+  for nineteen consecutive days while rotating its customer group (ogres →
+  merchants → local goblins → miners → adventurers). Any per-entity or
+  per-urgency escape reopens exactly the mechanism the finding names.
+  Reachability is enforced where starvation actually happens — at the
+  ceiling, by displacement — and escalation remains an exemption, so a
+  worsening crisis is never paced away. One exemption is keyed on the
+  thread: an issue the player ANSWERED last time it appeared comes back,
+  because a venture being invested in on consecutive days is engagement,
+  not noise. That cannot reopen the streaks (it needs a recorded decision
+  on that same thread; the audit's route answered nothing).
+- **Gate harnesses now read generation, not presentation.** A card-template
+  gate asks what shape a family's generator produces; whether a given day
+  had room to show it is a different question. `getGeneratedSeedsToday`
+  answers the first (hand ∪ displaced ∪ withheld, backed by a day-scoped
+  `withheldToday`), and `realSeedShapes.ts` plus the two card-choice
+  scripts use it. Cost: 19 KB of a 1 591 KB day-28 state for the withheld
+  seeds and 6 KB for the attention ledger, which prunes at 28 days.
+
+**Observation raised, not fixed:** the stock-shortage card still offers
+"Stretch what is left" (`water_down`, +20 quantity) on an item at zero,
+which is the same surface-truth class as this finding. No finding covers
+it and suppressing the slot is a mechanical change, so it is left for a
+decision rather than taken silently.
+
+Gates re-run green: `npm test` (3 667), `npm run test:heavy` (129),
+`npm run typecheck`, `npm run check` (0/0), `npm run build`,
+`npm run audit:card-choices` (113 rows).
 
 ## Wave 7 — Re-evaluate balance and whole experience
 
@@ -456,6 +570,8 @@ wave named here is suspect.**
 | Wave 4 | Owner time became a real, enforced cost. Five consequence profiles now take real minutes off the 360-minute day; their previous `-5`/`-6` amounts were on the retired action-point scale and the applier had no branch for the target, so they cost **nothing at all** | New spend in the day-clock economy that no prior playtest included. Also moved: owner time's magnitude ladder (`[30, 60, 120]`) and `audit-card-choices`' dominance heuristic, which now normalises minutes onto the 0–100 scale it sums everything else on |
 | Wave 4 | Ordinary supplier purchases gained a 1-coin floor (Wave 1) and the response portfolio is gated at selection + re-checked atomically (DC-07) | Coin pacing differs from the audit's runs |
 | Wave 5 | Local-arc `ageDays` is now read from the sim by **both** player surfaces instead of the monthly overview re-deriving it | See the open item below — this one may need a change *during* Wave 7 |
+| Wave 6 | The approved `DC-06` ceiling (5 cards / 24 rendered choices per full day) plus a two-day family cooldown cut the passive route from 4.93 cards and 27.6 buttons a day to 3.46 and 15.7, and cut 28-day buttons from 774 to 439 | **Fewer cards reach the player per day, so fewer problems get answered per day.** Every pressure-escalation and coin-pacing number now sits on a different reactive workload than any prior playtest. If Wave 7 finds the loop too slack or too punishing, the ceiling is a tuned constant (`handBudget.ts`), not a structural bound — but re-tune it against `DC-06`, not around it |
+| Wave 6 | Non-escalating recurrences are trimmed to three options, and options the player already tried on that thread are dropped first | A strategy bot that always picks the same slot will find it withheld on a repeat; response-mix comparisons across a 28-day run are not comparing the same offer set day to day |
 
 **Open item — local-arc age granularity (`P4-SEAM-005` follow-on, not a
 finding).** Wave 5 made canonical state, the engine's Local Arcs report
@@ -495,6 +611,13 @@ again.
 |---|---|---|---|
 | P2-OBS-001 | open | P2 §9 | Quick Day is never naturally eligible — keep it as a route (and build a supported zero-card fixture) or retire it |
 | P3-DC-001 | done | P3 §5 | Explicit Ignore and no-response share wording — are deliberate refusal and inaction the same fact? **Answered in Wave 3: different facts.** |
+
+**Answered so far:** `DC-02` (Wave 3 — deliberate Ignore and no answer are
+different facts), `DC-07` (Wave 1 — gate the response portfolio at
+selection, re-check atomically), `DC-06` (Wave 6 — the reactive-workload
+target, tabulated in that wave). `DC-03` (long-term objective) is still
+open and Wave 2's coaching ranking is deliberately objective-agnostic
+until it is answered.
 
 Ten broader design questions (`DC-01`…`DC-10`: long-term objective, failure
 and recovery contract, intended reactive workload, onboarding vs complete

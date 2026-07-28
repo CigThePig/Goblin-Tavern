@@ -376,6 +376,44 @@ export type SeedValidation = {
   contractChecks: Record<string, boolean>
 }
 
+/**
+ * Phase 205 / audit Wave 6 (`P7-EXP-005`) — continuity for a recurring
+ * issue. Written by the issue-seeds module when the seed's thread
+ * (`family:entity`) has surfaced before within
+ * `CONTINUITY_MEMORY_DAYS`. It is the sim's answer to "is this the same
+ * problem as before, and what did the player already do about it" — the
+ * card layer reveals it, the report layer may read it, and neither has
+ * to re-derive it.
+ *
+ * `lastSelectionLabel` is the choice AS THE PLAYER SAW IT (the Wave 3
+ * `selectionLabel`), captured when the thread was answered. Its absence
+ * with `unanswered: true` is the Wave 3 / `DC-02` distinction: a card
+ * never answered is a different fact from a deliberate "let it stand",
+ * which arrives here as a real label.
+ */
+export type SeedContinuity = {
+  /** Stable `family:entity` key of the thread this seed continues. */
+  threadKey: string
+  /** Days since the thread first surfaced (0 on its creation day). */
+  daysStanding: number
+  /** How many days the thread has surfaced, including today. */
+  timesSurfaced: number
+  /** Absolute day the thread last surfaced before today. */
+  lastSurfacedDay: number
+  /** True when no decision has ever been recorded against the thread. */
+  unanswered: boolean
+  /** True when severity materially worsened since the last appearance. */
+  escalated: boolean
+  /** Label of the last decision the player made on this thread. */
+  lastSelectionLabel?: string
+  /** Absolute day that decision was made. */
+  lastSelectionDay?: number
+  /** Response-slot ids already tried on this thread. */
+  triedSlotIds: string[]
+  /** True when the offered set was trimmed to the continuation cap. */
+  trimmed: boolean
+}
+
 /** Phase 19 §"Issue Seed Shape" — the canonical seed. */
 export type IssueSeed = {
   id: string
@@ -407,6 +445,11 @@ export type IssueSeed = {
   textIngredients: TextIngredients
 
   validation: SeedValidation
+
+  /** Phase 205 / audit Wave 6 (`P7-EXP-005`) — set when this seed
+   *  continues an issue thread the player has already seen. Absent on a
+   *  genuinely new incident. */
+  continuity?: SeedContinuity
 
   /** When was this seed generated. */
   generatedAt: CalendarStamp
@@ -477,6 +520,15 @@ export type IssueSeedModuleState = {
    *  from the budgeted hand. Response lookup resolves against this set so a
    *  valid player choice is never silently dropped on a crowded day. */
   surfacedToday: IssueSeed[]
+  /** Phase 205 / audit Wave 6 (`P7-EXP-005`) — seeds the generators
+   *  produced and validated today that the attention budget or the family
+   *  cooldown kept out of the hand. Day-scoped (cleared every `startDay`)
+   *  and never presented: the player's day is `seedsToday`. It exists so
+   *  "what did the sim know that it did not show me" is answerable —
+   *  `rejectedToday` records only a family and a reason, which is enough
+   *  to debug generation but not enough to inspect the seed. Optional so
+   *  saves written before Wave 6 still load. */
+  withheldToday?: IssueSeed[]
   /** Cooldown tracking for novelty/repetition control. */
   cooldowns: Record<string, CooldownEntry>
   /** Rejected seeds with reasons (debug). */
@@ -495,17 +547,75 @@ export type IssueSeedModuleState = {
    *  last pick. Used by expanded seed generators to apply a recency
    *  penalty so the same actor doesn't dominate a family across days. */
   recentPicks: Record<string, Record<string, number>>
+  /** Phase 205 / audit Wave 6 (`P7-EXP-005`) — cross-day attention
+   *  ledger: per-family streaks (the cooldown authority) and per-thread
+   *  continuity. Optional so saves written before Wave 6 still load;
+   *  reads default through `createInitialAttentionState()`. */
+  attention?: AttentionState
+}
+
+/** Phase 205 / audit Wave 6 (`P7-EXP-005`) — one family's recurrence
+ *  record. Keyed on FAMILY, not family+entity: rotating the entity
+ *  inside a family is exactly how the audit's 25–27 consecutive-day
+ *  streaks stayed invisible, so the cooldown has to see the family. */
+export type FamilyStreakState = {
+  family: string
+  /** Absolute day the family last reached the visible hand. */
+  lastSurfacedDay: number
+  /** Consecutive days (including `lastSurfacedDay`) it has surfaced. */
+  consecutiveDays: number
+  /** Severity it carried on `lastSurfacedDay`. */
+  lastSeverity: number
+}
+
+/** Phase 205 / audit Wave 6 (`P7-EXP-005`) — one issue thread: a family
+ *  plus the entity it is about, tracked across days so a recurrence can
+ *  be presented as the same problem rather than a fresh incident. */
+export type IssueThreadState = {
+  key: string
+  family: string
+  /** Absolute day the thread first surfaced. */
+  firstSurfacedDay: number
+  /** Absolute day the thread last surfaced. */
+  lastSurfacedDay: number
+  /** Number of days the thread has surfaced. */
+  timesSurfaced: number
+  /** Severity on the most recent appearance. */
+  lastSeverity: number
+  /** Highest severity the thread has reached. */
+  peakSeverity: number
+  /** Response-slot ids the player has committed on this thread. */
+  triedSlotIds: string[]
+  /** Label of the most recent decision, as the player saw it. */
+  lastSelectionLabel?: string
+  /** Absolute day of that decision. */
+  lastSelectionDay?: number
+  /** Day the player last committed ANY response on this thread, label or
+   *  not. Distinct from `lastSelectionDay`, which only advances when the
+   *  sim can quote what the player picked. */
+  lastAnsweredDay?: number
+}
+
+export type AttentionState = {
+  families: Record<string, FamilyStreakState>
+  threads: Record<string, IssueThreadState>
+}
+
+export function createInitialAttentionState(): AttentionState {
+  return { families: {}, threads: {} }
 }
 
 export function createInitialIssueSeedModuleState(): IssueSeedModuleState {
   return {
     seedsToday: [],
     surfacedToday: [],
+    withheldToday: [],
     cooldowns: {},
     rejectedToday: [],
     totalGenerated: 0,
     totalRejected: 0,
     lastGeneratedDay: -1,
     recentPicks: {},
+    attention: createInitialAttentionState(),
   }
 }

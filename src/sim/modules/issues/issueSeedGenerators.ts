@@ -46,6 +46,7 @@ import {
   urgencyFromPressures,
 } from './generatorHelpers'
 import type { EntityRef } from '../../state/TavernState'
+import { recipeRegistry } from '../../registries/recipeRegistry'
 import { clampPercent } from '../../state/normalize'
 import { COMPLAINT_THRESHOLD, getCustomerModuleState } from '../customers'
 import type { IssueSeedGenerator } from './issueSeedRegistry'
@@ -446,6 +447,67 @@ const HIGH_DEMAND_DAY_TYPES = new Set([
 
 const STOCK_LOW_THRESHOLD = 30
 
+/** Phase 205 / audit Wave 6 (`P5-PLAY-005`) — how recently a recipe must
+ *  have been served for its inputs to count as in demand. */
+const STOCK_DEMAND_WINDOW_DAYS = 7
+
+/** Phase 205 / audit Wave 6 (`P5-PLAY-005`) — why the sim believes an item
+ *  is wanted. A shortage card may only be raised about an item with one of
+ *  these, and its "recent context" line is derived from whichever one
+ *  qualified it — so the card's claim about demand IS the reason the sim
+ *  admitted the item.
+ *
+ *  Ordered strongest first: an unfilled order today beats a recent serve,
+ *  which beats a standing menu listing. */
+type StockDemandSignal = {
+  kind: 'ran_short_today' | 'served_recently' | 'on_menu'
+  readable: string
+}
+
+function stockDemandSignal(
+  ctx: SimContext,
+  stockId: string,
+  stockLabel: string,
+): StockDemandSignal | undefined {
+  const shortages =
+    (ctx.state.modules.stock as
+      | { shortages?: Array<{ stockId: string }> }
+      | undefined)?.shortages ?? []
+  if (shortages.some((entry) => entry.stockId === stockId)) {
+    return {
+      kind: 'ran_short_today',
+      readable: `${stockLabel} ran short during service`,
+    }
+  }
+
+  let onMenu = false
+  for (const def of recipeRegistry.all()) {
+    if (!def.inputs.some((input) => input.ingredientId === stockId)) continue
+    const recipe = ctx.state.recipes[def.id]
+    if (!recipe) continue
+    if (
+      recipe.lastServedDay !== null &&
+      recipe.daysSinceLastServed <= STOCK_DEMAND_WINDOW_DAYS
+    ) {
+      return {
+        kind: 'served_recently',
+        readable:
+          recipe.daysSinceLastServed <= 1
+            ? `${stockLabel} went out over the bar today`
+            : `${stockLabel} sold within the week`,
+      }
+    }
+    if (recipe.onMenu) onMenu = true
+  }
+  if (onMenu) {
+    return {
+      kind: 'on_menu',
+      readable: `${stockLabel} is on the menu`,
+    }
+  }
+  return undefined
+}
+
 function generateStockShortage(ctx: SimContext): IssueSeed[] {
   const familyGuard = CONTRADICTION_GUARDS.stock_shortage(ctx)
   if (!familyGuard.allowed) return []
@@ -456,11 +518,25 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
   // hardcoding ale. Candidate set = items whose quantity sits at or
   // below the low-stock threshold. Apply the recency penalty so the
   // same shortage doesn't dominate consecutive days.
+  //
+  // Phase 205 / audit Wave 6 (`P5-PLAY-005`) — and a candidate must be
+  // WANTED. Quantity alone made every never-stocked specialty ingredient
+  // (registry default `quantity: 0`) score the maximum `30 - quantity`,
+  // ahead of a genuinely depleted staple: the audit was offered 60 Bog
+  // Truffle for 30 coin, for an item that was off-menu, had never been
+  // served, and had sat at zero since the run began. Demand is not a
+  // tie-break here, it is a precondition — an item nothing consumes
+  // cannot run short.
   const today = ctx.state.calendar.totalDaysElapsed
   const allStock = Object.values(ctx.state.stock)
-  const candidates = allStock.filter(
-    (item) => item.quantity <= STOCK_LOW_THRESHOLD,
-  )
+  const demandSignals = new Map<string, StockDemandSignal>()
+  const candidates = allStock.filter((item) => {
+    if (item.quantity > STOCK_LOW_THRESHOLD) return false
+    const signal = stockDemandSignal(ctx, item.id, item.label.toLowerCase())
+    if (!signal) return false
+    demandSignals.set(item.id, signal)
+    return true
+  })
   if (candidates.length === 0) return []
 
   let chosen = candidates[0]!
@@ -491,6 +567,11 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
 
   const dayType = ctx.state.calendar.dayType
   const highDemand = HIGH_DEMAND_DAY_TYPES.has(dayType)
+  // Phase 205 / audit Wave 6 (`P5-PLAY-005`) — "already out" and "running
+  // low" are different situations and must not share wording. The audit
+  // was warned an item at quantity 0 "may run out".
+  const alreadyOut = chosen.quantity <= 0
+  const demand = demandSignals.get(chosen.id)!
 
   const causes: CauseEntry[] = pressureCauseRefsAsEntries(ctx, 'stock_shortage', 3)
   for (const c of scopedCauseEntries(
@@ -694,7 +775,9 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
     stake(
       `${chosen.id}_stake`,
       `stock:${chosen.id}`,
-      `${chosen.label} may run out`,
+      alreadyOut
+        ? `${chosen.label} has run out`
+        : `${chosen.label} may run out`,
       'loss',
       [chosen.id, 'stock'],
     ),
@@ -735,14 +818,27 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
       consequenceProfiles,
       memoriesCreated: [],
       futureHooks: [],
-      toneHints: highDemand ? ['urgent', 'high_demand'] : ['warning'],
+      toneHints: [
+        ...(highDemand ? ['urgent', 'high_demand'] : ['warning']),
+        ...(alreadyOut ? ['already_out'] : []),
+      ],
       textIngredients: buildTextIngredients({
         subject: `${stockLabel} stock`,
-        problemNoun: 'low stock',
+        problemNoun: alreadyOut ? 'nothing left' : 'low stock',
         sensoryDetails: ['empty kegs', 'thirsty regulars'],
         actorOpinions: { miners: 'glance at the taps' },
-        recentContext: [`${stockLabel} sales heavy this week`],
-        stakesReadable: [`${stockLabel} may run dry`, 'miners may leave'],
+        // Phase 205 / audit Wave 6 (`P5-PLAY-005`) — derived from the
+        // demand signal that qualified this item, not asserted. The old
+        // unconditional `<item> sales heavy this week` was the false
+        // operational history the audit was asked to spend 30 coin on.
+        // `recentContext` is a `signal-backed` ingredient role
+        // (`TEXT_INGREDIENT_ROLE`), so an unbacked claim here was always
+        // a contract violation as well as a lie.
+        recentContext: [demand.readable],
+        stakesReadable: [
+          alreadyOut ? `${stockLabel} is already out` : `${stockLabel} may run dry`,
+          'miners may leave',
+        ],
       }),
       ctx,
     }),

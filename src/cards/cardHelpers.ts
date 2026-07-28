@@ -20,6 +20,7 @@ import type {
 import type { EffectPreview } from '../sim/core/effect'
 import type { EntityRef, TavernState } from '../sim/state/TavernState'
 import { displayNameForRef } from '../sim/modules/issues/generatorHelpers'
+import { RENDERED_CHOICE_CAP_PER_CARD } from '../sim/modules/issues/handBudget'
 import { pickSnippet } from './compose/assemble'
 import { canonicaliseText } from './compose/gates/dedupe'
 import {
@@ -68,8 +69,13 @@ const ATTRIBUTABLE_ACTOR_KINDS: ReadonlyArray<EntityRef['kind']> = [
  * response slots. The cap is a *presentation* policy over what
  * `composeChoicesFromSeed` renders — `seed.responseSlots` is unchanged
  * and every dropped slot's `consequenceProfile` is still in `seed`.
+ *
+ * Phase 205 / audit Wave 6 — the number now lives in the sim, as
+ * `RENDERED_CHOICE_CAP_PER_CARD`, because the full-day choice ceiling
+ * prices each card by it. Two copies of "6" could drift and the budget
+ * would then admit a card that renders wider than it was priced at.
  */
-export const DEFAULT_LEGIBLE_CHOICE_CAP = 6
+export const DEFAULT_LEGIBLE_CHOICE_CAP = RENDERED_CHOICE_CAP_PER_CARD
 
 // Phase 181 / ISSUE-149 — Choice-Preview Legibility arc, Phase 1. The
 // within-choice de-dup key for a preview cell. Two effects sharing a key reuse

@@ -17,7 +17,18 @@ import {
   rankSeeds,
 } from './issueSeedRanking'
 import { validateSeed, validateSeedAgainstState } from './issueSeedValidation'
-import { applyHandBudget } from './handBudget'
+import { selectVisibleHand } from './handBudget'
+import {
+  applyContinuity,
+  continuesThread,
+  getAttentionState,
+  pruneAttention,
+  recordResolutions,
+  recordSurfaced,
+  shouldRestFamily,
+  threadKeyForSeed,
+} from './issueThreads'
+import type { ResponsesModuleState } from '../responses/types'
 import { EXPANDED_ISSUE_SEED_FAMILIES } from './issueSeedTypes'
 import { buildIssueSeedReport } from './issueSeedReport'
 import { shouldSurfaceAsIssueSeed } from './fairness'
@@ -134,6 +145,15 @@ function runGenerationPass(
 
   const allCandidates: Array<{ generatorId: string; seed: IssueSeed }> = []
   const rejected: IssueSeedModuleState['rejectedToday'] = []
+  // Phase 205 / Wave 6 — the attention ledger read once for the pass:
+  // family streaks gate generation, threads decorate and trim whatever
+  // survives.
+  const attentionBefore = getAttentionState(slice)
+  const generatorOf = new Map<string, string>()
+  /** Valid seeds the family cooldown held back — recorded alongside the
+   *  budget's own withheld set so the day's full generated picture stays
+   *  inspectable. */
+  const rested: IssueSeed[] = []
 
   for (const generator of generators) {
     let produced: IssueSeed[] = []
@@ -210,6 +230,32 @@ function runGenerationPass(
       continue
     }
 
+    // Phase 205 / Wave 6 (`P7-EXP-005`) — family cooldown. A family that
+    // has already run its consecutive-day limit rests a day unless the
+    // issue materially worsened, or the player answered this thread last
+    // time it appeared. Keyed on family (not family+entity) because entity
+    // rotation is exactly how the audit's 25–27-day streaks stayed
+    // invisible — see `shouldRestFamily` for why urgency is not an
+    // exemption here.
+    const streak = attentionBefore.families[seed.family as string]
+    const seedThread = attentionBefore.threads[threadKeyForSeed(seed)]
+    if (shouldRestFamily(streak, seed, absoluteDay, seedThread)) {
+      rejected.push({
+        family: seed.family,
+        templateId: generatorId,
+        reason: `resting after ${streak?.consecutiveDays ?? 0} consecutive days without material change`,
+      })
+      rested.push(seed)
+      continue
+    }
+
+    // Phase 205 / Wave 6 — a recurrence carries its own history and, when
+    // it has not escalated, a narrowed offer set.
+    if (continuesThread(seedThread, absoluteDay)) {
+      applyContinuity(seed, seedThread!, absoluteDay)
+    }
+
+    generatorOf.set(seed.id, generatorId)
     accepted.push(seed)
     // Track cooldown bump on every generation regardless of whether the
     // seed gets selected later — repeated generation is the signal that
@@ -229,10 +275,36 @@ function runGenerationPass(
   }
 
   // Phase 2 (teleology) — bound the hand to a budget, reserving slots for
-  // teleology vs triage seeds, sim-side for replay determinism. Applied
-  // after ranking on the accumulated union so each segment-local pass holds
-  // the hand within budget.
-  const ranked = applyHandBudget(rankSeeds([...existingSeeds, ...accepted]))
+  // teleology vs triage seeds, sim-side for replay determinism.
+  // Phase 205 / Wave 6 (`P7-EXP-005`) — the budget is now a FULL-DAY
+  // ledger, not a per-pass cap: it prices what the player has already been
+  // shown today (cards and rendered choice buttons) so Morning + Service
+  // cannot add up past the approved ceiling. See `handBudget.ts`.
+  const rankedAll = rankSeeds([...existingSeeds, ...accepted])
+  const selection = selectVisibleHand({
+    ranked: rankedAll,
+    exposed: baseSurfaced,
+    holdServiceReserve: timings.includes('morning_prep'),
+  })
+  const ranked = selection.hand
+  for (const entry of selection.withheld) {
+    rejected.push({
+      family: entry.seed.family,
+      templateId: generatorOf.get(entry.seed.id) ?? entry.seed.family,
+      reason: entry.reason,
+    })
+  }
+  // Phase 205 / Wave 6 — keep the withheld seeds themselves for the day.
+  // A later pass can admit one (the ledger frees up when a pass re-ranks),
+  // so drop anything that made the hand, and never record a seed twice.
+  const admittedIds = new Set(ranked.map((seed) => seed.id))
+  const withheldById = new Map<string, IssueSeed>()
+  for (const seed of slice.withheldToday ?? []) withheldById.set(seed.id, seed)
+  for (const entry of selection.withheld) {
+    withheldById.set(entry.seed.id, entry.seed)
+  }
+  for (const seed of rested) withheldById.set(seed.id, seed)
+  for (const id of admittedIds) withheldById.delete(id)
 
   // Phase 2 (teleology) — preserve every seed that has been part of the
   // visible hand at the end of any pass today. The hand budget can displace
@@ -251,8 +323,14 @@ function runGenerationPass(
     {
       seedsToday: ranked,
       surfacedToday,
+      withheldToday: [...withheldById.values()],
       rejectedToday: [...baseRejected, ...rejected],
       cooldowns: slice.cooldowns,
+      // Phase 205 / Wave 6 — the streak/thread ledgers record what the
+      // player was actually SHOWN (the exposure union), so a seed that
+      // generation produced but the ceiling withheld neither extends a
+      // streak nor ages a thread.
+      attention: recordSurfaced(attentionBefore, surfacedToday, absoluteDay),
       totalGenerated: baseTotalGenerated + allCandidates.length,
       totalRejected: baseTotalRejected + rejected.length,
       lastGeneratedDay: absoluteDay,
@@ -271,7 +349,7 @@ const startDayHook: SimulationHook = (ctx: SimContext): void => {
   ensureRequiredSeedGeneratorsRegistered(issueSeedGeneratorRegistry)
   writeSlice(
     ctx,
-    { seedsToday: [], surfacedToday: [], rejectedToday: [] },
+    { seedsToday: [], surfacedToday: [], withheldToday: [], rejectedToday: [] },
     'day_initialize',
   )
   runGenerationPass(ctx, ['morning_prep'])
@@ -320,6 +398,36 @@ const endMonthHook: SimulationHook = (ctx: SimContext): void => {
   runGenerationPass(ctx, ['end_month'])
 }
 
+// Phase 205 / Wave 6 (`P7-EXP-005`) — fold the day's decisions into their
+// threads, so tomorrow's recurrence can say what the player already tried
+// instead of arriving context-free.
+//
+// This runs at `endDay` rather than in the responses module because
+// `responses` depends on `issueSeeds` (the reverse dependency would be a
+// cycle) — but `applyResponses` runs before `endDay`, so `resolvedToday`
+// is already written by the time this reads it. Also the one place the
+// ledger is pruned, since `TavernState` growth is a standing constraint
+// on run length.
+const endDayHook: SimulationHook = (ctx: SimContext): void => {
+  const slice = getSlice(ctx)
+  const absoluteDay = ctx.state.calendar.totalDaysElapsed
+  const resolved =
+    (ctx.state.modules.responses as ResponsesModuleState | undefined)
+      ?.resolvedToday ?? []
+  const seedsById = new Map<string, IssueSeed>()
+  for (const seed of slice.surfacedToday ?? []) seedsById.set(seed.id, seed)
+  for (const seed of slice.seedsToday) seedsById.set(seed.id, seed)
+
+  const withResolutions = recordResolutions(
+    getAttentionState(slice),
+    resolved,
+    seedsById,
+    absoluteDay,
+  )
+  const pruned = pruneAttention(withResolutions, absoluteDay)
+  writeSlice(ctx, { attention: pruned }, 'record_thread_resolutions')
+}
+
 function buildReport(ctx: SimContext): ReportSection {
   return buildIssueSeedReport(ctx)
 }
@@ -355,12 +463,22 @@ const IssueSeedModuleStateSchema = z.object({
   // Optional so saves written before Phase 2 (which lack the field) still
   // validate; `startDay` rewrites it every day and reads default to `[]`.
   surfacedToday: z.array(z.unknown()).optional(),
+  // Phase 205 / Wave 6 — day-scoped record of what the budget withheld.
+  withheldToday: z.array(z.unknown()).optional(),
   cooldowns: z.record(z.string(), z.unknown()),
   rejectedToday: z.array(z.unknown()),
   totalGenerated: z.number().int().min(0),
   totalRejected: z.number().int().min(0),
   lastGeneratedDay: z.number().int(),
   recentPicks: z.record(z.string(), z.record(z.string(), z.number().int())),
+  // Phase 205 / Wave 6 — optional so saves written before the wave still
+  // validate; reads default through `getAttentionState`.
+  attention: z
+    .object({
+      families: z.record(z.string(), z.unknown()),
+      threads: z.record(z.string(), z.unknown()),
+    })
+    .optional(),
 })
 
 export const issueSeedsModule: SimulationModule = {
@@ -390,6 +508,8 @@ export const issueSeedsModule: SimulationModule = {
     closing: [closingHook],
     endWeek: [endWeekHook],
     endMonth: [endMonthHook],
+    // Phase 205 / Wave 6 — thread bookkeeping, after `applyResponses`.
+    endDay: [endDayHook],
   },
   buildReport: buildReport,
   validate: validateIssueSeeds,

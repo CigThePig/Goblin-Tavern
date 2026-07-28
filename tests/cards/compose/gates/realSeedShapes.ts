@@ -13,7 +13,7 @@
 // to the gates unless they audit real slot shape. Phase 1 makes the audit
 // honest; Phases 2-4 fix the defects it then surfaces.
 
-import { getIssueSeeds } from '../../../../src/sim/modules/issues/issueSeedQueries'
+import { getGeneratedSeedsToday } from '../../../../src/sim/modules/issues/issueSeedQueries'
 import type {
   IssueSeed,
   IssueSeedFamilyId,
@@ -78,8 +78,14 @@ export function captureSeedShape(opts: CaptureOptions): CapturedSeedShape {
   const cached = CACHE.get(opts.cacheKey)
   if (cached) return cached
 
+  // Phase 205 / audit Wave 6 — read the day's GENERATED seeds, not the
+  // visible hand. These gates ask what shape a family's generator
+  // produces, which is a question about the template; whether the day's
+  // attention ceiling had room for that family is a separate (and, for a
+  // template gate, irrelevant) question. Reading the hand made the gates
+  // fail the moment the Wave 6 budget withheld a lower-ranked family.
   const selectSeeds = (state: TavernState): IssueSeed[] => {
-    let seeds = getIssueSeeds(state, { family: opts.family })
+    let seeds = getGeneratedSeedsToday(state, { family: opts.family })
     if (opts.type) seeds = seeds.filter((s) => s.type === opts.type)
     return seeds
   }

@@ -90,6 +90,19 @@ The Phase 5 fixture similarly accepts:
 - `monthAndCadenceProbe`
 - `strategyProbe`
 
+## Remediation-arc additions (not part of the delivered package)
+
+Added while working the queue:
+
+- `REMEDIATION_QUEUE.md` — the authoritative per-finding checklist.
+- `baselines/pre-wave7-standard.json` — the post-Wave-6 balance starting
+  point, produced by `npm run balance:matrix` (Wave 7 framework; see
+  `docs/plans/phase-206-audit-wave-7-balance-and-whole-experience.md`).
+  For balance work that harness supersedes the Phase 7 fixture's
+  `strategyProbe` and `pacingAndCoachingProbe` — it drives the same
+  segmented route across variants, difficulties and seeds, and is
+  calibrated against those probes' published numbers.
+
 ## Validation baseline
 
 At completion of the audit:

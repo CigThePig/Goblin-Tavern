@@ -558,6 +558,90 @@ variants, re-run a human public route past Day 29, and reassess every Phase 7
 design question. The current strategy matrix proves differentiation, not
 balance. Detail: Phase 8 §7 (Wave 7).
 
+### Framework and tooling — landed 2026-07-28 (the balance pass has NOT started)
+
+Plan: `docs/plans/phase-206-audit-wave-7-balance-and-whole-experience.md`.
+
+Wave 7's deliverable is numbers, so the instrument is the thing most likely
+to be wrong. It is built and calibrated; the pass itself is blocked on the
+decisions below.
+
+- **`src/sim/testing/balanceHarness.ts`** — one scenario runner over the
+  real segmented day (A → B → C), so cards are answered from post-Service
+  state. `simulateDay` takes the whole day's input up front, which is why
+  no run `balanceRuns.runStrategy` has ever produced answered a card.
+  Two levers (`ownerActions`, `responses`), three difficulties, any seed.
+  Emits every axis Phase 8 §7 names plus the `DC-06` load dimensions and
+  per-day invariants. No `TavernState` retained; no `src/cards` import.
+- **`src/sim/testing/balanceMatrix.ts`** — cross product, seed
+  aggregation, and an **objective-agnostic** analysis (dominance, dead
+  strategies, agency value, difficulty ordering). It flags a metric whose
+  seed spread exceeds the between-strategy gap as **noisy and unrankable**
+  — Phase 7 §5.2's second limitation, answered. Ties are never leads.
+- **`scripts/balance-matrix.ts`** / `npm run balance:matrix` — the sweep is
+  360 cells at ~6.7s each (~33 min serial), so the driver shards across
+  worker processes: ~8 min at `-c 4`. `--render`, `--baseline`,
+  `--estimate`, md/JSON.
+- **`tests/sim/phase206.wave7.balanceHarness.test.ts`** (18 tests, fast
+  tier) — the instrument's gate, including calibration against published
+  evidence: the passive 28-day route reproduces the Wave 6 gate's 3.46
+  cards/day, max 5, streak 3, and Phase 7 §5.1's 1,043 coin / 828 patrons
+  **exactly**. If the harness drifts from the ceiling gate, the fast tier
+  fails before anyone reads a balance table.
+- **`tests/sim/phase200.wave1.strategyMatrix.test.ts`** now imports
+  `coreStateInvariantFailures` instead of holding its own copy, so the
+  Wave 1 gate and every Wave 7 cell test one §8.2 contract. Wave 7 cannot
+  publish a "balanced" run Wave 1 would have called invalid — which is
+  what Phase 7 §5.2's first limitation was.
+- **`baselines/pre-wave7-standard.json`** — the recorded post-Wave-6
+  starting point: 8 strategies × Standard × 5 variants × the audit's seed,
+  28 days, `--render`. A calibration anchor, **not** the Wave 7 data set.
+
+### Observations from the baseline — evidence, not findings
+
+| # | Observation | Bearing |
+|---|---|---|
+| 1 | **The `DC-06` family-recurrence target holds only where nothing is answered.** Longest streak: 3 days passive and actions-only; **17–26 days (`staff_identity`) on every route that answers cards**; 7–17 on partial | `DC-06`, re-open |
+| 2 | **Coin never becomes a constraint.** `minCoin` equals the starting balance on all 40 cells. The no-action route ends on 1,043 while clean-focused (1,014), ignore-repairs (774) and actions-only miner (725) end *below* it | `DC-04` |
+| 3 | **Pressures are bimodal.** `rumour_pressure` pinned at 100 for 21 of 28 days, `staff_loyalty_risk` for 11, while 8 of 21 pressures end the month at 0. Every cell spends 21–25 days with something at the ceiling | `DC-03`, balance |
+| 4 | **Fewer than eight arms.** `auto_no_owner_actions` pulls no lever, so it is a passive control in all five variants; on responses-only, `auto_clean_focused` and `auto_staff_friendly` are byte-identical (same slot preference). ~5 distinct response policies, not 8 | Sample size in Wave 7's evidence |
+| 5 | **The `DC-06` choice ceiling holds.** With `--render`, `maxChoicesPerDay` is 24 on all 40 cells — met exactly, never exceeded | Wave 6 confirmed off-route |
+
+On (1): the mechanism is the answered-thread exemption in
+`issueThreads.shouldRestFamily`, a deliberate Wave 6 decision. Its own
+comment argues it cannot reopen the streaks because "the 25–27-day streaks
+were measured on a route that answered nothing at all" — which is exactly
+the gap, since the exemption is only reachable by answering. **A decision,
+not a defect. Do not change it silently:** it is a pacing lever and
+re-tuning it moves every other number in the baseline.
+
+### Blocked on decisions (Phase 8 §11.4 gates the balance pass on these)
+
+| ID | Decision needed | Blocks |
+|---|---|---|
+| `DC-03` | Long-term player objective | The scoring layer, coaching ranking (Wave 2 left it objective-agnostic pending this), what "balanced" means |
+| `DC-04` | Failure and recovery contract | Whether observation (2) is a defect or the design |
+| `DC-05` | Should audience leadership change in month 1 | Whether `local_goblins` dominant on every cell is a finding |
+| `DC-06` | Is the answered-thread exemption meant to be uncapped | The recurrence half of the approved workload target |
+| `DC-08` | Which long-horizon systems are core first-month strategies | Whether their near-zero first-month presence is a gap |
+| `DC-01` / `P2-OBS-001` | Keep or retire Quick Day | Unchanged since Phase 2 |
+
+### Order of work when Wave 7 starts
+
+1. Answer the table above — `DC-03` and `DC-04` first.
+2. Run the full sweep: `--difficulties=all --variants=all --render`, three
+   seeds, 28 days (~8 min at `-c 4`).
+3. Before reading any table: confirm every cell is trustworthy and the
+   noisy-metric list is empty for whatever is about to be ranked on. Add
+   seeds rather than ranking through noise.
+4. Add a scoring layer **on top of** the matrix primitives, keyed on
+   `DC-03`. Do not fold the objective into them.
+5. Re-run a human public route past Day 29 (Phase 8 §11.4(5) — the one
+   part no harness covers).
+6. Re-assess Phase 7 §9.1–§9.6 and record each answer here.
+7. Tune, then re-diff against the baseline so every movement is
+   attributable.
+
 ### Carried forward into Wave 7 by earlier waves
 
 Things earlier waves changed or deliberately left standing that a balance
@@ -615,8 +699,9 @@ again.
 **Answered so far:** `DC-02` (Wave 3 — deliberate Ignore and no answer are
 different facts), `DC-07` (Wave 1 — gate the response portfolio at
 selection, re-check atomically), `DC-06` (Wave 6 — the reactive-workload
-target, tabulated in that wave). `DC-03` (long-term objective) is still
-open and Wave 2's coaching ranking is deliberately objective-agnostic
+target, tabulated in that wave; **its family-recurrence half is re-opened
+by Wave 7's baseline observation (1)**). `DC-03` (long-term objective) is
+still open and Wave 2's coaching ranking is deliberately objective-agnostic
 until it is answered.
 
 Ten broader design questions (`DC-01`…`DC-10`: long-term objective, failure
@@ -638,6 +723,24 @@ npx tsx docs/audits/2026-07-26-gameplay-audit/fixtures/phase7-whole-experience-p
 
 Section names accepted by the Phase 5 and Phase 7 probes are listed in
 `README.md`.
+
+The Phase 7 fixture's `strategyProbe` and `pacingAndCoachingProbe` are
+**superseded for balance work** by `npm run balance:matrix` (Wave 7
+framework, above), which drives the same segmented route with variants,
+difficulties and multiple seeds and emits comparable rows. Keep the
+fixture: it is the audit's own artefact and the thing the harness is
+calibrated against.
+
+## Baselines
+
+`baselines/pre-wave7-standard.json` — the post-Wave-6 balance starting
+point, regenerated and diffed with:
+
+```bash
+npm run balance:matrix -- --variants=all --seeds=phase7-integrated-shared \
+  --concurrency=4 --render --format=json --compact \
+  --out=docs/audits/2026-07-26-gameplay-audit/baselines/pre-wave7-standard.json
+```
 
 ## Audit-time baseline
 

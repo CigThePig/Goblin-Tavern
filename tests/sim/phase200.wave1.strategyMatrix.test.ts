@@ -13,38 +13,15 @@ import { describe, expect, it } from 'vitest'
 
 import { runStrategy } from '../../src/sim/testing/balanceRuns'
 import { PHASE_20_POLICY_BOTS } from '../../src/sim/testing/policyBots'
-import { getPressureModuleState } from '../../src/sim/modules/pressures/pressureModule'
-import type { TavernState } from '../../src/sim/state/TavernState'
+// Phase 206 / Wave 7 prep — this check moved into `balanceHarness` so the
+// Wave 1 gate and every Wave 7 balance cell test ONE contract. Wave 7 must
+// not be able to publish a "balanced" run that Wave 1 would have called
+// schema-invalid, which is exactly what Phase 7 §5.2's first limitation
+// was: two strategies ranked on data taken after they went invalid.
+import { coreStateInvariantFailures as invariantFailures } from '../../src/sim/testing/balanceHarness'
 
 const SHARED_SEED = 'phase200-wave1-matrix'
 const DAYS = 28
-
-/** Audit Phase 8 §8.2 — the invariants that must hold at every stable beat. */
-function invariantFailures(state: TavernState, label: string): string[] {
-  const out: string[] = []
-  if (state.coin < 0) out.push(`${label}: coin ${state.coin} < 0`)
-
-  const slice = getPressureModuleState(state)
-  for (const [id, compact] of Object.entries(state.pressures)) {
-    const snapshot = slice.snapshots[id]
-    if (!snapshot) continue
-    if (snapshot.value !== compact.value) {
-      out.push(
-        `${label}: ${id} compact=${compact.value} snapshot=${snapshot.value}`,
-      )
-    }
-  }
-
-  const rent = (
-    state.modules['monthly'] as
-      | { rent?: { arrears: number; monthlyAmount: number } }
-      | undefined
-  )?.rent
-  if (rent && rent.arrears < 0) {
-    out.push(`${label}: rent arrears ${rent.arrears} < 0`)
-  }
-  return out
-}
 
 describe('Wave 1 gate — eight shared-seed 28-day strategies', () => {
   const bots = PHASE_20_POLICY_BOTS.filter((bot) => bot.id !== 'manual_debug')

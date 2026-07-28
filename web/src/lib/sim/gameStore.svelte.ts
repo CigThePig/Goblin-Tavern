@@ -57,10 +57,7 @@ import {
   type PickedAction,
 } from './actionBuilder'
 import { actionRegistry } from '../../../../src/sim/registries/actionRegistry'
-import {
-  actionDisabledReason,
-  actionDisabledReasonForTarget,
-} from '../../../../src/sim/modules/ownerActions/readonlyHelpers'
+import { actionDisabledReasonForInput } from '../../../../src/sim/modules/ownerActions/readonlyHelpers'
 import {
   INITIAL_DAY_SESSION,
   MISSED_OPPORTUNITY_DISMISSAL_WINDOW_DAYS,
@@ -92,6 +89,27 @@ import type { OwnerActionCategory } from '../../../../src/sim/modules/ownerActio
 export type ActionPickerRequest = {
   tab?: OwnerActionCategory
   focusSuggested?: boolean
+  /**
+   * Phase 203 / audit Wave 4 (`P7-EXP-006`) — the entity that motivated
+   * the handoff. A stock-shortage CTA knew the item was Mushrooms, put it
+   * in prose, and then opened all twenty stock targets for the player to
+   * find it again. The picker preselects this target when it is valid and
+   * otherwise sorts and marks it, leaving every alternative reachable.
+   */
+  preferredTargetId?: string
+  preferredTargetLabel?: string
+  /** The originating problem, carried onto the queued pick. */
+  reason?: string
+}
+
+/**
+ * Phase 203 / audit Wave 4 (`P3-BHV-002`) — a request to open the dedicated
+ * form an action declares via `OwnerActionDefinition.composer`. The generic
+ * picker cannot assemble a commission's runner × mode × duration × tier, so
+ * it hands off rather than queueing an under-specified pick.
+ */
+export type ComposerRequest = {
+  composer: string
 }
 
 /**
@@ -216,6 +234,13 @@ class GameStore {
   // drilldown CTA can carry the tab to preselect + a focus-Suggested hint.
   // `undefined` means "no request pending"; any object means "open".
   actionPickerRequest: ActionPickerRequest | undefined = $state(undefined)
+
+  /**
+   * Phase 203 / audit Wave 4 (`P3-BHV-002`) — pending request to open an
+   * action's dedicated composer. Same consume-once routing-hint shape as
+   * `actionPickerRequest`; session-only, not persisted.
+   */
+  composerRequest: ComposerRequest | undefined = $state(undefined)
 
   // Phase 96 — One-shot flag the welcome-back pill reads. Set true on
   // hydration; flipped to false on the first beat advance.
@@ -715,12 +740,39 @@ class GameStore {
     }
     const def = actionRegistry.get(pick.actionId)
     const pointsLeft = DAY_MINUTES - this.minutesQueued
-    const reason =
-      def.targetType && def.targetType !== 'global'
-        ? actionDisabledReasonForTarget(def, this.state, pick.targetId, pointsLeft)
-        : actionDisabledReason(def, this.state, pointsLeft)
+    // Phase 203 / audit Wave 4 (`P3-BHV-002`) — validate the payload the
+    // player actually specified, options and all. The old split asked a
+    // global-typed action the definition-shaped question, so a fully
+    // filled-in expedition commission was refused for the runner it had
+    // already named.
+    const reason = actionDisabledReasonForInput(
+      def,
+      this.state,
+      {
+        actionId: pick.actionId,
+        ...(pick.targetId !== undefined ? { targetId: pick.targetId } : {}),
+        ...(pick.amount !== undefined ? { amount: pick.amount } : {}),
+        ...(pick.options !== undefined ? { options: pick.options } : {}),
+      },
+      pointsLeft,
+    )
     if (reason) return { ok: false, reason }
     return { ok: true, pick: this.addPick(pick) }
+  }
+
+  /**
+   * Phase 203 / audit Wave 4 (`P5-PLAY-001`) — which day the queue is for.
+   *
+   * `segment` is the authority, not `beat`: picks queued while Segment B
+   * is still ahead are consumed by TODAY's Segment B; picks queued after
+   * it has run are carried into the next day by `beginDay`, which
+   * deliberately preserves them. The audit found the Top Bar saying "6h
+   * left today" during Service and Closing, and the planner saying "Your
+   * day is unspent", while the queue was quietly spending tomorrow's time
+   * and coin. The mechanism was right; only the copy lied.
+   */
+  get planningHorizon(): 'today' | 'tomorrow' {
+    return this.segment === 'A' ? 'today' : 'tomorrow'
   }
 
   removePick(pickId: string): void {
@@ -874,6 +926,13 @@ class GameStore {
     this.actionPickerRequest = {
       ...(opts.tab ? { tab: opts.tab } : {}),
       focusSuggested: opts.focusSuggested ?? false,
+      ...(opts.preferredTargetId
+        ? { preferredTargetId: opts.preferredTargetId }
+        : {}),
+      ...(opts.preferredTargetLabel
+        ? { preferredTargetLabel: opts.preferredTargetLabel }
+        : {}),
+      ...(opts.reason ? { reason: opts.reason } : {}),
     }
   }
 
@@ -883,6 +942,26 @@ class GameStore {
     const req = this.actionPickerRequest
     this.actionPickerRequest = undefined
     return req
+  }
+
+  /**
+   * Phase 203 / audit Wave 4 (`P3-BHV-002`) — route to an action's own
+   * composer. Navigates to the screen that hosts it and leaves a
+   * consume-once request the panel picks up.
+   */
+  requestComposer(composer: string): void {
+    if (composer === 'expedition') {
+      this.route = 'tavern'
+      this.tavernSubview = 'stock'
+    }
+    this.composerRequest = { composer }
+  }
+
+  /** Read-and-clear the pending composer request (consume-once). */
+  consumeComposerRequest(composer: string): boolean {
+    if (this.composerRequest?.composer !== composer) return false
+    this.composerRequest = undefined
+    return true
   }
 
   setReportsSubview(v: ReportsSubview): void {

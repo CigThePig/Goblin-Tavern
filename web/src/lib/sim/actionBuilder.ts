@@ -40,6 +40,7 @@ import {
   TIME_COST_QUICK,
   formatDuration,
 } from '../../../../src/sim/modules/ownerActions/stateHelpers'
+import { humanizeActionReason } from '../../../../src/reports/labels/actionReason'
 
 // Phase 186 Cluster 3 — the daily owner budget is now MINUTES, sourced
 // from the single sim-side constant so the web cannot drift from the
@@ -62,6 +63,15 @@ export type PickedAction = {
    * (commission_expedition, etc.). Forwarded verbatim to the engine.
    */
   options?: Record<string, unknown>
+  /**
+   * Phase 203 / audit Wave 4 (`P7-EXP-006`) — the problem this pick was
+   * queued to answer ("lost mushrooms yesterday", "Food Safety rising"),
+   * when it came from a suggestion or a cause drilldown. Display only: the
+   * queue chip and the plan summary say which recommendation the action
+   * came from, so `notice problem → ask why → plan remedy` closes without
+   * the player re-deriving it. Not sent to the engine.
+   */
+  contextReason?: string
 }
 
 let pickIdCounter = 0
@@ -213,6 +223,11 @@ function sanitizeSinglePick(
       ? (optionsRaw as Record<string, unknown>)
       : undefined
 
+  // Phase 203 / audit Wave 4 (`P7-EXP-006`) — display-only provenance;
+  // survives reload with the pick it belongs to.
+  const contextReason =
+    typeof r.contextReason === 'string' ? r.contextReason : undefined
+
   const sanitized: PickedAction = {
     pickId,
     actionId,
@@ -224,6 +239,7 @@ function sanitizeSinglePick(
     ...(targetLabel !== undefined ? { targetLabel } : {}),
     ...(amount !== undefined ? { amount } : {}),
     ...(options !== undefined ? { options } : {}),
+    ...(contextReason !== undefined ? { contextReason } : {}),
   }
   return sanitized
 }
@@ -346,36 +362,12 @@ function buildPolicyToggleRow(
   return row
 }
 
-/**
- * Translate an engine rejection reason into player-facing copy.
- *
- * `canApply` reasons are written for the engine and tests
- * ("adjust_prices requires a numeric amount delta"); shown raw they read
- * like crashes. Actions that need extra input (an amount, a runner) have
- * dedicated flows on the Tavern screen — point the player there instead
- * of echoing the validation internals. Unknown reasons fall back to a
- * light cleanup (underscores stripped) so future engine strings degrade
- * gracefully rather than leaking ids.
- */
-export function humanizeActionReason(reason: string): string {
-  if (/requires a numeric amount/i.test(reason)) {
-    return 'Set per item from Tavern → Stock'
-  }
-  if (/requires a runner/i.test(reason)) {
-    return 'Commission from Tavern → Stock — pick a runner there'
-  }
-  if (/targetId|target id/i.test(reason)) {
-    return 'Needs a specific target — pick one from the Tavern screen'
-  }
-  // Generic cleanup: drop a leading machine id token ("some_action_id
-  // cannot …" → "Cannot …") and strip remaining underscores.
-  const cleaned = reason
-    .replace(/^[a-z0-9]+(?:_[a-z0-9]+)+\s+/, '')
-    .replace(/_/g, ' ')
-    .trim()
-  if (!cleaned) return reason.replace(/_/g, ' ')
-  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
-}
+// Phase 204 / audit Wave 5 (`P6-COMP-007`) — moved to
+// `src/reports/labels/actionReason.ts` so the PROJECTIONS can emit
+// player-ready reasons rather than relying on each component to remember
+// this call. Re-exported here because the existing call sites (and the
+// picker's warning de-dup) still go through it, and it is idempotent.
+export { humanizeActionReason }
 
 export function categoryLabel(c: OwnerActionCategory): string {
   switch (c) {

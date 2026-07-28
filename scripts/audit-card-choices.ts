@@ -15,6 +15,8 @@ import type {
   ResponseSlot,
 } from '../src/sim/modules/issues/issueSeedTypes'
 import { getIssueSeeds } from '../src/sim/modules/issues/issueSeedQueries'
+import { OWNER_TIME_EFFECT_TARGET } from '../src/sim/modules/responses/responseCost'
+import { DAY_MINUTES } from '../src/sim/modules/ownerActions/stateHelpers'
 import { runOneDay } from '../src/sim/testing/simRunner'
 import type { TavernState } from '../src/sim/state/TavernState'
 import {
@@ -519,16 +521,31 @@ export function buildRows(): AuditRow[] {
   return rows
 }
 
+// Phase 203 / audit Wave 4 (`P6-COMP-005`) — the dominance heuristic adds
+// raw magnitudes across units that are not comparable. That was tolerable
+// while every effect sat on a 0–100-ish meter; owner time is MINUTES of a
+// 360-minute day, so a half-hour reads as `30` and swamps a 4-coin cost it
+// is nowhere near as expensive as. Normalise it onto the same 0–100 scale
+// the other meters use, so the comparison weighs the burden rather than
+// the unit.
+function effectMagnitude(effect: EffectAudit): number {
+  const raw = Math.abs(effect.amount ?? 0)
+  if (effect.target === OWNER_TIME_EFFECT_TARGET) {
+    return (raw / DAY_MINUTES) * 100
+  }
+  return raw
+}
+
 function visibleBenefitScore(row: AuditRow): number {
   return row.visiblePreviewEffects
     .filter((effect) => effect.roles.includes('benefit'))
-    .reduce((sum, effect) => sum + Math.abs(effect.amount ?? 0), 0)
+    .reduce((sum, effect) => sum + effectMagnitude(effect), 0)
 }
 
 function visibleCostScore(row: AuditRow): number {
   return row.visiblePreviewEffects
     .filter((effect) => effect.roles.includes('cost') || effect.roles.includes('risk') || effect.direction === 'negative')
-    .reduce((sum, effect) => sum + Math.abs(effect.amount ?? 0), 0)
+    .reduce((sum, effect) => sum + effectMagnitude(effect), 0)
 }
 
 function visibleTargets(row: AuditRow): Set<string> {

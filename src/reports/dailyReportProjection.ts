@@ -411,7 +411,14 @@ function projectOwnerActions(
     }
     if (a.targetId !== undefined) {
       line.targetId = a.targetId
-      const targetLabel = resolveActionTargetLabel(a.actionId, a.targetId, state)
+      // Phase 204 / audit Wave 5 (`P3-BHV-003`) — prefer the label the
+      // sim captured while the target still existed. Resolving against
+      // post-action state cannot name an entity the action removed, which
+      // is exactly what `fire_staff` does. Live resolution stays as the
+      // fallback for saves written before the capture existed.
+      const targetLabel =
+        a.targetLabel ??
+        resolveActionTargetLabel(a.actionId, a.targetId, state)
       if (targetLabel) line.targetLabel = targetLabel
     }
     return line

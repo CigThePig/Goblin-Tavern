@@ -28,6 +28,8 @@ import {
 import { getOwnerActionsModuleState } from '../sim/modules/ownerActions/stateHelpers'
 import { DAY_MINUTES } from '../sim/modules/ownerActions/stateHelpers'
 import { POLICY_STARTERS } from '../sim/modules/ownerActions/policyActions'
+import { idLabel } from './labels/idLabel'
+import { humanizeActionReason } from './labels/actionReason'
 import { PROJECT_STARTERS } from '../sim/modules/ownerActions/projectActions'
 import type { AreaConditionKey } from '../sim/content/text/descriptors'
 import { pickAreaStateAdjective } from '../sim/content/text/descriptors'
@@ -375,7 +377,13 @@ function projectAreaRow(state: TavernState, area: AreaState): AreaRow {
       id: traitId,
       label: def?.label ?? traitId,
       description: def?.description ?? '',
-      tags: def?.mechanicalTags ? [...def.mechanicalTags] : [],
+      // Phase 204 / audit Wave 5 (`P6-COMP-007`) — these are engine hooks
+      // (`cleanliness_negative`, `merchant_sensitive`), and the detail
+      // sheet rendered them verbatim. The tag ids stay what they are in
+      // the registry; the projection names them for the player.
+      tags: def?.mechanicalTags
+        ? def.mechanicalTags.map((tag) => idLabel('mechanicalTag', tag))
+        : [],
     }
   })
 
@@ -418,7 +426,11 @@ function projectAreaRow(state: TavernState, area: AreaState): AreaRow {
     conditionAdjectiveKey,
     conditionAdjective,
     traits,
-    atmosphere: [...area.atmosphere],
+    // Phase 204 / audit Wave 5 (`P6-COMP-007`) — atmosphere tags are
+    // stored as ids (`lived_in`) and rendered as a chip row on the area
+    // sheet, directly under the "Atmosphere" glossary link. Named here so
+    // the chip reads as a word; the stored tag is untouched.
+    atmosphere: area.atmosphere.map((tag) => idLabel('mechanicalTag', tag)),
     upgrades,
     activeProblems: [...area.activeProblems],
     recentMemoryCount,
@@ -820,7 +832,9 @@ function projectAvailableProject(
     requiredProgress: starter.requiredProgress,
   }
   if (def?.targetType !== undefined) row.targetType = def.targetType
-  if (disabledReason !== undefined) row.disabledReason = disabledReason
+  if (disabledReason !== undefined) {
+    row.disabledReason = humanizeActionReason(disabledReason)
+  }
   return row
 }
 
@@ -843,8 +857,12 @@ function projectPolicies(
       : `enable_${starter.policyType}`
     const toggleDef = actionRegistry.get(toggleActionId)
     const toggleActionLabel = toggleDef?.label
+    // Phase 203 / audit Wave 4 (`P3-BHV-001`) — ask about THIS policy. The
+    // untargeted query answered for the toggle definition in general, so
+    // the row could read "available" while the queue rejected the pick the
+    // row built.
     const toggleDisabledReason = toggleDef
-      ? actionDisabledReason(toggleDef, state, DAY_MINUTES)
+      ? actionDisabledReasonForTarget(toggleDef, state, starter.id, DAY_MINUTES)
       : 'toggle action missing'
 
     const row: PolicyRow = {
@@ -868,7 +886,7 @@ function projectPolicies(
       row.toggleActionLabel = toggleActionLabel
     }
     if (toggleDisabledReason !== undefined) {
-      row.toggleDisabledReason = toggleDisabledReason
+      row.toggleDisabledReason = humanizeActionReason(toggleDisabledReason)
     }
     return row
   })
@@ -925,7 +943,13 @@ function makeRef(
     category: def.category,
     timeCost: def.timeCost,
   }
-  if (disabledReason !== undefined) ref.disabledReason = disabledReason
+  // Phase 204 / audit Wave 5 (`P6-COMP-007`) — engine rejection strings
+  // are written for the engine ("adjust_prices requires a numeric amount
+  // delta"). Translating here means every consumer of this projection is
+  // safe, rather than each component having to remember the call.
+  if (disabledReason !== undefined) {
+    ref.disabledReason = humanizeActionReason(disabledReason)
+  }
   return ref
 }
 

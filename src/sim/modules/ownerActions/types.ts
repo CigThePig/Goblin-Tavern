@@ -71,6 +71,22 @@ export type OwnerActionApplied = {
   label: string
   targetId?: string
   /**
+   * Phase 204 / audit Wave 5 (`P3-BHV-003`) — the target's display name,
+   * captured from the definition's own `getValidTargets` at the moment
+   * the action ran, and immutable from then on.
+   *
+   * The report used to resolve `targetId` against post-action state,
+   * which cannot work for an action whose purpose is to remove the
+   * record: firing `Caravanmaster Willem Threepence` reported as
+   * `Hire kitchen hand 4 0`, the shape of a dead lookup. Capturing the
+   * label while the entity still exists means the name survives the
+   * removal, the day close, the next morning and a reload.
+   *
+   * Optional so pre-Wave-5 saves still parse; the report falls back to
+   * live resolution when it is absent.
+   */
+  targetLabel?: string
+  /**
    * Time this action drew from the daily budget, in MINUTES. Phase 186
    * Cluster 3 converted the action-point economy to time; Cluster 7 renamed
    * the field from `actionPointCost` to `timeCost` (pre-Cluster-7 saves
@@ -189,6 +205,28 @@ export type OwnerActionDefinition = {
    * suggested. Ids are validated against the pressure registry in tests.
    */
   pressureAffinity?: ActionPressureId[]
+  /**
+   * Phase 203 / audit Wave 4 (`P3-BHV-002`) — the id of the dedicated form
+   * that owns this action's full input, when a generic picker cannot
+   * assemble it. `commission_expedition` collects a runner, a mode, a
+   * duration and a tier or ingredient; a two-level target list cannot
+   * express that, so the definition names its composer and every generic
+   * entry point routes there instead of queueing a half-specified pick.
+   */
+  composer?: string
+  /**
+   * Phase 203 / audit Wave 4 (`P3-BHV-002`) — may the player *begin*
+   * specifying this action? Distinct from `canApply`, which answers
+   * whether a fully specified input is valid.
+   *
+   * Only form-driven actions need this. Every eligibility query in the
+   * codebase asks a global action `canApply({ actionId })` — an input the
+   * form has not been filled in yet — so an action that requires options
+   * answered "no" to a question nobody meant to ask, and its own entry
+   * point disabled itself. Definitions without a `canOpen` are unchanged:
+   * `canApply` remains the eligibility answer.
+   */
+  canOpen?: (ctx: SimContext) => ActionValidationResult
   /** Targets the action can be applied to. Empty array for global actions. */
   getValidTargets: (ctx: SimContext) => ActionTarget[]
   /** Pure validation. Must not mutate state. */

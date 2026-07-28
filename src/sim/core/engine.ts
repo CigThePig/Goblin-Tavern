@@ -702,7 +702,15 @@ function createContext(
       timestamp: stamp,
       category: draft.category,
       summary: draft.summary,
-      tags: draft.tags ? [...draft.tags] : [],
+      // Phase 204 / audit Wave 5 (`P2-RT-003`) — tags are unique per
+      // entry, guaranteed here rather than assumed by every reader. The
+      // Tavern Log keys its filter chips by tag string, and a service
+      // scene that carried its own type twice (once from the composition
+      // in `serviceModule`, once from `scene.tags`) took the whole
+      // populated Log to the error boundary. Callers compose tag lists
+      // from several sources; the write is the one place that can promise
+      // the result is a set. Order of first appearance is preserved.
+      tags: draft.tags ? [...new Set(draft.tags)] : [],
       relatedActors: draft.relatedActors
         ? draft.relatedActors.map((a) => ({ ...a }))
         : [],

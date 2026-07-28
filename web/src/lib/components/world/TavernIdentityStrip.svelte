@@ -72,7 +72,7 @@
       {#if data.atmosphereTags.length > 0}
         <div class="kv">
           <p class="kv-label chip">
-            <TermLabel term="atmosphere" label="Atmosphere" />
+            <TermLabel term="tavern_atmosphere" label="Atmosphere" />
           </p>
           <p class="kv-value">{data.atmosphereTags.join(' · ')}</p>
         </div>

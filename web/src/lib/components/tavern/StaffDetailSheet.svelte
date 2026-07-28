@@ -71,7 +71,7 @@
             <option value={p.id}>{p.label}</option>
           {/each}
         </select>
-        <p class="hint chip">Sticky across days — engine fallback if left default.</p>
+        <p class="hint chip">Sticky across days — they work to their usual habits if you leave it unset.</p>
       </section>
 
       {#if staff.workStyle || staff.stressResponse || staff.personalityTags.length > 0}

@@ -37,7 +37,10 @@
     ActionTarget,
     OwnerActionCategory,
   } from '../../../../src/sim/modules/ownerActions/types'
-  import { suggestActions } from '../sim/suggestActions'
+  import {
+    suggestActions,
+    type SuggestedAction,
+  } from '../sim/suggestActions'
   import type { DailyReportData } from '../../../../src/reports/types'
 
   let {
@@ -46,6 +49,9 @@
     previousReport,
     requestedTab,
     focusSuggested = false,
+    preferredTargetId,
+    preferredTargetLabel,
+    handoffReason,
   }: {
     open: boolean
     onclose: () => void
@@ -61,6 +67,14 @@
      */
     requestedTab?: OwnerActionCategory | undefined
     focusSuggested?: boolean
+    /**
+     * Phase 203 / audit Wave 4 (`P7-EXP-006`) — the entity that motivated
+     * the handoff, and the problem it answers. Consumed once on open, like
+     * `requestedTab`.
+     */
+    preferredTargetId?: string | undefined
+    preferredTargetLabel?: string | undefined
+    handoffReason?: string | undefined
   } = $props()
 
   const categories = getActionCategories()
@@ -72,8 +86,17 @@
   // is not stomped by a re-render.
   let suggestedEl = $state<HTMLElement>()
   let wasOpen = false
+  // Phase 203 / audit Wave 4 (`P7-EXP-006`) — the handoff context, held for
+  // as long as the sheet stays open so the target list can sort and mark
+  // the preferred entry however the player navigates inside it.
+  let activeTargetId = $state<string | undefined>(undefined)
+  let activeTargetLabel = $state<string | undefined>(undefined)
+  let activeReason = $state<string | undefined>(undefined)
   $effect(() => {
     if (open && !wasOpen) {
+      activeTargetId = preferredTargetId
+      activeTargetLabel = preferredTargetLabel
+      activeReason = handoffReason
       if (requestedTab) {
         tab = requestedTab
         targetingFor = null
@@ -101,6 +124,12 @@
   const pointsLeft = $derived(DAY_MINUTES - minutesUsed)
 
   const actionsForTab = $derived(listActionsByCategory(tab))
+
+  // Phase 203 / audit Wave 4 (`P5-PLAY-001`) — which day this queue is
+  // for. After Segment B the picks the player makes here are consumed by
+  // TOMORROW's Segment B, against tomorrow's budget; the sheet used to say
+  // "Plan the day" and "Your day is unspent" regardless.
+  const planningTomorrow = $derived(gameStore.planningHorizon === 'tomorrow')
 
   // Phase 193 — suggestions tie picker choices to rising pressures and
   // yesterday's losses. Reactive over `picks`, so a suggestion drops out
@@ -177,53 +206,87 @@
     gameStore.removePick(pickId)
   }
 
-  function tapAction(def: OwnerActionDefinition) {
+  /**
+   * Phase 203 / audit Wave 4 (`P7-EXP-006`) — the handoff target first,
+   * then everything else in its original order. A preferred target that is
+   * no longer valid simply isn't in the list, and the player gets the
+   * ordinary one rather than a stale preselection.
+   */
+  function orderTargets(targets: ActionTarget[]): ActionTarget[] {
+    if (!activeTargetId) return targets
+    const preferred = targets.find((t) => t.id === activeTargetId)
+    if (!preferred) return targets
+    return [preferred, ...targets.filter((t) => t.id !== activeTargetId)]
+  }
+
+  function queueFor(def: OwnerActionDefinition, target?: ActionTarget) {
+    addPick({
+      actionId: def.id,
+      label: def.label,
+      category: def.category,
+      targetType: def.targetType,
+      ...(target ? { targetId: target.id, targetLabel: target.label } : {}),
+      timeCost: def.timeCost,
+      ...(activeReason ? { contextReason: activeReason } : {}),
+    })
+  }
+
+  function tapAction(def: OwnerActionDefinition, suggestion?: SuggestedAction) {
     // ISSUE-048 — mirror the disabled check so a targeted action that
     // fails `canApply` for every candidate target doesn't open the
     // target sub-sheet only for the player to discover dead options.
     if (actionDisabledReason(def, gameStore.state, pointsLeft) !== undefined) return
+    // Phase 203 / audit Wave 4 (`P3-BHV-002`) — an action whose input this
+    // picker cannot assemble hands off to the form that can, instead of
+    // queueing something half-specified.
+    if (def.composer) {
+      gameStore.requestComposer(def.composer)
+      onclose()
+      return
+    }
+    // Phase 203 / audit Wave 4 (`P7-EXP-006`) — a suggestion that names its
+    // own target queues against it. This is the audit's route: a stock
+    // shortage suggestion opened all twenty stock rows.
+    const targets = listValidTargets(def, gameStore.state)
+    const suggested = suggestion?.targetId
+      ? targets.find((t) => t.id === suggestion.targetId)
+      : undefined
+    if (suggested) {
+      // The suggestion's own trigger is the reason, ahead of any CTA one.
+      const previousReason = activeReason
+      activeReason = suggestion?.reason ?? previousReason
+      queueFor(def, suggested)
+      activeReason = previousReason
+      return
+    }
     // Global or target-less action: add immediately.
     if (!def.targetType || def.targetType === 'global') {
-      addPick({
-        actionId: def.id,
-        label: def.label,
-        category: def.category,
-        targetType: def.targetType,
-        timeCost: def.timeCost,
-      })
+      queueFor(def)
       return
     }
     // Targeted action: open target picker.
-    const targets = listValidTargets(def, gameStore.state)
     if (targets.length === 0) return
-    if (targets.length === 1) {
-      const t = targets[0]!
-      addPick({
-        actionId: def.id,
-        label: def.label,
-        category: def.category,
-        targetType: def.targetType,
-        targetId: t.id,
-        targetLabel: t.label,
-        timeCost: def.timeCost,
-      })
+    const ordered = orderTargets(targets)
+    // One valid target, or a preferred one the handoff named — quote it
+    // directly rather than making the player pick from a list of one (or
+    // hunt for the row they arrived from).
+    const direct =
+      targets.length === 1
+        ? targets[0]!
+        : activeTargetId
+          ? targets.find((t) => t.id === activeTargetId)
+          : undefined
+    if (direct) {
+      queueFor(def, direct)
       return
     }
     targetingFor = def
-    targetOptions = targets
+    targetOptions = ordered
   }
 
   function chooseTarget(t: ActionTarget) {
     if (!targetingFor) return
-    addPick({
-      actionId: targetingFor.id,
-      label: targetingFor.label,
-      category: targetingFor.category,
-      targetType: targetingFor.targetType,
-      targetId: t.id,
-      targetLabel: t.label,
-      timeCost: targetingFor.timeCost,
-    })
+    queueFor(targetingFor, t)
     targetingFor = null
     targetOptions = []
   }
@@ -296,7 +359,7 @@
   }
 </script>
 
-<BottomSheet {open} title="Plan the day" {onclose}>
+<BottomSheet {open} title={planningTomorrow ? 'Plan tomorrow' : 'Plan the day'} {onclose}>
   {#snippet children()}
     {#if targetingFor}
       <div class="targeting">
@@ -312,9 +375,18 @@
         <ul class="targets">
           {#each targetOptions as t (t.id)}
             {@const quote = quoteForTarget(t)}
+            {@const preferred = t.id === activeTargetId}
             <li>
-              <button class="target" type="button" onclick={() => chooseTarget(t)}>
+              <button
+                class="target"
+                class:preferred
+                type="button"
+                onclick={() => chooseTarget(t)}
+              >
                 <span class="target-label">{t.label}</span>
+                {#if preferred}
+                  <span class="target-preferred chip">the one you came from</span>
+                {/if}
                 {#if t.hint}<span class="target-hint chip">{t.hint}</span>{/if}
                 {#if quote}
                   <span class="quote">
@@ -329,6 +401,21 @@
         </ul>
       </div>
     {:else}
+      <!--
+        Phase 203 / audit Wave 4 — two facts the picker used to withhold:
+        which day the queue runs on (`P5-PLAY-001`), and which problem the
+        player arrived from (`P7-EXP-006`).
+      -->
+      {#if planningTomorrow}
+        <p class="horizon chip" data-testid="picker-horizon" aria-live="polite">
+          Today's work is done — these run tomorrow, on tomorrow's time.
+        </p>
+      {/if}
+      {#if activeReason}
+        <p class="handoff chip" data-testid="picker-handoff">
+          For: {activeReason}{activeTargetLabel ? ` · ${activeTargetLabel}` : ''}
+        </p>
+      {/if}
       {#if picks.length > 0}
         <div class="chips" aria-label="Picked actions">
           {#each picks as p (p.pickId)}
@@ -355,13 +442,23 @@
               <p class="queued-quote chip">
                 <span>{p.label}{p.targetLabel ? ` · ${p.targetLabel}` : ''}: {quote?.summary}</span>
                 {#each visibleWarnings(quote, undefined) as warning}<span class="quote-warning">{warning}</span>{/each}
+                {#if p.contextReason}
+                  <span class="quote-context">answers: {p.contextReason}</span>
+                {/if}
+              </p>
+            {:else if p.contextReason}
+              <p class="queued-quote chip">
+                <span>{p.label}{p.targetLabel ? ` · ${p.targetLabel}` : ''}</span>
+                <span class="quote-context">answers: {p.contextReason}</span>
               </p>
             {/if}
           {/each}
         </div>
       {:else}
         <p class="unspent chip" aria-live="polite">
-          Your day is unspent. Tap Done to skip planning.
+          {planningTomorrow
+            ? 'Tomorrow is unplanned. Tap Done to leave it open.'
+            : 'Your day is unspent. Tap Done to skip planning.'}
         </p>
       {/if}
 
@@ -369,7 +466,7 @@
         <div class="suggested" aria-label="Suggested actions" bind:this={suggestedEl}>
           <p class="suggested-head section-label">Suggested</p>
           <ul class="actions">
-            {#each suggestions as s (s.action.id)}
+            {#each suggestions as s (s.targetId ? `${s.action.id}::${s.targetId}` : s.action.id)}
               {@const reason = disabledReason(s.action)}
               {@const quote = quoteForAction(s.action)}
               <li>
@@ -377,7 +474,7 @@
                   type="button"
                   class="action suggested-action"
                   disabled={!!reason}
-                  onclick={() => tapAction(s.action)}
+                  onclick={() => tapAction(s.action, s)}
                 >
                   <span class="action-head">
                     <span class="action-label">{s.action.label}</span>
@@ -627,6 +724,30 @@
     text-align: center;
     padding: var(--sp-lg);
     color: var(--text-faint);
+  }
+
+  .horizon,
+  .handoff {
+    display: block;
+    margin-bottom: var(--sp-sm);
+    color: var(--fg-muted);
+  }
+
+  .horizon {
+    color: var(--fg-strong, var(--fg-muted));
+  }
+
+  .quote-context {
+    display: block;
+    color: var(--fg-muted);
+  }
+
+  .target-preferred {
+    color: var(--fg-muted);
+  }
+
+  .target.preferred {
+    border-color: var(--accent, currentColor);
   }
 
   .unspent {

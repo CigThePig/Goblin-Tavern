@@ -197,7 +197,12 @@ function rowFromEntry(state: TavernState, entry: HistoryEntry): TavernLogRow {
     day: entry.timestamp.day,
     category: entry.category,
     summary: entry.summary,
-    tags: [...entry.tags],
+    // Phase 204 / audit Wave 5 (`P2-RT-003`) — `ctx.addHistory` now
+    // guarantees unique tags going forward, but saves written before this
+    // wave already hold duplicated ones, and Wave 0 made those saves load.
+    // Deduplicating here too means an old save renders instead of hitting
+    // the error boundary the moment its Log is populated.
+    tags: [...new Set(entry.tags)],
     actorChips: actors,
     locationChips: locations,
     systems: [...entry.relatedSystems],

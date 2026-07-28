@@ -69,6 +69,15 @@ class PrefsStore {
     savePreferences(this.preferences)
   }
 
+  /** Phase 204 / audit Wave 5 (`P6-COMP-007`) — raw ids on demand. */
+  toggleDiagnostics(): void {
+    this.preferences = {
+      ...this.preferences,
+      showDiagnostics: !this.preferences.showDiagnostics,
+    }
+    savePreferences(this.preferences)
+  }
+
   toggleConfirmEndDay(): void {
     this.preferences = {
       ...this.preferences,

@@ -70,6 +70,13 @@ function computeCost(
   return Number.isFinite(value) && value >= 0 ? value : 0
 }
 
+/** Adventurers who are neither out on a job nor recovering from one. */
+function availableRunners(ctx: SimContext) {
+  return Object.values(ctx.state.world.hireableAdventurers).filter(
+    (a) => a.currentExpeditionId === null && !a.activeFlags.includes('injured'),
+  )
+}
+
 function buildExpeditionId(ctx: SimContext): string {
   // Use the calendar day plus the count of expeditions so far for a
   // stable, deterministic id given the same input sequence.
@@ -88,18 +95,48 @@ export const commissionExpedition: OwnerActionDefinition = {
   effectsPreview: 'Sends adventurers out for rare ingredients',
   targetType: 'global',
   timeCost: TIME_COST_STANDARD,
+  // Phase 203 / audit Wave 4 (`P3-BHV-002`) — a runner is one of four
+  // fields this action needs; the other three (mode, duration, tier or
+  // ingredient) have no target list a generic picker could walk. The
+  // definition names the form that owns them so every entry point routes
+  // there rather than queueing an under-specified pick.
+  composer: 'expedition',
+  // Phase 203 / audit Wave 4 (`P3-BHV-002`) — eligibility to OPEN that
+  // form, which is the question Stock and the central picker were really
+  // asking. They asked `canApply({ actionId })` instead — an empty input —
+  // and got "requires a runner targetId" back, so the only form-opening
+  // button in the game disabled itself while three runners stood idle.
+  canOpen: (ctx: SimContext) => {
+    const runners = availableRunners(ctx)
+    if (runners.length === 0) {
+      return {
+        ok: false,
+        code: 'no_runner_available',
+        reason: 'No adventurer is free to send right now.',
+      }
+    }
+    // Affordable at the smallest commission the form can produce: one
+    // day with the cheapest free runner. Anything more expensive is the
+    // form's own business to gate, against the choices being made there.
+    const cheapest = runners.reduce(
+      (lo, r) => Math.min(lo, computeCost(r, 1)),
+      Number.POSITIVE_INFINITY,
+    )
+    if (ctx.state.coin < cheapest) {
+      return {
+        ok: false,
+        code: 'insufficient_coin',
+        reason: `The cheapest commission costs ${cheapest} coin; you have ${ctx.state.coin}.`,
+      }
+    }
+    return { ok: true }
+  },
   getValidTargets: (ctx: SimContext) => {
-    return Object.values(ctx.state.world.hireableAdventurers)
-      .filter(
-        (a) =>
-          a.currentExpeditionId === null &&
-          !a.activeFlags.includes('injured'),
-      )
-      .map((a) => ({
-        id: a.id,
-        label: a.name.display,
-        hint: `exp ${a.experience}, rel ${a.reliability}, friend ${a.relationship}, wage ${a.wageBase}/day`,
-      }))
+    return availableRunners(ctx).map((a) => ({
+      id: a.id,
+      label: a.name.display,
+      hint: `exp ${a.experience}, rel ${a.reliability}, friend ${a.relationship}, wage ${a.wageBase}/day`,
+    }))
   },
   canApply: (ctx, input) => {
     if (!input.targetId) {

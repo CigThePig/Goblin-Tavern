@@ -105,7 +105,7 @@
   <div class="row">
     <div class="row-label">
       <span class="row-title">Show seed tags on cards</span>
-      <span class="row-sub">A small label in each card's corner naming the seed family.</span>
+      <span class="row-sub">A small label in each card's corner naming what the card is about.</span>
     </div>
     <button
       type="button"
@@ -116,6 +116,29 @@
       onclick={() => prefsStore.toggleSeedTags()}
     >
       <span class="toggle-track" class:on={prefsStore.preferences.showSeedTags}>
+        <span class="toggle-knob"></span>
+      </span>
+    </button>
+  </div>
+
+  <!--
+    Phase 204 / audit Wave 5 (`P6-COMP-007`) — raw simulation identifiers
+    stay reachable, but only here and only on request.
+  -->
+  <div class="row">
+    <div class="row-label">
+      <span class="row-title">Show raw identifiers</span>
+      <span class="row-sub">Diagnostics: show simulation ids instead of their plain-English names.</span>
+    </div>
+    <button
+      type="button"
+      class="toggle"
+      role="switch"
+      aria-label="Show raw identifiers"
+      aria-checked={prefsStore.preferences.showDiagnostics}
+      onclick={() => prefsStore.toggleDiagnostics()}
+    >
+      <span class="toggle-track" class:on={prefsStore.preferences.showDiagnostics}>
         <span class="toggle-knob"></span>
       </span>
     </button>

@@ -35,6 +35,13 @@
     const row = data.inventory.rows.find((r) => r.id === targetId)
     if (row) selected = row
   })
+
+  // Phase 203 / audit Wave 4 (`P3-BHV-002`) — the central planner routes
+  // Commission Expedition here (it cannot assemble runner × mode ×
+  // duration × tier itself). Consume-once, like the routing target above.
+  $effect(() => {
+    if (gameStore.consumeComposerRequest('expedition')) commissionOpen = true
+  })
 </script>
 
 <section class="panel" aria-label="Stock">

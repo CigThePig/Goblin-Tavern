@@ -3,7 +3,7 @@ import type { ReportSection } from '../../core/reports'
 import { localArcRegistry } from '../../content/events/localArcRegistry'
 import { isActiveArcStage, isTerminalArcStage } from '../../content/events/localArcTypes'
 
-import { listActiveArcs, listAllArcs } from './arcEngine'
+import { listPresentedArcs, listAllArcs } from './arcEngine'
 import { getLocalArcsModuleState } from './state'
 
 // Phase 35 §35.8 — Local arcs report builder.
@@ -29,7 +29,12 @@ export function buildLocalArcsReport(ctx: SimContext): ReportSection | null {
   // monthly tick day; if it equals today we publish a section.
   if (slice.lastMonthlyTickDay !== today) return null
 
-  const activeArcs = listActiveArcs(ctx.state)
+  // Phase 204 / audit Wave 5 (`P4-SEAM-005`) — the player-facing question
+  // is "is this arc in play", not "does it count against the seeding cap".
+  // The narrower predicate reported a just-created arc as `(none)` while
+  // the monthly overview listed it, at the exact boundary where the arc
+  // begins. Both surfaces now ask `listPresentedArcs`.
+  const activeArcs = listPresentedArcs(ctx.state)
   const allArcs = listAllArcs(ctx.state)
   const terminalArcs = allArcs.filter(
     (a) => a.stage !== undefined && isTerminalArcStage(a.stage),

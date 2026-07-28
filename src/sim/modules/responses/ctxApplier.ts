@@ -32,6 +32,12 @@ import { getVentureBlueprint } from "../ventures/ventureCatalog";
 import { recordPressureAdjustment } from "../pressures/pressureModule";
 import { payRentFromResponse } from "../monthly/rent";
 import { RENT_PAYMENT_EFFECT_TARGET } from "../monthly/types";
+import { OWNER_TIME_EFFECT_TARGET } from "./responseCost";
+import {
+  OWNER_ACTIONS_MODULE_ID,
+  getOwnerActionsModuleState,
+} from "../ownerActions/stateHelpers";
+import type { OwnerActionsModuleState } from "../ownerActions/types";
 
 // Phase 41 / ISSUE-001 — engine-path applier.
 //
@@ -197,6 +203,56 @@ export function applyEffectViaCtx(
     } else {
       spendCoin(ctx, -amount, meta);
     }
+    return { ...preview, applied: true };
+  }
+
+  // Phase 203 / audit Wave 4 (`P6-COMP-005`) — owner time is a real spend
+  // against the day clock (`phase-186-day-clock-time-economy.md`). Five
+  // profiles claimed it; the target reached the bottom of this function and
+  // returned `unsupported target`, so a choice that said it cost the owner
+  // an hour cost nothing at all. It lands on `modules.ownerActions.timeSpent`
+  // — the same ledger Segment B writes when owner actions run — so one
+  // number holds the whole day's time.
+  //
+  // Refuses rather than overruns: the module's own validator treats
+  // `timeSpent > timeBudget` as a state error, and the day cannot be longer
+  // than a day. `applyResponsesHook` prices the profile before it starts
+  // (DC-07, skip WHOLE), so this is the atomic backstop for a drained
+  // pending effect firing into an already-full day.
+  if (path === OWNER_TIME_EFFECT_TARGET) {
+    if (amount === 0) return { ...preview, applied: true };
+    const slice = getOwnerActionsModuleState(ctx.state);
+    const minutes = -amount; // negative amount = time spent
+    const nextSpent = slice.timeSpent + minutes;
+    if (nextSpent > slice.timeBudget) {
+      return {
+        ...preview,
+        applied: false,
+        notes: [
+          `not enough of the day left (${slice.timeBudget - slice.timeSpent}m free, needs ${minutes}m)`,
+        ],
+      };
+    }
+    ctx.modifyModuleState<OwnerActionsModuleState>(
+      OWNER_ACTIONS_MODULE_ID,
+      (current) => ({
+        ...(current ?? slice),
+        timeSpent: Math.max(0, nextSpent),
+      }),
+      { source, reason: "response_owner_time" },
+    );
+    ctx.addCause({
+      source,
+      sourceType: "owner_action",
+      target: OWNER_TIME_EFFECT_TARGET,
+      targetType: "global",
+      amount,
+      direction: "decrease",
+      weight: minutes,
+      readable,
+      tags: ["response", "owner_time", ...preview.tags],
+      relatedSystems: ["ownerActions", "responses"],
+    });
     return { ...preview, applied: true };
   }
 

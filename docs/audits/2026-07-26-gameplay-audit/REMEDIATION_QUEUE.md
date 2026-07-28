@@ -269,7 +269,7 @@ the binding constraint on run length, and the arc's additions cost about
 fails visibly rather than silently, but a long run will still hit it.
 Pruning the attribution / causes / history ledgers remains unscheduled.
 
-## Wave 4 — Restore action reachability and contextual transfer
+## Wave 4 — Restore action reachability and contextual transfer ✅ gate passed
 
 Gate: R02/R06 pass through every normal entry; one contextual target stays
 consistent from CTA through picker, quote, queue, Segment B, report and
@@ -278,24 +278,151 @@ expeditions complete naturally end to end.
 
 | ID | St | Sev/Pri | Finding | Evidence |
 |---|---|---|---|---|
-| P3-BHV-001 | open | Med/P2 | Inline policy toggles never queue (payload omits the target) | P3 §5 |
-| P3-BHV-002 | open | Med/P2 | Expedition commissioning cannot open | P3 §5 |
-| P5-PLAY-001 | open | Med/P2 | After-service planning says "today", queues tomorrow | P5 §6 |
-| P6-COMP-005 | open | Med/P2 | Licence claims owner time but spends none | P6 §6 |
-| P7-EXP-006 | open | Med/P2 | Planner handoff loses the problem target | P7 §7 |
+| P3-BHV-001 | done | Med/P2 | Inline policy toggles never queue (payload omits the target) | P3 §5 |
+| P3-BHV-002 | done | Med/P2 | Expedition commissioning cannot open | P3 §5 |
+| P5-PLAY-001 | done | Med/P2 | After-service planning says "today", queues tomorrow | P5 §6 |
+| P6-COMP-005 | done | Med/P2 | Licence claims owner time but spends none | P6 §6 |
+| P7-EXP-006 | done | Med/P2 | Planner handoff loses the problem target | P7 §7 |
 
-## Wave 5 — Repair secondary surfaces and identity
+**Closed 2026-07-27.** Plan:
+`docs/plans/phase-203-audit-wave-4-action-reachability.md`. Regression:
+`tests/sim/phase203.wave4.actionReachability.test.ts` (12 assertions) and
+`tests/web/phase203.wave4.planningHorizon.test.ts` (17). All five were
+reproduced against the pre-fix build first, with the audit's own strings:
+the inline policy pick returned `no target`, a fully specified commission
+returned `commission_expedition requires a runner targetId`, two stock
+shortages collapsed into one targetless suggestion, `stock.ale.quantity`
+mapped to no CTA at all, and no planning-horizon authority existed.
+
+**Contract decisions taken (these were choices the audit left open):**
+
+- **`P5-PLAY-001` — keep pre-planning, label it tomorrow.** The queue
+  behaviour was already right (`beginDay` preserves picks on purpose);
+  only the copy lied. Restricting the planner after Segment B would
+  remove reach, which is the opposite of this wave's purpose.
+  `gameStore.planningHorizon` reads `segment`, not `beat`, and the Top
+  Bar chip, picker title, unspent line and a queue banner all read it.
+- **`P6-COMP-005` — owner time becomes a real, named, enforced cost.**
+  `phase-186-day-clock-time-economy.md` is locked (the budget is time),
+  and four other profiles already claimed `global.owner_time` on effects
+  the applier silently discarded. Removing the claim would have deleted
+  the only lever card responses have on the day clock.
+
+Work landed:
+
+- Every finding is one payload losing a field between two surfaces, so
+  each fix is the same shape. The inline policy pick carries `targetId` /
+  `targetLabel` and scopes its queue checks to them; `enable_*`/`disable_*`
+  `getValidTargets` now returns its own policy rather than all seven.
+- `OwnerActionDefinition` gains `canOpen` ("may the player begin
+  specifying this?", distinct from `canApply`) and `composer` (the form
+  that owns an input a generic picker cannot assemble).
+  `actionDisabledReasonForInput` validates a COMPLETE payload — target,
+  amount and options — and `tryAddPick` uses it, so a global-typed
+  action's own `targetId` and `options` stop being dropped at the queue.
+- `global.owner_time` is a first-class effect target landing on
+  `modules.ownerActions.timeSpent`, with `immediateOwnerTimeCost` /
+  `ownerTimeCostOfSlot` beside the coin pair, a `gateChoicesByTime`
+  selection gate, and a DC-07 atomic re-check that skips a
+  no-longer-affordable intent WHOLE.
+- `SuggestedAction` and `ActionPickerRequest` carry `targetId` /
+  `preferredTargetId` / `reason`; suggestions de-duplicate by action AND
+  target; `planActionCtaForPath` handles `stock.<id>.*`; the picker
+  preselects a valid preferred target and otherwise sorts and marks it.
+
+**Consequence worth knowing before Wave 7:** the four pre-existing
+`global.owner_time` amounts (`-5`, `-6`) were on the retired
+action-point scale and cost nothing at all, because the applier had no
+branch for the target. Restated in minutes on the registry ladder
+(`TIME_COST_QUICK` 30m, `TIME_COST_SHORT` 60m) they are **new spend in
+the model** — five profiles now take real hours off the day.
+**Owner-time tuning judged against the pre-Wave-4 build is suspect.**
+Two derived rulers moved with it: owner time gets its own magnitude
+ladder (`[30, 60, 120]` — minutes of a 360-minute day are not a 0–100
+meter), and `audit-card-choices`' dominance heuristic normalises
+owner-time minutes onto the 0–100 scale it sums everything else on,
+which otherwise let a half-hour outweigh a 4-coin cost.
+
+Gates re-run green: `npm test` (3 635), `npm run test:heavy` (129),
+`npm run typecheck`, `npm run check` (0/0), `npm run build`.
+
+## Wave 5 — Repair secondary surfaces and identity ✅ gate passed
 
 Gate: R15 crosses every root/detail/support surface without error; entity
 names and historical labels survive removal, close, next day and reload.
 
 | ID | St | Sev/Pri | Finding | Evidence |
 |---|---|---|---|---|
-| P2-RT-002 | open | Med/P2 | Duplicate glossary ID crashes rendering | P2 §9 |
-| P2-RT-003 | open | Med/P2 | Duplicate tags crash a populated Tavern Log | P2 §9 |
-| P3-BHV-003 | open | Low/P3 | Fired staff name lost in the report heading | P3 §5 |
-| P4-SEAM-005 | open | Low/P3 | New local-arc projections disagree by one boundary | P4 §5 |
-| P6-COMP-007 | open | Low/P3 | Internal vocabulary leaks onto default surfaces | P6 §6 |
+| P2-RT-002 | done | Med/P2 | Duplicate glossary ID crashes rendering | P2 §9 |
+| P2-RT-003 | done | Med/P2 | Duplicate tags crash a populated Tavern Log | P2 §9 |
+| P3-BHV-003 | done | Low/P3 | Fired staff name lost in the report heading | P3 §5 |
+| P4-SEAM-005 | done | Low/P3 | New local-arc projections disagree by one boundary | P4 §5 |
+| P6-COMP-007 | done | Low/P3 | Internal vocabulary leaks onto default surfaces | P6 §6 |
+
+**Closed 2026-07-27.** Plan:
+`docs/plans/phase-204-audit-wave-5-secondary-surfaces-and-identity.md`.
+Regression: `tests/sim/phase204.wave5.identityAndSurfaces.test.ts` (8
+assertions) and `tests/web/phase204.wave5.vocabulary.test.ts` (10, which
+also carries the R15 gate sweep). All five reproduced first: the glossary
+held two `atmosphere` ids, seven of three days' history entries carried a
+duplicate tag, the fired staffer's label was absent from the applied
+record, and no shared arc predicate existed.
+
+Where Wave 4's findings were a payload losing a field, Wave 5's are
+**surfaces asserting things the data does not guarantee** — so each fix
+makes the guarantee real at the source rather than defending at the leaf.
+
+Work landed:
+
+- **Unique keys, guaranteed rather than assumed.** The tavern-wide
+  atmosphere term becomes `tavern_atmosphere` (the two concepts are
+  genuinely different, and `TavernIdentityStrip` was already linking to
+  the wrong definition before the duplicate crashed anything).
+  `ctx.addHistory` deduplicates tags on write, `buildTavernLog`
+  deduplicates on projection so pre-Wave-5 saves render, and both `each`
+  blocks key on something unique by construction.
+- **Removal actions keep the name they acted on.** `applyOwnerActionsHook`
+  captures the target's label from the definition's own `getValidTargets`
+  *before* `apply` runs and stores it on `OwnerActionApplied.targetLabel`
+  — the same label the picker showed, captured while the entity still
+  exists. Answers the finding's open question with **yes, and for every
+  action**: one lookup closes the class rather than the instance.
+- **One age, one presence for a local arc.** `isPresentedArcStage` /
+  `listPresentedArcs` answer "is this arc in play" for both player
+  surfaces; `listActiveArcs` keeps its narrower cap-counting meaning, so
+  arc seeding behaviour is untouched. The monthly overview reads the
+  `ageDays` the sim stores instead of re-deriving it from the calendar.
+- **One vocabulary layer.** `idLabel` gains `seedFamily` and
+  `mechanicalTag` categories; `humanizeActionReason` moved to
+  `src/reports/labels/actionReason.ts` so the *projection* emits
+  player-ready rejection text rather than each component remembering the
+  call. Memory labels, atmosphere tags and project-starter target labels
+  humanize; the staff-priority hint stopped describing the engine. A new
+  **`showDiagnostics`** preference (default off) is where raw ids live now.
+
+**Decision taken:** `P6-COMP-007` offered "hide seed-family tags by default
+OR map them to deliberate player labels" — **mapped.** The card corner
+shows what the card is about ("Your people", "The rooms"); `familyTag()`
+still returns `seed.family`, so sim data and card-composition conditions
+are untouched and only the render boundary changed.
+
+**Two things found while fixing, not in the audit:** the project-starter
+actions returned the area *id* as their target label (which Wave 4 had
+just made the source of the immutable applied-action label, so it would
+have propagated into the report), and `AvailableProjectRow.disabledReason`
+was the one Tavern row that rendered an engine rejection string verbatim.
+Both are fixed and covered by the vocabulary scan.
+
+**Worth knowing:** the now-shared arc `ageDays` advances on the monthly
+tick, not daily, so a seeded arc reads `0d` for the rest of its creating
+month. That is the arc engine's own design ("existing arcs age by 28 days"
+per tick) and it is now coarse *consistently*; the alternative on offer
+was the projection's private daily count, which is what disagreed with
+everything else. A finer age belongs in the engine, where both surfaces
+would pick it up for free.
+
+Gates re-run green: `npm test` (3 653), `npm run test:heavy` (129),
+`npm run typecheck`, `npm run check` (0/0), `npm run build`.
 
 ## Wave 6 — Tune issue relevance and attention load
 
@@ -316,6 +443,51 @@ strategies, add Easy/Hard, compare action vs no-action vs partial-response
 variants, re-run a human public route past Day 29, and reassess every Phase 7
 design question. The current strategy matrix proves differentiation, not
 balance. Detail: Phase 8 §7 (Wave 7).
+
+### Carried forward into Wave 7 by earlier waves
+
+Things earlier waves changed or deliberately left standing that a balance
+pass needs as context. **Any tuning judged against a build older than the
+wave named here is suspect.**
+
+| From | What moved | Why Wave 7 needs it |
+|---|---|---|
+| Wave 1 | The duplicate pressure cause was doubling attribution weight; removing it halves blame strength and slows pressure escalation (day-3 policy backlash in the Phase 53 fixture reads 57 where it read 71) | Every pressure and attribution number predates the fix |
+| Wave 4 | Owner time became a real, enforced cost. Five consequence profiles now take real minutes off the 360-minute day; their previous `-5`/`-6` amounts were on the retired action-point scale and the applier had no branch for the target, so they cost **nothing at all** | New spend in the day-clock economy that no prior playtest included. Also moved: owner time's magnitude ladder (`[30, 60, 120]`) and `audit-card-choices`' dominance heuristic, which now normalises minutes onto the 0–100 scale it sums everything else on |
+| Wave 4 | Ordinary supplier purchases gained a 1-coin floor (Wave 1) and the response portfolio is gated at selection + re-checked atomically (DC-07) | Coin pacing differs from the audit's runs |
+| Wave 5 | Local-arc `ageDays` is now read from the sim by **both** player surfaces instead of the monthly overview re-deriving it | See the open item below — this one may need a change *during* Wave 7 |
+
+**Open item — local-arc age granularity (`P4-SEAM-005` follow-on, not a
+finding).** Wave 5 made canonical state, the engine's Local Arcs report
+section and the monthly overview agree on one age. That age advances on
+the **monthly tick, not daily** (the arc engine's design: "existing arcs
+age by 28 days" per tick), so a seeded arc reads `0d` for the rest of the
+month it was created in and then jumps by 28.
+
+That is now coarse *consistently*, which is what the finding asked for —
+the alternative on offer was the monthly overview's private daily count,
+and that private count is precisely what disagreed with everything else.
+It is left as-is deliberately: no finding asks for a finer age, and
+inventing one during a repair wave would have been scope the audit did not
+authorise.
+
+**If Wave 7 needs finer arc-age resolution** — e.g. to reason about arc
+pacing across a 28-day run, or because an arc's `afterDays` progress gates
+read wrong at a daily granularity — **change it in the arc engine, not in
+a projection.** `listPresentedArcs` and the stored `ageDays` are now the
+single source both surfaces read, so advancing the age daily in
+`localArcsModule`'s tick makes every surface finer for free and cannot
+reintroduce the disagreement. Changing it in `monthlyOverviewProjection`
+instead would re-create `P4-SEAM-005` exactly.
+
+Regression cover already in place for whichever way this goes:
+`tests/sim/phase204.wave5.identityAndSurfaces.test.ts` compares the report
+section and the monthly overview against *whatever* canonical state holds,
+rather than against a literal. The one literal it does assert is that an
+arc caught on its creation day is `0d` old, which stays true under any
+granularity. So a granularity change lands without rewriting the test, and
+the test still fails the moment the two surfaces diverge from the sim
+again.
 
 ## Decide before implementing (P4)
 

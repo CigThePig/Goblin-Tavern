@@ -44,6 +44,13 @@ export type IdCategory =
   | 'areaField'
   | 'logFacet'
   | 'dayType'
+  // Phase 204 / audit Wave 5 (`P6-COMP-007`) — two vocabularies that had
+  // no display mapping at all, so their raw ids reached default player
+  // surfaces (`staff_arc` in a card corner, `cleanliness_negative` on an
+  // area detail sheet). The mapping belongs here, beside every other
+  // id→label table, not in whichever component happened to render it.
+  | 'seedFamily'
+  | 'mechanicalTag'
 
 const REPUTATION_LABELS: Record<string, string> = {
   cheap: 'Cheap',
@@ -124,6 +131,59 @@ const DAY_TYPE_LABELS: Record<string, string> = {
   festival_day: 'Festival Day',
   rent_day: 'Rent Day',
   inspection_day: 'Inspection Day',
+}
+
+// Phase 204 / audit Wave 5 (`P6-COMP-007`) — what a card's seed family is
+// ABOUT, in the player's words. The family id is sim data and stays exactly
+// as it is; this is the render-boundary name for it. Anything unlisted
+// falls back to `humanizeId`, which is already readable for these ids.
+const SEED_FAMILY_LABELS: Record<string, string> = {
+  food_safety: 'Kitchen & hygiene',
+  stock_shortage: 'Supplies',
+  maintenance: 'Repairs',
+  staff_burnout: 'Your people',
+  staff_identity: 'Your people',
+  staff_arc: 'Your people',
+  customer_complaint: 'Customers',
+  regular_customer: 'Regulars',
+  violence: 'Trouble',
+  debt_rent: 'Money owed',
+  inspection: 'Inspection',
+  reputation_shift: 'Reputation',
+  monthly_review: 'Month in review',
+  supplier_relationship: 'Suppliers',
+  faction_request: 'Factions',
+  culture_conflict: 'Cultures',
+  area_atmosphere: 'The rooms',
+  seasonal_arc: 'The season',
+  policy_backlash: 'Your rules',
+  rumour_crisis: 'Rumours',
+  rival_tavern: 'The competition',
+  venture: 'Ambitions',
+  opening: 'Opportunities',
+  liquor_compliance: 'The licence',
+  licensed_service: 'The licence',
+}
+
+// Phase 204 / audit Wave 5 (`P6-COMP-007`) — area-trait mechanical tags are
+// hooks other modules read (`cleanliness_negative`, `merchant_sensitive`).
+// They were rendered verbatim on the area detail sheet, which is how a
+// player ended up reading `risk_positive` about their own common room.
+// These say the same thing in a sentence fragment.
+const MECHANICAL_TAG_LABELS: Record<string, string> = {
+  comfort_positive: 'more comfortable',
+  comfort_negative: 'less comfortable',
+  cleanliness_negative: 'harder to keep clean',
+  cleanliness_positive: 'easier to keep clean',
+  risk_positive: 'riskier',
+  risk_negative: 'safer',
+  pest_relevant: 'attracts pests',
+  inspection_relevant: 'inspectors notice',
+  weather_sensitive: 'weather matters here',
+  rowdy_sensitive: 'rowdy crowds react',
+  merchant_sensitive: 'merchants notice',
+  respectable_sensitive: 'the respectable notice',
+  atmosphere_smoky: 'smoky',
 }
 
 const ACRONYM_TOKENS: Record<string, string> = {
@@ -222,5 +282,9 @@ export function idLabel(category: IdCategory, id: string): string {
       return LOG_FACET_LABELS[id] ?? humanizeId(id)
     case 'dayType':
       return DAY_TYPE_LABELS[id] ?? humanizeId(id)
+    case 'seedFamily':
+      return SEED_FAMILY_LABELS[id] ?? humanizeId(id)
+    case 'mechanicalTag':
+      return MECHANICAL_TAG_LABELS[id] ?? humanizeId(id).toLowerCase()
   }
 }

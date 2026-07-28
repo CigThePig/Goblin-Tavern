@@ -628,12 +628,19 @@ const MECHANIC_TERMS: GlossaryTerm[] = [
     oneLine: 'Small style choices a card makes when composing its text.',
     longer: 'Cards never invent facts. Voice picks among ways to phrase the same facts based on the seed\'s tone hints, deterministically per seed id — same card, same wording, every render.',
   },
+  // Phase 204 / audit Wave 5 (`P2-RT-002`) — this shared the id
+  // `atmosphere` with the area-level term above, so the glossary's keyed
+  // render aborted with `each_key_duplicate` and no sheet opened from any
+  // entry point. They are genuinely different concepts — one is what a
+  // ROOM gives off, this one is what the TAVERN feels like today — and
+  // `TavernIdentityStrip` was already linking to the wrong definition
+  // before the duplicate crashed anything.
   {
-    id: 'atmosphere',
-    label: 'Atmosphere',
+    id: 'tavern_atmosphere',
+    label: 'Tavern Atmosphere',
     category: 'mechanic',
     oneLine: 'Short tags describing what the tavern feels like right now.',
-    longer: 'Computed each day from area conditions and the cultures who feel at home. "Grimy floors" lands when half your areas are dirty; "miner-leaning" lands when miners are familiar and comfortable.',
+    longer: 'Computed each day from area conditions and the cultures who feel at home. "Grimy floors" lands when half your areas are dirty; "miner-leaning" lands when miners are familiar and comfortable. Distinct from an individual area\'s atmosphere, which is that room alone.',
   },
   {
     id: 'known_for',

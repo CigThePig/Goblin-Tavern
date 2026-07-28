@@ -62,8 +62,12 @@ describe('Phase 7 — staff card choice coherence', () => {
   it('staff identity care, bonus, blame, scheduling, and ignore choices are not free or hidden', () => {
     const card = cardForFamily('staff_identity', buildStaffIdentityTriggeringState)
 
+    // Phase 203 / audit Wave 4 (`P6-COMP-005`) — this claimed `-5` on the
+    // retired action-point scale and the applier discarded it entirely. It
+    // is now half an hour of the real 6h day, and reads as a duration
+    // because that is how the player reads the day clock everywhere else.
     expect(mechanicalFor(card, 'comfort_staff')).toEqual(
-      expect.arrayContaining([expect.stringMatching(/^Owner Time -5$/)]),
+      expect.arrayContaining([expect.stringMatching(/^Owner Time -30m$/)]),
     )
     expect(mechanicalFor(card, 'pay_bonus')).toEqual(
       expect.arrayContaining([

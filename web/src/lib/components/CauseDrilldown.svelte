@@ -90,10 +90,20 @@
     // Close this sheet first so the player lands on the plan beat cleanly,
     // then hand the context to the Day screen via the store.
     onclose()
+    // Phase 203 / audit Wave 4 (`P7-EXP-006`) — the target the drilldown is
+    // about rides along, so the picker opens on it rather than making the
+    // player rediscover it in a global list.
     gameStore.requestActionPicker({
       planBeat: true,
       tab: cta.tab,
       focusSuggested: cta.focusSuggested,
+      ...(cta.preferredTargetId
+        ? { preferredTargetId: cta.preferredTargetId }
+        : {}),
+      ...(cta.preferredTargetLabel
+        ? { preferredTargetLabel: cta.preferredTargetLabel }
+        : {}),
+      ...(title ? { reason: title } : {}),
     })
   }
 </script>

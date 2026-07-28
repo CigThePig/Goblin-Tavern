@@ -68,6 +68,16 @@
       gameStore.beat === 'service' ||
       gameStore.beat === 'closing',
   )
+  // Phase 203 / audit Wave 4 (`P5-PLAY-001`) — the chip stayed interactive
+  // through Service and Closing and kept saying "left today", but by then
+  // the day's owner actions have been applied and the queue is spending
+  // TOMORROW's time. The number was right; the day it named was not.
+  const planningTomorrow = $derived(gameStore.planningHorizon === 'tomorrow')
+  const timeChipLabel = $derived(
+    planningTomorrow
+      ? `Open the planner — ${formatDuration(timeRemaining)} of tomorrow's time left`
+      : `Open action planner — ${formatDuration(timeRemaining)} left today`,
+  )
 
   function openPicker() {
     gameStore.requestActionPicker()
@@ -218,12 +228,17 @@
         <button
           type="button"
           class="time"
+          class:tomorrow={planningTomorrow}
           onclick={openPicker}
-          aria-label="Open action planner — {formatDuration(timeRemaining)} left today"
+          aria-label={timeChipLabel}
           data-testid="topbar-time"
+          data-horizon={planningTomorrow ? 'tomorrow' : 'today'}
         >
           <Icon name="day" size={13} />
           <span class="mono">{formatDuration(timeRemaining)}</span>
+          {#if planningTomorrow}
+            <span class="time-horizon">tomorrow</span>
+          {/if}
         </button>
       {:else}
         <span class="time time-static" data-testid="topbar-time">
@@ -484,6 +499,15 @@
     transition:
       color var(--m-fast) var(--ease),
       border-color var(--m-fast) var(--ease);
+  }
+
+  /* Phase 203 / audit Wave 4 (`P5-PLAY-001`) — the queue belongs to
+     tomorrow, and the chip says so rather than implying today. */
+  .time-horizon {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: lowercase;
+    opacity: 0.85;
   }
 
   button.time:hover,

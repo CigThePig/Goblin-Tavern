@@ -1716,6 +1716,10 @@ export function narratorEffectPreviewBase(): Snippet[] {
       ],
     },
     // ---- global: owner time / service capacity ----
+    // Phase 203 / audit Wave 4 (`P6-COMP-005`) — owner time became a real,
+    // banded cost, so its preview needs a line per band. The unbanded
+    // original carried only the `small` token ("a step"), which meant an
+    // hour off the day rendered without a magnitude at all.
     {
       id: 'shared_preview_meter_owner_time_neg_small_a',
       text: 'owner time would spend a step away',
@@ -1723,6 +1727,27 @@ export function narratorEffectPreviewBase(): Snippet[] {
         { kind: 'effectMeter', anyOf: ['owner_time'] },
         { kind: 'effectTargetKind', anyOf: ['global'] },
         { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['tiny', 'small'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_owner_time_neg_medium_a',
+      text: 'the free day would take a real slip',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['owner_time'] },
+        { kind: 'effectTargetKind', anyOf: ['global'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['medium'] },
+      ],
+    },
+    {
+      id: 'shared_preview_meter_owner_time_neg_large_a',
+      text: 'hours would go in a wide slide',
+      conditions: [
+        { kind: 'effectMeter', anyOf: ['owner_time'] },
+        { kind: 'effectTargetKind', anyOf: ['global'] },
+        { kind: 'effectDirection', sign: 'negative' },
+        { kind: 'effectMagnitudeBand', anyOf: ['large'] },
       ],
     },
     {

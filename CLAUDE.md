@@ -11,6 +11,10 @@ npm run test:heavy  # Only the heavy multi-day playtest files
 npm run typecheck   # tsc --noEmit
 npm run dev         # Vite dev server (web UI)
 npm run build       # Vite production build
+
+npm run ledger:check      # Validate docs/plans/expansion/ledger.csv + hook coverage
+npm run baseline:probes   # Diff the frozen expansion baseline probes
+npm run repo:map          # Diff the frozen repository map
 ```
 
 Run `npm test` and `npm run typecheck` to validate every change; run
@@ -33,11 +37,11 @@ budget.
 
 > ### 🔒 All development is paused outside `docs/plans/GOBLIN_TAVERN_SIMULATION_EXPANSION_WORK_PLAN.md` (2026-07-29)
 >
-> The **Simulation Expansion and Obligation-Closure plan** is the only unpaused work. It is a standalone implementation document — no earlier audit, report, or conversation is needed to execute it — and it runs as **ISSUE-170…183 (repo phases 207–220)**, one issue per plan phase 0–13. **Start at ISSUE-170 (Phase 0 — freeze the baseline, build the implementation ledger).**
+> The **Simulation Expansion and Obligation-Closure plan** is the only unpaused work. It is a standalone implementation document — no earlier audit, report, or conversation is needed to execute it — and it runs as **ISSUE-170…183 (repo phases 207–220)**, one issue per plan phase 0–13. **ISSUE-170 (Phase 0) is done — next is ISSUE-171 (Phase 1 — shared contracts).**
 >
 > - **The goal is causal completeness:** every promise the game makes joins to a discoverable player capability and an authoritative simulation outcome. Nine broken obligations (`OBL-01…OBL-09` — uninstallable upgrades, future hooks that drain without firing, inspections that never visit, supplier credit with no invoices, difficulty that only changes opening values, unreachable Quick Day, inverted queued-action Help, uncovered causal changes, unearnable nicknames) plus the depth gaps behind them.
 > - **Order:** hard-ordered by the plan's §7 map. Only Phases 2 and 3 may run in parallel, and only after Phase 1. §5 is the per-phase work protocol and lists the eight conditions that **fail** a phase — a data model or UI alone, a test that injects impossible state, a card promising a consequence no domain owns, or a system whose only consequence is a direct meter adjustment.
-> - **Baseline frozen 2026-07-29 (prep pass, no behavior change):** `npm run test:full` 299 files / 3,831 tests, `typecheck` clean, `check` 979 files / 0 errors, `build` passing. The plan's §3 inventory was re-verified against `HEAD` — all 22 counts unchanged.
+> - **Baseline frozen by Phase 0 (2026-07-29, no behavior change):** three derived, test-gated artifacts under `docs/plans/expansion/` are the arc's authoritative before-picture — `ledger.csv` (127 rows: `OBL-01…09`, `DEP-01…20`, one `HOOK-*` row per future-hook family), `baseline-probes.json` (13 route snapshots), `repo-map.json` (pipeline, slices, RNG streams, migrations, inventory, glossary promises). Regenerate with `npm run ledger:check` / `baseline:probes` / `repo:map`. Gates at close: `npm run test:full` 301 files / 3,874 tests, `typecheck` clean, `check` 980 files / 0 errors, `build` passing.
 > - **Carried into the arc:** ISSUE-167/168/169 are absorbed by Phases 13/5/11 rather than run separately (plan §6.1), and Quick Day (OBL-06) **reverses** the recorded `DC-01` retirement — flagged in plan §6.2 for the user to settle before Phase 12.
 >
 > **Paused, not cancelled:** the Complete Surface arc (ISSUE-141…148), Tier 4 Progressive Onboarding (ISSUE-060…077), and the standing tails (ISSUE-153, ISSUE-130). They keep their status; the tracker's "Current work" holds their resume points.
@@ -52,11 +56,12 @@ Progress before the expansion arc (the tracker's **"Current work"** holds the li
 
 **Phase numbers are a file-naming convention only.** Execution order comes from the tracker's "Current work" and hard `Depends on` chains, not from phase-number arithmetic.
 
-**Documentation was cut hard on 2026-07-26** — closed issues' write-ups, ~115 per-phase plan docs, the superseded 2026-06 audits, and the regenerable card baselines are gone from the tree and live in git history (`git log --diff-filter=D -- docs/`; the baselines regenerate via `npm run sample:card-choices` / `npm run audit:card-choices`). A few surviving docs and source comments still cite deleted `docs/plans/phase-*.md` files — that's expected; recover from history rather than rewriting the reference. **Don't re-expand the docs tree:** record fix detail in the expansion arc's implementation ledger (reserved at `docs/plans/expansion/ledger.csv`, created in Phase 0) or in the code, not in new per-phase prose.
+**Documentation was cut hard on 2026-07-26** — closed issues' write-ups, ~115 per-phase plan docs, the superseded 2026-06 audits, and the regenerable card baselines are gone from the tree and live in git history (`git log --diff-filter=D -- docs/`; the baselines regenerate via `npm run sample:card-choices` / `npm run audit:card-choices`). A few surviving docs and source comments still cite deleted `docs/plans/phase-*.md` files — that's expected; recover from history rather than rewriting the reference. **Don't re-expand the docs tree:** record fix detail in the expansion arc's implementation ledger (`docs/plans/expansion/ledger.csv`, created in Phase 0) or in the code, not in new per-phase prose.
 
 ## Where things are documented
 
 - `docs/plans/GOBLIN_TAVERN_SIMULATION_EXPANSION_WORK_PLAN.md` — **the active work.** The expansion arc's own authority: per-phase objective, required work, required tests, and completion gate, plus the obligation table (§4.1), the work protocol (§5), the phase→issue map (§6), the dependency map (§7), and the final target-state checklist (§9). Read the phase's section before implementing it; **do not write per-phase plan docs for this arc** — the work plan is the arc doc.
+- `docs/plans/expansion/` — **the expansion arc's frozen baseline (Phase 0).** Three data files, all derived from the live code and all gated by `tests/sim/phase207.*`: `ledger.csv` (the implementation ledger — one row per obligation, depth gap, and future-hook family), `baseline-probes.json` (13 deterministic route snapshots), `repo-map.json` (pipeline, phases, segments, module-owned slices, RNG streams, save migrations, §3 inventory, Help/glossary promises). Generators and validators: `scripts/expansion-{ledger,baseline,repo-map}.ts`. **Update these in place as later phases land — never fork a private copy, and never re-write a frozen file just to make a red test green.**
 - `docs/audits/2026-07-26-gameplay-audit/` — the closed remediation arc. `REMEDIATION_QUEUE.md` (closed queue + recorded design decisions), `reports/` (per-phase evidence, Phase 8 is the consolidated deliverable), `GAMEPLAY_AUDIT_FRAMEWORK.md` (method + repository/route map, R01–R15), `fixtures/` (probes that import the live `src/` tree — reuse them as Phase 0 baseline probes and regression harnesses rather than rebuilding those routes).
 - `docs/ISSUE_TRACKER.md` — the tracker: an index row per issue, full entries for live work only.
 - `docs/plans/` — 21 surviving docs: the expansion work plan above, the locked contracts below, the arc roadmaps holding paused work (`complete-surface-arc.md` for ISSUE-136…148, `legible-surface-arc.md`, `choice-preview-legibility-arc.md`), and a few records that source comments cite as their design authority.

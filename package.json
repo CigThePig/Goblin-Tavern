@@ -16,7 +16,10 @@
     "sample:card-choices": "tsx scripts/sample-card-choices.ts",
     "audit:card-choices": "tsx scripts/audit-card-choices.ts",
     "audit:cause-coverage": "tsx scripts/true-gaps-audit.ts",
-    "balance:matrix": "tsx scripts/balance-matrix.ts"
+    "balance:matrix": "tsx scripts/balance-matrix.ts",
+    "ledger:check": "tsx scripts/expansion-ledger.ts",
+    "baseline:probes": "tsx scripts/expansion-baseline.ts",
+    "repo:map": "tsx scripts/expansion-repo-map.ts"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^4.0.0",

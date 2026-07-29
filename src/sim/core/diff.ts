@@ -678,6 +678,24 @@ function diffTavernIdentity(
 // any container that needs cause-matched reporting.
 const DIFF_MODULE_VALUE_MAX_JSON = 10_000 // chars
 
+/**
+ * Module-slice keys that are DERIVED bookkeeping and must never be diffed.
+ *
+ * Expansion Phase 1 §1.5 — `meters.details` records what a meter's clamp
+ * threw away: one entry per pinned or moving meter, derived entirely from
+ * the meters the other walkers above already diff and already attribute.
+ * Diffing it would add a multi-kilobyte blob to the "unexplained significant
+ * changes" list on every single day, saying nothing the underlying
+ * `area:*` / `pressure:*` changes do not already say — the same reason the
+ * size threshold below elides `attribution.attributions` and
+ * `issueSeeds.seedsToday`. Excluding it by name rather than by size also
+ * keeps it out of the sentinel path, whose readable text would otherwise
+ * flip in and out of the diff as the map crossed the size threshold.
+ */
+const DIFF_MODULE_DERIVED_KEYS: ReadonlySet<string> = new Set([
+  'meters.details',
+])
+
 function diffModules(
   before: Record<string, unknown>,
   after: Record<string, unknown>,
@@ -695,6 +713,7 @@ function diffModules(
         ...Object.keys(b as Record<string, unknown>),
       ])
       for (const key of keys) {
+        if (DIFF_MODULE_DERIVED_KEYS.has(`${moduleId}.${key}`)) continue
         const av = (a as Record<string, unknown>)[key]
         const bv = (b as Record<string, unknown>)[key]
         // Serialize once: compare and measure size in a single pass.

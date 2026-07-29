@@ -1,10 +1,16 @@
 // Phase 98 — Difficulty presets for new-game starts.
 //
-// Difficulty is a START-TIME modification only. It alters the day-zero
-// values produced by `createInitialTavernState` (coin, area cleanliness,
-// a few pressure baselines) and is otherwise invisible to the
-// simulation — there is no `difficulty` field on `TavernState`. A
-// loaded save carries whatever values the player has played to.
+// Difficulty sets the day-zero values produced by
+// `createInitialTavernState` (coin, area cleanliness, a few pressure
+// baselines).
+//
+// Expansion Phase 1 §1.3 — it is NO LONGER start-time only. It used to be
+// invisible to the simulation the moment day zero ended, which meant easy
+// and hard differed from standard only in their opening position and were
+// the same game a week later (`OBL-05`). The preset now also PERSISTS the
+// selected ruleset into `state.modules.ruleset`, where the ongoing rules
+// (`src/sim/contracts/ruleset/`) read it every day. The opening-value
+// adjustments below are unchanged; the ruleset stamp is additive.
 //
 // Three presets cover the design space from
 // `docs/plans/game-loop-and-ux.md §2.1`: a forgiving start, the
@@ -16,8 +22,16 @@
 // it deep-clones the input before modifying so callers can never
 // accidentally mutate a shared state.
 
+import { createInitialRulesetModuleState } from '../contracts/ruleset/query'
+import { RULESET_MODULE_ID } from '../contracts/ruleset/types'
+
 import type { TavernState } from './TavernState'
 
+/**
+ * Expansion Phase 1 §1.3 — a difficulty id IS a ruleset id. They were
+ * always the same three names; keeping them as one type is what stops a
+ * fourth difficulty from shipping without ongoing rules to back it.
+ */
 export type DifficultyId = 'easy' | 'standard' | 'hard'
 
 export type DifficultyConfig = {
@@ -82,6 +96,12 @@ export function applyDifficultyToBase(
   config: DifficultyConfig,
 ): TavernState {
   const next = structuredClone(base)
+
+  // Expansion Phase 1 §1.3 — record the ruleset before touching any
+  // opening value, so the ongoing rules and the opening position can
+  // never disagree about which difficulty this run is.
+  ;(next.modules as Record<string, unknown>)[RULESET_MODULE_ID] =
+    createInitialRulesetModuleState(config.id)
 
   next.coin = config.startingCoin
 

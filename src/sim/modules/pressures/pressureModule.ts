@@ -19,6 +19,11 @@ import {
   type PressureTrend,
 } from './pressureTypes'
 import { buildPressureReport } from './pressureReport'
+import {
+  getRule,
+  scaleOngoingDays,
+} from '../../contracts/ruleset/index'
+import { recordMeterMovement } from '../../contracts/meters/index'
 
 // Phase 18 — Pressure module.
 //
@@ -151,7 +156,17 @@ export function recordPressureAdjustment(
             {
               amount,
               appliedDay: today,
-              decayDays: PRESSURE_ADJUSTMENT_DECAY_DAYS,
+              // Expansion Phase 1 §1.3 — how long the credit for fixing
+              // something lasts is a ruleset knob. On `easy` a repair keeps
+              // its weight ~40% longer; on `hard` it fades faster, so
+              // holding a pressure down takes sustained work rather than one
+              // good day. The window is captured at record time so a
+              // re-tuning cannot retroactively shorten adjustments the
+              // player already earned.
+              decayDays: scaleOngoingDays(
+                PRESSURE_ADJUSTMENT_DECAY_DAYS,
+                getRule(ctx.state, 'pressureAdjustmentDecayMultiplier'),
+              ),
               source,
             },
           ],
@@ -226,9 +241,29 @@ function buildSnapshot(
   definition: PressureDefinition,
   result: PressureCalculationResult,
   previousValue: number,
+  /**
+   * Expansion Phase 1 §1.5 — only the authoritative pass records meter
+   * detail. `runPressurePass` runs twice a day (calculate, then finalize),
+   * and recording from both would double-count the excess and the velocity.
+   */
+  recordDetail = false,
 ): PressureSnapshot {
   const value = Math.max(0, Math.min(100, Math.round(result.value)))
   const delta = value - previousValue
+
+  // Expansion Phase 1 §1.5 — a pressure whose contributors add up to 130
+  // shows 100, and so does one at 101. Banking the excess is what makes
+  // progress visible in the report while the player fixes their way back
+  // down to the cap, instead of the meter looking stuck and the game looking
+  // broken exactly when they are doing the right thing.
+  if (recordDetail) {
+    recordMeterMovement(ctx, {
+      target: `pressure:${definition.id}`,
+      previousVisible: previousValue,
+      desired: Math.round(result.value),
+      visible: value,
+    })
+  }
   const trend = computeTrend(previousValue, value)
   const volatility =
     result.volatility !== undefined
@@ -363,6 +398,9 @@ function runPressurePass(ctx: SimContext, emitCauses: boolean): void {
       definition,
       adjustment === 0 ? result : { ...result, value: result.value + adjustment },
       previousValue,
+      // `emitCauses` marks the authoritative pass of the day — the same
+      // reason it gates the trend sample gates the meter-detail record.
+      emitCauses,
     )
 
     // Apply the multi-day trend on top of the day-over-day snapshot so

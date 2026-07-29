@@ -39,6 +39,10 @@ import type {
   StaffEffectivenessSummary,
   StaffModuleState,
 } from './types'
+import {
+  getRule,
+  scaleOngoingIntegerDecay,
+} from '../../contracts/ruleset/index'
 
 // Phase 11 §11.2 — Staff module.
 //
@@ -141,9 +145,28 @@ const startDayHook: SimulationHook = (ctx: SimContext): void => {
   // shed each morning. Service later in the day (Phase 12) will
   // push them back up. Phase 11 keeps the magnitude modest because
   // the service-driven movement is the headline signal.
+  // Expansion Phase 1 §1.3 — overnight recovery is one of the ruleset's
+  // ongoing knobs: `easy` sheds half again as much, `hard` about two-thirds
+  // as much. The fractional remainder is banked per staff member and per
+  // meter so a 1.5x multiplier on a 2-point recovery really does average 3
+  // rather than rounding back to 2. `standard` is exactly 1 and banks
+  // nothing, leaving the reference route's numbers untouched.
+  const recoveryMultiplier = getRule(ctx.state, 'staffRecoveryMultiplier')
   for (const staff of Object.values(ctx.state.staff)) {
-    const nextStress = clampPercent(staff.stress - DAILY_STRESS_RECOVERY)
-    const nextFatigue = clampPercent(staff.fatigue - DAILY_FATIGUE_RECOVERY)
+    const stressRecovery = scaleOngoingIntegerDecay(
+      ctx,
+      `staff_recovery:${staff.id}:stress`,
+      DAILY_STRESS_RECOVERY,
+      recoveryMultiplier,
+    )
+    const fatigueRecovery = scaleOngoingIntegerDecay(
+      ctx,
+      `staff_recovery:${staff.id}:fatigue`,
+      DAILY_FATIGUE_RECOVERY,
+      recoveryMultiplier,
+    )
+    const nextStress = clampPercent(staff.stress - stressRecovery)
+    const nextFatigue = clampPercent(staff.fatigue - fatigueRecovery)
     if (nextStress === staff.stress && nextFatigue === staff.fatigue) continue
     ctx.modifyStaff(
       staff.id,

@@ -205,9 +205,22 @@ describe('Phase 207 — implementation ledger', () => {
     }
   })
 
-  it('starts the arc with nothing marked done', () => {
-    // Phase 0 changes no behavior, so no requirement can be closed by it.
-    expect(rows.filter((r) => r.status === 'done')).toEqual([])
+  it('only closes rows belonging to a phase that has actually landed', () => {
+    // Phase 0 changed no behavior, so at the freeze nothing was closed. That
+    // is a statement about the arc's STARTING point, not an invariant — as
+    // phases land, their rows legitimately move to `in-progress` and `done`.
+    //
+    // What must stay true is that no row is closed ahead of its phase. This
+    // is the check that would catch a row marked done to quiet a red test,
+    // which the arc's conventions forbid. Bump `LANDED_PHASES` when a phase
+    // completes, and never to make a failing row pass.
+    const LANDED_PHASES = 1 // Phase 0 (ISSUE-170), Phase 1 (ISSUE-171)
+    const closedEarly = rows.filter(
+      (r) => r.status !== 'open' && Number(r.phase) > LANDED_PHASES,
+    )
+    expect(
+      closedEarly.map((r) => `${r.requirement_id} (phase ${r.phase}, ${r.status})`),
+    ).toEqual([])
   })
 })
 
@@ -305,8 +318,16 @@ describe('Phase 207 — repository map', () => {
 describe('Phase 207 — plan §3 starting inventory', () => {
   it('matches the counts the plan freezes', () => {
     expect(collectInventory()).toEqual({
-      runtimeModules: 29,
-      simulationPhases: 25,
+      // Expansion Phase 1 (ISSUE-171) added four shared-contract modules
+      // (`ruleset`, `meters`, `scheduledEvents`, `obligations`) and one
+      // phase (`resolveScheduledEvents`, the wrap-up beat). The Phase 0
+      // freeze is the arc's BEFORE picture, and the plan says to update
+      // these artifacts in place as later phases land — so these two counts
+      // move with the code rather than the code being bent to fit them.
+      // Every other count is unchanged, which is the real assertion here:
+      // Phase 1 added contracts, not content.
+      runtimeModules: 33,
+      simulationPhases: 26,
       daySegments: 3,
       ownerActions: 41,
       staffPriorities: 12,

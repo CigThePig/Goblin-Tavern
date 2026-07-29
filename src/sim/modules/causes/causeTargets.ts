@@ -1,3 +1,5 @@
+import { groupedTargetCovers } from '../../contracts/causality/groupedTargets'
+
 // Phase 197 / ISSUE-164 — Cluster 2.
 //
 // Single canonical mapping from a state-diff path to the colon-style cause
@@ -71,6 +73,26 @@ export function canonicalCauseTarget(path: string): string | undefined {
   if (path === 'tavernIdentity' || path.startsWith('tavernIdentity.')) {
     return 'tavernIdentity'
   }
+  // Expansion Phase 1 §1.4 — the teleology slices. The engine's `addArc` /
+  // `addVenture` / `modifyTransformation` helpers have always emitted causes
+  // targeting `arc:<id>` / `venture:<id>` / `transformation:<id>`, but this
+  // canonicalizer had no mapping for the matching diff paths — so every arc
+  // spawn, stage advance and permanent transformation was reported as an
+  // UNEXPLAINED significant change despite having a perfectly good cause
+  // sitting in `state.causes`. The attribution was there; the join was
+  // missing. These three lines are that join.
+  if (path.startsWith('arcs.')) {
+    const id = path.split('.')[1]
+    return id ? `arc:${id}` : undefined
+  }
+  if (path.startsWith('ventures.')) {
+    const id = path.split('.')[1]
+    return id ? `venture:${id}` : undefined
+  }
+  if (path.startsWith('transformations.')) {
+    const id = path.split('.')[1]
+    return id ? `transformation:${id}` : undefined
+  }
 
   // `modules.*` is intentionally left unmapped. Module-internal state
   // mutations have no canonical cause-target convention; surfacing them as
@@ -100,5 +122,10 @@ export function targetMatches(storedTarget: string, lookupTarget: string): boole
   // canonicalize to the same colon target (`stock:ale`) so they still match
   // while they age out (≤5 days). Remove after one release cycle.
   if (canonicalCauseTarget(storedTarget) === lookupTarget) return true
+  // Expansion Phase 1 §1.4 — a grouped cause covers each element it names.
+  // `rumour:{r_a,r_b}` answers a lookup for `rumour:r_a`, and `rumour:*`
+  // answers for any rumour. Resolved here rather than in each consumer so
+  // the unexplained-change audit and the UI drilldown agree.
+  if (groupedTargetCovers(storedTarget, lookupTarget)) return true
   return false
 }

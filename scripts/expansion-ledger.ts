@@ -179,7 +179,12 @@ export function readLedger(path: string = LEDGER_PATH): LedgerRow[] {
 // Ledger validation
 // ---------------------------------------------------------------------------
 
-const REQUIREMENT_ID_RE = /^(OBL|DEP|HOOK)-[A-Za-z0-9_*]+$/
+// `OBL-` a broken obligation (plan §4.1), `DEP-` a simulation-depth gap
+// (§4.2), `HOOK-` one future-hook family, and — from expansion Phase 1 —
+// `CON-` a shared contract the plan's Phase 1 sub-sections require. `CON-`
+// is a separate prefix rather than more `DEP-` rows precisely so the
+// "20 depth gaps, 20 DEP rows" check stays exact.
+const REQUIREMENT_ID_RE = /^(OBL|DEP|HOOK|CON)-[A-Za-z0-9_*]+$/
 
 /** Repo paths a ledger cell names, so `--check` can prove they still exist.
  *  Only concrete files are matched — a bare directory like `src/sim/modules/staff`

@@ -43,8 +43,19 @@ import { kernelModule } from './modules/kernel/index'
 import { ventureModule } from './modules/ventures/index'
 import { arcModule } from './modules/arcs/index'
 import { openingsModule } from './modules/openings/index'
+// Expansion Phase 1 — shared contract modules. `ruleset` first: it holds
+// the ongoing rules that area/stock/staff decay read on the same day, so it
+// must be present before any state owner runs. `scheduledEvents` and
+// `obligations` sit at the end of the pipeline next to `responses`, which is
+// the other system that deals in time-shifted consequences.
+import { rulesetModule } from './contracts/ruleset/index'
+import { metersModule } from './contracts/meters/index'
+import { scheduledEventsModule } from './contracts/scheduledEvents/index'
+import { obligationsModule } from './contracts/obligations/index'
 
 export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
+  rulesetModule,
+  metersModule,
   areasModule,
   stockModule,
   staffModule,
@@ -74,4 +85,6 @@ export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   openingsModule,
   issueSeedsModule,
   responsesModule,
+  scheduledEventsModule,
+  obligationsModule,
 ]

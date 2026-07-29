@@ -38,6 +38,8 @@ import {
   getOwnerActionsModuleState,
 } from "../ownerActions/stateHelpers";
 import type { OwnerActionsModuleState } from "../ownerActions/types";
+import { getScheduledEventDefinition } from "../../contracts/scheduledEvents/registry";
+import { scheduleEvent } from "../../contracts/scheduledEvents/state";
 
 // Phase 41 / ISSUE-001 — engine-path applier.
 //
@@ -656,6 +658,83 @@ export function createCtxApplier(ctx: SimContext): EffectApplier {
       // again — the resolver-side path uses this method to populate the
       // standalone return shape, but in-engine the cause is already in
       // state.causes by the time recordSynthesizedCause is called.
+    },
+    /**
+     * Expansion Phase 1 §1.1 — the future-hook bridge.
+     *
+     * Every hook a response declares now becomes a TYPED record. If a
+     * module has registered the hook's name as a mechanical event, that
+     * module owns it: it is scheduled through `scheduleEvent`, its resolver
+     * will perform a real mutation, and this applier reports `'mechanical'`
+     * so the caller does not also queue it on the pending list.
+     *
+     * If no module owns the name — which is every one of the ~90 existing
+     * hook families as of this phase — the honest classification is
+     * `narrative_expectation`: a promise the simulation is tracking but
+     * cannot yet keep. The hook still goes on the pending queue exactly as
+     * it did before, so behaviour is unchanged, but it is now visible,
+     * acknowledgeable, expiring, and above all COUNTABLE. Driving that
+     * count to zero is what Phases 2-11 are for.
+     */
+    routeFutureHook(input) {
+      const expiryDays = Math.max(
+        0,
+        input.expiresAfterDay - input.scheduledForDay,
+      );
+      const origin = {
+        source: `response.${input.origin.verb}`,
+        readable: input.readable,
+        ...(input.origin.selectionLabel
+          ? { selectionLabel: input.origin.selectionLabel }
+          : {}),
+      };
+
+      // A hook is only mechanical if a registered owner both claims the name
+      // AND supplies an adapter that turns the bare hook into a valid
+      // payload. The bridge deliberately does not guess a payload shape:
+      // only the owning domain knows what its event needs, and a guessed
+      // payload would either fail the schema days later or, worse, pass it
+      // with meaningless contents.
+      const definition = getScheduledEventDefinition(input.hookName);
+      const adapted = definition?.fromFutureHook?.({
+        hookName: input.hookName,
+        readable: input.readable,
+        scheduledForDay: input.scheduledForDay,
+      });
+
+      if (definition && adapted) {
+        const result = scheduleEvent(ctx, {
+          type: input.hookName,
+          ...(adapted.target ? { target: adapted.target } : {}),
+          scheduledForDay: input.scheduledForDay,
+          expiryDays,
+          payload: adapted.payload,
+          origin,
+        });
+        if (result.status !== "rejected") return "mechanical";
+        // The owner's adapter and its own schema disagree. Log loudly —
+        // that is a bug in the owning domain — and fall through to the
+        // narrative path so the promise is tracked rather than dropped.
+        ctx.addLog(
+          {
+            message: `Future hook '${input.hookName}' has an owner but its adapter produced an invalid payload: ${result.reason}`,
+            level: "warn",
+            data: { hookName: input.hookName },
+          },
+          RESPONSES_MODULE_ID,
+        );
+      }
+
+      scheduleEvent(ctx, {
+        type: input.hookName,
+        kind: "narrative_expectation",
+        ownerModuleId: RESPONSES_MODULE_ID,
+        scheduledForDay: input.scheduledForDay,
+        expiryDays,
+        payload: null,
+        origin,
+      });
+      return "narrative";
     },
     log(entry: ApplierLog) {
       const log: {

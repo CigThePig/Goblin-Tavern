@@ -28,6 +28,8 @@
     "prando": "^6.0.1"
   },
   "pipeline": [
+    "ruleset",
+    "meters",
     "areas",
     "stock",
     "staff",
@@ -56,7 +58,9 @@
     "arcs",
     "openings",
     "issueSeeds",
-    "responses"
+    "responses",
+    "scheduledEvents",
+    "obligations"
   ],
   "phases": [
     "startDay",
@@ -78,6 +82,7 @@
     "afterService",
     "closing",
     "applyResponses",
+    "resolveScheduledEvents",
     "endDay",
     "endWeek",
     "endMonth",
@@ -110,6 +115,7 @@
     ],
     "C": [
       "applyResponses",
+      "resolveScheduledEvents",
       "endDay",
       "endWeek",
       "endMonth",
@@ -126,12 +132,16 @@
     "issueSeeds",
     "localArcs",
     "memories",
+    "meters",
     "monthly",
+    "obligations",
     "openings",
     "ownerActions",
     "pressures",
     "regulars",
     "responses",
+    "ruleset",
+    "scheduledEvents",
     "service",
     "staff",
     "stock",
@@ -192,6 +202,7 @@
       "ensureMonthlyHistoryField",
       "ensureOwnerTimeFields",
       "ensureCastAttributes",
+      "ensureExpansionContractSlices",
       "ensureModuleSlices"
     ]
   },
@@ -201,8 +212,8 @@
     "standard"
   ],
   "inventory": {
-    "runtimeModules": 29,
-    "simulationPhases": 25,
+    "runtimeModules": 33,
+    "simulationPhases": 26,
     "daySegments": 3,
     "ownerActions": 41,
     "staffPriorities": 12,

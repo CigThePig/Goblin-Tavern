@@ -7,9 +7,13 @@ import type {
   PendingResponseEntry,
 } from './types'
 import {
+  DEFAULT_DELAYED_EFFECT_OFFSET,
+  DEFAULT_FUTURE_HOOK_OFFSET,
   buildPendingFromDelayedEffect,
   buildPendingFromFutureHook,
   buildPendingFromImmediateFutureHook,
+  deriveSchedulingFromEffect,
+  deriveSchedulingFromMemoryDraft,
   makePendingId,
 } from './pendingHelpers'
 
@@ -74,6 +78,31 @@ export type EffectApplier = {
     amount: number
   }): void
 
+  /**
+   * Expansion Phase 1 §1.1 — hand a declared future hook to the typed
+   * scheduled-event registry.
+   *
+   * Returns `'mechanical'` when the hook's name resolves to a registered
+   * mechanical event type, in which case the OWNING MODULE will resolve it
+   * authoritatively and the hook must NOT also go on the responses pending
+   * queue — otherwise the same promise would be kept twice. Returns
+   * `'narrative'` when no domain owns the name yet: the hook stays on the
+   * pending queue exactly as before, and a typed narrative-expectation
+   * record is filed alongside it so the promise is at least tracked,
+   * acknowledged, expired and countable.
+   *
+   * Optional because the clone-path applier (used for previews) has no
+   * context to write to and must not have side effects.
+   */
+  routeFutureHook?(input: {
+    /** The hook's declared name — a `MemoryDraft.id` or an effect target. */
+    hookName: string
+    readable: string
+    origin: ApplyOrigin
+    scheduledForDay: number
+    expiresAfterDay: number
+  }): 'mechanical' | 'narrative'
+
   log(entry: ApplierLog): void
 }
 
@@ -94,6 +123,31 @@ export function applyResponseProfile(
   for (const preview of profile.immediateEffects) {
     if (preview.kind === 'future_hook') {
       // A future_hook in immediateEffects is a marker — enqueue it.
+      //
+      // Expansion Phase 1 §1.1 — but first offer the hook name to the typed
+      // registry. A registered mechanical owner takes it over entirely; an
+      // unowned name is filed as a narrative expectation and still queued
+      // here, which is the behaviour every hook had before this phase.
+      const schedule = deriveSchedulingFromEffect(
+        preview,
+        applier.today,
+        DEFAULT_DELAYED_EFFECT_OFFSET,
+      )
+      const routed = applier.routeFutureHook?.({
+        hookName: preview.target,
+        readable: preview.readable,
+        origin,
+        scheduledForDay: schedule.scheduledFor,
+        expiresAfterDay: schedule.expiresAt,
+      })
+      if (routed === 'mechanical') {
+        appliedEffects.push({
+          ...preview,
+          applied: false,
+          notes: ['scheduled as a mechanical event'],
+        })
+        continue
+      }
       const id = applier.mintNextPendingId(applier.today)
       const entry = buildPendingFromImmediateFutureHook(
         preview,
@@ -152,6 +206,22 @@ export function applyResponseProfile(
 
   // 4. profile.futureHooks
   for (const draft of profile.futureHooks) {
+    // Expansion Phase 1 §1.1 — route before minting an id, so a hook a
+    // mechanical owner takes over does not consume a pending suffix and
+    // shift the ids of the hooks that follow it.
+    const schedule = deriveSchedulingFromMemoryDraft(
+      draft,
+      applier.today,
+      DEFAULT_FUTURE_HOOK_OFFSET,
+    )
+    const routed = applier.routeFutureHook?.({
+      hookName: draft.id,
+      readable: draft.label ?? draft.id,
+      origin,
+      scheduledForDay: schedule.scheduledFor,
+      expiresAfterDay: schedule.expiresAt,
+    })
+    if (routed === 'mechanical') continue
     const id = applier.mintNextPendingId(applier.today)
     const entry = buildPendingFromFutureHook(draft, origin, applier.today, id)
     applier.enqueuePending(entry)

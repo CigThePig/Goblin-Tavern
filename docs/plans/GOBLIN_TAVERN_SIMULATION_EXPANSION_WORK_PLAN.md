@@ -1,0 +1,1836 @@
+# Goblin Tavern Simulation Expansion and Obligation-Closure Plan
+
+**Purpose:** Convert Goblin Tavern’s uneven but promising simulation into one coherent, deeply connected management simulation while completing every player-facing mechanic the repository already promises.
+
+**Authority:** This is a standalone implementation document. It does not require any earlier audit, report, ledger, or conversation. The repository is the only external source of truth required to execute it.
+
+**Scope rule:** Every advertised mechanic described below is assumed to be intentional and must be implemented. Do not resolve a missing capability by deleting its UI, weakening its wording, or reclassifying it as flavor. Every system identified as shallow is assumed to be intended to reach the same standard of statefulness, temporal behavior, player leverage, reciprocity, persistence, causality, and observability as the existing customer–staff–stock–service core.
+
+---
+
+## 1. What this plan is trying to build
+
+Goblin Tavern already has a strong deterministic operating core:
+
+1. the world and forecast update;
+2. the player plans owner actions and staff priorities;
+3. customers arrive and purchase recipes;
+4. stock is consumed;
+5. staff performance shapes service;
+6. service produces revenue, shortages, incidents, mess, damage, satisfaction changes, memories, pressures, and issues;
+7. the player responds;
+8. daily, weekly, and monthly consequences settle;
+9. the state is validated, reported, saved, and advanced.
+
+The expansion should preserve that core while making the surrounding world equally real. Suppliers must transact rather than merely report “misses.” Inspectors must actually visit. Staff must be capable of leaving. Loans and invoices must exist as ledgers with due dates. Area upgrades must be buildable. Factions, cultures, regulars, notable NPCs, rivals, and rumours must act and react through persistent state rather than mostly moving descriptive meters. Long-horizon ventures and character arcs must have enough content and consequence to justify their general framework.
+
+The target is not maximum micromanagement. The target is **causal completeness**:
+
+- if the game creates an expectation, a legitimate player capability and an authoritative outcome must exist;
+- if a system reports a threat, some system must be able to make that threat occur;
+- if an actor has an identity, it should have persistent motives, resources, choices, and memory appropriate to its importance;
+- if the player makes a decision, its consequences should travel through the simulation rather than terminate in a direct meter adjustment;
+- if state visibly changes, the game should be able to explain why;
+- if a long-term failure is possible, recovery or terminal resolution should also be modeled.
+
+---
+
+## 2. Current architecture that must be preserved
+
+### 2.1 Canonical day
+
+The simulation is a deterministic, discrete-day pipeline divided into three resumable segments.
+
+```mermaid
+flowchart TD
+    A["Segment A: world, forecast, morning issues"] --> P1["Player plans"]
+    P1 --> B["Segment B: actions, staffing, service, closing issues"]
+    B --> P2["Player responds"]
+    P2 --> C["Segment C: consequences, settlement, reports, validation"]
+    C --> N["Calendar advances"]
+```
+
+The exact phase and module lists must be rediscovered from the current repository before implementation. In the audited layout, the primary entry points were:
+
+- `src/sim/core/engine.ts`
+- `src/sim/core/phases.ts`
+- `src/sim/core/segments.ts`
+- `src/sim/canonicalPipeline.ts`
+- `src/sim/state/TavernState.ts`
+
+The active runtime covered areas, stock, staff, customers, world, cultures, factions, suppliers, regulars, adventurers, expeditions, owner actions, service, weekly and monthly settlement, local arcs, identity, memories, history, causes, attribution, pressures, feedback, teleology, issue seeds, and responses.
+
+### 2.2 Existing strengths are constraints, not rewrite targets
+
+Preserve:
+
+- deterministic replay;
+- named RNG streams;
+- equivalence between full-day and segmented execution;
+- immutable caller input and sanctioned state mutation;
+- module dependency validation;
+- exact phase/segment resume behavior;
+- atomic time and coin checks;
+- schema and cross-reference validation;
+- causal diffs and readable reports;
+- bounded memories, rumours, history, issue attention, and persistent populations;
+- save/load at every supported day beat;
+- one authoritative simulation path shared by UI, tests, and balance harnesses.
+
+Do not introduce:
+
+- a second simulation path used only by the UI;
+- wall-clock timers;
+- nondeterministic IDs or random calls;
+- hidden background processes outside the canonical pipeline;
+- player-facing future promises without registered domain consumers;
+- duplicate authoritative records for the same concept;
+- direct state mutations that bypass causes, invariants, and persistence;
+- unbounded event, rumour, order, invoice, memory, or history collections.
+
+### 2.3 Definition of “deep enough”
+
+A system is not complete merely because it has many fields, files, cards, or descriptions. Each major domain should be evaluated against these eight properties.
+
+| Property | Required evidence |
+|---|---|
+| State | It owns meaningful persistent state rather than only derived labels. |
+| Inputs | Several independent upstream conditions can alter its behavior. |
+| Time | Delays, accumulation, decay, recurrence, or lifecycle stages matter. |
+| Autonomy | Relevant actors can select actions without waiting for a scripted card. |
+| Reciprocity | The system changes other systems and receives consequences back. |
+| Player leverage | The player has discoverable, resource-gated ways to influence it. |
+| Observability | Reports, diffs, causes, and UI explain important changes. |
+| Completion | Success, failure, interruption, replacement, and save/load paths exist. |
+
+Not every system needs the same number of entities or rules. History can remain simpler than service. It cannot, however, be used as a substitute for the behavior it records.
+
+---
+
+## 3. Known starting inventory
+
+Before changing code, verify these counts against the current repository and update the phase ledger if they have changed:
+
+| Surface | Audited inventory |
+|---|---:|
+| Runtime modules | 29 |
+| Simulation phases | 25 |
+| Day segments | 3 |
+| Owner actions | 41 |
+| Staff priorities | 12 |
+| Pressure domains | 21 |
+| Feedback-loop detectors | 13 |
+| Issue-generator families | 25 |
+| Card templates including fallback | 24 |
+| Areas | 9 |
+| Area-upgrade definitions | 18 |
+| Stock records | 20 |
+| Recipes | 20 |
+| Customer groups | 9 |
+| Founding staff | 3 |
+| Cultures | 8 |
+| Factions | 9 |
+| Suppliers | 9 |
+| Market conditions | 8 |
+| Local-arc definitions | 5 |
+| Venture blueprints | 1 |
+| Hardcoded character arcs | 1 |
+
+The last known clean baseline contained 291 passing test files and 3,702 passing tests, plus clean type checking, Svelte checking, and a production build. These numbers are historical orientation, not hardcoded future requirements. The current repository’s equivalent gates become authoritative in Phase 0.
+
+---
+
+## 4. Confirmed gaps that this plan must close
+
+### 4.1 Broken gameplay obligations
+
+All nine contracts below must end with a natural player path and an authoritative simulation result.
+
+| ID | Broken contract | Required end state |
+|---|---|---|
+| OBL-01 | Area upgrades are advertised and defined but cannot be installed. | A player can discover, quote, start, fund, build, complete, damage, disable, repair, and persist an upgrade. |
+| OBL-02 | Future hooks for quitting, loan repayment, and eviction drain without performing their promised event. | Every mechanical future hook has a typed owner, exact-once resolver, visible warning, domain mutation, and later acknowledgment. |
+| OBL-03 | Inspection suspicion and warnings never produce an inspector visit. | Chronic or acute risk can schedule a visit, evaluate the tavern, create consequences, allow response, and persist. |
+| OBL-04 | Supplier credit and invoice UI exist without a producer or payment capability. | Credit orders create supplier-specific invoices with terms; payment, default, collections, and relationship outcomes work. |
+| OBL-05 | Easy promises slower decay but only alters initial values. | Difficulty persists in state and changes ongoing documented rules, including slower Easy decay. |
+| OBL-06 | Quick Day is advertised but its zero-card eligibility is unreachable. | Quick Day uses a reachable eligibility rule and stops honestly when new mandatory decisions emerge. |
+| OBL-07 | Queued-action Help reverses the real same-day/tomorrow behavior. | Help and UI derive timing from the actual planning horizon. |
+| OBL-08 | Rumour decay and staff-mastery transitions can change visible state without matching causes. | Every material targeted change is covered by a bounded cause or grouped cause with valid target coverage. |
+| OBL-09 | Tavern nicknames can be displayed but cannot be naturally earned. | Simulation evidence can create, strengthen, contest, decay, and display nickname rumours. |
+
+### 4.2 Simulation-depth gaps
+
+The following are implementation requirements, not optional ideas:
+
+- cash must respond meaningfully to persistent quality and reputation collapse;
+- service must model capacity, queues, throughput, patience, abandonment, and staff allocation;
+- areas must model usable capacity, spatial/functional relationships, construction, materials, hazards, and upgrades;
+- staff must have schedules, availability, relationships, development, labor terms, absence, burnout outcomes, and autonomous separation;
+- customers and regulars must make service-level choices rather than existing only as aggregate demand and descriptive individuals;
+- suppliers must operate an actual order–delivery–invoice chain;
+- inspections, rent, loans, arrears, and eviction must form real external-obligation lifecycles;
+- cultures and factions must have goals, resources, actions, memory, and reciprocal consequences;
+- notable NPCs and rivals must be capable of visible autonomous moves;
+- rumours must spread through actors or channels rather than only appearing and decaying in a container;
+- beliefs and attribution must alter decisions, not only generate explanation;
+- expeditions must contain decisions and risks between commission and final resolution;
+- local arcs must progress through state and actor behavior rather than mostly age once per month;
+- identity must exert causal force and use hysteresis rather than being only threshold labels;
+- teleology must contain enough ventures, arcs, openings, failures, and permanent transformations to exercise its general lifecycle;
+- issue cards and response profiles must expose and influence real domain processes rather than impersonating missing simulation through authored meter changes;
+- pressure and feedback systems must remain diagnostic but point to causal edges actually executed elsewhere;
+- failure-floor and pressure-ceiling saturation must preserve information and recovery momentum;
+- memory patterns must be based on explicit evidence, not use strength as an accidental event counter;
+- direct mutations and causal gaps must be eliminated from player-facing state;
+- difficulty must change ongoing behavior and be covered by long-run balance tests.
+
+---
+
+## 5. Work protocol for every phase
+
+Each phase is an implementation unit. A phase may be split into several commits or pull requests, but it is not complete until its full vertical slice passes.
+
+For every phase:
+
+1. **Rediscover current code.** Search by module ID, type, action ID, UI string, and registry symbol. Do not rely on old line numbers.
+2. **Write or update the phase ledger.** List state owners, producers, consumers, UI surfaces, save fields, reports, pressures, issues, and tests.
+3. **Write failing contract tests first.** Include natural player setup, not only direct fixture injection.
+4. **Define authoritative ownership.** One domain owns each state transition. Other systems request or observe it.
+5. **Implement state, rules, player capability, autonomous behavior, reporting, and persistence together.**
+6. **Add deterministic RNG streams before adding random behavior.**
+7. **Add schema migration in the same phase as any persisted field.**
+8. **Run focused tests, then full repository gates.**
+9. **Run full-day versus segmented equivalence for affected routes.**
+10. **Perform at least one save/reload at every day beat crossed by the new lifecycle.**
+11. **Verify bounded growth.** Define caps, pruning, expiry, or archival for every new persistent collection.
+12. **Update help from shared rule metadata.** Do not create a second prose-only version of timing, costs, or eligibility.
+
+A phase fails if:
+
+- only the data model or UI exists;
+- a test reaches the feature only by injecting impossible state;
+- a card promises a consequence owned by no domain;
+- a process works in batch simulation but not the segmented route;
+- save/load changes the deterministic outcome;
+- the system’s only consequence is a direct pressure or reputation adjustment;
+- a player cannot discover what action is available and why;
+- old saves silently lose or fabricate material obligations.
+
+---
+
+## 6. Implementation sequence at a glance
+
+| Phase | Primary result | Obligation closures |
+|---:|---|---|
+| 0 | Frozen baseline and complete implementation ledger | Coverage only |
+| 1 | Typed events, obligations, difficulty, actor, meter, and causality foundations | Shared foundation for OBL-02, OBL-05, and OBL-08 |
+| 2 | Functional areas, construction, and complete upgrade lifecycle | OBL-01 |
+| 3 | Staff schedules, relationships, labor lifecycle, and real resignation | Staff portion of OBL-02 |
+| 4 | Capacity-constrained service, customer choice, and active regulars | None in isolation; deepens the operational core |
+| 5 | Coherent economy, financial failure, recovery, policies, and adaptive demand | Supports OBL-04 and OBL-05 |
+| 6 | Orders, deliveries, supplier autonomy, credit, and invoices | OBL-04 |
+| 7 | Loans, rent, tenancy, inspection visits, and external enforcement | Loan/eviction portions of OBL-02 and OBL-03 |
+| 8 | Autonomous factions, cultures, NPCs, rumours, and behavioral attribution | Rumour portion of OBL-08 |
+| 9 | Rival competition, state-driven local arcs, deeper expeditions, and world events | None in isolation; closes major depth gaps |
+| 10 | Populated teleology, causal identity, character arcs, and earned nicknames | OBL-09 and mastery portion of OBL-08 |
+| 11 | Domain-backed issues, responses, consequences, pressures, feedback, and memory | Final shared closure of OBL-02 |
+| 12 | Ongoing difficulty, reachable Quick Day, correct planning horizon, UI, and Help | OBL-05, OBL-06, and OBL-07 |
+| 13 | Migration, long-run balance, performance, and final obligation proof | Release proof for all requirements |
+
+---
+
+# Phase 0 — Freeze the current baseline and create the implementation ledger
+
+## Objective
+
+Establish the exact current architecture, tests, save schema, public promises, and behavioral baselines before expanding the simulation.
+
+## Required work
+
+### Repository map
+
+Map:
+
+- package scripts and required runtime versions;
+- the canonical pipeline, phases, segments, and module dependencies;
+- every module-owned persistent slice;
+- every direct mutation of `TavernState`;
+- every RNG stream and every unscoped random call;
+- every save version and migration;
+- all actions, staff priorities, pressure calculators, feedback detectors, issue generators, card templates, response profiles, future hooks, upgrade definitions, world definitions, and teleology blueprints;
+- all Help/glossary promises and every UI capability they name.
+
+Create a machine-readable implementation ledger in the repository. At minimum, each row should contain:
+
+- stable requirement ID;
+- owning phase;
+- originating promise or weakness;
+- state owner;
+- producer;
+- player capability;
+- autonomous trigger;
+- consumers;
+- UI/report surfaces;
+- tests;
+- migration status;
+- completion status.
+
+### Baseline probes
+
+Freeze deterministic fixtures for:
+
+- a fresh run on every difficulty;
+- a normal full day;
+- the same day through Segments A, B, and C;
+- week and month boundaries;
+- a no-action route;
+- a quality-focused route;
+- a profit-focused route;
+- a staff-focused route;
+- a supplier-focused route once suppliers become transactional.
+
+Record:
+
+- coin and ledger totals;
+- traffic and satisfaction;
+- cleanliness, damage, and area capacity;
+- staff morale, fatigue, stress, loyalty, and availability;
+- stock and recipe output;
+- active obligations;
+- pressure contributors;
+- issue counts and response results;
+- persistent collection sizes;
+- validation failures.
+
+## Required tests
+
+- current typecheck, Svelte check, unit/integration suite, and production build;
+- full-day/segmented equivalence;
+- save/load at Morning, Plan, Service, Closing, and Report;
+- deterministic replay using the same state, input, and seed;
+- current long-run invariant harness;
+- scan proving that all player-facing future hooks are represented in the ledger, even before they are fixed.
+
+## Completion gate
+
+Phase 0 ends with no intended behavior change. The repository has an authoritative baseline, a complete requirement ledger, and reproducible probes that later phases can compare against.
+
+---
+
+# Phase 1 — Build shared simulation contracts
+
+## Objective
+
+Create the cross-domain foundations required for real obligations, autonomous actors, scheduled processes, deeper meters, and complete causal explanation.
+
+## 1.1 Typed scheduled events and future consequences
+
+Replace opaque future-hook strings as mechanical authority with a typed registry. A mechanical scheduled event must declare:
+
+- event type and schema;
+- owning module;
+- target entity and fallback behavior if the target disappears;
+- scheduled beat/day and optional warning window;
+- repeat, cancellation, supersession, and expiry rules;
+- deterministic resolver;
+- authoritative mutation;
+- cause, memory, history, pressure, and report outputs;
+- save/migration schema;
+- acknowledgment state;
+- exact-once key.
+
+Narrative expectations may still exist, but must use a distinct type and cannot use wording that promises a concrete event.
+
+Add startup or test-time validation that fails when:
+
+- a mechanical event has no registered owner;
+- a response schedules an unregistered event;
+- an event resolves without an authoritative mutation or explicit no-op reason;
+- two domains claim ownership of the same event type.
+
+Do not treat a zero-weight cause or memory as resolution.
+
+## 1.2 Shared obligation and contract records
+
+Add reusable primitives for:
+
+- payable and receivable obligations;
+- principal, accrued charges, due dates, grace periods, partial payment, default, settlement, forgiveness, and collections;
+- purchase orders and delivery promises;
+- employment terms and notice/separation events;
+- regulatory cases and scheduled visits;
+- tenancy and escalation state;
+- construction commitments and milestone completion.
+
+These primitives should share lifecycle conventions without forcing unrelated domains into one giant module. Suppliers own invoices, staff own employment, monthly/regulatory systems own inspections, and landlord/finance systems own tenancy and loans.
+
+## 1.3 Persistent ruleset and difficulty
+
+Persist the selected difficulty or ruleset in authoritative state. Give rules a versioned definition rather than scattering `if easy` checks.
+
+The ruleset must be queryable by:
+
+- area deterioration;
+- spoilage;
+- staff fatigue/recovery;
+- pressure adjustment decay;
+- rumour and memory decay where documented;
+- economy and obligation grace periods;
+- issue fairness;
+- recovery assistance.
+
+Easy must produce genuinely slower ongoing decay under equal seeded inputs. Standard remains the reference ruleset. Hard should increase difficulty through coherent ongoing rules rather than only a worse opening state.
+
+## 1.4 Causal mutation coverage
+
+Unify material mutations behind sanctioned helpers or explicit domain events. Add:
+
+- grouped causes for high-volume homogeneous changes such as daily rumour decay;
+- causes for arc creation, stage change, status change, and permanent transformation;
+- event-to-cause links;
+- a supported convention for collection-element targets;
+- a targeted diff-to-cause audit.
+
+Grouped causes must remain readable and bounded. Do not emit one permanent record per tiny field if a grouped cause can identify all affected targets.
+
+## 1.5 Informative meters
+
+Keep visible `[0,100]` meters where useful, but stop discarding information at clamps. Introduce hidden or adjacent state such as:
+
+- dissatisfaction debt and recovery momentum below visible zero;
+- pressure excess and contributor magnitudes above visible 100;
+- trend velocity;
+- hysteresis state for identity and actor decisions;
+- duration at floor/ceiling.
+
+Downstream behavior must use the richer state where necessary. UI can remain simple while reports expose why recovery is slow or why a capped pressure is still worsening.
+
+## 1.6 Actor-action interface
+
+Define a small deterministic interface reusable by factions, cultures, suppliers, rivals, notable NPCs, staff, and regulars:
+
+- current goals;
+- resources or influence budget;
+- perceived state;
+- memories/beliefs;
+- eligible actions;
+- scored target selection;
+- deterministic tie breaking;
+- action cost;
+- cooldown and commitment;
+- visible intent or next move;
+- outcome and learning.
+
+Do not implement generic “AI” detached from domain rules. Each domain supplies its own goals, actions, and scoring.
+
+## 1.7 Narrow the engine extension surface
+
+Preserve the central engine while making new domains harder to connect incorrectly:
+
+- give module-owned persistent slices explicit types and versioned schemas;
+- declare phase reads, writes, and produced domain events;
+- validate cross-phase assumptions instead of relying only on canonical ordering conventions;
+- introduce narrow domain-facing mutation helpers rather than continually widening `SimContext`;
+- identify compatibility barrels and prevent them from becoming alternate implementations;
+- add architecture tests for module order, same-phase dependencies, event ownership, and stable segment boundaries.
+
+Do not perform a big-bang engine rewrite. Migrate one domain at a time behind compatibility adapters and remove an adapter once no active caller depends on it.
+
+## Required tests
+
+- event registration and orphan rejection;
+- exact-once drain across normal play, retry, save/load, import, and segment resume;
+- cancellation and missing-target behavior;
+- difficulty divergence under identical seeds;
+- no causal gaps for the targeted diff classes;
+- no duplicate IDs or unbounded contract growth;
+- actor decision determinism;
+- old-save migration to the new ruleset and event schemas.
+
+## Completion gate
+
+The shared foundations are real and tested. Later phases can add domain behavior without inventing new schedulers, obligation ledgers, actor frameworks, or causal conventions.
+
+---
+
+# Phase 2 — Deepen areas, construction, and physical tavern capacity
+
+## Objective
+
+Turn the nine areas and eighteen upgrade definitions into a physical operating model that constrains service, work, safety, and progression.
+
+## 2.1 One authoritative area model
+
+Each area should own, where applicable:
+
+- usable floor or abstract capacity;
+- seats, tables, beds, storage, workstations, and fixtures;
+- access/adjacency links to other areas;
+- cleanliness, smell, condition, damage, hazards, and traits;
+- active upgrades and their condition;
+- assigned work and blocked capacity;
+- maintenance requirements;
+- environmental influence on connected areas.
+
+This can remain a graph or zone model; it does not require a tile simulation. The key requirement is that areas have functional relationships instead of isolated linear meters.
+
+## 2.2 Complete upgrade lifecycle
+
+Use `src/sim/content/tavern/areaUpgradeRegistry.ts` or its current equivalent as the catalog. Every upgrade definition must have:
+
+- eligibility conditions;
+- valid target areas;
+- discoverable player control;
+- quote with coin, owner time, materials, labor, and build duration;
+- start, pause, fund, resume, cancel, and complete paths where appropriate;
+- in-progress state;
+- capacity or functional effects;
+- atmosphere/identity effects;
+- maintenance burden;
+- damage, disabled, repair, and replacement behavior;
+- causes, reports, issue hooks, and persistence.
+
+Unify the existing owner-project and upgrade models. A project that constructs an upgrade must write one authoritative upgrade record, not a trait plus an unrelated display state. Non-upgrade projects may continue to use the general project system.
+
+## 2.3 Work and construction capacity
+
+Model:
+
+- which staff or hired labor can contribute;
+- concurrent-work limits;
+- material consumption;
+- blocked area capacity during construction;
+- variable progress from labor, damage, shortages, and interruptions;
+- safety or service consequences of operating around unfinished work.
+
+## 2.4 Area interaction
+
+Add bounded propagation where it creates meaningful decisions:
+
+- kitchen filth affecting food safety;
+- cellar pests affecting stock;
+- roof or plumbing damage affecting connected rooms;
+- crowding increasing mess, noise, conflict, and wear;
+- privy capacity affecting patience and satisfaction;
+- garden state affecting yield;
+- seating layout affecting cultural comfort and service throughput.
+
+Avoid an all-to-all network. Each propagation edge must have a clear physical or functional reason.
+
+## 2.5 Work scheduling and time
+
+Retain the readable 360-minute owner budget, but represent accepted work as scheduled blocks when timing or concurrency matters. Model:
+
+- owner and staff work that can occur concurrently;
+- area access and travel/setup cost only where it creates a real tradeoff;
+- exclusive workstations or blocked rooms;
+- task interruption and resumption;
+- variable completion time from skill, tools, damage, and staffing;
+- construction or repair that spans service;
+- conflicts between owner responses, projects, procurement, and immediate upkeep.
+
+The player should not need to arrange every minute manually. Priorities and queued actions can produce the schedule, while previews explain the resulting conflicts and completion horizon.
+
+## Player-facing work
+
+Update:
+
+- area detail sheets;
+- project/upgrade planners;
+- quotes and disabled reasons;
+- capacity and blockage indicators;
+- construction progress;
+- repair/disable state;
+- report explanations;
+- Help generated from upgrade metadata.
+
+## Required tests
+
+- natural discovery and construction of every upgrade family;
+- quote and authoritative cost agreement;
+- insufficient coin, time, material, and labor rejection;
+- start → in progress → interrupted → resumed → installed;
+- installed effect on service or another consuming system;
+- damage → disabled → repair;
+- save/load at every construction state;
+- deterministic construction progress;
+- no duplicate trait/upgrade representation;
+- bounded area effect propagation.
+
+## Completion gate
+
+OBL-01 is closed. Areas are functional capacity owners that materially shape service and work rather than only supplying threshold meters.
+
+---
+
+# Phase 3 — Turn staff into a persistent workforce
+
+## Objective
+
+Deepen staff from service-quality inputs into people with schedules, contracts, relationships, development, needs, and autonomous employment decisions.
+
+## 3.1 Employment lifecycle
+
+Implement:
+
+- applicant or labor-market generation;
+- role demand and coverage;
+- hiring terms;
+- wages and scheduled payment;
+- availability, shifts, absence, illness/injury, and leave;
+- probation or early fit where appropriate;
+- training, skill growth, cross-training, and promotion;
+- raises or renegotiation;
+- discipline, firing, notice, quitting, and replacement;
+- rehiring or references if supported by the world.
+
+Founding staff must no longer be structurally immune to consequences. If a story-critical character requires protection, use an explicit narrative transformation or alternate role rather than silently preventing resignation.
+
+## 3.2 Work assignment
+
+Extend the existing twelve priorities into real allocations:
+
+- station or area assignment;
+- service versus cleaning, repair, security, procurement, or construction work;
+- coverage gaps;
+- handoff and multitasking costs;
+- skill fit;
+- fatigue accumulation;
+- recovery;
+- overtime or overload;
+- queue bottlenecks consumed by Phase 4.
+
+Priorities remain useful high-level instructions. The simulation derives assignments from them and reports why capacity rose or fell.
+
+## 3.3 Relationships and autonomous behavior
+
+Staff should maintain bounded relationship state with:
+
+- the owner;
+- selected coworkers;
+- relevant factions, regulars, or suppliers when repeated interaction justifies it.
+
+Relationships, beliefs, workload, pay, safety, loyalty, and career goals should influence:
+
+- cooperation;
+- conflict;
+- training;
+- willingness to cover;
+- service incidents;
+- absence;
+- raise demands;
+- resignation.
+
+Do not run every possible pair every day. Create relationships from actual repeated contact and cap each person’s active social edges.
+
+## 3.4 Resolve the quitting promise
+
+`staff_quit_risk_<staff>` or its migrated typed equivalent must:
+
+1. warn the player;
+2. identify preventable contributors;
+3. allow meaningful counterplay;
+4. evaluate the target’s current state when due;
+5. cancel, defer, negotiate, or perform separation;
+6. remove or reassign the employee safely;
+7. update service coverage and hiring needs;
+8. create causes, memories, history, pressures, issues, and reports;
+9. resolve exactly once.
+
+## Required tests
+
+- wage payment and nonpayment across multiple weeks;
+- hiring, coverage, absence, training, promotion, and replacement;
+- staff relationship creation and bounded growth;
+- burnout causing real availability or separation risk;
+- successful intervention versus resignation;
+- quitting during active project, arc, and scheduled shift;
+- target already fired or absent when a quit event resolves;
+- save/load and deterministic applicant generation;
+- service outputs traceable to actual assignment and staff state.
+
+## Completion gate
+
+The staff system can produce and recover from staffing failures. The quitting portion of OBL-02 is closed, and staff state has consequences beyond six service-quality numbers.
+
+---
+
+# Phase 4 — Add explicit service flow, customer choice, and regular behavior
+
+## Objective
+
+Deepen the strongest existing system by modeling how customers move through limited tavern capacity and how staff, rooms, recipes, time, and patience create service outcomes.
+
+## 4.1 Deterministic within-service substeps
+
+Add a bounded service-resolution model within Segment B. It may use fixed ticks, waves, or event batches, but must remain deterministic and performant.
+
+Model at minimum:
+
+- arrivals by customer group and party/cohort;
+- table/seat demand;
+- queue entry;
+- seating and area choice;
+- order selection;
+- kitchen preparation queue;
+- server delivery capacity;
+- table occupancy and turnover;
+- payment or tab resolution;
+- abandonment, reduced spend, or dissatisfaction from delay;
+- cleaning and reset capacity;
+- incidents and closing state.
+
+Do not simulate every animation or second. Use the least granular model that creates real bottlenecks and recoverable operational choices.
+
+## 4.2 Customer choice
+
+Replace fixed purchase intent as the sole decision with a scored choice that can consider:
+
+- menu availability;
+- ingredient feasibility;
+- price and wealth;
+- preference and taboo;
+- prior experience;
+- waiting time;
+- identity and reputation;
+- culture;
+- group purpose;
+- competitor appeal;
+- regular favorite;
+- novelty or seasonal context.
+
+Preserve customer groups as scalable persistent populations. Service can instantiate bounded parties or cohorts without turning every patron into a permanent entity.
+
+## 4.3 Regular customers
+
+Regulars must be able to:
+
+- visit as identifiable participants;
+- select a favorite seat/area and actual order;
+- form a tab or patron-specific debt;
+- remember service and incidents;
+- develop relationships;
+- make requests or pursue a small goal;
+- alter visit probability based on belief, treatment, stock, and identity;
+- recommend, criticize, or stop visiting;
+- return under changed conditions.
+
+Favorite stock must affect behavior rather than remain descriptive metadata.
+
+## 4.4 Incidents and scenes
+
+Move incident production toward interactions:
+
+- crowding plus slow service can produce impatience;
+- incompatible parties placed together can produce conflict;
+- understaffing can cause errors or unpaid tabs;
+- actual recipe service can trigger a taboo or delight;
+- security coverage changes escalation;
+- area damage blocks capacity and feeds later service.
+
+Authored content can describe the result, but the trigger must be a real service state.
+
+## 4.5 Patron-specific tabs
+
+Replace aggregate unpaid-tab deduction as the final authority with bounded debt records attached to regulars, groups, or anonymous cohorts. Include:
+
+- principal;
+- debtor identity level;
+- collection probability;
+- policy effect;
+- repayment, forgiveness, escalation, and write-off;
+- relationship and attribution consequences.
+
+## Required tests
+
+- capacity bottlenecks under equal demand;
+- seating, kitchen, server, and cleaning bottleneck isolation;
+- patience and abandonment;
+- table turnover and upgrade effects;
+- actual served recipe driving preference/taboo results;
+- regular order, seat, tab, memory, and return behavior;
+- deterministic substep equivalence across full-day and segmented execution;
+- bounded party/event counts under extreme traffic;
+- no double sale, stock consumption, or payment;
+- reports reconcile service substeps to aggregate ledger totals.
+
+## Completion gate
+
+Service no longer resolves as one opaque aggregate pass. Capacity, queues, allocation, patience, and individual regular behavior create the day’s results.
+
+---
+
+# Phase 5 — Repair economy, demand, failure, and recovery
+
+## Objective
+
+Make money, reputation, quality, demand, obligations, and recovery form a coherent survival economy without forcing a single optimal strategy.
+
+## 5.1 Economy–quality feedback
+
+Persistent service collapse must affect:
+
+- traffic;
+- spend per patron;
+- customer mix;
+- price tolerance;
+- supplier access and terms;
+- staff recruitment and wage demands;
+- faction and landlord behavior;
+- repair and insurance-like costs where supported;
+- recovery cost and time.
+
+The effect must depend on persistence and severity, not one bad day. Use the richer floor/ceiling state from Phase 1 so two taverns showing zero satisfaction can still have different trajectories.
+
+## 5.2 Operating costs and reinvestment
+
+Model enough recurring cost to make growth and neglect meaningful:
+
+- wages;
+- rent;
+- stock purchases;
+- maintenance;
+- spoilage and waste;
+- utilities or abstract operating overhead if consistent with the game;
+- financing charges;
+- construction and upgrade upkeep;
+- emergency premiums caused by neglect.
+
+Costs must be visible and attributable. Do not add arbitrary money sinks without a simulated cause.
+
+## 5.3 Failure and recovery states
+
+Define explicit states and transitions for:
+
+- cash stress;
+- insolvency;
+- missed payroll;
+- arrears;
+- constrained operation;
+- restructuring;
+- temporary closure;
+- permanent loss condition, if the game intends one;
+- recovery from social and financial collapse.
+
+A soft-fail sandbox can remain playable, but the simulation must acknowledge that operating with zero satisfaction is not equivalent to healthy profit. If permanent game over is undesirable, use restructuring, forced downsizing, creditor terms, or degraded service capacity.
+
+## 5.4 Pricing and adaptive demand
+
+Deepen:
+
+- price elasticity by group and reputation;
+- substitution between recipes;
+- menu breadth and availability;
+- quality expectations;
+- value perception;
+- competitor choice;
+- recovery lag after price or quality changes.
+
+Avoid a single global formula. Preserve distinct viable identities such as cheap/high-volume, premium/specialist, community-focused, or expedition-driven.
+
+## 5.5 Weekly and monthly accounting
+
+Weekly and monthly reports must reconcile:
+
+- all sales;
+- all costs;
+- credit purchases;
+- paid and unpaid invoices;
+- loans;
+- tabs;
+- wages;
+- rent;
+- fines;
+- construction;
+- write-offs;
+- expedition costs and returns.
+
+No report field may remain a placeholder.
+
+## 5.6 Policies as operating rules
+
+Policies must become enforceable ongoing rules rather than passive tags. For each policy define:
+
+- who carries it out;
+- which service or world decisions it changes;
+- enforcement time or operating cost;
+- compliance and violation evidence;
+- actor support or backlash;
+- suspension and repeal behavior;
+- identity and attribution effects.
+
+A policy with no current enforcer may be inconsistently applied rather than silently granting its full effect. Reports must show both the intended rule and actual compliance.
+
+## Required tests
+
+- multi-seed 28-, 90-, and 180-day strategy matrices;
+- persistent zero satisfaction materially harming future revenue;
+- several viable strategic identities;
+- no unavoidable death spiral from one bad day;
+- insolvency, restructuring, closure, and recovery;
+- exact ledger reconciliation;
+- price elasticity and substitution;
+- difficulty-specific economic behavior;
+- save/load across every financial state.
+
+## Completion gate
+
+Cash is no longer compatible with indefinite total service collapse unless another clearly modeled strategy genuinely supports it. Financial success, social success, failure, and recovery are legible but not identical.
+
+---
+
+# Phase 6 — Create a transactional supplier and procurement system
+
+## Objective
+
+Turn suppliers into counterparties whose decisions and failures change actual stock availability, cash flow, relationships, and service.
+
+## 6.1 Purchase orders
+
+Restocking must create an order or immediate market purchase with:
+
+- chosen supplier;
+- requested stock and quantity;
+- quoted unit price and quality;
+- lead time;
+- delivery day/window;
+- payment terms;
+- supplier capacity;
+- substitutions allowed or forbidden;
+- cancellation and amendment rules.
+
+Immediate purchases may remain for emergency channels, but should have distinct cost and availability.
+
+## 6.2 Supplier decisions
+
+Supplier quotes and fulfillment should consider:
+
+- provided goods;
+- market conditions;
+- relationship;
+- reliability;
+- capacity;
+- existing commitments;
+- player credit history;
+- faction or cultural ties;
+- beliefs and attribution;
+- urgency;
+- contract terms.
+
+Reliability rolls must occur on real orders. A missed or partial delivery must delay or reduce stock, change the order, and create downstream shortages or alternatives.
+
+## 6.3 Credit and invoices
+
+Implement:
+
+- credit eligibility and limit;
+- deposit or net terms;
+- invoice creation from delivered goods;
+- supplier-specific due date;
+- partial payment;
+- scheduled payment capability;
+- late fee or renegotiation;
+- default;
+- collections or supply suspension;
+- relationship and belief consequences;
+- settlement and archival.
+
+Weekly invoice summaries must be derived from real invoice records. Debt tolerance must affect decisions rather than exist only in display data.
+
+## 6.4 Procurement counterplay
+
+Provide:
+
+- alternative suppliers;
+- relationship negotiation;
+- rush orders;
+- lower-quality substitutions;
+- order splitting;
+- stockpiling tradeoffs;
+- local-market fallback;
+- contract or partnership progression;
+- dispute and reconciliation.
+
+## Required tests
+
+- quote → order → delivery → invoice → payment;
+- partial and missed delivery on an existing order;
+- delayed delivery affecting a real service day;
+- credit denial, approval, default, renegotiation, and recovery;
+- supplier relationship and belief affecting terms;
+- alternate-source counterplay;
+- exact stock and ledger reconciliation;
+- no double delivery or double invoice after reload;
+- bounded archival of old orders and invoices;
+- natural UI path for all supplier actions.
+
+## Completion gate
+
+OBL-04 is closed. Supplier misses are failed transactions rather than diagnostic text, and procurement is a strategic loop connected to service and finance.
+
+---
+
+# Phase 7 — Implement loans, tenancy, regulation, and inspection
+
+## Objective
+
+Make external obligations operate as real legal, financial, and regulatory processes with warnings, counterplay, evaluation, escalation, and resolution.
+
+## 7.1 Loans
+
+A loan must own:
+
+- lender;
+- principal;
+- disbursement;
+- interest or fixed fee;
+- payment schedule;
+- next due amount;
+- grace period;
+- partial payment;
+- delinquency;
+- renegotiation;
+- default;
+- collections;
+- settlement.
+
+Borrowing must be a deliberate capability with visible terms. `loan_due_soon` must resolve against a real loan and cannot be scheduled when no loan exists.
+
+## 7.2 Landlord and tenancy
+
+Model:
+
+- rent schedule;
+- arrears;
+- landlord concern and beliefs;
+- notices;
+- repair responsibilities where appropriate;
+- negotiation;
+- payment plans;
+- inspection/access requests;
+- eviction threat;
+- eviction proceeding or equivalent terminal tenancy event;
+- cure, settlement, relocation, or closure.
+
+An eviction warning must identify what can prevent or delay it. The due event must re-evaluate current state and resolve exactly once.
+
+## 7.3 Inspection lifecycle
+
+Implement:
+
+1. suspicion and evidence accumulation;
+2. warning thresholds;
+3. visit scheduling;
+4. player-visible preparation window where applicable;
+5. inspector identity or regulatory case;
+6. an actual visit beat or explicit day event;
+7. evaluation of food safety, cleanliness, spoilage, damage, house rules, records, and recent evidence;
+8. pass, conditional pass, warning, fine, mandated remediation, closure, or escalation;
+9. appeal, compliance, bribery/refusal, or other choices only if consistent with the game;
+10. follow-up and case closure.
+
+The inspection must consume actual current state, not only the pressure meter. Pressure remains a forecast of risk, not the event itself.
+
+## 7.4 Reports and calendars
+
+Add:
+
+- scheduled obligation view;
+- loan and rent ledger;
+- inspection/case status;
+- due dates;
+- warning provenance;
+- player options;
+- exact settlement entries;
+- history and causes.
+
+## Required tests
+
+- loan disbursement through settlement;
+- loan due warning, payment, partial payment, default, and renegotiation;
+- landlord arrears through cure and eviction escalation;
+- target state changing between warning and due event;
+- inspection trigger, scheduled visit, pass/fail, remediation, and follow-up;
+- inspection under every difficulty;
+- exact-once events through save/load/import;
+- player counterplay before consequences;
+- no inspection promise without a reachable visit;
+- no loan or eviction event without a real owning record.
+
+## Completion gate
+
+The loan and eviction portions of OBL-02 and all of OBL-03 are closed. External obligations have real lifecycles instead of warnings that terminate in metadata.
+
+---
+
+# Phase 8 — Build an autonomous social world
+
+## Objective
+
+Give factions, cultures, notable NPCs, rumours, beliefs, and selected relationships enough agency to create reciprocal world behavior.
+
+## 8.1 Factions
+
+Every active faction definition must have:
+
+- goals;
+- resources or influence;
+- current priorities;
+- membership or represented constituency;
+- memory of treatment;
+- a bounded action set;
+- eligible targets;
+- deterministic target scoring;
+- commitments and cooldowns;
+- visible intent;
+- outcomes that can succeed, fail, or be opposed.
+
+Replace pure threshold `+1/-1` drift as the main behavior. Relationships can still summarize history, but moves must come from faction decisions such as support, requests, boycotts, inspections, sponsorships, supply influence, protests, protection, or rival backing.
+
+## 8.2 Cultures
+
+Model dynamic:
+
+- comfort;
+- familiarity;
+- trust;
+- accommodation history;
+- relationships with areas, policies, recipes, events, and other cultures;
+- calendar observance;
+- group-specific service evidence;
+- misunderstanding and reconciliation.
+
+Food taboo and delight must depend on what was actually served or offered to that culture, not merely on tagged stock somewhere in storage. Seating tension must depend on actual placement and crowding from Phase 4.
+
+Cultures need not behave like political factions. Their autonomous effects can occur through group attendance, preference shifts, recommendations, event organization, and community response.
+
+## 8.3 Notable NPCs and actor memory
+
+Important NPCs should have:
+
+- a current goal;
+- relationships;
+- schedule or availability;
+- relevant possessions/resources;
+- memories and beliefs;
+- a small action set;
+- visible participation in service, factions, suppliers, regulation, or arcs.
+
+Do not promote every generated name into a full agent. Use importance and repeated interaction thresholds.
+
+## 8.4 Rumour network
+
+Implement bounded propagation through:
+
+- sources;
+- audiences or channels;
+- credibility;
+- topic/entity targets;
+- distortion;
+- public/private reach;
+- reinforcement and contradiction;
+- correction;
+- decay;
+- faction, culture, regular, and NPC sharing behavior.
+
+All material decay and deletion must be causally covered. Rumours should alter beliefs and decisions while retaining anti-recursion and bounded-growth protections.
+
+## 8.5 Attribution becomes behavioral
+
+Strong beliefs should influence capped, domain-owned decisions such as:
+
+- supplier quotes and willingness to extend credit;
+- faction target selection;
+- regular visits and recommendations;
+- staff cooperation, stress, and resignation;
+- customer-group forecast;
+- landlord and inspector interpretation where legitimate.
+
+Attribution does not directly mutate unrelated domains. It supplies a bounded input to their decision rules.
+
+## Required tests
+
+- faction goal selection, action, cost, outcome, and learning;
+- culture comfort/familiarity changes from actual service;
+- notable NPC action and schedule;
+- rumour source → channel → audience → belief → bounded decision effect;
+- contradiction and correction;
+- deterministic action selection;
+- relationship and rumour caps;
+- anti-recursion under repeated propagation;
+- grouped rumour-decay causes;
+- no unexplained targeted social-state changes.
+
+## Completion gate
+
+OBL-08 is closed for rumour and social transitions. The world is no longer primarily a collection of named meters; selected actors make visible moves from goals, resources, memory, and belief.
+
+---
+
+# Phase 9 — Deepen rivals, local arcs, expeditions, and external events
+
+## Objective
+
+Turn longer-horizon external systems into ongoing processes with intermediate decisions, actors, branches, and permanent consequences.
+
+## 9.1 Rival tavern
+
+Replace summarized rival pressure as the entire competitor model with a rival actor that can:
+
+- choose a market position;
+- recruit staff;
+- change prices or menu focus;
+- court customer groups;
+- seek faction support;
+- spread or respond to rumours;
+- exploit player weakness;
+- recover from its own setbacks.
+
+Customers should be able to choose the rival based on actual relative appeal. Rival pressure remains a summary of this competition.
+
+## 9.2 Local arcs
+
+Move arcs from mostly monthly age progression toward event- and state-driven stages. Each arc should support:
+
+- start conditions;
+- actors and ownership;
+- daily or weekly progress where appropriate;
+- explicit goals;
+- player interventions;
+- opposing moves;
+- multiple stage transitions;
+- timeout;
+- success, compromise, failure, and aftermath;
+- permanent or long-lived changes;
+- cooldown or recurrence.
+
+Expand content until the framework is exercised across materially different shapes. At minimum, the catalog must collectively test:
+
+- a state-driven crisis;
+- a faction conflict;
+- a supplier/market disruption;
+- a cultural event;
+- a rival move;
+- a regulatory event;
+- a recovery arc;
+- an arc that permanently changes an area, actor, or rule.
+
+Existing mushroom blight, miner payday, inspection campaign, rival expansion, and festival content should be migrated rather than duplicated where their concepts remain useful.
+
+## 9.3 Expeditions
+
+Add:
+
+- route or destination choice;
+- supplies/loadout;
+- runner or party composition where supported;
+- contract and compensation terms;
+- intermediate seeded events;
+- risk/reward decisions;
+- injury, delay, retreat, rescue, recall, and loss;
+- communication or delayed information;
+- effects on stock, world actors, rumours, and future opportunities.
+
+Keep event count bounded and make expedition seeds stable from commission through resolution.
+
+## 9.4 Month modifiers become processes
+
+Rain, festivals, taxes, mold, quiet roads, adventurer season, and future modifiers should create specific state changes or actor actions rather than only small daily nudges. Each modifier needs:
+
+- source;
+- forecast;
+- duration;
+- affected systems;
+- counterplay;
+- accumulated consequences;
+- report and history.
+
+## Required tests
+
+- rival strategy divergence and customer switching;
+- arc start, branch, intervention, failure, recovery, and permanent result;
+- deterministic expedition intermediate events;
+- loadout and recall consequences;
+- save/load at every arc and expedition stage;
+- no duplicate reward or event after reload;
+- modifier forecast through expiry;
+- bounded active arcs and external events.
+
+## Completion gate
+
+Rivalry, local arcs, expeditions, and month-scale events create real multi-stage world behavior rather than mostly tags, age counters, and final-result rolls.
+
+---
+
+# Phase 10 — Populate teleology, identity, and recognition
+
+## Objective
+
+Make openings, ventures, character arcs, transformations, tavern identity, and nicknames a substantial long-term progression layer.
+
+## 10.1 Venture catalog
+
+Retain and migrate the liquor-license venture. Add enough ventures to exercise:
+
+- player-invested progress;
+- coin, time, material, staff, and approval requirements;
+- branching milestones;
+- changing world conditions;
+- missed opportunity and return;
+- collaboration or opposition from actors;
+- success;
+- abandonment;
+- recoverable failure;
+- permanent scar;
+- permanent transformation.
+
+Required venture shapes include:
+
+- physical expansion using the upgrade system;
+- supplier partnership with a beneficial and harmful branch;
+- faction-approval project;
+- staff-led initiative;
+- cultural accommodation or festival transformation;
+- recovery/restructuring venture after severe failure.
+
+## 10.2 Character arcs
+
+Move beyond one hardcoded mastery arc. Arcs should be data-driven where practical and able to consume:
+
+- staff assignments;
+- service scenes;
+- coworker relationships;
+- pay and workload;
+- beliefs;
+- training;
+- player support or neglect;
+- faction, culture, regular, and expedition contact.
+
+Include success, conflict, departure, transformation, and changed-role outcomes. Arc transitions must emit causes and survive target changes.
+
+## 10.3 Identity with causal force
+
+`knownFor`, house rules, and atmosphere should:
+
+- use hysteresis;
+- track supporting evidence;
+- change gradually;
+- influence customer choice, hiring, suppliers, factions, cultures, ventures, and rumours;
+- allow competing or contradictory identities;
+- be recoverable but not instantly reversible.
+
+Identity labels summarize simulation evidence; they do not replace it.
+
+## 10.4 Natural nickname production
+
+Create a bounded nickname producer that:
+
+1. detects a persistent, distinctive identity pattern;
+2. requires sufficient public evidence;
+3. selects wording from the actual cause;
+4. creates a source-attributed `nickname` rumour;
+5. allows reinforcement, competition, contradiction, and decay;
+6. displays the strongest legitimate nicknames;
+7. can lose or replace a nickname over time.
+
+Tests must earn a nickname through normal simulation. Injecting a tagged rumour proves only the consumer.
+
+## Required tests
+
+- each venture lifecycle shape;
+- opening lapse, park, return, commitment, completion, and death;
+- character arc branching from real service evidence;
+- permanent transformation effects;
+- identity hysteresis and downstream use;
+- natural nickname earning, reinforcement, replacement, and loss;
+- causes for arc creation/stage/status/transformation;
+- save migration from existing venture and mastery states;
+- bounded openings, arcs, and nickname rumours.
+
+## Completion gate
+
+OBL-09 and the mastery portion of OBL-08 are closed. Teleology is realized gameplay rather than a general framework demonstrated by one venture and one arc.
+
+---
+
+# Phase 11 — Reconnect issues, responses, pressures, feedback, memory, and history
+
+## Objective
+
+Refit the game’s strongest authored orchestration layer around the now-deeper domain simulation so cards explain and influence real processes rather than standing in for them.
+
+## 11.1 Domain events first, cards second
+
+Issue generators should consume:
+
+- active domain events;
+- actor intentions;
+- obligation deadlines;
+- service incidents;
+- pressure contributors;
+- arc milestones;
+- belief or rumour thresholds;
+- unresolved consequences.
+
+A card may expose, prioritize, or frame a process. It must not be the only place the process exists.
+
+## 11.2 Responses become domain commands
+
+Where possible, response profiles should request actions such as:
+
+- negotiate invoice;
+- assign inspection remediation;
+- alter an order;
+- mediate staff conflict;
+- support or oppose a faction move;
+- recall an expedition;
+- fund a venture;
+- issue a public correction.
+
+The owning domain evaluates acceptance, cost, timing, target availability, and outcome. Avoid encoding NPC agreement as an unconditional meter bundle.
+
+Immediate direct effects remain appropriate for truly immediate actions, but must still have causal ownership.
+
+## 11.3 Complete future-consequence closure
+
+Enumerate every current and newly added mechanical future event. For each, prove:
+
+```text
+promise → typed event → warning → player counterplay → due evaluation
+→ authoritative domain mutation → report/cause/memory → exact-once closure
+```
+
+Add a registry test that fails if any card, response, Help entry, or issue stakes text refers to an event with no registered lifecycle.
+
+This closes the shared infrastructure portion of OBL-02.
+
+## 11.4 Pressure and feedback integrity
+
+Pressures remain diagnostic summaries. Improve them by:
+
+- retaining contributor magnitudes at caps;
+- distinguishing independent causes from correlated restatements;
+- showing duration and velocity;
+- linking to the owning domain process;
+- removing or merging redundant pressure families;
+- ensuring direct adjustments decay predictably;
+- preventing a response from “solving” pressure without changing its cause.
+
+Every feedback-loop detector must identify causal edges that real domains execute. If an edge does not exist, either implement it in its owner or label the detector as a risk hypothesis rather than an active loop.
+
+## 11.5 Memory, patterns, and history
+
+Memory patterns should count explicit events or evidence records rather than infer occurrence count from strength. Add:
+
+- evidence references;
+- recurrence windows;
+- supersession;
+- contradiction;
+- pattern break/recovery;
+- actor-specific interpretation.
+
+History remains a bounded chronology, but must link important entries to their domain event, causes, actors, obligations, and results. It should not independently mutate gameplay.
+
+## 11.6 Attention fairness
+
+Retain the full-day attention budget and surfaced-seed resolvability. Verify that:
+
+- mechanically urgent processes cannot disappear because authored novelty scoring is low;
+- withheld cards do not pause hidden consequences;
+- the player receives enough warning to exercise real agency;
+- recurring issues preserve continuity without spam;
+- the fallback template never hides missing domain-specific controls.
+
+## Required tests
+
+- all issue families bind to real current state;
+- domain event exists without requiring a card to create it;
+- response preview and authoritative domain outcome agree;
+- NPC acceptance/opposition is evaluated by domain rules;
+- all mechanical future events have consumers;
+- no exact-once regression;
+- attention withholding versus consequence progression;
+- capped pressure contributor visibility;
+- feedback-edge ownership;
+- pattern detection from explicit evidence;
+- targeted diff-to-cause audit with zero unexplained material changes.
+
+## Completion gate
+
+All of OBL-02 is closed. The issue/response layer remains sophisticated, but its complexity now reveals and steers equally sophisticated world processes.
+
+---
+
+# Phase 12 — Complete difficulty, controls, UI, reports, and Help
+
+## Objective
+
+Make every implemented system discoverable and ensure all player-facing explanations are derived from authoritative rules.
+
+## 12.1 Difficulty
+
+Expose the persisted ruleset and its real ongoing effects. For each difficulty, show:
+
+- starting differences;
+- decay and recovery modifiers;
+- obligation grace;
+- economy or pressure effects;
+- any issue-fairness changes.
+
+Do not claim a modifier that no runtime hook consumes. Add seeded comparison tests demonstrating every documented difference.
+
+This closes OBL-05.
+
+## 12.2 Quick Day
+
+Implement Quick Day as the intended convenience feature using a reachable rule such as:
+
+- the morning contains no unresolved mandatory decisions;
+- all currently surfaced choices are optional or explicitly delegated;
+- no required owner-plan correction is pending.
+
+Quick Day must:
+
+1. show what defaults will be used;
+2. run the same canonical segments;
+3. stop when an emergent mandatory issue appears;
+4. explain why it stopped;
+5. never skip an obligation deadline or unaffordable default;
+6. remain deterministic;
+7. be available in naturally produced states.
+
+Help must say that emergent issues can stop the shortcut before the report.
+
+This closes OBL-06.
+
+## 12.3 Planning horizon
+
+All queued-action timing text must derive from `planningHorizon` or the current equivalent:
+
+- before Segment B, queued actions affect today’s upcoming service;
+- after Segment B, they affect tomorrow’s service.
+
+Use the same shared label in planner, Help, confirmation, save resume, and disabled reasons.
+
+This closes OBL-07.
+
+## 12.4 New management surfaces
+
+Provide complete, readable surfaces for:
+
+- area capacity and upgrades;
+- construction and blocked capacity;
+- staff schedules, coverage, contracts, development, and relationships;
+- service queues and bottlenecks;
+- orders, deliveries, suppliers, invoices, credit, and payments;
+- loans, rent, arrears, tenancy, and inspections;
+- faction/culture goals and visible next moves;
+- rumours and belief provenance;
+- rival position;
+- local arcs, expeditions, ventures, and transformations;
+- identity evidence and nicknames;
+- scheduled obligations and upcoming events.
+
+The UI should show decision-relevant state, not every internal field.
+
+## 12.5 Reports and causality
+
+Reports must reconcile operational detail into readable summaries:
+
+- service flow → sales and satisfaction;
+- procurement → stock and invoices;
+- staffing → capacity and quality;
+- construction → area capacity;
+- actor moves → world changes;
+- obligations → settlement;
+- issues/responses → domain outcomes;
+- causes → significant diffs.
+
+Empty states must distinguish:
+
+- not yet available;
+- available but none active;
+- blocked and why;
+- completed/archived;
+- missing data or invalid state.
+
+## Required tests
+
+- naturally reachable Quick Day;
+- emergent-stop behavior;
+- queued-action timing before and after Segment B;
+- every Help promise joined to a capability and result;
+- keyboard/touch/accessibility behavior for new controls;
+- deep links and return navigation;
+- UI quote versus authoritative result;
+- reports reconcile to domain ledgers;
+- no dead controls or display-only mechanics;
+- live route without application-origin console errors.
+
+## Completion gate
+
+All nine original obligation failures are closed. A player can find, understand, execute, and observe every mechanic named by the game.
+
+---
+
+# Phase 13 — Long-run balance, migration, performance, and release proof
+
+## Objective
+
+Prove that the expanded simulation remains deterministic, playable, bounded, explainable, and compatible with existing saves across meaningful time horizons.
+
+## 13.1 Save migration
+
+Migrate old saves by:
+
+- assigning the original ruleset/difficulty where inferable or choosing an explicit documented default;
+- translating pending future hooks into typed events only when a legitimate owning record can be created;
+- preserving unresolved choices;
+- migrating projects and upgrade-compatible traits without duplicating effects;
+- initializing staff contracts and schedules from existing staff;
+- initializing supplier relationships without fabricating orders or invoices;
+- initializing richer meter state from visible values;
+- preserving ventures, arcs, transformations, regulars, rumours, history, and causes;
+- rejecting invalid references with actionable recovery.
+
+Never fabricate debt, resignation, inspection, or invoice liability solely because old flavor text existed.
+
+## 13.2 Determinism and interruption
+
+For every new process, compare:
+
+- batch full-day;
+- segmented A → B → C;
+- save/load after A;
+- save/load after B;
+- save/load before and after due-event resolution;
+- export/import;
+- repeated simulation from the same seed.
+
+Results must match at all authoritative fields except explicitly non-authoritative UI state.
+
+## 13.3 Long-run matrix
+
+Run at least:
+
+- every difficulty;
+- multiple deterministic seeds;
+- 28-, 90-, and 180-day horizons;
+- no-action;
+- maintenance/quality;
+- profit/price;
+- staff-friendly;
+- supplier/credit;
+- expansion;
+- faction/community;
+- premium/specialist;
+- recovery after induced crisis.
+
+Measure:
+
+- solvency and closure/restructuring;
+- customer mix, traffic, spend, satisfaction debt, and recovery;
+- stock availability, orders, delivery reliability, and invoice aging;
+- staff coverage, turnover, relationships, and burnout;
+- area capacity, upgrade utilization, hazards, and maintenance;
+- actor action diversity;
+- active and resolved arcs/events;
+- issue volume and attention pressure;
+- causes and unexplained diffs;
+- collection growth and save size;
+- CPU time and memory.
+
+The goal is not equal outcomes. Strategies must produce materially different but comprehensible trajectories, and more than one strategy must remain viable.
+
+## 13.4 Obligation closure audit
+
+Automatically join:
+
+```text
+player-facing expectation
+→ discoverable capability
+→ eligibility
+→ authoritative application
+→ domain process
+→ outcome
+→ report/cause
+→ persistence
+```
+
+Also run the reverse:
+
+```text
+capability or visible state
+→ meaningful acknowledgment, use, or explanation
+```
+
+No mechanical promise may terminate in metadata, an empty placeholder, a display-only field, or a zero-weight cause.
+
+## 13.5 Performance and delivery
+
+Profile:
+
+- service substeps under high traffic;
+- actor decision passes;
+- rumour propagation;
+- causal diff matching;
+- long-run simulation;
+- save serialization;
+- UI projections.
+
+Maintain caps and indexes before weakening simulation rules. Split web bundles where practical if the production build still produces a large-chunk warning. Performance optimization must preserve deterministic ordering.
+
+## Final release gates
+
+- full current test suite passes;
+- typecheck passes;
+- Svelte check passes with no errors;
+- production build passes;
+- full-day and segmented results are equivalent;
+- all beat reloads pass;
+- exact-once events pass;
+- all ledgers reconcile;
+- no orphan promise/event/action/upgrade/invoice references;
+- no unexplained targeted material changes;
+- all persistent collections remain bounded;
+- old saves migrate safely;
+- all difficulties show their documented ongoing behavior;
+- multi-seed long-run matrix has no invariant failures;
+- every original obligation has a natural-play proof;
+- the live player route exposes no dead controls or app-origin console errors.
+
+## Completion gate
+
+The expanded game is release-ready only when the implementation ledger has no unresolved requirement and the old audit findings can be reproduced only as negative regression tests.
+
+---
+
+## 7. Phase dependency map
+
+```mermaid
+flowchart TD
+    P0["0 Baseline"] --> P1["1 Shared contracts"]
+    P1 --> P2["2 Areas and upgrades"]
+    P1 --> P3["3 Staff"]
+    P2 --> P4["4 Service flow"]
+    P3 --> P4
+    P4 --> P5["5 Economy"]
+    P5 --> P6["6 Suppliers"]
+    P5 --> P7["7 Law and obligations"]
+    P6 --> P8["8 Social world"]
+    P7 --> P8
+    P8 --> P9["9 External events"]
+    P9 --> P10["10 Teleology and identity"]
+    P10 --> P11["11 Issues and explanation"]
+    P11 --> P12["12 UI and Help"]
+    P12 --> P13["13 Release proof"]
+```
+
+Phases 2 and 3 may be developed in parallel only after Phase 1 is complete. All later phases should remain ordered because they consume the preceding domains.
+
+---
+
+## 8. Complete requirement-to-phase coverage
+
+| Requirement group | Primary phase | Final proof |
+|---|---:|---|
+| Typed future events and orphan validation | 1, 11 | Every mechanical promise has an exact-once domain consumer. |
+| Persistent difficulty and slower Easy decay | 1, 5, 12 | Equal-seed routes diverge according to documented ongoing rules. |
+| Causal gaps and direct mutation | 1, 8, 10, 11 | Targeted diff audit reports zero unexplained material changes. |
+| Meter floors, ceilings, and hysteresis | 1, 5, 10, 11 | Failure and recovery remain differentiated at visible clamps. |
+| Area linearity and missing physical relationships | 2, 4 | Capacity, flow, hazards, and connected effects alter service. |
+| Uninstallable area upgrades | 2 | Natural build, use, damage, repair, and persistence. |
+| Fixed-time projects and no labor capacity | 2, 3 | Work uses materials, labor, interruption, and concurrent capacity. |
+| Staff protected from quitting | 3 | Real warning, counterplay, separation, and replacement. |
+| Thin staff relationships and labor lifecycle | 3 | Contracts, shifts, absence, development, relationships, and turnover. |
+| Aggregate service with no capacity | 4 | Seats, queues, kitchen, servers, cleaning, patience, and abandonment. |
+| Fixed customer baskets and main-room-only effects | 4, 5 | Choice responds to menu, price, service, area, culture, and rivals. |
+| Descriptive regulars and aggregate tabs | 4 | Regulars order, sit, owe, remember, relate, and alter future visits. |
+| Cash growth during total collapse | 5 | Persistent quality collapse becomes financially consequential. |
+| No explicit failure/recovery economy | 5, 7 | Insolvency, restructuring/closure, and recovery are simulated. |
+| Placeholder weekly/monthly accounting | 5, 6, 7 | Reports reconcile all real obligations and transactions. |
+| Diagnostic supplier misses | 6 | Missed/partial delivery changes an actual order and stock. |
+| Missing supplier credit and invoices | 6 | Credit order through payment/default and relationship outcome. |
+| Loan hook without a loan | 7 | Real loan ledger and due lifecycle. |
+| Eviction hook without tenancy resolution | 7 | Arrears through cure, negotiation, or eviction outcome. |
+| Inspection without a visit | 7 | Warning through visit, evaluation, consequence, and follow-up. |
+| Threshold-only factions | 8 | Goals, influence, action selection, targets, and reciprocal outcomes. |
+| No-op culture update | 8 | Comfort, familiarity, accommodation, and group behavior change. |
+| Static world/NPC containers | 8 | Important actors have goals, schedules, actions, memory, and effects. |
+| Rumours without propagation | 8 | Source/channel/audience spread changes beliefs and decisions. |
+| Attribution that rarely changes behavior | 8, 11 | Beliefs make bounded domain-owned decision differences. |
+| Rival as summarized pressure | 9 | Rival acts and customers compare alternatives. |
+| Age-heavy monthly local arcs | 9 | State-driven, actor-owned, branching multi-stage arcs. |
+| Opaque expeditions | 9 | Loadout, intermediate events, decisions, recall, and aftermath. |
+| Thin month modifiers | 9 | Forecast processes with counterplay and accumulated outcomes. |
+| Sparse venture and character-arc content | 10 | Catalog exercises branching, failure, return, scars, and transformations. |
+| Identity as threshold labels | 10 | Evidence, hysteresis, causal use, contradiction, and recovery. |
+| Nickname display without producer | 10 | A normal run earns and later changes a nickname. |
+| Issue complexity exceeding world depth | 11 | Cards expose real processes and responses send domain commands. |
+| Authored NPC acceptance | 11 | Owning actor evaluates the proposal from state and belief. |
+| Rare/unrealized delayed consequences | 1, 7, 11 | Long-run routes naturally schedule and resolve meaningful events. |
+| Pressure duplication and saturation | 1, 11 | Contributors, excess, ownership, and redundancy are explicit. |
+| Feedback detectors without causal edges | 5–11 | Every active loop points to edges executed by owning domains. |
+| Memory strength used as event count | 11 | Patterns reference explicit evidence and recurrence windows. |
+| Unreachable Quick Day | 12 | Natural eligibility and honest emergent-stop behavior. |
+| Incorrect queued-action Help | 12 | Shared horizon label matches actual segment timing. |
+| New systems hidden or report-only | 2–12 | Every phase includes discoverable controls and acknowledged results. |
+| Long-run validity, save growth, and performance | 13 | Multi-seed 180-day matrix, migrations, bounds, and profiling pass. |
+
+---
+
+## 9. Final target-state checklist
+
+The work is complete when all answers below are **yes**.
+
+### Operational tavern
+
+- Do areas constrain capacity and flow?
+- Can upgrades be built, used, damaged, disabled, and repaired?
+- Do staff schedules and assignments create service bottlenecks?
+- Do customers queue, choose, wait, abandon, pay, or owe?
+- Do recipes, stock, staff, areas, and service still form one reconciled loop?
+
+### Economy and obligations
+
+- Does persistent collapse harm future financial viability?
+- Can the tavern fail, restructure, and recover?
+- Do purchase orders result in actual deliveries?
+- Can a delivery be late, partial, substituted, or missed?
+- Do credit purchases create invoices?
+- Can invoices, rent, wages, loans, tabs, and fines be paid, negotiated, defaulted, and settled?
+- Can an inspector actually visit?
+- Can a landlord actually escalate?
+- Can staff actually quit?
+
+### People and world
+
+- Do important staff, regulars, suppliers, factions, cultures, NPCs, and rivals have appropriate goals and actions?
+- Do beliefs and relationships alter those actions?
+- Do rumours move through identifiable sources and audiences?
+- Do cultures react to actual accommodation and service?
+- Do factions spend influence on visible moves?
+- Does the rival compete through the same world the player inhabits?
+
+### Long horizon
+
+- Do expeditions contain intermediate state and decisions?
+- Do local arcs branch through actors and events?
+- Are there several materially different ventures and character arcs?
+- Can long-horizon content fail and leave scars?
+- Does identity change behavior?
+- Can normal play earn a nickname?
+
+### Trust and engineering
+
+- Does every promise join to a capability and an outcome?
+- Does every mechanical future event have one owner?
+- Is every material visible change explained?
+- Do UI, Help, preview, simulation, and report agree?
+- Are segmented and batch routes identical?
+- Does save/load preserve exact outcomes?
+- Are all growing collections bounded?
+- Are strategies meaningfully different across long runs?
+- Does every documented difficulty modifier actually run?
+
+If any answer is no, the corresponding phase remains incomplete.

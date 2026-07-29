@@ -171,6 +171,21 @@ The fast tier (`npm test`) excludes the heavy multi-day playtests listed
 in `vitest.config.ts` (`HEAVY_TEST_GLOBS`); Phase 0 should record which
 tier each new probe belongs to as it adds them.
 
+**Phase 0 closed 2026-07-29 (ISSUE-170), no behavior change.** The
+authoritative baseline is now the frozen artifacts under
+`docs/plans/expansion/`, not this table. Post-Phase-0 gates:
+
+| Gate | Command | Result |
+|---|---|---|
+| Full suite | `npm run test:full` | **301 files / 3,874 tests passing**, ~344 s |
+| Fast tier | `npm test` | 293 files / 3,745 tests passing, ~235 s |
+| Types | `npm run typecheck` | clean |
+| Svelte | `npm run check` | 980 files, 0 errors, 0 warnings |
+| Build | `npm run build` | passes; the 1,741 kB chunk warning §13.5 asks to split is unchanged |
+
+Every probe route measures under ~1.3 s, so all thirteen sit in the fast
+tier and neither Phase 0 test file joins `HEAVY_TEST_GLOBS`.
+
 ---
 
 ## 4. Confirmed gaps that this plan must close
@@ -395,6 +410,47 @@ Record:
 ## Completion gate
 
 Phase 0 ends with no intended behavior change. The repository has an authoritative baseline, a complete requirement ledger, and reproducible probes that later phases can compare against.
+
+## What Phase 0 actually landed (2026-07-29, ISSUE-170)
+
+Three frozen artifacts under `docs/plans/expansion/`, each derived from the
+live code and each gated by a test — none of them hand-maintained prose:
+
+| Artifact | Regenerate with | Holds |
+|---|---|---|
+| `ledger.csv` | `npm run ledger:check` (`-- --sync-hooks` to re-derive the HOOK block) | 127 rows: `OBL-01…09`, `DEP-01…20` (plan §4.2's twenty bullets), and one `HOOK-*` row per player-facing future-hook family |
+| `baseline-probes.json` | `npm run baseline:probes` (`-- --write` to re-freeze) | 13 route snapshots, each recording every metric the "Record:" list above names |
+| `repo-map.json` | `npm run repo:map` (`-- --write` to re-freeze) | package scripts, runtime versions, pipeline/phases/segments, module-owned slices, the 15 named RNG streams, the (empty) unscoped-random-call lists, save version + the 12-step migration chain, plan §3's inventory, and all 127 Help/glossary promises |
+
+Code: probes in `src/sim/testing/expansionBaseline.ts` (pure, headless);
+I/O and scanners in `scripts/expansion-{ledger,baseline,repo-map}.ts`;
+gates in `tests/sim/phase207.baselineAndLedger.test.ts` and
+`tests/sim/phase207.dayBeatPersistence.test.ts`.
+
+Three notes on how the deliverable differs from the letter of the list
+above, each deliberate:
+
+- **The supplier-focused route is frozen now, not deferred.** The plan says
+  "once suppliers become transactional"; `auto_always_restock` is the
+  closest reachable procurement route today, and freezing it gives Phase 6
+  a before-picture to diff against instead of a blank.
+- **A fourteenth route, `responsive-route`, was added.** Every route the
+  plan lists answers no cards, so all of them record an empty pending queue
+  and zero response results — two of the metrics the "Record:" list
+  requires. `responsive-route` answers every resolvable card at Pause 2,
+  which is what makes the OBL-02 before-picture legible: hooks enqueue and
+  drain, and `applyPendingEntry` resolves them to a memory draft or a
+  zero-weight cause with no domain mutation behind either.
+- **Per-entity hook ids collapse to one family row.** `` `staff_quit_risk_${id}` ``
+  is one obligation, not one per employee, so the ledger key is
+  `HOOK-staff_quit_risk_*`. The scan reads source rather than running the
+  sim on purpose: a generator that only fires on a rare state must still be
+  in the ledger, and no seeded playtest can prove it reached every one.
+
+The ledger's owning-phase column for `HOOK-*` rows is an **initial**
+classification by subject (`scripts/expansion-ledger.ts` `HOOK_PHASE_RULES`,
+defaulting to Phase 11). Phase 1 §1.1 types every one of them and registers
+an owner regardless; correct a row's phase in place if its domain moves.
 
 ---
 

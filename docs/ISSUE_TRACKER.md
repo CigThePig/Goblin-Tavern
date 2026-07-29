@@ -32,9 +32,10 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > unpaused work**. It is a standalone implementation document — it needs
 > no earlier audit, report, or ledger to execute — and it runs as
 > **ISSUE-170…183 (repo phases 207–220)**, one issue per plan phase 0–13.
-> Start at **ISSUE-170 (Phase 0 — freeze the baseline, build the
-> implementation ledger)**; the sequence is hard-ordered after that,
-> except that Phases 2 and 3 may run in parallel once Phase 1 is done.
+> **ISSUE-170 (Phase 0) is done (2026-07-29)** — the baseline is frozen
+> and the implementation ledger exists. **Next: ISSUE-171 (Phase 1 —
+> shared contracts).** The sequence is hard-ordered after that, except
+> that Phases 2 and 3 may run in parallel once Phase 1 is done.
 >
 > Everything else below — the Complete Surface resume points, the
 > onboarding arc, the standing tails — is **paused, not cancelled**, and
@@ -273,7 +274,7 @@ rather than rebuilding those routes.
 | ISSUE-168 | Satisfaction→traffic elasticity (DC-04 follow-up): make demand collapse on sustained neglect so coin can bind; re-baseline the balance matrix after | design | open | 212 (absorbed by ISSUE-175) |
 | ISSUE-169 | Visible-turn rotation for the remaining rotating seed families (food_safety, stock_shortage, maintenance, staff_identity, …) — extend Wave 7's `reconcilePicksWithSurfaced` beyond violence | thin | open | 218 (absorbed by ISSUE-181) |
 | ISSUE-116 | Legible Surface Phase 3 — Choice Distinctness Gate & Legible Choice-Set Cap | broken | done | 148 |
-| ISSUE-170 | Expansion Phase 0 — freeze the baseline; build the implementation ledger | design | open | 207 |
+| ISSUE-170 | Expansion Phase 0 — freeze the baseline; build the implementation ledger | design | done | 207 |
 | ISSUE-171 | Expansion Phase 1 — shared contracts: typed scheduled events, obligation primitives, persistent ruleset, causal coverage, informative meters, actor interface | broken | open | 208 |
 | ISSUE-172 | Expansion Phase 2 — areas, construction, and the complete upgrade lifecycle (OBL-01) | broken | open | 209 |
 | ISSUE-173 | Expansion Phase 3 — persistent workforce: contracts, schedules, relationships, real resignation (staff half of OBL-02) | broken | open | 210 |
@@ -347,6 +348,38 @@ passing with the known large-chunk warning. Phase 0 freezes against those
 numbers. The ledger location is reserved at
 `docs/plans/expansion/ledger.csv` (generator/validator under `scripts/`)
 so later phases update one file instead of each growing a private copy.
+
+**ISSUE-170 / Phase 0 — done 2026-07-29, no behavior change.** Full
+record in the plan's Phase 0 section ("What Phase 0 actually landed").
+Three derived, test-gated artifacts under `docs/plans/expansion/` are now
+the arc's authoritative baseline:
+
+- `ledger.csv` — 127 rows: `OBL-01…09`, `DEP-01…20` (plan §4.2), and one
+  `HOOK-*` row per player-facing future-hook family (98 families across
+  189 emission sites). `npm run ledger:check` validates it and fails when
+  a hook has no row, a row has no hook, or a cited path has moved.
+- `baseline-probes.json` — 13 frozen route snapshots (`npm run
+  baseline:probes`), probes in `src/sim/testing/expansionBaseline.ts`.
+- `repo-map.json` — the §"Repository map" deliverable (`npm run
+  repo:map`): scripts, runtime versions, pipeline/phases/segments,
+  module-owned slices, 15 named RNG streams, the empty unscoped-random
+  lists, save version + 12-step migration chain, §3's inventory, and all
+  127 Help/glossary promises.
+
+Gates: `npm run test:full` **301 files / 3,874 tests**, `npm test` 293 /
+3,745, `typecheck` clean, `check` 980 files / 0 errors, `build` passing
+(same chunk warning). Tests: `tests/sim/phase207.baselineAndLedger.test.ts`
+(40) and `tests/sim/phase207.dayBeatPersistence.test.ts` (3 — save/load at
+Morning, Plan, Service, Closing, Report, plus the mid-day-reload parity
+the §5.10 protocol requires of every later phase). Every probe route runs
+under ~1.3 s, so neither file joins `HEAVY_TEST_GLOBS`.
+
+Two judgement calls worth carrying forward, both recorded in the plan:
+the **supplier-focused route is frozen now** rather than deferred to
+Phase 6 (so Phase 6 has a before-picture), and a **fourteenth route,
+`responsive-route`, was added** because every route the plan lists answers
+no cards and therefore records an empty pending queue — it is what makes
+the OBL-02 baseline legible.
 
 **Test-tier note.** Several phases add long-horizon playtests (§5.10's
 save/reload beats, §13.3's 28/90/180-day matrix). Anything that grows into

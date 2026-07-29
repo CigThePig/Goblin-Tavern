@@ -468,6 +468,12 @@ on the sanctioned public API following the `candleShortage` precedent, not
 fixture injection. All three files run in seconds, so none joins
 `HEAVY_TEST_GLOBS`.
 
+Gates: `npm run test:full` **304 files / 3,951 tests**, `npm test` 296 /
+3,822, `typecheck` clean, `check` 1,014 files / 0 errors, `build` passing
+(same known >500 kB chunk warning §13.5 asks Phase 13 to split), and all
+three expansion artifacts clean — `ledger:check` 134 rows,
+`baseline:probes` 0 drifted, `repo:map` 0 sections drifted.
+
 **Open question carried into the arc — Quick Day.** `DC-01` retired it;
 OBL-06 requires it. The plan (§6.2) records the reversal and the reason,
 Phase 12 implements it, and the user can reverse that before ISSUE-182

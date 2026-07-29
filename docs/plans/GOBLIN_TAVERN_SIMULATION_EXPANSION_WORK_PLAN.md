@@ -58,6 +58,15 @@ The exact phase and module lists must be rediscovered from the current repositor
 - `src/sim/canonicalPipeline.ts`
 - `src/sim/state/TavernState.ts`
 
+**Verified 2026-07-29 (repo preparation):** all five entry points exist at
+those paths and still hold the shapes this plan assumes —
+`FULL_PIPELINE` in `canonicalPipeline.ts` is the ordered module array,
+`SIMULATION_PHASES` in `phases.ts` is the 25-phase union, and
+`DAY_SEGMENTS` / `SEGMENT_FIRST_PHASE` in `segments.ts` partition it into
+A (`startDay…forecastTraffic`), B (`beforeOwnerActions…closing`), and C
+(`applyResponses…advanceCalendar`). Rediscovery per §5.1 is still
+required per phase; this note only confirms the map's starting points.
+
 The active runtime covered areas, stock, staff, customers, world, cultures, factions, suppliers, regulars, adventurers, expeditions, owner actions, service, weekly and monthly settlement, local arcs, identity, memories, history, causes, attribution, pressures, feedback, teleology, issue seeds, and responses.
 
 ### 2.2 Existing strengths are constraints, not rewrite targets
@@ -109,34 +118,58 @@ Not every system needs the same number of entities or rules. History can remain 
 
 ## 3. Known starting inventory
 
-Before changing code, verify these counts against the current repository and update the phase ledger if they have changed:
+Before changing code, verify these counts against the current repository and update the phase ledger if they have changed.
 
-| Surface | Audited inventory |
-|---|---:|
-| Runtime modules | 29 |
-| Simulation phases | 25 |
-| Day segments | 3 |
-| Owner actions | 41 |
-| Staff priorities | 12 |
-| Pressure domains | 21 |
-| Feedback-loop detectors | 13 |
-| Issue-generator families | 25 |
-| Card templates including fallback | 24 |
-| Areas | 9 |
-| Area-upgrade definitions | 18 |
-| Stock records | 20 |
-| Recipes | 20 |
-| Customer groups | 9 |
-| Founding staff | 3 |
-| Cultures | 8 |
-| Factions | 9 |
-| Suppliers | 9 |
-| Market conditions | 8 |
-| Local-arc definitions | 5 |
-| Venture blueprints | 1 |
-| Hardcoded character arcs | 1 |
+**Verified 2026-07-29 against `HEAD` — every count still holds.** The
+right-hand column was read out of the live registries (module array,
+phase union, `Registry.all()` after each `ensureRequired*Registered()`
+bootstrap, and `createInitialTavernState()` for founding staff), not
+re-counted by hand.
+
+| Surface | Audited inventory | Verified 2026-07-29 | Where it is counted |
+|---|---:|---:|---|
+| Runtime modules | 29 | 29 | `src/sim/canonicalPipeline.ts` → `FULL_PIPELINE` |
+| Simulation phases | 25 | 25 | `src/sim/core/phases.ts` → `SIMULATION_PHASES` |
+| Day segments | 3 | 3 | `src/sim/core/segments.ts` → `DAY_SEGMENTS` |
+| Owner actions | 41 | 41 | `src/sim/registries/actionRegistry.ts` |
+| Staff priorities | 12 | 12 | `src/sim/registries/staffPriorityRegistry.ts` |
+| Pressure domains | 21 | 21 | `src/sim/registries/pressureRegistry.ts` |
+| Feedback-loop detectors | 13 | 13 | `src/sim/modules/feedback/feedbackLoopRegistry.ts` |
+| Issue-generator families | 25 | 25 | `src/sim/modules/issues/issueSeedGenerators.ts` → `ALL_SEED_GENERATORS` (25 generators, 25 distinct families) |
+| Card templates including fallback | 24 | 24 | `src/cards/templates/index.ts` → `REQUIRED_CARDS` |
+| Areas | 9 | 9 | `src/sim/registries/areaRegistry.ts` |
+| Area-upgrade definitions | 18 | 18 | `src/sim/content/tavern/areaUpgradeRegistry.ts` |
+| Stock records | 20 | 20 | `src/sim/registries/stockRegistry.ts` |
+| Recipes | 20 | 20 | `src/sim/registries/recipeRegistry.ts` |
+| Customer groups | 9 | 9 | `src/sim/registries/customerRegistry.ts` |
+| Founding staff | 3 | 3 | `createInitialTavernState()` → `state.staff` |
+| Cultures | 8 | 8 | `src/sim/content/cultures/cultureRegistry.ts` |
+| Factions | 9 | 9 | `src/sim/content/factions/factionRegistry.ts` |
+| Suppliers | 9 | 9 | `src/sim/content/suppliers/supplierRegistry.ts` |
+| Market conditions | 8 | 8 | `src/sim/content/suppliers/marketConditionRegistry.ts` |
+| Local-arc definitions | 5 | 5 | `src/sim/content/events/localArcRegistry.ts` → `STARTER_LOCAL_ARC_DEFINITIONS` |
+| Venture blueprints | 1 | 1 | `src/sim/modules/ventures/ventureCatalog.ts` → `VENTURE_BLUEPRINTS` |
+| Hardcoded character arcs | 1 | 1 | `src/sim/modules/arcs/staffMasteryArc.ts` |
+
+Two adjacent counts the audited table omits, recorded here because later
+phases touch them: **6 staff roles** (`staffRegistry`) and **10
+reputation axes** (`state.reputation`).
 
 The last known clean baseline contained 291 passing test files and 3,702 passing tests, plus clean type checking, Svelte checking, and a production build. These numbers are historical orientation, not hardcoded future requirements. The current repository’s equivalent gates become authoritative in Phase 0.
+
+**Current gate baseline, measured 2026-07-29 on the same `HEAD`** — this
+is the "no intended behavior change" reference Phase 0 freezes against:
+
+| Gate | Command | Result |
+|---|---|---|
+| Full suite | `npm run test:full` | **299 files / 3,831 tests passing**, ~333 s |
+| Types | `npm run typecheck` | clean |
+| Svelte | `npm run check` | 979 files, 0 errors, 0 warnings |
+| Build | `npm run build` | passes; single 1,741 kB JS chunk (421 kB gzip) still raises the >500 kB warning §13.5 asks to split |
+
+The fast tier (`npm test`) excludes the heavy multi-day playtests listed
+in `vitest.config.ts` (`HEAVY_TEST_GLOBS`); Phase 0 should record which
+tier each new probe belongs to as it adds them.
 
 ---
 
@@ -220,22 +253,64 @@ A phase fails if:
 
 ## 6. Implementation sequence at a glance
 
-| Phase | Primary result | Obligation closures |
-|---:|---|---|
-| 0 | Frozen baseline and complete implementation ledger | Coverage only |
-| 1 | Typed events, obligations, difficulty, actor, meter, and causality foundations | Shared foundation for OBL-02, OBL-05, and OBL-08 |
-| 2 | Functional areas, construction, and complete upgrade lifecycle | OBL-01 |
-| 3 | Staff schedules, relationships, labor lifecycle, and real resignation | Staff portion of OBL-02 |
-| 4 | Capacity-constrained service, customer choice, and active regulars | None in isolation; deepens the operational core |
-| 5 | Coherent economy, financial failure, recovery, policies, and adaptive demand | Supports OBL-04 and OBL-05 |
-| 6 | Orders, deliveries, supplier autonomy, credit, and invoices | OBL-04 |
-| 7 | Loans, rent, tenancy, inspection visits, and external enforcement | Loan/eviction portions of OBL-02 and OBL-03 |
-| 8 | Autonomous factions, cultures, NPCs, rumours, and behavioral attribution | Rumour portion of OBL-08 |
-| 9 | Rival competition, state-driven local arcs, deeper expeditions, and world events | None in isolation; closes major depth gaps |
-| 10 | Populated teleology, causal identity, character arcs, and earned nicknames | OBL-09 and mastery portion of OBL-08 |
-| 11 | Domain-backed issues, responses, consequences, pressures, feedback, and memory | Final shared closure of OBL-02 |
-| 12 | Ongoing difficulty, reachable Quick Day, correct planning horizon, UI, and Help | OBL-05, OBL-06, and OBL-07 |
-| 13 | Migration, long-run balance, performance, and final obligation proof | Release proof for all requirements |
+The **Tracker** column is the repository's own numbering, assigned during
+the 2026-07-29 preparation pass: each plan phase is one `ISSUE-NNN` in
+`docs/ISSUE_TRACKER.md` carrying one repo phase number (the repo's
+file-naming convention, continuing from the audit arc's 199–206). Plan
+phase numbers below are this document's; repo phase numbers are what
+test files and any phase docs are named after.
+
+| Phase | Tracker | Primary result | Obligation closures |
+|---:|---|---|---|
+| 0 | ISSUE-170 · repo 207 | Frozen baseline and complete implementation ledger | Coverage only |
+| 1 | ISSUE-171 · repo 208 | Typed events, obligations, difficulty, actor, meter, and causality foundations | Shared foundation for OBL-02, OBL-05, and OBL-08 |
+| 2 | ISSUE-172 · repo 209 | Functional areas, construction, and complete upgrade lifecycle | OBL-01 |
+| 3 | ISSUE-173 · repo 210 | Staff schedules, relationships, labor lifecycle, and real resignation | Staff portion of OBL-02 |
+| 4 | ISSUE-174 · repo 211 | Capacity-constrained service, customer choice, and active regulars | None in isolation; deepens the operational core |
+| 5 | ISSUE-175 · repo 212 | Coherent economy, financial failure, recovery, policies, and adaptive demand | Supports OBL-04 and OBL-05 |
+| 6 | ISSUE-176 · repo 213 | Orders, deliveries, supplier autonomy, credit, and invoices | OBL-04 |
+| 7 | ISSUE-177 · repo 214 | Loans, rent, tenancy, inspection visits, and external enforcement | Loan/eviction portions of OBL-02 and OBL-03 |
+| 8 | ISSUE-178 · repo 215 | Autonomous factions, cultures, NPCs, rumours, and behavioral attribution | Rumour portion of OBL-08 |
+| 9 | ISSUE-179 · repo 216 | Rival competition, state-driven local arcs, deeper expeditions, and world events | None in isolation; closes major depth gaps |
+| 10 | ISSUE-180 · repo 217 | Populated teleology, causal identity, character arcs, and earned nicknames | OBL-09 and mastery portion of OBL-08 |
+| 11 | ISSUE-181 · repo 218 | Domain-backed issues, responses, consequences, pressures, feedback, and memory | Final shared closure of OBL-02 |
+| 12 | ISSUE-182 · repo 219 | Ongoing difficulty, reachable Quick Day, correct planning horizon, UI, and Help | OBL-05, OBL-06, and OBL-07 |
+| 13 | ISSUE-183 · repo 220 | Migration, long-run balance, performance, and final obligation proof | Release proof for all requirements |
+
+## 6.1 Inherited work this plan absorbs
+
+Three issues left open by the closed 2026-07-26 audit arc fall inside
+phases above. They keep their IDs and stay `open` in the tracker; the
+absorbing phase closes them rather than a separate pass:
+
+| Issue | Absorbed by | Why |
+|---|---|---|
+| ISSUE-168 — satisfaction→traffic elasticity so coin can bind on neglect | Phase 5 (§5.1, §5.4) | It *is* the "cash growth during total collapse" requirement; §5.1 is the larger statement of the same lever. Re-baseline the balance matrix once, in Phase 5, rather than twice. |
+| ISSUE-167 — strategy-arm diversification + two residual slice-level balance gaps | Phase 13 (§13.3) | The long-run matrix supersedes the 2026-07-28 sweep; distinct per-bot response policies are what §13.3's strategy list needs anyway. |
+| ISSUE-169 — visible-turn rotation for the remaining rotating seed families | Phase 11 (§11.6) | Attention fairness owns rotation; extending `reconcilePicksWithSurfaced` beyond `violence` is one item in that pass. |
+
+## 6.2 One recorded decision this plan reverses
+
+**Quick Day (OBL-06 vs. audit record `DC-01`).** On 2026-07-28 the audit
+arc recorded, with the user's agreement, that *Quick Day is retired as a
+player-facing route for 0.1.0* — the teleology reserve guarantees ≥1
+opportunity card per day, so the zero-card morning its eligibility rule
+requires is a state the design intends never to exist (5,000 seeds never
+reached it), and the unreachable button was left in the tree only until
+the paused UI arcs resumed.
+
+OBL-06 and §12.2 of this plan require the opposite: a reachable
+eligibility rule, honest emergent-stop behavior, and availability in
+naturally produced states — and §"Scope rule" forbids closing the gap by
+deleting the UI. This document is the later authority and the only
+unpaused work, so **Phase 12 implements Quick Day and `DC-01` is treated
+as superseded.** Flagged rather than silently applied: if retirement was
+the intent, say so before Phase 12 starts and OBL-06 becomes a deletion
+instead. Nothing earlier in the sequence depends on which way it goes.
+
+`DC-09` (onboarding vs. complete-surface exposure) and `DC-10`
+(supported environments / persistence promise) remain open and untouched
+by this plan; they gate the paused onboarding and persistence arcs.
 
 ---
 
@@ -260,7 +335,13 @@ Map:
 - all actions, staff priorities, pressure calculators, feedback detectors, issue generators, card templates, response profiles, future hooks, upgrade definitions, world definitions, and teleology blueprints;
 - all Help/glossary promises and every UI capability they name.
 
-Create a machine-readable implementation ledger in the repository. At minimum, each row should contain:
+Create a machine-readable implementation ledger in the repository. The
+preparation pass reserves **`docs/plans/expansion/ledger.csv`** for it,
+with any generator or validator under `scripts/` — one location, so
+later phases update the ledger rather than each growing a private copy
+(the repo's documentation policy forbids re-expanding the docs tree with
+per-phase prose; a data file is the exception this plan needs). At
+minimum, each row should contain:
 
 - stable requirement ID;
 - owning phase;

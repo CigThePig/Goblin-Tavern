@@ -31,31 +31,35 @@ budget.
 
 ## Current status
 
-> ### ✅ The gameplay-audit remediation arc (ISSUE-166) closed 2026-07-28 — the pause is lifted
+> ### 🔒 All development is paused outside `docs/plans/GOBLIN_TAVERN_SIMULATION_EXPANSION_WORK_PLAN.md` (2026-07-29)
 >
-> The 2026-07-26 eight-phase audit's **29 defects are all fixed and gate-verified across Waves 0–7**, and Wave 7's balance evaluation ran to a recorded verdict: no dominant strategy on any of the 15 difficulty × variant slices, agency positive, four distinct reputation identities on the standard route, the DC-06 attention ceilings holding, and the DC-03 scoring layer reading the standard slice **balanced** — with residual gaps recorded as ISSUE-167/168/169 rather than silently tuned.
+> The **Simulation Expansion and Obligation-Closure plan** is the only unpaused work. It is a standalone implementation document — no earlier audit, report, or conversation is needed to execute it — and it runs as **ISSUE-170…183 (repo phases 207–220)**, one issue per plan phase 0–13. **Start at ISSUE-170 (Phase 0 — freeze the baseline, build the implementation ledger).**
 >
-> - **The record:** `docs/audits/2026-07-26-gameplay-audit/REMEDIATION_QUEUE.md` — now a closed checklist, including Wave 7's recorded design decisions (`DC-01`, `DC-03`, `DC-04`, `DC-05`, `DC-06`, `DC-08`), the tuning pass with before/after evidence, and the sweep verdict. Balance instrument: `npm run balance:matrix` (baselines under `baselines/`).
-> - **Still open from the audit's design register:** `DC-09` (onboarding vs. complete-surface exposure — settle before the Tier 4 onboarding arc restarts) and `DC-10` (supported environments / persistence promise).
-> - **What's next:** the tracker's **"Current work" → resume points** — the Complete Surface arc (ISSUE-141…148) was the active frontier; ISSUE-168 (demand elasticity) re-baselines the balance matrix and should precede any further balance tuning.
+> - **The goal is causal completeness:** every promise the game makes joins to a discoverable player capability and an authoritative simulation outcome. Nine broken obligations (`OBL-01…OBL-09` — uninstallable upgrades, future hooks that drain without firing, inspections that never visit, supplier credit with no invoices, difficulty that only changes opening values, unreachable Quick Day, inverted queued-action Help, uncovered causal changes, unearnable nicknames) plus the depth gaps behind them.
+> - **Order:** hard-ordered by the plan's §7 map. Only Phases 2 and 3 may run in parallel, and only after Phase 1. §5 is the per-phase work protocol and lists the eight conditions that **fail** a phase — a data model or UI alone, a test that injects impossible state, a card promising a consequence no domain owns, or a system whose only consequence is a direct meter adjustment.
+> - **Baseline frozen 2026-07-29 (prep pass, no behavior change):** `npm run test:full` 299 files / 3,831 tests, `typecheck` clean, `check` 979 files / 0 errors, `build` passing. The plan's §3 inventory was re-verified against `HEAD` — all 22 counts unchanged.
+> - **Carried into the arc:** ISSUE-167/168/169 are absorbed by Phases 13/5/11 rather than run separately (plan §6.1), and Quick Day (OBL-06) **reverses** the recorded `DC-01` retirement — flagged in plan §6.2 for the user to settle before Phase 12.
+>
+> **Paused, not cancelled:** the Complete Surface arc (ISSUE-141…148), Tier 4 Progressive Onboarding (ISSUE-060…077), and the standing tails (ISSUE-153, ISSUE-130). They keep their status; the tracker's "Current work" holds their resume points.
 
-Progress before and through the arc (the tracker's **"Current work"** holds the live picture):
+Progress before the expansion arc (the tracker's **"Current work"** holds the live picture):
 
 - **Phases 1–40 — foundation (done).** The headless simulation under `src/sim/`: core engine, registries, ~26 domain modules, a content layer (naming, cultures, factions, suppliers, npc, staff, tavern, events, text), Zod-schema state, and testing utilities.
 - **Phases 41–198 — repair pass, then the card layer.** Post-40 fixes (Tiers 0–3), the Rare Ingredients economy (Tier 1.5), UI/UX clarity (Tier 5), and the card-layer arcs (Living Cast → Voiced → Legible → Faithful → Complete Surface) that build the compositional card runtime under `src/cards/compose/` and the report projection layer under `src/reports/`.
-- **Paused mid-arc:** Complete Surface (resume at ISSUE-141…148), Choice-Preview Legibility part (b) (ISSUE-153), Legible Surface standing recalibration (ISSUE-130). **Paused before starting:** Tier 4 Progressive Onboarding (ISSUE-060…077) — audit record `DC-09` questions onboarding vs. complete-surface exposure, so settle that before it restarts.
+- **Phases 199–206 — the gameplay-audit remediation arc (ISSUE-166, closed 2026-07-28).** All **29 audit defects fixed and gate-verified across Waves 0–7**, ending in a recorded balance verdict: no dominant strategy on any of the 15 difficulty × variant slices, agency positive, four distinct reputation identities on the standard route. Closed record: `docs/audits/2026-07-26-gameplay-audit/REMEDIATION_QUEUE.md` (including design decisions `DC-01`…`DC-08`; `DC-09`/`DC-10` remain open and gate the paused arcs). Balance instrument: `npm run balance:matrix` (baselines under `baselines/`).
 
 `docs/ISSUE_TRACKER.md` is the **authoritative record**: an index row per `ISSUE-NNN` and a full entry for live work only. Don't maintain a duplicate changelog here; read its **"Current work"** callout for what's next.
 
 **Phase numbers are a file-naming convention only.** Execution order comes from the tracker's "Current work" and hard `Depends on` chains, not from phase-number arithmetic.
 
-**Documentation was cut hard on 2026-07-26** — closed issues' write-ups, ~115 per-phase plan docs, the superseded 2026-06 audits, and the regenerable card baselines are gone from the tree and live in git history (`git log --diff-filter=D -- docs/`; the baselines regenerate via `npm run sample:card-choices` / `npm run audit:card-choices`). A few surviving docs and source comments still cite deleted `docs/plans/phase-*.md` files — that's expected; recover from history rather than rewriting the reference. **Don't re-expand the docs tree:** record fix detail in the audit queue or the code, not in new per-phase prose.
+**Documentation was cut hard on 2026-07-26** — closed issues' write-ups, ~115 per-phase plan docs, the superseded 2026-06 audits, and the regenerable card baselines are gone from the tree and live in git history (`git log --diff-filter=D -- docs/`; the baselines regenerate via `npm run sample:card-choices` / `npm run audit:card-choices`). A few surviving docs and source comments still cite deleted `docs/plans/phase-*.md` files — that's expected; recover from history rather than rewriting the reference. **Don't re-expand the docs tree:** record fix detail in the expansion arc's implementation ledger (reserved at `docs/plans/expansion/ledger.csv`, created in Phase 0) or in the code, not in new per-phase prose.
 
 ## Where things are documented
 
-- `docs/audits/2026-07-26-gameplay-audit/` — **the active work.** `REMEDIATION_QUEUE.md` (queue + status), `reports/` (per-phase evidence, Phase 8 is the consolidated deliverable), `GAMEPLAY_AUDIT_FRAMEWORK.md` (method + repository/route map, R01–R15), `fixtures/` (probes that import the live `src/` tree; reuse them as regression harnesses).
+- `docs/plans/GOBLIN_TAVERN_SIMULATION_EXPANSION_WORK_PLAN.md` — **the active work.** The expansion arc's own authority: per-phase objective, required work, required tests, and completion gate, plus the obligation table (§4.1), the work protocol (§5), the phase→issue map (§6), the dependency map (§7), and the final target-state checklist (§9). Read the phase's section before implementing it; **do not write per-phase plan docs for this arc** — the work plan is the arc doc.
+- `docs/audits/2026-07-26-gameplay-audit/` — the closed remediation arc. `REMEDIATION_QUEUE.md` (closed queue + recorded design decisions), `reports/` (per-phase evidence, Phase 8 is the consolidated deliverable), `GAMEPLAY_AUDIT_FRAMEWORK.md` (method + repository/route map, R01–R15), `fixtures/` (probes that import the live `src/` tree — reuse them as Phase 0 baseline probes and regression harnesses rather than rebuilding those routes).
 - `docs/ISSUE_TRACKER.md` — the tracker: an index row per issue, full entries for live work only.
-- `docs/plans/` — 20 surviving docs: the locked contracts below, the arc roadmaps holding paused work (`complete-surface-arc.md` for ISSUE-136…148, `legible-surface-arc.md`, `choice-preview-legibility-arc.md`), and a few records that source comments cite as their design authority.
+- `docs/plans/` — 21 surviving docs: the expansion work plan above, the locked contracts below, the arc roadmaps holding paused work (`complete-surface-arc.md` for ISSUE-136…148, `legible-surface-arc.md`, `choice-preview-legibility-arc.md`), and a few records that source comments cite as their design authority.
 
 **Locked design contracts** — read the relevant one before planning work in its scope:
 
@@ -69,6 +73,8 @@ Progress before and through the arc (the tracker's **"Current work"** holds the 
 | `docs/plans/card-composition-framework.md` | Compositional card framework — slots, snippets, deterministic assembly. Resolves `cards-contract.md §9`. |
 | `docs/plans/game-loop-and-ux.md` | Game loop / UX working contract. |
 | `docs/plans/phase-186-day-clock-time-economy.md` | Day clock: the player's budget is time, not action points. |
+
+**Which contracts each expansion phase must read first** (the plan expands these systems; it does not repeal their contracts): Phase 2 → `phase-186-day-clock-time-economy.md` (§2.5 keeps the 360-minute owner budget; scheduled work blocks sit *inside* it) and `phase-21-expansion-contract.md`; Phases 3–4 and 8–10 → `phase-21-expansion-contract.md` (identity, culture, place, and relationships are persistent state before they are flavour); Phase 11 → `cards-contract.md` + `card-composition-framework.md` (a card still may not invent truth — §11.1 makes that stricter, not looser); Phase 12 → `game-loop-and-ux.md` (planning horizon, Quick Day, Help derived from shared rule metadata). Where the plan and a locked contract genuinely disagree, raise it rather than choosing — one such conflict is already recorded (plan §6.2, Quick Day vs. `DC-01`).
 
 ## Core Design Rule
 
@@ -118,15 +124,19 @@ web/            # Svelte web UI
 specs/cards/    # Per-template authoring specs (design records for snippet pools)
 scripts/        # Diagnostic + test-runner scripts (not sim code)
 tests/          # sim/ cards/ reports/ web/ — per-phase + per-gate coverage
-docs/           # ISSUE_TRACKER.md + plans/ (per-phase docs + locked contracts)
-                # + audits/2026-07-26-gameplay-audit/ (the active remediation arc)
+docs/           # ISSUE_TRACKER.md + plans/ (locked contracts + arc docs; the
+                #   expansion work plan is the active arc's authority)
+                # + audits/2026-07-26-gameplay-audit/ (the closed remediation arc)
 ```
 
 ## Working conventions
 
 - **Read the matching tracker entry (and its arc doc, if any) before implementing.** `Depends on` is hard — the dependency must be `done` first. Update `Status`/`Phase` in the index as work progresses; closed issues keep their index row as history.
 - **Workflow per issue:** plan mode → read the tracker entry → implement → keep the tracker current. Write a `docs/plans/*.md` doc only for a whole wave or arc, never per fix.
-- **Workflow during the audit arc (now):** pick the next wave from `REMEDIATION_QUEUE.md` → read each finding's phase report section → write one `docs/plans/phase-NNN-audit-wave-N-*.md` plan for the wave → reproduce each finding on its audit route *before* fixing → fix → add the regression coverage Phase 8 §8 requires → flip that finding's `St` in the queue. A finding is only `done` once its route fails before the fix and passes after, with an automated assertion behind it. A wave is only closed when its evidence gate passes. Design records (`P2-OBS-001`, `P3-DC-001`, `DC-01…DC-10`) need a decision from the user, not an implementation guess — record the answer in the queue.
+- **Workflow during the expansion arc (now):** take the next issue from the tracker's Tier 8 table → read that phase's section in `GOBLIN_TAVERN_SIMULATION_EXPANSION_WORK_PLAN.md` → follow its §5 protocol: rediscover the current code by symbol (never by remembered line numbers), update the implementation ledger, **write the failing contract tests first** (reached through natural player setup, not fixture injection), name the one domain that owns each transition, then land state + rules + player capability + autonomous behavior + reporting + persistence *together* → run focused tests, then the full gates, then full-day-vs-segmented equivalence and a save/reload at every day beat the new lifecycle crosses → update the tracker index. **No per-phase plan docs for this arc** — the work plan is the arc doc; record detail in the ledger or the code.
+  - A phase is not done if only the data model or UI exists, if a test reaches the feature by injecting impossible state, if a card promises a consequence no domain owns, if it works in batch but not the segmented route, if save/load changes the outcome, or if the system's only consequence is a direct pressure/reputation adjustment (plan §5).
+  - Every new persistent collection needs a declared cap, pruning, expiry, or archival rule in the same phase (§5.11), and every persisted field needs its schema migration in the same phase (§5.7).
+  - Design questions belong to the user, not to an implementation guess — that includes the two the arc inherits open (`DC-09`, `DC-10`) and the Quick Day reversal recorded in plan §6.2.
 - **Do not skip ahead.** Don't add cards, UI, narrative text, or issue-seed *content* before the phase that introduces them. The plans are sequential by design.
 - **No `Math.random()` and no browser/runtime deps in `src/sim/`.** Use the seeded RNG from context; the sim must run headless.
 - **Keep state serializable.** Convert any `Map`/class/closure to plain JSON at the boundary.

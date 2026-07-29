@@ -26,23 +26,67 @@ Grade: `broken` · `thin` · `solid` · `design`.
 
 ## Current work
 
-**The 2026-07-26 gameplay-audit remediation arc (ISSUE-166) closed on
-2026-07-28 — all eight waves, gates passed.** The pause on other work is
-lifted. The queue
-(`docs/audits/2026-07-26-gameplay-audit/REMEDIATION_QUEUE.md`) is now a
-closed record: all 29 findings `done`, the Wave 7 balance evaluation
-performed with a recorded verdict, and eight of the ten design questions
-answered (`DC-09`/`DC-10` remain, gating the arcs noted below).
+> ### 🔒 All development is paused outside `docs/plans/GOBLIN_TAVERN_SIMULATION_EXPANSION_WORK_PLAN.md` (2026-07-29)
+>
+> The Simulation Expansion and Obligation-Closure plan is the **only
+> unpaused work**. It is a standalone implementation document — it needs
+> no earlier audit, report, or ledger to execute — and it runs as
+> **ISSUE-170…183 (repo phases 207–220)**, one issue per plan phase 0–13.
+> Start at **ISSUE-170 (Phase 0 — freeze the baseline, build the
+> implementation ledger)**; the sequence is hard-ordered after that,
+> except that Phases 2 and 3 may run in parallel once Phase 1 is done.
+>
+> Everything else below — the Complete Surface resume points, the
+> onboarding arc, the standing tails — is **paused, not cancelled**, and
+> keeps its status for when the pause lifts.
 
-**Wave 7's residual follow-ups are tracked as ISSUE-167 (strategy-arm
-diversification + two slice-level balance gaps), ISSUE-168
-(satisfaction→traffic elasticity so coin can bind on neglect — the DC-04
-follow-up lever), and ISSUE-169 (visible-turn rotation for the remaining
-rotating families).** None blocks resuming the paused arcs; ISSUE-168
-re-baselines the balance matrix when it lands, so prefer doing it before
-any further balance tuning.
+The expansion plan targets **causal completeness**: nine broken gameplay
+obligations (`OBL-01…OBL-09`) plus the simulation-depth gaps behind them.
+Its §5 work protocol governs every phase — rediscover the current code,
+write the phase ledger, write failing contract tests first, implement
+state + rules + player capability + autonomous behavior + reporting +
+persistence together, then run the gates. A phase fails if only the data
+model or UI exists, if a test reaches the feature by injecting impossible
+state, or if the system's only consequence is a direct meter adjustment.
 
-### Resume points (the pause is lifted; pick up in this order unless decided otherwise)
+**Repository preparation (2026-07-29, this pass — no behavior change).**
+The plan's §3 inventory was verified against `HEAD` (all 22 counts still
+hold, read out of the live registries) and the gate baseline recorded:
+`npm run test:full` **299 files / 3,831 tests**, `npm run typecheck`
+clean, `npm run check` 979 files / 0 errors, `npm run build` passing with
+the known >500 kB chunk warning §13.5 asks to split. Both are written
+into the plan's §2.1/§3 as Phase 0's freeze reference.
+
+**Two things the preparation pass surfaced, neither silently applied:**
+
+1. **Quick Day reverses a recorded decision.** Audit record `DC-01`
+   (2026-07-28) retired Quick Day as a player-facing route for 0.1.0;
+   the plan's OBL-06 / §12.2 requires it built with a reachable
+   eligibility rule, and its scope rule forbids closing the gap by
+   deleting the UI. The plan is the later authority, so Phase 12
+   (ISSUE-182) implements it and `DC-01` is treated as superseded —
+   **flagged for the user to reverse before Phase 12 if retirement was
+   the intent.** Detail: plan §6.2. Nothing earlier depends on it.
+2. **Three open audit follow-ups are absorbed, not duplicated.**
+   ISSUE-168 → Phase 5 (it *is* §5.1's collapse-must-bind-cash lever),
+   ISSUE-167 → Phase 13 (§13.3's long-run matrix supersedes the
+   2026-07-28 sweep), ISSUE-169 → Phase 11 (§11.6 attention fairness
+   owns rotation). All three keep their IDs and stay `open`; the
+   absorbing phase closes them. Detail: plan §6.1.
+
+`DC-09` (onboarding vs. complete-surface exposure) and `DC-10`
+(supported environments / persistence promise) stay open and untouched —
+they gate paused arcs, not this one.
+
+**Closed, for reference.** The 2026-07-26 gameplay-audit remediation arc
+(ISSUE-166) closed on 2026-07-28 — all eight waves, gates passed; the
+queue (`docs/audits/2026-07-26-gameplay-audit/REMEDIATION_QUEUE.md`) is a
+closed record of 29 findings and eight answered design questions. Its
+`fixtures/` probes import the live `src/` tree and remain the fastest way
+to reproduce an audit route — reuse them as Phase 0 baseline probes
+rather than rebuilding those routes.
+
+### Paused — resume points held for when the pause lifts
 
 1. **Card layer — Complete Surface arc** (was the active frontier).
    Contract: `docs/plans/complete-surface-arc.md`, which holds the per-issue
@@ -225,10 +269,24 @@ any further balance tuning.
 | ISSUE-164 | Cause-coverage instrument repair (dead check, convention split, meta clobbering) | broken | done | 197 |
 | ISSUE-165 | UX polish pass: ID leaks, theme unlock, CTA hierarchy, service feedback | solid | done | 198 |
 | ISSUE-166 | **Gameplay-audit remediation arc (2026-07-26, 29 findings, Waves 0–7)** | broken | done | 199–206 |
-| ISSUE-167 | Strategy-arm diversification: distinct `chooseResponse` policies per bot; close the two residual Wave 7 gaps (miner dominated on easy×partial; hard×actions-only identity convergence) | thin | open | — |
-| ISSUE-168 | Satisfaction→traffic elasticity (DC-04 follow-up): make demand collapse on sustained neglect so coin can bind; re-baseline the balance matrix after | design | open | — |
-| ISSUE-169 | Visible-turn rotation for the remaining rotating seed families (food_safety, stock_shortage, maintenance, staff_identity, …) — extend Wave 7's `reconcilePicksWithSurfaced` beyond violence | thin | open | — |
+| ISSUE-167 | Strategy-arm diversification: distinct `chooseResponse` policies per bot; close the two residual Wave 7 gaps (miner dominated on easy×partial; hard×actions-only identity convergence) | thin | open | 220 (absorbed by ISSUE-183) |
+| ISSUE-168 | Satisfaction→traffic elasticity (DC-04 follow-up): make demand collapse on sustained neglect so coin can bind; re-baseline the balance matrix after | design | open | 212 (absorbed by ISSUE-175) |
+| ISSUE-169 | Visible-turn rotation for the remaining rotating seed families (food_safety, stock_shortage, maintenance, staff_identity, …) — extend Wave 7's `reconcilePicksWithSurfaced` beyond violence | thin | open | 218 (absorbed by ISSUE-181) |
 | ISSUE-116 | Legible Surface Phase 3 — Choice Distinctness Gate & Legible Choice-Set Cap | broken | done | 148 |
+| ISSUE-170 | Expansion Phase 0 — freeze the baseline; build the implementation ledger | design | open | 207 |
+| ISSUE-171 | Expansion Phase 1 — shared contracts: typed scheduled events, obligation primitives, persistent ruleset, causal coverage, informative meters, actor interface | broken | open | 208 |
+| ISSUE-172 | Expansion Phase 2 — areas, construction, and the complete upgrade lifecycle (OBL-01) | broken | open | 209 |
+| ISSUE-173 | Expansion Phase 3 — persistent workforce: contracts, schedules, relationships, real resignation (staff half of OBL-02) | broken | open | 210 |
+| ISSUE-174 | Expansion Phase 4 — capacity-constrained service flow, customer choice, active regulars, patron tabs | thin | open | 211 |
+| ISSUE-175 | Expansion Phase 5 — economy: quality→cash feedback, operating costs, failure/recovery states, adaptive demand, enforceable policies | broken | open | 212 |
+| ISSUE-176 | Expansion Phase 6 — transactional suppliers: orders, deliveries, credit, invoices (OBL-04) | broken | open | 213 |
+| ISSUE-177 | Expansion Phase 7 — loans, tenancy, and a real inspection lifecycle (OBL-03 + loan/eviction half of OBL-02) | broken | open | 214 |
+| ISSUE-178 | Expansion Phase 8 — autonomous social world: faction/culture/NPC agency, rumour propagation, behavioral attribution (rumour half of OBL-08) | broken | open | 215 |
+| ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | open | 216 |
+| ISSUE-180 | Expansion Phase 10 — populated teleology, causal identity with hysteresis, character arcs, earned nicknames (OBL-09 + mastery half of OBL-08) | broken | open | 217 |
+| ISSUE-181 | Expansion Phase 11 — reconnect issues, responses, pressures, feedback, memory and history to the deepened domains (closes OBL-02) | broken | open | 218 |
+| ISSUE-182 | Expansion Phase 12 — ongoing difficulty, reachable Quick Day, correct planning horizon, new management surfaces, derived Help (OBL-05/06/07) | broken | open | 219 |
+| ISSUE-183 | Expansion Phase 13 — migration, long-run balance matrix, performance, obligation-closure audit, release proof | broken | open | 220 |
 
 ---
 
@@ -236,7 +294,70 @@ any further balance tuning.
 
 Full entries for open and in-progress work only. ISSUE-141…148 (Complete
 Surface) and ISSUE-130 are tracked in their arc docs, per the resume points
-above.
+above; ISSUE-170…183 are tracked in the expansion work plan, per Tier 8.
+
+### Tier 8 — Simulation expansion and obligation closure (the only unpaused arc)
+
+**Authority:** `docs/plans/GOBLIN_TAVERN_SIMULATION_EXPANSION_WORK_PLAN.md`
+— a standalone implementation document. It holds each phase's objective,
+required work, required tests, and completion gate; **the tracker does not
+restate them.** Read the plan's phase section before implementing, exactly
+as the audit arc read its queue. Per-phase plan docs are *not* wanted —
+the work plan is the arc doc, and repo policy is to record fix detail in
+the code or the plan rather than in new per-phase prose.
+
+**Shape of the arc.** Fourteen phases, one issue each, hard-ordered by the
+plan's §7 dependency map — with the single exception that ISSUE-172 and
+ISSUE-173 (plan Phases 2 and 3) may proceed in parallel once ISSUE-171 is
+`done`. A phase is a vertical slice: state, rules, player capability,
+autonomous behavior, reporting, and persistence land together, or the
+phase is not done. The plan's §5 lists the eight conditions that fail a
+phase; the sharpest are *only the data model or UI exists*, *a test
+reaches the feature by injecting impossible state*, and *the system's only
+consequence is a direct pressure or reputation adjustment*.
+
+| Issue | Plan phase | Repo phase | Closes | Depends on |
+|---|---:|---:|---|---|
+| ISSUE-170 | 0 — baseline + ledger | 207 | coverage only; ends with **no intended behavior change** | none |
+| ISSUE-171 | 1 — shared contracts | 208 | foundation for OBL-02/05/08 | ISSUE-170 |
+| ISSUE-172 | 2 — areas + upgrades | 209 | **OBL-01** | ISSUE-171 |
+| ISSUE-173 | 3 — workforce | 210 | staff half of **OBL-02** | ISSUE-171 |
+| ISSUE-174 | 4 — service flow | 211 | — | ISSUE-172, ISSUE-173 |
+| ISSUE-175 | 5 — economy | 212 | supports OBL-04/05; **absorbs ISSUE-168** | ISSUE-174 |
+| ISSUE-176 | 6 — suppliers | 213 | **OBL-04** | ISSUE-175 |
+| ISSUE-177 | 7 — loans, tenancy, inspection | 214 | **OBL-03** + loan/eviction half of **OBL-02** | ISSUE-175 |
+| ISSUE-178 | 8 — social world | 215 | rumour half of **OBL-08** | ISSUE-176, ISSUE-177 |
+| ISSUE-179 | 9 — rivals, arcs, expeditions | 216 | — | ISSUE-178 |
+| ISSUE-180 | 10 — teleology + identity | 217 | **OBL-09** + mastery half of **OBL-08** | ISSUE-179 |
+| ISSUE-181 | 11 — issues/responses refit | 218 | all of **OBL-02**; **absorbs ISSUE-169** | ISSUE-180 |
+| ISSUE-182 | 12 — difficulty, Quick Day, UI, Help | 219 | **OBL-05**, **OBL-06**, **OBL-07** | ISSUE-181 |
+| ISSUE-183 | 13 — release proof | 220 | proof for all nine; **absorbs ISSUE-167** | ISSUE-182 |
+
+**Grades** in the index follow the tracker's convention rather than the
+plan's: `broken` where the phase closes an obligation the game already
+advertises but cannot honor, `thin` where it deepens a system that works
+but is shallow, `design` for ISSUE-170 (it produces a ledger and probes,
+not behavior).
+
+**Preparation record (2026-07-29).** The plan's §3 inventory was verified
+against `HEAD` — all 22 counts unchanged — and the gate baseline measured
+and written into the plan (§2.1, §3): `npm run test:full` 299 files /
+3,831 tests, `typecheck` clean, `check` 979 files / 0 errors, `build`
+passing with the known large-chunk warning. Phase 0 freezes against those
+numbers. The ledger location is reserved at
+`docs/plans/expansion/ledger.csv` (generator/validator under `scripts/`)
+so later phases update one file instead of each growing a private copy.
+
+**Test-tier note.** Several phases add long-horizon playtests (§5.10's
+save/reload beats, §13.3's 28/90/180-day matrix). Anything that grows into
+a multi-minute run belongs in `HEAVY_TEST_GLOBS` in `vitest.config.ts` and
+nowhere else, so `npm test` stays the fast tier and `npm run test:full`
+stays the pre-merge gate.
+
+**Open question carried into the arc — Quick Day.** `DC-01` retired it;
+OBL-06 requires it. The plan (§6.2) records the reversal and the reason,
+Phase 12 implements it, and the user can reverse that before ISSUE-182
+starts without disturbing any earlier phase.
 
 ### Tier 7 — Gameplay-audit remediation (closed 2026-07-28; entry retained until the next documentation cleanup as the resume map)
 

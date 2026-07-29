@@ -32,10 +32,12 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > unpaused work**. It is a standalone implementation document — it needs
 > no earlier audit, report, or ledger to execute — and it runs as
 > **ISSUE-170…183 (repo phases 207–220)**, one issue per plan phase 0–13.
-> **ISSUE-170 (Phase 0) is done (2026-07-29)** — the baseline is frozen
-> and the implementation ledger exists. **Next: ISSUE-171 (Phase 1 —
-> shared contracts).** The sequence is hard-ordered after that, except
-> that Phases 2 and 3 may run in parallel once Phase 1 is done.
+> **ISSUE-170 (Phase 0) and ISSUE-171 (Phase 1) are done (2026-07-29)** —
+> the baseline is frozen, the implementation ledger exists, and the shared
+> contracts are in place. **Next: ISSUE-172 (Phase 2 — areas, construction
+> and the complete upgrade lifecycle, OBL-01) and ISSUE-173 (Phase 3 —
+> persistent workforce), which are the one pair the plan allows to run in
+> parallel.** The sequence is hard-ordered after that.
 >
 > Everything else below — the Complete Surface resume points, the
 > onboarding arc, the standing tails — is **paused, not cancelled**, and
@@ -275,7 +277,7 @@ rather than rebuilding those routes.
 | ISSUE-169 | Visible-turn rotation for the remaining rotating seed families (food_safety, stock_shortage, maintenance, staff_identity, …) — extend Wave 7's `reconcilePicksWithSurfaced` beyond violence | thin | open | 218 (absorbed by ISSUE-181) |
 | ISSUE-116 | Legible Surface Phase 3 — Choice Distinctness Gate & Legible Choice-Set Cap | broken | done | 148 |
 | ISSUE-170 | Expansion Phase 0 — freeze the baseline; build the implementation ledger | design | done | 207 |
-| ISSUE-171 | Expansion Phase 1 — shared contracts: typed scheduled events, obligation primitives, persistent ruleset, causal coverage, informative meters, actor interface | broken | open | 208 |
+| ISSUE-171 | Expansion Phase 1 — shared contracts: typed scheduled events, obligation primitives, persistent ruleset, causal coverage, informative meters, actor interface | broken | done | 208 |
 | ISSUE-172 | Expansion Phase 2 — areas, construction, and the complete upgrade lifecycle (OBL-01) | broken | open | 209 |
 | ISSUE-173 | Expansion Phase 3 — persistent workforce: contracts, schedules, relationships, real resignation (staff half of OBL-02) | broken | open | 210 |
 | ISSUE-174 | Expansion Phase 4 — capacity-constrained service flow, customer choice, active regulars, patron tabs | thin | open | 211 |
@@ -386,6 +388,85 @@ save/reload beats, §13.3's 28/90/180-day matrix). Anything that grows into
 a multi-minute run belongs in `HEAVY_TEST_GLOBS` in `vitest.config.ts` and
 nowhere else, so `npm test` stays the fast tier and `npm run test:full`
 stays the pre-merge gate.
+
+**ISSUE-171 / Phase 1 — done 2026-07-29.** The seven shared contracts,
+all under a new `src/sim/contracts/` tree with one barrel each. Detail
+lives in `docs/plans/expansion/ledger.csv` rows **`CON-01`…`CON-07`** (one
+per plan sub-section) — no per-phase plan doc, per the arc's convention.
+
+- **§1.1 typed scheduled events** (`CON-01`). A registry where a mechanical
+  event has exactly one owning module, a payload schema, a beat, a warning
+  window, repeat/cancel/supersede/expiry rules, an exact-once key, and a
+  resolver that must name an authoritative mutation — a zero-weight cause
+  no longer counts as resolution. Owned by a new `scheduledEvents` module
+  draining at two beats: `morning` inside `startDay`, and `wrap_up` in a
+  new `resolveScheduledEvents` phase placed immediately after
+  `applyResponses` (so a consequence coming due sees the day's choices)
+  and before `endDay`. Segment boundaries are unmoved, and an architecture
+  test now asserts that.
+- **§1.2 obligation primitives** (`CON-02`). Payable/receivable records
+  with principal, accrued charges, due dates, grace, partial payment,
+  default, collections, settlement and forgiveness, plus the
+  order/employment/regulatory/tenancy/construction shapes that share the
+  lifecycle. Deliberately not a god-module: each record names its
+  `ownerModuleId` and that domain decides when to open, pay or forgive;
+  the ledger owns only the uniform due→grace→default progression, driven
+  by two registered mechanical events.
+- **§1.3 persistent ruleset** (`CON-03`). Difficulty is now versioned,
+  persisted state, queryable by named knob, and consumed by four ongoing
+  rules (area deterioration, spoilage, staff recovery, pressure-adjustment
+  decay). Easy/standard/hard diverge measurably under identical seeds —
+  the OBL-05 foundation.
+- **§1.4 causal coverage** (`CON-04`), **§1.5 informative meters**
+  (`CON-05`), **§1.6 actor interface** (`CON-06`), **§1.7 architecture
+  checks** (`CON-07`).
+
+**The reference route is bit-identical.** `standard` is exactly neutral on
+every ruleset knob, and all **13 frozen Phase 0 baseline probes are
+unchanged (`npm run baseline:probes` → 0 drifted)**. Two frozen counts in
+`repo-map.json` did move — `runtimeModules` 29 → 33 and `simulationPhases`
+25 → 26 — which is the plan's sanctioned "update in place as later phases
+land", not a red test being written green; the other 22 inventory counts
+are untouched, which is the real evidence that Phase 1 added contracts and
+no content.
+
+**Two real bugs found and fixed by the new machinery,** both pre-existing:
+`canonicalCauseTarget` had no mapping for `arcs.*` / `ventures.*` /
+`transformations.*`, so every arc spawn and permanent transformation was
+reported as an *unexplained* significant change despite having a perfectly
+good cause in `state.causes` — the attribution was there, the join was
+missing. And nothing verified that a module's `dependsOn` actually runs
+first; `checkModuleOrder` now does.
+
+**Scope deliberately left for later phases,** recorded rather than
+silently dropped: there is **no owner action to pay an obligation** (an
+action with nothing to act on is not discoverable — it belongs to Phase 6
+invoices / Phase 7 loans and rent, and Phase 12 owns new management
+surfaces); `applyDebtToRecovery` has no production caller yet (Phase 2
+routes clean/repair through it, and Phase 10 is the hysteresis latch's
+first real consumer); and module contracts are declared for 9 of 33
+modules, per §1.7's
+"migrate one domain at a time" — the test pins that count so it can only
+go down.
+
+**Known hazard recorded, not fixed:** `diffModules` iterates object key
+order, so diff *order* can vary between a batch run and a reloaded
+segmented run. It surfaced when the new meters slice tripped it; the slice
+is now excluded from diffing as derived bookkeeping, which removes the
+symptom. Sorting the walk is the real fix and is a separate change with
+wide snapshot churn — noted on `CON-04`.
+
+Tests: `tests/sim/phase208.sharedContracts.test.ts` (50),
+`phase208.exactOnce.test.ts` (7 — exact-once across normal play, retry,
+save/load, import and segment resume, plus §5.9 full-day-vs-segmented
+equivalence and §5.10 reloads at both crossed beats), and
+`phase208.metersAndHooks.test.ts` (20). Everything that needs a live
+context — the obligation lifecycle, both branches of the future-hook
+bridge, the hysteresis latch, and actor intent/execution — is exercised end
+to end by `src/sim/testing/expansions/obligationProbe.ts`, a real producer
+on the sanctioned public API following the `candleShortage` precedent, not
+fixture injection. All three files run in seconds, so none joins
+`HEAVY_TEST_GLOBS`.
 
 **Open question carried into the arc — Quick Day.** `DC-01` retired it;
 OBL-06 requires it. The plan (§6.2) records the reversal and the reason,

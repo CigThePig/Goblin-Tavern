@@ -89,6 +89,10 @@ import type {
   WorldState,
 } from "./TavernState";
 import { applyDifficultyToBase, type DifficultyConfig } from "./difficulty";
+import { createInitialRulesetModuleState } from "../contracts/ruleset/query";
+import { createInitialMetersModuleState } from "../contracts/meters/detail";
+import { createInitialScheduledEventsModuleState } from "../contracts/scheduledEvents/state";
+import { createInitialObligationsModuleState } from "../contracts/obligations/state";
 
 // Phase 8 §8.1 — Area defaults are sourced from `areaRegistry` rather than
 // inlined. The registry holds the same Phase 5 numbers, so this is a
@@ -800,6 +804,22 @@ export function createInitialTavernState(
       // entries, no resolved intents) so the module's schema validates
       // from day zero before any response intent has been processed.
       responses: createInitialResponsesModuleState(),
+      // Expansion Phase 1 §1.3 — the ruleset the run is playing under.
+      // Seeded to the reference ruleset here and overwritten by
+      // `applyDifficultyToBase` below when a preset was chosen, so the
+      // selection is authoritative state rather than a start-time tweak
+      // the simulation forgets (`OBL-05`).
+      ruleset: createInitialRulesetModuleState(),
+      // Expansion Phase 1 §1.5 — empty meter-detail slice. A healthy tavern
+      // never writes to it; entries appear only when a meter pins at its
+      // floor or ceiling and the clamp starts discarding information.
+      meters: createInitialMetersModuleState(),
+      // Expansion Phase 1 §1.1 / §1.2 — empty scheduled-event queue and
+      // obligation ledger. Both slices exist from day zero so their
+      // schemas validate before any domain has scheduled or borrowed
+      // anything.
+      scheduledEvents: createInitialScheduledEventsModuleState(),
+      obligations: createInitialObligationsModuleState(),
     },
   };
 

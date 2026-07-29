@@ -77,6 +77,7 @@ import {
   ensureExpeditionsSlice,
   ensureTeleologySlices,
   ensureModuleSlices,
+  ensureExpansionContractSlices,
   flipUpkeepRecipesOffMenu,
 } from "../../../../src/sim/state/migrations";
 import { safeValidateState } from "../../../../src/sim/state/validation";
@@ -736,7 +737,12 @@ function migrateAndValidateState(
     // identity/world slice it depends on is already populated, and before
     // `ensureModuleSlices` for ordering symmetry with the rest of the chain.
     const s8 = ensureCastAttributes(s7);
-    const s9 = ensureModuleSlices(s8);
+    // Expansion Phase 1 §5.7 — the ruleset / meters / scheduled-event /
+    // obligation slices. Explicit and named rather than left to the generic
+    // sweep below, because the ruleset default is a judgement about what the
+    // save was played under (always `standard`), not a blank.
+    const s8b = ensureExpansionContractSlices(s8);
+    const s9 = ensureModuleSlices(s8b);
     const validation = safeValidateState(s9, { modules: FULL_PIPELINE });
     if (!validation.success) {
       const first = validation.errors[0];

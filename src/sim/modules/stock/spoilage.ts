@@ -8,6 +8,10 @@ import type {
 import { clampPercent } from '../../state/normalize'
 import { areaRegistry } from '../../registries/areaRegistry'
 import { applyRenownDrift } from '../service/renown'
+import {
+  getRule,
+  scaleOngoingContinuous,
+} from '../../contracts/ruleset/index'
 
 // Phase 9 §9.5 — Spoilage.
 //
@@ -117,7 +121,13 @@ export function applyDailySpoilage(ctx: SimContext): void {
       item.storageAreaId,
       item.rarity,
     )
-    const delta = (baseDelta + extra) * multiplier * rarityFactor * areaModifier
+    // Expansion Phase 1 §1.3 — the ruleset's ongoing spoilage knob. Spoilage
+    // is already a continuous quantity, so no fractional banking is needed:
+    // the multiplier survives in the value itself. `standard` is exactly 1.
+    const delta = scaleOngoingContinuous(
+      (baseDelta + extra) * multiplier * rarityFactor * areaModifier,
+      getRule(ctx.state, 'spoilageMultiplier'),
+    )
 
     const beforeSpoilage = item.spoilage
     const nextSpoilage = clampPercent(beforeSpoilage + delta)

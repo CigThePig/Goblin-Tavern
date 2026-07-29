@@ -48,6 +48,7 @@ export type SimulationPhase =
   | 'afterService'
   | 'closing'
   | 'applyResponses'
+  | 'resolveScheduledEvents'
   | 'endDay'
   | 'endWeek'
   | 'endMonth'
@@ -82,6 +83,19 @@ export const SIMULATION_PHASES: readonly SimulationPhase[] = [
   // pending entries, and have those mutations flow through endDay /
   // endWeek / endMonth aggregation and the report pass.
   'applyResponses',
+  // Expansion Phase 1 §1.1 — the `wrap_up` beat for typed scheduled
+  // events. It runs AFTER `applyResponses` so a consequence that comes due
+  // today sees the day's choices (a debt the player just paid down does not
+  // then default), and BEFORE `endDay` so its mutations flow through the
+  // normal end-of-day / week / month aggregation and the report pass, like
+  // any other domain change.
+  //
+  // Deliberately placed after `applyResponses` rather than before it: that
+  // keeps `applyResponses` the first phase of segment C, so the day-clock
+  // contract's segment boundaries (`core/segments.ts`) are unmoved by this
+  // phase. The `morning` beat needs no phase of its own — it runs inside
+  // `startDay`, where the player's morning is assembled.
+  'resolveScheduledEvents',
   'endDay',
   'endWeek',
   'endMonth',

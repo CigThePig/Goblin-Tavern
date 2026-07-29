@@ -42,6 +42,16 @@ import type {
   MonthlyResult,
 } from "../modules/monthly/types";
 import { OWNER_ACTIONS_MODULE_ID } from "../modules/ownerActions/stateHelpers";
+import { RULESET_MODULE_ID } from "../contracts/ruleset/types";
+import { createInitialRulesetModuleState } from "../contracts/ruleset/query";
+import { METERS_MODULE_ID } from "../contracts/meters/types";
+import { createInitialMetersModuleState } from "../contracts/meters/detail";
+import { SCHEDULED_EVENTS_MODULE_ID } from "../contracts/scheduledEvents/types";
+import { createInitialScheduledEventsModuleState } from "../contracts/scheduledEvents/state";
+import {
+  OBLIGATIONS_MODULE_ID,
+  createInitialObligationsModuleState,
+} from "../contracts/obligations/state";
 import type {
   AreaState,
   ExpeditionsState,
@@ -708,6 +718,60 @@ export function ensureExpeditionsSlice<T extends { expeditions?: unknown }>(
     completed: Array.isArray(existing?.completed) ? existing.completed : [],
   };
   return { ...state, expeditions: next };
+}
+
+// Expansion Phase 1 §5.7 — explicit migration for the four contract slices
+// this phase persists.
+//
+// `ensureModuleSlices` below would in fact synthesise all four generically,
+// because each new module declares a `stateSchema`. This helper exists anyway,
+// and runs before it, for two reasons the generic path cannot give:
+//
+//   1. It is NAMED, so the phase that added the fields owns a migration that
+//      a test can call directly, rather than relying on a generic sweep to
+//      have covered it.
+//   2. The ruleset default is a JUDGEMENT, not a blank. A save written before
+//      this phase was played under the reference ruleset by definition, so it
+//      must migrate to `standard`. Defaulting to anything else — or inferring a
+//      difficulty from the save's coin or cleanliness — would FABRICATE a
+//      history the player did not play, which §5 forbids as explicitly as it
+//      forbids losing one.
+//
+// All four slices are additive and empty-by-default, so a pre-phase save
+// gains no obligations, no scheduled events, and no hidden meter debt. It
+// starts accruing them from the day it is loaded, which is the only honest
+// answer: the simulation cannot reconstruct promises it never recorded.
+export function ensureExpansionContractSlices<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const next: Record<string, unknown> = { ...current };
+  let changed = false;
+
+  if (!isRecord(next[RULESET_MODULE_ID])) {
+    next[RULESET_MODULE_ID] = createInitialRulesetModuleState();
+    changed = true;
+  }
+  if (!isRecord(next[METERS_MODULE_ID])) {
+    next[METERS_MODULE_ID] = createInitialMetersModuleState();
+    changed = true;
+  }
+  if (!isRecord(next[SCHEDULED_EVENTS_MODULE_ID])) {
+    next[SCHEDULED_EVENTS_MODULE_ID] =
+      createInitialScheduledEventsModuleState();
+    changed = true;
+  }
+  if (!isRecord(next[OBLIGATIONS_MODULE_ID])) {
+    next[OBLIGATIONS_MODULE_ID] = createInitialObligationsModuleState();
+    changed = true;
+  }
+
+  if (!changed && state.modules) return state;
+  return { ...state, modules: next };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 // Phase 89 / ISSUE-049 — synthesise any module-state slot the current

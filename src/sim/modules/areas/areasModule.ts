@@ -11,6 +11,8 @@ import {
   ensureRequiredAreasRegistered,
 } from '../../registries/areaRegistry'
 import { clampPercent } from '../../state/normalize'
+import { getRule, scaleOngoingIntegerDecay } from '../../contracts/ruleset/index'
+import { recordMeterMovement } from '../../contracts/meters/index'
 import { ensureRequiredAreaTraitsRegistered } from '../../content/tavern/areaTraitRegistry'
 import {
   areaUpgradeRegistry,
@@ -99,54 +101,86 @@ const endWeekHook: SimulationHook = (ctx: SimContext): void => {
   }
 }
 
+/**
+ * Expansion Phase 1 §1.3 / §1.5 — apply one unit of ongoing area decay
+ * through the shared ruleset and meter machinery.
+ *
+ * Two things happen that did not before:
+ *
+ *   1. the base delta is scaled by `areaDeteriorationMultiplier`, with the
+ *      fractional remainder banked, so `easy` really does decay ~60% as fast
+ *      rather than rounding back to the same integer (`OBL-05`);
+ *   2. movement that the `[0,100]` clamp would have thrown away is recorded
+ *      as meter debt or excess, so a room that has been filthy for a
+ *      fortnight is no longer indistinguishable from one filthy since
+ *      Tuesday.
+ *
+ * On `standard` the multiplier is exactly 1 and the banking is skipped
+ * entirely, so the reference route's numbers are unchanged.
+ */
+function decayAreaField(
+  ctx: SimContext,
+  areaId: string,
+  field: 'cleanliness' | 'condition' | 'smell' | 'risk',
+  /** Signed: negative worsens a "higher is better" meter. */
+  baseDelta: number,
+  reason: string,
+): void {
+  const area = ctx.state.areas[areaId]
+  if (!area) return
+
+  const multiplier = getRule(ctx.state, 'areaDeteriorationMultiplier')
+  const scaled = scaleOngoingIntegerDecay(
+    ctx,
+    `area_decay:${areaId}:${field}`,
+    baseDelta,
+    multiplier,
+  )
+  if (scaled === 0) return
+
+  const previous = area[field]
+  const desired = previous + scaled
+  const visible = clampPercent(desired)
+
+  if (visible !== previous) {
+    ctx.modifyArea(areaId, { [field]: visible }, { source: SOURCE, reason })
+  }
+
+  // Recorded even when the visible value did not move — that is exactly the
+  // case §1.5 exists for.
+  recordMeterMovement(ctx, {
+    target: `area:${areaId}.${field}`,
+    previousVisible: previous,
+    desired,
+    visible,
+  })
+}
+
 function applyPassiveDecay(ctx: SimContext): void {
   // Numbers are intentionally small. Phase 8 is about believable movement,
   // not balance — see `phases-06-10.md` §8.3 ("intentionally imperfect").
 
-  const main = ctx.state.areas['main_room']
-  if (main) {
-    ctx.modifyArea(
-      'main_room',
-      { cleanliness: clampPercent(main.cleanliness - 1) },
-      { source: SOURCE, reason: 'passive_decay' },
-    )
-  }
+  decayAreaField(ctx, 'main_room', 'cleanliness', -1, 'passive_decay')
 
   const kitchen = ctx.state.areas['kitchen']
   if (kitchen) {
+    // The roll is taken before scaling so the RNG draw is unchanged by
+    // difficulty — otherwise `easy` and `standard` would diverge in every
+    // downstream stream, not just in the decay this rule owns.
     const drift = ctx.rng.chance(0.5) ? 2 : 1
-    ctx.modifyArea(
-      'kitchen',
-      { cleanliness: clampPercent(kitchen.cleanliness - drift) },
-      { source: SOURCE, reason: 'passive_decay' },
-    )
+    decayAreaField(ctx, 'kitchen', 'cleanliness', -drift, 'passive_decay')
   }
 
-  const privy = ctx.state.areas['privy']
-  if (privy) {
-    ctx.modifyArea(
-      'privy',
-      { smell: clampPercent(privy.smell + 1) },
-      { source: SOURCE, reason: 'passive_decay' },
-    )
-  }
+  decayAreaField(ctx, 'privy', 'smell', 1, 'passive_decay')
 
   const cellar = ctx.state.areas['cellar']
   if (cellar && cellar.cleanliness < 40) {
-    ctx.modifyArea(
-      'cellar',
-      { risk: clampPercent(cellar.risk + 1) },
-      { source: SOURCE, reason: 'pest_drift' },
-    )
+    decayAreaField(ctx, 'cellar', 'risk', 1, 'pest_drift')
   }
 
   const roof = ctx.state.areas['roof']
   if (roof && ctx.rng.chance(0.2)) {
-    ctx.modifyArea(
-      'roof',
-      { condition: clampPercent(roof.condition - 1) },
-      { source: SOURCE, reason: 'weather_decay' },
-    )
+    decayAreaField(ctx, 'roof', 'condition', -1, 'weather_decay')
   }
 
   // Phase 28 §28.8 — a sticky floor catches an extra boot every couple
@@ -155,12 +189,9 @@ function applyPassiveDecay(ctx: SimContext): void {
   // between the trait present and trait absent — without leaning on the
   // RNG state, which other modules also draw from.
   const dayParity = ctx.state.calendar.totalDaysElapsed % 2
-  if (main && main.traits.includes('sticky_floor') && dayParity === 0) {
-    ctx.modifyArea(
-      'main_room',
-      { risk: clampPercent(main.risk + 1) },
-      { source: SOURCE, reason: 'sticky_floor_trait' },
-    )
+  const mainRoom = ctx.state.areas['main_room']
+  if (mainRoom && mainRoom.traits.includes('sticky_floor') && dayParity === 0) {
+    decayAreaField(ctx, 'main_room', 'risk', 1, 'sticky_floor_trait')
   }
 }
 

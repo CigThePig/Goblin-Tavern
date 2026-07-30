@@ -82,6 +82,13 @@ const ID_FIELDS = new Set([
   'ingredientId',
   'stockId',
   'areaId',
+  // Expansion Phase 2 §2.2 — the construction planner routes on
+  // `<areaId>:<upgradeId>` composite targets, so `upgradeId` joins the
+  // identifier-by-contract list beside `areaId` and `stockId`. Every upgrade a
+  // player reads is rendered from its catalogue `label`; the quote's
+  // `replacesLabel` is likewise a label, not the id it resolves.
+  'upgradeId',
+  'edgeId',
   'staffId',
   'path',
   'source',

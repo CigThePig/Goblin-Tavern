@@ -38,7 +38,7 @@ import {
   getOwnerActionsModuleState,
 } from "../ownerActions/stateHelpers";
 import type { OwnerActionsModuleState } from "../ownerActions/types";
-import { getScheduledEventDefinition } from "../../contracts/scheduledEvents/registry";
+import { findScheduledEventDefinitionForHookName } from "../../contracts/scheduledEvents/registry";
 import { scheduleEvent } from "../../contracts/scheduledEvents/state";
 
 // Phase 41 / ISSUE-001 — engine-path applier.
@@ -695,7 +695,15 @@ export function createCtxApplier(ctx: SimContext): EffectApplier {
       // only the owning domain knows what its event needs, and a guessed
       // payload would either fail the schema days later or, worse, pass it
       // with meaningless contents.
-      const definition = getScheduledEventDefinition(input.hookName);
+      //
+      // Expansion Phase 2 §2.2 — the lookup also honours declared name
+      // PREFIXES, so a parameterised family (`area_collapse_risk_main_room`)
+      // can be claimed by one registered type. The queued record then carries
+      // the registered TYPE, not the hook name, because the drain resolves by
+      // type; the subject travels in the payload the owner's adapter built.
+      const definition = findScheduledEventDefinitionForHookName(
+        input.hookName,
+      );
       const adapted = definition?.fromFutureHook?.({
         hookName: input.hookName,
         readable: input.readable,
@@ -704,7 +712,7 @@ export function createCtxApplier(ctx: SimContext): EffectApplier {
 
       if (definition && adapted) {
         const result = scheduleEvent(ctx, {
-          type: input.hookName,
+          type: definition.type,
           ...(adapted.target ? { target: adapted.target } : {}),
           scheduledForDay: input.scheduledForDay,
           expiryDays,

@@ -68,6 +68,7 @@
 import {
   ensureWorldBranch,
   ensureAreaIdentityFields,
+  ensureAreaConstructionFields,
   ensureStaffIdentityFields,
   ensureCastAttributes,
   ensureWeeklyHistoryField,
@@ -719,7 +720,12 @@ function migrateAndValidateState(
   try {
     const s0 = rawState as Partial<TavernState>;
     const s1 = ensureWorldBranch(s0);
-    const s2 = ensureAreaIdentityFields(s1);
+    const s2a = ensureAreaIdentityFields(s1);
+    // Expansion Phase 2 §5.7 — fill in the construction bookkeeping an older
+    // upgrade record lacks, and convert the five retired owner-project types
+    // into authoritative upgrade records. Runs immediately after the identity
+    // pass because it needs `upgrades` to be a real object first.
+    const s2 = ensureAreaConstructionFields(s2a);
     const s3 = ensureStaffIdentityFields(s2);
     const s4 = ensureRecipesSlice(s3);
     const s4b = flipUpkeepRecipesOffMenu(s4);

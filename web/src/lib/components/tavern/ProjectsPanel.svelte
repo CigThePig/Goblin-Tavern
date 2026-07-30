@@ -1,10 +1,16 @@
 <!--
-  ProjectsPanel — the Tavern > Projects tab. Hosts active projects,
-  available project starters, policies, and recent social moves.
+  ProjectsPanel — the Tavern > Projects tab.
 
-  Project rows use inline <details> for per-row deeper info instead of
-  bottom sheets (the data is small enough). Policies toggle inline.
-  Available project starters queue via the standard pick path.
+  Expansion Phase 2 §"Player-facing work" — the panel now leads with
+  CONSTRUCTION: live sites with their labour progress and stall reasons,
+  fittings wanting a repair or a service, and every upgrade that can be
+  started with the quote the sim will charge. The legacy project sections
+  follow, and render only when a project record actually exists (the five
+  upgrade-building starters were retired; they duplicated upgrade definitions).
+
+  Rows use inline <details> for per-row deeper info instead of bottom sheets
+  (the data is small enough). Policies toggle inline. Everything queues via
+  the standard pick path, so no surface here applies anything itself.
 -->
 <script lang="ts">
   import TermLabel from '../TermLabel.svelte'
@@ -15,6 +21,9 @@
   import { idLabel } from '../../../../../src/reports/labels/idLabel'
   import type {
     AvailableProjectRow,
+    BuildableUpgradeRow,
+    ConstructionSiteRow,
+    FittingAttentionRow,
     PolicyRow,
     ProjectPanelData,
     ProjectRow,
@@ -112,13 +121,190 @@
 </script>
 
 <section class="panel" aria-label="Projects">
+  <!-- ── Construction (Expansion Phase 2 §"Player-facing work") ───
+       Live sites, then fittings wanting attention, then what can be built.
+       Every button queues through the standard pick path; the panel decides
+       nothing about cost or eligibility — the quote and the reasons come
+       straight from the sim. -->
+  <section class="block">
+    <h2 class="block-label section-label">
+      <TermLabel term="area_upgrade" label="Building" />
+      ({data.construction.activeSites}/{data.construction.maxConcurrentSites} sites)
+    </h2>
+    {#if data.construction.sites.length === 0}
+      <p class="quiet">No work in hand. Start something below.</p>
+    {:else}
+      <ul class="rows">
+        {#each data.construction.sites as site (site.areaId + ':' + site.upgradeId)}
+          {@const targetId = site.areaId + ':' + site.upgradeId}
+          <li class="project">
+            <header class="head">
+              <span class="label">{site.label}</span>
+              <span class="status chip status-{site.status === 'paused' ? 'blocked' : 'active'}">
+                {site.status === 'paused' ? 'Paused' : 'In progress'}
+              </span>
+            </header>
+            <p class="meta chip">
+              in {site.areaLabel} · started day {site.startedAtDay} ·
+              {site.coinInvested}c invested
+              {#if site.expectedDaysRemaining !== null}
+                · ~{site.expectedDaysRemaining}d left
+              {/if}
+              {#if site.blocksPercentWhileBuilding > 0}
+                · {site.blocksPercentWhileBuilding}% of the room closed
+              {/if}
+            </p>
+            <MeterBar
+              label="labour {site.progress} of {site.requiredProgress}"
+              value={site.progress}
+              max={site.requiredProgress}
+              mode="wellness"
+            />
+            {#if site.stalledReason}
+              <p class="stalled">Stalled — {site.stalledReason}</p>
+            {/if}
+            <div class="actions">
+              {#each site.applicableActions as ref (ref.actionId)}
+                {@const queued = isQueued(ref.actionId, targetId)}
+                <button
+                  type="button"
+                  class="action-pill"
+                  class:queued
+                  disabled={!queued && ref.disabledReason !== undefined}
+                  onclick={() => queueAction(ref, targetId, site.label)}
+                >
+                  {ref.label}
+                  {#if ref.timeCost > 0}
+                    <span class="cost mono">{formatDuration(ref.timeCost)}</span>
+                  {/if}
+                  {#if queued}
+                    <span class="q">·queued</span>
+                  {:else if ref.disabledReason}
+                    <span class="r">·{humanizeActionReason(ref.disabledReason)}</span>
+                  {/if}
+                </button>
+              {/each}
+            </div>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+
+    {#if data.construction.conflicts.length > 0}
+      <ul class="conflicts">
+        {#each data.construction.conflicts as conflict (conflict.label + conflict.reason)}
+          <li class="stalled">{conflict.label}: {conflict.reason}</li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
+
+  {#if data.construction.attention.length > 0}
+    <section class="block">
+      <h2 class="block-label section-label">Fittings wanting attention</h2>
+      <ul class="rows">
+        {#each data.construction.attention as fitting (fitting.areaId + ':' + fitting.upgradeId)}
+          {@const targetId = fitting.areaId + ':' + fitting.upgradeId}
+          <li class="available">
+            <header class="head">
+              <span class="label">{fitting.label}</span>
+              <span class="cost mono">condition {fitting.condition}</span>
+            </header>
+            <p class="meta chip">in {fitting.areaLabel}</p>
+            <p class="stalled">{fitting.reason}</p>
+            <div class="actions">
+              {#each fitting.applicableActions as ref (ref.actionId)}
+                {@const queued = isQueued(ref.actionId, targetId)}
+                <button
+                  type="button"
+                  class="action-pill"
+                  class:queued
+                  disabled={!queued && ref.disabledReason !== undefined}
+                  onclick={() => queueAction(ref, targetId, fitting.label)}
+                >
+                  {ref.label}
+                  {#if ref.timeCost > 0}
+                    <span class="cost mono">{formatDuration(ref.timeCost)}</span>
+                  {/if}
+                  {#if queued}
+                    <span class="q">·queued</span>
+                  {:else if ref.disabledReason}
+                    <span class="r">·{humanizeActionReason(ref.disabledReason)}</span>
+                  {/if}
+                </button>
+              {/each}
+            </div>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
+
+  {#if data.construction.buildable.length > 0}
+    <section class="block">
+      <h2 class="block-label section-label">Build something</h2>
+      <ul class="rows">
+        {#each data.construction.buildable as row (row.areaId + ':' + row.upgradeId)}
+          {@const targetId = row.areaId + ':' + row.upgradeId}
+          <li class="available" class:unaffordable={!row.quote.affordable}>
+            <header class="head">
+              <span class="label">{row.label} — {row.areaLabel}</span>
+              <span class="cost mono">{row.quote.coin}c</span>
+            </header>
+            <p class="meta chip">
+              {row.quote.labourRequired} labour
+              {#if row.quote.expectedDays !== null}· ~{row.quote.expectedDays}d{/if}
+              {#if row.quote.materials.length > 0}
+                ·
+                {#each row.quote.materials as line (line.stockId)}
+                  <span class:short={line.short > 0}>
+                    {line.required} {line.label} ({line.held})
+                  </span>
+                {/each}
+              {/if}
+            </p>
+            {#if row.quote.upkeep}
+              <p class="meta chip">
+                upkeep {row.quote.upkeep.coin}c every {row.quote.upkeep.intervalDays}d
+              </p>
+            {/if}
+            {#if !row.quote.affordable && row.quote.affordabilityReason}
+              <p class="stalled">{row.quote.affordabilityReason}</p>
+            {/if}
+            <div class="actions">
+              {#each row.applicableActions as ref (ref.actionId)}
+                {@const queued = isQueued(ref.actionId, targetId)}
+                <button
+                  type="button"
+                  class="action-pill"
+                  class:queued
+                  disabled={!queued && ref.disabledReason !== undefined}
+                  onclick={() => queueAction(ref, targetId, row.label)}
+                >
+                  {queued ? 'queued · tap to remove' : ref.label}
+                  {#if ref.timeCost > 0}
+                    <span class="cost mono">{formatDuration(ref.timeCost)}</span>
+                  {/if}
+                  {#if !queued && ref.disabledReason}
+                    <span class="r">·{humanizeActionReason(ref.disabledReason)}</span>
+                  {/if}
+                </button>
+              {/each}
+            </div>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
+
   <!-- ── Active projects ────────────────────────────────────────── -->
+  {#if data.active.length > 0}
   <section class="block">
     <h2 class="block-label section-label">
       <TermLabel term="project" label="Active projects" /> ({data.active.length})
     </h2>
     {#if data.active.length === 0}
-      <p class="quiet">No projects in flight. Start one below.</p>
+      <p class="quiet">No projects in flight.</p>
     {:else}
       <ul class="rows">
         {#each data.active as project (project.id)}
@@ -184,6 +370,8 @@
       </ul>
     {/if}
   </section>
+  {/if}
+
 
   <!-- ── Available project starters ──────────────────────────────── -->
   {#if data.available.length > 0}
@@ -432,6 +620,25 @@
     flex-wrap: wrap;
     gap: var(--sp-xs);
     margin-top: var(--sp-xs);
+  }
+
+  .conflicts {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: var(--sp-xs);
+  }
+
+  .stalled {
+    color: var(--text-warn, var(--text-dim));
+  }
+
+  .short {
+    color: var(--text-warn, var(--text-dim));
+  }
+
+  .unaffordable .label {
+    color: var(--text-dim);
   }
 
   .action-pill {

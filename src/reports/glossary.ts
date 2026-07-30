@@ -427,8 +427,27 @@ const MECHANIC_TERMS: GlossaryTerm[] = [
     id: 'area_upgrade',
     label: 'Area Upgrade',
     category: 'mechanic',
-    oneLine: 'Buildable improvement to an area. Costs coin and time to install; can be damaged or disabled.',
-    longer: 'Each upgrade declares a coin cost, optional build days, and the traits / atmosphere tags it adds or removes once installed. Many are gated to specific areas.',
+    oneLine: 'Buildable improvement to a room. Costs coin, materials and site labour, then needs servicing.',
+    // Expansion Phase 2 §5.12 — this entry deliberately states the SHAPE of the
+    // rule and nothing else. Every actual figure (coin, materials, labour,
+    // eligibility, upkeep interval, repair cost) is derived per upgrade by
+    // `src/reports/upgradeHelp.ts` straight from the catalogue, so there is no
+    // second prose copy of a number here to fall out of date.
+    longer: 'Start one from a room and the quote shows what it needs: coin, materials from stores, and labour points the site banks each day. Builds can be paused, resumed or abandoned, and they close part of the room while they run. Once installed, a fitting adds capacity, wears out if its service falls overdue, and can be damaged, disabled and repaired. Per-upgrade costs and requirements are shown on the upgrade itself.',
+  },
+  {
+    id: 'area_capacity',
+    label: 'Capacity',
+    category: 'mechanic',
+    oneLine: 'How much a room physically holds: seats, work stations, storage.',
+    longer: 'Capacity is the room\'s own size plus whatever its installed fittings add, minus whatever is out of use — a build standing in the middle of it, or a room in bad enough repair that it cannot be used to its nominal size. More patrons than usable seats means mess, wear and tempers.',
+  },
+  {
+    id: 'site_labour',
+    label: 'Site Labour',
+    category: 'mechanic',
+    oneLine: 'Points of work banked toward finishing a build.',
+    longer: 'A running site banks a little every day on its own. A staff member set to minor repairs adds more, and you can put a shift in yourself. Crossing the tavern to work in a room you have not been in today costs part of that shift to travel and setup.',
   },
   {
     id: 'atmosphere',

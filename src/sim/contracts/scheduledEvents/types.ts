@@ -190,6 +190,24 @@ export type ScheduledEventDefinition = {
     readable: string
     scheduledForDay: number
   }) => { payload: unknown; target?: EntityRef } | undefined
+
+  /**
+   * Hook-name PREFIXES this type claims, for parameterised hook families.
+   *
+   * Expansion Phase 2 §2.2. Phase 1's bridge matched a hook name against the
+   * event-type key exactly, which works for a fixed name
+   * (`failed_patch_possible`) but not for the many families that carry their
+   * subject in the name (`area_collapse_risk_main_room`,
+   * `staff_quit_risk_mira`, `supplier_retaliation_*`). Those families are the
+   * majority of the `HOOK-*` ledger rows, so every later phase would have hit
+   * the same wall.
+   *
+   * The prefix is a CLAIM, not a parse: the owning domain still supplies
+   * `fromFutureHook`, still turns the name into a validated payload, and still
+   * declines by returning `undefined`. Longest prefix wins, so a general family
+   * cannot shadow a more specific one, and exact type matches are tried first.
+   */
+  futureHookPrefixes?: ReadonlyArray<string>
 }
 
 /** A queued event on state. One shape for both kinds so the drain walks one list. */

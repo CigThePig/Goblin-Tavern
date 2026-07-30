@@ -73,3 +73,10 @@ export type {
   OwnerSocialActionOutcome,
   OwnerSocialActionRecord,
 } from './types'
+
+// Expansion Phase 2 §2.2 — the upgrade lifecycle's owner actions (OBL-01).
+export {
+  AREA_UPGRADE_ACTIONS,
+  parseUpgradeTarget,
+  upgradeTargetId,
+} from './upgradeActions'

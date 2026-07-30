@@ -139,8 +139,8 @@ re-counted by hand.
 | Card templates including fallback | 24 | 24 | `src/cards/templates/index.ts` → `REQUIRED_CARDS` |
 | Areas | 9 | 9 | `src/sim/registries/areaRegistry.ts` |
 | Area-upgrade definitions | 18 | 18 | `src/sim/content/tavern/areaUpgradeRegistry.ts` |
-| Stock records | 20 | 20 | `src/sim/registries/stockRegistry.ts` |
-| Recipes | 20 | 20 | `src/sim/registries/recipeRegistry.ts` |
+| Stock records | 20 | 20 → **22** (Phase 2) | `src/sim/registries/stockRegistry.ts` |
+| Recipes | 20 | 20 → **22** (Phase 2) | `src/sim/registries/recipeRegistry.ts` |
 | Customer groups | 9 | 9 | `src/sim/registries/customerRegistry.ts` |
 | Founding staff | 3 | 3 | `createInitialTavernState()` → `state.staff` |
 | Cultures | 8 | 8 | `src/sim/content/cultures/cultureRegistry.ts` |
@@ -154,6 +154,20 @@ re-counted by hand.
 Two adjacent counts the audited table omits, recorded here because later
 phases touch them: **6 staff roles** (`staffRegistry`) and **10
 reputation axes** (`state.reputation`).
+
+**Counts moved by later phases, recorded here as they land** (the frozen
+`repo-map.json` is the authority; this table is orientation):
+
+| Phase | Count | Change | Why |
+|---|---|---|---|
+| 1 | Runtime modules | 29 → 33 | the four shared-contract modules |
+| 1 | Simulation phases | 25 → 26 | `resolveScheduledEvents` (the wrap-up beat) |
+| 2 | Stock records | 20 → 22 | `timber` + `cut_stone`, the materials §2.3 makes a build consume |
+| 2 | Recipes | 20 → 22 | the 1:1 `dish_<id>` rows the stock/recipe pairing invariant requires; both carry `upkeep`, so nothing serves them |
+| 2 | Owner actions | 41 → 41 | seven upgrade-lifecycle actions in, seven retired project actions out |
+
+**Area-upgrade definitions stay at 18 through Phase 2** — the phase makes
+the existing catalogue buildable rather than growing it.
 
 The last known clean baseline contained 291 passing test files and 3,702 passing tests, plus clean type checking, Svelte checking, and a production build. These numbers are historical orientation, not hardcoded future requirements. The current repository’s equivalent gates become authoritative in Phase 0.
 
@@ -697,6 +711,126 @@ Update:
 ## Completion gate
 
 OBL-01 is closed. Areas are functional capacity owners that materially shape service and work rather than only supplying threshold meters.
+
+## What Phase 2 actually landed (2026-07-30, ISSUE-172)
+
+Detail lives in `docs/plans/expansion/ledger.csv` rows **`OBL-01`**,
+**`DEP-03`** and the three `HOOK-*` rows named below — no per-phase plan
+doc, per the arc's convention. What follows is the shape of it and the
+judgement calls that a later phase needs to know about.
+
+**§2.1 one authoritative area model.** Capacity is four abstract kinds
+(`seats`, `workstations`, `storage`, `beds`, in
+`src/sim/registries/areaCapacityTypes.ts`), each with at least one real
+consumer. It is **derived, never stored** — base size from
+`areaRegistry` + installed fittings − blockage, computed in
+`src/sim/modules/areas/capacity.ts`. A stored `usableSeats` would be a
+second representation of the same truth that could disagree with the
+upgrade records, which is the duplication §2.2 forbids applied to the
+number rather than the record. Adjacency is static too: **11 links across
+9 areas** (36 pairs are possible), declared once per unordered pair and
+read from both ends.
+
+**§2.2 the upgrade lifecycle, and the unification.** `AreaUpgradeState` is
+now the one authoritative construction record: the accepted quote, the
+labour banked against it, the materials consumed, why the last tick
+stalled, and — once installed — the fitting's own condition and upkeep
+clock. `src/sim/modules/areas/construction.ts` is the only writer;
+owner actions, scheduled events and propagation edges all *request*
+transitions there. Statuses gained `paused` and `cancelled` so
+start → pause → resume → cancel is a real path and a superseded fitting
+has somewhere honest to land.
+
+**The five project starters that built upgrades are retired.** Each of
+them wrote a *trait* plus its own progress row while the matching
+`AreaState.upgrades` record sat at `available` forever — the exact
+duplication §2.2 names. They live on as `legacyProjectType` on their
+upgrade definitions, and `fund_active_project` / `cancel_project` went
+with them because their only possible targets were those five records.
+Owner actions therefore stay at **41**: seven in, seven out. The general
+project system (`OwnerProjectState`, the slice, the tick) is deliberately
+kept with an empty starter list, since the plan permits non-upgrade
+projects to keep using it. **In-flight and completed legacy project rows
+convert to authoritative upgrade records on load**
+(`ensureAreaConstructionFields`), so no save loses work it paid for — and
+the upkeep clock starts from the day the save is at rather than being
+backdated into a bill the player never incurred.
+
+**§2.3 work and construction capacity.** Builds need coin, **materials
+drawn from stock** (`timber`, `cut_stone` — the only two new content items
+this phase adds, procured through the existing `restock_item`), and
+**labour points** banked day by day. An unattended site banks 1/day; a
+staff member on `minor_repairs` adds more; the owner can put a shift in
+for `TIME_COST_SHORT`. Only `cleaner_bouncer` may take `minor_repairs`, so
+a crew is a standing choice with a cost, and it is what raises the
+concurrent-site limit above one.
+
+**§2.4 bounded propagation.** Eight edges, listed in one file, each naming
+the physical route it travels; the two that cross rooms are checked
+against the adjacency graph by `findUngroundedPropagationEdges` rather
+than trusted. Every edge reads one snapshot taken before the pass and
+writes at most one target, so nothing cascades inside a single day —
+chains form across days, which is legible.
+
+**§2.5 scheduling.** The day's schedule is **load-bearing, not a
+display**: `tickConstruction` advances only the sites whose block came out
+`scheduled`, and a conflicted block always carries a reason. The locked
+360-minute owner budget is untouched (`phase-186-day-clock-time-economy.md`
+§2.5); travel/setup is charged in **labour** rather than minutes, because
+the minute budget belongs to that contract and this phase does not get to
+reprice it.
+
+**Three future-hook families moved from narrative to mechanical**
+(`src/sim/modules/areas/areaEvents.ts`): `failed_patch_possible`,
+`area_collapse_risk_*` and `area_project_completion_*`. Each performs an
+authoritative mutation and each has a genuine explained no-op for the
+player who put the room right in the meantime. Doing this needed one
+**additive extension to the Phase 1 bridge**: `futureHookPrefixes` on a
+scheduled-event definition, because Phase 1 matched a hook name against
+the event-type key exactly and the parameterised families are the
+majority of the `HOOK-*` rows. The owning domain still supplies the
+adapter and can still decline. Three area-ish families **stay narrative
+with the reason recorded** rather than fudged — `area_failure_possible`
+(declared at seed level, and only profile-level hooks reach the bridge, so
+Phase 11 owns it), `cellar_capacity_unlocked_*` (honouring it means
+installing a fitting nobody paid for; Phase 5 owns the monthly domain) and
+`main_room_too_dark` (a test fixture, not shipped content).
+
+**CON-05 is closed as a side effect.** `applyDebtToRecovery` finally has
+its production caller: an installed fitting's cleanliness/condition
+improvement is spent against banked meter debt first, so one upgrade does
+not undo a fortnight of neglect.
+
+**Calibration judgement worth carrying forward.** `main_room` seats **90**
+(pooled customer-facing seating 110) was chosen so the *reference route
+never overcrowds* — its busiest measured evening is 103 patrons. Capacity
+binds when the **player** makes it bind: a build closing 30% of the main
+room, a room left to rot below condition 35, or patronage grown past the
+house. An earlier calibration (60 seats) taxed every opening night and
+displaced the `violence` family from the DC-06 attention budget, which is
+the wrong shape for a constraint. Queues, patience and abandonment are
+Phase 4's; this phase stops at crowding.
+
+**Baseline drift, regenerated deliberately.** All 13 frozen probes moved
+and were rewritten (`npm run baseline:probes -- --write`). The drift is
+the phase's own consequences: +2 stock and +2 recipe records in every
+`collections` count, `activeProblems` where a propagation edge fired, and
+on the managed multi-week routes the crowding/storage rules shifting
+traffic, satisfaction and coin by a few percent. The reference `no-action`
+route moved by one visitor. `repo-map.json` moved on three sections
+(`moduleStateSlices` gains `areas`, the migration chain gains
+`ensureAreaConstructionFields`, `stockRecords`/`recipes` 20 → 22) plus the
+two new glossary terms.
+
+Gates: `npm run test:full` **307 files / 4,015 tests**, `npm test` 299 /
+3,886, `typecheck` clean, `check` 1,023 files / 0 errors, `build` passing
+(same known >500 kB chunk warning §13.5 asks Phase 13 to split), and all
+three expansion artifacts clean — `ledger:check` 134 rows,
+`baseline:probes` 0 drifted, `repo:map` 0 sections drifted. Tests:
+`tests/sim/phase209.areaUpgradeLifecycle.test.ts` (35),
+`phase209.areaCapacityAndPropagation.test.ts` (27),
+`phase209.constructionBeatPersistence.test.ts` (3). All three run in
+seconds, so none joins `HEAVY_TEST_GLOBS`.
 
 ---
 

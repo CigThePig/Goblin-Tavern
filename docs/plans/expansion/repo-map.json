@@ -125,6 +125,7 @@
     ]
   },
   "moduleStateSlices": [
+    "areas",
     "attribution",
     "causes",
     "customers",
@@ -193,6 +194,7 @@
     "migrationSteps": [
       "ensureWorldBranch",
       "ensureAreaIdentityFields",
+      "ensureAreaConstructionFields",
       "ensureStaffIdentityFields",
       "ensureRecipesSlice",
       "flipUpkeepRecipesOffMenu",
@@ -224,8 +226,8 @@
     "cardTemplates": 24,
     "areas": 9,
     "areaUpgrades": 18,
-    "stockRecords": 20,
-    "recipes": 20,
+    "stockRecords": 22,
+    "recipes": 22,
     "customerGroups": 9,
     "foundingStaff": 3,
     "cultures": 8,
@@ -243,6 +245,7 @@
     "action_points",
     "adventurer",
     "arc_escalation",
+    "area_capacity",
     "area_trait",
     "area_upgrade",
     "atmosphere",
@@ -341,6 +344,7 @@
     "settings",
     "severity",
     "shortage",
+    "site_labour",
     "social_action",
     "spoilage",
     "staff_burnout",

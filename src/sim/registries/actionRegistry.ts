@@ -5,6 +5,7 @@ import {
 import { PROJECT_ACTIONS } from '../modules/ownerActions/projectActions'
 import { POLICY_ACTIONS } from '../modules/ownerActions/policyActions'
 import { SOCIAL_ACTIONS } from '../modules/ownerActions/socialActions'
+import { AREA_UPGRADE_ACTIONS } from '../modules/ownerActions/upgradeActions'
 import type { OwnerActionDefinition } from '../modules/ownerActions/types'
 
 // Phase 13 §13.1 — Owner action registry.
@@ -19,6 +20,11 @@ import type { OwnerActionDefinition } from '../modules/ownerActions/types'
 // `OwnerActionDefinition` shape (Phase 33 §33.2 widens it with the
 // `category` field) so the runtime can dispatch them through the
 // existing `applyOwnerActions` hook without a parallel pipeline.
+//
+// Expansion Phase 2 §2.2 — `AREA_UPGRADE_ACTIONS` adds the upgrade lifecycle
+// (start / fund / pause / resume / cancel / repair / service). They target
+// `"<areaId>:<upgradeId>"` composite ids, which the generic picker enumerates
+// like any other flat target list, and every target's `hint` carries its quote.
 
 export type { OwnerActionDefinition }
 
@@ -33,6 +39,10 @@ export function ensureRequiredOwnerActionsRegistered(): void {
     ...PROJECT_ACTIONS,
     ...POLICY_ACTIONS,
     ...SOCIAL_ACTIONS,
+    // Expansion Phase 2 §2.2 — the seven-action upgrade lifecycle that closes
+    // OBL-01. They share the `OwnerActionDefinition` shape, so they dispatch
+    // through the existing `applyOwnerActions` hook like everything else.
+    ...AREA_UPGRADE_ACTIONS,
   ]
   for (const def of all) {
     if (!actionRegistry.has(def.id)) {

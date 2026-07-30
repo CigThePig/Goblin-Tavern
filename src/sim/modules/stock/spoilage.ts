@@ -3,10 +3,12 @@ import type {
   AreaState,
   StockRarity,
   StockState,
+  TavernState,
 } from '../../state/TavernState'
 
 import { clampPercent } from '../../state/normalize'
 import { areaRegistry } from '../../registries/areaRegistry'
+import { getUsableCapacity } from '../areas/capacity'
 import { applyRenownDrift } from '../service/renown'
 import {
   getRule,
@@ -84,6 +86,41 @@ function areaSpoilageModifier(
   return def.spoilageModifier.multiplier
 }
 
+/**
+ * Expansion Phase 2 §2.1 — the storage-capacity consumer.
+ *
+ * `storage` capacity has to mean something or it is a number in a report. An
+ * overstuffed store keeps badly: crates jammed against each other, nothing
+ * turned, no air. So stock held in an area beyond its USABLE storage — base
+ * size plus its installed fittings, minus whatever a live build has closed off
+ * — spoils faster, in proportion to how far over it is.
+ *
+ * This is what makes `rat_proof_barrels` (+6) and `cold_stone_shelves` (+8)
+ * worth building, and what makes a cellar build's blockage cost something
+ * while it runs.
+ */
+function overstuffedStorageMultiplier(
+  state: TavernState,
+  storageAreaId: string | undefined,
+): number {
+  if (!storageAreaId) return 1
+  const area = state.areas[storageAreaId]
+  if (!area) return 1
+  const usable = getUsableCapacity(area, 'storage')
+  if (usable <= 0) return 1
+  let held = 0
+  for (const item of Object.values(state.stock)) {
+    if (item.storageAreaId !== storageAreaId) continue
+    held += item.quantity
+  }
+  // One storage slot holds ten units — the same abstraction the capacity
+  // numbers were picked against (a 24-slot cellar holds ~240 units).
+  const slotsUsed = held / 10
+  if (slotsUsed <= usable) return 1
+  const over = (slotsUsed - usable) / usable
+  return 1 + Math.min(1, over)
+}
+
 // Phase 67 / ISSUE-027 §6.6 — Spoilage-driven renown drift threshold.
 // A rare-tier+ item that crosses the saturated-spoilage threshold this
 // day is considered "spoiled unsold" and shaves a small amount off
@@ -124,8 +161,13 @@ export function applyDailySpoilage(ctx: SimContext): void {
     // Expansion Phase 1 §1.3 — the ruleset's ongoing spoilage knob. Spoilage
     // is already a continuous quantity, so no fractional banking is needed:
     // the multiplier survives in the value itself. `standard` is exactly 1.
+    // Expansion Phase 2 §2.1 — an over-capacity store keeps badly.
+    const crowdedStore = overstuffedStorageMultiplier(
+      ctx.state,
+      item.storageAreaId,
+    )
     const delta = scaleOngoingContinuous(
-      (baseDelta + extra) * multiplier * rarityFactor * areaModifier,
+      (baseDelta + extra) * multiplier * rarityFactor * areaModifier * crowdedStore,
       getRule(ctx.state, 'spoilageMultiplier'),
     )
 

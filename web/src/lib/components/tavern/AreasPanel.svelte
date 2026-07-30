@@ -4,6 +4,10 @@
   One row per AreaState. Each row shows the worst-meter adjective, four
   compact meter bars (cleanliness inverted to "dirty", damage, smell,
   risk), and the trait chips. Tap a row → detail sheet.
+
+  Expansion Phase 2 §"Player-facing work" — each row also carries the two
+  physical facts that were previously invisible: whether anything is being
+  built here (and how far along), and how much of the room is out of use.
 -->
 <script lang="ts">
   import MeterBar from './MeterBar.svelte'
@@ -24,6 +28,13 @@
       { label: 'risk', value: row.risk },
     ]
     return candidates.reduce((a, b) => (b.value > a.value ? b : a))
+  }
+
+  /** The live build in this room, if any. One site per room at a time. */
+  function building(row: AreaRow) {
+    return row.upgrades.find(
+      (u) => u.status === 'in_progress' || u.status === 'paused',
+    )
   }
 
   function open(row: AreaRow) {
@@ -48,11 +59,26 @@
                 ⚠ {row.activeProblems.length}
               </span>
             {/if}
+            {#if row.blockedPercent > 0}
+              <span
+                class="blocked-badge chip"
+                aria-label="{row.blockedPercent} percent of this room is out of use"
+              >
+                {row.blockedPercent}% closed
+              </span>
+            {/if}
             <span class="chev" aria-hidden="true">›</span>
           </header>
           <div class="single-meter">
             <MeterBar label={worst.label} value={worst.value} mode="pressure" />
           </div>
+          {#if building(row)}
+            {@const site = building(row)!}
+            <p class="site chip">
+              building {site.label} — {site.progress ?? 0}/{site.requiredProgress ?? 0} labour
+              {#if site.stalledReason}· stalled{/if}
+            </p>
+          {/if}
           {#if row.traits.length > 0}
             <div class="traits">
               {#each row.traits as trait (trait.id)}
@@ -73,6 +99,11 @@
     display: flex;
     flex-direction: column;
     gap: var(--sp-md);
+  }
+
+  .blocked-badge,
+  .site {
+    color: var(--text-warn, var(--text-dim));
   }
 
   .rows {

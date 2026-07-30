@@ -47,18 +47,39 @@ export const TavernMetaStateSchema = z.object({
 // status enum mirrors `AreaUpgradeStatus` on the TS type; `progress` is
 // optional because an `available` upgrade has not been started, and
 // `installedAtDay` is only set once an upgrade is actually installed.
+// Expansion Phase 2 §2.2 / §5.7 — the construction fields land in the
+// same phase as their schema. All optional, so a pre-Phase-2 save parses
+// untouched.
 export const AreaUpgradeStateSchema = z.object({
   id: z.string(),
   status: z.enum([
     "available",
     "in_progress",
+    "paused",
     "installed",
     "damaged",
     "disabled",
+    "cancelled",
   ]),
   progress: nonNegativeNumber().optional(),
   installedAtDay: nonNegativeInt().optional(),
   tags: z.array(z.string()),
+  requiredProgress: nonNegativeNumber().optional(),
+  startedAtDay: nonNegativeInt().optional(),
+  coinInvested: nonNegativeNumber().optional(),
+  ownerMinutesInvested: nonNegativeNumber().optional(),
+  materialsUsed: z.record(z.string(), nonNegativeNumber()).optional(),
+  lastProgressDay: nonNegativeInt().optional(),
+  stalledReason: z.string().optional(),
+  stalledDays: nonNegativeInt().optional(),
+  pausedOnDay: nonNegativeInt().optional(),
+  cancelledOnDay: nonNegativeInt().optional(),
+  condition: meter().optional(),
+  lastUpkeepDay: nonNegativeInt().optional(),
+  upkeepDueDay: nonNegativeInt().optional(),
+  damagedOnDay: nonNegativeInt().optional(),
+  disabledReason: z.string().optional(),
+  replacedUpgradeId: z.string().optional(),
 });
 
 // Phase 28 §28.1 — Phase 8's `AreaState` is extended with `traits`,

@@ -30,6 +30,7 @@ import {
   withCoin,
   withCustomerGroup,
   withStaff,
+  withStock,
 } from '../../src/sim/testing/stateFactories'
 import type { DayType } from '../../src/sim/modules/calendar/types'
 import type {
@@ -147,7 +148,15 @@ describe('Phase 33 — Owner action types', () => {
     const ids = new Set(all.map((a) => a.id))
 
     expect(ids.has('clean_area')).toBe(true)
-    expect(ids.has('start_private_booths')).toBe(true)
+    // Expansion Phase 2 §2.2 — the five upgrade-building project starters are
+    // retired (they duplicated area-upgrade definitions). `start_area_upgrade`
+    // is the project-category action that replaced them, and it offers all
+    // eighteen catalogue entries rather than five hardcoded projects.
+    expect(ids.has('start_private_booths')).toBe(false)
+    expect(ids.has('start_area_upgrade')).toBe(true)
+    expect(
+      actionRegistry.get('start_area_upgrade').category,
+    ).toBe('project')
     expect(ids.has('enable_refuse_tabs')).toBe(true)
     expect(ids.has('comfort_stressed_staff')).toBe(true)
   })
@@ -177,95 +186,101 @@ describe('Phase 33 — Module slice defaults', () => {
   })
 })
 
-describe('Phase 33 — Projects (§33.4 / §33.5)', () => {
-  it('start_private_booths creates an active project record', () => {
-    const base = withCoin(createInitialTavernState(), 50)
-    const result = runDay(base, [{ actionId: 'start_private_booths' }])
+describe('Phase 33 — Projects (§33.4 / §33.5), as Expansion Phase 2 left them', () => {
+  // Expansion Phase 2 §2.2 retired the five project starters that each built an
+  // area upgrade, because they wrote a TRAIT plus their own progress row while
+  // the matching `AreaState.upgrades` record sat at `available` forever — the
+  // duplicate representation the plan forbids. The construction lifecycle in
+  // `tests/sim/phase209.areaUpgradeLifecycle.test.ts` is where building is
+  // tested now.
+  //
+  // What Phase 33 still owns, and what these tests hold, is the GENERAL project
+  // machinery: the slice survives the daily reset, the tick advances and
+  // completes whatever records exist, and no starter smuggles a second
+  // representation of an upgrade back in.
 
-    const slice = getOwnerActionsModuleState(result.state)
-    const project = Object.values(slice.projects).find(
-      (p) => p.projectType === 'private_booths',
-    )
-    expect(project).toBeDefined()
-    expect(project!.status).toBe('active')
-    expect(project!.progress).toBeGreaterThanOrEqual(1)
-    expect(project!.requiredProgress).toBeGreaterThan(0)
-    expect(project!.targetId).toBe('main_room')
+  it('registers no starter that builds something the upgrade catalogue owns', () => {
+    expect(PROJECT_STARTERS).toEqual([])
+    for (const def of actionRegistry.all()) {
+      if (def.category !== 'project') continue
+      // Every project-category action is now part of the upgrade lifecycle,
+      // which writes the upgrade record and nothing else.
+      expect(def.id.startsWith('start_') || def.id.endsWith('_area_upgrade')).toBe(
+        true,
+      )
+    }
   })
 
-  it('preserves active projects across daily reset', () => {
+  it('the general project slice still survives the daily reset', () => {
     const base = withCoin(createInitialTavernState(), 50)
-    const day1 = runDay(base, [{ actionId: 'start_private_booths' }])
-
-    const day1Slice = getOwnerActionsModuleState(day1.state)
-    expect(Object.keys(day1Slice.projects)).toHaveLength(1)
-    expect(day1Slice.applied).toHaveLength(1)
-
+    const day1 = runDay(base, [{ actionId: 'enable_refuse_tabs' }])
+    expect(getOwnerActionsModuleState(day1.state).applied).toHaveLength(1)
     const day2 = runDay(day1.state)
-    const day2Slice = getOwnerActionsModuleState(day2.state)
-
-    // Daily fields reset but the project record survives.
-    expect(day2Slice.applied).toHaveLength(0)
-    expect(Object.keys(day2Slice.projects)).toHaveLength(1)
-    const project = Object.values(day2Slice.projects)[0]!
-    expect(project.status).toBe('active')
+    const slice = getOwnerActionsModuleState(day2.state)
+    // Daily fields reset; the persistent records (policies here, projects when
+    // a later phase adds a non-upgrade one) do not.
+    expect(slice.applied).toHaveLength(0)
+    expect(slice.policies['refuse_tabs']).toBeDefined()
+    expect(slice.projects).toEqual({})
   })
 
-  it('project progress advances deterministically over multiple days', () => {
+  it('the project progress tick still advances a record that exists', () => {
+    // Reached through the tick itself rather than a starter: a migrated save can
+    // still carry a non-upgrade project row, and it must keep moving.
     const base = withCoin(createInitialTavernState(), 50)
-    const day1 = runDay(base, [{ actionId: 'start_hearth_repair' }])
-    const projectId = Object.keys(getOwnerActionsModuleState(day1.state).projects)[0]!
+    const seeded: TavernState = {
+      ...base,
+      modules: {
+        ...base.modules,
+        ownerActions: {
+          ...getOwnerActionsModuleState(base),
+          projects: {
+            'project:signage': {
+              id: 'project:signage',
+              projectType: 'signage',
+              label: 'New Signage',
+              targetType: 'global' as const,
+              startedAtDay: 0,
+              progress: 0,
+              requiredProgress: 3,
+              coinInvested: 5,
+              status: 'active' as const,
+              tags: ['project'],
+              effectsPreview: ['a sign that can be read from the road'],
+            },
+          },
+        },
+      },
+    }
+    const day1 = runDay(seeded)
     const day2 = runDay(day1.state)
-    const day3 = runDay(day2.state)
-
-    const p1 = getOwnerActionsModuleState(day1.state).projects[projectId]!
-    const p2 = getOwnerActionsModuleState(day2.state).projects[projectId]!
-    const p3 = getOwnerActionsModuleState(day3.state).projects[projectId]!
+    const p1 = getOwnerActionsModuleState(day1.state).projects['project:signage']!
+    const p2 = getOwnerActionsModuleState(day2.state).projects['project:signage']!
+    expect(p1.progress).toBeGreaterThan(0)
     expect(p2.progress).toBeGreaterThan(p1.progress)
-    expect(p3.progress).toBeGreaterThan(p2.progress)
+    const day3 = runDay(day2.state)
+    expect(
+      getOwnerActionsModuleState(day3.state).projects['project:signage']!.status,
+    ).toBe('completed')
   })
 
-  it('completing a project applies a structural area trait change', () => {
-    const base = withCoin(createInitialTavernState(), 50)
-    let state = runDay(base, [{ actionId: 'start_hearth_repair' }]).state
-    // Hearth repair requires 4 progress, gains 1/day from the tick. Run
-    // enough days for it to complete.
-    for (let i = 0; i < 6; i++) {
+  it('building the upgrade the retired starter used to build writes one record', () => {
+    // The capability the starters provided is preserved, through the lifecycle
+    // that owns it: hearth repair still ends with `cozy` on the main room.
+    let state = withCoin(createInitialTavernState(), 400)
+    state = withStock(state, 'timber', { quantity: 20 })
+    state = withStock(state, 'cut_stone', { quantity: 20 })
+    state = runDay(state, [
+      { actionId: 'start_area_upgrade', targetId: 'main_room:hearth_repair' },
+    ]).state
+    for (let i = 0; i < 12; i += 1) {
+      if (state.areas.main_room!.upgrades['hearth_repair']?.status === 'installed') break
       state = runDay(state).state
     }
-    const slice = getOwnerActionsModuleState(state)
-    const project = Object.values(slice.projects).find(
-      (p) => p.projectType === 'repair_hearth',
-    )!
-    expect(project.status).toBe('completed')
+    expect(state.areas.main_room!.upgrades['hearth_repair']!.status).toBe('installed')
     expect(state.areas.main_room!.traits).toContain('cozy')
-  })
-
-  it('rejects starting the same project twice', () => {
-    const base = withCoin(createInitialTavernState(), 100)
-    const day1 = runDay(base, [{ actionId: 'start_private_booths' }])
-    const day2 = runDay(day1.state, [{ actionId: 'start_private_booths' }])
-    const slice = getOwnerActionsModuleState(day2.state)
-    expect(slice.rejected[0]?.code).toBe('project_already_active')
-  })
-
-  it('fund_active_project advances progress and spends coin', () => {
-    const base = withCoin(createInitialTavernState(), 60)
-    const day1 = runDay(base, [{ actionId: 'start_hearth_repair' }])
-    const projectId = Object.keys(getOwnerActionsModuleState(day1.state).projects)[0]!
-    const progressBeforeFund = getOwnerActionsModuleState(day1.state)
-      .projects[projectId]!.progress
-
-    const day2 = runDay(day1.state, [
-      { actionId: 'fund_active_project', targetId: projectId },
-    ])
-    const slice = getOwnerActionsModuleState(day2.state)
-    // Funding adds progress on the same day the tick ALSO runs at endDay,
-    // so the difference is at least one above the passive baseline.
-    expect(slice.projects[projectId]!.progress).toBeGreaterThan(
-      progressBeforeFund + 1,
-    )
-    expect(slice.projects[projectId]!.coinInvested).toBeGreaterThan(0)
+    // …and no parallel project record describing the same thing.
+    expect(getOwnerActionsModuleState(state).projects).toEqual({})
   })
 })
 
@@ -423,28 +438,36 @@ describe('Phase 33 — Social actions (§33.7)', () => {
 
 describe('Phase 33 — Owner action report (§33.9)', () => {
   it('report exposes active projects, enabled policies, and recent social actions', () => {
-    const base = withCoin(createInitialTavernState(), 100)
+    // Expansion Phase 2 §2.2 — the project section is exercised through the
+    // upgrade lifecycle, which is where a build lives now; the report's
+    // "Active Projects" block still renders for any project record present, and
+    // the AREA report carries the construction lines (see
+    // `tests/sim/phase209.areaUpgradeLifecycle.test.ts`).
+    let base = withCoin(createInitialTavernState(), 400)
+    base = withStock(base, 'timber', { quantity: 20 })
     const day1 = runDay(base, [
-      { actionId: 'start_private_booths' },
+      { actionId: 'start_area_upgrade', targetId: 'main_room:better_tables' },
       { actionId: 'enable_refuse_tabs' },
       { actionId: 'comfort_stressed_staff', targetId: 'cook' },
     ])
 
     const report = day1.reports.find((r) => r.id === 'ownerActions')!
     const text = report.lines.join('\n')
-    expect(text).toMatch(/Active Projects/)
-    expect(text).toMatch(/Private Booths/)
+    expect(text).toMatch(/Better Tables/)
     expect(text).toMatch(/Enabled Policies/)
     expect(text).toMatch(/Refuse Tabs/)
     expect(text).toMatch(/Recent Social Actions/)
     expect(text).toMatch(/comfort_stressed_staff/)
+
+    const areaReport = day1.reports.find((r) => r.id === 'areas')!
+    expect(areaReport.lines.join('\n')).toMatch(/Better Tables: building/)
 
     const data = report.data as {
       projects: Record<string, unknown>
       policies: Record<string, unknown>
       recentSocialActions: ReadonlyArray<unknown>
     }
-    expect(Object.keys(data.projects).length).toBeGreaterThanOrEqual(1)
+    expect(Object.keys(data.projects)).toHaveLength(0)
     expect(Object.keys(data.policies).length).toBeGreaterThanOrEqual(1)
     expect(data.recentSocialActions.length).toBeGreaterThanOrEqual(1)
   })

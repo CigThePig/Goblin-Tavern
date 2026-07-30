@@ -150,6 +150,41 @@ const REQUIRED_RECIPES: RecipeDefinition[] = [
       lastServedDay: null,
     },
   },
+  // Expansion Phase 2 §2.3 — construction materials follow the `firewood` /
+  // `mugs` precedent exactly: the codebase's invariant is that every stock id
+  // has a 1:1 `dish_<id>` record, and non-menu stock carries the `upkeep` tag
+  // so `flipUpkeepRecipesOffMenu` keeps it off the board. Nothing ever cooks
+  // timber; these exist so the stock/recipe pairing stays total.
+  {
+    id: 'dish_timber',
+    label: 'Sawn Timber',
+    tags: ['material', 'construction', 'utility', 'dish', 'upkeep'],
+    inputs: [{ ingredientId: 'timber', quantity: 1 }],
+    prepDifficulty: 20,
+    demandTier: 'common',
+    culturalTags: [],
+    defaultState: {
+      onMenu: false,
+      timesServed: 0,
+      daysSinceLastServed: 0,
+      lastServedDay: null,
+    },
+  },
+  {
+    id: 'dish_cut_stone',
+    label: 'Dressed Stone',
+    tags: ['material', 'construction', 'utility', 'dish', 'upkeep'],
+    inputs: [{ ingredientId: 'cut_stone', quantity: 1 }],
+    prepDifficulty: 20,
+    demandTier: 'common',
+    culturalTags: [],
+    defaultState: {
+      onMenu: false,
+      timesServed: 0,
+      daysSinceLastServed: 0,
+      lastServedDay: null,
+    },
+  },
   // Phase 66 / ISSUE-026 §4.1, §6.2 — Uncommon-tier 1:1 starter
   // recipes. Prep difficulty 40 puts these out of reach of a default
   // kitchen-hand cook (skill ~30 in phase 71) but within reach of a

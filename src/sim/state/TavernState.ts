@@ -31,19 +31,80 @@ export type AreaTraitId = string;
 export type AreaUpgradeId = string;
 export type AtmosphereTag = string;
 
+// Expansion Phase 2 §2.2 — `paused` and `cancelled` complete the
+// lifecycle the plan requires (start → pause → resume → cancel →
+// complete). They are real statuses rather than a `status: in_progress`
+// row with a side flag, because the upgrade record is the ONE
+// authoritative construction record (see `AreaUpgradeState`).
 export type AreaUpgradeStatus =
   | "available"
   | "in_progress"
+  | "paused"
   | "installed"
   | "damaged"
-  | "disabled";
+  | "disabled"
+  | "cancelled";
 
+/**
+ * The single authoritative record for one upgrade in one area.
+ *
+ * Expansion Phase 2 §2.2 — before this phase the catalogue carried
+ * eighteen upgrade definitions, every area carried an `upgrades` map, and
+ * nothing ever moved a record off `available`: OBL-01. The owner-project
+ * system built a *trait* and kept its own unrelated progress row, so a
+ * "hearth repair" existed twice in two shapes that could disagree.
+ *
+ * Everything a construction site needs now lives here — the accepted
+ * quote, the labour banked against it, the materials consumed, why the
+ * last tick stalled, and (once installed) the fitting's own condition and
+ * upkeep clock. There is no parallel project record for an upgrade: the
+ * legacy `start_*` project starters delegate to this lifecycle.
+ *
+ * Every field past `tags` is optional so pre-Phase-2 saves parse
+ * unchanged; `ensureAreaConstructionFields` repairs the one shape that
+ * cannot be read as-is (an `in_progress` row with no accepted quote).
+ */
 export type AreaUpgradeState = {
   id: AreaUpgradeId;
   status: AreaUpgradeStatus;
+  /** Labour points banked toward `requiredProgress`. */
   progress?: number;
   installedAtDay?: number;
   tags: string[];
+
+  // ---- accepted quote (stamped at start, never re-read from the catalog) ----
+  /** Labour points the accepted quote asked for. */
+  requiredProgress?: number;
+  startedAtDay?: number;
+  /** Coin actually paid into this build. */
+  coinInvested?: number;
+  /** Owner minutes actually spent on this build. */
+  ownerMinutesInvested?: number;
+  /** Materials consumed from stock, by stock id. */
+  materialsUsed?: Record<string, number>;
+
+  // ---- in-progress bookkeeping ----
+  /** Last day a labour tick moved `progress`. */
+  lastProgressDay?: number;
+  /** Why the last tick produced no progress (`no_labour`, `materials_short`, …). */
+  stalledReason?: string;
+  /** Consecutive days the build has produced no progress. */
+  stalledDays?: number;
+  pausedOnDay?: number;
+  cancelledOnDay?: number;
+
+  // ---- installed fitting ----
+  /** Condition of the installed fitting, 0–100. Wear pushes it down. */
+  condition?: number;
+  /** Day the fitting was last serviced. */
+  lastUpkeepDay?: number;
+  /** Day upkeep falls due; overdue upkeep wears the fitting. */
+  upkeepDueDay?: number;
+  damagedOnDay?: number;
+  /** Set when the fitting is `disabled` — always explains itself. */
+  disabledReason?: string;
+  /** The upgrade this one replaced in the same area, when it superseded one. */
+  replacedUpgradeId?: AreaUpgradeId;
 };
 
 export type AreaState = {

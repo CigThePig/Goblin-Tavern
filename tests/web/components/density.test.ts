@@ -127,6 +127,10 @@ describe('Phase 118.4 — information-density tuning', () => {
           traits: [],
           atmosphere: [],
           upgrades: [],
+          // Expansion Phase 2 §2.1 — every `AreaRow` carries its physical
+          // capacity and how much of the room is out of use.
+          capacity: [{ kind: 'seats', total: 90, usable: 90, fromFittings: 0 }],
+          blockedPercent: 0,
           activeProblems: ['food_safety_breach', 'pest_sighting'],
           recentMemoryCount: 0,
           applicableActions: [],
@@ -164,6 +168,10 @@ describe('Phase 118.4 — information-density tuning', () => {
           traits: [],
           atmosphere: [],
           upgrades: [],
+          // Expansion Phase 2 §2.1 — every `AreaRow` carries its physical
+          // capacity and how much of the room is out of use.
+          capacity: [{ kind: 'seats', total: 90, usable: 90, fromFittings: 0 }],
+          blockedPercent: 0,
           activeProblems: [],
           recentMemoryCount: 0,
           applicableActions: [],

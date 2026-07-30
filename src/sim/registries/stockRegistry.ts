@@ -126,6 +126,48 @@ const REQUIRED_STOCK: StockDefinition[] = [
       rarity: 'common',
     },
   },
+  // Expansion Phase 2 §2.3 — construction materials.
+  //
+  // §2.3 requires material consumption on a build, and a quote that lists
+  // materials it cannot actually draw from anywhere is exactly the "data
+  // model only" failure §5 rules out. These two are the whole material
+  // vocabulary: timber for carpentry, cut stone for drainage and masonry.
+  //
+  // They follow the `firewood` / `mugs` precedent for non-food stock —
+  // spoilage 0, no recipe, so nothing on the menu can consume them and no
+  // customer basket can buy them. They start at quantity 0 (the tavern owns
+  // no lumber pile on day one) and carry `salePrice: 1` so the
+  // customer-facing price perception in `pricePenalty` never reads a
+  // material as an expensive dish. The player procures them through the
+  // existing `restock_item` action, which already enumerates every stock id.
+  {
+    id: 'timber',
+    label: 'Timber',
+    tags: ['material', 'construction', 'utility'],
+    defaultState: {
+      quantity: 0,
+      quality: 60,
+      spoilage: 0,
+      basePrice: 2,
+      salePrice: 1,
+      storageAreaId: 'cellar',
+      rarity: 'common',
+    },
+  },
+  {
+    id: 'cut_stone',
+    label: 'Cut Stone',
+    tags: ['material', 'construction', 'utility'],
+    defaultState: {
+      quantity: 0,
+      quality: 70,
+      spoilage: 0,
+      basePrice: 3,
+      salePrice: 1,
+      storageAreaId: 'cellar',
+      rarity: 'common',
+    },
+  },
   // Phase 66 / ISSUE-026 §4.1 — Uncommon-tier ingredients.
   //
   // Uncommon items have moderate spoilage profiles and 2–3× the common

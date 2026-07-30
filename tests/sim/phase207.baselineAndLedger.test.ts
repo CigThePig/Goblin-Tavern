@@ -214,7 +214,8 @@ describe('Phase 207 — implementation ledger', () => {
     // is the check that would catch a row marked done to quiet a red test,
     // which the arc's conventions forbid. Bump `LANDED_PHASES` when a phase
     // completes, and never to make a failing row pass.
-    const LANDED_PHASES = 1 // Phase 0 (ISSUE-170), Phase 1 (ISSUE-171)
+    // Phase 0 (ISSUE-170), Phase 1 (ISSUE-171), Phase 2 (ISSUE-172).
+    const LANDED_PHASES = 2
     const closedEarly = rows.filter(
       (r) => r.status !== 'open' && Number(r.phase) > LANDED_PHASES,
     )
@@ -324,8 +325,19 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       // freeze is the arc's BEFORE picture, and the plan says to update
       // these artifacts in place as later phases land — so these two counts
       // move with the code rather than the code being bent to fit them.
-      // Every other count is unchanged, which is the real assertion here:
-      // Phase 1 added contracts, not content.
+      //
+      // Expansion Phase 2 (ISSUE-172) moves two more, and the shape of WHICH
+      // two is the assertion:
+      //   * `stockRecords` / `recipes` 20 → 22: `timber` and `cut_stone`, the
+      //     construction materials §2.3 requires a build to consume, plus the
+      //     1:1 `dish_<id>` records the stock/recipe pairing invariant demands
+      //     (they carry the `upkeep` tag, so nothing serves them).
+      //   * `ownerActions` stays at 41: seven upgrade-lifecycle actions in,
+      //     and the seven retired project actions out (five starters that
+      //     duplicated upgrade definitions, plus `fund_active_project` and
+      //     `cancel_project`, whose only targets were those five).
+      // `areaUpgrades` is deliberately still 18 — Phase 2 makes the existing
+      // catalogue buildable rather than growing it.
       runtimeModules: 33,
       simulationPhases: 26,
       daySegments: 3,
@@ -338,8 +350,8 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       cardTemplates: 24,
       areas: 9,
       areaUpgrades: 18,
-      stockRecords: 20,
-      recipes: 20,
+      stockRecords: 22,
+      recipes: 22,
       customerGroups: 9,
       foundingStaff: 3,
       cultures: 8,

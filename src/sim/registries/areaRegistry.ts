@@ -1,5 +1,6 @@
 import { Registry } from './Registry'
 import type { AreaState } from '../state/TavernState'
+import type { AreaAdjacency, AreaCapacity } from './areaCapacityTypes'
 
 // Phase 8 §8.1 — Area registry.
 //
@@ -34,6 +35,21 @@ export type AreaDefinition = {
   defaultState: AreaDefaultState
   ingredientYield?: AreaIngredientYield
   spoilageModifier?: AreaSpoilageModifier
+  /**
+   * Expansion Phase 2 §2.1 — the room's own physical capacity before any
+   * upgrade. Static, like `ingredientYield`: a room's size does not change
+   * at runtime, only what is installed in it and how much of it is
+   * currently blocked. Read through `getAreaCapacity` in
+   * `src/sim/modules/areas/capacity.ts`, never off this definition
+   * directly, so installed fittings and construction blockage always
+   * count.
+   */
+  capacity?: AreaCapacity
+  /**
+   * Expansion Phase 2 §2.1 — access links to other areas. Declared once
+   * per unordered pair; `areAreasAdjacent` reads them in both directions.
+   */
+  adjacency?: ReadonlyArray<AreaAdjacency>
 }
 
 export const areaRegistry = new Registry<AreaDefinition>()
@@ -61,6 +77,39 @@ const REQUIRED_AREAS: AreaDefinition[] = [
       atmosphere: ['cheap', 'rowdy', 'lived_in'],
       upgrades: {},
     },
+    capacity: { seats: 90, workstations: 1, storage: 2 },
+    adjacency: [
+      {
+        areaId: 'kitchen',
+        kind: 'door',
+        reason: 'Plates cross the service door between the two.',
+      },
+      {
+        areaId: 'cellar',
+        kind: 'stair',
+        reason: 'Barrels come up the cellar stair behind the bar.',
+      },
+      {
+        areaId: 'privy',
+        kind: 'door',
+        reason: 'Patrons walk the length of the room to reach the privy.',
+      },
+      {
+        areaId: 'roof',
+        kind: 'structural',
+        reason: 'The roof sits directly over the main room.',
+      },
+      {
+        areaId: 'private_booth',
+        kind: 'door',
+        reason: 'The booths open off the main room.',
+      },
+      {
+        areaId: 'stage_corner',
+        kind: 'door',
+        reason: 'The stage corner is part of the same floor.',
+      },
+    ],
   },
   {
     id: 'kitchen',
@@ -78,6 +127,24 @@ const REQUIRED_AREAS: AreaDefinition[] = [
       atmosphere: ['hot', 'busy', 'rough'],
       upgrades: {},
     },
+    capacity: { workstations: 2, storage: 4 },
+    adjacency: [
+      {
+        areaId: 'cellar',
+        kind: 'stair',
+        reason: 'The cook fetches stores straight down the back stair.',
+      },
+      {
+        areaId: 'roof',
+        kind: 'structural',
+        reason: 'The kitchen flue runs up through the roof.',
+      },
+      {
+        areaId: 'herb_garden',
+        kind: 'yard',
+        reason: 'The garden is out the kitchen yard door.',
+      },
+    ],
   },
   {
     id: 'cellar',
@@ -95,6 +162,19 @@ const REQUIRED_AREAS: AreaDefinition[] = [
       atmosphere: ['damp', 'shadowed'],
       upgrades: {},
     },
+    capacity: { storage: 24 },
+    adjacency: [
+      {
+        areaId: 'cold_cellar',
+        kind: 'door',
+        reason: 'The cold cellar is cut into the far wall of the cellar.',
+      },
+      {
+        areaId: 'privy',
+        kind: 'plumbing',
+        reason: 'The privy drain runs behind the cellar wall.',
+      },
+    ],
   },
   {
     id: 'privy',
@@ -112,6 +192,7 @@ const REQUIRED_AREAS: AreaDefinition[] = [
       atmosphere: ['grim', 'smelly'],
       upgrades: {},
     },
+    capacity: { seats: 2 },
   },
   {
     id: 'roof',
@@ -129,6 +210,7 @@ const REQUIRED_AREAS: AreaDefinition[] = [
       atmosphere: ['leaky'],
       upgrades: {},
     },
+    capacity: {},
   },
   // Phase 73 / ISSUE-033 §4.8, §5.7 — gameplay-bearing storage areas.
   // herb_garden produces a slow trickle of uncommon herbs; cold_cellar
@@ -151,6 +233,7 @@ const REQUIRED_AREAS: AreaDefinition[] = [
       atmosphere: ['fresh'],
       upgrades: {},
     },
+    capacity: { workstations: 1 },
     ingredientYield: {
       ingredientId: 'wild_thyme',
       perWeek: 2,
@@ -173,6 +256,7 @@ const REQUIRED_AREAS: AreaDefinition[] = [
       atmosphere: ['chilly'],
       upgrades: {},
     },
+    capacity: { storage: 12 },
     spoilageModifier: {
       appliesToRarities: ['rare', 'legendary'],
       multiplier: 0.5,
@@ -194,6 +278,7 @@ const REQUIRED_AREAS: AreaDefinition[] = [
       atmosphere: ['cozy', 'quiet'],
       upgrades: {},
     },
+    capacity: { seats: 8 },
   },
   {
     id: 'stage_corner',
@@ -211,6 +296,7 @@ const REQUIRED_AREAS: AreaDefinition[] = [
       atmosphere: ['lively'],
       upgrades: {},
     },
+    capacity: { seats: 12, workstations: 1 },
   },
 ]
 
@@ -227,3 +313,45 @@ export function ensureRequiredAreasRegistered(): void {
 }
 
 ensureRequiredAreasRegistered()
+
+// Expansion Phase 2 §2.1 — adjacency lookups.
+//
+// Links are declared once per unordered pair (the main room claims the
+// kitchen; the kitchen does not repeat the claim), so every reader has to
+// look in both directions. Doing that in one place is what keeps the graph
+// honest — and a registry cross-check test walks these helpers and fails if
+// a link names an area that does not exist.
+
+/** Every link touching `areaId`, from either end, sorted by neighbour id. */
+export function listAreaAdjacency(areaId: string): AreaAdjacency[] {
+  ensureRequiredAreasRegistered()
+  const links: AreaAdjacency[] = []
+  const own = areaRegistry.has(areaId)
+    ? (areaRegistry.get(areaId).adjacency ?? [])
+    : []
+  for (const link of own) links.push(link)
+  for (const def of areaRegistry.all()) {
+    if (def.id === areaId) continue
+    for (const link of def.adjacency ?? []) {
+      if (link.areaId !== areaId) continue
+      // Rewrite the neighbour so the caller always reads "the area at the
+      // other end", whichever end declared the link.
+      links.push({ areaId: def.id, kind: link.kind, reason: link.reason })
+    }
+  }
+  return links.sort((a, b) => a.areaId.localeCompare(b.areaId))
+}
+
+export function areAreasAdjacent(a: string, b: string): boolean {
+  return listAreaAdjacency(a).some((link) => link.areaId === b)
+}
+
+/** The link between two areas, or `undefined` when they do not connect. */
+export function getAreaAdjacency(
+  a: string,
+  b: string,
+): AreaAdjacency | undefined {
+  return listAreaAdjacency(a).find((link) => link.areaId === b)
+}
+
+export type { AreaAdjacency, AreaCapacity }

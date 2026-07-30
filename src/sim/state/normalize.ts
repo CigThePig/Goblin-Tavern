@@ -44,6 +44,16 @@ export function normalizeArea(area: AreaState): AreaState {
     upgrades[id] = {
       ...upgrade,
       tags: upgrade?.tags ? [...upgrade.tags] : [],
+      // Expansion Phase 2 §2.2 — the construction record's own clamped
+      // and deep-copied fields. `condition` is a [0,100] meter like the
+      // area's; `materialsUsed` is a plain map that must not alias the
+      // caller's object.
+      ...(upgrade?.condition !== undefined
+        ? { condition: clampPercent(upgrade.condition) }
+        : {}),
+      ...(upgrade?.materialsUsed
+        ? { materialsUsed: { ...upgrade.materialsUsed } }
+        : {}),
     }
   }
   return {

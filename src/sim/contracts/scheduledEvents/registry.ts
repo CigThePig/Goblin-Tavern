@@ -60,6 +60,39 @@ export function allScheduledEventDefinitions(): ScheduledEventDefinition[] {
     .sort((a, b) => a.type.localeCompare(b.type))
 }
 
+/**
+ * Find the definition that claims a future-hook NAME.
+ *
+ * Expansion Phase 2 §2.2 — exact type match first (Phase 1's behaviour,
+ * unchanged), then the longest declared `futureHookPrefixes` match. Longest-
+ * wins is what stops a broad family (`area_`) shadowing a narrow one
+ * (`area_collapse_risk_`), and the tie-break on type id keeps the choice
+ * deterministic if two definitions somehow declare the same prefix length.
+ */
+export function findScheduledEventDefinitionForHookName(
+  hookName: string,
+): ScheduledEventDefinition | undefined {
+  const exact = getScheduledEventDefinition(hookName)
+  if (exact) return exact
+
+  let best: { definition: ScheduledEventDefinition; length: number } | undefined
+  for (const definition of allScheduledEventDefinitions()) {
+    for (const prefix of definition.futureHookPrefixes ?? []) {
+      if (!hookName.startsWith(prefix)) continue
+      if (hookName.length === prefix.length) continue
+      if (
+        !best ||
+        prefix.length > best.length ||
+        (prefix.length === best.length &&
+          definition.type.localeCompare(best.definition.type) < 0)
+      ) {
+        best = { definition, length: prefix.length }
+      }
+    }
+  }
+  return best?.definition
+}
+
 /** Test-only. Production code registers once at module import. */
 export function clearScheduledEventRegistry(): void {
   registry.clear()

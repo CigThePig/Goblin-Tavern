@@ -32,12 +32,14 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > unpaused work**. It is a standalone implementation document — it needs
 > no earlier audit, report, or ledger to execute — and it runs as
 > **ISSUE-170…183 (repo phases 207–220)**, one issue per plan phase 0–13.
-> **ISSUE-170 (Phase 0) and ISSUE-171 (Phase 1) are done (2026-07-29)** —
-> the baseline is frozen, the implementation ledger exists, and the shared
-> contracts are in place. **Next: ISSUE-172 (Phase 2 — areas, construction
-> and the complete upgrade lifecycle, OBL-01) and ISSUE-173 (Phase 3 —
-> persistent workforce), which are the one pair the plan allows to run in
-> parallel.** The sequence is hard-ordered after that.
+> **ISSUE-170 (Phase 0), ISSUE-171 (Phase 1) and ISSUE-172 (Phase 2) are
+> done** — the baseline is frozen, the implementation ledger exists, the
+> shared contracts are in place, and **OBL-01 is closed**: area upgrades can
+> now be discovered, quoted, started, funded, paused, resumed, cancelled,
+> built, damaged, disabled, repaired, serviced and persisted, and areas own
+> real physical capacity that shapes service and work. **Next: ISSUE-173
+> (Phase 3 — persistent workforce).** The sequence is hard-ordered after
+> that.
 >
 > Everything else below — the Complete Surface resume points, the
 > onboarding arc, the standing tails — is **paused, not cancelled**, and
@@ -278,7 +280,7 @@ rather than rebuilding those routes.
 | ISSUE-116 | Legible Surface Phase 3 — Choice Distinctness Gate & Legible Choice-Set Cap | broken | done | 148 |
 | ISSUE-170 | Expansion Phase 0 — freeze the baseline; build the implementation ledger | design | done | 207 |
 | ISSUE-171 | Expansion Phase 1 — shared contracts: typed scheduled events, obligation primitives, persistent ruleset, causal coverage, informative meters, actor interface | broken | done | 208 |
-| ISSUE-172 | Expansion Phase 2 — areas, construction, and the complete upgrade lifecycle (OBL-01) | broken | open | 209 |
+| ISSUE-172 | Expansion Phase 2 — areas, construction, and the complete upgrade lifecycle (OBL-01) | broken | done | 209 |
 | ISSUE-173 | Expansion Phase 3 — persistent workforce: contracts, schedules, relationships, real resignation (staff half of OBL-02) | broken | open | 210 |
 | ISSUE-174 | Expansion Phase 4 — capacity-constrained service flow, customer choice, active regulars, patron tabs | thin | open | 211 |
 | ISSUE-175 | Expansion Phase 5 — economy: quality→cash feedback, operating costs, failure/recovery states, adaptive demand, enforceable policies | broken | open | 212 |
@@ -323,7 +325,7 @@ consequence is a direct pressure or reputation adjustment*.
 |---|---:|---:|---|---|
 | ISSUE-170 | 0 — baseline + ledger | 207 | coverage only; ends with **no intended behavior change** | none |
 | ISSUE-171 | 1 — shared contracts | 208 | foundation for OBL-02/05/08 | ISSUE-170 |
-| ISSUE-172 | 2 — areas + upgrades | 209 | **OBL-01** | ISSUE-171 |
+| ISSUE-172 | 2 — areas + upgrades | 209 | **OBL-01** (closed) | ISSUE-171 |
 | ISSUE-173 | 3 — workforce | 210 | staff half of **OBL-02** | ISSUE-171 |
 | ISSUE-174 | 4 — service flow | 211 | — | ISSUE-172, ISSUE-173 |
 | ISSUE-175 | 5 — economy | 212 | supports OBL-04/05; **absorbs ISSUE-168** | ISSUE-174 |
@@ -478,6 +480,121 @@ three expansion artifacts clean — `ledger:check` 134 rows,
 OBL-06 requires it. The plan (§6.2) records the reversal and the reason,
 Phase 12 implements it, and the user can reverse that before ISSUE-182
 starts without disturbing any earlier phase.
+
+**ISSUE-172 / Phase 2 — done 2026-07-30. OBL-01 closed.** Full record in
+the plan's Phase 2 section ("What Phase 2 actually landed"); per-requirement
+detail in `docs/plans/expansion/ledger.csv` rows **`OBL-01`**, **`DEP-03`**
+and three `HOOK-*` rows. No per-phase plan doc, per the arc's convention.
+
+Eighteen upgrades were catalogued and none could be installed. Now:
+
+- **One authoritative record.** `AreaUpgradeState` carries the accepted
+  quote, banked labour, materials consumed, why the last tick stalled, and
+  the installed fitting's own condition and upkeep clock.
+  `src/sim/modules/areas/construction.ts` is its only writer; owner
+  actions, scheduled events and propagation edges all request transitions
+  there. `paused` and `cancelled` joined the status enum so
+  start → pause → resume → cancel is a real path.
+- **Seven owner actions** (`start_/fund_/pause_/resume_/cancel_/repair_/
+  maintain_area_upgrade`) on `"<areaId>:<upgradeId>"` composite targets,
+  every target's hint carrying its quote. Discovery is the whole
+  catalogue per room, with a specific reason on anything that cannot start.
+- **Capacity is derived, not stored** — base size + installed fittings −
+  blockage — with four kinds (`seats`/`workstations`/`storage`/`beds`),
+  each with a real consumer: crowding and privy load feed customer
+  satisfaction, workstations gate construction concurrency, storage feeds
+  spoilage. A stored `usableSeats` would be a second representation that
+  could disagree with the records.
+- **Eight bounded propagation edges**, each naming the physical route it
+  travels; the two cross-room ones are checked against the adjacency graph
+  (11 links across 9 areas, of 36 possible pairs) rather than trusted.
+  Every edge reads one pre-pass snapshot and writes one target, so nothing
+  cascades within a day.
+- **The schedule is load-bearing:** `tickConstruction` advances only the
+  sites the day's schedule cleared, and a conflicted block always says why.
+  The locked 360-minute owner budget is untouched; travel/setup is charged
+  in labour, not minutes.
+
+**The owner-project model is unified, which meant retirements.** The five
+starters that each built an area upgrade wrote a *trait* plus their own
+progress row while the matching upgrade record sat at `available` forever
+— the exact duplication the plan forbids. They are retired and live on as
+`legacyProjectType` on their upgrade definitions; `fund_active_project`
+and `cancel_project` went with them, because those five records were their
+only possible targets. **Owner actions stay at 41** (seven in, seven out).
+The general project system is kept with an empty starter list for the
+non-upgrade projects the plan permits, and **in-flight and completed
+legacy project rows convert to authoritative upgrade records on load**
+(`ensureAreaConstructionFields`), so no save loses work it paid for.
+
+**Three future-hook families moved from narrative to mechanical:**
+`failed_patch_possible`, `area_collapse_risk_*`,
+`area_project_completion_*`. Each performs an authoritative mutation and
+each has an explained no-op for the player who put the room right first.
+This needed one **additive extension to the Phase 1 bridge** —
+`futureHookPrefixes`, because Phase 1 matched hook names against the
+event-type key exactly and the parameterised families are the majority of
+the `HOOK-*` rows. Every later phase inherits it. Three area-ish families
+**stay narrative with the reason recorded**: `area_failure_possible` (seed-
+level hooks never reach the bridge — Phase 11), `cellar_capacity_unlocked_*`
+(honouring it means installing a fitting nobody paid for — Phase 5 owns
+the monthly domain), `main_room_too_dark` (a test fixture, not content).
+
+**CON-05 closed as a side effect** — `applyDebtToRecovery` finally has its
+production caller, so one new fitting does not undo a fortnight of
+neglect.
+
+**Two new content items, and why:** `timber` and `cut_stone`, because §2.3
+requires a build to consume materials and a quote listing materials it
+cannot draw from anywhere is the "data model only" failure §5 rules out.
+They follow the `firewood`/`mugs` precedent (non-menu stock with a 1:1
+`upkeep`-tagged recipe so the stock/recipe pairing invariant stays total)
+and are procured through the existing `restock_item`. Stock and recipe
+counts 20 → 22; **area upgrades stay at 18** — the phase makes the
+catalogue buildable rather than growing it.
+
+**Calibration judgement worth carrying forward.** `main_room` seats **90**
+(pooled customer-facing 110) so the *reference route never overcrowds* —
+its busiest measured evening is 103 patrons. Capacity binds when the
+**player** makes it bind: a build closing part of a room, a room left to
+rot below condition 35, or patronage grown past the house. An earlier
+60-seat calibration taxed every opening night and displaced the `violence`
+family from the DC-06 attention budget, which is the wrong shape for a
+constraint. Queues, patience and abandonment stay Phase 4's.
+
+**All 13 frozen baseline probes drifted and were regenerated
+deliberately** — +2 stock/recipe records in every `collections` count,
+`activeProblems` where an edge fired, and on the managed multi-week routes
+the crowding and storage rules shifting traffic, satisfaction and coin by a
+few percent (the reference `no-action` route moved by one visitor).
+`repo-map.json` moved on three sections plus two new glossary terms.
+
+**Eight review findings fixed before merge** (Codex on PR #247 — one P1,
+seven P2), each with a regression test; the plan's Phase 2 section lists
+them. The P1 was the one that would have shipped a dead end: an existing
+save keeps its own `stock` map and nothing merged new registry records
+into it, so `timber` / `cut_stone` never existed for an existing player —
+every material line read "0 held" and `restock_item` could not offer a way
+to buy any, leaving those upgrades permanently unbuildable. The rest were
+promises the code was not keeping: a broken fitting kept giving the room
+what it gave when installed, crew labour was split across sites the
+schedule had not cleared (so part of it vanished), workstation capacity
+constrained nothing, a superseded upgrade could be rebuilt alongside its
+replacement, cellar pests reliably gnawed the non-perishable firewood,
+migrated builds finished on materials they never drew, and a patch failure
+could collapse an unrelated room.
+
+Gates: `npm run test:full` **307 files / 4,027 tests**, `npm test` 299 /
+3,898, `typecheck` clean, `check` 1,024 files / 0 errors, `build` passing
+(same known >500 kB chunk warning), and all three expansion artifacts clean
+— `ledger:check` 134 rows, `baseline:probes` 0 drifted, `repo:map` 0
+sections drifted. Tests:
+`tests/sim/phase209.areaUpgradeLifecycle.test.ts` (35),
+`phase209.areaCapacityAndPropagation.test.ts` (27),
+`phase209.constructionBeatPersistence.test.ts` (3 — a reload at all five
+player beats with a live build, and full-day-vs-segmented equivalence
+across a week of construction, upkeep and propagation). All three run in
+seconds, so none joins `HEAVY_TEST_GLOBS`.
 
 ### Tier 7 — Gameplay-audit remediation (closed 2026-07-28; entry retained until the next documentation cleanup as the resume map)
 

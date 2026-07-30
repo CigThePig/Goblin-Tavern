@@ -22,6 +22,7 @@ import {
   ensureRequiredRecipesRegistered,
   recipeRegistry,
 } from "../registries/recipeRegistry";
+import { ensureRequiredStockRegistered } from "../registries/stockRegistry";
 import { createStaffIdentity } from "../content/staff/staffIdentityFactory";
 import { ensureRequiredStaffIdentityProfilesRegistered } from "../content/staff/staffIdentityProfiles";
 import {
@@ -42,6 +43,7 @@ import type {
   MonthlyResult,
 } from "../modules/monthly/types";
 import { OWNER_ACTIONS_MODULE_ID } from "../modules/ownerActions/stateHelpers";
+import { areaUpgradeRegistry } from "../content/tavern/areaUpgradeRegistry";
 import { RULESET_MODULE_ID } from "../contracts/ruleset/types";
 import { createInitialRulesetModuleState } from "../contracts/ruleset/query";
 import { METERS_MODULE_ID } from "../contracts/meters/types";
@@ -56,6 +58,7 @@ import type {
   AreaState,
   ExpeditionsState,
   RecipeState,
+  StockState,
   TavernState,
   TeleologyEntry,
   TransformationState,
@@ -105,6 +108,219 @@ export function ensureAreaIdentityFields<
   }
   if (!changed) return state;
   return { ...state, areas };
+}
+
+// Expansion Phase 2 §2.2 / §5.7 — construction fields, and the legacy
+// owner-project conversion.
+//
+// Two things a pre-Phase-2 save can carry that this phase has to reconcile:
+//
+//   1. an `installed` or `in_progress` upgrade record with none of the
+//      construction bookkeeping the lifecycle now needs. Left alone, an
+//      installed fitting would have no condition and no upkeep clock, so the
+//      upkeep rule would never touch it — the rule would be silently lost.
+//
+//   2. an `OwnerProjectState` for one of the five retired project starters.
+//      Those projects built a TRAIT and kept their own progress row while the
+//      matching upgrade record sat at `available`; the starters are retired and
+//      the upgrade record is now authoritative, so the project has to become
+//      one or the player loses work they paid for. §5's fail list is explicit
+//      that old saves must not silently lose material obligations.
+//
+// Neither conversion invents anything. A completed project's trait is already
+// on the area, so it becomes an `installed` fitting; an active project keeps its
+// share of progress; and every upkeep clock starts from the day the save is at,
+// so the migration hands the player a serviced fitting rather than an
+// immediately-overdue bill they never incurred.
+type PartialUpgradeRecord = {
+  id?: string
+  status?: string
+  progress?: number
+  requiredProgress?: number
+  condition?: number
+  lastUpkeepDay?: number
+  upkeepDueDay?: number
+  startedAtDay?: number
+  installedAtDay?: number
+  tags?: string[]
+  [key: string]: unknown
+}
+
+type LegacyProjectRecord = {
+  id?: string
+  projectType?: string
+  targetId?: string
+  status?: string
+  progress?: number
+  requiredProgress?: number
+  coinInvested?: number
+  startedAtDay?: number
+}
+
+export function ensureAreaConstructionFields<
+  T extends {
+    areas?: Record<string, PartialArea>
+    calendar?: { totalDaysElapsed?: number }
+    modules?: Record<string, unknown>
+  },
+>(state: T): T {
+  if (!state.areas) return state
+  const today = state.calendar?.totalDaysElapsed ?? 0
+  const areas: Record<string, AreaState> = {};
+  let changed = false
+
+  // Index the retired project types so a save's project rows can be matched to
+  // the upgrade they were really building.
+  const byLegacyType = new Map<string, { upgradeId: string; areaIds: string[] }>()
+  for (const def of areaUpgradeRegistry.all()) {
+    if (!def.legacyProjectType) continue
+    byLegacyType.set(def.legacyProjectType, {
+      upgradeId: def.id,
+      areaIds: def.allowedAreaIds ? [...def.allowedAreaIds] : [],
+    })
+  }
+
+  const ownerSlice = state.modules?.[OWNER_ACTIONS_MODULE_ID]
+  const legacyProjects: Record<string, LegacyProjectRecord> = isRecord(ownerSlice)
+    ? ((ownerSlice as { projects?: Record<string, LegacyProjectRecord> }).projects ??
+      {})
+    : {}
+  const convertedProjectIds = new Set<string>()
+
+  for (const [areaId, area] of Object.entries(state.areas)) {
+    const upgrades: Record<string, PartialUpgradeRecord> = {
+      ...((area.upgrades as Record<string, PartialUpgradeRecord>) ?? {}),
+    }
+    let areaChanged = false
+
+    // (1) fill in what an existing record is missing.
+    for (const [upgradeId, record] of Object.entries(upgrades)) {
+      const def = areaUpgradeRegistry.has(upgradeId)
+        ? areaUpgradeRegistry.get(upgradeId)
+        : undefined
+      const next: PartialUpgradeRecord = { ...record }
+      let recordChanged = false
+
+      if (record.status === 'installed') {
+        if (next.condition === undefined) {
+          next.condition = 100
+          recordChanged = true
+        }
+        if (def?.maintenance && next.upkeepDueDay === undefined) {
+          next.lastUpkeepDay = today
+          next.upkeepDueDay = today + def.maintenance.intervalDays
+          recordChanged = true
+        }
+      }
+      if (record.status === 'in_progress' && next.requiredProgress === undefined) {
+        next.requiredProgress =
+          def?.labourRequired ?? Math.max(1, def?.buildDays ?? 1)
+        next.progress = Math.min(next.requiredProgress, record.progress ?? 0)
+        if (next.startedAtDay === undefined) next.startedAtDay = today
+        recordChanged = true
+      }
+      if (recordChanged) {
+        upgrades[upgradeId] = next
+        areaChanged = true
+      }
+    }
+
+    // (2) convert this area's legacy project rows into upgrade records.
+    for (const [projectId, project] of Object.entries(legacyProjects)) {
+      const mapping = project.projectType
+        ? byLegacyType.get(project.projectType)
+        : undefined
+      if (!mapping) continue
+      const projectArea =
+        project.targetId ?? mapping.areaIds[0] ?? undefined
+      if (projectArea !== areaId) continue
+      if (project.status !== 'active' && project.status !== 'completed') continue
+
+      const def = areaUpgradeRegistry.get(mapping.upgradeId)
+      const required = def.labourRequired ?? Math.max(1, def.buildDays ?? 1)
+      const existing = upgrades[mapping.upgradeId]
+      // Never downgrade a record the player already has in a better state.
+      if (
+        existing &&
+        (existing.status === 'installed' || existing.status === 'in_progress')
+      ) {
+        convertedProjectIds.add(projectId)
+        continue
+      }
+
+      if (project.status === 'completed') {
+        upgrades[mapping.upgradeId] = {
+          id: mapping.upgradeId,
+          status: 'installed',
+          tags: [...def.tags],
+          progress: required,
+          requiredProgress: required,
+          installedAtDay: project.startedAtDay ?? today,
+          condition: 100,
+          ...(project.coinInvested !== undefined
+            ? { coinInvested: project.coinInvested }
+            : {}),
+          ...(def.maintenance
+            ? {
+                lastUpkeepDay: today,
+                upkeepDueDay: today + def.maintenance.intervalDays,
+              }
+            : {}),
+        }
+      } else {
+        // Keep the share of the build the player had actually paid for.
+        const ratio =
+          project.requiredProgress && project.requiredProgress > 0
+            ? Math.min(1, (project.progress ?? 0) / project.requiredProgress)
+            : 0
+        upgrades[mapping.upgradeId] = {
+          id: mapping.upgradeId,
+          status: 'in_progress',
+          tags: [...def.tags],
+          progress: Math.floor(required * ratio),
+          requiredProgress: required,
+          startedAtDay: project.startedAtDay ?? today,
+          ...(project.coinInvested !== undefined
+            ? { coinInvested: project.coinInvested }
+            : {}),
+          // The legacy project quoted coin and no materials, so the migrated
+          // build is stamped as already supplied rather than retroactively
+          // billed for timber the player was never asked to buy. Leaving
+          // `materialsUsed` absent would be worse than either: the construction
+          // tick would settle the debt out of whatever is in store, silently
+          // charging the player for a deal they had already closed.
+          materialsUsed: Object.fromEntries(
+            (def.materials ?? []).map((line) => [line.stockId, line.quantity]),
+          ),
+          stalledDays: 0,
+        }
+      }
+      convertedProjectIds.add(projectId)
+      areaChanged = true
+    }
+
+    areas[areaId] = areaChanged
+      ? ({ ...(area as AreaState), upgrades } as AreaState)
+      : (area as AreaState)
+    if (areaChanged) changed = true
+  }
+
+  let modules = state.modules
+  if (convertedProjectIds.size > 0 && isRecord(ownerSlice)) {
+    const remaining: Record<string, LegacyProjectRecord> = {}
+    for (const [id, project] of Object.entries(legacyProjects)) {
+      if (convertedProjectIds.has(id)) continue
+      remaining[id] = project
+    }
+    modules = {
+      ...(state.modules ?? {}),
+      [OWNER_ACTIONS_MODULE_ID]: { ...ownerSlice, projects: remaining },
+    }
+    changed = true
+  }
+
+  if (!changed) return state
+  return { ...state, areas, ...(modules ? { modules } : {}) }
 }
 
 // Phase 31 §31.8 — pre-Phase-31 saves do not carry the `identity`
@@ -696,6 +912,70 @@ export function ensureTeleologySlices<
     transformations: hasTransformations
       ? (state.transformations as Record<string, TransformationState>)
       : {},
+  };
+}
+
+/**
+ * Expansion Phase 2 §5.7 — merge newly registered stock and recipe records
+ * into an existing save.
+ *
+ * `ensureRecipesSlice` only installs the whole default map when a save has NO
+ * recipe map, and nothing at all did that job for `state.stock`. Both were
+ * fine while the registries only ever grew alongside a fresh state — but the
+ * moment a registry entry becomes load-bearing for a player capability, an
+ * existing save that lacks the record loses the capability permanently.
+ *
+ * That is exactly what `timber` and `cut_stone` would have done: an upgrade
+ * quote reads `state.stock[id]?.quantity ?? 0`, so every material line would
+ * read "0 held" and reject the build, while `restock_item` enumerates
+ * `state.stock` and so could never offer the player a way to buy any. A saved
+ * game would have been unable to build anything with a material line, forever.
+ *
+ * The merge is strictly additive and deliberately shallow: a record the save
+ * already has is left exactly as it is (quantities, prices and spoilage are
+ * the player's, not the registry's), and a missing one arrives at its registry
+ * default — which for both materials is quantity 0. Nothing is invented; the
+ * player is handed an empty shelf, not a free pile of timber.
+ */
+export function ensureRegistryRecords<
+  T extends {
+    stock?: Record<string, StockState>;
+    recipes?: Record<string, RecipeState>;
+  },
+>(state: T): T {
+  ensureRequiredStockRegistered();
+  ensureRequiredRecipesRegistered();
+  const defaults = createInitialTavernState();
+  let changed = false;
+
+  let stock = state.stock;
+  if (stock && typeof stock === "object" && !Array.isArray(stock)) {
+    const next: Record<string, StockState> = { ...stock };
+    for (const [id, record] of Object.entries(defaults.stock)) {
+      if (id in next) continue;
+      next[id] = record;
+      changed = true;
+    }
+    if (changed) stock = next;
+  }
+
+  let recipes = state.recipes;
+  let recipesChanged = false;
+  if (recipes && typeof recipes === "object" && !Array.isArray(recipes)) {
+    const next: Record<string, RecipeState> = { ...recipes };
+    for (const [id, record] of Object.entries(defaults.recipes)) {
+      if (id in next) continue;
+      next[id] = record;
+      recipesChanged = true;
+    }
+    if (recipesChanged) recipes = next;
+  }
+
+  if (!changed && !recipesChanged) return state;
+  return {
+    ...state,
+    ...(changed ? { stock } : {}),
+    ...(recipesChanged ? { recipes } : {}),
   };
 }
 

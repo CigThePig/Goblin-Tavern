@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { runOneDay, runCardlessSim } from '../../src/sim/testing/simRunner'
-import { withCoin } from '../../src/sim/testing/stateFactories'
+import { withCoin, withStock } from '../../src/sim/testing/stateFactories'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import { buildTavernOverview } from '../../src/reports/tavernOverviewProjection'
 import { getOwnerActionsModuleState } from '../../src/sim/modules/ownerActions/stateHelpers'
@@ -193,14 +193,25 @@ describe('buildTavernOverview — day-zero state', () => {
     }
   })
 
-  it('projects no active or available projects with no projects started', () => {
+  it('projects an empty legacy project list and a populated construction planner', () => {
     const state = startingState()
     const data = buildTavernOverview(state)
     expect(data.projects.active).toEqual([])
-    expect(data.projects.available.length).toBeGreaterThan(0)
-    for (const avail of data.projects.available) {
-      expect(avail.label.length).toBeGreaterThan(0)
-      expect(actionRegistry.has(avail.actionId)).toBe(true)
+    // Expansion Phase 2 §2.2 — the five legacy starters are retired, so
+    // `available` is empty until a genuine non-upgrade project exists. The
+    // construction planner is where building lives now.
+    expect(data.projects.available).toEqual([])
+    const planner = data.projects.construction
+    expect(planner.sites).toEqual([])
+    expect(planner.buildable.length).toBeGreaterThan(0)
+    expect(planner.maxConcurrentSites).toBeGreaterThanOrEqual(1)
+    for (const row of planner.buildable) {
+      expect(row.label.length).toBeGreaterThan(0)
+      expect(row.quote.coin).toBeGreaterThan(0)
+      expect(row.quote.labourRequired).toBeGreaterThan(0)
+      for (const ref of row.applicableActions) {
+        expect(actionRegistry.has(ref.actionId)).toBe(true)
+      }
     }
   })
 
@@ -230,38 +241,62 @@ describe('buildTavernOverview — day-zero state', () => {
 })
 
 describe('buildTavernOverview — after activity', () => {
-  it('surfaces an active project after start_private_booths runs', () => {
-    let state = startingState()
+  it('surfaces a construction site after start_area_upgrade runs', () => {
+    let state = withCoin(startingState(), 400)
+    state = withStock(state, 'timber', { quantity: 20 })
     const r1 = runOneDay(state, {
-      seed: `${SEED_PREFIX}.start-project`,
-      ownerActions: [{ actionId: 'start_private_booths' }],
+      seed: `${SEED_PREFIX}.start-upgrade`,
+      ownerActions: [
+        { actionId: 'start_area_upgrade', targetId: 'main_room:better_tables' },
+      ],
     })
     state = r1.state
 
-    const data = buildTavernOverview(state)
-    expect(data.projects.active.length).toBe(1)
-    const project = data.projects.active[0]!
-    expect(project.projectType).toBe('private_booths')
-    expect(project.status).toBe('active')
-    expect(project.requiredProgress).toBeGreaterThan(0)
-    expect(project.progressFraction).toBeGreaterThanOrEqual(0)
-    expect(project.progressFraction).toBeLessThanOrEqual(1)
-    expect(project.targetType).toBe('area')
-    expect(project.targetId).toBe('main_room')
-    expect(project.targetLabel).toBe('Main Room')
+    const planner = buildTavernOverview(state).projects.construction
+    expect(planner.sites.length).toBe(1)
+    const site = planner.sites[0]!
+    expect(site.upgradeId).toBe('better_tables')
+    expect(site.areaId).toBe('main_room')
+    expect(site.areaLabel).toBe('Main Room')
+    expect(site.status).toBe('in_progress')
+    expect(site.requiredProgress).toBeGreaterThan(0)
+    expect(site.progressFraction).toBeGreaterThanOrEqual(0)
+    expect(site.progressFraction).toBeLessThanOrEqual(1)
+    expect(planner.activeSites).toBe(1)
+    // Pause / fund / abandon are all reachable from the row.
+    const actionIds = site.applicableActions.map((ref) => ref.actionId)
+    expect(actionIds).toContain('fund_area_upgrade')
+    expect(actionIds).toContain('cancel_area_upgrade')
   })
 
-  it('drops the started project from the available list', () => {
-    let state = startingState()
+  it('drops a started upgrade from the buildable list', () => {
+    let state = withCoin(startingState(), 400)
+    state = withStock(state, 'timber', { quantity: 20 })
     const r1 = runOneDay(state, {
       seed: `${SEED_PREFIX}.dedupe`,
-      ownerActions: [{ actionId: 'start_private_booths' }],
+      ownerActions: [
+        { actionId: 'start_area_upgrade', targetId: 'main_room:better_tables' },
+      ],
     })
     state = r1.state
 
-    const data = buildTavernOverview(state)
-    const ids = data.projects.available.map((a) => a.actionId)
-    expect(ids).not.toContain('start_private_booths')
+    const planner = buildTavernOverview(state).projects.construction
+    expect(
+      planner.buildable.map((row) => `${row.areaId}:${row.upgradeId}`),
+    ).not.toContain('main_room:better_tables')
+  })
+
+  it('gives every area sheet a capacity row and a per-upgrade quote or reason', () => {
+    const state = startingState()
+    const rows = buildTavernOverview(state).areas.rows
+    const main = rows.find((row) => row.id === 'main_room')!
+    expect(main.capacity.some((row) => row.kind === 'seats')).toBe(true)
+    expect(main.blockedPercent).toBe(0)
+    for (const upgrade of main.upgrades) {
+      // Every catalogue entry the room allows is listed, and each one either
+      // quotes or explains itself. Neither silent nor unexplained.
+      expect(Boolean(upgrade.quote) || Boolean(upgrade.blockedReason)).toBe(true)
+    }
   })
 
   it('toggles a recipe between onMenu and available', () => {

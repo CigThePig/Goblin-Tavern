@@ -1,43 +1,44 @@
-import type { SimContext } from '../../core/context'
-
-import { spendCoin } from '../stock/ledger'
-
-import {
-  TIME_COST_QUICK,
-  TIME_COST_SHORT,
-  TIME_COST_STANDARD,
-  getOwnerActionsModuleState,
-  writeProjectsSlice,
-} from './stateHelpers'
-import type {
-  ActionPressureId,
-  ActionTarget,
-  ActionValidationResult,
-  OwnerActionApplied,
-  OwnerActionDefinition,
-  OwnerProjectState,
-} from './types'
+import type { ActionPressureId, OwnerActionDefinition } from './types'
 
 // Phase 33 §33.4 / §33.5 — Project actions.
 //
 // Projects are long-running owner investments. Each `start_<project>`
-// action stamps a new `OwnerProjectState` into `state.modules.ownerActions.projects`
-// with a required progress count and an effects preview. The project
-// progress hook (`endDay` in ownerActionsModule) advances active
-// projects by one progress point per day; players may also spend extra
-// time (and coin) via `fund_active_project` for a faster build.
+// action stamped a new `OwnerProjectState` into
+// `state.modules.ownerActions.projects` with a required progress count and an
+// effects preview; the project tick advanced them and, on completion, added a
+// trait to the target area.
 //
-// When a project completes the project tick applies a structural effect —
-// adding a trait to the targeted area when the Phase 28 trait registry
-// recognises it, otherwise leaving the effects preview as the canonical
-// record. Phase 33 keeps the effect set deliberately modest so the
-// machinery can be tested without smuggling Phase 34/35 work in.
-
-const OK: ActionValidationResult = { ok: true }
-
-function reject(code: string, reason: string): ActionValidationResult {
-  return { ok: false, code, reason }
-}
+// ── Expansion Phase 2 §2.2: THE FIVE UPGRADE-BUILDING STARTERS ARE RETIRED ──
+//
+// All five of them (`private_booths`, `repair_hearth`, `music_corner`,
+// `rat_proof_storage`, `larger_stew_pot`) built something the area-upgrade
+// catalogue already described — and they built it as a TRAIT plus a progress
+// row of their own, while the matching `AreaState.upgrades` record sat at
+// `available` forever. That is the duplicate representation the plan names
+// explicitly: "a project that constructs an upgrade must write one
+// authoritative upgrade record, not a trait plus an unrelated display state".
+//
+// Those five are now the `legacyProjectType` field on their upgrade
+// definitions, and the upgrade lifecycle in `upgradeActions.ts` +
+// `modules/areas/construction.ts` is the single way to build one. It offers all
+// eighteen upgrades rather than five hardcoded projects, with quotes,
+// materials, pause/resume, damage and upkeep — so retiring the starters loses
+// no capability and gains the rest of OBL-01.
+//
+// `fund_active_project` and `cancel_project` go with them: their only possible
+// targets were those five records, and an action with nothing to act on is not
+// discoverable. `fund_area_upgrade` / `cancel_area_upgrade` replace them.
+//
+// In-flight and completed legacy project records in existing saves are
+// converted to authoritative upgrade records by
+// `ensureAreaConstructionFields` (`src/sim/state/migrations.ts`), so no save
+// loses work it paid for.
+//
+// WHAT REMAINS. The general project system — `OwnerProjectState`, the
+// `projects` slice, and the progress tick — is intentionally kept. The plan
+// says non-upgrade projects may continue to use it, and the tick still
+// advances and completes any record present (including a migrated save's), it
+// simply has no starters of its own today.
 
 // Each starter definition is data: an id, a target area, a label, a
 // progress requirement, an optional one-time coin cost, and an effects
@@ -64,78 +65,16 @@ export type ProjectStarterDefinition = {
   removesTrait?: string
 }
 
-export const PROJECT_STARTERS: ProjectStarterDefinition[] = [
-  {
-    id: 'start_private_booths',
-    projectType: 'private_booths',
-    label: 'Start Private Booths',
-    targetAreaId: 'main_room',
-    requiredProgress: 5,
-    initialCoinCost: 10,
-    tags: ['project', 'main_room', 'merchants', 'private_booths'],
-    effectsPreview: [
-      'main_room gains private trait',
-      'merchant comfort improves slightly',
-    ],
-    addsTrait: 'private',
-  },
-  {
-    id: 'start_hearth_repair',
-    projectType: 'repair_hearth',
-    label: 'Start Hearth Repair',
-    targetAreaId: 'main_room',
-    requiredProgress: 4,
-    initialCoinCost: 8,
-    tags: ['project', 'main_room', 'cozy', 'repair_hearth'],
-    effectsPreview: [
-      'main_room gains cozy trait',
-      'comfort improves on cold nights',
-    ],
-    addsTrait: 'cozy',
-  },
-  {
-    id: 'start_rat_proof_storage',
-    projectType: 'rat_proof_storage',
-    label: 'Start Rat-Proof Storage',
-    targetAreaId: 'cellar',
-    requiredProgress: 5,
-    initialCoinCost: 12,
-    tags: ['project', 'cellar', 'pests', 'rat_proof_storage'],
-    effectsPreview: [
-      'cellar loses pest_prone trait',
-      'stock spoilage risk falls',
-    ],
-    pressureAffinity: ['pests'],
-    removesTrait: 'pest_prone',
-  },
-  {
-    id: 'start_music_corner',
-    projectType: 'music_corner',
-    label: 'Start Music Corner',
-    targetAreaId: 'main_room',
-    requiredProgress: 4,
-    initialCoinCost: 6,
-    tags: ['project', 'main_room', 'music', 'music_corner'],
-    effectsPreview: [
-      'main_room gains music_friendly trait',
-      'rowdy groups may visit more often',
-    ],
-    addsTrait: 'music_friendly',
-  },
-  {
-    id: 'start_larger_stew_pot',
-    projectType: 'larger_stew_pot',
-    label: 'Start Larger Stew Pot',
-    targetAreaId: 'kitchen',
-    requiredProgress: 3,
-    initialCoinCost: 8,
-    tags: ['project', 'kitchen', 'food', 'larger_stew_pot'],
-    effectsPreview: [
-      'kitchen service capacity improves',
-      'stew supply less likely to bottleneck',
-    ],
-  },
-]
+/**
+ * Expansion Phase 2 §2.2 — empty by design.
+ *
+ * The five entries that used to live here each duplicated an area-upgrade
+ * definition; they are now `legacyProjectType` on those definitions and are
+ * built through the upgrade lifecycle. The list stays (rather than the type
+ * being deleted) so a later phase can add a genuine non-upgrade project
+ * without rebuilding the machinery.
+ */
+export const PROJECT_STARTERS: ProjectStarterDefinition[] = []
 
 function findStarterByProjectType(
   projectType: string,
@@ -150,284 +89,6 @@ function projectInstanceIdFor(starter: ProjectStarterDefinition): string {
   return `project:${starter.projectType}`
 }
 
-function activeProjectExists(
-  ctx: SimContext,
-  starter: ProjectStarterDefinition,
-): boolean {
-  const slice = getOwnerActionsModuleState(ctx.state)
-  const id = projectInstanceIdFor(starter)
-  const existing = slice.projects[id]
-  return existing !== undefined && existing.status === 'active'
-}
-
-function listProjectTargets(_ctx: SimContext): ActionTarget[] {
-  // Each start_* action defines its own intrinsic target; listing here
-  // just surfaces the starter definitions so a future UI can render
-  // the option set.
-  return PROJECT_STARTERS.map((s) => ({
-    id: s.id,
-    label: s.label,
-    hint: `target ${s.targetAreaId}, ${s.requiredProgress} progress`,
-  }))
-}
-
-function buildStartProjectDefinition(
-  starter: ProjectStarterDefinition,
-): OwnerActionDefinition {
-  return {
-    id: starter.id,
-    label: starter.label,
-    category: 'project',
-    tags: starter.tags,
-    // Phase 193 — terse preview joins the starter's existing multi-line
-    // effects record; affinity (if any) drives the picker's suggestions.
-    effectsPreview: starter.effectsPreview.join('; '),
-    ...(starter.pressureAffinity
-      ? { pressureAffinity: starter.pressureAffinity }
-      : {}),
-    targetType: 'area',
-    timeCost: TIME_COST_STANDARD,
-    // Phase 204 / audit Wave 5 (`P6-COMP-007`) — the label was the id, so
-    // the project starter row and the picker's target list both offered
-    // the player `main_room`. Every other definition returns a real
-    // label; this one is now no exception. Wave 4 also made this the
-    // source of the immutable applied-action label, so a raw id here
-    // would have propagated into the report.
-    getValidTargets: (ctx: SimContext) => [
-      {
-        id: starter.targetAreaId,
-        label:
-          ctx.state.areas[starter.targetAreaId]?.label ?? starter.targetAreaId,
-        hint: `requires ${starter.initialCoinCost} coin`,
-      },
-    ],
-    canApply: (ctx) => {
-      if (!ctx.state.areas[starter.targetAreaId]) {
-        return reject(
-          'unknown_target',
-          `Project ${starter.id} requires area '${starter.targetAreaId}'`,
-        )
-      }
-      if (activeProjectExists(ctx, starter)) {
-        return reject(
-          'project_already_active',
-          `Project ${starter.projectType} is already active`,
-        )
-      }
-      if (ctx.state.coin < starter.initialCoinCost) {
-        return reject(
-          'insufficient_coin',
-          `Starting ${starter.label} costs ${starter.initialCoinCost} coin; only ${ctx.state.coin} available`,
-        )
-      }
-      return OK
-    },
-    apply: (ctx): OwnerActionApplied => {
-      const today = ctx.state.calendar.totalDaysElapsed
-      const instanceId = projectInstanceIdFor(starter)
-      const next: OwnerProjectState = {
-        id: instanceId,
-        projectType: starter.projectType,
-        label: starter.label.replace(/^Start /, ''),
-        targetType: 'area',
-        targetId: starter.targetAreaId,
-        startedAtDay: today,
-        progress: 0,
-        requiredProgress: starter.requiredProgress,
-        coinInvested: starter.initialCoinCost,
-        status: 'active',
-        tags: [...starter.tags],
-        effectsPreview: [...starter.effectsPreview],
-      }
-      writeProjectsSlice(ctx, { [instanceId]: next }, 'project_started')
-
-      if (starter.initialCoinCost > 0) {
-        spendCoin(ctx, starter.initialCoinCost, {
-          source: `ownerActions.${starter.id}`,
-          category: 'repair',
-          tags: ['project', starter.projectType],
-        })
-      }
-
-      ctx.addCause({
-        source: `ownerActions.${starter.id}`,
-        sourceType: 'owner_action',
-        target: instanceId,
-        targetType: 'area',
-        amount: 1,
-        readable: `Owner started project ${next.label}.`,
-        tags: ['owner_action', 'project_started', starter.projectType, starter.targetAreaId],
-        relatedLocations: [{ kind: 'area', id: starter.targetAreaId }],
-        relatedSystems: ['ownerActions', 'projects'],
-      })
-      ctx.addHistory({
-        category: 'owner_action',
-        summary: `Owner started project ${next.label}.`,
-        tags: ['owner_action', 'project_started', starter.projectType],
-        relatedLocations: [{ kind: 'area', id: starter.targetAreaId }],
-        relatedSystems: ['ownerActions', 'projects'],
-        mechanicalRefs: [starter.id, instanceId],
-      })
-
-      return {
-        actionId: starter.id,
-        label: starter.label,
-        targetId: starter.targetAreaId,
-        timeCost: TIME_COST_STANDARD,
-        effects: [
-          `project ${starter.projectType} started`,
-          `coin -${starter.initialCoinCost}`,
-          ...starter.effectsPreview,
-        ],
-        data: {
-          projectId: instanceId,
-          projectType: starter.projectType,
-          requiredProgress: starter.requiredProgress,
-          coin: { spent: starter.initialCoinCost },
-        },
-      }
-    },
-  }
-}
-
-// ---------- fund_active_project ----------
-
-const FUND_PROGRESS_PER_POINT = 1
-const FUND_COIN_COST = 4
-
-const fundActiveProject: OwnerActionDefinition = {
-  id: 'fund_active_project',
-  label: 'Fund Active Project',
-  category: 'project',
-  tags: ['project', 'fund'],
-  targetType: 'project',
-  timeCost: TIME_COST_SHORT,
-  getValidTargets: (ctx: SimContext) => {
-    const slice = getOwnerActionsModuleState(ctx.state)
-    return Object.values(slice.projects)
-      .filter((p) => p.status === 'active')
-      .map((p) => ({
-        id: p.id,
-        label: p.label,
-        hint: `${p.progress}/${p.requiredProgress} progress`,
-      }))
-  },
-  canApply: (ctx, input) => {
-    if (!input.targetId) {
-      return reject('missing_target', 'fund_active_project requires targetId')
-    }
-    const slice = getOwnerActionsModuleState(ctx.state)
-    const project = slice.projects[input.targetId]
-    if (!project) return reject('unknown_target', `Unknown project '${input.targetId}'`)
-    if (project.status !== 'active') {
-      return reject('not_active', `Project '${input.targetId}' is not active`)
-    }
-    if (ctx.state.coin < FUND_COIN_COST) {
-      return reject(
-        'insufficient_coin',
-        `Funding costs ${FUND_COIN_COST} coin; only ${ctx.state.coin} available`,
-      )
-    }
-    return OK
-  },
-  apply: (ctx, input): OwnerActionApplied => {
-    const slice = getOwnerActionsModuleState(ctx.state)
-    const project = slice.projects[input.targetId!]!
-    const beforeProgress = project.progress
-    const beforeCoin = project.coinInvested
-
-    const updated: OwnerProjectState = {
-      ...project,
-      progress: project.progress + FUND_PROGRESS_PER_POINT,
-      coinInvested: project.coinInvested + FUND_COIN_COST,
-    }
-    writeProjectsSlice(ctx, { [project.id]: updated }, 'project_funded')
-    spendCoin(ctx, FUND_COIN_COST, {
-      source: `ownerActions.fund_active_project.${project.projectType}`,
-      category: 'repair',
-      tags: ['project', 'fund', project.projectType],
-    })
-
-    return {
-      actionId: fundActiveProject.id,
-      label: `Funded ${project.label}`,
-      targetId: project.id,
-      timeCost: TIME_COST_SHORT,
-      effects: [
-        `progress ${beforeProgress} → ${updated.progress}`,
-        `coinInvested ${beforeCoin} → ${updated.coinInvested}`,
-      ],
-      data: {
-        projectId: project.id,
-        progress: { before: beforeProgress, after: updated.progress },
-        coin: { spent: FUND_COIN_COST },
-      },
-    }
-  },
-}
-
-// ---------- cancel_project ----------
-
-const cancelProject: OwnerActionDefinition = {
-  id: 'cancel_project',
-  label: 'Cancel Project',
-  category: 'project',
-  tags: ['project', 'cancel'],
-  targetType: 'project',
-  timeCost: TIME_COST_QUICK,
-  getValidTargets: (ctx: SimContext) => {
-    const slice = getOwnerActionsModuleState(ctx.state)
-    return Object.values(slice.projects)
-      .filter((p) => p.status === 'active')
-      .map((p) => ({ id: p.id, label: p.label }))
-  },
-  canApply: (ctx, input) => {
-    if (!input.targetId) {
-      return reject('missing_target', 'cancel_project requires targetId')
-    }
-    const slice = getOwnerActionsModuleState(ctx.state)
-    const project = slice.projects[input.targetId]
-    if (!project) return reject('unknown_target', `Unknown project '${input.targetId}'`)
-    if (project.status !== 'active') {
-      return reject('not_active', `Project '${input.targetId}' is not active`)
-    }
-    return OK
-  },
-  apply: (ctx, input): OwnerActionApplied => {
-    const slice = getOwnerActionsModuleState(ctx.state)
-    const project = slice.projects[input.targetId!]!
-    const updated: OwnerProjectState = { ...project, status: 'cancelled' }
-    writeProjectsSlice(ctx, { [project.id]: updated }, 'project_cancelled')
-
-    ctx.addHistory({
-      category: 'owner_action',
-      summary: `Owner cancelled project ${project.label}.`,
-      tags: ['owner_action', 'project_cancelled', project.projectType],
-      relatedSystems: ['ownerActions', 'projects'],
-      mechanicalRefs: [project.id],
-    })
-
-    return {
-      actionId: cancelProject.id,
-      label: `Cancelled ${project.label}`,
-      targetId: project.id,
-      timeCost: TIME_COST_QUICK,
-      effects: [`project ${project.projectType} cancelled`],
-      data: {
-        projectId: project.id,
-        progress: project.progress,
-        requiredProgress: project.requiredProgress,
-      },
-    }
-  },
-}
-
-// ---------- Exports ----------
-
-export const PROJECT_ACTIONS: OwnerActionDefinition[] = [
-  ...PROJECT_STARTERS.map(buildStartProjectDefinition),
-  fundActiveProject,
-  cancelProject,
-]
+export const PROJECT_ACTIONS: OwnerActionDefinition[] = []
 
 export { findStarterByProjectType, projectInstanceIdFor }

@@ -26,7 +26,31 @@ import {
   listValidTargets,
 } from '../sim/modules/ownerActions/readonlyHelpers'
 import { getOwnerActionsModuleState } from '../sim/modules/ownerActions/stateHelpers'
-import { DAY_MINUTES } from '../sim/modules/ownerActions/stateHelpers'
+import {
+  DAY_MINUTES,
+  TIME_COST_SHORT,
+  TIME_COST_STANDARD,
+} from '../sim/modules/ownerActions/stateHelpers'
+// Expansion Phase 2 §2.1 / §2.2 — the projection reads the areas module's own
+// capacity and quote helpers rather than re-deriving either. Recomputing a
+// quote in the projection is precisely how the number shown and the number
+// charged drift apart.
+import {
+  getAreaBlockedFraction,
+  getBaseAreaCapacity,
+  getInstalledAreaCapacity,
+  getUsableAreaCapacity,
+} from '../sim/modules/areas/capacity'
+import {
+  checkUpgradeEligibility,
+  listCatalogueForArea,
+  quoteAreaUpgrade,
+  type AreaUpgradeQuote,
+} from '../sim/modules/areas/quote'
+import { getMaxConcurrentSites, listActiveSites } from '../sim/modules/areas/labour'
+import { getSiteLabourPerDay } from '../sim/modules/areas/schedule'
+import { getAreasModuleState } from '../sim/modules/areas/state'
+import { AREA_CAPACITY_KINDS } from '../sim/registries/areaCapacityTypes'
 import { POLICY_STARTERS } from '../sim/modules/ownerActions/policyActions'
 import { idLabel } from './labels/idLabel'
 import { humanizeActionReason } from './labels/actionReason'
@@ -38,6 +62,7 @@ import type {
   AreaState,
   AreaTraitId,
   AreaUpgradeId,
+  AreaUpgradeStatus,
   ExpeditionRecord,
   HireableAdventurer,
   RecipeState,
@@ -90,6 +115,10 @@ export type AreaRow = {
   traits: AreaTraitRow[]
   atmosphere: string[]
   upgrades: AreaUpgradeRow[]
+  /** Expansion Phase 2 §2.1 — seats / workstations / storage / beds. */
+  capacity: AreaCapacityRow[]
+  /** Share of the room out of use right now, as a percentage. */
+  blockedPercent: number
   activeProblems: string[]
   recentMemoryCount: number
   applicableActions: ApplicableActionRef[]
@@ -106,11 +135,68 @@ export type AreaUpgradeRow = {
   id: AreaUpgradeId
   label: string
   description: string
-  status: 'available' | 'in_progress' | 'installed' | 'damaged' | 'disabled'
+  status: AreaUpgradeStatus
   progress?: number
   buildDays?: number
   costCoin?: number
   installedAtDay?: number
+  // ---- Expansion Phase 2 §"Player-facing work" ----
+  /** Labour the accepted quote asked for; the denominator of `progress`. */
+  requiredProgress?: number
+  /** Why the site made no progress on its last tick. */
+  stalledReason?: string
+  /** Condition of the installed fitting, 0–100. */
+  condition?: number
+  /** Day upkeep falls due. Negative `upkeepOverdueDays` means not yet due. */
+  upkeepDueDay?: number
+  upkeepOverdueDays?: number
+  /** Always present when the fitting is `disabled` or `cancelled`. */
+  disabledReason?: string
+  /** The live quote, when this upgrade can be started here. */
+  quote?: AreaUpgradeQuoteRow
+  /** The specific reason this upgrade cannot be started here, when it cannot. */
+  blockedReason?: string
+}
+
+/**
+ * Expansion Phase 2 §2.2 — the quote, projected verbatim from
+ * `quoteAreaUpgrade`.
+ *
+ * The projection does not recompute a single number: the row the player reads
+ * and the charge the sim applies come from the same call, which is what the
+ * "quote and authoritative cost agreement" requirement means in practice.
+ */
+export type AreaUpgradeQuoteRow = {
+  coin: number
+  labourRequired: number
+  labourPerDay: number
+  /** `null` when nothing is working the site, so no honest estimate exists. */
+  expectedDays: number | null
+  quotedBuildDays: number
+  ownerMinutes: number
+  materials: Array<{
+    stockId: string
+    label: string
+    required: number
+    held: number
+    short: number
+  }>
+  capacityEffects: Array<{ kind: string; amount: number }>
+  blocksPercentWhileBuilding: number
+  upkeep?: { intervalDays: number; coin: number }
+  repairCoin: number
+  /** Display label of the upgrade this one retires, never its raw id. */
+  replacesLabel?: string
+  affordable: boolean
+  affordabilityReason?: string
+}
+
+/** Expansion Phase 2 §2.1 — the physical facts an area sheet now shows. */
+export type AreaCapacityRow = {
+  kind: string
+  total: number
+  usable: number
+  fromFittings: number
 }
 
 // ---------- Stock + Supply Pipeline ----------
@@ -266,6 +352,69 @@ export type ProjectPanelData = {
   available: AvailableProjectRow[]
   policies: PolicyRow[]
   recentSocial: SocialActionRow[]
+  /**
+   * Expansion Phase 2 §"Player-facing work" — the construction planner.
+   *
+   * The five legacy project starters are retired (they duplicated upgrade
+   * definitions), so `available` is empty until a genuine non-upgrade project
+   * exists. This section is where building actually happens now: every live
+   * site with its progress and stall reason, every startable upgrade with its
+   * quote, and the schedule's conflicts.
+   */
+  construction: ConstructionPanelData
+}
+
+export type ConstructionPanelData = {
+  sites: ConstructionSiteRow[]
+  buildable: BuildableUpgradeRow[]
+  /** Blocks the day's schedule could not place, with the reason. */
+  conflicts: Array<{ label: string; reason: string }>
+  activeSites: number
+  maxConcurrentSites: number
+  /** Fittings that are broken or overdue for service. */
+  attention: FittingAttentionRow[]
+}
+
+export type ConstructionSiteRow = {
+  areaId: string
+  areaLabel: string
+  upgradeId: string
+  label: string
+  status: 'in_progress' | 'paused'
+  progress: number
+  requiredProgress: number
+  progressFraction: number
+  labourPerDay: number
+  /** `null` when nothing is working the site. */
+  expectedDaysRemaining: number | null
+  stalledReason?: string
+  startedAtDay: number
+  coinInvested: number
+  blocksPercentWhileBuilding: number
+  applicableActions: ApplicableActionRef[]
+}
+
+export type BuildableUpgradeRow = {
+  areaId: string
+  areaLabel: string
+  upgradeId: string
+  label: string
+  description: string
+  quote: AreaUpgradeQuoteRow
+  applicableActions: ApplicableActionRef[]
+}
+
+export type FittingAttentionRow = {
+  areaId: string
+  areaLabel: string
+  upgradeId: string
+  label: string
+  status: AreaUpgradeStatus
+  condition: number
+  /** Positive when service is late. */
+  upkeepOverdueDays: number
+  reason: string
+  applicableActions: ApplicableActionRef[]
 }
 
 export type ProjectRow = {
@@ -387,24 +536,14 @@ function projectAreaRow(state: TavernState, area: AreaState): AreaRow {
     }
   })
 
-  const upgrades: AreaUpgradeRow[] = Object.values(area.upgrades).map(
-    (upgrade) => {
-      const def = areaUpgradeRegistry.get(upgrade.id)
-      const row: AreaUpgradeRow = {
-        id: upgrade.id,
-        label: def?.label ?? upgrade.id,
-        description: def?.description ?? '',
-        status: upgrade.status,
-      }
-      if (upgrade.progress !== undefined) row.progress = upgrade.progress
-      if (def?.buildDays !== undefined) row.buildDays = def.buildDays
-      if (def?.costCoin !== undefined) row.costCoin = def.costCoin
-      if (upgrade.installedAtDay !== undefined) {
-        row.installedAtDay = upgrade.installedAtDay
-      }
-      return row
-    },
-  )
+  // Expansion Phase 2 §"Player-facing work" — the area sheet lists the whole
+  // catalogue for this room, not only the records that already exist. Before
+  // this phase every record was `available` and nothing could be started, so
+  // "what could I build here, and why can't I?" had no surface at all.
+  const upgrades: AreaUpgradeRow[] = buildAreaUpgradeRows(state, area)
+
+  const capacity: AreaCapacityRow[] = buildAreaCapacityRows(area)
+  const blockedPercent = Math.round(getAreaBlockedFraction(area) * 100)
 
   const recentMemoryCount = state.memories.filter((m) =>
     m.locations.some((loc) => loc.kind === 'area' && loc.id === area.id),
@@ -432,10 +571,146 @@ function projectAreaRow(state: TavernState, area: AreaState): AreaRow {
     // the chip reads as a word; the stored tag is untouched.
     atmosphere: area.atmosphere.map((tag) => idLabel('mechanicalTag', tag)),
     upgrades,
+    capacity,
+    blockedPercent,
     activeProblems: [...area.activeProblems],
     recentMemoryCount,
     applicableActions,
   }
+}
+
+/**
+ * One row per catalogue entry this room allows, plus any record it already
+ * carries. Sorted so installed fittings and live builds read first — the things
+ * the player owns before the things they might buy.
+ */
+function buildAreaUpgradeRows(
+  state: TavernState,
+  area: AreaState,
+): AreaUpgradeRow[] {
+  const today = state.calendar.totalDaysElapsed
+  const ids = new Set<string>(Object.keys(area.upgrades))
+  for (const def of listCatalogueForArea(area)) ids.add(def.id)
+
+  const rows: AreaUpgradeRow[] = []
+  for (const id of [...ids].sort()) {
+    const def = areaUpgradeRegistry.has(id) ? areaUpgradeRegistry.get(id) : undefined
+    const record = area.upgrades[id]
+    const row: AreaUpgradeRow = {
+      id,
+      label: def?.label ?? id,
+      description: def?.description ?? '',
+      status: record?.status ?? 'available',
+    }
+    if (record?.progress !== undefined) row.progress = record.progress
+    if (record?.requiredProgress !== undefined) {
+      row.requiredProgress = record.requiredProgress
+    }
+    if (record?.stalledReason !== undefined) row.stalledReason = record.stalledReason
+    if (record?.condition !== undefined) row.condition = record.condition
+    if (record?.upkeepDueDay !== undefined) {
+      row.upkeepDueDay = record.upkeepDueDay
+      row.upkeepOverdueDays = today - record.upkeepDueDay
+    }
+    if (record?.disabledReason !== undefined) {
+      row.disabledReason = record.disabledReason
+    }
+    if (def?.buildDays !== undefined) row.buildDays = def.buildDays
+    if (def?.costCoin !== undefined) row.costCoin = def.costCoin
+    if (record?.installedAtDay !== undefined) {
+      row.installedAtDay = record.installedAtDay
+    }
+
+    const eligibility = checkUpgradeEligibility(state, area.id, id)
+    if (eligibility.ok) {
+      const quote = quoteAreaUpgrade(state, area.id, id, {
+        startMinutes: TIME_COST_STANDARD,
+        fundMinutes: TIME_COST_SHORT,
+      })
+      if (quote) row.quote = projectQuote(quote)
+    } else {
+      row.blockedReason = eligibility.reason
+    }
+    rows.push(row)
+  }
+
+  const rank = (status: AreaUpgradeStatus): number => {
+    switch (status) {
+      case 'in_progress':
+        return 0
+      case 'paused':
+        return 1
+      case 'damaged':
+      case 'disabled':
+        return 2
+      case 'installed':
+        return 3
+      case 'available':
+        return 4
+      default:
+        return 5
+    }
+  }
+  return rows.sort(
+    (a, b) => rank(a.status) - rank(b.status) || a.label.localeCompare(b.label),
+  )
+}
+
+function projectQuote(quote: AreaUpgradeQuote): AreaUpgradeQuoteRow {
+  return {
+    coin: quote.coin,
+    labourRequired: quote.labourRequired,
+    labourPerDay: quote.labourPerDay,
+    expectedDays: Number.isFinite(quote.expectedDays) ? quote.expectedDays : null,
+    quotedBuildDays: quote.quotedBuildDays,
+    ownerMinutes: quote.ownerMinutes,
+    materials: quote.materials.map((line) => ({
+      stockId: line.stockId,
+      label: line.label,
+      required: line.required,
+      held: line.held,
+      short: Math.max(0, line.required - line.held),
+    })),
+    capacityEffects: Object.entries(quote.capacityEffects).map(([kind, amount]) => ({
+      kind,
+      amount: amount ?? 0,
+    })),
+    blocksPercentWhileBuilding: Math.round(quote.blocksCapacityWhileBuilding * 100),
+    ...(quote.maintenance
+      ? {
+          upkeep: {
+            intervalDays: quote.maintenance.intervalDays,
+            coin: quote.maintenance.coin,
+          },
+        }
+      : {}),
+    repairCoin: quote.repairCoin,
+    ...(quote.replaces && areaUpgradeRegistry.has(quote.replaces)
+      ? { replacesLabel: areaUpgradeRegistry.get(quote.replaces).label }
+      : {}),
+    affordable: quote.affordability.ok,
+    ...(quote.affordability.ok
+      ? {}
+      : { affordabilityReason: quote.affordability.reason }),
+  }
+}
+
+function buildAreaCapacityRows(area: AreaState): AreaCapacityRow[] {
+  const base = getBaseAreaCapacity(area.id)
+  const installed = getInstalledAreaCapacity(area)
+  const usable = getUsableAreaCapacity(area)
+  const rows: AreaCapacityRow[] = []
+  for (const kind of AREA_CAPACITY_KINDS) {
+    const total = installed[kind] ?? 0
+    if (total === 0) continue
+    rows.push({
+      kind,
+      total,
+      usable: usable[kind] ?? 0,
+      fromFittings: total - (base[kind] ?? 0),
+    })
+  }
+  return rows
 }
 
 // ---------- Stock ----------
@@ -751,7 +1026,170 @@ function projectProjects(state: TavernState): ProjectPanelData {
     .slice(0, 10)
     .map((r) => projectSocialRow(state, r, today))
 
-  return { active, available, policies, recentSocial }
+  return {
+    active,
+    available,
+    policies,
+    recentSocial,
+    construction: projectConstruction(state),
+  }
+}
+
+/**
+ * Expansion Phase 2 §"Player-facing work" — the construction planner.
+ *
+ * Everything here is read from the areas module's own helpers. The projection
+ * decides ORDER and WORDING; it never decides a cost, an eligibility or a
+ * completion horizon.
+ */
+function projectConstruction(state: TavernState): ConstructionPanelData {
+  const today = state.calendar.totalDaysElapsed
+  const schedule = getAreasModuleState(state).schedule
+
+  const sites: ConstructionSiteRow[] = []
+  const buildable: BuildableUpgradeRow[] = []
+  const attention: FittingAttentionRow[] = []
+
+  for (const area of Object.values(state.areas).sort((a, b) =>
+    a.id.localeCompare(b.id),
+  )) {
+    const labourPerDay = getSiteLabourPerDay(state, area.id)
+
+    for (const record of Object.values(area.upgrades).sort((a, b) =>
+      a.id.localeCompare(b.id),
+    )) {
+      const def = areaUpgradeRegistry.has(record.id)
+        ? areaUpgradeRegistry.get(record.id)
+        : undefined
+      const label = def?.label ?? record.id
+      const targetId = `${area.id}:${record.id}`
+
+      if (record.status === 'in_progress' || record.status === 'paused') {
+        const required = Math.max(1, record.requiredProgress ?? 1)
+        const progress = record.progress ?? 0
+        const remaining = Math.max(0, required - progress)
+        const row: ConstructionSiteRow = {
+          areaId: area.id,
+          areaLabel: area.label,
+          upgradeId: record.id,
+          label,
+          status: record.status,
+          progress,
+          requiredProgress: required,
+          progressFraction: Math.max(0, Math.min(1, progress / required)),
+          labourPerDay,
+          expectedDaysRemaining:
+            record.status === 'paused' || labourPerDay <= 0
+              ? null
+              : Math.ceil(remaining / labourPerDay),
+          startedAtDay: record.startedAtDay ?? today,
+          coinInvested: record.coinInvested ?? 0,
+          blocksPercentWhileBuilding: Math.round(
+            (def?.blocksCapacityWhileBuilding ?? 0) * 100,
+          ),
+          applicableActions: upgradeActionRefs(state, targetId, [
+            'fund_area_upgrade',
+            'pause_area_upgrade',
+            'resume_area_upgrade',
+            'cancel_area_upgrade',
+          ]),
+        }
+        if (record.stalledReason !== undefined) row.stalledReason = record.stalledReason
+        sites.push(row)
+        continue
+      }
+
+      const broken = record.status === 'damaged' || record.status === 'disabled'
+      const overdue =
+        record.upkeepDueDay !== undefined ? today - record.upkeepDueDay : 0
+      if (broken || overdue > 0) {
+        attention.push({
+          areaId: area.id,
+          areaLabel: area.label,
+          upgradeId: record.id,
+          label,
+          status: record.status,
+          condition: record.condition ?? 100,
+          upkeepOverdueDays: overdue,
+          reason: broken
+            ? (record.disabledReason ?? `${label} is out of service`)
+            : `Service is ${overdue} day${overdue === 1 ? '' : 's'} overdue`,
+          applicableActions: upgradeActionRefs(state, targetId, [
+            'repair_area_upgrade',
+            'maintain_area_upgrade',
+          ]),
+        })
+      }
+    }
+
+    for (const def of listCatalogueForArea(area)) {
+      if (!checkUpgradeEligibility(state, area.id, def.id).ok) continue
+      const quote = quoteAreaUpgrade(state, area.id, def.id, {
+        startMinutes: TIME_COST_STANDARD,
+        fundMinutes: TIME_COST_SHORT,
+      })
+      if (!quote) continue
+      buildable.push({
+        areaId: area.id,
+        areaLabel: area.label,
+        upgradeId: def.id,
+        label: def.label,
+        description: def.description,
+        quote: projectQuote(quote),
+        applicableActions: upgradeActionRefs(state, `${area.id}:${def.id}`, [
+          'start_area_upgrade',
+        ]),
+      })
+    }
+  }
+
+  // Affordable first, then cheapest: the planner leads with what the player can
+  // actually do today.
+  buildable.sort(
+    (a, b) =>
+      Number(b.quote.affordable) - Number(a.quote.affordable) ||
+      a.quote.coin - b.quote.coin ||
+      a.label.localeCompare(b.label),
+  )
+
+  return {
+    sites,
+    buildable,
+    conflicts: schedule
+      .filter((block) => block.status === 'conflicted')
+      .map((block) => ({
+        label: block.label,
+        reason: block.conflictReason ?? 'blocked',
+      })),
+    activeSites: listActiveSites(state).length,
+    maxConcurrentSites: getMaxConcurrentSites(state),
+    attention,
+  }
+}
+
+/** Action refs for a composite `<area>:<upgrade>` target, skipping unknown ids. */
+function upgradeActionRefs(
+  state: TavernState,
+  targetId: string,
+  actionIds: ReadonlyArray<string>,
+): ApplicableActionRef[] {
+  const refs: ApplicableActionRef[] = []
+  for (const actionId of actionIds) {
+    if (!actionRegistry.has(actionId)) continue
+    const def = actionRegistry.get(actionId)
+    const reason = actionDisabledReasonForTarget(def, state, targetId, DAY_MINUTES)
+    // A ref whose action is simply wrong for this record's state (pausing an
+    // already-paused build) is dropped rather than shown greyed out: the row
+    // already says what state it is in.
+    if (
+      reason !== undefined &&
+      /is (paused|installed|available|cancelled|in progress)/.test(reason)
+    ) {
+      continue
+    }
+    refs.push(makeRef(def, reason))
+  }
+  return refs
 }
 
 function projectProjectRow(
@@ -766,8 +1204,16 @@ function projectProjectRow(
   const daysElapsed = Math.max(0, today - project.startedAtDay)
   const targetLabel = resolveTargetLabel(state, project.targetType, project.targetId)
 
-  const fundDef = actionRegistry.get('fund_active_project')
-  const cancelDef = actionRegistry.get('cancel_project')
+  // Expansion Phase 2 §2.2 — `fund_active_project` / `cancel_project` are
+  // retired along with the five upgrade-building starters. A migrated save can
+  // still carry a non-convertible project row, so the refs are looked up
+  // defensively rather than assumed present (`Registry.get` throws).
+  const fundDef = actionRegistry.has('fund_active_project')
+    ? actionRegistry.get('fund_active_project')
+    : undefined
+  const cancelDef = actionRegistry.has('cancel_project')
+    ? actionRegistry.get('cancel_project')
+    : undefined
   const applicableActions: ApplicableActionRef[] = []
   if (fundDef) {
     const reason = actionDisabledReasonForTarget(

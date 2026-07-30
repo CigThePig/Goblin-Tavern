@@ -3,6 +3,7 @@
 -->
 <script lang="ts">
   import MeterBar from './MeterBar.svelte'
+  import QuickActions from './QuickActions.svelte'
   import StaffDetailSheet from './StaffDetailSheet.svelte'
   import { gameStore } from '../../sim/gameStore.svelte'
   import type {
@@ -42,7 +43,7 @@
   </p>
   {#if data.rows.length === 0}
     <p class="quiet">
-      You have no staff. Hire from the World → Hireable list.
+      You have no staff. Take somebody on from the hiring board below.
     </p>
   {:else}
     <ul class="rows">
@@ -75,6 +76,63 @@
       {/each}
     </ul>
   {/if}
+
+  <!--
+    Expansion Phase 3 — the hiring board.
+
+    Hiring stopped being "buy a role at the going rate" and became "pick a
+    person off a board that expires". Without this section that board had no
+    surface at all, and the only way to reach it was to guess that Hire Staff's
+    target list had stopped meaning roles.
+  -->
+  <section class="hiring" aria-label="Hiring">
+    <p class="block-label section-label">Hiring</p>
+
+    {#if data.hiring.vacancies.length > 0}
+      <ul class="vacancies">
+        {#each data.hiring.vacancies as vacancy (vacancy.roleId)}
+          <li class="vacancy chip">
+            <strong>{vacancy.roleLabel}</strong> — {vacancy.reason}
+            · open {vacancy.openDays}
+            {vacancy.openDays === 1 ? 'day' : 'days'}
+            {#if vacancy.coverageGap > 0}
+              · <span class="warn">short on today's rota</span>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
+
+    {#if data.hiring.applicants.length === 0}
+      <p class="quiet">{data.hiring.emptyReason}</p>
+    {:else}
+      <ul class="rows">
+        {#each data.hiring.applicants as applicant (applicant.id)}
+          <li class="applicant">
+            <header class="head">
+              <span class="label">{applicant.name}</span>
+              {#if applicant.answersVacancy}
+                <span class="answers chip">answers your vacancy</span>
+              {/if}
+            </header>
+            <p class="role chip">
+              {applicant.roleLabel} · skill {applicant.skill} · wants {applicant.wageAsk}c/wk
+              · {applicant.provenance}
+              · <span class:warn={applicant.daysLeft <= 2}
+                >{applicant.daysLeft}
+                {applicant.daysLeft === 1 ? 'day' : 'days'} left</span
+              >
+            </p>
+            <QuickActions
+              actions={applicant.applicableActions}
+              targetId={applicant.id}
+              targetLabel={applicant.name}
+            />
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
 </section>
 
 <StaffDetailSheet staff={selected} open={selected !== null} onclose={close} />
@@ -108,6 +166,37 @@
     display: flex;
     flex-direction: column;
     gap: var(--sp-sm);
+  }
+
+  .hiring {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-sm);
+    margin-top: var(--sp-md);
+  }
+
+  .vacancies {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xs);
+  }
+
+  .vacancy {
+    color: var(--text-dim);
+  }
+
+  .applicant {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xs);
+    padding: var(--sp-sm) var(--sp-md);
+    background: var(--surface);
+    border: var(--border-faint);
+    border-radius: var(--radius-md);
+  }
+
+  .answers {
+    color: var(--accent);
   }
 
   .row {

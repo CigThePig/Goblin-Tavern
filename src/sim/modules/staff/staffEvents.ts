@@ -176,6 +176,53 @@ function resolveSubject(
   return { member }
 }
 
+/**
+ * Did extra coin actually reach this person since a promise was made?
+ *
+ * Both money-promise resolvers need the same answer, and each got it wrong in
+ * its own way when they answered it separately: `staff_bonus_expected` read only
+ * the per-staff memory ids and missed the shared one the `pay_staff_bonus` owner
+ * action writes, and `wage_expectation` did not ask this question at all — it
+ * asked whether the ordinary weekly wage had been paid, which is true of exactly
+ * the situation the promise is a complaint about.
+ *
+ * "Extra coin" is a rise on the record, a promotion, or a bonus, in any of the
+ * three shapes those get recorded in. Reading records rather than guessing is
+ * the point: nothing here infers, it looks up what happened.
+ */
+function extraCoinReachedThemSince(
+  ctx: SimContext,
+  staffId: string,
+  sinceDay: number,
+): boolean {
+  const employment = getEmployment(ctx.state, staffId)
+  if (
+    employment?.lastRaiseOnDay !== undefined &&
+    employment.lastRaiseOnDay >= sinceDay
+  ) {
+    return true
+  }
+  return ctx.state.memories.some((memory) => {
+    const day = memory.createdAt?.absoluteDay ?? -1
+    if (day < sinceDay) return false
+    if (
+      memory.id === `staff_promoted_${staffId}` ||
+      memory.id === `staff_bonus_paid_${staffId}`
+    ) {
+      return memory.tags.includes(staffId)
+    }
+    // The shared id `pay_staff_bonus` writes names the person in `actors` and
+    // `metadata`, not in the id.
+    if (memory.id !== 'staff_bonus_paid_recently') return false
+    return (
+      memory.actors?.some(
+        (actor) => actor.kind === 'staff' && actor.id === staffId,
+      ) === true ||
+      (memory.metadata as { staffId?: string } | undefined)?.staffId === staffId
+    )
+  })
+}
+
 // ---------------------------------------------------------------------------
 // §3.4 item 2 — preventable contributors
 // ---------------------------------------------------------------------------
@@ -594,20 +641,36 @@ const quitRiskEvent: ScheduledEventDefinition = {
  * scheduling end — the exact-once key covers the firing end). Two profiles that
  * both worry about the same cook must not produce two resignations.
  */
+/**
+ * Why a quit risk was not scheduled — which is not one answer but three, and
+ * the caller has to be able to tell them apart.
+ *
+ * `already_live` means a promise about this person is ON THE CALENDAR, with its
+ * warning window and its counterplay still running. Reading that as "the warning
+ * has been given, act now" is how the staff actor came to hand in notice while
+ * the player still had days to answer the contributors — the counterplay
+ * skipped entirely.
+ */
+export type ScheduleQuitRiskResult =
+  | 'scheduled'
+  | 'already_live'
+  | 'suppressed'
+  | 'no_target'
+
 export function scheduleQuitRisk(
   ctx: SimContext,
   staffId: string,
   input: { reason: string; source: string; offsetDays?: number },
-): boolean {
+): ScheduleQuitRiskResult {
   const member = ctx.state.staff[staffId]
-  if (!member) return false
+  if (!member) return 'no_target'
   const alreadyLive = getLiveScheduledEvents(ctx.state).some(
     (event) =>
       event.type === STAFF_QUIT_RISK_EVENT &&
       event.target?.kind === 'staff' &&
       event.target.id === staffId,
   )
-  if (alreadyLive) return false
+  if (alreadyLive) return 'already_live'
   const today = ctx.state.calendar.totalDaysElapsed
   const result = scheduleEvent(ctx, {
     type: STAFF_QUIT_RISK_EVENT,
@@ -619,8 +682,13 @@ export function scheduleQuitRisk(
       readable: `${member.name.display} ${input.reason}.`,
     },
   })
-  if (result.status === 'scheduled') bumpStaffTotal(ctx, 'quitRisksWarned')
-  return result.status === 'scheduled'
+  if (result.status === 'scheduled') {
+    bumpStaffTotal(ctx, 'quitRisksWarned')
+    return 'scheduled'
+  }
+  // Rejected, or suppressed by an exact-once key a previous firing already
+  // burned: the promise about this person and this day has been spent.
+  return 'suppressed'
 }
 
 // ---------------------------------------------------------------------------
@@ -896,12 +964,24 @@ const wageExpectationEvent: ScheduledEventDefinition = {
     if ('fail' in subject) return subject.fail
     const member = subject.member
 
-    // The promise was "what you paid once is what I now expect". Paid up and no
-    // arrears means the expectation is being met.
+    // The promise was "what you paid once is what I now expect", and it comes
+    // from `pay_bonus_profile` — a ONE-OFF bonus on top of the ordinary wage.
+    //
+    // So the test cannot be "have they been paid this week". A bonus changes
+    // neither the wage nor `paidThisWeek`, which means the next ordinary
+    // settlement satisfied the expectation automatically and this consequence
+    // never once landed. What meets it is the money going up again: a rise that
+    // folded the bonus into the wage, or another bonus. Owing them back pay
+    // fails it outright, whatever else happened.
     const arrears = totalWageArrears(ctx.state, member.id)
-    if (arrears <= 0 && member.paidThisWeek) {
+    const paidMoreSince = extraCoinReachedThemSince(
+      ctx,
+      member.id,
+      record.createdOnDay,
+    )
+    if (arrears <= 0 && paidMoreSince) {
       return noOp(
-        `${member.name.display} is being paid on time`,
+        `${member.name.display}'s pay went up again after the bonus`,
         `${member.name.display} has no complaint about the money.`,
       )
     }
@@ -1117,16 +1197,35 @@ const coverageGapEvent: ScheduledEventDefinition = {
     const member = subject.member
     const roleId = member.role
 
-    // The gap this promise was about: is that role covered TODAY?
+    // THE SUBJECT DOES NOT COUNT AS THEIR OWN COVER.
+    //
+    // This family comes from `reduce_workload_profile`: the player lightened
+    // this person's rota, and the promise is that the work they are no longer
+    // doing has to land somewhere. The response marks nobody absent and changes
+    // no shift, so counting every body on the role — the subject included — made
+    // a one-person role read as covered by the very person whose load was
+    // removed, and the consequence never once reached its fatigue branch.
+    //
+    // What closes the gap is somebody ELSE: a second body on the role, or a
+    // colleague cross-trained into it. Demand has a floor of one because the
+    // rungs above a founding role declare none, and "nobody needs to do this
+    // job" is never the right reading of a role somebody was overloaded in.
     const held = Object.values(ctx.state.staff).filter(
       (other) =>
-        other.role === roleId && !other.absence && other.shift !== 'rest',
+        other.id !== member.id &&
+        other.role === roleId &&
+        !other.absence &&
+        other.shift !== 'rest',
     ).length
-    const demand = staffRegistry.has(roleId)
-      ? (staffRegistry.get(roleId).dailyDemand ?? 0)
-      : 0
+    const demand = Math.max(
+      1,
+      staffRegistry.has(roleId)
+        ? (staffRegistry.get(roleId).dailyDemand ?? 0)
+        : 0,
+    )
     const crossCover = Object.values(ctx.state.staff).some(
       (other) =>
+        other.id !== member.id &&
         other.role !== roleId &&
         !other.absence &&
         (other.crossTraining?.[roleId] ?? 0) >= 60,
@@ -1136,18 +1235,23 @@ const coverageGapEvent: ScheduledEventDefinition = {
       return noOp(
         crossCover
           ? `somebody else is now trained to cover ${roleLabel(roleId)}`
-          : `${roleLabel(roleId)} is covered (${held} of ${demand})`,
+          : `${roleLabel(roleId)} is covered by somebody else (${held} of ${demand})`,
         `The hole in the ${roleLabel(roleId)} rota was filled in time.`,
       )
     }
 
-    // Still short. The people who ARE in carry it, and the fatigue lands on them.
+    // Still short. The colleagues who ARE in carry it — not the person whose
+    // load was reduced, since carrying their own shortfall is what the player
+    // paid to stop.
     const carrying = Object.values(ctx.state.staff)
-      .filter((other) => !other.absence && other.shift !== 'rest')
+      .filter(
+        (other) =>
+          other.id !== member.id && !other.absence && other.shift !== 'rest',
+      )
       .sort((a, b) => a.id.localeCompare(b.id))
     if (carrying.length === 0) {
       return noOp(
-        'nobody is in to carry the gap',
+        'nobody else is in to carry the gap',
         'There was nobody in to carry the shortfall.',
       )
     }
@@ -1495,24 +1599,11 @@ const staffBonusExpectedEvent: ScheduledEventDefinition = {
     // `actors` / `metadata.staffId` rather than in the id. Matching only the
     // per-staff id meant the player could pay the bonus and still take the
     // morale penalty for not paying it.
-    const lookedAfter = ctx.state.memories.some((memory) => {
-      const day = memory.createdAt?.absoluteDay ?? -1
-      if (day < record.createdOnDay) return false
-      if (
-        memory.id === `staff_promoted_${member.id}` ||
-        memory.id === `staff_bonus_paid_${member.id}`
-      ) {
-        return memory.tags.includes(member.id)
-      }
-      if (memory.id !== 'staff_bonus_paid_recently') return false
-      return (
-        memory.actors?.some(
-          (actor) => actor.kind === 'staff' && actor.id === member.id,
-        ) === true ||
-        (memory.metadata as { staffId?: string } | undefined)?.staffId ===
-          member.id
-      )
-    })
+    const lookedAfter = extraCoinReachedThemSince(
+      ctx,
+      member.id,
+      record.createdOnDay,
+    )
     const owedNothing = totalWageArrears(ctx.state, member.id) <= 0
 
     if (lookedAfter && owedNothing) {

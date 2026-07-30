@@ -63,6 +63,7 @@ describe('Phase 118.4 — information-density tuning', () => {
         },
       ],
       unpaidCount: 0,
+      hiring: { applicants: [], vacancies: [] },
     }
     render(StaffPanel, { props: { data } })
     expect(screen.getByText(/morale/i)).toBeTruthy()

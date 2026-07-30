@@ -483,3 +483,61 @@ describe('buildTavernOverview — invariants', () => {
     expect(data.stock.inventory.spoilingCount).toBe(0)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Expansion Phase 3 — the hiring board has a surface
+// ---------------------------------------------------------------------------
+//
+// `hire_staff` stopped taking a role id and started taking an applicant id, and
+// the Tavern > Staff panel was never updated: it listed the people you already
+// employ, and its empty state sent the player to the World screen's adventurer
+// list. The board — who is available, what they want, how long they will wait —
+// had no surface at all, so the one route to hiring was the action picker's
+// target sub-sheet. These cover the projection half of the fix.
+
+describe('buildTavernOverview — the hiring board (Expansion Phase 3)', () => {
+  it('projects the applicant board with a usable Hire action per person', () => {
+    // The board is generated on the first morning, so open the tavern first.
+    const state = runDays(1, 'hiring-board')
+    const hiring = buildTavernOverview(state).staff.hiring
+    expect(hiring.applicants.length).toBeGreaterThan(0)
+
+    for (const applicant of hiring.applicants) {
+      expect(applicant.name.length).toBeGreaterThan(0)
+      expect(applicant.roleLabel).not.toBe(applicant.roleId)
+      expect(applicant.wageAsk).toBeGreaterThan(0)
+      expect(applicant.daysLeft).toBeGreaterThan(0)
+      // The row carries the action, so the player hires from where they are
+      // reading rather than hunting for a target list.
+      const hire = applicant.applicableActions.find(
+        (ref) => ref.actionId === 'hire_staff',
+      )
+      expect(hire, applicant.id).toBeDefined()
+      expect(hire!.disabledReason, applicant.id).toBeUndefined()
+    }
+  })
+
+  it('an empty board says why, rather than reading as "hiring is gone"', () => {
+    const day0 = createInitialTavernState()
+    const hiring = buildTavernOverview(day0).staff.hiring
+    expect(hiring.applicants).toEqual([])
+    expect(hiring.emptyReason).toBeDefined()
+    expect(hiring.emptyReason!.length).toBeGreaterThan(0)
+  })
+
+  it('an open vacancy is shown with its reason and its age', () => {
+    // Losing somebody opens the vacancy; the board answers it, and the panel
+    // shows both halves.
+    let state = withCoin(runDays(3, 'hiring-vacancy'), 600)
+    state = runOneDay(state, {
+      seed: `${SEED_PREFIX}.hiring-vacancy-fire`,
+      ownerActions: [{ actionId: 'fire_staff', targetId: 'cook' }],
+    }).state
+    const hiring = buildTavernOverview(state).staff.hiring
+    const vacancy = hiring.vacancies.find((row) => row.roleId === 'cook')
+    expect(vacancy).toBeDefined()
+    expect(vacancy!.roleLabel).toBe('Cook')
+    expect(vacancy!.reason.length).toBeGreaterThan(0)
+    expect(vacancy!.openDays).toBeGreaterThanOrEqual(0)
+  })
+})

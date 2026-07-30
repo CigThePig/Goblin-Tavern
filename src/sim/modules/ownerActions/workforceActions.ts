@@ -35,7 +35,7 @@ import {
   payDownArrears,
   totalWageArrears,
 } from '../staff/staffWages'
-import { clearStaffIntent } from '../staff/staffActors'
+import { clearStaffIntent, listStaffIntents } from '../staff/staffActors'
 import {
   STAFF_QUIT_RISK_EVENT,
   STAFF_RAISE_DEMAND_EVENT,
@@ -1224,6 +1224,43 @@ const MATERIAL_GRIEVANCE_IDS: ReadonlySet<string> = new Set([
 ])
 
 /**
+ * Is there a departure to talk somebody out of, and what is it?
+ *
+ * Returns a short readable when there is one and `undefined` when the person is
+ * settled. Both the target list and `canApply` read it, so the action is offered
+ * exactly when it means something and the hint and the rejection agree.
+ *
+ * THREE ANNOUNCED THINGS, and deliberately not a contributor score. A score
+ * threshold reads the live meters, and those move inside the day: stress and
+ * fatigue are shed each morning and rebuilt over the trading day, so the same
+ * person scores 35 at wrap-up — when the quit-risk resolver reads them — and
+ * almost nothing when owner actions apply. Gating on that would make the action
+ * appear in the evening's plan and refuse itself the next afternoon. What does
+ * not move is what has been ANNOUNCED: a quit risk on the calendar, a
+ * resignation on the record, or an intention the actor declared last night. Each
+ * is exactly the moment §3.4 promises a counterplay, and each survives a reload.
+ */
+function retentionRisk(ctx: SimContext, staffId: string): string | undefined {
+  const liveRisk = getLiveScheduledEvents(ctx.state).some(
+    (event) =>
+      event.type === STAFF_QUIT_RISK_EVENT &&
+      event.target?.kind === 'staff' &&
+      event.target.id === staffId,
+  )
+  if (liveRisk) return 'at risk of leaving'
+
+  const record = getEmployment(ctx.state, staffId)
+  if (record?.notice?.givenBy === 'staff') return 'has handed in notice'
+
+  const intent = listStaffIntents(ctx.state).find(
+    (row) => row.staffId === staffId && row.actionId === 'give_notice',
+  )
+  if (intent) return 'is about to hand in notice'
+
+  return undefined
+}
+
+/**
  * Talk somebody round.
  *
  * This is §3.4 item 3 — "allow meaningful counterplay" — and the word MEANINGFUL
@@ -1250,19 +1287,18 @@ const negotiateWithStaffAction: OwnerActionDefinition = {
   // A real conversation, not a word in passing.
   timeCost: TIME_COST_SHORT,
   getValidTargets: (ctx) =>
-    livePlainTargets(ctx).map((member) => {
-      const contributors = describeQuitRiskContributors(ctx.state, member.id)
-      const score = quitRiskScore(contributors)
-      const worst = contributors[0]
-      return {
-        id: member.id,
-        label: member.name.display,
-        hint:
-          score > 0
-            ? `risk ${score}, standing ${ownerTrust(ctx.state, member.id)}; worst: ${worst?.label ?? 'unclear'}`
-            : `settled; standing ${ownerTrust(ctx.state, member.id)}`,
-      }
-    }),
+    livePlainTargets(ctx)
+      .filter((member) => retentionRisk(ctx, member.id) !== undefined)
+      .map((member) => {
+        const contributors = describeQuitRiskContributors(ctx.state, member.id)
+        const score = quitRiskScore(contributors)
+        const worst = contributors[0]
+        return {
+          id: member.id,
+          label: member.name.display,
+          hint: `${retentionRisk(ctx, member.id)} — risk ${score}, standing ${ownerTrust(ctx.state, member.id)}${worst ? `; worst: ${worst.label}` : ''}`,
+        }
+      }),
   canApply: (ctx, input) => {
     if (!input.targetId) {
       return reject('missing_target', 'negotiate_with_staff requires targetId')
@@ -1270,6 +1306,21 @@ const negotiateWithStaffAction: OwnerActionDefinition = {
     const member = ctx.state.staff[input.targetId]
     if (!member) {
       return reject('unknown_target', `Unknown staff '${input.targetId}'`)
+    }
+    // THERE HAS TO BE SOMETHING TO TALK ABOUT.
+    //
+    // Without this the action accepted every live employee, and a settled one
+    // has no contributors and no material blocker — so `persuaded` was
+    // automatically true and the player could spend a short conversation, every
+    // day, on everybody, for +10 morale / +12 loyalty / -6 stress and a step of
+    // owner standing. A retention talk that works on somebody with no retention
+    // problem is a wage-free morale tap, which is exactly the dominant strategy
+    // the balance work exists to prevent.
+    if (retentionRisk(ctx, member.id) === undefined) {
+      return reject(
+        'no_retention_risk',
+        `${member.name.display} is settled — there is nothing to talk them round from.`,
+      )
     }
     return OK
   },

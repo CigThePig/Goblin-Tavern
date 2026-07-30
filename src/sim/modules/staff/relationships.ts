@@ -1,5 +1,9 @@
 import type { SimContext } from '../../core/context'
-import type { EntityRef, TavernState } from '../../state/TavernState'
+import type {
+  EntityRef,
+  StaffState,
+  TavernState,
+} from '../../state/TavernState'
 
 import {
   bumpStaffTotal,
@@ -13,6 +17,7 @@ import {
   MAX_RELATIONSHIP_EDGES,
   MIN_CONTACTS_FOR_ACTIVE_EDGE,
   isActiveEdge,
+  isOnDuty,
   type StaffRelationshipEdge,
 } from './workforceTypes'
 
@@ -122,9 +127,11 @@ export function ownerTrust(
 /**
  * A coworker who could help this member learn.
  *
- * Requires a genuine positive active edge and a real skill gap, so training help
- * is a consequence of the crew getting on rather than a bonus for having two
- * people.
+ * Requires a genuine positive active edge, a real skill gap, and — like every
+ * other "who could do this work" search — somebody who is actually IN. Nothing
+ * downstream rechecks it: `trainStaff` grants the helper bonus and reports that
+ * the colleague showed them the job, so an ill or resting colleague named here
+ * teaches a lesson they were not present for.
  */
 export function findTrainingHelper(
   state: TavernState,
@@ -137,8 +144,8 @@ export function findTrainingHelper(
     .map((edge) => (edge.from.id === learnerId ? edge.to.id : edge.from.id))
     .map((id) => state.staff[id])
     .filter(
-      (other): other is NonNullable<typeof other> =>
-        other !== undefined && other.skill >= learner.skill + 8,
+      (other): other is StaffState =>
+        isOnDuty(other) && other.skill >= learner.skill + 8,
     )
     .sort((a, b) => b.skill - a.skill || a.id.localeCompare(b.id))
   return candidates[0]?.id
@@ -168,13 +175,7 @@ export function findWillingCover(
     .map((edge) => (edge.from.id === absentStaffId ? edge.to.id : edge.from.id))
     .filter((id) => !alreadyCovering.has(id))
     .map((id) => state.staff[id])
-    .filter(
-      (other): other is NonNullable<typeof other> =>
-        other !== undefined &&
-        other.unavailable !== true &&
-        other.absence === undefined &&
-        other.shift !== 'rest',
-    )
+    .filter((other): other is StaffState => isOnDuty(other))
     .sort((a, b) => b.morale - a.morale || a.id.localeCompare(b.id))
   return candidates[0]?.id
 }
@@ -198,8 +199,8 @@ export function findTrainingLearner(
     .map((edge) => (edge.from.id === helperId ? edge.to.id : edge.from.id))
     .map((id) => state.staff[id])
     .filter(
-      (other): other is NonNullable<typeof other> =>
-        other !== undefined && other.skill + 8 <= helper.skill,
+      (other): other is StaffState =>
+        isOnDuty(other) && other.skill + 8 <= helper.skill,
     )
     .sort((a, b) => a.skill - b.skill || a.id.localeCompare(b.id))
   return candidates[0]?.id

@@ -17,6 +17,8 @@ import { areaUpgradeRegistry } from '../sim/content/tavern/areaUpgradeRegistry'
 import { recipeRegistry } from '../sim/registries/recipeRegistry'
 import { staffPriorityRegistry } from '../sim/registries/staffPriorityRegistry'
 import { staffRegistry } from '../sim/registries/staffRegistry'
+import { getStaffModuleState } from '../sim/modules/staff/workforceState'
+import { listApplicants } from '../sim/modules/staff/laborMarket'
 import { stockRegistry } from '../sim/registries/stockRegistry'
 import { COMMISSION_EXPEDITION_ACTION_ID } from '../sim/modules/expeditions/commissionExpedition'
 import {
@@ -319,6 +321,51 @@ export type RecipeRow = {
 export type StaffPanelData = {
   rows: StaffPanelRow[]
   unpaidCount: number
+  /**
+   * Expansion Phase 3 — the hiring half of the staff picture.
+   *
+   * `hire_staff` stopped taking a role and started taking a PERSON off a board
+   * that refreshes weekly and expires. That board had no surface here at all:
+   * the roster listed who you already employ, and the panel's empty state told
+   * the player to hire from the World screen's adventurer list, which has
+   * nothing to do with staff. The only route left was the action picker's target
+   * sub-sheet — findable only if you already knew hiring had moved. So the board
+   * and the open vacancies are projected alongside the roster, each applicant
+   * carrying the same `hire_staff` ref every other row-level action uses.
+   */
+  hiring: StaffHiringData
+}
+
+export type StaffHiringData = {
+  applicants: StaffApplicantRow[]
+  vacancies: StaffVacancyRow[]
+  /** Set when the board is empty, saying when it will next be worth a look. */
+  emptyReason?: string
+}
+
+export type StaffApplicantRow = {
+  id: string
+  name: string
+  roleId: string
+  roleLabel: string
+  skill: number
+  wageAsk: number
+  provenance: string
+  /** Days left before they take work elsewhere. */
+  daysLeft: number
+  /** True when they came in answer to a vacancy the tavern posted. */
+  answersVacancy: boolean
+  readable: string
+  applicableActions: ApplicableActionRef[]
+}
+
+export type StaffVacancyRow = {
+  roleId: string
+  roleLabel: string
+  reason: string
+  openDays: number
+  /** How short that role is on today's rota, if at all. */
+  coverageGap: number
 }
 
 export type StaffPanelRow = {
@@ -950,7 +997,55 @@ function projectStaff(state: TavernState): StaffPanelData {
     .map((s) => projectStaffRow(state, s))
     .sort((a, b) => a.name.localeCompare(b.name))
   const unpaidCount = rows.filter((r) => !r.paidThisWeek).length
-  return { rows, unpaidCount }
+  return { rows, unpaidCount, hiring: projectHiring(state) }
+}
+
+function projectHiring(state: TavernState): StaffHiringData {
+  const slice = getStaffModuleState(state)
+  const today = state.calendar.totalDaysElapsed
+  const coverage = new Map(slice.coverage.map((row) => [row.roleId, row.gap]))
+
+  const applicants: StaffApplicantRow[] = listApplicants(state).map(
+    (applicant) => ({
+      id: applicant.id,
+      name: applicant.name.display,
+      roleId: applicant.roleId,
+      roleLabel: staffRegistry.has(applicant.roleId)
+        ? staffRegistry.get(applicant.roleId).label
+        : applicant.roleId,
+      skill: applicant.skill,
+      wageAsk: applicant.wageAsk,
+      provenance: applicant.provenance.replace(/_/g, ' '),
+      daysLeft: Math.max(0, applicant.availableUntilDay - today),
+      answersVacancy: applicant.answersVacancyForRole !== undefined,
+      readable: applicant.readable,
+      applicableActions: applicableActionsForRow(state, 'staff', applicant.id),
+    }),
+  )
+
+  const vacancies: StaffVacancyRow[] = slice.laborMarket.vacancies.map(
+    (vacancy) => ({
+      roleId: vacancy.roleId,
+      roleLabel: staffRegistry.has(vacancy.roleId)
+        ? staffRegistry.get(vacancy.roleId).label
+        : vacancy.roleId,
+      reason: vacancy.reason,
+      openDays: Math.max(0, today - vacancy.openedOnDay),
+      coverageGap: coverage.get(vacancy.roleId) ?? 0,
+    }),
+  )
+
+  const data: StaffHiringData = { applicants, vacancies }
+  if (applicants.length === 0) {
+    // The board is generated on the first morning and refreshed weekly, so an
+    // empty one on day zero is "not yet", not "never". Saying which it is keeps
+    // the player from concluding that hiring is gone.
+    data.emptyReason =
+      today === 0
+        ? 'Word has not gone round yet — the board fills once you open.'
+        : 'Nobody is looking for work at the moment. The board refreshes weekly, and a vacancy always draws somebody.'
+  }
+  return data
 }
 
 function projectStaffRow(state: TavernState, staff: StaffState): StaffPanelRow {

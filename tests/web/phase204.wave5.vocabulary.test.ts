@@ -130,6 +130,9 @@ const ID_FIELDS = new Set([
   'toggleActionId',
   'storageAreaId',
   'role',
+  // Expansion Phase 3 — the hiring board keys and queues on `roleId` beside the
+  // existing `role`; every role a player reads on it comes from `roleLabel`.
+  'roleId',
   'favoriteStockId',
   'currentExpeditionId',
   'targetIngredientId',

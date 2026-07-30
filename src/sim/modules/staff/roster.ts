@@ -36,7 +36,12 @@ import {
   findWillingCover,
   noteContact,
 } from './relationships'
-import { separateStaff } from './employment'
+import {
+  UNEXCUSED_MEMORY_DAYS,
+  recordUnexcusedAbsence,
+  separateStaff,
+  unexcusedRun,
+} from './employment'
 
 // Expansion Phase 3 §3.2 — turning twelve priorities into real allocations.
 //
@@ -231,7 +236,37 @@ export function resolveAbsences(ctx: SimContext): AbsenceOutcome {
     a.id.localeCompare(b.id),
   )
 
+  // Somebody who simply stops turning up eventually stops being employed. This
+  // is the one separation the player never chose, and it needs a warning window
+  // rather than a surprise, which `ABANDONMENT_DAYS` provides.
+  //
+  // JUDGED BEFORE THE RETURN PASS, and on the RUN rather than on one absence.
+  // Both halves were wrong. An absence is cleared the morning its `untilDay`
+  // arrives, so a check that ran afterwards could never see one that had lasted
+  // its full length — the threshold was unreachable by construction. And the
+  // only thing that writes an unexcused absence takes a single day at a time,
+  // so no single absence was ever going to reach four days anyway. The run is
+  // what "stopped turning up" actually means.
   for (const member of members) {
+    const absence = member.absence
+    if (!absence || absence.kind !== 'unexcused') continue
+    const thisAbsence = today - absence.startedOnDay
+    const run = unexcusedRun(ctx.state, member.id)
+    if (thisAbsence < ABANDONMENT_DAYS && run < ABANDONMENT_DAYS) continue
+    separateStaff(ctx, {
+      staffId: member.id,
+      kind: 'abandoned',
+      reason:
+        thisAbsence >= ABANDONMENT_DAYS
+          ? `absent without leave for ${thisAbsence} days`
+          : `did not come in ${run} days out of the last ${UNEXCUSED_MEMORY_DAYS}`,
+      source: `${SOURCE}.abandonment`,
+    })
+    out.abandoned.push(member.id)
+  }
+
+  for (const member of members) {
+    if (out.abandoned.includes(member.id)) continue
     const absence = member.absence
     if (!absence) continue
     if (today < absence.untilDay) {
@@ -261,22 +296,6 @@ export function resolveAbsences(ctx: SimContext): AbsenceOutcome {
       },
     )
     out.returned.push(member.id)
-  }
-
-  // Somebody who simply stops turning up eventually stops being employed. This
-  // is the one separation the player never chose, and it needs a warning window
-  // rather than a surprise, which `ABANDONMENT_DAYS` provides.
-  for (const member of members) {
-    const absence = ctx.state.staff[member.id]?.absence
-    if (!absence || absence.kind !== 'unexcused') continue
-    if (today - absence.startedOnDay < ABANDONMENT_DAYS) continue
-    separateStaff(ctx, {
-      staffId: member.id,
-      kind: 'abandoned',
-      reason: `absent without leave for ${today - absence.startedOnDay} days`,
-      source: `${SOURCE}.abandonment`,
-    })
-    out.abandoned.push(member.id)
   }
 
   // One new absence at most, and only for somebody who is in today.
@@ -432,6 +451,12 @@ export function setAbsence(
       relatedSystems: ['staff'],
     },
   )
+  // A no-show goes on the employment record as well as on the person, because
+  // "how often does this happen?" is a fact about the job, not about today, and
+  // the abandonment rule reads the run rather than one absence's length.
+  if (input.kind === 'unexcused') {
+    recordUnexcusedAbsence(ctx, staffId, Math.max(1, input.days))
+  }
   return true
 }
 

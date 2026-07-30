@@ -706,12 +706,39 @@ that repeats exactly what `ctxApplier.routeFutureHook` does — the Phase 1
 `obligationProbe` precedent, not fixture injection. The round moved none of the
 frozen artifacts.
 
-Gates: `npm run test:full` **310 files / 4,096 tests**, `typecheck` clean,
+**A second round found seven more, and the player found an eighth** — the one
+that mattered most and that no review tool caught: **hiring had no surface
+left**. `hire_staff` became "pick a person off a board that expires", and the
+Tavern > Staff panel still listed only the people you already employ, with an
+empty state pointing at the World screen's adventurer list. The board existed
+only in the sim and in the action picker's target sub-sheet. `StaffPanelData`
+carries a `hiring` block now — applicants with role, skill, ask, provenance and
+days left, each with the same `hire_staff` ref every other row-level action
+uses, plus the open vacancies — and the panel renders it under the roster. The
+seven review findings: a bonus promise judged on the ordinary wage
+(`wage_expectation` never landed); the worker whose load was lightened counted as
+their own cover (`coverage_gap` never landed); abandonment unreachable twice over
+(one absence's length against a rule nothing produces, and checked after the pass
+that clears it — now a remembered RUN of unexcused days, checked first); an actor
+handing in notice while its own warning was still running (`scheduleQuitRisk`
+returns a discriminated result); the weekly actor allowance refilling on day
+seven before that day's action; off-duty colleagues still teaching (all three
+"who could do this work" searches go through one `isOnDuty` predicate); and
+`negotiate_with_staff` working on a settled employee, which made it a repeatable
+morale tap — it now needs something ANNOUNCED (a live quit risk, a resignation on
+the record, or a declared intent). A contributor-score gate was tried and
+rejected: the score reads live meters that are shed each morning and rebuilt over
+the day, so the action would have been offered in the evening and refused itself
+the next afternoon.
+
+Gates: `npm run test:full` **311 files / 4,109 tests**, `typecheck` clean,
 `check` 1,038 files / 0 errors, `build` passing (same known >500 kB chunk
 warning), and all three expansion artifacts clean — `ledger:check` 134 rows,
 `baseline:probes` 0 drifted, `repo:map` 0 sections drifted. Tests:
 `tests/sim/phase210.workforceLifecycle.test.ts` (36),
-`phase210.retentionAndQuitting.test.ts` (28),
+`phase210.retentionAndQuitting.test.ts` (35),
+`tests/reports/tavernOverviewProjection.test.ts` (+3 hiring-board cases),
+`tests/web/components/staffHiringBoard.test.ts` (3),
 `phase210.workforceBeatPersistence.test.ts` (6 — a reload at all five player
 beats with somebody on notice, somebody owed back pay, a cross-trained second
 trade and a live relationship graph, plus full-day-vs-segmented equivalence

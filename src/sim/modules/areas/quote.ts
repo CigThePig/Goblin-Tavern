@@ -1,4 +1,4 @@
-import type { AreaState, StaffState, TavernState } from '../../state/TavernState'
+import type { AreaState, TavernState } from '../../state/TavernState'
 import { areaRegistry } from '../../registries/areaRegistry'
 import type { AreaCapacity } from '../../registries/areaCapacityTypes'
 import {
@@ -9,6 +9,18 @@ import type {
   AreaUpgradeDefinition,
   AreaUpgradeMaintenance,
 } from '../../content/tavern/upgradeTypes'
+import {
+  CONSTRUCTION_PRIORITY,
+  DERELICT_CONDITION,
+  OWNER_FUND_LABOUR,
+  getMaxConcurrentSites,
+  listActiveSites,
+} from './labour'
+// `getSiteLabourPerDay` lives with the schedule because the honest answer
+// depends on which sites the schedule actually cleared today — see the note on
+// the crew split there. Quoting reads it rather than re-deriving a second,
+// looser estimate that could disagree with the tick.
+import { getSiteLabourPerDay } from './schedule'
 
 // Expansion Phase 2 §2.2 / §2.3 / §2.5 — quoting a build.
 //
@@ -22,27 +34,6 @@ import type {
 // The quote is pure: state in, quote out. It never mutates and never draws
 // from the RNG, so a preview and the eventual charge are the same
 // computation run twice.
-
-/**
- * Baseline labour a live site produces on its own each day.
- *
- * A site is never wholly dead — the owner passes through, a hand puts an
- * hour in. But the baseline is deliberately slow: `labourRequired` scales
- * with build days, so an unattended four-day job takes eight days. Getting
- * the quoted duration needs either staff on repairs or the owner's own time
- * (§2.3, "variable progress from labor, damage, shortages, and
- * interruptions").
- */
-export const SITE_BASE_LABOUR_PER_DAY = 1
-
-/** Labour one `fund_area_upgrade` push buys. */
-export const OWNER_FUND_LABOUR = 2
-
-/** The staff priority that puts a body on a construction site. */
-export const CONSTRUCTION_PRIORITY = 'minor_repairs'
-
-/** Condition below which a wrecked room slows its own repairs. */
-const DERELICT_CONDITION = 35
 
 export type AreaUpgradeMaterialLine = {
   stockId: string
@@ -87,89 +78,6 @@ export type AreaUpgradeQuote = {
   eligibility: AreaUpgradeVerdict
   /** Can the player pay for it right now? */
   affordability: AreaUpgradeVerdict
-}
-
-// ---------- labour ----------
-
-function isWorkingStaff(member: StaffState): boolean {
-  return member.unavailable !== true
-}
-
-/** Effectiveness mirrors the staff module's own formula, read-only. */
-function effectiveness(member: StaffState): number {
-  const raw =
-    member.skill +
-    Math.round(member.morale * 0.2) -
-    Math.round(member.stress * 0.25) -
-    Math.round(member.fatigue * 0.25)
-  return Math.max(0, Math.min(100, raw))
-}
-
-/** Staff currently assigned to site work. */
-export function listConstructionCrew(state: TavernState): StaffState[] {
-  return Object.values(state.staff)
-    .filter(
-      (member) =>
-        isWorkingStaff(member) && member.currentPriority === CONSTRUCTION_PRIORITY,
-    )
-    .sort((a, b) => a.id.localeCompare(b.id))
-}
-
-/**
- * §2.3 concurrent-work limit.
- *
- * One site is what an owner can keep an eye on alone; each staffer on
- * repairs makes another one possible. This is why `minor_repairs` is a real
- * decision rather than a flavour toggle.
- */
-export function getMaxConcurrentSites(state: TavernState): number {
-  return 1 + listConstructionCrew(state).length
-}
-
-/** Areas with a live (`in_progress`) build. */
-export function listActiveSites(
-  state: TavernState,
-): Array<{ areaId: string; upgradeId: string }> {
-  const sites: Array<{ areaId: string; upgradeId: string }> = []
-  for (const area of Object.values(state.areas)) {
-    for (const upgrade of Object.values(area.upgrades)) {
-      if (upgrade.status !== 'in_progress') continue
-      sites.push({ areaId: area.id, upgradeId: upgrade.id })
-    }
-  }
-  return sites.sort(
-    (a, b) =>
-      a.areaId.localeCompare(b.areaId) || a.upgradeId.localeCompare(b.upgradeId),
-  )
-}
-
-/**
- * Labour one site produces per day right now.
- *
- * Deterministic by construction: the crew list is sorted by id, the split is
- * integer, and no RNG is drawn — so a replay and a reload produce identical
- * progress (required test: "deterministic construction progress").
- */
-export function getSiteLabourPerDay(state: TavernState, areaId: string): number {
-  const area = state.areas[areaId]
-  if (!area) return 0
-
-  const crew = listConstructionCrew(state)
-  const sites = Math.max(1, listActiveSites(state).length)
-  let labour = SITE_BASE_LABOUR_PER_DAY
-
-  // The crew is spread across the live sites rather than counted once per
-  // site: three sites and one carpenter is one carpenter's worth of work,
-  // not three.
-  for (const member of crew) {
-    const perDay = 1 + Math.round(effectiveness(member) / 50)
-    labour += perDay / sites
-  }
-
-  // A room falling down is a worse place to work in.
-  if (area.condition < DERELICT_CONDITION) labour -= 1
-
-  return Math.max(0, Math.round(labour * 10) / 10)
 }
 
 // ---------- eligibility ----------
@@ -225,8 +133,25 @@ export function checkUpgradeEligibility(
     if (existing.status === 'damaged' || existing.status === 'disabled') {
       return fail('needs_repair', `${def.label} is broken — repair it instead`)
     }
-    // `available` and `cancelled` fall through: a cancelled build may be
+    // `available` and `cancelled` fall through: an abandoned build may be
     // started again from scratch.
+  }
+
+  // …but a SUPERSEDED record is not an abandoned one. `completeUpgrade` retires
+  // the upgrade a replacement supersedes by marking it `cancelled`, and without
+  // this clause that record reads as freely restartable: build the beams, then
+  // rebuild the thatch they replaced, and the room ends up with both installed,
+  // the patch's meter benefit re-applied and two upkeep clocks running for
+  // mutually exclusive roof work. The successor's own `replaces` declaration is
+  // the authority, so no extra state is needed to know it.
+  for (const other of Object.values(area.upgrades)) {
+    if (other.status !== 'installed') continue
+    const otherDef = getAreaUpgradeDefinition(other.id)
+    if (otherDef?.replaces !== upgradeId) continue
+    return fail(
+      'superseded',
+      `${def.label} was replaced by ${otherDef.label}; the two cannot both be fitted`,
+    )
   }
 
   const el = def.eligibility

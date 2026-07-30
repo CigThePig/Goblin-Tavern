@@ -627,6 +627,78 @@ describe('Phase 209 §2.1 — an installed fitting changes a consuming system', 
 // ------------------------------------------------------- 6. damage → repair
 
 describe('Phase 209 §2.2 — damage → disabled → repair', () => {
+  // Codex review, P2 — "Disable trait effects when fittings break". The first
+  // cut of `damageUpgrade` changed only the upgrade record, so a fitting that
+  // had scrubbed a trait on install kept scrubbing it while disabled: the
+  // cellar stayed pest-free forever and the pest calculator kept granting a
+  // benefit the record itself called out of service.
+  it('a broken fitting stops giving the room what it was giving', () => {
+    let state = preparedTavern()
+    // The cellar comes with `pest_prone`; rat-proof barrels scrub it.
+    expect(state.areas['cellar']!.traits).toContain('pest_prone')
+    state = runUntilInstalled(
+      runDay(state, [
+        {
+          actionId: 'start_area_upgrade',
+          targetId: target('cellar', 'rat_proof_barrels'),
+        },
+      ]).state,
+      'cellar',
+      'rat_proof_barrels',
+    ).state
+    expect(state.areas['cellar']!.traits).not.toContain('pest_prone')
+
+    // Neglect the service until the barrels rot through.
+    for (let day = 0; day < 90; day += 1) {
+      state = runDay(state).state
+      const live = record(state, 'cellar', 'rat_proof_barrels')!
+      if (live.status === 'damaged' || live.status === 'disabled') break
+    }
+    expect(['damaged', 'disabled']).toContain(
+      record(state, 'cellar', 'rat_proof_barrels')!.status,
+    )
+    // The pests are back, because the barrels are not holding them out.
+    expect(state.areas['cellar']!.traits).toContain('pest_prone')
+
+    // …and repairing them puts the benefit back.
+    state = withCoin(state, 200)
+    state = runDay(state, [
+      {
+        actionId: 'repair_area_upgrade',
+        targetId: target('cellar', 'rat_proof_barrels'),
+      },
+    ]).state
+    expect(record(state, 'cellar', 'rat_proof_barrels')!.status).toBe('installed')
+    expect(state.areas['cellar']!.traits).not.toContain('pest_prone')
+  })
+
+  it('suspending one fitting never scrubs a trait the room came with', () => {
+    // `hearth_repair` ADDS `cozy` and removes `drafty`; the main room has
+    // neither by default, so a break must remove `cozy` and must NOT invent
+    // `drafty` — the room never had it.
+    let state = preparedTavern()
+    expect(state.areas['main_room']!.traits).not.toContain('drafty')
+    state = runUntilInstalled(
+      runDay(state, [
+        {
+          actionId: 'start_area_upgrade',
+          targetId: target('main_room', 'hearth_repair'),
+        },
+      ]).state,
+      'main_room',
+      'hearth_repair',
+    ).state
+    expect(state.areas['main_room']!.traits).toContain('cozy')
+
+    for (let day = 0; day < 90; day += 1) {
+      state = runDay(state).state
+      const live = record(state, 'main_room', 'hearth_repair')!
+      if (live.status === 'damaged' || live.status === 'disabled') break
+    }
+    expect(state.areas['main_room']!.traits).not.toContain('cozy')
+    expect(state.areas['main_room']!.traits).not.toContain('drafty')
+  })
+
   it('an overdue fitting wears, breaks, and can be repaired back into service', () => {
     let state = preparedTavern()
     state = runUntilInstalled(
@@ -993,6 +1065,55 @@ describe('Phase 209 §2.2 — one authoritative record, no duplicate representat
     const thatch = record(state, 'roof', 'patched_thatch')!
     expect(thatch.status).toBe('cancelled')
     expect(thatch.disabledReason).toMatch(/Superseded/)
+  })
+
+  // Codex review, P2 — "Keep superseded upgrades from being rebuilt". A
+  // superseded record lands in `cancelled`, and `cancelled` is restartable, so
+  // the thatch the beams replaced could be built again — leaving both installed,
+  // the patch's meter benefit re-applied and two upkeep clocks running for
+  // mutually exclusive roof work.
+  it('an upgrade that was superseded cannot be built again', () => {
+    let state = preparedTavern()
+    state = runUntilInstalled(
+      runDay(state, [
+        { actionId: 'start_area_upgrade', targetId: target('roof', 'patched_thatch') },
+      ]).state,
+      'roof',
+      'patched_thatch',
+    ).state
+    state = runUntilInstalled(
+      runDay(state, [
+        {
+          actionId: 'start_area_upgrade',
+          targetId: target('roof', 'reinforced_beams'),
+        },
+      ]).state,
+      'roof',
+      'reinforced_beams',
+      40,
+    ).state
+    expect(record(state, 'roof', 'patched_thatch')!.status).toBe('cancelled')
+
+    const verdict = checkUpgradeEligibility(state, 'roof', 'patched_thatch')
+    expect(verdict.ok).toBe(false)
+    if (!verdict.ok) {
+      expect(verdict.code).toBe('superseded')
+      expect(verdict.reason).toMatch(/Reinforced Beams/)
+    }
+    // It is not offered, and a queued attempt is rejected rather than applied.
+    const offered = actionRegistry
+      .get('start_area_upgrade')
+      .getValidTargets({ state } as never)
+      .map((t) => t.id)
+    expect(offered).not.toContain(target('roof', 'patched_thatch'))
+
+    const attempt = runDay(state, [
+      { actionId: 'start_area_upgrade', targetId: target('roof', 'patched_thatch') },
+    ])
+    expect(getOwnerActionsModuleState(attempt.state).rejected[0]?.code).toBe(
+      'superseded',
+    )
+    expect(record(attempt.state, 'roof', 'patched_thatch')!.status).toBe('cancelled')
   })
 
   it('the catalogue itself contains no duplicate area/upgrade pairing', () => {

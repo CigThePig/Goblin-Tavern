@@ -822,8 +822,58 @@ route moved by one visitor. `repo-map.json` moved on three sections
 `ensureAreaConstructionFields`, `stockRecords`/`recipes` 20 → 22) plus the
 two new glossary terms.
 
-Gates: `npm run test:full` **307 files / 4,015 tests**, `npm test` 299 /
-3,886, `typecheck` clean, `check` 1,023 files / 0 errors, `build` passing
+**Eight review findings fixed before merge** (Codex on PR #247 — one P1,
+seven P2), each with a regression test in the phase's own files:
+
+- **P1, and the one that would have shipped a dead end:** a save written
+  before this phase keeps its own `stock` map, and nothing merged newly
+  registered records into it — so `timber` and `cut_stone` never existed
+  for an existing player. Every material line read "0 held" and rejected
+  the build, while `restock_item` enumerates `state.stock` and so could
+  never offer a way to buy any: permanently unbuildable.
+  `ensureRegistryRecords` now merges missing stock and recipe records at
+  their registry defaults (quantity 0 — an empty shelf, not free timber),
+  leaving anything the save already has exactly as the player left it.
+- A fitting's **identity effects now follow its status**. `rat_proof_barrels`
+  scrubs `pest_prone` on install, and a broken one used to keep scrubbing
+  it forever — the pest calculator went on granting a benefit the record
+  called out of service. Suspend on break, restore on repair, guarded so
+  it only ever undoes what that fitting is responsible for and never
+  invents a trait the room did not come with.
+- **Crew labour splits across SCHEDULED sites, not live ones.** Dividing by
+  every `in_progress` record meant a site the schedule had conflicted still
+  took a share of the carpenter — and that share simply vanished. This is
+  why `getSiteLabourPerDay` moved to `schedule.ts` and the labour/site
+  primitives to a new `labour.ts`: quoting needs the schedule's verdict, and
+  the two files would otherwise import each other.
+- **Workstation capacity was declared with consumers claimed and had none.**
+  It now genuinely constrains: the concurrent-site limit is the tighter of
+  supervision and usable workstations (never zero, or repairing the place
+  would become unreachable), and `getKitchenThroughputFactor` decides how
+  much of what patrons wanted actually reaches them — centred on the
+  kitchen's registry base, so a tavern that has built and broken nothing
+  scores exactly 1.
+- **A superseded upgrade cannot be rebuilt.** `cancelled` is restartable and
+  superseded fittings land there, so the thatch the beams replaced could be
+  built again — both installed, the patch's benefit re-applied, two upkeep
+  clocks for mutually exclusive roof work.
+- **Cellar pests go for the food.** The edge picked the biggest stack in the
+  cellar, which is reliably firewood or timber — non-perishable, so their
+  spoilage is never read and the edge had no consequence at all. This is
+  the one fix visible in the frozen probes: `month-boundary` had firewood
+  sitting at 72 spoilage, which meant nothing.
+- **Migrated builds no longer finish on materials they never drew.** A
+  converted legacy project had no `materialsUsed`, so the tick treated
+  whatever was in store as delivered. The migration stamps it settled (the
+  legacy quote charged coin and never materials — retroactively billing
+  would change a closed deal), and the tick now *consumes* anything a
+  record still owes rather than merely checking it could.
+- **A patch failure binds to the room whose patch made the promise**, matched
+  on the day the memory and the event were both created, rather than to
+  whichever patched room happens to be worst today.
+
+Gates: `npm run test:full` **307 files / 4,027 tests**, `npm test` 299 /
+3,898, `typecheck` clean, `check` 1,024 files / 0 errors, `build` passing
 (same known >500 kB chunk warning §13.5 asks Phase 13 to split), and all
 three expansion artifacts clean — `ledger:check` 134 rows,
 `baseline:probes` 0 drifted, `repo:map` 0 sections drifted. Tests:

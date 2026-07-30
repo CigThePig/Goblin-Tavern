@@ -4,12 +4,11 @@ import { getAreaUpgradeDefinition } from '../../content/tavern/areaUpgradeRegist
 import {
   areaLabel,
   checkUpgradeEligibility,
-  getMaxConcurrentSites,
-  listActiveSites,
   listCatalogueForArea,
   quoteAreaUpgrade,
   type AreaUpgradeQuote,
 } from '../areas/quote'
+import { getMaxConcurrentSites, listActiveSites } from '../areas/labour'
 import {
   cancelUpgrade,
   fundUpgrade,

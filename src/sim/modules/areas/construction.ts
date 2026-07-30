@@ -6,6 +6,7 @@ import type {
 } from '../../state/TavernState'
 import { clampPercent } from '../../state/normalize'
 import { capacityOf } from '../../registries/areaCapacityTypes'
+import { areaRegistry } from '../../registries/areaRegistry'
 import { getAreaUpgradeDefinition } from '../../content/tavern/areaUpgradeRegistry'
 import type { AreaUpgradeDefinition } from '../../content/tavern/upgradeTypes'
 import { spendCoin } from '../stock/ledger'
@@ -18,14 +19,13 @@ import {
   type AreaConstructionLogEntry,
 } from './state'
 import {
-  OWNER_FUND_LABOUR,
-  getSiteLabourPerDay,
-  listActiveSites,
   upgradeLabourRequired,
   upgradeMaterials,
   type AreaUpgradeQuote,
 } from './quote'
+import { OWNER_FUND_LABOUR, listActiveSites } from './labour'
 import {
+  getSiteLabourPerDay,
   ownerTravelPenalty,
   scheduledSiteKeys,
   siteConflictReason,
@@ -436,6 +436,117 @@ export function cancelUpgrade(
   return true
 }
 
+/**
+ * Expansion Phase 2 §2.2 — a fitting's identity effects follow its status.
+ *
+ * `completeUpgrade` used to be the only place that touched an area's traits and
+ * atmosphere, which meant a fitting's identity contribution outlived the fitting
+ * itself: `rat_proof_barrels` scrubs `pest_prone` when it is installed, and if
+ * the barrels then rotted through to `disabled` the cellar stayed pest-free
+ * forever — the pest-pressure calculator kept granting a benefit the record
+ * itself said was out of service. Damage has to cost what the fitting bought.
+ *
+ * `apply` puts the contribution on; `suspend` takes it back off. Both are
+ * guarded so they only ever undo what THIS fitting is responsible for:
+ *
+ *   * a trait or atmosphere tag the fitting ADDS is only removed on suspend if
+ *     no other installed fitting also adds it and the room did not come with
+ *     it — otherwise a second fitting's contribution, or the room's own
+ *     character, would be scrubbed by an unrelated breakage;
+ *   * a trait the fitting REMOVES is only restored if the room's registry
+ *     default carries it and no other installed fitting also suppresses it.
+ *     Restoring a trait the room never had would be inventing one.
+ *
+ * Meter effects are deliberately NOT reversed. Cleanliness and condition are
+ * continuous quantities the whole tavern has moved on from since; clawing them
+ * back days later would fabricate a change nothing caused.
+ */
+function applyFittingIdentity(
+  ctx: SimContext,
+  areaId: string,
+  def: AreaUpgradeDefinition,
+  mode: 'apply' | 'suspend',
+): string[] {
+  const area = ctx.state.areas[areaId]
+  if (!area) return []
+  const effects: string[] = []
+
+  const inherentTraits = areaRegistry.has(areaId)
+    ? (areaRegistry.get(areaId).defaultState.traits ?? [])
+    : []
+
+  /** Other fittings in this room that are currently in service. */
+  const otherInstalled = Object.values(area.upgrades)
+    .filter((record) => record.status === 'installed' && record.id !== def.id)
+    .map((record) => getAreaUpgradeDefinition(record.id))
+    .filter((other): other is AreaUpgradeDefinition => other !== undefined)
+
+  let traits = [...area.traits]
+  let atmosphere = [...area.atmosphere]
+
+  for (const trait of def.addsTraits ?? []) {
+    if (mode === 'apply') {
+      if (traits.includes(trait)) continue
+      traits.push(trait)
+      effects.push(`trait +${trait}`)
+      continue
+    }
+    if (!traits.includes(trait)) continue
+    if (inherentTraits.includes(trait)) continue
+    if (otherInstalled.some((other) => other.addsTraits?.includes(trait))) continue
+    traits = traits.filter((t) => t !== trait)
+    effects.push(`trait -${trait}`)
+  }
+
+  for (const trait of def.removesTraits ?? []) {
+    if (mode === 'apply') {
+      if (!traits.includes(trait)) continue
+      traits = traits.filter((t) => t !== trait)
+      effects.push(`trait -${trait}`)
+      continue
+    }
+    if (traits.includes(trait)) continue
+    if (!inherentTraits.includes(trait)) continue
+    if (otherInstalled.some((other) => other.removesTraits?.includes(trait))) continue
+    traits.push(trait)
+    effects.push(`trait +${trait}`)
+  }
+
+  for (const tag of def.addsAtmosphere ?? []) {
+    if (mode === 'apply') {
+      if (atmosphere.includes(tag)) continue
+      atmosphere.push(tag)
+      effects.push(`atmosphere +${tag}`)
+      continue
+    }
+    if (!atmosphere.includes(tag)) continue
+    if (otherInstalled.some((other) => other.addsAtmosphere?.includes(tag))) continue
+    atmosphere = atmosphere.filter((t) => t !== tag)
+    effects.push(`atmosphere -${tag}`)
+  }
+
+  if (effects.length === 0) return effects
+
+  ctx.modifyArea(
+    areaId,
+    { traits, atmosphere },
+    {
+      source: `${SOURCE}.upgrade.${mode === 'apply' ? 'installed' : 'suspended'}.${def.id}`,
+      reason: mode === 'apply' ? 'upgrade_reshaped_area' : 'fitting_out_of_service',
+      target: `area:${areaId}.traits`,
+      targetType: 'area',
+      readable:
+        mode === 'apply'
+          ? `${def.label} reshaped ${area.label}.`
+          : `${def.label} is out of service, so ${area.label} loses what it was giving.`,
+      tags: ['area', 'upgrade', mode === 'apply' ? 'installed' : 'suspended', areaId, def.id],
+      relatedLocations: [{ kind: 'area', id: areaId }],
+      relatedSystems: ['areas'],
+    },
+  )
+  return effects
+}
+
 // ---------- completion ----------
 
 /**
@@ -482,47 +593,9 @@ export function completeUpgrade(
   })
   effects.push(`${def.label} installed`)
 
-  // 2. Traits and atmosphere. Read the branch fresh — step 1 just wrote it.
-  const live = ctx.state.areas[areaId]!
-  let traits = [...live.traits]
-  for (const trait of def.addsTraits ?? []) {
-    if (!traits.includes(trait)) {
-      traits.push(trait)
-      effects.push(`trait +${trait}`)
-    }
-  }
-  for (const trait of def.removesTraits ?? []) {
-    if (traits.includes(trait)) {
-      traits = traits.filter((t) => t !== trait)
-      effects.push(`trait -${trait}`)
-    }
-  }
-  const atmosphere = [...live.atmosphere]
-  for (const tag of def.addsAtmosphere ?? []) {
-    if (!atmosphere.includes(tag)) {
-      atmosphere.push(tag)
-      effects.push(`atmosphere +${tag}`)
-    }
-  }
-  if (
-    traits.length !== live.traits.length ||
-    traits.some((t, i) => t !== live.traits[i]) ||
-    atmosphere.length !== live.atmosphere.length
-  ) {
-    ctx.modifyArea(
-      areaId,
-      { traits, atmosphere },
-      {
-        source: `${SOURCE}.upgrade.installed.${upgradeId}`,
-        reason: 'upgrade_reshaped_area',
-        target: `area:${areaId}.traits`,
-        targetType: 'area',
-        readable: `${def.label} reshaped ${area.label}.`,
-        tags: ['area', 'upgrade', 'installed', areaId, upgradeId],
-        relatedLocations: [{ kind: 'area', id: areaId }],
-        relatedSystems: ['areas'],
-      },
-    )
+  // 2. Traits and atmosphere.
+  for (const line of applyFittingIdentity(ctx, areaId, def, 'apply')) {
+    effects.push(line)
   }
 
   // 3. Meter effects. `cleanliness`/`condition` improvements are spent
@@ -689,6 +762,10 @@ export function damageUpgrade(
   )
 
   if (status !== 'installed' && record.status === 'installed') {
+    // The fitting has just left service, so whatever it was giving the room
+    // stops. Without this the cellar keeps its scrubbed `pest_prone` — and the
+    // pest calculator keeps granting a benefit the record says is broken.
+    applyFittingIdentity(ctx, areaId, def, 'suspend')
     bumpAreaTotal(ctx, 'upgradesDamaged', 1, reason)
     ctx.addHistory({
       // `state_change` rather than a bespoke category: the fitting's status
@@ -748,6 +825,8 @@ export function repairUpgrade(
       tags: ['fitting', 'repaired'],
     },
   )
+  // Back in service, so what it gives the room comes back with it.
+  applyFittingIdentity(ctx, areaId, def, 'apply')
   bumpAreaTotal(ctx, 'upgradesRepaired', 1, 'fitting_repaired')
   ctx.addHistory({
     category: 'owner_action',
@@ -804,6 +883,11 @@ export function serviceUpgrade(
       amount: condition - (record.condition ?? 100),
     },
   )
+  // A service that lifted a damaged fitting back over the failure line puts it
+  // back in service, so its identity contribution returns with it.
+  if (record.status !== 'installed' && condition >= FITTING_BROKEN_CONDITION) {
+    applyFittingIdentity(ctx, areaId, def, 'apply')
+  }
   bumpAreaTotal(ctx, 'upkeepsServiced', 1, 'fitting_serviced')
   return true
 }
@@ -843,13 +927,20 @@ export function tickConstruction(ctx: SimContext): void {
     // Materials the build still owes are checked every day, not just at the
     // start: a site can be short because the record was migrated in, or
     // because a later phase's supplier failure took the delivery back.
-    const shortage = firstMaterialShortage(ctx.state, def, record)
+    // Anything the record still owes is drawn NOW, before labour is counted —
+    // so a site can never progress on materials it has not actually consumed.
+    const shortage = settleOwedMaterials(ctx, site.areaId, def, record).shortage
     const blocked = cleared.has(`${site.areaId}:${site.upgradeId}`)
       ? undefined
       : (siteConflictReason(schedule, site.areaId, site.upgradeId) ??
         'the day’s schedule had no room for this site')
     let labour =
-      shortage || blocked ? 0 : getSiteLabourPerDay(ctx.state, site.areaId)
+      shortage || blocked
+        ? 0
+        : // The schedule the module already wrote is handed straight in, so the
+          // crew split the tick applies is the same one the schedule laid out
+          // rather than a second computation that could disagree with it.
+          getSiteLabourPerDay(ctx.state, site.areaId, schedule)
     let stalledReason: string | undefined = shortage
       ? `short of ${shortage}`
       : blocked
@@ -864,12 +955,16 @@ export function tickConstruction(ctx: SimContext): void {
     const moved = progress > (record.progress ?? 0)
     const stalledDays = moved ? 0 : (record.stalledDays ?? 0) + 1
 
+    // `settleOwedMaterials` may have rewritten the record, so patch the live
+    // one rather than the copy read at the top of the loop.
+    const current = ctx.state.areas[site.areaId]?.upgrades[site.upgradeId] ?? record
+
     if (moved) {
       labourApplied += labour
       writeUpgrade(
         ctx,
         site.areaId,
-        patchRecord(record, {
+        patchRecord(current, {
           progress,
           requiredProgress,
           lastProgressDay: ctx.state.calendar.totalDaysElapsed,
@@ -890,7 +985,7 @@ export function tickConstruction(ctx: SimContext): void {
       writeUpgrade(
         ctx,
         site.areaId,
-        patchRecord(record, {
+        patchRecord(current, {
           requiredProgress,
           stalledDays,
           stalledReason,
@@ -944,24 +1039,68 @@ function listConstructionCrewIds(state: TavernState): string[] {
 }
 
 /**
- * The first material this build still owes, or `undefined` when it is
- * fully supplied. A build charged its materials at the start owes nothing,
- * so this normally returns `undefined` — it is the guard for records that
- * arrived some other way.
+ * Settle whatever materials a build still owes, drawing them from stores.
+ *
+ * A build charged at the start owes nothing, so this is normally a no-op — it
+ * exists for records that arrived some other way (a migrated save, a future
+ * phase's supplier failure clawing a delivery back). The important part is that
+ * it CONSUMES: checking that the store holds enough and then letting the site
+ * build anyway would hand the player a free build and leave the same timber
+ * available for the next one.
+ *
+ * Returns a shortage description when the store cannot cover what is owed, in
+ * which case nothing is drawn — a half-delivered site is worse than a stalled
+ * one, because it spends materials and still makes no progress.
  */
-function firstMaterialShortage(
-  state: TavernState,
+function settleOwedMaterials(
+  ctx: SimContext,
+  areaId: string,
   def: AreaUpgradeDefinition,
   record: AreaUpgradeState,
-): string | undefined {
-  for (const line of upgradeMaterials(state, def)) {
+): { shortage?: string } {
+  const owed: Array<{ stockId: string; label: string; quantity: number }> = []
+  for (const line of upgradeMaterials(ctx.state, def)) {
     const delivered = record.materialsUsed?.[line.stockId] ?? 0
     if (delivered >= line.required) continue
-    const owed = line.required - delivered
-    if (line.held >= owed) continue
-    return `${owed} ${line.label}`
+    const missing = line.required - delivered
+    if (line.held < missing) return { shortage: `${missing} ${line.label}` }
+    owed.push({ stockId: line.stockId, label: line.label, quantity: missing })
   }
-  return undefined
+  if (owed.length === 0) return {}
+
+  const area = ctx.state.areas[areaId]
+  const materialsUsed: Record<string, number> = { ...(record.materialsUsed ?? {}) }
+  for (const line of owed) {
+    const item = ctx.state.stock[line.stockId]
+    if (!item) continue
+    ctx.modifyStock(
+      line.stockId,
+      { quantity: item.quantity - line.quantity },
+      {
+        source: `${SOURCE}.upgrade.materials`,
+        sourceType: 'area',
+        direction: 'decrease',
+        amount: -line.quantity,
+        readable: `${line.quantity} ${item.label} went into ${def.label} in ${area?.label ?? areaId}.`,
+        tags: ['area', 'upgrade', 'materials', def.id, line.stockId],
+        relatedActors: [{ kind: 'stock', id: line.stockId }],
+        relatedLocations: [{ kind: 'area', id: areaId }],
+        relatedSystems: ['areas', 'stock'],
+      },
+    )
+    materialsUsed[line.stockId] = (materialsUsed[line.stockId] ?? 0) + line.quantity
+  }
+
+  const live = ctx.state.areas[areaId]?.upgrades[def.id]
+  if (live) {
+    writeUpgrade(ctx, areaId, patchRecord(live, { materialsUsed }), {
+      reason: 'construction_materials_settled',
+      readable: `${def.label} drew the materials it still owed.`,
+      tags: ['construction', 'materials'],
+      amount: 0,
+    })
+  }
+  return {}
 }
 
 /**

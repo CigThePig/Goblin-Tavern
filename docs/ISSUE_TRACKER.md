@@ -569,8 +569,23 @@ the crowding and storage rules shifting traffic, satisfaction and coin by a
 few percent (the reference `no-action` route moved by one visitor).
 `repo-map.json` moved on three sections plus two new glossary terms.
 
-Gates: `npm run test:full` **307 files / 4,015 tests**, `npm test` 299 /
-3,886, `typecheck` clean, `check` 1,023 files / 0 errors, `build` passing
+**Eight review findings fixed before merge** (Codex on PR #247 — one P1,
+seven P2), each with a regression test; the plan's Phase 2 section lists
+them. The P1 was the one that would have shipped a dead end: an existing
+save keeps its own `stock` map and nothing merged new registry records
+into it, so `timber` / `cut_stone` never existed for an existing player —
+every material line read "0 held" and `restock_item` could not offer a way
+to buy any, leaving those upgrades permanently unbuildable. The rest were
+promises the code was not keeping: a broken fitting kept giving the room
+what it gave when installed, crew labour was split across sites the
+schedule had not cleared (so part of it vanished), workstation capacity
+constrained nothing, a superseded upgrade could be rebuilt alongside its
+replacement, cellar pests reliably gnawed the non-perishable firewood,
+migrated builds finished on materials they never drew, and a patch failure
+could collapse an unrelated room.
+
+Gates: `npm run test:full` **307 files / 4,027 tests**, `npm test` 299 /
+3,898, `typecheck` clean, `check` 1,024 files / 0 errors, `build` passing
 (same known >500 kB chunk warning), and all three expansion artifacts clean
 — `ledger:check` 134 rows, `baseline:probes` 0 drifted, `repo:map` 0
 sections drifted. Tests:

@@ -3509,7 +3509,7 @@
         "firewood": {
           "quantity": 50,
           "quality": 50,
-          "spoilage": 72
+          "spoilage": 0
         },
         "frost_cap_mushroom": {
           "quantity": 0,
@@ -3761,7 +3761,7 @@
       "collections": {
         "memories": 21,
         "history": 395,
-        "causes": 353,
+        "causes": 349,
         "pressures": 21,
         "areas": 9,
         "stock": 22,

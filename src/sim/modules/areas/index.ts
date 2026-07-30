@@ -61,14 +61,16 @@ export {
   CONSTRUCTION_PRIORITY,
   OWNER_FUND_LABOUR,
   SITE_BASE_LABOUR_PER_DAY,
+  crewMemberLabour,
+  getMaxConcurrentSites,
+  listActiveSites,
+  listConstructionCrew,
+} from './labour'
+export {
   checkUpgradeAffordability,
   checkUpgradeEligibility,
-  getMaxConcurrentSites,
-  getSiteLabourPerDay,
-  listActiveSites,
   listAreasForUpgrade,
   listCatalogueForArea,
-  listConstructionCrew,
   quoteAreaUpgrade,
   upgradeLabourRequired,
 } from './quote'
@@ -91,7 +93,11 @@ export {
   applyAreaPropagation,
   findUngroundedPropagationEdges,
 } from './propagation'
-export { buildAreaWorkSchedule, scheduledSiteKeys } from './schedule'
+export {
+  buildAreaWorkSchedule,
+  getSiteLabourPerDay,
+  scheduledSiteKeys,
+} from './schedule'
 export {
   AREA_SCHEDULED_EVENT_TYPES,
   ensureAreaScheduledEventsRegistered,

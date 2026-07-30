@@ -7,10 +7,13 @@ import {
 
 import {
   CONSTRUCTION_PRIORITY,
+  DERELICT_CONDITION,
+  SITE_BASE_LABOUR_PER_DAY,
+  crewMemberLabour,
   getMaxConcurrentSites,
   listActiveSites,
   listConstructionCrew,
-} from './quote'
+} from './labour'
 import type { AreaWorkBlock } from './state'
 
 // Expansion Phase 2 §2.5 — work scheduling inside the day clock.
@@ -248,4 +251,47 @@ export function siteConflictReason(
   )
   if (!block || block.status !== 'conflicted') return undefined
   return block.conflictReason
+}
+
+/**
+ * Labour one site produces per day, given the day the schedule actually laid
+ * out.
+ *
+ * THE CREW SPLIT IS AGAINST SCHEDULED SITES, NOT LIVE ONES. A crew member works
+ * the sites the schedule cleared; a site the schedule conflicted (two builds
+ * competing for the same room, or one site past the concurrency limit) receives
+ * nothing. Dividing the crew by every `in_progress` record instead would quietly
+ * destroy the difference: with two same-room builds and one carpenter, the
+ * build that IS being worked would get half a carpenter and the blocked one
+ * would get nothing, so half a day's labour would vanish into a site nobody
+ * was standing on.
+ *
+ * Deterministic by construction: the crew list is sorted by id, the schedule is
+ * pure, and no RNG is drawn — so a replay and a reload produce identical
+ * progress (required test: "deterministic construction progress").
+ */
+export function getSiteLabourPerDay(
+  state: TavernState,
+  areaId: string,
+  /** The day's schedule, when the caller already has it. Built if omitted. */
+  schedule?: ReadonlyArray<AreaWorkBlock>,
+): number {
+  const area = state.areas[areaId]
+  if (!area) return 0
+
+  const blocks = schedule ?? buildAreaWorkSchedule(state)
+  const cleared = scheduledSiteKeys(blocks).size
+  // A site the schedule did not clear banks nothing at all, and quoting one
+  // that is not running yet uses the crew as it would be spread once it is.
+  const sitesSharingTheCrew = Math.max(1, cleared)
+
+  let labour = SITE_BASE_LABOUR_PER_DAY
+  for (const member of listConstructionCrew(state)) {
+    labour += crewMemberLabour(member) / sitesSharingTheCrew
+  }
+
+  // A room falling down is a worse place to work in.
+  if (area.condition < DERELICT_CONDITION) labour -= 1
+
+  return Math.max(0, Math.round(labour * 10) / 10)
 }

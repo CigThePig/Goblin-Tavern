@@ -22,6 +22,7 @@ import {
   ensureRequiredRecipesRegistered,
   recipeRegistry,
 } from "../registries/recipeRegistry";
+import { ensureRequiredStockRegistered } from "../registries/stockRegistry";
 import { createStaffIdentity } from "../content/staff/staffIdentityFactory";
 import { ensureRequiredStaffIdentityProfilesRegistered } from "../content/staff/staffIdentityProfiles";
 import {
@@ -57,6 +58,7 @@ import type {
   AreaState,
   ExpeditionsState,
   RecipeState,
+  StockState,
   TavernState,
   TeleologyEntry,
   TransformationState,
@@ -281,6 +283,15 @@ export function ensureAreaConstructionFields<
           ...(project.coinInvested !== undefined
             ? { coinInvested: project.coinInvested }
             : {}),
+          // The legacy project quoted coin and no materials, so the migrated
+          // build is stamped as already supplied rather than retroactively
+          // billed for timber the player was never asked to buy. Leaving
+          // `materialsUsed` absent would be worse than either: the construction
+          // tick would settle the debt out of whatever is in store, silently
+          // charging the player for a deal they had already closed.
+          materialsUsed: Object.fromEntries(
+            (def.materials ?? []).map((line) => [line.stockId, line.quantity]),
+          ),
           stalledDays: 0,
         }
       }
@@ -901,6 +912,70 @@ export function ensureTeleologySlices<
     transformations: hasTransformations
       ? (state.transformations as Record<string, TransformationState>)
       : {},
+  };
+}
+
+/**
+ * Expansion Phase 2 §5.7 — merge newly registered stock and recipe records
+ * into an existing save.
+ *
+ * `ensureRecipesSlice` only installs the whole default map when a save has NO
+ * recipe map, and nothing at all did that job for `state.stock`. Both were
+ * fine while the registries only ever grew alongside a fresh state — but the
+ * moment a registry entry becomes load-bearing for a player capability, an
+ * existing save that lacks the record loses the capability permanently.
+ *
+ * That is exactly what `timber` and `cut_stone` would have done: an upgrade
+ * quote reads `state.stock[id]?.quantity ?? 0`, so every material line would
+ * read "0 held" and reject the build, while `restock_item` enumerates
+ * `state.stock` and so could never offer the player a way to buy any. A saved
+ * game would have been unable to build anything with a material line, forever.
+ *
+ * The merge is strictly additive and deliberately shallow: a record the save
+ * already has is left exactly as it is (quantities, prices and spoilage are
+ * the player's, not the registry's), and a missing one arrives at its registry
+ * default — which for both materials is quantity 0. Nothing is invented; the
+ * player is handed an empty shelf, not a free pile of timber.
+ */
+export function ensureRegistryRecords<
+  T extends {
+    stock?: Record<string, StockState>;
+    recipes?: Record<string, RecipeState>;
+  },
+>(state: T): T {
+  ensureRequiredStockRegistered();
+  ensureRequiredRecipesRegistered();
+  const defaults = createInitialTavernState();
+  let changed = false;
+
+  let stock = state.stock;
+  if (stock && typeof stock === "object" && !Array.isArray(stock)) {
+    const next: Record<string, StockState> = { ...stock };
+    for (const [id, record] of Object.entries(defaults.stock)) {
+      if (id in next) continue;
+      next[id] = record;
+      changed = true;
+    }
+    if (changed) stock = next;
+  }
+
+  let recipes = state.recipes;
+  let recipesChanged = false;
+  if (recipes && typeof recipes === "object" && !Array.isArray(recipes)) {
+    const next: Record<string, RecipeState> = { ...recipes };
+    for (const [id, record] of Object.entries(defaults.recipes)) {
+      if (id in next) continue;
+      next[id] = record;
+      recipesChanged = true;
+    }
+    if (recipesChanged) recipes = next;
+  }
+
+  if (!changed && !recipesChanged) return state;
+  return {
+    ...state,
+    ...(changed ? { stock } : {}),
+    ...(recipesChanged ? { recipes } : {}),
   };
 }
 

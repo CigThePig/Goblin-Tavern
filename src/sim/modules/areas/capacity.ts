@@ -142,6 +142,31 @@ export function getCustomerFacingSeating(state: TavernState): {
 }
 
 /**
+ * Expansion Phase 2 §2.1 — the kitchen's throughput factor.
+ *
+ * `workstations` has to change what the tavern can DO or it is a number in a
+ * report. In the kitchen it changes how much of what patrons wanted actually
+ * reaches them: benches, a big pot and a scrubbable prep surface mean more
+ * plates out of the same crowd, and a kitchen wrecked enough to lose its
+ * benches means fewer.
+ *
+ * Centred on the room's REGISTRY BASE, so a tavern that has built nothing and
+ * broken nothing scores exactly 1 and the reference route is untouched. Each
+ * workstation gained or lost is worth 8%, clamped so neither direction can run
+ * away: `large_stew_pot` and `clean_prep_bench` together are +16%, and a
+ * kitchen with nothing usable bottoms out at 0.7.
+ */
+export function getKitchenThroughputFactor(state: TavernState): number {
+  const kitchen = state.areas['kitchen']
+  if (!kitchen) return 1
+  const base = capacityOf(getBaseAreaCapacity('kitchen'), 'workstations')
+  if (base <= 0) return 1
+  const usable = getUsableCapacity(kitchen, 'workstations')
+  const factor = 1 + (usable - base) * 0.08
+  return Math.max(0.7, Math.min(1.2, Math.round(factor * 100) / 100))
+}
+
+/**
  * Workstations across the tavern that construction may claim.
  *
  * §2.3's concurrent-work limit is physical rather than arbitrary: a crew can

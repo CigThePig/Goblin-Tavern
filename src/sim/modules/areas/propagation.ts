@@ -2,6 +2,7 @@ import type { SimContext } from '../../core/context'
 import type { AreaState, TavernState } from '../../state/TavernState'
 import { clampPercent } from '../../state/normalize'
 import { areAreasAdjacent, getAreaAdjacency } from '../../registries/areaRegistry'
+import { isPerishable } from '../stock/spoilage'
 
 import { PATRONS_PER_PRIVY_STALL, getUsableCapacity } from './capacity'
 import { writeAreasSlice, type AreaPropagationEntry } from './state'
@@ -151,10 +152,20 @@ export const AREA_PROPAGATION_EDGES: ReadonlyArray<AreaPropagationEdge> = [
     apply: (ctx, snapshot) => {
       const cellar = snapshot.areas['cellar']
       if (!cellar || cellar.risk < 60) return undefined
-      // Hits the perishable item with the most units in the cellar, so the
+      // Hits the PERISHABLE item with the most units in the cellar, so the
       // loss is concrete and attributable rather than a spread smear.
+      //
+      // The perishability filter is load-bearing, not decoration: spoilage is
+      // only read for perishables (`applyDailySpoilage` skips the rest), and the
+      // cellar also stores firewood, mugs, timber and cut stone — which are
+      // routinely the largest stacks down there. Without the filter the rats
+      // would reliably gnaw the timber, where the edge has no consequence at
+      // all, and leave the food alone.
       const stored = Object.values(ctx.state.stock)
-        .filter((item) => item.storageAreaId === 'cellar' && item.quantity > 0)
+        .filter(
+          (item) =>
+            item.storageAreaId === 'cellar' && item.quantity > 0 && isPerishable(item),
+        )
         .sort((a, b) => b.quantity - a.quantity || a.id.localeCompare(b.id))
       const target = stored[0]
       if (!target) return undefined

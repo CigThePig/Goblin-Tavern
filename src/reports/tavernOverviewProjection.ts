@@ -47,11 +47,8 @@ import {
   quoteAreaUpgrade,
   type AreaUpgradeQuote,
 } from '../sim/modules/areas/quote'
-import {
-  getMaxConcurrentSites,
-  getSiteLabourPerDay,
-  listActiveSites,
-} from '../sim/modules/areas/quote'
+import { getMaxConcurrentSites, listActiveSites } from '../sim/modules/areas/labour'
+import { getSiteLabourPerDay } from '../sim/modules/areas/schedule'
 import { getAreasModuleState } from '../sim/modules/areas/state'
 import { AREA_CAPACITY_KINDS } from '../sim/registries/areaCapacityTypes'
 import { POLICY_STARTERS } from '../sim/modules/ownerActions/policyActions'

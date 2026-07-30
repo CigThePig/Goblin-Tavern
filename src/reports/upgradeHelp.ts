@@ -10,8 +10,8 @@ import {
   CONSTRUCTION_PRIORITY,
   OWNER_FUND_LABOUR,
   SITE_BASE_LABOUR_PER_DAY,
-  upgradeLabourRequired,
-} from '../sim/modules/areas/quote'
+} from '../sim/modules/areas/labour'
+import { upgradeLabourRequired } from '../sim/modules/areas/quote'
 
 // Expansion Phase 2 §5.12 / §"Player-facing work" — Help DERIVED from upgrade
 // metadata.

@@ -75,6 +75,7 @@ import {
   ensureMonthlyHistoryField,
   ensureOwnerTimeFields,
   ensureRecipesSlice,
+  ensureRegistryRecords,
   ensureExpeditionsSlice,
   ensureTeleologySlices,
   ensureModuleSlices,
@@ -727,7 +728,13 @@ function migrateAndValidateState(
     // pass because it needs `upgrades` to be a real object first.
     const s2 = ensureAreaConstructionFields(s2a);
     const s3 = ensureStaffIdentityFields(s2);
-    const s4 = ensureRecipesSlice(s3);
+    const s4a = ensureRecipesSlice(s3);
+    // Expansion Phase 2 §5.7 — merge stock/recipe records the registries have
+    // gained since the save was written. `ensureRecipesSlice` only installs the
+    // whole map when there is none, and nothing covered `stock` at all, so a
+    // saved game would never see `timber` / `cut_stone` — and an upgrade quote
+    // that cannot find its material record rejects the build forever.
+    const s4 = ensureRegistryRecords(s4a);
     const s4b = flipUpkeepRecipesOffMenu(s4);
     const s5 = ensureExpeditionsSlice(s4b);
     const s5b = ensureTeleologySlices(s5);

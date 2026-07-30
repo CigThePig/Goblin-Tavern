@@ -197,6 +197,7 @@
       "ensureAreaConstructionFields",
       "ensureStaffIdentityFields",
       "ensureRecipesSlice",
+      "ensureRegistryRecords",
       "flipUpkeepRecipesOffMenu",
       "ensureExpeditionsSlice",
       "ensureTeleologySlices",

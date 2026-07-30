@@ -161,25 +161,41 @@ function weakestInstalledFitting(
 // ---------- failed_patch_possible ----------
 
 /**
- * Which area was patched?
+ * Which area did THIS promise come from?
  *
+ * The hook name carries no area — `failed_patch_possible` is a bare string —
+ * so the resolver has to find the patch that created this particular event.
  * The `patch` response profile writes a `<areaId>_patched_recently` memory
- * tagged with the area id, so the evidence is already in state. The resolver
- * reads it rather than guessing — which is the same discipline §1.1 asks of
- * the bridge, applied one step later.
+ * tagged with the area id in the same `applyResponseProfile` pass that routes
+ * the hook, so the memory and the event share a creation day. Matching on that
+ * day is what binds the failure to its own patch.
+ *
+ * Picking "the most damaged patched room" instead — which is what this did
+ * first — is wrong once the player has patched two rooms: a promise made about
+ * the kitchen would collapse the roof, or lapse because the roof was since
+ * repaired while the kitchen's patch was the one still failing. Same-day
+ * patches of two rooms are the only genuinely ambiguous case left, and they
+ * tie-break on area id so the choice is at least deterministic.
  */
-function findPatchedArea(ctx: SimContext): string | undefined {
-  const candidates = ctx
-    .getMemoriesByTag('patch')
-    .flatMap((memory) => memory.tags.filter((tag) => ctx.state.areas[tag]))
+function findPatchedArea(
+  ctx: SimContext,
+  createdOnDay: number,
+): string | undefined {
+  const candidates: Array<{ areaId: string; day: number }> = []
+  for (const memory of ctx.getMemoriesByTag('patch')) {
+    const day = memory.createdAt?.absoluteDay
+    if (typeof day !== 'number' || day > createdOnDay) continue
+    for (const tag of memory.tags) {
+      if (!ctx.state.areas[tag]) continue
+      candidates.push({ areaId: tag, day })
+    }
+  }
   if (candidates.length === 0) return undefined
-  // Most damaged among the patched rooms: if two were patched, the one still
-  // in trouble is the one whose patch is failing.
+  // The patch recorded on the day this promise was made; failing that, the
+  // most recent one before it.
   return candidates.sort(
-    (a, b) =>
-      (ctx.state.areas[b]?.damage ?? 0) - (ctx.state.areas[a]?.damage ?? 0) ||
-      a.localeCompare(b),
-  )[0]
+    (a, b) => b.day - a.day || a.areaId.localeCompare(b.areaId),
+  )[0]!.areaId
 }
 
 const failedPatchEvent: ScheduledEventDefinition = {
@@ -205,7 +221,7 @@ const failedPatchEvent: ScheduledEventDefinition = {
     if (!parsed.success) {
       return noOp('event payload was not a patched-area promise', record.origin.readable)
     }
-    const areaId = findPatchedArea(ctx)
+    const areaId = findPatchedArea(ctx, record.createdOnDay)
     if (!areaId) {
       return noOp(
         'no patched area is on record any more',

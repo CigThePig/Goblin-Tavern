@@ -2,6 +2,7 @@ import type { SimContext } from '../../core/context'
 import type { CustomerGroupState, RecipeState } from '../../state/TavernState'
 
 import { recipeRegistry } from '../../registries/recipeRegistry'
+import { getKitchenThroughputFactor } from '../areas/capacity'
 import { sellRecipe } from '../service/recipes'
 import type { ShortageRecord } from '../stock/types'
 import type { ServiceQualityModifiers } from '../staff/types'
@@ -90,6 +91,13 @@ export function resolveGroupPurchases(
 
   const quality = options.serviceQuality
   const stretchFactor = Math.max(0.5, options.stretchFactor ?? 1)
+  // Expansion Phase 2 §2.1 — the kitchen's usable workstations decide how much
+  // of what patrons wanted actually reaches them. This is the consumer that
+  // makes `workstations` capacity load-bearing: `large_stew_pot` and
+  // `clean_prep_bench` add benches and more plates go out; let the kitchen rot
+  // until its benches stop counting and fewer do. Centred on the room's
+  // registry base, so a tavern that has built and broken nothing scores 1.
+  const kitchenThroughput = getKitchenThroughputFactor(ctx.state)
   // Phase 12 §12.3 — `serviceSpeed` slightly boosts per-visitor
   // consumption (faster service → more rounds), capped so a single
   // boosted day cannot drain a week's worth of stock.
@@ -107,7 +115,8 @@ export function resolveGroupPurchases(
     // spenders (high wealth + low price sensitivity) buy slightly more.
     const spendBoost = group.wealth >= 70 && group.priceSensitivity <= 40 ? 1 : 0
     const perVisitorBase = 1 + spendBoost + speedBoost
-    const perVisitor = perVisitorBase * stretchFactor * STARTER_BASKET_FULFILLMENT
+    const perVisitor =
+      perVisitorBase * stretchFactor * kitchenThroughput * STARTER_BASKET_FULFILLMENT
     const servings = Math.max(0, Math.round(visitors * perVisitor))
     if (servings <= 0) continue
 

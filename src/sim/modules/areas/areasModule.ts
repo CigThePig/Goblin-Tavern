@@ -48,7 +48,7 @@ import { buildAreaWorkSchedule } from './schedule'
 import { applyAreaPropagation } from './propagation'
 import { tickConstruction, tickUpkeep } from './construction'
 import { ensureAreaScheduledEventsRegistered } from './areaEvents'
-import { listActiveSites } from './quote'
+import { listActiveSites } from './labour'
 
 // Phase 28 — make sure the area trait and upgrade registries are
 // populated before any area report or validation runs. Tests sometimes

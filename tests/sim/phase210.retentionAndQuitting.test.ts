@@ -7,14 +7,23 @@ import { withCoin } from '../../src/sim/testing/stateFactories'
 import {
   getScheduledEventDefinition,
   readScheduledEventsSlice,
+  scheduleEvent,
 } from '../../src/sim/contracts/scheduledEvents/index'
+import { findScheduledEventDefinitionForHookName } from '../../src/sim/contracts/scheduledEvents/registry'
 import { getStaffModuleState } from '../../src/sim/modules/staff/workforceState'
 import {
   isActiveEdge,
   MAX_ACTIVE_EDGES_PER_STAFF,
   MIN_CONTACTS_FOR_ACTIVE_EDGE,
 } from '../../src/sim/modules/staff/workforceTypes'
-import { listEdges, ownerTrust } from '../../src/sim/modules/staff/relationships'
+import {
+  findTrainingLearner,
+  findWillingCover,
+  listEdges,
+  ownerTrust,
+} from '../../src/sim/modules/staff/relationships'
+import { checkPromotion } from '../../src/sim/modules/staff/development'
+import { MAX_DISCIPLINE_ESCALATION } from '../../src/sim/modules/staff/employmentRecord'
 import {
   QUIT_RISK_DEFER_BELOW,
   QUIT_RISK_NO_OP_BELOW,
@@ -27,6 +36,7 @@ import { STAFF_SCHEDULED_EVENT_TYPES } from '../../src/sim/modules/staff/staffEv
 import { listStaffIntents } from '../../src/sim/modules/staff/staffActors'
 import { totalWageArrears } from '../../src/sim/modules/staff/staffWages'
 import type { SimInputOwnerAction } from '../../src/sim/core/context'
+import type { SimulationModule } from '../../src/sim/core/module'
 import type { TavernState } from '../../src/sim/state/TavernState'
 
 // Expansion Phase 3 (repo phase 210) / ISSUE-173 — §3.3 relationships, §3.4
@@ -588,6 +598,526 @@ describe('Phase 3 §3.4 — notice, and quitting mid-commitment', () => {
     // And the day after still runs.
     const next = runDay(fired.state, undefined, undefined, `${SEED}-midshift-next`)
     expect(next.validation.errors).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The hook courier, for the review regressions below.
+//
+// Four of the eleven findings are in resolvers that only a ROUTED FUTURE HOOK
+// reaches: `raise_promised`, `training_helper`, `staff_bonus_expected` and a
+// quit risk that arrives from a response profile rather than from the staff
+// module's own scheduler. No shipped response profile in the tree emits those
+// hooks on a route a test can steer, so this module does what
+// `ctxApplier.routeFutureHook` does — look the hook name up in the registry,
+// ask the OWNING module's adapter for a payload, and call `scheduleEvent` —
+// and nothing else. It writes no state of its own, guesses no payload, and
+// runs in `applyResponses`, the same phase the real bridge runs in.
+//
+// This is the `obligationProbe` precedent from Phase 1: a real module on a real
+// pipeline using the sanctioned public API. It is not fixture injection —
+// every field of every event below is built by the shipped adapter.
+// ---------------------------------------------------------------------------
+
+type CourierDelivery = {
+  hookName: string
+  /** The day the response would have declared the hook. */
+  onDay: number
+  /** The day the hook comes due. */
+  scheduledForDay: number
+}
+
+let courierQueue: CourierDelivery[] = []
+
+const hookCourierModule: SimulationModule = {
+  id: 'phase210_hook_courier',
+  version: '0.1.0',
+  hooks: {
+    applyResponses: [
+      (ctx) => {
+        const today = ctx.state.calendar.totalDaysElapsed
+        for (const delivery of courierQueue) {
+          if (delivery.onDay !== today) continue
+          const definition = findScheduledEventDefinitionForHookName(
+            delivery.hookName,
+          )
+          const adapted = definition?.fromFutureHook?.({
+            hookName: delivery.hookName,
+            readable: `Somebody said something about ${delivery.hookName}.`,
+            scheduledForDay: delivery.scheduledForDay,
+          })
+          if (!definition || !adapted) {
+            throw new Error(`no registered owner for '${delivery.hookName}'`)
+          }
+          const result = scheduleEvent(ctx, {
+            type: definition.type,
+            ...(adapted.target ? { target: adapted.target } : {}),
+            scheduledForDay: delivery.scheduledForDay,
+            payload: adapted.payload,
+            origin: {
+              source: 'test.hook_courier',
+              readable: `Somebody said something about ${delivery.hookName}.`,
+            },
+          })
+          if (result.status === 'rejected') throw new Error(result.reason)
+        }
+      },
+    ],
+  },
+}
+
+const COURIER_PIPELINE = [...FULL_PIPELINE, hookCourierModule]
+
+function runCourierDay(
+  state: TavernState,
+  actions?: ReadonlyArray<SimInputOwnerAction>,
+  seed = SEED,
+) {
+  return simulateDay(state, input(actions, undefined, seed), COURIER_PIPELINE)
+}
+
+/** One row per event id: `archive` and `resolvedToday` overlap on the last day. */
+function outcomeRows(state: TavernState, type: string) {
+  const slice = readScheduledEventsSlice(state)
+  const byId = new Map<string, Array<{ status: string; reason?: string }>>()
+  for (const outcome of [...slice.archive, ...slice.resolvedToday]) {
+    if (outcome.type !== type) continue
+    const rows = byId.get(outcome.eventId) ?? []
+    if (
+      !rows.some(
+        (row) => row.status === outcome.status && row.reason === outcome.reason,
+      )
+    ) {
+      rows.push({
+        status: outcome.status,
+        ...(outcome.reason ? { reason: outcome.reason } : {}),
+      })
+    }
+    byId.set(outcome.eventId, rows)
+  }
+  return byId
+}
+
+describe('Phase 3 — Codex review regressions (PR #248)', () => {
+  it('a promised rise is judged by whether a rise happened, not by the wage on record', () => {
+    // P1. The hook-routed branch carried no terms, so the resolver fell back to
+    // comparing today's wage against the wage on the EMPLOYMENT RECORD — which
+    // granting the rise is exactly what moves. Every kept promise read as broken.
+    // `lastRaiseOnDay` records the event instead of the level.
+    const schedule = (grantRaise: boolean, seed: string) => {
+      let state = withCoin(createInitialTavernState(), 900)
+      courierQueue = [
+        { hookName: 'raise_promised_cook', onDay: 1, scheduledForDay: 5 },
+      ]
+      for (let day = 0; day < 6; day += 1) {
+        const raise =
+          grantRaise && day === 3
+            ? [
+                {
+                  actionId: 'adjust_staff_wage',
+                  targetId: 'cook',
+                  amount: state.staff['cook']!.wage + 3,
+                } as SimInputOwnerAction,
+              ]
+            : undefined
+        state = withCoin(runCourierDay(state, raise, `${seed}-${day}`).state, 900)
+      }
+      return state
+    }
+
+    const kept = schedule(true, `${SEED}-reg-raise-kept`)
+    // The rise is stamped with the DAY it happened, which is the fact the
+    // resolver needs and the wage figure cannot supply.
+    expect(getStaffModuleState(kept).employment['cook']!.lastRaiseOnDay).toBe(3)
+    const keptRows = outcomeRows(kept, 'raise_promised')
+    expect(keptRows.size).toBe(1)
+    const keptOutcome = [...keptRows.values()][0]![0]!
+    expect(keptOutcome.status).toBe('no_op')
+    expect(keptOutcome.reason).toContain('the promise was kept')
+
+    // And the broken promise still lands, so the fix did not simply stop the
+    // event mattering.
+    const broken = schedule(false, `${SEED}-reg-raise-broken`)
+    expect(
+      getStaffModuleState(broken).employment['cook']!.lastRaiseOnDay,
+    ).toBeUndefined()
+    const brokenOutcome = [...outcomeRows(broken, 'raise_promised').values()][0]![0]!
+    expect(brokenOutcome.status).toBe('resolved')
+  })
+
+  it('a wage CUT is not recorded as a rise', () => {
+    // The other half of the same fix: `lastRaiseOnDay` moves on the way up only.
+    let state = withCoin(runQuietDays(withCoin(createInitialTavernState(), 900), 2, `${SEED}-reg-cut`), 900)
+    state = runDay(
+      state,
+      [
+        {
+          actionId: 'adjust_staff_wage',
+          targetId: 'cook',
+          amount: Math.max(1, state.staff['cook']!.wage - 3),
+        },
+      ],
+      undefined,
+      `${SEED}-reg-cut-do`,
+    ).state
+    const record = getStaffModuleState(state).employment['cook']!
+    expect(record.lastRaiseOnDay).toBeUndefined()
+    expect(record.lastTransitionOnDay).toBe(state.calendar.totalDaysElapsed - 1)
+  })
+
+  it('an absence decided at the end of the day costs the NEXT day', () => {
+    // P1. Staff actors run at `endDay`, when the shift is already worked, but
+    // `setAbsence` always started the window today — so an unexcused absence
+    // expired the very next morning. Nobody ever missed a roster, no service was
+    // ever short-handed by it, and repeated absence could never reach the
+    // abandonment threshold.
+    let state = withCoin(createInitialTavernState(), 20)
+    const pending = new Map<string, number>()
+    let checked = 0
+    for (let i = 0; i < 25; i += 1) {
+      state = withCoin(state, 2)
+      const before = state
+      const dayPlayed = before.calendar.totalDaysElapsed
+
+      const actions: SimInputOwnerAction[] = []
+      for (const id of Object.keys(state.staff)) {
+        const member = state.staff[id]!
+        if (member.shift !== 'double' && !member.absence) {
+          actions.push({ actionId: 'set_staff_shift', targetId: `${id}:double` })
+        }
+      }
+      state = runDay(state, actions, undefined, `${SEED}-reg-absence-${i}`).state
+
+      // Anybody who said last night that they were not coming in contributes
+      // nothing to the rota that was built this morning. Without the fix the
+      // absence had already expired by now, so the row read as a normal shift.
+      for (const [staffId, startedOnDay] of pending) {
+        if (startedOnDay !== dayPlayed) continue
+        expect(before.staff[staffId]?.absence?.kind, staffId).toBe('unexcused')
+        const row = getStaffModuleState(state).roster.find(
+          (entry) => entry.staffId === staffId,
+        )!
+        expect(row.available, `${staffId} was on the rota anyway`).toBe(false)
+        expect(row.absenceKind).toBe('unexcused')
+        expect(row.contribution).toBe(0)
+        pending.delete(staffId)
+        checked += 1
+      }
+
+      for (const [id, member] of Object.entries(state.staff)) {
+        if (!member.absence || before.staff[id]?.absence) continue
+        if (member.absence.kind !== 'unexcused') continue
+        // Decided this evening, so the day they are not coming in is TOMORROW.
+        expect(member.absence.startedOnDay, id).toBe(dayPlayed + 1)
+        expect(member.absence.untilDay).toBeGreaterThan(member.absence.startedOnDay)
+        pending.set(id, member.absence.startedOnDay)
+      }
+      if (Object.keys(state.staff).length === 0) break
+    }
+    // The run has to have actually produced some, or this proves nothing.
+    expect(checked).toBeGreaterThan(0)
+  })
+
+  it('cover is only offered by somebody who is actually on duty', () => {
+    // P2. `findWillingCover` filtered on `unavailable` alone, so it could name
+    // somebody on a rest day or working out their notice. `buildRoster` then
+    // rejected them — and because the search returns ONE name, the next willing
+    // colleague was never considered and the absence went uncovered.
+    let state = runQuietDays(withCoin(createInitialTavernState(), 900), 24, `${SEED}-reg-cover`)
+    const willing = findWillingCover(state, 'server', new Set<string>())
+    expect(willing, 'the long run built a coworker edge worth covering for').toBe(
+      'cleaner_bouncer',
+    )
+
+    // Put that same colleague on a rest day, and they stop being an answer.
+    state = withCoin(
+      runDay(
+        withCoin(state, 900),
+        [{ actionId: 'set_staff_shift', targetId: 'cleaner_bouncer:rest' }],
+        undefined,
+        `${SEED}-reg-cover-rest`,
+      ).state,
+      900,
+    )
+    expect(state.staff['cleaner_bouncer']!.shift).toBe('rest')
+    expect(findWillingCover(state, 'server', new Set<string>())).toBeUndefined()
+
+    // Nobody the search ever names is off duty, whoever is asking.
+    for (const staffId of Object.keys(state.staff)) {
+      const cover = findWillingCover(state, staffId, new Set<string>())
+      if (!cover) continue
+      const member = state.staff[cover]!
+      expect(member.unavailable, cover).not.toBe(true)
+      expect(member.absence, cover).toBeUndefined()
+      expect(member.shift, cover).not.toBe('rest')
+    }
+  })
+
+  it('a promotion does not cancel a live quit risk', () => {
+    // P2. A promotion cancelled the raise demand AND the quit risk. The risk may
+    // be about back pay, exhaustion or a discipline record, none of which a new
+    // title fixes — so cancelling it let a promotion do what
+    // `negotiate_with_staff` is deliberately forbidden from doing.
+    let state = withCoin(createInitialTavernState(), 900)
+    courierQueue = []
+    let days = 0
+    while (!checkPromotion(state, 'server').ok && days < 30) {
+      state = withCoin(
+        runCourierDay(
+          state,
+          [{ actionId: 'train_staff', targetId: 'server' }],
+          `${SEED}-reg-promote-risk-${days}`,
+        ).state,
+        900,
+      )
+      days += 1
+    }
+    expect(checkPromotion(state, 'server').ok).toBe(true)
+
+    const today = state.calendar.totalDaysElapsed
+    courierQueue = [
+      {
+        hookName: 'staff_quit_risk_server',
+        onDay: today,
+        scheduledForDay: today + 4,
+      },
+    ]
+    state = withCoin(
+      runCourierDay(state, undefined, `${SEED}-reg-promote-risk-schedule`).state,
+      900,
+    )
+    expect(
+      liveEventsOfType(state, STAFF_QUIT_RISK_EVENT).some(
+        (event) => event.target?.id === 'server',
+      ),
+    ).toBe(true)
+
+    courierQueue = []
+    const promoted = withCoin(
+      runCourierDay(
+        state,
+        [{ actionId: 'promote_staff', targetId: 'server' }],
+        `${SEED}-reg-promote-risk-do`,
+      ).state,
+      900,
+    )
+    expect(promoted.staff['server']!.role).toBe('head_server')
+    // Still live: the resolver will re-read the contributors when the day comes
+    // and stand them down if the promotion genuinely was the answer.
+    expect(
+      liveEventsOfType(promoted, STAFF_QUIT_RISK_EVENT).some(
+        (event) => event.target?.id === 'server',
+      ),
+    ).toBe(true)
+  })
+
+  it('paying the bonus answers the expectation the promise created', () => {
+    // P2. `pay_staff_bonus` writes the SHARED memory id `staff_bonus_paid_recently`
+    // and names the person in `actors`/`metadata`, not in the id. The resolver
+    // matched only per-staff ids, so the player could pay the bonus and still take
+    // the morale penalty for not paying it.
+    const play = (payBonus: boolean, seed: string) => {
+      let state = withCoin(createInitialTavernState(), 900)
+      courierQueue = [
+        { hookName: 'staff_bonus_expected_cook', onDay: 2, scheduledForDay: 5 },
+      ]
+      for (let day = 0; day < 6; day += 1) {
+        const actions =
+          payBonus && day === 3
+            ? [
+                {
+                  actionId: 'pay_staff_bonus',
+                  targetId: 'cook',
+                  amount: 15,
+                } as SimInputOwnerAction,
+              ]
+            : undefined
+        state = withCoin(runCourierDay(state, actions, `${seed}-${day}`).state, 900)
+      }
+      return state
+    }
+
+    const paid = [...outcomeRows(play(true, `${SEED}-reg-bonus-paid`), 'staff_bonus_expected').values()][0]![0]!
+    expect(paid.status).toBe('no_op')
+    expect(paid.reason).toContain('looked after')
+
+    const unpaid = [...outcomeRows(play(false, `${SEED}-reg-bonus-unpaid`), 'staff_bonus_expected').values()][0]![0]!
+    expect(unpaid.status).toBe('resolved')
+  })
+
+  it('the mentor the hook names is the one who teaches', () => {
+    // P2. `training_helper_<staffId>` names the MENTOR — the response profile
+    // gives that person the mentoring fatigue and the loyalty for it. Reading the
+    // subject as the learner and hunting for somebody better sent the event
+    // looking for a mentor for the best hand on the crew, so it no-opped.
+    let state = withCoin(createInitialTavernState(), 900)
+    courierQueue = []
+    for (let i = 0; i < 20; i += 1) {
+      state = withCoin(
+        runCourierDay(
+          state,
+          [{ actionId: 'train_staff', targetId: 'server' }],
+          `${SEED}-reg-mentor-${i}`,
+        ).state,
+        900,
+      )
+    }
+    // The server is now the strongest hand and has a real friendship on the crew.
+    expect(state.staff['server']!.skill).toBeGreaterThan(state.staff['cook']!.skill)
+    expect(findTrainingLearner(state, 'server')).toBe('cleaner_bouncer')
+
+    const today = state.calendar.totalDaysElapsed
+    courierQueue = [
+      {
+        hookName: 'training_helper_server',
+        onDay: today,
+        scheduledForDay: today + 3,
+      },
+    ]
+    const learnerSkillBefore = state.staff['cleaner_bouncer']!.skill
+    for (let i = 0; i < 4; i += 1) {
+      state = withCoin(
+        runCourierDay(state, undefined, `${SEED}-reg-mentor-run-${i}`).state,
+        900,
+      )
+    }
+    const rows = [...outcomeRows(state, 'training_helper').values()][0]!
+    expect(rows[0]!.status).toBe('resolved')
+    // The teaching landed on the LESS skilled colleague, not on the mentor.
+    expect(state.staff['cleaner_bouncer']!.skill).toBeGreaterThan(learnerSkillBefore)
+    expect(
+      getStaffModuleState(state).development.some(
+        (entry) => entry.staffId === 'cleaner_bouncer',
+      ),
+    ).toBe(true)
+  })
+
+  it('a dismissal at the end of the discipline ladder does not cost the crew morale', () => {
+    // P2. Charging the same crew-wide morale hit for a dismissal everybody
+    // watched coming as for an arbitrary firing made the ladder mechanically
+    // pointless and taxed the player for following it.
+    const base = withCoin(
+      runQuietDays(withCoin(createInitialTavernState(), 900), 6, `${SEED}-reg-warned`),
+      900,
+    )
+
+    const arbitrary = runDay(
+      base,
+      [{ actionId: 'fire_staff', targetId: 'cook' }],
+      undefined,
+      `${SEED}-reg-warned-arbitrary`,
+    )
+    const arbitraryWitnesses = arbitrary.state.causes.filter((cause) =>
+      cause.tags?.includes('witness'),
+    )
+    expect(arbitraryWitnesses.length).toBeGreaterThan(0)
+
+    let warned = base
+    for (let i = 0; i < MAX_DISCIPLINE_ESCALATION; i += 1) {
+      warned = withCoin(
+        runDay(
+          warned,
+          [{ actionId: 'discipline_staff', targetId: 'cook' }],
+          undefined,
+          `${SEED}-reg-warned-warn-${i}`,
+        ).state,
+        900,
+      )
+    }
+    expect(getStaffModuleState(warned).employment['cook']!.escalation).toBe(
+      MAX_DISCIPLINE_ESCALATION,
+    )
+    const dueProcess = runDay(
+      warned,
+      [{ actionId: 'fire_staff', targetId: 'cook' }],
+      undefined,
+      `${SEED}-reg-warned-fire`,
+    )
+    expect(dueProcess.state.staff['cook']).toBeUndefined()
+    expect(
+      dueProcess.state.causes.filter((cause) => cause.tags?.includes('witness')),
+    ).toEqual([])
+  })
+
+  it('a separation event that performs its own separation files exactly one outcome', () => {
+    // P2. The event is still live in the queue while its own resolver runs, so
+    // `separateStaff`'s cleanup archived it as `cancelled` and the shared
+    // resolver then archived the same firing as `resolved` — two outcome rows
+    // and two contradictory totals for one event.
+    let state = withCoin(
+      runQuietDays(withCoin(createInitialTavernState(), 900), 4, `${SEED}-reg-onerow`),
+      900,
+    )
+    state = withCoin(
+      runDay(
+        state,
+        [{ actionId: 'give_staff_notice', targetId: 'server' }],
+        undefined,
+        `${SEED}-reg-onerow-notice`,
+      ).state,
+      900,
+    )
+    for (let i = 0; i < 6 && state.staff['server']; i += 1) {
+      state = withCoin(
+        runDay(state, undefined, undefined, `${SEED}-reg-onerow-run-${i}`).state,
+        900,
+      )
+    }
+    expect(state.staff['server']).toBeUndefined()
+
+    const rows = outcomeRows(state, STAFF_SEPARATION_EVENT)
+    expect(rows.size).toBe(1)
+    const statuses = [...rows.values()][0]!.map((row) => row.status)
+    expect(statuses).toEqual(['resolved'])
+  })
+
+  it('nobody who came back this morning is taken out again the same morning', () => {
+    // P2. Returns are processed before the illness roll so that somebody whose
+    // leave ends this morning is available — but the roll then considered that
+    // still-tired person and could take them straight back out before they ever
+    // reached a roster.
+    //
+    // Four differently-seeded runs, because a single run only produces a handful
+    // of return mornings and the old behaviour was a dice roll on each one: one
+    // run could pass on luck. Every return morning in all four is checked.
+    let returns = 0
+    for (const variant of ['a', 'b', 'c', 'd']) {
+      let state = withCoin(createInitialTavernState(), 20)
+      for (let i = 0; i < 25; i += 1) {
+        state = withCoin(state, 2)
+        const before = state
+        const actions: SimInputOwnerAction[] = []
+        for (const id of Object.keys(state.staff)) {
+          const member = state.staff[id]!
+          if (member.shift !== 'double' && !member.absence) {
+            actions.push({ actionId: 'set_staff_shift', targetId: `${id}:double` })
+          }
+        }
+        state = runDay(
+          state,
+          actions,
+          undefined,
+          `${SEED}-reg-return-${variant}-${i}`,
+        ).state
+        const today = state.calendar.totalDaysElapsed - 1
+
+        for (const [id, member] of Object.entries(state.staff)) {
+          const was = before.staff[id]?.absence
+          if (!was || was.kind === 'notice_served') continue
+          if (was.untilDay > today) continue
+          // Their absence ended this morning, so they are back — and STAY back.
+          returns += 1
+          expect(member.absence, `${id} was taken straight back out`).toBeUndefined()
+          expect(
+            getStaffModuleState(state).roster.find((row) => row.staffId === id)
+              ?.available,
+            `${id} came back but never worked`,
+          ).toBe(true)
+        }
+        if (Object.keys(state.staff).length === 0) break
+      }
+    }
+    expect(returns).toBeGreaterThan(0)
   })
 })
 

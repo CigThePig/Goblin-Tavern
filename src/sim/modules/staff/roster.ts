@@ -280,11 +280,19 @@ export function resolveAbsences(ctx: SimContext): AbsenceOutcome {
   }
 
   // One new absence at most, and only for somebody who is in today.
+  //
+  // Today's returnees are excluded. The ordering above puts returns first so that
+  // somebody whose leave ends this morning is available — but without this the
+  // very next loop would consider that still-tired person for a fresh illness
+  // roll and could take them straight back out before they ever reached a roster,
+  // which is the opposite of what coming back is supposed to mean.
+  const returnedToday = new Set(out.returned)
   const recoveryMultiplier = getRule(ctx.state, 'staffRecoveryMultiplier')
   const rng = ctx.getRngStream('staff_wellbeing')
   for (const member of members) {
     const live = ctx.state.staff[member.id]
     if (!live || live.absence) continue
+    if (returnedToday.has(member.id)) continue
     if (live.shift === 'rest') continue
     const risk = illnessRisk(live, recoveryMultiplier)
     if (rng.float() >= risk) continue
@@ -376,18 +384,37 @@ export function illnessRisk(
 export function setAbsence(
   ctx: SimContext,
   staffId: string,
-  input: { kind: StaffAbsenceKind; days: number; reason: string; source: string },
+  input: {
+    kind: StaffAbsenceKind
+    days: number
+    reason: string
+    source: string
+    /**
+     * Whether today counts as one of the days off. Default `true`, which is
+     * right for anything decided while the day is still ahead — the owner
+     * granting leave in the morning takes them off today's rota.
+     *
+     * `false` shifts the window one day forward, and the autonomous
+     * `call_in_sick` needs it: actors run at `endDay`, when the shift has
+     * already been worked. With the default the absence expired on the very next
+     * morning, so nobody ever missed a roster, no service was ever short-handed
+     * by it, and repeated unexcused absence could never reach the abandonment
+     * threshold — a rule that fired and cost nothing.
+     */
+    includeToday?: boolean
+  },
 ): boolean {
   const member = ctx.state.staff[staffId]
   if (!member || member.absence) return false
   const today = ctx.state.calendar.totalDaysElapsed
+  const startedOnDay = input.includeToday === false ? today + 1 : today
   ctx.modifyStaff(
     staffId,
     {
       absence: {
         kind: input.kind,
-        startedOnDay: today,
-        untilDay: today + Math.max(1, input.days),
+        startedOnDay,
+        untilDay: startedOnDay + Math.max(1, input.days),
         reason: input.reason,
       },
       unavailable: true,

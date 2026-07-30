@@ -147,9 +147,16 @@ export function findTrainingHelper(
 /**
  * Who would cover for this member if they were out.
  *
- * A high-affinity colleague who is available and not already covering. This is
- * the §3.3 "willingness to cover" consequence, and it is why an owner who lets
- * the crew fall out pays for absences twice.
+ * A high-affinity colleague who is actually on duty and not already covering.
+ * This is the §3.3 "willingness to cover" consequence, and it is why an owner
+ * who lets the crew fall out pays for absences twice.
+ *
+ * BEING ON DUTY IS CHECKED HERE, not left to the caller. `unavailable` alone is
+ * not enough: somebody working out notice carries an `absence` without it, and a
+ * rest day is not an absence at all. Picking one of those and letting
+ * `buildRoster` reject them meant the next willing colleague was never
+ * considered — so an absence that the crew could have covered silently went
+ * uncovered.
  */
 export function findWillingCover(
   state: TavernState,
@@ -163,9 +170,38 @@ export function findWillingCover(
     .map((id) => state.staff[id])
     .filter(
       (other): other is NonNullable<typeof other> =>
-        other !== undefined && other.unavailable !== true,
+        other !== undefined &&
+        other.unavailable !== true &&
+        other.absence === undefined &&
+        other.shift !== 'rest',
     )
     .sort((a, b) => b.morale - a.morale || a.id.localeCompare(b.id))
+  return candidates[0]?.id
+}
+
+/**
+ * Somebody this member could TEACH — the mirror of `findTrainingHelper`.
+ *
+ * Needed because the `training_helper_<staffId>` hook family names the MENTOR as
+ * its subject (the response profile gives that person the mentoring fatigue and
+ * the loyalty for it), so the resolver has to find the apprentice rather than
+ * assume the subject is one.
+ */
+export function findTrainingLearner(
+  state: TavernState,
+  helperId: string,
+): string | undefined {
+  const helper = state.staff[helperId]
+  if (!helper) return undefined
+  const candidates = listActiveEdgesFor(state, helperId)
+    .filter((edge) => edge.kind === 'coworker' && edge.affinity >= 20)
+    .map((edge) => (edge.from.id === helperId ? edge.to.id : edge.from.id))
+    .map((id) => state.staff[id])
+    .filter(
+      (other): other is NonNullable<typeof other> =>
+        other !== undefined && other.skill + 8 <= helper.skill,
+    )
+    .sort((a, b) => a.skill - b.skill || a.id.localeCompare(b.id))
   return candidates[0]?.id
 }
 

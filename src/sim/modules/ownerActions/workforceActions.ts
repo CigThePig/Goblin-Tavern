@@ -577,13 +577,21 @@ const promoteStaffAction: OwnerActionDefinition = {
       reason: 'promoted them',
       tags: ['promotion'],
     })
-    // A promotion answers a raise demand and a quit risk at once: somebody who
-    // just got the job they wanted is not leaving over the wage.
+    // A promotion answers the RAISE DEMAND outright — they asked for more money
+    // and got a better job at a better wage.
+    //
+    // It does NOT cancel a live quit risk. That risk may be about unpaid back
+    // pay, exhaustion or a discipline record, none of which a new title fixes,
+    // and cancelling it here would let a promotion do what `negotiate_with_staff`
+    // is deliberately forbidden from doing: erase an imminent resignation with a
+    // material grievance still outstanding. The promotion's real loyalty and
+    // morale gains lower the risk score on their own, so the resolver re-reads
+    // live contributors when the day comes and stands the person down if the
+    // promotion genuinely was the answer.
     cancelScheduledEvents(
       ctx,
       (event) =>
-        (event.type === STAFF_RAISE_DEMAND_EVENT ||
-          event.type === STAFF_QUIT_RISK_EVENT) &&
+        event.type === STAFF_RAISE_DEMAND_EVENT &&
         event.target?.kind === 'staff' &&
         event.target.id === staffId,
       `${name} was promoted`,

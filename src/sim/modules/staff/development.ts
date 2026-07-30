@@ -3,6 +3,7 @@ import type { StaffRoleId, StaffState } from '../../state/TavernState'
 import { clampPercent } from '../../state/normalize'
 import {
   getPromotionTarget,
+  getRoleDailyDemand,
   getRoleSkillCeiling,
   staffRegistry,
 } from '../../registries/staffRegistry'
@@ -18,6 +19,7 @@ import {
 } from './workforceTypes'
 import { recordDevelopment, setStaffWage } from './employment'
 import { findTrainingHelper } from './relationships'
+import { openVacancy } from './laborMarket'
 
 // Expansion Phase 3 §3.1 — training, skill growth, cross-training, promotion.
 //
@@ -429,6 +431,24 @@ export function promoteStaff(
   }) ?? { before: member.wage, after: verdict.newWage }
 
   bumpStaffTotal(ctx, 'promotions')
+
+  // A promotion VACATES a post. The rungs above a founding role declare no daily
+  // demand, so promoting the cook leaves the kitchen's demand uncovered — and
+  // without a recorded vacancy the board only answers it if a cook happens to
+  // come up in a weekly roll, so the gap could sit there indefinitely. Recorded
+  // only when the old role is genuinely short now, so promoting a second cook
+  // out of a two-cook kitchen posts nothing.
+  const stillOnOldRole = Object.values(ctx.state.staff).filter(
+    (other) => other.role === fromRoleId,
+  ).length
+  if (stillOnOldRole < getRoleDailyDemand(fromRoleId)) {
+    openVacancy(
+      ctx,
+      fromRoleId,
+      `${member.name.display} was promoted out of ${roleLabel(fromRoleId)}`,
+    )
+  }
+
   const readable = `${member.name.display} is now ${target.label} at ${wage.after} coin a week.`
   ctx.addMemory({
     id: `staff_promoted_${staffId}`,

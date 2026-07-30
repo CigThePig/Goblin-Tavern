@@ -7,6 +7,7 @@ import { withCoin } from '../../src/sim/testing/stateFactories'
 import { actionRegistry } from '../../src/sim/registries/actionRegistry'
 import { staffRegistry } from '../../src/sim/registries/staffRegistry'
 import { getStaffModuleState } from '../../src/sim/modules/staff/workforceState'
+import { getStockModuleState } from '../../src/sim/modules/stock/state'
 import {
   listApplicants,
   refreshLaborMarket,
@@ -631,6 +632,85 @@ describe('Phase 3 §3.1 — wages across multiple weeks', () => {
     const after = totalWageArrears(paid)
     expect(after).toBeGreaterThan(0)
     expect(after).toBeLessThan(owed)
+  })
+})
+
+describe('Phase 3 — Codex review regressions (PR #248)', () => {
+  it('arrears cleared by the weekly settlement actually leave the till', () => {
+    // P1. `payDownArrears` marked the obligations settled and told the staff
+    // member they had been paid, but the only `spendCoin` in the settlement
+    // charged this week's wages — so the same coin cleared back pay again every
+    // week. The player could carry permanent arrears for free.
+    let state = runQuietDays(withCoin(createInitialTavernState(), 500), 6, `${SEED}-reg-arrears`)
+    state = withCoin(state, 3)
+    state = runDay(state, undefined, undefined, `${SEED}-reg-arrears-settle`).state
+    const owed = totalWageArrears(state)
+    expect(owed).toBeGreaterThan(0)
+
+    // Enough in the till to clear the arrears and cover the coming week.
+    state = withCoin(state, owed + 500)
+    let after = state
+    let settlementDay: TavernState | undefined
+    for (let i = 0; i < 7; i += 1) {
+      after = runDay(after, undefined, undefined, `${SEED}-reg-arrears-pay-${i}`).state
+      const paid = getStockModuleState(after).ledger.find(
+        (entry) => entry.source === 'staff.wages.arrears',
+      )
+      if (paid) settlementDay = after
+    }
+    expect(totalWageArrears(after)).toBe(0)
+
+    // The settlement earns as well as spends, so the assertion is on the day's
+    // LEDGER rather than on the balance: back pay is its own line, for the whole
+    // sum owed, and it is negative — the coin left.
+    expect(settlementDay, 'the arrears were never actually paid out').toBeDefined()
+    const arrearsLine = getStockModuleState(settlementDay!).ledger.find(
+      (entry) => entry.source === 'staff.wages.arrears',
+    )!
+    // At least what was owed when it was measured — late charges may have
+    // pushed the balance up in the meantime, and the line covers those too.
+    expect(arrearsLine.amount).toBeLessThanOrEqual(-owed)
+    expect(arrearsLine.category).toBe('wage')
+    // …and it is a line of its own, not folded into this week's wage payment:
+    // "we finally paid what we owed" and "we paid this week" are different
+    // entries in a P/L.
+    expect(
+      getStockModuleState(settlementDay!).ledger.some(
+        (entry) => entry.source === 'staff.wages' && entry.amount < 0,
+      ),
+    ).toBe(true)
+  })
+
+  it('promoting somebody out of a role opens a vacancy for it', () => {
+    // P2. The rungs above a founding role declare no daily demand, so promoting
+    // the server left the floor short with no recorded vacancy — and the board
+    // only answers recorded vacancies, so the gap could sit there indefinitely.
+    let state = withCoin(runDay(withCoin(createInitialTavernState(), 900)).state, 900)
+    let days = 0
+    while (!checkPromotion(state, 'server').ok && days < 30) {
+      state = withCoin(
+        runDay(
+          state,
+          [{ actionId: 'train_staff', targetId: 'server' }],
+          undefined,
+          `${SEED}-reg-promote-${days}`,
+        ).state,
+        900,
+      )
+      days += 1
+    }
+    expect(checkPromotion(state, 'server').ok).toBe(true)
+
+    const promoted = runDay(state, [
+      { actionId: 'promote_staff', targetId: 'server' },
+    ]).state
+    expect(promoted.staff['server']!.role).toBe('head_server')
+    const slice = getStaffModuleState(promoted)
+    expect(slice.laborMarket.vacancies.map((v) => v.roleId)).toContain('server')
+
+    // …and the board answers it on the next refresh, so the post is fillable.
+    const next = runDay(promoted, undefined, undefined, `${SEED}-reg-promote-next`).state
+    expect(listApplicants(next).some((a) => a.roleId === 'server')).toBe(true)
   })
 })
 

@@ -552,6 +552,7 @@ export const EmploymentRecordSchema = z.object({
   staffId: z.string(),
   wagePerDay: z.number().min(0),
   noticeDays: z.number().int().min(0),
+  lastRaiseOnDay: z.number().int().optional(),
   notice: z
     .object({
       givenBy: z.enum(['owner', 'staff']),

@@ -321,11 +321,14 @@ const callInSick: ActorActionDefinition<StaffActorTarget> = {
   perform: (ctx, { target }) => {
     const member = ctx.state.staff[target.id]
     if (!member) return { result: 'failed', readable: 'Nobody to miss.' }
+    // `includeToday: false` because actors run at `endDay`: today's shift is
+    // already worked, and the day they are not coming in is tomorrow.
     const applied = setAbsence(ctx, member.id, {
       kind: 'unexcused',
       days: 1,
       reason: 'did not come in',
       source: `${SOURCE}.call_in_sick`,
+      includeToday: false,
     })
     noteContact(ctx, {
       aStaffId: member.id,

@@ -36,7 +36,7 @@ import {
   ownerTrust,
 } from './relationships'
 import { grantExperience } from './development'
-import { findTrainingHelper } from './relationships'
+import { findTrainingLearner } from './relationships'
 import { totalCoverageGap } from './roster'
 import {
   AUTHORITY_TEST_EVENT,
@@ -455,6 +455,10 @@ const quitRiskEvent: ScheduledEventDefinition = {
         reason: `quit risk realised (weight ${score}): ${reasonList}`,
         readable: `${member.name.display} walked out without notice.`,
         source: 'staff.quit_risk',
+        // This event is mid-resolution and still live in the queue; the cleanup
+        // must not archive it as cancelled while the resolver is about to archive
+        // it as resolved.
+        activeEventId: record.id,
       })
       if (!result) {
         return noOp('the separation could not be performed', record.origin.readable)
@@ -662,6 +666,7 @@ const separationEvent: ScheduledEventDefinition = {
       // Notice served out in full: nothing further is owed for it.
       severance: 0,
       source: 'staff.separation_event',
+      activeEventId: record.id,
     })
     if (!result) {
       return noOp('the separation could not be performed', record.origin.readable)
@@ -993,16 +998,24 @@ const raisePromisedEvent: ScheduledEventDefinition = {
         record.origin.readable,
       )
     }
-    // A hook-routed promise carries no baseline, so the honest baseline is the
-    // wage on the employment record when the promise was made — which is what the
-    // record's own history holds.
+    // WAS THE PROMISE KEPT? Two readings, and the second is the one a
+    // hook-routed promise needs.
+    //
+    // A promise scheduled with terms (`wageAtRequest > 0`) is judged against
+    // those terms. A promise routed from a bare `raise_promised_<staffId>` hook
+    // carries none, and the obvious fallback — compare the wage now against the
+    // wage on the employment record — is circular: granting the rise is what
+    // moves that figure, so a kept promise would always read as broken. So the
+    // fallback asks whether a rise HAPPENED since the promise was made, which is
+    // what `lastRaiseOnDay` records.
     const employment = getEmployment(ctx.state, member.id)
-    const baseline =
-      parsed.data.wageAtRequest > 0
-        ? parsed.data.wageAtRequest
-        : Math.round((employment?.wagePerDay ?? 0) * 7)
+    const hasTerms = parsed.data.wageAtRequest > 0
+    const baseline = hasTerms ? parsed.data.wageAtRequest : member.wage
+    const raisedSincePromise =
+      employment?.lastRaiseOnDay !== undefined &&
+      employment.lastRaiseOnDay >= record.createdOnDay
 
-    if (member.wage > baseline) {
+    if (hasTerms ? member.wage > baseline : raisedSincePromise) {
       noteContact(ctx, {
         aStaffId: member.id,
         withOwner: true,
@@ -1012,7 +1025,9 @@ const raisePromisedEvent: ScheduledEventDefinition = {
         tags: ['wages', 'promise', 'kept'],
       })
       return noOp(
-        `${member.name.display}'s wage rose from ${baseline} to ${member.wage} — the promise was kept`,
+        hasTerms
+          ? `${member.name.display}'s wage rose from ${baseline} to ${member.wage} — the promise was kept`
+          : `${member.name.display}'s wage rose on day ${employment?.lastRaiseOnDay} — the promise was kept`,
         `${member.name.display} got the rise you promised.`,
       )
     }
@@ -1228,16 +1243,24 @@ const trainingHelperEvent: ScheduledEventDefinition = {
   futureHookPrefixes: ['training_helper_'],
   fromFutureHook: staffPayloadAdapter('training_helper_'),
   resolve: (ctx, record): ScheduledEventResolution => {
+    // THE SUBJECT IS THE MENTOR, not the apprentice.
+    //
+    // `training_helper_<staffId>` comes from a response profile that gives THAT
+    // person the mentoring fatigue and the loyalty for taking it on, and names
+    // the apprentice separately. Reading the subject as the learner and hunting
+    // for somebody even better inverts the promise: the named mentor is normally
+    // the strongest hand already, so the event either no-opped or taught the
+    // wrong person.
     const subject = resolveSubject(ctx, record.payload, record.origin.readable)
     if ('fail' in subject) return subject.fail
-    const learner = subject.member
+    const helper = subject.member
 
-    const helperId = findTrainingHelper(ctx.state, learner.id)
-    const helper = helperId ? ctx.state.staff[helperId] : undefined
-    if (!helper) {
+    const learnerId = findTrainingLearner(ctx.state, helper.id)
+    const learner = learnerId ? ctx.state.staff[learnerId] : undefined
+    if (!learner) {
       return noOp(
-        `nobody on the crew both gets on with ${learner.name.display} and out-skills them`,
-        `Nobody was in a position to show ${learner.name.display} anything.`,
+        `nobody on the crew both gets on with ${helper.name.display} and has anything left to learn from them`,
+        `${helper.name.display} had nobody to show anything to.`,
       )
     }
     if (helper.absence || learner.absence) {
@@ -1462,19 +1485,37 @@ const staffBonusExpectedEvent: ScheduledEventDefinition = {
     if ('fail' in subject) return subject.fail
     const member = subject.member
 
-    // Anything that actually put extra coin their way since the promise counts:
-    // a wage rise, a bonus, back pay cleared. All three are recorded, so this
-    // reads records rather than guessing.
-    const wageRose = ctx.state.memories.some(
-      (memory) =>
-        memory.tags.includes(member.id) &&
-        (memory.id === `staff_promoted_${member.id}` ||
-          memory.id === `staff_bonus_paid_${member.id}`) &&
-        (memory.createdAt?.absoluteDay ?? -1) >= record.createdOnDay,
-    )
+    // Anything that actually put extra coin their way since the promise counts.
+    // All of it is recorded, so this reads records rather than guessing — but it
+    // has to read ALL the shapes those records come in.
+    //
+    // The obvious one was missing: `pay_staff_bonus`, the owner action a player
+    // reaches for when told somebody is expecting another bonus, writes the
+    // shared memory id `staff_bonus_paid_recently` and names the person in
+    // `actors` / `metadata.staffId` rather than in the id. Matching only the
+    // per-staff id meant the player could pay the bonus and still take the
+    // morale penalty for not paying it.
+    const lookedAfter = ctx.state.memories.some((memory) => {
+      const day = memory.createdAt?.absoluteDay ?? -1
+      if (day < record.createdOnDay) return false
+      if (
+        memory.id === `staff_promoted_${member.id}` ||
+        memory.id === `staff_bonus_paid_${member.id}`
+      ) {
+        return memory.tags.includes(member.id)
+      }
+      if (memory.id !== 'staff_bonus_paid_recently') return false
+      return (
+        memory.actors?.some(
+          (actor) => actor.kind === 'staff' && actor.id === member.id,
+        ) === true ||
+        (memory.metadata as { staffId?: string } | undefined)?.staffId ===
+          member.id
+      )
+    })
     const owedNothing = totalWageArrears(ctx.state, member.id) <= 0
 
-    if (wageRose && owedNothing) {
+    if (lookedAfter && owedNothing) {
       return noOp(
         `${member.name.display} has been looked after since`,
         `${member.name.display} has had no cause to feel short-changed.`,

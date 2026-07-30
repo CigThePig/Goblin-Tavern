@@ -223,12 +223,18 @@ export function setStaffWage(
 
   const record = getEmployment(ctx.state, staffId)
   if (record) {
+    const today = ctx.state.calendar.totalDaysElapsed
     upsertEmployment(
       ctx,
       {
         ...record,
         wagePerDay: dailyRate(after),
-        lastTransitionOnDay: ctx.state.calendar.totalDaysElapsed,
+        lastTransitionOnDay: today,
+        // Stamp the DAY the wage went up, not the level it went up to. A promise
+        // about a rise is judged against when it was made, and `wagePerDay` moves
+        // with the rise itself — so comparing levels would report every kept
+        // promise as broken.
+        ...(delta > 0 ? { lastRaiseOnDay: today } : {}),
         readable: `${member.name.display} is employed at ${after} coin a week.`,
       },
       `wage_${input.kind}`,
@@ -483,6 +489,16 @@ export type SeparationInput = {
   severance?: number
   /** Who set this in motion. Shapes the witness reaction. */
   source?: string
+  /**
+   * The scheduled event performing this separation, when one is.
+   *
+   * It is still live in the queue while its own resolver runs, so the cleanup
+   * below would archive it as `cancelled` and the shared resolver would then
+   * archive the same firing again as `resolved` — two outcome rows and two
+   * contradictory totals for one event. Naming it here excludes it from the
+   * sweep without weakening the sweep for its siblings.
+   */
+  activeEventId?: string
 }
 
 export type SeparationResult = {
@@ -535,6 +551,16 @@ export function separateStaff(
   }
 
   // ---- the people who worked with them
+  //
+  // A dismissal at the top of the discipline ladder is DUE PROCESS, and the crew
+  // reads it that way: everybody watched the warnings land. Charging the same
+  // crew-wide morale hit for that as for an arbitrary firing made the ladder
+  // mechanically pointless and taxed the player for following it. The
+  // friend-specific reaction still lands either way — losing somebody you got on
+  // with hurts however deserved it was.
+  const wasFinalWarning =
+    input.kind === 'dismissed' &&
+    (record?.escalation ?? 0) >= MAX_DISCIPLINE_ESCALATION
   const friends = new Set(
     listActiveEdgesFor(ctx.state, input.staffId)
       .filter((edge) => edge.kind === 'coworker' && edge.affinity > 20)
@@ -544,9 +570,11 @@ export function separateStaff(
   )
   for (const other of Object.values(ctx.state.staff)) {
     if (other.id === input.staffId) continue
+    const witnessHit = wasFinalWarning ? 0 : SEPARATION_WITNESS_MORALE
     const hit = friends.has(other.id)
-      ? SEPARATION_WITNESS_MORALE + SEPARATION_FRIEND_MORALE
-      : SEPARATION_WITNESS_MORALE
+      ? witnessHit + SEPARATION_FRIEND_MORALE
+      : witnessHit
+    if (hit === 0) continue
     const nextMorale = clampPercent(other.morale - hit)
     if (nextMorale === other.morale) continue
     ctx.modifyStaff(
@@ -630,6 +658,7 @@ export function separateStaff(
   cancelScheduledEvents(
     ctx,
     (event) =>
+      event.id !== input.activeEventId &&
       event.ownerModuleId === STAFF_MODULE_ID &&
       event.target?.kind === 'staff' &&
       event.target.id === input.staffId,

@@ -685,12 +685,33 @@ migration chain, `ownerActions`, `staffRoles` and `glossaryTerms` (129 → 135).
 The stale `wages` glossary entry was rewritten rather than left describing a rule
 that no longer exists.
 
-Gates: `npm run test:full` **310 files / 4,084 tests**, `npm test` 302 / 3,955,
-`typecheck` clean, `check` 1,038 files / 0 errors, `build` passing (same known
->500 kB chunk warning), and all three expansion artifacts clean — `ledger:check`
-134 rows, `baseline:probes` 0 drifted, `repo:map` 0 sections drifted. Tests:
-`tests/sim/phase210.workforceLifecycle.test.ts` (34),
-`phase210.retentionAndQuitting.test.ts` (18),
+**Eleven review findings fixed before merge** (Codex on PR #248 — three P1,
+eight P2), each with a regression that fails on the pre-fix tree; the full list
+is in the plan's Phase 3 section. The three P1s: the weekly settlement cleared
+arrears **without spending the coin**, so permanent back pay was free; the
+hook-routed `raise_promised_*` fallback compared the wage against the employment
+record that granting the rise moves, so every kept promise read as broken
+(`lastRaiseOnDay` now records the event, not the level); and `call_in_sick`,
+decided at `endDay` when the shift is already worked, opened its absence window
+*today* and expired the next morning — so nobody ever missed a roster and
+`ABANDONMENT_DAYS` was unreachable. The eight P2s: off-duty colleagues offered as
+cover, a promotion cancelling a live quit risk, a promotion not opening a vacancy
+for the post it vacated, `pay_staff_bonus` not answering the bonus expectation,
+`training_helper_*` teaching the wrong person (its subject is the mentor), a
+by-the-book dismissal still costing crew morale, two outcome rows for one
+separation firing, and a returnee eligible for a fresh illness roll the morning
+they came back. Four of the fixes live in resolvers only a routed future hook
+reaches, so those regressions drive them through a test-local **hook courier**
+that repeats exactly what `ctxApplier.routeFutureHook` does — the Phase 1
+`obligationProbe` precedent, not fixture injection. The round moved none of the
+frozen artifacts.
+
+Gates: `npm run test:full` **310 files / 4,096 tests**, `typecheck` clean,
+`check` 1,038 files / 0 errors, `build` passing (same known >500 kB chunk
+warning), and all three expansion artifacts clean — `ledger:check` 134 rows,
+`baseline:probes` 0 drifted, `repo:map` 0 sections drifted. Tests:
+`tests/sim/phase210.workforceLifecycle.test.ts` (36),
+`phase210.retentionAndQuitting.test.ts` (28),
 `phase210.workforceBeatPersistence.test.ts` (6 — a reload at all five player
 beats with somebody on notice, somebody owed back pay, a cross-trained second
 trade and a live relationship graph, plus full-day-vs-segmented equivalence

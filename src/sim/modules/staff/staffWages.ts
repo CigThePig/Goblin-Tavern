@@ -147,8 +147,17 @@ export function settleWeeklyWages(ctx: SimContext): {
   // Pay down existing arrears before this week's wages. Somebody the player
   // already owes for is owed for longer, and clearing the oldest debt first is
   // what stops arrears becoming permanent background noise.
+  //
+  // `spend: true` is load-bearing. Without it the arrears were marked settled and
+  // the staff member was told they had been paid, but the coin never left the
+  // till — the only `spendCoin` below charges this week's wages alone — so the
+  // same funds cleared back pay again every settlement. Arrears get their own
+  // ledger line rather than being folded into the wage line, because "we finally
+  // paid what we owed" and "we paid this week" are different entries in a P/L.
   let purse = ctx.state.coin
-  const arrearsPaid = payDownArrears(ctx, purse, 'weekly settlement')
+  const arrearsPaid = payDownArrears(ctx, purse, 'weekly settlement', {
+    spend: true,
+  })
   purse -= arrearsPaid
 
   const perStaff: StaffWageSettlement['perStaff'] = []
@@ -290,9 +299,11 @@ export function openWageArrears(
 /**
  * Spend up to `budget` clearing the oldest arrears.
  *
- * Returns what was actually spent. The caller owns the coin movement for the
- * weekly path (it batches one `spendCoin`), so this only spends directly when
- * asked to by the owner action.
+ * Returns what was actually spent. `spend: true` moves the coin here, on its own
+ * ledger line; both callers pass it. (They did not always: the weekly settlement
+ * used to leave the movement to its own batched `spendCoin`, which charged this
+ * week's wages only — so back pay was written off and cleared again for free the
+ * following week.)
  */
 export function payDownArrears(
   ctx: SimContext,

@@ -1176,13 +1176,83 @@ re-baselines the long-run matrix. The stale `wages` glossary entry was rewritten
 rather than left: it described the all-or-nothing rule, which is exactly the
 second prose-only copy §5.12 forbids.
 
-Gates: `npm run test:full` **310 files / 4,084 tests**, `npm test` 302 / 3,955,
-`typecheck` clean, `check` 1,038 files / 0 errors, `build` passing (same known
->500 kB chunk warning §13.5 asks Phase 13 to split), and all three expansion
-artifacts clean — `ledger:check` 134 rows, `baseline:probes` 0 drifted,
-`repo:map` 0 sections drifted. Tests:
-`tests/sim/phase210.workforceLifecycle.test.ts` (34),
-`phase210.retentionAndQuitting.test.ts` (18),
+**Eleven review findings fixed before merge** (Codex on PR #248 — three P1,
+eight P2), each with a regression test that fails on the pre-fix tree:
+
+- **P1, and the one that made non-payment free:** the weekly settlement cleared
+  arrears without spending the coin. `payDownArrears` marked the obligations
+  settled and told the staff member they had been paid, but the settlement's only
+  `spendCoin` charged that week's wages — so the same funds cleared back pay
+  again every week and a player could carry permanent arrears at no cost. Back
+  pay now moves the coin on its own ledger line, because "we finally paid what we
+  owed" and "we paid this week" are different entries in a P/L.
+- **P1: a kept promise read as broken.** The hook-routed `raise_promised_*`
+  branch carries no terms, and the fallback compared the wage now against the
+  wage on the employment record — which granting the rise is exactly what moves.
+  `EmploymentRecord.lastRaiseOnDay` records the *event* instead of the level, so
+  the resolver asks whether a rise happened since the promise was made.
+- **P1: an absence decided in the evening cost nothing.** Actors run at `endDay`,
+  when the shift is already worked, but `setAbsence` always opened the window
+  today — so `call_in_sick` expired the next morning. Nobody ever missed a
+  roster, no service was ever short-handed by it, and repeated absence could
+  never reach `ABANDONMENT_DAYS`. `includeToday: false` shifts the window one day
+  forward for anything decided after the day is spent.
+- **Cover is only offered by somebody on duty.** `findWillingCover` filtered on
+  `unavailable` alone, so it could name a colleague on a rest day or working out
+  notice; `buildRoster` then rejected them, and because the search returns one
+  name the next willing colleague was never considered. The check belongs in the
+  search, not the caller.
+- **A promotion no longer cancels a live quit risk.** It still answers the raise
+  demand outright, but the risk may be about back pay, exhaustion or a discipline
+  record, none of which a new title fixes — cancelling it let a promotion do what
+  `negotiate_with_staff` is deliberately forbidden from doing. The promotion's
+  own loyalty and morale gains lower the score, and the resolver re-reads live
+  contributors when the day comes.
+- **A promotion vacates a post.** The rungs above a founding role declare no
+  daily demand, so promoting the server left the floor short with no recorded
+  vacancy — and the board only always-answers *recorded* vacancies, so the gap
+  could sit there indefinitely. Recorded only when the old role is genuinely
+  short now.
+- **`pay_staff_bonus` answers `staff_bonus_expected_*`.** The action writes the
+  shared memory id `staff_bonus_paid_recently` and names the person in
+  `actors`/`metadata`, not in the id; the resolver matched per-staff ids only, so
+  the player could pay the bonus and still take the penalty for not paying it.
+- **The mentor named by `training_helper_*` is the one who teaches.** The hook's
+  subject is the mentor — the response profile gives *that* person the mentoring
+  fatigue and the loyalty for it — so reading the subject as the learner sent the
+  event hunting for a mentor for the best hand on the crew, and it no-opped.
+  `findTrainingLearner` is the mirror of `findTrainingHelper`.
+- **A dismissal at the top of the discipline ladder does not cost crew morale.**
+  Everybody watched the warnings land; charging the same crew-wide hit as for an
+  arbitrary firing made the ladder mechanically pointless and taxed the player
+  for following it. The friend-specific reaction still lands either way.
+- **One outcome row per firing.** A separation event is still live in the queue
+  while its own resolver runs, so `separateStaff`'s cleanup archived it as
+  `cancelled` and the shared resolver then archived the same firing as
+  `resolved` — two rows and two contradictory totals. `activeEventId` excludes
+  the event performing the separation without weakening the sweep for its
+  siblings.
+- **Nobody who came back this morning is taken out again the same morning.**
+  Returns are processed before the illness roll so that somebody whose leave ends
+  today is available; the roll then considered that still-tired person and could
+  take them straight back out before they reached a roster.
+
+Four of those live in resolvers only a routed future hook reaches, so the
+regressions drive them through a **hook courier**: a test-local module that does
+exactly what `ctxApplier.routeFutureHook` does — registry lookup, the owning
+module's own adapter, `scheduleEvent` — and nothing else. That is the Phase 1
+`obligationProbe` precedent (a real module on a real pipeline using the
+sanctioned API), not fixture injection: every field of every event is built by
+the shipped adapter.
+
+Gates: `npm run test:full` **310 files / 4,096 tests**, `typecheck` clean,
+`check` 1,038 files / 0 errors, `build` passing (same known >500 kB chunk
+warning §13.5 asks Phase 13 to split), and all three expansion artifacts clean —
+`ledger:check` 134 rows, `baseline:probes` 0 drifted, `repo:map` 0 sections
+drifted. The review round moved none of the frozen artifacts: every fix is a
+consequence the baseline routes never reached. Tests:
+`tests/sim/phase210.workforceLifecycle.test.ts` (36),
+`phase210.retentionAndQuitting.test.ts` (28),
 `phase210.workforceBeatPersistence.test.ts` (6 — a reload at all five player
 beats with somebody on notice, somebody owed back pay, a cross-trained second
 trade and a live relationship graph, plus full-day-vs-segmented equivalence

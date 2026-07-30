@@ -8,6 +8,7 @@ import type {
   StaffPriorityId,
   StaffRoleId,
   StaffShiftId,
+  StaffState,
 } from '../../state/TavernState'
 import type { CastAttributes } from '../../content/cast/castTypes'
 import type { GeneratedName } from '../../content/naming/nameTypes'
@@ -176,6 +177,25 @@ export type StaffRelationshipEdge = {
 /** An edge only has consequences once contact has actually repeated. */
 export function isActiveEdge(edge: StaffRelationshipEdge): boolean {
   return edge.contacts >= MIN_CONTACTS_FOR_ACTIVE_EDGE
+}
+
+/**
+ * Is this person actually working today?
+ *
+ * The one predicate for it, because three separate searches need the same
+ * answer — who can cover an absence, who can teach, and who can be taught —
+ * and each of them got it subtly wrong on its own. `unavailable` alone is not
+ * enough (somebody working out notice carries an `absence` without it) and an
+ * absence check alone is not enough either (a rest day is not an absence).
+ * Anything that asks a colleague to do work has to ask this.
+ */
+export function isOnDuty(member: StaffState | undefined): member is StaffState {
+  return (
+    member !== undefined &&
+    member.unavailable !== true &&
+    member.absence === undefined &&
+    member.shift !== 'rest'
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -553,6 +573,8 @@ export const EmploymentRecordSchema = z.object({
   wagePerDay: z.number().min(0),
   noticeDays: z.number().int().min(0),
   lastRaiseOnDay: z.number().int().optional(),
+  unexcusedDays: z.number().int().min(0).optional(),
+  lastUnexcusedOnDay: z.number().int().optional(),
   notice: z
     .object({
       givenBy: z.enum(['owner', 'staff']),

@@ -27,10 +27,24 @@ afterEach(() => cleanup())
 
 describe('Phase 118 — empty-state copywriting', () => {
   it('StaffPanel: shows hire-from-world hint when no staff', () => {
-    const data: StaffPanelData = { rows: [], unpaidCount: 0 }
+    const data: StaffPanelData = {
+      rows: [],
+      unpaidCount: 0,
+      hiring: {
+        applicants: [],
+        vacancies: [],
+        emptyReason: 'Nobody is looking for work at the moment.',
+      },
+    }
     render(StaffPanel, { props: { data } })
+    // Expansion Phase 3 — hiring moved to the board on this panel, so the
+    // empty state points at the board rather than at the World screen's
+    // adventurer list, which never had anything to do with staff.
     expect(
-      screen.getByText(/You have no staff\. Hire from the World → Hireable list\./i),
+      screen.getByText(/You have no staff\. Take somebody on from the hiring board below\./i),
+    ).toBeTruthy()
+    expect(
+      screen.getByText(/Nobody is looking for work at the moment\./i),
     ).toBeTruthy()
   })
 

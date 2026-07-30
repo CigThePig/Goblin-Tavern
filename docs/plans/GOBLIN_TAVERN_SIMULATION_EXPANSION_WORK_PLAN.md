@@ -1245,18 +1245,94 @@ module's own adapter, `scheduleEvent` — and nothing else. That is the Phase 1
 sanctioned API), not fixture injection: every field of every event is built by
 the shipped adapter.
 
-Gates: `npm run test:full` **310 files / 4,096 tests**, `typecheck` clean,
+**A second review round found seven more, and the player found an eighth.**
+A follow-up Codex pass on the same PR, plus the user reporting that they could
+no longer find anywhere to hire:
+
+- **Hiring had no surface left.** This is the one that matters most, and no
+  review tool found it: `hire_staff` stopped taking a role and started taking a
+  PERSON off a weekly board that expires, and the Tavern > Staff panel was never
+  updated. It listed the people you already employ, and its empty state told the
+  player to "hire from the World → Hireable list" — the adventurer roster, which
+  has nothing to do with staff. The board, the asks, the shelf life and the open
+  vacancies existed only in the sim and in the action picker's target sub-sheet,
+  findable only by a player who already knew the action's target list had changed
+  meaning. That is §5.12's "cannot discover what action is available" failure, on
+  the phase's own headline capability. `StaffPanelData` now carries a `hiring`
+  block — applicants with role, skill, ask, provenance and days left, each with
+  the same `hire_staff` ref every other row-level action uses, plus open
+  vacancies with their reason and age — and the panel renders it under the
+  roster, with an empty state that says whether the board is "not yet" or
+  "nobody today".
+- **A bonus promise was judged on the ordinary wage.** `wage_expectation_*`
+  comes from `pay_bonus_profile` — a one-off bonus, promised as the new floor —
+  but the resolver asked whether the week's wages had been paid, which a bonus
+  never changes and the next settlement always makes true. It never once landed.
+  It now asks whether the money went up AGAIN, through the same "did extra coin
+  reach them" reader `staff_bonus_expected` uses.
+- **The worker whose load was lightened counted as their own cover.**
+  `coverage_gap_*` comes from `reduce_workload_profile`, which marks nobody
+  absent and changes no shift, so counting every body on the role — the subject
+  included — made a one-person role read as covered by the very person whose work
+  had been taken away. The count is of somebody ELSE now, against a demand floor
+  of one, and the fatigue lands on the colleagues rather than on them.
+- **Abandonment could not fire, twice over.** The rule read one absence's length
+  against `ABANDONMENT_DAYS`, and the only thing that writes an unexcused absence
+  takes a single day at a time on a seven-day cooldown — and the check ran after
+  the return pass, which clears an absence the morning its `untilDay` arrives, so
+  even a four-day one would have been cleared first. The employment record now
+  carries the RUN of unexcused days inside a remembered window
+  (`UNEXCUSED_MEMORY_DAYS = 21`), and the check happens before returns.
+- **An actor handed in notice while its own warning was still running.**
+  `scheduleQuitRisk` returned `false` for three different reasons and the actor
+  read all of them as "the warning has run its course". A live promise — with
+  days of window and a live contributor list — was skipped and notice went
+  straight in, bypassing the counterplay §3.4 exists for. The result is a
+  discriminated `'scheduled' | 'already_live' | 'suppressed' | 'no_target'`.
+- **The weekly actor allowance refilled mid-week.** The pass runs at `endDay`, so
+  topping up on `isEndOfWeek()` handed the actor a fresh three points before day
+  seven's own action — a fourth move in a three-move week, charged to the week
+  after. It refills on day one now.
+- **Off-duty colleagues were still teaching.** The cover search learned to check
+  who is actually in; `findTrainingHelper` had not, and nothing downstream
+  rechecks it, so an ill or resting colleague granted the enhanced training bonus
+  and was reported as having shown the learner the job. All three searches now go
+  through one `isOnDuty` predicate.
+- **A retention talk worked on somebody with nothing to talk about.**
+  `negotiate_with_staff` accepted every live employee, and a settled one has no
+  contributors and no material blocker — so `persuaded` came back true
+  automatically and the player could spend a short conversation, every day, on
+  everybody, for +10 morale / +12 loyalty / −6 stress and a step of standing. It
+  is now offered only against something ANNOUNCED: a quit risk on the calendar, a
+  resignation on the record, or an intention the actor declared last night. A
+  contributor-score threshold was tried and rejected — the score reads live
+  meters, which are shed each morning and rebuilt over the trading day, so the
+  same person scores 35 when the resolver reads them at wrap-up and nearly
+  nothing when owner actions apply; the action would have appeared in the
+  evening's plan and refused itself the next afternoon.
+
+Two of the second round's regressions need a domain call made at the beat the
+staff actor makes it — a day's unexcused absence, a quit risk scheduled while
+another is live — so the test module grew a second `endDay` seam beside the hook
+courier. It calls the same exported domain functions the actor calls, at the same
+beat; it does not write the state they would have produced.
+
+Gates: `npm run test:full` **311 files / 4,109 tests**, `typecheck` clean,
 `check` 1,038 files / 0 errors, `build` passing (same known >500 kB chunk
 warning §13.5 asks Phase 13 to split), and all three expansion artifacts clean —
 `ledger:check` 134 rows, `baseline:probes` 0 drifted, `repo:map` 0 sections
-drifted. The review round moved none of the frozen artifacts: every fix is a
-consequence the baseline routes never reached. Tests:
+drifted. Neither review round moved a frozen artifact: every fix is a consequence
+the baseline routes never reached. Tests:
 `tests/sim/phase210.workforceLifecycle.test.ts` (36),
-`phase210.retentionAndQuitting.test.ts` (28),
+`phase210.retentionAndQuitting.test.ts` (35),
+`tests/reports/tavernOverviewProjection.test.ts` (+3 hiring-board cases),
+`tests/web/components/staffHiringBoard.test.ts` (3 — the board renders, the row's
+Hire button queues `hire_staff` against that applicant's id, an empty board
+explains itself),
 `phase210.workforceBeatPersistence.test.ts` (6 — a reload at all five player
 beats with somebody on notice, somebody owed back pay, a cross-trained second
 trade and a live relationship graph, plus full-day-vs-segmented equivalence
-across a fortnight that crosses a separation and a wage settlement). All three
+across a fortnight that crosses a separation and a wage settlement). All of them
 run in seconds, so none joins `HEAVY_TEST_GLOBS`.
 
 ---

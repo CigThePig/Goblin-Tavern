@@ -167,6 +167,17 @@ export type EmploymentRecord = ContractRecordBase & {
    * that predates the field.
    */
   lastRaiseOnDay?: number
+  /**
+   * Expansion Phase 3 — days of unexcused absence inside the remembered window,
+   * and the day the last one started.
+   *
+   * Abandonment used to read one absence's length, and nothing in the game
+   * produces a long unexcused absence, so the rule could not fire. These two
+   * carry the run across separate no-shows. Absent means none, which is the
+   * honest reading for a record that predates the field.
+   */
+  unexcusedDays?: number
+  lastUnexcusedOnDay?: number
 }
 
 /** A regulatory case with scheduled visits. Phase 7 owns this. */

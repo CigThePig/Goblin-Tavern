@@ -478,18 +478,29 @@ const giveNoticeAction: ActorActionDefinition<StaffActorTarget> = {
     // Resignation goes through the QUIT-RISK event rather than straight to
     // notice, so the player gets the warning, the contributor list and the
     // counterplay §3.4 requires — the same path a response-declared hook takes.
-    const scheduled = scheduleQuitRisk(ctx, member.id, {
+    const outcome = scheduleQuitRisk(ctx, member.id, {
       reason: 'has had enough of the place',
       source: `${SOURCE}.give_notice`,
     })
-    if (!scheduled) {
-      // Already warned and the warning ran its course: act on it now.
-      const record = getEmployment(ctx.state, member.id)
+    if (outcome === 'already_live') {
+      // A promise about them is ALREADY on the calendar, still inside its
+      // warning window, with the contributor list and the counterplay live. The
+      // fair move is to leave it in charge — handing in notice here would skip
+      // the very turn §3.4 exists to give the player. Treating every refusal as
+      // "the warning already ran its course" is what made that happen.
+      return {
+        result: 'succeeded',
+        readable: `${member.name.display} is still weighing up whether to stay.`,
+        learned: { considering_leaving: 'yes' },
+      }
+    }
+    if (outcome !== 'scheduled') {
+      // The promise about them has been spent — a risk already fired and its
+      // key is burned — so there is nothing left to warn about. Act on it.
       const given = giveNotice(ctx, member.id, {
         givenBy: 'staff',
         reason: 'has had enough of the place',
       })
-      void record
       return {
         result: given ? 'succeeded' : 'failed',
         readable: given
@@ -549,10 +560,16 @@ export function runStaffActors(ctx: SimContext): void {
   for (const member of members) {
     let actor = ensureActor(slice, ctx.state, member)
 
-    // Weekly top-up. Deliberately tied to the calendar rather than to a
-    // per-actor counter so every staff member's budget refreshes on the same
-    // day and a reload cannot hand somebody a second allowance.
-    if (ctx.isEndOfWeek()) {
+    // Weekly top-up, on the FIRST day of the week rather than the last.
+    //
+    // Deliberately tied to the calendar rather than to a per-actor counter, so
+    // every staff member's budget refreshes on the same day and a reload cannot
+    // hand somebody a second allowance. The day it lands matters as much as
+    // that: this pass runs at `endDay`, so topping up at `isEndOfWeek()` gave
+    // the actor a fresh allowance BEFORE day seven's own action — a fourth move
+    // inside a three-move week, charged to the week after. Refilling on day one
+    // means one allowance covers exactly the seven days that spend it.
+    if (ctx.state.calendar.dayOfWeek === 1) {
       actor = { ...actor, budget: WEEKLY_ACTOR_BUDGET }
     }
 

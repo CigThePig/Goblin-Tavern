@@ -17,6 +17,7 @@ import {
   MIN_CONTACTS_FOR_ACTIVE_EDGE,
 } from '../../src/sim/modules/staff/workforceTypes'
 import {
+  findTrainingHelper,
   findTrainingLearner,
   findWillingCover,
   listEdges,
@@ -31,11 +32,18 @@ import {
   STAFF_SEPARATION_EVENT,
   describeQuitRiskContributors,
   quitRiskScore,
+  scheduleQuitRisk,
 } from '../../src/sim/modules/staff/staffEvents'
 import { STAFF_SCHEDULED_EVENT_TYPES } from '../../src/sim/modules/staff/staffEvents'
-import { listStaffIntents } from '../../src/sim/modules/staff/staffActors'
+import {
+  WEEKLY_ACTOR_BUDGET,
+  listStaffIntents,
+} from '../../src/sim/modules/staff/staffActors'
+import { ABANDONMENT_DAYS, setAbsence } from '../../src/sim/modules/staff/roster'
+import { actionRegistry } from '../../src/sim/registries/actionRegistry'
+import { listValidTargets } from '../../src/sim/modules/ownerActions/readonlyHelpers'
 import { totalWageArrears } from '../../src/sim/modules/staff/staffWages'
-import type { SimInputOwnerAction } from '../../src/sim/core/context'
+import type { SimContext, SimInputOwnerAction } from '../../src/sim/core/context'
 import type { SimulationModule } from '../../src/sim/core/module'
 import type { TavernState } from '../../src/sim/state/TavernState'
 
@@ -400,21 +408,53 @@ describe('Phase 3 §3.4 — the nine requirements of the quitting promise', () =
     // The counterplay is gated on standing, not on spending an action. A tavern
     // that has invested in somebody can talk them round; one that has not,
     // cannot — and is told which contributor is in the way.
-    let invested = withCoin(runDay(withCoin(createInitialTavernState(), 900)).state, 900)
-    for (let i = 0; i < 4; i += 1) {
+    //
+    // BOTH CASES NEED A LIVE RISK, because the action is only offered when
+    // somebody has actually announced they might go — a quit risk on the
+    // calendar, a resignation on the record, or an intention declared last
+    // night. The risk here is put on the calendar the way a response profile
+    // puts one there, through the same bridge; what differs between the two
+    // taverns is whether the owner has anything to say for themselves.
+    let invested = withCoin(createInitialTavernState(), 900)
+    for (let i = 0; i < 6; i += 1) {
       invested = withCoin(
-        runDay(
+        runCourierDay(
           invested,
-          [{ actionId: 'train_staff', targetId: 'cook' }],
-          undefined,
+          [{ actionId: 'train_staff', targetId: 'server' }],
           `${SEED}-invest-${i}`,
         ).state,
         900,
       )
     }
+    const investedDay = invested.calendar.totalDaysElapsed
+    courierQueue = [
+      {
+        hookName: 'staff_quit_risk_server',
+        onDay: investedDay,
+        scheduledForDay: investedDay + 5,
+      },
+    ]
+    invested = withCoin(
+      runCourierDay(invested, undefined, `${SEED}-invest-risk`).state,
+      900,
+    )
+    courierQueue = []
+    expect(
+      liveEventsOfType(invested, STAFF_QUIT_RISK_EVENT).some(
+        (event) => event.target?.id === 'server',
+      ),
+    ).toBe(true)
+    // Nothing that takes coin rather than words is outstanding, so the only
+    // question left is standing — which this owner has spent a week building.
+    expect(
+      describeQuitRiskContributors(invested, 'server').some((row) =>
+        ['wage_arrears', 'unpaid_week', 'raise_refused'].includes(row.id),
+      ),
+    ).toBe(false)
+
     const trusted = runDay(
       invested,
-      [{ actionId: 'negotiate_with_staff', targetId: 'cook' }],
+      [{ actionId: 'negotiate_with_staff', targetId: 'server' }],
       undefined,
       `${SEED}-negotiate-good`,
     )
@@ -427,9 +467,24 @@ describe('Phase 3 §3.4 — the nine requirements of the quitting promise', () =
     expect(appliedGood!.data['persuaded']).toBe(true)
 
     // The hollow case: a tavern that owes the crew everything and has built no
-    // standing at all.
-    const miserable = tavernWithAMiserableCook(`${SEED}-negotiate-bad`)
+    // standing at all. Same live risk, same conversation, opposite answer.
+    let miserable = tavernWithAMiserableCook(`${SEED}-negotiate-bad`)
     if (!miserable.staff['cook']) return
+    expect(totalWageArrears(miserable, 'cook')).toBeGreaterThan(0)
+    const miserableDay = miserable.calendar.totalDaysElapsed
+    courierQueue = [
+      {
+        hookName: 'staff_quit_risk_cook',
+        onDay: miserableDay,
+        scheduledForDay: miserableDay + 5,
+      },
+    ]
+    miserable = runCourierDay(
+      withCoin(miserable, 5),
+      undefined,
+      `${SEED}-negotiate-bad-risk`,
+    ).state
+    courierQueue = []
     const hollow = runDay(
       withCoin(miserable, 5),
       [{ actionId: 'negotiate_with_staff', targetId: 'cook' }],
@@ -663,8 +718,25 @@ const hookCourierModule: SimulationModule = {
         }
       },
     ],
+    // A second seam, at the beat the staff actors themselves run on. Some of
+    // the fixes below are in domain calls the actor makes — `setAbsence` with a
+    // day's unexcused absence, `scheduleQuitRisk` — and the honest way to reach
+    // those is to make the same call at the same beat, not to write the state
+    // they would have produced.
+    endDay: [
+      (ctx) => {
+        const today = ctx.state.calendar.totalDaysElapsed
+        for (const probe of eveningProbes) {
+          if (probe.onDay !== today) continue
+          probe.run(ctx)
+        }
+      },
+    ],
   },
 }
+
+type EveningProbe = { onDay: number; run: (ctx: SimContext) => void }
+let eveningProbes: EveningProbe[] = []
 
 const COURIER_PIPELINE = [...FULL_PIPELINE, hookCourierModule]
 
@@ -1166,5 +1238,271 @@ describe('Phase 3 §3.2 / §3.4 — burnout has a real consequence', () => {
     // state — the player gets the turn the fairness rule promises.
     const section = result.reports.find((s) => s.id === 'staff')!
     expect(section.lines.join('\n')).toContain('Staff intentions:')
+  })
+})
+
+describe('Phase 3 — Codex review regressions, second round (PR #248)', () => {
+  it('a bonus promise is judged on the money going up again, not on the ordinary wage', () => {
+    // `wage_expectation_*` comes from `pay_bonus_profile`: a ONE-OFF bonus, and
+    // the promise is that it becomes the floor. The resolver tested
+    // `paidThisWeek`, which a bonus does not change and the next ordinary
+    // settlement always does — so the consequence never once landed.
+    const play = (payAgain: boolean, seed: string) => {
+      let state = withCoin(createInitialTavernState(), 900)
+      courierQueue = [
+        { hookName: 'wage_expectation_cook', onDay: 2, scheduledForDay: 6 },
+      ]
+      for (let day = 0; day < 7; day += 1) {
+        const actions =
+          payAgain && day === 3
+            ? [
+                {
+                  actionId: 'pay_staff_bonus',
+                  targetId: 'cook',
+                  amount: 12,
+                } as SimInputOwnerAction,
+              ]
+            : undefined
+        state = withCoin(runCourierDay(state, actions, `${seed}-${day}`).state, 900)
+      }
+      courierQueue = []
+      return state
+    }
+
+    // Paid every week, on time, and never another coin: the expectation is not
+    // being met, whatever `paidThisWeek` says.
+    const ordinary = play(false, `${SEED}-reg2-wage-ordinary`)
+    expect(ordinary.staff['cook']!.paidThisWeek).toBe(true)
+    const ordinaryOutcome = [...outcomeRows(ordinary, 'wage_expectation').values()][0]![0]!
+    expect(ordinaryOutcome.status).toBe('resolved')
+
+    // Another bonus, and it is.
+    const kept = play(true, `${SEED}-reg2-wage-kept`)
+    const keptOutcome = [...outcomeRows(kept, 'wage_expectation').values()][0]![0]!
+    expect(keptOutcome.status).toBe('no_op')
+    expect(keptOutcome.reason).toContain('went up again')
+  })
+
+  it('the worker whose load was lightened does not count as their own cover', () => {
+    // `coverage_gap_*` comes from `reduce_workload_profile`, which marks nobody
+    // absent and changes no shift. Counting every body on the role — the subject
+    // included — made a one-person role read as covered by the very person whose
+    // load was removed, so the delayed consequence never reached its fatigue
+    // branch.
+    let state = withCoin(createInitialTavernState(), 900)
+    courierQueue = [
+      { hookName: 'coverage_gap_cook', onDay: 2, scheduledForDay: 5 },
+    ]
+    let fatigueBefore = 0
+    for (let day = 0; day < 6; day += 1) {
+      if (day === 4) fatigueBefore = state.staff['server']!.fatigue
+      state = withCoin(
+        runCourierDay(state, undefined, `${SEED}-reg2-gap-${day}`).state,
+        900,
+      )
+    }
+    courierQueue = []
+
+    const outcome = [...outcomeRows(state, 'coverage_gap').values()][0]![0]!
+    expect(outcome.status).toBe('resolved')
+    // And it landed on a COLLEAGUE. The person whose load the player lightened
+    // is not the one who pays for it.
+    expect(state.staff['server']!.fatigue).toBeGreaterThan(fatigueBefore)
+    expect(
+      state.causes.some(
+        (cause) =>
+          cause.source === 'staff.coverage_gap' &&
+          cause.target?.includes('cook') === true,
+      ),
+    ).toBe(false)
+  })
+
+  it('repeated no-shows add up to abandonment', () => {
+    // `ABANDONMENT_DAYS` was written against ONE absence's length, and the only
+    // thing that writes an unexcused absence takes a single day at a time on a
+    // seven-day cooldown — so the rule could not fire, ever. The run is counted
+    // across absences now, and the check happens before the return pass (an
+    // absence is cleared the morning its `untilDay` arrives, so a check after it
+    // could never see one that had run its full length either).
+    //
+    // The four no-shows are made the way the actor makes them: the same
+    // `setAbsence` call, at the same `endDay` beat, one day at a time.
+    const callInSick = (onDay: number): EveningProbe => ({
+      onDay,
+      run: (ctx) => {
+        setAbsence(ctx, 'cook', {
+          kind: 'unexcused',
+          days: 1,
+          reason: 'did not come in',
+          source: 'test.call_in_sick',
+          includeToday: false,
+        })
+      },
+    })
+    // Spaced like the actor's own seven-day cooldown, inside the remembered
+    // window.
+    eveningProbes = [callInSick(2), callInSick(9), callInSick(16), callInSick(23)]
+
+    let state = withCoin(createInitialTavernState(), 900)
+    const runs: number[] = []
+    for (let day = 0; day < 26 && state.staff['cook']; day += 1) {
+      state = withCoin(
+        runCourierDay(state, undefined, `${SEED}-reg2-abandon-${day}`).state,
+        900,
+      )
+      const record = getStaffModuleState(state).employment['cook']
+      if (record?.unexcusedDays) runs.push(record.unexcusedDays)
+    }
+    eveningProbes = []
+
+    // The run accumulated rather than resetting to one every time…
+    expect(runs[runs.length - 1] ?? 0).toBeGreaterThanOrEqual(ABANDONMENT_DAYS)
+    // …and the job went with it.
+    expect(state.staff['cook']).toBeUndefined()
+    const separation = getStaffModuleState(state).separationHistory.find(
+      (entry) => entry.staffId === 'cook',
+    )
+    expect(separation?.kind).toBe('abandoned')
+    expect(separation?.reason).toContain('did not come in')
+  })
+
+  it('an actor does not hand in notice while a warning is still running', () => {
+    // `scheduleQuitRisk` returns false for three different reasons and the actor
+    // read all of them as "the warning has already run its course", so a live
+    // promise — with days of warning window and a live contributor list — was
+    // skipped and notice went in immediately. The result is discriminated now.
+    let state = withCoin(createInitialTavernState(), 900)
+    const today = 2
+    courierQueue = [
+      { hookName: 'staff_quit_risk_cook', onDay: today, scheduledForDay: today + 6 },
+    ]
+    const results: string[] = []
+    eveningProbes = [
+      {
+        onDay: today + 1,
+        run: (ctx) => {
+          results.push(
+            scheduleQuitRisk(ctx, 'cook', {
+              reason: 'has had enough of the place',
+              source: 'test.give_notice',
+            }),
+          )
+        },
+      },
+    ]
+    for (let day = 0; day < today + 2; day += 1) {
+      state = withCoin(
+        runCourierDay(state, undefined, `${SEED}-reg2-notice-${day}`).state,
+        900,
+      )
+    }
+    courierQueue = []
+    eveningProbes = []
+
+    // The refusal is distinguishable: the promise is live, not spent.
+    expect(results).toEqual(['already_live'])
+    // …and the original warning is still the one in charge.
+    expect(
+      liveEventsOfType(state, STAFF_QUIT_RISK_EVENT).some(
+        (event) => event.target?.id === 'cook',
+      ),
+    ).toBe(true)
+    expect(getStaffModuleState(state).employment['cook']?.notice).toBeUndefined()
+  })
+
+  it('the weekly actor allowance is not refilled mid-week', () => {
+    // The pass runs at `endDay`, so topping up on `isEndOfWeek()` handed the
+    // actor a fresh allowance BEFORE day seven's own action — a fourth move in a
+    // three-move week, charged to the week after.
+    let state = withCoin(createInitialTavernState(), 900)
+    const budgets: number[] = []
+    for (let day = 0; day < 8; day += 1) {
+      state = withCoin(
+        runDay(state, undefined, undefined, `${SEED}-reg2-budget-${day}`).state,
+        900,
+      )
+      budgets.push(getStaffModuleState(state).actors['cook']?.budget ?? -1)
+    }
+    // Days 1..7 only ever spend.
+    for (let i = 1; i < 7; i += 1) {
+      expect(budgets[i]!, `day ${i + 1}`).toBeLessThanOrEqual(budgets[i - 1]!)
+    }
+    // Day 8 is the first day of the next week, so the allowance is back — and
+    // never above the week's ration.
+    expect(budgets[7]!).toBeGreaterThanOrEqual(budgets[6]!)
+    for (const budget of budgets) {
+      expect(budget).toBeLessThanOrEqual(WEEKLY_ACTOR_BUDGET)
+    }
+  })
+
+  it('an off-duty colleague cannot be the one who showed them the job', () => {
+    // The mirror of the cover fix. Nothing downstream rechecks the helper, so an
+    // ill or resting colleague was granting the enhanced training bonus and being
+    // reported as having taught a lesson they were not present for.
+    // The server is trained into a genuine mentor: a real skill gap over the
+    // cleaner, and a friendship built by working the same rooms.
+    let state = withCoin(createInitialTavernState(), 900)
+    for (let i = 0; i < 20; i += 1) {
+      state = withCoin(
+        runDay(
+          state,
+          [{ actionId: 'train_staff', targetId: 'server' }],
+          undefined,
+          `${SEED}-reg2-helper-${i}`,
+        ).state,
+        900,
+      )
+    }
+    expect(findTrainingHelper(state, 'cleaner_bouncer')).toBe('server')
+
+    state = withCoin(
+      runDay(
+        withCoin(state, 900),
+        [{ actionId: 'set_staff_shift', targetId: 'server:rest' }],
+        undefined,
+        `${SEED}-reg2-helper-rest`,
+      ).state,
+      900,
+    )
+    expect(state.staff['server']!.shift).toBe('rest')
+    expect(findTrainingHelper(state, 'cleaner_bouncer')).toBeUndefined()
+  })
+
+  it('a retention talk needs somebody to be leaving', () => {
+    // The action accepted every live employee. A settled one has no contributors
+    // and no material blocker, so `persuaded` came back true automatically and
+    // the player could spend a short conversation every day, on everybody, for
+    // +10 morale / +12 loyalty / -6 stress and a step of standing.
+    const settled = runQuietDays(withCoin(createInitialTavernState(), 900), 3, `${SEED}-reg2-settled`)
+    const definition = actionRegistry.get('negotiate_with_staff')
+    expect(listValidTargets(definition, settled)).toEqual([])
+
+    const refused = runDay(
+      withCoin(settled, 900),
+      [{ actionId: 'negotiate_with_staff', targetId: 'cook' }],
+      undefined,
+      `${SEED}-reg2-settled-try`,
+    )
+    const rejected = (
+      refused.state.modules['ownerActions'] as {
+        rejected?: Array<{ actionId: string; code: string; reason: string }>
+      }
+    ).rejected?.find((entry) => entry.actionId === 'negotiate_with_staff')
+    expect(rejected?.code).toBe('no_retention_risk')
+    // And it says why, in the player's terms.
+    expect(rejected?.reason).toContain('settled')
+
+    // The same crew, once one of them is actually at risk: offered, by name.
+    const day = settled.calendar.totalDaysElapsed
+    courierQueue = [
+      { hookName: 'staff_quit_risk_cook', onDay: day, scheduledForDay: day + 5 },
+    ]
+    const atRisk = runCourierDay(
+      withCoin(settled, 900),
+      undefined,
+      `${SEED}-reg2-settled-risk`,
+    ).state
+    courierQueue = []
+    expect(listValidTargets(definition, atRisk).map((t) => t.id)).toEqual(['cook'])
   })
 })

@@ -311,6 +311,68 @@ export function disciplineStaff(
   return next
 }
 
+/**
+ * Days of unexcused absence remembered when judging whether somebody has
+ * stopped turning up. Long enough to span several call-ins on the actor's
+ * seven-day cooldown; short enough that a bad month a season ago is forgotten.
+ */
+export const UNEXCUSED_MEMORY_DAYS = 21
+
+/**
+ * Record that somebody did not come in, and say what their run of it stands at.
+ *
+ * WHY A RUNNING TOTAL EXISTS. Abandonment was written against ONE absence's
+ * length: four consecutive days out and the job is gone. Nothing in the game
+ * produces a four-day unexcused absence — the only writer is the actor's
+ * `call_in_sick`, which takes a single day and then waits a week — so the rule
+ * fired never, and the crew could no-show indefinitely at no risk. Counting the
+ * days across a remembered window makes "stopped turning up" mean what it says:
+ * four days of no-shows inside three weeks ends the employment, however they
+ * are spread.
+ *
+ * The window is enforced at write time: an absence more than
+ * `UNEXCUSED_MEMORY_DAYS` after the last one starts the count again, so the
+ * record never accumulates forever (§5.11).
+ */
+export function recordUnexcusedAbsence(
+  ctx: SimContext,
+  staffId: string,
+  days: number,
+): number {
+  const record = getEmployment(ctx.state, staffId)
+  if (!record) return 0
+  const today = ctx.state.calendar.totalDaysElapsed
+  const last = record.lastUnexcusedOnDay
+  const carried =
+    last !== undefined && today - last <= UNEXCUSED_MEMORY_DAYS
+      ? (record.unexcusedDays ?? 0)
+      : 0
+  const total = carried + Math.max(1, days)
+  upsertEmployment(
+    ctx,
+    {
+      ...record,
+      unexcusedDays: total,
+      lastUnexcusedOnDay: today,
+      lastTransitionOnDay: today,
+    },
+    'unexcused_absence',
+  )
+  return total
+}
+
+/** How many unexcused days this person has run up inside the remembered window. */
+export function unexcusedRun(
+  state: { modules: Record<string, unknown>; calendar: { totalDaysElapsed: number } },
+  staffId: string,
+): number {
+  const record = getEmployment(state as never, staffId)
+  if (!record?.lastUnexcusedOnDay) return 0
+  const elapsed = state.calendar.totalDaysElapsed - record.lastUnexcusedOnDay
+  if (elapsed > UNEXCUSED_MEMORY_DAYS) return 0
+  return record.unexcusedDays ?? 0
+}
+
 // ---------------------------------------------------------------------------
 // Notice
 // ---------------------------------------------------------------------------

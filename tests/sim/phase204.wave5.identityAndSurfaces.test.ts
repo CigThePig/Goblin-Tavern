@@ -27,7 +27,7 @@ import { buildTavernLog } from '../../src/reports/tavernLogProjection'
 import { buildDailyReport } from '../../src/reports/dailyReportProjection'
 import { buildMonthlyOverview } from '../../src/reports/monthlyOverviewProjection'
 import { getOwnerActionsModuleState } from '../../src/sim/modules/ownerActions/stateHelpers'
-import { FIRE_STAFF_ACTION_ID } from '../../src/sim/modules/ownerActions/staffManagementActions'
+import { FIRE_STAFF_ACTION_ID } from '../../src/sim/modules/ownerActions/workforceActions'
 import {
   listActiveArcs,
   listPresentedArcs,
@@ -130,27 +130,23 @@ describe('P2-RT-003 — history tags are unique per entry', () => {
 // ── P3-BHV-003 — a removed target keeps its name ────────────────────
 
 describe('P3-BHV-003 — firing staff keeps the name in the report', () => {
+  // Expansion Phase 3 (ISSUE-173) removed the founding-role exemption from
+  // `fire_staff`, so this no longer has to hire somebody first to have a
+  // dismissible target — which is just as well, since `hire_staff` now targets
+  // an applicant generated on the first day rather than a role id. The property
+  // under test is unchanged: the label is captured while the record still
+  // exists, so it survives the removal.
   function fireableStaffId(state: TavernState): string {
-    // Hire first so there is someone dismissible (founding roles are not).
-    const hired = runDay(state, {
-      ownerActions: [{ actionId: 'hire_staff', targetId: 'kitchen_hand' }],
-    })
-    const before = new Set(Object.keys(state.staff))
-    const added = Object.keys(hired.state.staff).find((id) => !before.has(id))
-    if (!added) throw new Error('hire_staff added nobody')
-    return added
+    return 'cook'
   }
 
   it('names the person in the applied record and the report', () => {
-    const start = createInitialTavernState()
-    const hired = runDay(start, {
-      ownerActions: [{ actionId: 'hire_staff', targetId: 'kitchen_hand' }],
-    })
+    const start = { ...createInitialTavernState(), coin: 400 }
     const staffId = fireableStaffId(start)
-    const displayName = hired.state.staff[staffId]!.name.display
+    const displayName = start.staff[staffId]!.name.display
     expect(displayName.length).toBeGreaterThan(0)
 
-    const fired = runDay(hired.state, {
+    const fired = runDay(start, {
       seed: `${SEED}-fire`,
       ownerActions: [{ actionId: FIRE_STAFF_ACTION_ID, targetId: staffId }],
     })

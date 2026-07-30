@@ -55,6 +55,8 @@ import {
   notableNpcProfileRegistry,
 } from "../content/npc/notableNpcProfiles";
 import { createRngStreams } from "../core/rng";
+import { withWorkforceDefaults } from "../modules/staff/workforceDefaults";
+import { createInitialStaffModuleState } from "../modules/staff/workforceState";
 import {
   cultureRegistry,
   ensureRequiredCulturesRegistered,
@@ -214,7 +216,10 @@ function createInitialStaff(): Record<string, StaffState> {
         : {}),
       rng: identityRng,
     });
-    staff[def.defaultStaffId] = {
+    // Expansion Phase 3 §3.1 — the workforce fields are DERIVED from identity
+    // and the role, never rolled, so adding them burned no RNG call and every
+    // canonical day-zero name is byte-identical to what it was before.
+    staff[def.defaultStaffId] = withWorkforceDefaults({
       id: def.defaultStaffId,
       name: generatedName,
       role: def.id,
@@ -223,7 +228,7 @@ function createInitialStaff(): Record<string, StaffState> {
       activeFlags: [...def.defaultState.activeFlags],
       identity,
       castAttributes,
-    };
+    });
   }
   return staff;
 }
@@ -820,6 +825,17 @@ export function createInitialTavernState(
       // anything.
       scheduledEvents: createInitialScheduledEventsModuleState(),
       obligations: createInitialObligationsModuleState(),
+      // Expansion Phase 3 §3.1 — the staff slice is seeded from day zero rather
+      // than conjured by the module's first `startDay`. Two reasons, and the
+      // second is the load-bearing one:
+      //
+      //   * its schema validates from day zero, like every other slice here;
+      //   * the day baseline the web layer snapshots at `beginDay` is a state
+      //     object, and it goes through the migration chain on reload. A slice
+      //     that exists in one and not the other makes a reloaded day differ
+      //     from an uninterrupted one, which is the §5.10 failure the R11 gate
+      //     tests for. Seeding it means the migration has nothing to add.
+      staff: createInitialStaffModuleState(),
     },
   };
 

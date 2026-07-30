@@ -32,14 +32,16 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > unpaused work**. It is a standalone implementation document — it needs
 > no earlier audit, report, or ledger to execute — and it runs as
 > **ISSUE-170…183 (repo phases 207–220)**, one issue per plan phase 0–13.
-> **ISSUE-170 (Phase 0), ISSUE-171 (Phase 1) and ISSUE-172 (Phase 2) are
-> done** — the baseline is frozen, the implementation ledger exists, the
-> shared contracts are in place, and **OBL-01 is closed**: area upgrades can
-> now be discovered, quoted, started, funded, paused, resumed, cancelled,
-> built, damaged, disabled, repaired, serviced and persisted, and areas own
-> real physical capacity that shapes service and work. **Next: ISSUE-173
-> (Phase 3 — persistent workforce).** The sequence is hard-ordered after
-> that.
+> **ISSUE-170 (Phase 0), ISSUE-171 (Phase 1), ISSUE-172 (Phase 2) and
+> ISSUE-173 (Phase 3) are done** — the baseline is frozen, the implementation
+> ledger exists, the shared contracts are in place, **OBL-01 is closed** (area
+> upgrades can be discovered, quoted, started, funded, paused, resumed,
+> cancelled, built, damaged, disabled, repaired, serviced and persisted, and
+> areas own real physical capacity), and **the staff half of OBL-02 is closed**:
+> staff have employment terms, shifts, stations, absence, cross-training,
+> promotion, relationships, arrears they are actually owed, and they resign —
+> founding staff included. **Next: ISSUE-174 (Phase 4 — service flow, customer
+> choice, active regulars).** The sequence is hard-ordered after that.
 >
 > Everything else below — the Complete Surface resume points, the
 > onboarding arc, the standing tails — is **paused, not cancelled**, and
@@ -281,7 +283,7 @@ rather than rebuilding those routes.
 | ISSUE-170 | Expansion Phase 0 — freeze the baseline; build the implementation ledger | design | done | 207 |
 | ISSUE-171 | Expansion Phase 1 — shared contracts: typed scheduled events, obligation primitives, persistent ruleset, causal coverage, informative meters, actor interface | broken | done | 208 |
 | ISSUE-172 | Expansion Phase 2 — areas, construction, and the complete upgrade lifecycle (OBL-01) | broken | done | 209 |
-| ISSUE-173 | Expansion Phase 3 — persistent workforce: contracts, schedules, relationships, real resignation (staff half of OBL-02) | broken | open | 210 |
+| ISSUE-173 | Expansion Phase 3 — persistent workforce: contracts, schedules, relationships, real resignation (staff half of OBL-02) | broken | done | 210 |
 | ISSUE-174 | Expansion Phase 4 — capacity-constrained service flow, customer choice, active regulars, patron tabs | thin | open | 211 |
 | ISSUE-175 | Expansion Phase 5 — economy: quality→cash feedback, operating costs, failure/recovery states, adaptive demand, enforceable policies | broken | open | 212 |
 | ISSUE-176 | Expansion Phase 6 — transactional suppliers: orders, deliveries, credit, invoices (OBL-04) | broken | open | 213 |
@@ -326,7 +328,7 @@ consequence is a direct pressure or reputation adjustment*.
 | ISSUE-170 | 0 — baseline + ledger | 207 | coverage only; ends with **no intended behavior change** | none |
 | ISSUE-171 | 1 — shared contracts | 208 | foundation for OBL-02/05/08 | ISSUE-170 |
 | ISSUE-172 | 2 — areas + upgrades | 209 | **OBL-01** (closed) | ISSUE-171 |
-| ISSUE-173 | 3 — workforce | 210 | staff half of **OBL-02** | ISSUE-171 |
+| ISSUE-173 | 3 — workforce | 210 | staff half of **OBL-02** (closed) | ISSUE-171 |
 | ISSUE-174 | 4 — service flow | 211 | — | ISSUE-172, ISSUE-173 |
 | ISSUE-175 | 5 — economy | 212 | supports OBL-04/05; **absorbs ISSUE-168** | ISSUE-174 |
 | ISSUE-176 | 6 — suppliers | 213 | **OBL-04** | ISSUE-175 |
@@ -594,6 +596,126 @@ sections drifted. Tests:
 `phase209.constructionBeatPersistence.test.ts` (3 — a reload at all five
 player beats with a live build, and full-day-vs-segmented equivalence
 across a week of construction, upkeep and propagation). All three run in
+seconds, so none joins `HEAVY_TEST_GLOBS`.
+
+**ISSUE-173 / Phase 3 — done 2026-07-30. The staff half of OBL-02 closed.**
+Full record in the plan's Phase 3 section ("What Phase 3 actually landed");
+per-requirement detail in `docs/plans/expansion/ledger.csv` row **`DEP-04`** and
+twelve `HOOK-*` rows. No per-phase plan doc, per the arc's convention.
+
+The game told the player, 189 times across 98 hook families, that a named staff
+member might quit. It could not happen. Now:
+
+- **Founding staff are no longer immune.** `startDay` used to throw on a missing
+  cook/server/cleaner_bouncer, validation reported it as an error, and
+  `fire_staff` refused to offer them — so the central staff promise was
+  structurally impossible for the only three people it could be about. All three
+  guards are gone; a missing role is a **coverage gap** with a cost the crew
+  carries in stress. The two Phase 86 tests that pinned the exemption are
+  inverted, because "the run survives losing a founding role" is what replaces
+  the guard.
+- **Employment is a record with terms.** `EmploymentRecord` (the Phase 1 family)
+  carries wage, notice clock, discipline rung and transition history;
+  `src/sim/modules/staff/employment.ts` is its only writer and **the only remover
+  of staff**, because a safe separation is severance + archive + edges dropped +
+  actor dropped + events withdrawn + vacancy opened + colleagues told +
+  cause/memory/history/pressure, and performed twice one copy forgets half.
+- **Hiring is a decision about a person.** `hire_staff` keeps its id and 40-coin
+  fee but targets an **applicant** from a bounded, weekly-refreshing board that
+  always answers an open vacancy. Two new named RNG streams (`labor_market`,
+  `staff_wellbeing`) keep applicant generation and illness rolls from shifting
+  anybody's generated name.
+- **The roster is what service is derived from.** One number per person
+  (`contribution`), with every factor on the same row. The default assignment
+  scores exactly 1, so the reference route's service numbers did not move and
+  every deviation is the player's doing. Shifts change *what* is covered, not how
+  many minutes exist — the 360-minute owner budget is untouched.
+- **Wages are partial-first and a shortfall is a debt.** The old rule paid
+  everybody or nobody, so non-payment was a mood. Now the till pays as far as it
+  goes, longest-serving first, and the remainder is a per-person payable in the
+  shared obligation ledger. `pay_staff_wages` is the first owner action to settle
+  an obligation — the gap Phase 1 recorded as belonging to whichever phase gave
+  the player something worth paying. A fully-covered bill opens no obligation at
+  all.
+- **Twelve hook families became mechanical**, including `staff_quit_risk_*`,
+  whose resolver meets all nine of §3.4's requirements: warned by name with
+  itemised contributors and remedies, re-read live when due, and resolving as
+  cancelled / no-op / deferred / notice / walk-out, exactly once.
+- **Twelve owner actions** (`hire_staff`, `set_staff_shift`, `assign_staff_area`,
+  `train_staff`, `promote_staff`, `adjust_staff_wage`, `pay_staff_wages`,
+  `grant_staff_leave`, `discipline_staff`, `give_staff_notice`, `fire_staff`,
+  `negotiate_with_staff`), each the counterplay to something the simulation now
+  does on its own. Owner actions 41 → 51.
+
+**The duplication this phase had to avoid, and did.** Phase 12 already owned a
+traffic-driven staff-fatigue rule in the service module. Adding a second one in
+the roster made fatigue climb at twice the intended rate — which the first draft
+did, and a measurement caught. The rule **moved** into `staff/roster.ts` (staff
+owns staff transitions, §5.4), keyed off work kind rather than role, with the
+Phase 3 burdens added on top; the service module now reads the roster row for its
+report. Both writers of one meter is the shape §2.2 forbade for capacity.
+
+**`src/sim/core/diff.ts` now sorts its module walk** — the real fix Phase 1
+recorded as outstanding on `CON-04`. Insertion-order iteration made diff *order*
+depend on how a `Record` enumerated, which differs between a factory-built slice
+and the same slice rebuilt by the migration chain, so the §5.10 reload gate read
+a reloaded day as a different day. Contents unchanged; order only.
+
+**Judgement calls worth carrying forward.** Illness risk is exactly zero below
+fatigue 40 / stress 60 / a week without rest, because a day-zero crew losing
+somebody on the opening morning reads as arbitrary rather than as consequence.
+Negotiation needs standing **and** no outstanding material grievance, or a
+stranger could talk their way out of three weeks of unpaid wages. Two new roles
+(`head_server`, `head_keeper`, staffRoles 6 → 8) exist so promotion is reachable
+for the two families with no rung above them — without them "promotion" is a wage
+rise with a new label. `staffPriorities` stays 12: §3.2 makes the existing twelve
+load-bearing rather than adding more. One Phase-3 hook family,
+`apology_expectation_*`, **stays narrative and its ledger row moved to Phase 4**,
+because its subject is a customer group.
+
+**All 13 frozen probes drifted and were regenerated deliberately** — staff meters
+under one fatigue rule rather than two, `causes` up and `history` down, and
+loyalty down by roughly one unanswered raise request per month on the passive
+routes, which is the designed consequence of a player who answers nothing. The
+Wave 7 balance harness's published figures were **re-pinned with the movement
+recorded**: 3.36 → 3.21 cards/day, 828 → 823 patrons, `finalCoin` unchanged at
+1,043 — the evidence that this phase changed how the crew works, not what the
+tavern earns per patron. `repo-map.json` moved on `rngStreams` (15 → 17), the
+migration chain, `ownerActions`, `staffRoles` and `glossaryTerms` (129 → 135).
+The stale `wages` glossary entry was rewritten rather than left describing a rule
+that no longer exists.
+
+**Eleven review findings fixed before merge** (Codex on PR #248 — three P1,
+eight P2), each with a regression that fails on the pre-fix tree; the full list
+is in the plan's Phase 3 section. The three P1s: the weekly settlement cleared
+arrears **without spending the coin**, so permanent back pay was free; the
+hook-routed `raise_promised_*` fallback compared the wage against the employment
+record that granting the rise moves, so every kept promise read as broken
+(`lastRaiseOnDay` now records the event, not the level); and `call_in_sick`,
+decided at `endDay` when the shift is already worked, opened its absence window
+*today* and expired the next morning — so nobody ever missed a roster and
+`ABANDONMENT_DAYS` was unreachable. The eight P2s: off-duty colleagues offered as
+cover, a promotion cancelling a live quit risk, a promotion not opening a vacancy
+for the post it vacated, `pay_staff_bonus` not answering the bonus expectation,
+`training_helper_*` teaching the wrong person (its subject is the mentor), a
+by-the-book dismissal still costing crew morale, two outcome rows for one
+separation firing, and a returnee eligible for a fresh illness roll the morning
+they came back. Four of the fixes live in resolvers only a routed future hook
+reaches, so those regressions drive them through a test-local **hook courier**
+that repeats exactly what `ctxApplier.routeFutureHook` does — the Phase 1
+`obligationProbe` precedent, not fixture injection. The round moved none of the
+frozen artifacts.
+
+Gates: `npm run test:full` **310 files / 4,096 tests**, `typecheck` clean,
+`check` 1,038 files / 0 errors, `build` passing (same known >500 kB chunk
+warning), and all three expansion artifacts clean — `ledger:check` 134 rows,
+`baseline:probes` 0 drifted, `repo:map` 0 sections drifted. Tests:
+`tests/sim/phase210.workforceLifecycle.test.ts` (36),
+`phase210.retentionAndQuitting.test.ts` (28),
+`phase210.workforceBeatPersistence.test.ts` (6 — a reload at all five player
+beats with somebody on notice, somebody owed back pay, a cross-trained second
+trade and a live relationship graph, plus full-day-vs-segmented equivalence
+across a fortnight crossing a separation and a wage settlement). All three run in
 seconds, so none joins `HEAVY_TEST_GLOBS`.
 
 ### Tier 7 — Gameplay-audit remediation (closed 2026-07-28; entry retained until the next documentation cleanup as the resume map)

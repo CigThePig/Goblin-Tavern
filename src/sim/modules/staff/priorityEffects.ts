@@ -15,6 +15,7 @@ import type {
   ServiceQualityModifiers,
   StaffEffectivenessSummary,
 } from './types'
+import type { StaffRosterEntry } from './workforceTypes'
 
 // Phase 11 §11.5 — Priority effects, channelled via shared service
 // modifiers.
@@ -121,10 +122,27 @@ export function summarizeStaff(
   }
 }
 
+/**
+ * Expansion Phase 3 §3.2 — the roster is what a member's published modifiers are
+ * SCALED BY.
+ *
+ * `roster` is optional so the pure Phase 11 signature (a list of staff and
+ * nothing else) still works for the many callers that only want the shape of the
+ * modifiers. When it is supplied — which is every production call — each
+ * member's contribution multiplies their whole contribution to the day, and a
+ * member with no roster row at all is treated as not having worked. That single
+ * multiplier is what makes "service outputs traceable to actual assignment and
+ * staff state" a property of the code rather than a claim about it: the roster
+ * row carries the factors, this applies them, and the STAFF REPORT prints both.
+ */
 export function derivePriorityModifiers(
   staffMembers: ReadonlyArray<StaffState>,
+  roster?: ReadonlyArray<StaffRosterEntry>,
 ): ServiceQualityModifiers {
   const result = emptyModifiers()
+  const byStaffId = new Map(
+    (roster ?? []).map((row) => [row.staffId, row] as const),
+  )
 
   for (const staff of staffMembers) {
     const summary = summarizeStaff(staff)
@@ -136,7 +154,17 @@ export function derivePriorityModifiers(
     const contribution = PER_PRIORITY[staff.currentPriority]
     if (!contribution) continue
 
-    const eff = summary.effectiveness
+    // No roster at all: the caller wants the unscaled Phase 11 reading, so
+    // treat every member as fully assigned. A roster that exists but has no row
+    // for this member means they were not on it, and they contribute nothing.
+    const assignment = byStaffId.get(staff.id)
+    const assignmentFactor =
+      roster === undefined || roster.length === 0
+        ? 1
+        : (assignment?.contribution ?? 0)
+    if (assignmentFactor <= 0) continue
+
+    const eff = summary.effectiveness * assignmentFactor
     result.foodQualityModifier += scaleByEffectiveness(
       contribution.foodQualityModifier ?? 0,
       eff,
@@ -188,12 +216,17 @@ export function derivePriorityModifiers(
     if (workStyle) {
       const styleContribution = PER_WORKSTYLE[workStyle]
       if (styleContribution) {
-        result.foodQualityModifier += styleContribution.foodQualityModifier ?? 0
-        result.serviceSpeed += styleContribution.serviceSpeed ?? 0
-        result.tabControl += styleContribution.tabControl ?? 0
-        result.messControl += styleContribution.messControl ?? 0
-        result.fightControl += styleContribution.fightControl ?? 0
-        result.repairSupport += styleContribution.repairSupport ?? 0
+        // Scaled by the assignment for the same reason as everything else: a
+        // careful cook who is not in the kitchen today is not being careful in
+        // the kitchen. At the neutral assignment factor of 1 this is exactly the
+        // Phase 31 value.
+        const f = assignmentFactor
+        result.foodQualityModifier += (styleContribution.foodQualityModifier ?? 0) * f
+        result.serviceSpeed += (styleContribution.serviceSpeed ?? 0) * f
+        result.tabControl += (styleContribution.tabControl ?? 0) * f
+        result.messControl += (styleContribution.messControl ?? 0) * f
+        result.fightControl += (styleContribution.fightControl ?? 0) * f
+        result.repairSupport += (styleContribution.repairSupport ?? 0) * f
       }
     }
   }

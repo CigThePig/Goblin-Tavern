@@ -214,8 +214,9 @@ describe('Phase 207 — implementation ledger', () => {
     // is the check that would catch a row marked done to quiet a red test,
     // which the arc's conventions forbid. Bump `LANDED_PHASES` when a phase
     // completes, and never to make a failing row pass.
-    // Phase 0 (ISSUE-170), Phase 1 (ISSUE-171), Phase 2 (ISSUE-172).
-    const LANDED_PHASES = 2
+    // Phase 0 (ISSUE-170), Phase 1 (ISSUE-171), Phase 2 (ISSUE-172),
+    // Phase 3 (ISSUE-173).
+    const LANDED_PHASES = 3
     const closedEarly = rows.filter(
       (r) => r.status !== 'open' && Number(r.phase) > LANDED_PHASES,
     )
@@ -338,10 +339,25 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       //     `cancel_project`, whose only targets were those five).
       // `areaUpgrades` is deliberately still 18 — Phase 2 makes the existing
       // catalogue buildable rather than growing it.
+      //
+      // Expansion Phase 3 (ISSUE-173) moves two more, and again the shape of
+      // which two is the assertion:
+      //   * `ownerActions` 41 → 51: the twelve workforce actions §"Player-facing
+      //     work" requires, less the one that was already there. `hire_staff` and
+      //     `fire_staff` keep their ids and were rebuilt rather than added, so the
+      //     net is ten.
+      //   * `staffRoles` 6 → 8: `head_server` and `head_keeper`, the top rung for
+      //     the two families that had nowhere to be promoted to. §3.1 requires
+      //     promotion, and without them it would have meant a wage rise with a new
+      //     label for two of the three founding roles.
+      // `staffPriorities` is deliberately still 12 — §3.2 turns the existing
+      // twelve into real allocations rather than adding to them. `foundingStaff`
+      // is still 3, and now means the day-zero roster rather than a structural
+      // requirement: every one of them can be dismissed or resign.
       runtimeModules: 33,
       simulationPhases: 26,
       daySegments: 3,
-      ownerActions: 41,
+      ownerActions: 51,
       staffPriorities: 12,
       pressureDomains: 21,
       feedbackDetectors: 13,
@@ -360,7 +376,7 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       marketConditions: 8,
       localArcs: 5,
       ventureBlueprints: 1,
-      staffRoles: 6,
+      staffRoles: 8,
       reputationAxes: 10,
     })
   })

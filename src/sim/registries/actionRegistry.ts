@@ -6,6 +6,7 @@ import { PROJECT_ACTIONS } from '../modules/ownerActions/projectActions'
 import { POLICY_ACTIONS } from '../modules/ownerActions/policyActions'
 import { SOCIAL_ACTIONS } from '../modules/ownerActions/socialActions'
 import { AREA_UPGRADE_ACTIONS } from '../modules/ownerActions/upgradeActions'
+import { WORKFORCE_ACTIONS } from '../modules/ownerActions/workforceActions'
 import type { OwnerActionDefinition } from '../modules/ownerActions/types'
 
 // Phase 13 §13.1 — Owner action registry.
@@ -43,6 +44,11 @@ export function ensureRequiredOwnerActionsRegistered(): void {
     // OBL-01. They share the `OwnerActionDefinition` shape, so they dispatch
     // through the existing `applyOwnerActions` hook like everything else.
     ...AREA_UPGRADE_ACTIONS,
+    // Expansion Phase 3 §"Player-facing work" — the twelve workforce actions
+    // that close the staff half of the phase. `hire_staff` and `fire_staff` keep
+    // their ids and move here from `staffManagementActions.ts`, rebuilt around
+    // the applicant board and the notice/severance lifecycle.
+    ...WORKFORCE_ACTIONS,
   ]
   for (const def of all) {
     if (!actionRegistry.has(def.id)) {

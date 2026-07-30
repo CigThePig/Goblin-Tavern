@@ -1,4 +1,5 @@
 import type { StaffPriorityId, StaffRoleId } from '../../state/TavernState'
+import type { StaffWorkforceState } from './workforceTypes'
 
 // Phase 11 — Staff module types.
 //
@@ -39,7 +40,17 @@ export type ServiceQualityModifiers = {
   staffSummaries: StaffEffectivenessSummary[]
 }
 
-export type StaffModuleState = {
+/**
+ * Expansion Phase 3 — the slice keeps its Phase 11 per-day fields and gains
+ * the persistent workforce records (`StaffWorkforceState`).
+ *
+ * They are merged into one slice rather than split into a second module id
+ * because there is one owner of staff transitions (§5.4), and a second slice
+ * would mean a second owner with the same responsibilities. The per-day/
+ * persistent split is expressed by which fields the morning reset clears, not
+ * by which object they live in.
+ */
+export type StaffModuleState = StaffWorkforceState & {
   /** Per-day priority assignment that was actually applied (after
    * default fallback). */
   appliedPriorities: Record<string, StaffPriorityId>
@@ -50,6 +61,16 @@ export type StaffModuleState = {
     priorityId: string
     reason: 'unknown_staff' | 'unknown_priority' | 'priority_not_allowed_for_role'
   }>
+  /**
+   * Expansion Phase 3 §3.2 — staff whose focus actually changed today.
+   *
+   * Recorded during the assignment hook, before `currentPriority` is
+   * overwritten, because that is the only moment the previous value is still
+   * readable. The roster charges those members a handoff cost, which is what
+   * makes churning priorities every morning a decision with a price rather than
+   * a free lever.
+   */
+  priorityChanges: string[]
   /** Service-quality modifiers derived after priorities are assigned. */
   serviceQuality: ServiceQualityModifiers
 }

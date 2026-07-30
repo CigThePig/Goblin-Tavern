@@ -311,26 +311,16 @@ describe('Wave 5 gate — R15 crosses every surface', () => {
   })
 
   it('keeps a fired staff member named across close, next day and reload', () => {
+    // Expansion Phase 3 (ISSUE-173) removed the founding-role exemption from
+    // `fire_staff`, so this no longer has to hire somebody to have a dismissible
+    // target — which is just as well, since `hire_staff` now takes an APPLICANT
+    // generated on the first morning rather than a role id. The property under
+    // test is untouched: the label is captured while the record still exists, so
+    // it survives the removal, the day close and a reload.
     gameStore.runDay()
-    // Hire, then fire on a later day.
-    gameStore.beginDay()
-    gameStore.tryAddPick({
-      actionId: 'hire_staff',
-      label: 'Hire Staff',
-      category: 'immediate',
-      targetType: 'staff',
-      targetId: 'kitchen_hand',
-      targetLabel: 'Kitchen Hand',
-      timeCost: 240,
-    })
-    const before = new Set(Object.keys(gameStore.state.staff))
-    gameStore.runService()
-    gameStore.endDay()
-    const hiredId = Object.keys(gameStore.state.staff).find(
-      (id) => !before.has(id),
-    )
-    expect(hiredId).toBeDefined()
-    const name = gameStore.state.staff[hiredId!]!.name.display
+    const hiredId = 'cook'
+    const name = gameStore.state.staff[hiredId]!.name.display
+    expect(name.length).toBeGreaterThan(0)
 
     gameStore.beginDay()
     const queued = gameStore.tryAddPick({
@@ -338,7 +328,7 @@ describe('Wave 5 gate — R15 crosses every surface', () => {
       label: 'Fire Staff',
       category: 'immediate',
       targetType: 'staff',
-      targetId: hiredId!,
+      targetId: hiredId,
       targetLabel: name,
       timeCost: 120,
     })
@@ -346,7 +336,7 @@ describe('Wave 5 gate — R15 crosses every surface', () => {
     gameStore.runService()
     gameStore.endDay()
 
-    expect(gameStore.state.staff[hiredId!]).toBeUndefined()
+    expect(gameStore.state.staff[hiredId]).toBeUndefined()
 
     const report = () =>
       buildDailyReport(

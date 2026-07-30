@@ -335,7 +335,65 @@ const MECHANIC_TERMS: GlossaryTerm[] = [
     label: 'Wages',
     category: 'mechanic',
     oneLine: 'Weekly pay owed to staff. Resolved at the end of each week.',
-    longer: 'Paid in full when coin is sufficient; otherwise the unpaid list takes a loyalty hit and may trigger a staff_request seed.',
+    // Expansion Phase 3 §5.12 — the old wording ("paid in full when coin is
+    // sufficient; otherwise the unpaid list takes a loyalty hit") described a
+    // rule that no longer exists: the shortfall is now a real per-person debt.
+    // Leaving it would have been the second prose-only copy §5.12 forbids,
+    // accurate when written and never updated when the rule changed.
+    longer:
+      'Paid longest-serving first, as far as the till goes. Whatever it cannot cover becomes back pay owed to specific people — it accrues late charges, it is the single biggest reason somebody leaves, and Pay Staff Wages clears it in part or in full.',
+  },
+  // Expansion Phase 3 §3.1–§3.4 — the workforce concepts the player now acts on.
+  // Each one is a term the STAFF REPORT uses, so a player reading the report has
+  // somewhere to look it up. The numbers behind them live in the derived Help
+  // (`src/reports/workforceHelp.ts`), not here: this is vocabulary, that is rules.
+  {
+    id: 'back_pay',
+    label: 'Back Pay',
+    category: 'mechanic',
+    oneLine: 'Wages you owed and could not pay, recorded against the person owed.',
+    longer:
+      'Opened by the weekly settlement when the till falls short. It names who is owed and how much, accrues late charges, and no amount of talking will settle it — only coin.',
+  },
+  {
+    id: 'coverage_gap',
+    label: 'Coverage Gap',
+    category: 'mechanic',
+    oneLine: 'A role the day wanted a body on, with nobody on it.',
+    longer:
+      'Every role declares how many hands a normal day needs. Anyone missing — ill, on leave, on a rest day, working out notice, or simply never replaced — leaves a gap, and the crew who did come in carry it in stress.',
+  },
+  {
+    id: 'staff_shift',
+    label: 'Shift',
+    category: 'mechanic',
+    oneLine: 'Which part of the day somebody covers: early, late, double, or a rest day.',
+    longer:
+      'Two hands on the same role and the same shift overlap, so the second is worth less cover than the first — spread them across early and late for full hours. A double is more hours from one body at an overtime price; a rest day is double recovery and no cover at all.',
+  },
+  {
+    id: 'cross_training',
+    label: 'Cross-Training',
+    category: 'mechanic',
+    oneLine: 'A second trade somebody can stand in on when its usual holder is out.',
+    longer:
+      'Train somebody on another role and they can cover it once they are good enough at it. Three second trades per person is the limit. It is the counterplay to absence: the player who taught a server to keep the door does not lose the door when the bouncer is ill.',
+  },
+  {
+    id: 'staff_notice',
+    label: 'Notice',
+    category: 'mechanic',
+    oneLine: 'Days between somebody being let go — or resigning — and actually leaving.',
+    longer:
+      'Notice costs no coin and takes them off the floor while it runs, so their role is uncovered. Dismissing somebody today instead pays severance in lieu of the notice they did not work. A resignation in notice can still be talked round.',
+  },
+  {
+    id: 'staff_standing',
+    label: 'Your Standing',
+    category: 'mechanic',
+    oneLine: 'How much a staff member trusts you, 0–100.',
+    longer:
+      'Built by training them, paying them, keeping promises and giving them time off; spent by warnings, wage cuts and broken promises. It decides whether they bother asking you for anything, and whether you can talk them out of leaving.',
   },
   {
     id: 'weekly_signals',

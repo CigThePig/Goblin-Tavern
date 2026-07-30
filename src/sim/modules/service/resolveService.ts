@@ -359,6 +359,23 @@ export function resolveService(
 // Phase 12 §12.9 — Updates staff stress/fatigue based on the day's
 // service. Called from the service module's `afterService` hook so the
 // math runs against the fully-resolved `DailyServiceResult`.
+/**
+ * The staff module's roster row for this member, if the day produced one.
+ *
+ * Read through the slice rather than imported from the staff module's own
+ * accessor to keep the dependency one-directional: the service module reads
+ * staff's published state, and staff never reads service's.
+ */
+function readStaffRosterRow(
+  ctx: SimContext,
+  staffId: string,
+): { fatigueAdded: number; stressAdded: number } | undefined {
+  const slice = ctx.state.modules['staff'] as
+    | { roster?: Array<{ staffId: string; fatigueAdded: number; stressAdded: number }> }
+    | undefined
+  return slice?.roster?.find((row) => row.staffId === staffId)
+}
+
 export function applyStaffStressFatigue(
   ctx: SimContext,
   result: DailyServiceResult,
@@ -381,112 +398,53 @@ export function applyStaffStressFatigue(
       notes: [],
     }
 
+    // Expansion Phase 3 §5.4 — the STAFF module now owns staff fatigue and
+    // stress. The rule that used to live here (traffic ÷ 30 or ÷ 60 by role, plus
+    // per-priority strain and per-incident stress) moved to
+    // `staff/roster.ts applyDayLoad`, where the phase's own burdens — overtime, a
+    // short-handed rota, bad blood on a station — are added on top and the whole
+    // thing keys off WORK KIND rather than role.
+    //
+    // Leaving a copy here would have been two writers of one meter, both charging
+    // for the same day: the player's fatigue would have climbed at twice the rate
+    // either rule intended. So this reads the roster row the staff module already
+    // wrote (the staff module runs at pipeline position 61, this at 71) and keeps
+    // only the MORALE half, which is genuinely about how service went rather than
+    // about the rota.
+    const rosterRow = readStaffRosterRow(ctx, staff.id)
     let fatigueDelta = 0
     let stressDelta = 0
     let moraleDelta = 0
-
-    if (staff.role === 'cook' || staff.role === 'server') {
-      fatigueDelta += Math.round(totalTraffic / 30)
-    } else {
-      fatigueDelta += Math.round(totalTraffic / 60)
-    }
-
-    if (totalIncidents > 0) {
-      if (staff.role === 'server') {
-        stressDelta += Math.min(8, totalIncidents * 2)
-      }
-      if (staff.role === 'cleaner_bouncer') {
-        const fightIncidents = result.incidents.filter(
-          (i) => i.id === 'minor_brawl' || i.id === 'chair_damage',
-        ).length
-        stressDelta += Math.min(10, fightIncidents * 3)
-      }
-      if (staff.role === 'cook') {
-        const foodIncidents = result.incidents.filter(
-          (i) => i.id === 'food_complaint',
-        ).length
-        stressDelta += Math.min(6, foodIncidents * 3)
-      }
-    }
-
-    if (staff.role === 'cook') {
-      if (staff.currentPriority === 'quality') {
-        stressDelta += 1
-        fatigueDelta += 1
-      } else if (staff.currentPriority === 'speed') {
-        fatigueDelta += 2
-      }
-    }
-    if (staff.role === 'server') {
-      if (staff.currentPriority === 'maximize_sales') {
-        stressDelta += 2
-      }
-    }
 
     if (profitable && totalIncidents === 0) {
       moraleDelta += 1
       change.notes.push('Service went smoothly.')
     }
 
-    const nextStress = clampPercent(staff.stress + stressDelta)
-    const nextFatigue = clampPercent(staff.fatigue + fatigueDelta)
     const nextMorale = clampPercent(staff.morale + moraleDelta)
 
-    change.stressDelta = nextStress - staff.stress
-    change.fatigueDelta = nextFatigue - staff.fatigue
+    // Reported, not applied: these are the staff module's numbers, quoted so the
+    // service report can still say what the day cost the crew.
+    change.stressDelta = rosterRow?.stressAdded ?? 0
+    change.fatigueDelta = rosterRow?.fatigueAdded ?? 0
     change.moraleDelta = nextMorale - staff.morale
+    stressDelta = change.stressDelta
+    fatigueDelta = change.fatigueDelta
 
-    if (
-      change.stressDelta !== 0 ||
-      change.fatigueDelta !== 0 ||
-      change.moraleDelta !== 0
-    ) {
+    if (change.moraleDelta !== 0) {
       ctx.modifyStaff(
         staff.id,
-        {
-          stress: nextStress,
-          fatigue: nextFatigue,
-          morale: nextMorale,
-        },
+        { morale: nextMorale },
         { source: SOURCE, reason: 'service_recovery' },
       )
-      // Phase 17 §17.5 — attribute the staff meter movements so the cause
-      // report can explain why stress/fatigue/morale shifted during
-      // service. Only emit when the delta crosses the diff-significance
-      // threshold (DEFAULT_THRESHOLDS.meter = 5) so trivial drift does
-      // not flood the cause log.
-      if (Math.abs(change.stressDelta) >= 5) {
-        const driver =
-          totalIncidents > 0
-            ? `${totalIncidents} service incident${totalIncidents === 1 ? '' : 's'} stressed ${staff.name.display}.`
-            : `${staff.name.display}'s service priority strained them.`
-        ctx.addCause({
-          source: SOURCE,
-          sourceType: 'service',
-          target: `staff:${staff.id}.stress`,
-          targetType: 'staff',
-          amount: change.stressDelta,
-          readable: driver,
-          tags: ['service', 'staff', staff.id, 'stress'],
-          relatedActors: [{ kind: 'staff', id: staff.id }],
-          relatedSystems: ['staff', 'service'],
-          expiresAfterDays: 7,
-        })
-      }
-      if (Math.abs(change.fatigueDelta) >= 5) {
-        ctx.addCause({
-          source: SOURCE,
-          sourceType: 'service',
-          target: `staff:${staff.id}.fatigue`,
-          targetType: 'staff',
-          amount: change.fatigueDelta,
-          readable: `${staff.name.display} grew fatigued from serving ${totalTraffic} visitors.`,
-          tags: ['service', 'staff', staff.id, 'fatigue'],
-          relatedActors: [{ kind: 'staff', id: staff.id }],
-          relatedSystems: ['staff', 'service'],
-          expiresAfterDays: 7,
-        })
-      }
+      // Phase 17 §17.5 — attribute the staff morale movement so the cause
+      // report can explain why it shifted during service. Only emit when the
+      // delta crosses the diff-significance threshold
+      // (DEFAULT_THRESHOLDS.meter = 5) so trivial drift does not flood the log.
+      //
+      // Expansion Phase 3 — no stress or fatigue cause here any more: the staff
+      // module emitted one when it made the change, and a second cause for the
+      // same movement would count it twice in the causality audit.
       if (Math.abs(change.moraleDelta) >= 5) {
         ctx.addCause({
           source: SOURCE,
@@ -508,6 +466,11 @@ export function applyStaffStressFatigue(
 
     if (fatigueDelta > 0 && change.notes.length === 0) {
       change.notes.push(`Fatigued by ${totalTraffic} visitors.`)
+    }
+    // Reported straight off the roster row, so the note names the Phase 3 burden
+    // that the traffic figure above cannot explain on its own.
+    if (rosterRow && stressDelta > 0 && change.notes.length === 0) {
+      change.notes.push(`Strained by the day's rota.`)
     }
 
     summaries.push(change)

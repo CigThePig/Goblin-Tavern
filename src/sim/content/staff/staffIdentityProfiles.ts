@@ -270,6 +270,43 @@ const REQUIRED_STAFF_IDENTITY_PROFILES: StaffIdentityProfile[] = [
       'still sweeps the cellar like it might collapse if neglected',
     ],
   },
+  // Expansion Phase 3 §3.1 — identity profiles for the two lead roles the
+  // promotion ladder adds. Without one, `createStaffIdentity` throws for the
+  // role, so a promotion target with no profile would be a role nobody could
+  // ever be hired into. Deliberately the same naming profiles and cultures as
+  // the roles they sit above: a head server is a server who stayed.
+  {
+    id: 'head_server_town_human',
+    roleId: 'head_server',
+    groupId: 'front_of_house',
+    namingProfileId: 'human_town',
+    personalityTags: ['unflappable', 'watchful', 'well_known'],
+    workStyles: ['social', 'steady', 'methodical'],
+    stressResponses: ['asks_for_help', 'overworks', 'snaps'],
+    loyalties: ['the_crew', 'regulars'],
+    dislikes: ['unpaid_tabs', 'a_room_left_unwatched'],
+    backgroundHooks: [
+      'ran the floor at a coaching inn for a decade',
+      'knows which regular is about to become a problem before they do',
+      'keeps a private ledger of who tips and who does not',
+    ],
+  },
+  {
+    id: 'head_keeper_dwarf_caravan',
+    roleId: 'head_keeper',
+    groupId: 'house_security',
+    namingProfileId: 'dwarf_caravan',
+    personalityTags: ['implacable', 'orderly', 'quietly_feared'],
+    workStyles: ['methodical', 'steady', 'rough'],
+    stressResponses: ['withdraws', 'overworks', 'snaps'],
+    loyalties: ['house_rules', 'the_owner'],
+    dislikes: ['brawls', 'a_door_left_unwatched'],
+    backgroundHooks: [
+      'kept order on a caravan road nobody else would work',
+      'has a written list of house rules and enforces every line',
+      'trained half the doormen in the district',
+    ],
+  },
 ]
 
 let initialized = false

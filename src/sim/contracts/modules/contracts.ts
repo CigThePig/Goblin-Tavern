@@ -172,8 +172,37 @@ export const MODULE_CONTRACTS: Readonly<Record<string, ModuleContract>> = {
     writesStatePaths: ['stock', 'coin'],
   },
   staff: {
-    slices: [{ sliceId: 'ruleset', version: 1, access: 'reads' }],
-    writesStatePaths: ['staff'],
+    // Expansion Phase 3 — the staff module owns its own slice (employment
+    // terms, the labor market, relationships, staff actors and the day's
+    // roster), writes the shared scheduled-event queue for the events it owns,
+    // and writes the shared obligation ledger for wage arrears. The last two are
+    // declared `writes` rather than `owns` precisely so the architecture check
+    // reports them as deliberate cross-module writes.
+    slices: [
+      { sliceId: 'staff', version: 1, access: 'owns' },
+      { sliceId: 'ruleset', version: 1, access: 'reads' },
+      { sliceId: 'scheduledEvents', version: 1, access: 'writes' },
+      { sliceId: 'obligations', version: 1, access: 'writes' },
+    ],
+    ownsEventTypes: [
+      'staff_quit_risk',
+      'staff_separation',
+      'staff_raise_demand',
+      'wage_expectation',
+      'raise_promised',
+      'coverage_gap',
+      'training_helper',
+      'authority_test',
+      'staff_bonus_expected',
+      'cross_staff_grumble',
+      'staff_loyalty_memory',
+    ],
+    schedulesEventTypes: [
+      'staff_quit_risk',
+      'staff_separation',
+      'staff_raise_demand',
+    ],
+    writesStatePaths: ['staff', 'coin'],
   },
   pressures: {
     slices: [

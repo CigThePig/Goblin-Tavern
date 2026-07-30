@@ -156,6 +156,17 @@ export type EmploymentRecord = ContractRecordBase & {
   noticeDays: number
   /** Set when notice has been given, by whom, and on what day. */
   notice?: { givenBy: 'owner' | 'staff'; givenOnDay: number; reason: string }
+  /**
+   * Expansion Phase 3 — the day the wage last went UP, and only up.
+   *
+   * A promise about a rise can only be judged against what the wage was when the
+   * promise was made, and `wagePerDay` cannot answer that: granting the rise
+   * moves it, so a resolver comparing the two would find them equal and call a
+   * kept promise broken. This records the event instead of the level. Absent
+   * means no rise has ever been given, which is the honest reading for a record
+   * that predates the field.
+   */
+  lastRaiseOnDay?: number
 }
 
 /** A regulatory case with scheduled visits. Phase 7 owns this. */

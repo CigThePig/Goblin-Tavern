@@ -35,6 +35,13 @@ import {
 } from "../content/cast/createCastAttributes";
 import { ensureRequiredVerbalTicsRegistered } from "../content/cast/verbalTics";
 import { createRngStreams } from "../core/rng";
+import { withWorkforceDefaults } from "../modules/staff/workforceDefaults";
+import {
+  STAFF_MODULE_ID,
+  createInitialStaffModuleState,
+} from "../modules/staff/workforceState";
+import { DEFAULT_NOTICE_DAYS } from "../modules/staff/employmentRecord";
+import type { EmploymentRecord } from "../contracts/obligations/index";
 import { WEEKLY_MODULE_ID } from "../modules/weekly/state";
 import type { WeeklyModuleState, WeeklyResult } from "../modules/weekly/types";
 import { MONTHLY_MODULE_ID } from "../modules/monthly/types";
@@ -58,6 +65,7 @@ import type {
   AreaState,
   ExpeditionsState,
   RecipeState,
+  StaffState,
   StockState,
   TavernState,
   TeleologyEntry,
@@ -1052,6 +1060,152 @@ export function ensureExpansionContractSlices<
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// Expansion Phase 3 §5.7 — the workforce fields and the employment records.
+//
+// A pre-Phase-3 save carries staff as six meters, a wage and a boolean, and a
+// `modules.staff` slice with the three Phase 11 per-day fields. This helper
+// repairs both halves. It is NAMED rather than left to `ensureModuleSlices`
+// because two of its choices are judgements the generic sweep cannot make:
+//
+//   1. THE WORKFORCE FIELDS ARE DERIVED, NOT ROLLED. `withWorkforceDefaults`
+//      reads the career goal off identity and defaults everything else, so a
+//      migrated staff member gets exactly the fields they would have had on
+//      day zero — and no RNG cursor moves, so no generated name shifts
+//      (architecture rule 7).
+//
+//   2. EMPLOYMENT STARTS BEING TRACKED TODAY, NOT BACKDATED. The save records
+//      no hire date, and inventing one would fabricate a history the player
+//      never played, which §5 forbids as firmly as losing one. So each record
+//      opens on the day the save is at with `daysEmployed: 0` — the same call
+//      Phase 2 made for the upkeep clock. The practical consequence is honest:
+//      an existing hand is briefly treated as a new hire for seniority and
+//      raise timing, rather than handed a year of tenure nobody earned.
+//
+// Nothing here creates an obligation, a relationship, an applicant or a
+// scheduled event. A migrated save owes nobody anything it did not already owe.
+export function ensureStaffWorkforceFields<
+  T extends {
+    staff?: Record<string, StaffState>;
+    modules?: Record<string, unknown>;
+    calendar?: { totalDaysElapsed?: number };
+  },
+>(state: T): T {
+  const today = state.calendar?.totalDaysElapsed ?? 0;
+
+  let staffChanged = false;
+  let nextStaff = state.staff;
+  if (state.staff) {
+    const repaired: Record<string, StaffState> = {};
+    for (const [id, member] of Object.entries(state.staff)) {
+      const withDefaults = withWorkforceDefaults(member);
+      if (withDefaults !== member) staffChanged = true;
+      repaired[id] = withDefaults;
+    }
+    if (staffChanged) nextStaff = repaired;
+  }
+
+  const currentSlice = (state.modules ?? {})[STAFF_MODULE_ID];
+  const slice = isRecord(currentSlice) ? currentSlice : {};
+  const base = createInitialStaffModuleState();
+
+  // Whether this slice PREDATES the phase, which is a different question from
+  // whether it happens to hold no employment records.
+  //
+  // A Phase-3 slice always carries the `employment` key — `createInitialTavernState`
+  // seeds it and `normalizeSlice` restores it — so an empty map means "nobody has
+  // been recorded yet", which is exactly what a day-zero snapshot looks like.
+  // Only the absence of the key means "written before employment existed".
+  //
+  // The distinction matters because the web layer's day baseline is a state
+  // object that goes through this chain on reload: fabricating records into a
+  // fresh baseline would make a reloaded day differ from an uninterrupted one,
+  // which §5.10 forbids. Nothing is lost by being conservative here — the staff
+  // module's `ensureEmploymentRecords` fills any gap on the next `startDay`.
+  const predatesPhase3 = !("employment" in slice);
+  const nextEmployment: Record<string, EmploymentRecord> = isRecord(
+    slice["employment"],
+  )
+    ? { ...(slice["employment"] as Record<string, EmploymentRecord>) }
+    : {};
+  let employmentChanged = false;
+  if (predatesPhase3) {
+    for (const member of Object.values(nextStaff ?? {})) {
+      if (nextEmployment[member.id]) continue;
+      nextEmployment[member.id] = createEmploymentRecordForMigration(
+        member,
+        today,
+      );
+      employmentChanged = true;
+    }
+  }
+  // A record that outlived its person is a dangling pointer whatever the slice's
+  // age, so it is dropped either way.
+  for (const staffId of Object.keys(nextEmployment)) {
+    if (nextStaff && staffId in nextStaff) continue;
+    delete nextEmployment[staffId];
+    employmentChanged = true;
+  }
+
+  const sliceNeedsFields = WORKFORCE_SLICE_KEYS.some((key) => !(key in slice));
+  if (!staffChanged && !employmentChanged && !sliceNeedsFields) return state;
+
+  const nextSlice: Record<string, unknown> = {
+    ...(base as unknown as Record<string, unknown>),
+    ...slice,
+    employment: nextEmployment,
+  };
+
+  return {
+    ...state,
+    ...(staffChanged ? { staff: nextStaff } : {}),
+    modules: { ...(state.modules ?? {}), [STAFF_MODULE_ID]: nextSlice },
+  };
+}
+
+const WORKFORCE_SLICE_KEYS = [
+  "employment",
+  "employmentArchive",
+  "laborMarket",
+  "relationships",
+  "actors",
+  "roster",
+  "coverage",
+  "development",
+  "separations",
+  "separationHistory",
+  "totals",
+] as const;
+
+function createEmploymentRecordForMigration(
+  member: StaffState,
+  today: number,
+): EmploymentRecord {
+  return {
+    id: `emp-${member.id}`,
+    family: "employment",
+    ownerModuleId: STAFF_MODULE_ID,
+    counterparty: { kind: "staff", id: member.id },
+    status: "active",
+    openedOnDay: today,
+    graceDays: 0,
+    lastTransitionOnDay: today,
+    history: [
+      {
+        onDay: today,
+        from: "pending",
+        to: "active",
+        reason: "employment_recorded_on_migration",
+      },
+    ],
+    escalation: 0,
+    readable: `${member.name.display} is employed at ${member.wage} coin a week.`,
+    tags: ["staff", "employment", member.role, member.id],
+    staffId: member.id,
+    wagePerDay: Math.round((member.wage / 7) * 100) / 100,
+    noticeDays: DEFAULT_NOTICE_DAYS,
+  };
 }
 
 // Phase 89 / ISSUE-049 — synthesise any module-state slot the current

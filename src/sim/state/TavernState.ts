@@ -229,6 +229,45 @@ export type StaffIdentityState = {
   backgroundHook?: string;
 };
 
+// Expansion Phase 3 §3.2 — which part of the day a staff member works.
+//
+// Shifts are not a second time economy: the owner's 360-minute budget
+// (`phase-186-day-clock-time-economy.md` §2.5) is untouched. A shift says
+// how much of the trading day this person covers and what it costs them —
+// `double` buys coverage at an overtime price, `rest` buys recovery at a
+// coverage price, and the two halves let one body be somewhere rather than
+// everywhere.
+export type StaffShiftId = "early" | "late" | "double" | "rest";
+
+/** Expansion Phase 3 §3.1 — why someone is not at work today. */
+export type StaffAbsenceKind =
+  | "illness"
+  | "injury"
+  /** Granted by the owner. Sheds fatigue fast and costs coverage. */
+  | "leave"
+  /** Did not come in and did not say why. Costs the owner nothing but goodwill. */
+  | "unexcused"
+  /** Notice served: still on the books, no longer on the floor. */
+  | "notice_served";
+
+export type StaffAbsenceState = {
+  kind: StaffAbsenceKind;
+  startedOnDay: number;
+  /** First day they are back. Absence ends when the day reaches it. */
+  untilDay: number;
+  reason: string;
+};
+
+/**
+ * Expansion Phase 3 §3.3 — what this person is actually working towards.
+ *
+ * Derived deterministically from identity at creation rather than rolled, so
+ * it needs no RNG draw and an old save gains the same goal it would have been
+ * given on day zero. It selects which pressures turn into a raise demand, a
+ * training request, or a resignation.
+ */
+export type StaffCareerGoal = "mastery" | "coin" | "security" | "standing";
+
 export type StaffState = {
   id: string;
   name: GeneratedName;
@@ -241,9 +280,46 @@ export type StaffState = {
   wage: number;
   paidThisWeek: boolean;
   currentPriority?: StaffPriorityId;
+  /**
+   * Derived each morning from `absence` — kept because `canStaffWork` and
+   * several content paths already read it. Expansion Phase 3 makes `absence`
+   * the authoritative record and this the one-bit projection of it, so the
+   * two cannot disagree: nothing but the roster pass writes it.
+   */
   unavailable?: boolean;
   tags: string[];
   activeFlags: string[];
+  // ---- Expansion Phase 3 §3.1–§3.3 — the persistent workforce fields.
+  // All optional during the migration window; `ensureStaffWorkforceFields`
+  // fills them for a pre-Phase-3 save and `createInitialTavernState` always
+  // populates them for new state.
+  /** §3.2 — the part of the day this person covers. */
+  shift?: StaffShiftId;
+  /** §3.2 — the area they are stationed in. Absent means the role's default. */
+  assignedAreaId?: string;
+  /**
+   * §3.1 — why they are not in today, and until when.
+   *
+   * Explicitly `| undefined` (rather than only optional) because clearing it is
+   * a real transition the roster performs every time somebody comes back, and
+   * under `exactOptionalPropertyTypes` a bare optional cannot be assigned
+   * `undefined`.
+   */
+  absence?: StaffAbsenceState | undefined;
+  /** §3.1 — 0..100 toward the next skill point. Reset on growth. */
+  experience?: number;
+  /**
+   * §3.1 — cross-trained proficiency per OTHER role, 0..100. At
+   * `CROSS_TRAINING_COVER_THRESHOLD` this person can cover that role in the
+   * coverage pass. Capped at `MAX_CROSS_TRAINED_ROLES` entries (§5.11).
+   */
+  crossTraining?: Record<string, number>;
+  /** §3.3 — what they want from the job. */
+  careerGoal?: StaffCareerGoal;
+  /** §3.1 — days on the books. Drives probation, seniority and raise timing. */
+  daysEmployed?: number;
+  /** §3.2 — consecutive worked days without rest. Drives overtime and illness risk. */
+  consecutiveDaysWorked?: number;
   // Phase 31 §31.1 — persistent identity. Optional during the migration
   // window for pre-Phase-31 saves; new state created via
   // `createInitialTavernState` always populates it (see §31.8) and the

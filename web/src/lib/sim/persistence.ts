@@ -70,6 +70,7 @@ import {
   ensureAreaIdentityFields,
   ensureAreaConstructionFields,
   ensureStaffIdentityFields,
+  ensureStaffWorkforceFields,
   ensureCastAttributes,
   ensureWeeklyHistoryField,
   ensureMonthlyHistoryField,
@@ -755,7 +756,15 @@ function migrateAndValidateState(
     // sweep below, because the ruleset default is a judgement about what the
     // save was played under (always `standard`), not a blank.
     const s8b = ensureExpansionContractSlices(s8);
-    const s9 = ensureModuleSlices(s8b);
+    // Expansion Phase 3 §5.7 — the persistent workforce fields and one active
+    // employment record per staff member. Named rather than left to the generic
+    // sweep because it makes two judgements the sweep cannot: the fields are
+    // derived from identity rather than rolled (so no generated name shifts),
+    // and employment starts being tracked on the day the save is at rather than
+    // being backdated into tenure nobody earned. Runs after
+    // `ensureStaffIdentityFields` because the career goal is read off identity.
+    const s8c = ensureStaffWorkforceFields(s8b);
+    const s9 = ensureModuleSlices(s8c);
     const validation = safeValidateState(s9, { modules: FULL_PIPELINE });
     if (!validation.success) {
       const first = validation.errors[0];

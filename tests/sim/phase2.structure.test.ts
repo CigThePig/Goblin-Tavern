@@ -258,6 +258,10 @@ describe('Core sim modules', () => {
       // Phase 62 / ISSUE-022 bumped history to 0.2.0 when the
       // endMonth pruning hook was added.
       'history',
+      // Expansion Phase 3 (ISSUE-173) bumped staff to 0.2.0: the module gained
+      // persistent employment / labor-market / relationship / actor state, two
+      // new hooks (`afterService`, `endDay`), and eleven owned event types.
+      'staff',
     ])
     for (const mod of modules) {
       const expected = bumpedTo020.has(mod.id) ? '0.2.0' : '0.1.0'

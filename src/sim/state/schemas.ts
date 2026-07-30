@@ -302,6 +302,28 @@ export const CustomerGroupCastAttributesSchema = z.object({
 // works). `currentPriority` is similarly registry-string typed and
 // optional.
 //
+// Expansion Phase 3 §3.1–§3.3 — schemas for the persistent workforce fields.
+export const StaffShiftIdSchema = z.enum(["early", "late", "double", "rest"]);
+export const StaffAbsenceKindSchema = z.enum([
+  "illness",
+  "injury",
+  "leave",
+  "unexcused",
+  "notice_served",
+]);
+export const StaffAbsenceStateSchema = z.object({
+  kind: StaffAbsenceKindSchema,
+  startedOnDay: z.number().int(),
+  untilDay: z.number().int(),
+  reason: z.string(),
+});
+export const StaffCareerGoalSchema = z.enum([
+  "mastery",
+  "coin",
+  "security",
+  "standing",
+]);
+
 // Phase 31 §31.1 — `identity` is optional at the schema level so
 // pre-Phase-31 saves can still parse during the migration window. The
 // staff module's validate hook (Phase 31 §31.11) surfaces missing
@@ -327,6 +349,18 @@ export const StaffStateSchema = z.object({
   // Phase 121 / ISSUE-090 — optional during migration window;
   // `ensureCastAttributes` attaches defaults to pre-Phase-A saves.
   castAttributes: CastAttributesSchema.optional(),
+  // Expansion Phase 3 §5.7 — the persistent workforce fields. Optional at the
+  // schema layer so a pre-Phase-3 save parses; `ensureStaffWorkforceFields`
+  // fills them before validation, and the staff module's validate hook
+  // surfaces a member still missing them on live state.
+  shift: StaffShiftIdSchema.optional(),
+  assignedAreaId: z.string().optional(),
+  absence: StaffAbsenceStateSchema.optional(),
+  experience: meter().optional(),
+  crossTraining: z.record(z.string(), meter()).optional(),
+  careerGoal: StaffCareerGoalSchema.optional(),
+  daysEmployed: z.number().int().min(0).optional(),
+  consecutiveDaysWorked: z.number().int().min(0).optional(),
 });
 
 // Phase 30 §30.2 — schema extended with cultural linkage fields. The

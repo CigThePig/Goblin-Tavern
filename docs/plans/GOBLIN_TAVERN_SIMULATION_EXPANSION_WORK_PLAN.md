@@ -974,6 +974,221 @@ Do not run every possible pair every day. Create relationships from actual repea
 
 The staff system can produce and recover from staffing failures. The quitting portion of OBL-02 is closed, and staff state has consequences beyond six service-quality numbers.
 
+## What Phase 3 actually landed (2026-07-30, ISSUE-173)
+
+Per-requirement detail lives in `docs/plans/expansion/ledger.csv` row **`DEP-04`**
+and the twelve `HOOK-*` rows named below — no per-phase plan doc, per the arc's
+convention. What follows is the shape of it and the judgement calls a later
+phase needs to know about.
+
+**Founding staff are no longer immune, and that is the whole phase in one
+change.** `staffModule`'s `startDay` used to *throw* when `cook`, `server` or
+`cleaner_bouncer` was missing, `validateStaff` reported it as a structural
+error, and `fire_staff` refused to offer them as targets. So the game's central
+staff promise — people leave when you treat them badly — was structurally
+impossible for exactly the three people it could have been about. All three
+guards are gone. A missing role is now a **coverage gap** with a measurable
+cost: the roster reports it, the crew who did come in carry it in stress, and
+the tavern keeps trading badly until the player hires someone. The two Phase 86
+tests that pinned the exemption are **inverted** rather than deleted, because
+"the run survives losing a founding role" is the property that replaces the
+guard.
+
+**§3.1 the employment lifecycle.** `EmploymentRecord` (the Phase 1 family) is
+the authoritative terms record — wage, notice clock, discipline rung, and the
+transition history — and `src/sim/modules/staff/employment.ts` is its only
+writer and **the only remover of staff**. That single-writer rule is doing real
+work: a safe separation is not `delete state.staff[id]`, it is severance, the
+record archived, the person's social edges dropped, their actor record dropped,
+every scheduled event about them withdrawn, a vacancy opened, the colleagues
+told, and a cause/memory/history/pressure left behind. Performed in two places,
+one of them forgets half of it.
+
+**§3.1 the labor market, and why hiring changed shape.** `hire_staff` kept its
+id and its 40-coin fee but now targets an **applicant**, not a role. The old
+action took a role id and minted somebody at that role's registry defaults, so
+hiring was a purchase at a fixed price with a fixed outcome and "hiring terms",
+"role demand" and "replacement" had nowhere to live. The board holds up to eight
+people, refreshes weekly, expires them after a fortnight, and **always answers
+an open vacancy** — a market that could leave the player permanently unable to
+replace a cook would be the same dead end the Phase 2 review found with
+unbuyable materials. Generation runs on a new named stream (`labor_market`), so
+an extra roster refresh cannot rename the cook already in the kitchen; a second
+new stream (`staff_wellbeing`) carries the illness rolls for the same reason.
+
+**§3.2 the roster is the record service is derived FROM.** Each row ends in one
+number, `contribution` (`skillFit × shiftCoverage × (1 − handoff)`), and every
+factor that produced it is on the same row with a note.
+`priorityEffects.ts` multiplies each member's published modifiers by it, which
+is what makes "service outputs traceable to actual assignment" a checkable join
+rather than a claim. **The default assignment is exactly neutral** — one body
+per role, on its role's default priority, in that priority's default area, on
+the default shift, scores 1 — so the reference route's service-quality numbers
+did not move and every deviation is something the player did.
+
+**Shifts are not a second clock.** The 360-minute owner budget
+(`phase-186-day-clock-time-economy.md` §2.5) is untouched. A shift changes
+*what* is covered: two bodies on the same role and the same shift overlap and
+leave the rest of the day short, so the second counts for a quarter less. A
+`double` is more hours from one body at an overtime price; `rest` is double
+recovery and no cover. Within-day service flow stays Phase 4's.
+
+**The service module's fatigue rule MOVED rather than being duplicated.** Phase
+12 had a traffic-driven rule (`traffic ÷ 30` or `÷ 60` by role, plus per-priority
+strain and per-incident stress) in `service/resolveService.ts`. Adding a second
+one in the roster would have been two writers of one meter both charging for the
+same day — the player's fatigue climbing at twice the rate either rule intended,
+which is what the first draft did. The whole computation is now in
+`roster.ts applyDayLoad`, and the service module **reads the roster row** for its
+`staffChanges` report (staff runs at pipeline position 61, service at 71). Two
+improvements came with the move and neither touches the reference route: the
+divisor keys off **work kind** rather than role, which is what §3.2's "service
+versus cleaning, repair, security" allocation means; and overtime, coverage-gap
+and conflict burdens are added on top, all three of which are zero by default.
+
+**Absence has a floor, deliberately.** Illness risk is exactly **zero** below
+fatigue 40, stress 60 and a full week without a rest day. Without it a day-zero
+crew could lose somebody on the opening morning, which reads as the simulation
+being arbitrary rather than as a consequence — and it cost a Phase 12 test its
+bouncer on day one before the floor went in. Above the floor the risk climbs
+with fatigue, stress and consecutive days worked, and it is scaled by the
+ruleset's existing `staffRecoveryMultiplier` rather than by a new knob.
+
+**§3.1 wages are partial-first, and a shortfall is a real debt.** The Phase 14
+rule was a switch: cover the whole bill or pay nobody. Non-payment was therefore
+a mood — nothing was owed afterwards, so no rule could read it and "nonpayment
+across multiple weeks" had nothing to accumulate. Now the till pays as far as it
+goes, longest-serving first, and the remainder becomes a **per-person payable in
+the shared obligation ledger** with the ruleset's grace days and late-charge rate
+captured at open time. `pay_staff_wages` is the first owner action to settle an
+obligation, which is the gap Phase 1 recorded as belonging to "whichever phase
+gives the player something worth paying". **When the till covers the bill no
+obligation is opened at all**, so the happy path is byte-identical and the ledger
+stays a record of real arrears rather than a receipt printer.
+
+**§3.3 relationships, built from contact and capped.** One edge per pair, stored
+once under a canonical id (mirroring it on both people would be the duplication
+§2.2 forbade for capacity). An edge starts *forming* on first contact and only
+has consequences after three days together; four active edges per person, 48
+total, expiring after three weeks without contact. Contact comes from exactly
+three real events — two people rostered on the same station, an owner action
+aimed at somebody, and a referral hire vouching for a starter — so §3.3's "do not
+run every possible pair every day" is true by construction. What the edges buy:
+who covers an absence, who can train whom, who takes a departure badly, and the
+owner's own standing, which gates raise requests and negotiation.
+
+**§3.3 autonomous staff, through the Phase 1 actor contract.** Staff are its
+first real consumer, and it earns its keep: without commitment windows somebody
+could ask for a raise, call in sick and resign in one evening, and without
+**visible intent** a resignation would be an ambush. An actor decides at
+`endDay`, the intent is announced in that day's report, and it is carried out the
+following evening — so the player always gets a turn. Five actions:
+`request_raise`, `ask_for_training`, `cover_for_coworker` (the positive one, and
+a real mutation — the colleague's fatigue actually falls), `call_in_sick`, and
+`give_notice`, which routes through the quit-risk event rather than straight to
+notice so the warning and the counterplay still happen.
+
+**§3.4 twelve hook families move from narrative to mechanical**, closing the
+staff half of `OBL-02`: `staff_quit_risk_*`, `wage_expectation_*`,
+`raise_promised_*`, `coverage_gap_*`, `training_helper_*`, `authority_test_*`,
+`staff_bonus_expected_*`, `cross_staff_grumble_*`, and the four
+"they-remember-this" families (`staff_backing_remembered_*`,
+`staff_publicly_backed_*`, `staff_betrayal_remembered_*`,
+`staff_emotional_debt_*`) which share one resolver because they differ only in
+sign and magnitude — four near-identical resolvers would be four places to fix
+the same bug. Those four are deliverable *because* §3.3 exists: they move the
+owner relationship edge, a record with real downstream consumers, rather than
+nudging loyalty.
+
+**One Phase-3 family stays narrative, and its ledger row moved rather than being
+fudged.** `apology_expectation_*` takes a **customer group** as its subject
+(`apology_expectation_${group.id}`), so it belongs to the domain Phase 4 owns.
+Its row is re-assigned to Phase 4 / ISSUE-174 in place, per the ledger's own rule
+that the phase column is the initial assignment — the Phase 2 precedent for the
+three area-ish families that stayed narrative.
+
+**The quit-risk resolver, against §3.4's nine requirements.** Warned three days
+out and named in the report with every contributor itemised and the action that
+fixes each (items 1–2, read from records: the arrears figure, the discipline
+rung, the owner edge, the coverage log, an unanswered request in memory — not a
+severity band). The resolver re-reads live state when due (item 4) and has four
+branches (item 5): `cancelled` when the player talked them round, `no_op` when
+the contributors were addressed, `rescheduled` five days out when they were
+half-addressed, and a separation — notice served, or an immediate walk-out at the
+top weight. `separateStaff` performs it safely (item 6), coverage recomputes and
+a vacancy opens (item 7), and causes/memories/history/pressures/reports all land
+(item 8). Exactly once (item 9) via the definition's key *and* a live-event guard
+in `scheduleQuitRisk`, so three profiles worrying about the same cook cannot cost
+three cooks.
+
+**Negotiation is gated on two things, and the second is what keeps it honest.**
+Standing has to outweigh half the risk weight — and **no material preventable
+grievance may still be outstanding**. Without the second gate a stranger could
+talk their way out of three weeks of unpaid wages, because an unknown
+relationship starts at neutral trust rather than at nothing; that would make the
+counterplay a free undo and the derived Help a lie.
+
+**Two new roles, and why they had to exist.** `head_server` and `head_keeper`
+are the top rung for the two families that had none: a server or a
+cleaner/bouncer who reached their skill ceiling had nowhere to be promoted to, so
+"promotion" would have meant a wage rise with a new label — the fake depth §5
+fails a phase for. Same priorities as the role below (no new player vocabulary),
+a real ceiling above it, and an opening skill set *just under* the parent role's
+ceiling, because that opening skill **is** the promotion gate. `staffRoles`
+6 → 8; `staffPriorities` stays 12, because §3.2 makes the existing twelve
+load-bearing rather than adding to them.
+
+**`src/sim/core/diff.ts` now sorts its module walk** — the fix Phase 1 recorded
+as outstanding on `CON-04`. The walk used `Object.keys` insertion order, so the
+*order* of emitted diff paths depended on how a `Record` happened to enumerate,
+which is not stable across a save: a slice built by a factory and the same slice
+rebuilt by the migration chain hold the same fields in a different order, and the
+§5.10 reload gate read that as a different day. Phase 1 removed the symptom by
+excluding the meters slice from diffing; the staff slice tripped it again and its
+diff is wanted, so the walk is sorted. Contents are unchanged — only order.
+
+**Two migration judgement calls, both recorded.** `ensureStaffWorkforceFields`
+derives the workforce fields from identity rather than rolling them, so no RNG
+cursor moves and no generated name shifts; and employment starts being tracked on
+**the day the save is at** rather than being backdated, the same call Phase 2 made
+for the upkeep clock. It also only seeds employment records when the `employment`
+key is *absent* — an empty-but-present map means "nobody recorded yet", which is
+what a day-zero snapshot looks like. That distinction is load-bearing: the web
+layer's day baseline is a state object that goes through the chain on reload, and
+fabricating records into a fresh baseline made a reloaded day differ from an
+uninterrupted one. `modules.staff` is now seeded in `createInitialTavernState`
+for the same reason.
+
+**Baseline drift, regenerated deliberately.** All 13 frozen probes moved
+(`npm run baseline:probes -- --write`). The drift is the phase's own
+consequences: staff meters under the one fatigue rule rather than two, `causes`
+counts up (the workforce emits its own attribution), `history` counts down, and
+loyalty down by roughly one unanswered raise request per month on the passive
+routes — which is the designed consequence of a player who answers nothing.
+`repo-map.json` moved on `rngStreams` (15 → 17), the migration chain (+
+`ensureStaffWorkforceFields`), `inventory.ownerActions` (41 → 51),
+`inventory.staffRoles` (6 → 8), and `glossaryTerms` (129 → 135). The Wave 7
+balance harness's published figures were **re-pinned** with the movement recorded
+in the test: 3.36 → 3.21 cards/day and 828 → 823 patrons, while `finalCoin` stays
+at 1,043 — which is the evidence that this phase changed how the crew works and
+not what the tavern earns per patron. Phase 5 owns the economy; Phase 13
+re-baselines the long-run matrix. The stale `wages` glossary entry was rewritten
+rather than left: it described the all-or-nothing rule, which is exactly the
+second prose-only copy §5.12 forbids.
+
+Gates: `npm run test:full` **310 files / 4,084 tests**, `npm test` 302 / 3,955,
+`typecheck` clean, `check` 1,038 files / 0 errors, `build` passing (same known
+>500 kB chunk warning §13.5 asks Phase 13 to split), and all three expansion
+artifacts clean — `ledger:check` 134 rows, `baseline:probes` 0 drifted,
+`repo:map` 0 sections drifted. Tests:
+`tests/sim/phase210.workforceLifecycle.test.ts` (34),
+`phase210.retentionAndQuitting.test.ts` (18),
+`phase210.workforceBeatPersistence.test.ts` (6 — a reload at all five player
+beats with somebody on notice, somebody owed back pay, a cross-trained second
+trade and a live relationship graph, plus full-day-vs-segmented equivalence
+across a fortnight that crosses a separation and a wage settlement). All three
+run in seconds, so none joins `HEAVY_TEST_GLOBS`.
+
 ---
 
 # Phase 4 — Add explicit service flow, customer choice, and regular behavior

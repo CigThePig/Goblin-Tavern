@@ -701,17 +701,36 @@ function diffModules(
   after: Record<string, unknown>,
   changes: StateChange[],
 ): void {
-  const sliceIds = new Set([...Object.keys(before), ...Object.keys(after)])
+  // Expansion Phase 3 — the walk is SORTED, which is the fix Phase 1 recorded
+  // as outstanding on `CON-04`.
+  //
+  // This used to iterate `Object.keys` insertion order, so the ORDER of the
+  // emitted diff paths depended on the order a `Record` happened to enumerate.
+  // That is not stable across a save: a slice built by a factory and the same
+  // slice rebuilt by the migration chain hold the same fields in a different
+  // order, so a reloaded segmented day produced the same changes in a different
+  // sequence from an uninterrupted one — which the §5.10 reload gate reads as a
+  // different day. Phase 1 saw it when the meters slice tripped it and removed
+  // the symptom by excluding that slice from diffing; Phase 3's staff slice
+  // trips it again, and the workforce diff is wanted rather than derived
+  // bookkeeping, so the walk is sorted instead.
+  //
+  // Sorting changes only the order of `changes`, never its contents.
+  const sliceIds = [
+    ...new Set([...Object.keys(before), ...Object.keys(after)]),
+  ].sort()
   for (const moduleId of sliceIds) {
     const a = before[moduleId]
     const b = after[moduleId]
     const aIsObject = isPlainObject(a)
     const bIsObject = isPlainObject(b)
     if (aIsObject && bIsObject) {
-      const keys = new Set([
-        ...Object.keys(a as Record<string, unknown>),
-        ...Object.keys(b as Record<string, unknown>),
-      ])
+      const keys = [
+        ...new Set([
+          ...Object.keys(a as Record<string, unknown>),
+          ...Object.keys(b as Record<string, unknown>),
+        ]),
+      ].sort()
       for (const key of keys) {
         if (DIFF_MODULE_DERIVED_KEYS.has(`${moduleId}.${key}`)) continue
         const av = (a as Record<string, unknown>)[key]

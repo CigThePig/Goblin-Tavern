@@ -185,7 +185,9 @@
     "customer_group_identity",
     "venture",
     "arc",
-    "opening"
+    "opening",
+    "labor_market",
+    "staff_wellbeing"
   ],
   "unscopedRandomCallsInSim": [],
   "unscopedRandomCallsInCards": [],
@@ -206,6 +208,7 @@
       "ensureOwnerTimeFields",
       "ensureCastAttributes",
       "ensureExpansionContractSlices",
+      "ensureStaffWorkforceFields",
       "ensureModuleSlices"
     ]
   },
@@ -218,7 +221,7 @@
     "runtimeModules": 33,
     "simulationPhases": 26,
     "daySegments": 3,
-    "ownerActions": 41,
+    "ownerActions": 51,
     "staffPriorities": 12,
     "pressureDomains": 21,
     "feedbackDetectors": 13,
@@ -237,7 +240,7 @@
     "marketConditions": 8,
     "localArcs": 5,
     "ventureBlueprints": 1,
-    "staffRoles": 6,
+    "staffRoles": 8,
     "reputationAxes": 10
   },
   "glossaryTerms": [
@@ -253,10 +256,13 @@
     "attribution",
     "attribution_hint",
     "autosave",
+    "back_pay",
     "cardWorthiness",
     "cause",
     "cheap",
+    "coverage_gap",
     "cozy",
+    "cross_training",
     "culinary_renown",
     "cultural_tension",
     "culture",
@@ -350,6 +356,9 @@
     "spoilage",
     "staff_burnout",
     "staff_loyalty_risk",
+    "staff_notice",
+    "staff_shift",
+    "staff_standing",
     "stock_shortage",
     "strange",
     "stress",

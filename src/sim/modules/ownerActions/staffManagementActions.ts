@@ -1,315 +1,38 @@
 import type { SimContext } from '../../core/context'
-import { createStaffIdentity } from '../../content/staff/staffIdentityFactory'
-import { createStaffCastAttributes } from '../../content/cast/createCastAttributes'
-import { staffRegistry } from '../../registries/staffRegistry'
-import { REQUIRED_STAFF_IDS } from '../staff/staffModule'
-import { spendCoin } from '../stock/ledger'
-import type { StaffState } from '../../state/TavernState'
 
 import type {
   ActionTarget,
   ActionValidationResult,
   OwnerActionDefinition,
-  OwnerActionInput,
 } from './types'
-import { TIME_COST_STANDARD, TIME_COST_HEAVY } from './stateHelpers'
+import { TIME_COST_STANDARD } from './stateHelpers'
 
-// Phase 86 / ISSUE-046 — staff-management owner actions.
+// Phase 86 / ISSUE-046 — customer-side management action.
 //
-// Three actions close the gap the post-phase-73 audit flagged: the
-// player previously had no in-run path to add or remove staff or to
-// refuse service to a customer group, capping the depth of every
-// staff- and customer-side feedback loop.
+// This file originally held three actions: `hire_staff`, `fire_staff` and
+// `ban_customer_group`. Expansion Phase 3 moved the two staff ones to
+// `workforceActions.ts` and rebuilt them, because both had become the wrong
+// shape for a workforce with terms:
 //
-//   - `hire_staff`: pick a role, pay a placement fee, append a new
-//     staff member with a generated identity from the wider
-//     Phase 81 / ISSUE-041 identity profile pool.
-//   - `fire_staff`: target a staff id, remove it, hit remaining
-//     staff morale, and post a memory for any regular who knew the
-//     departing staff member.
-//   - `ban_customer_group`: target a customer-group id, suppress
-//     their patronage/traffic for a configurable window, charge a
-//     reputation cost.
+//   * `hire_staff` took a ROLE id and minted somebody at that role's registry
+//     defaults, so hiring was a purchase at a fixed price with a fixed outcome.
+//     It now takes an APPLICANT from the labor market at a negotiated wage.
+//   * `fire_staff` deleted the record and docked morale, and exempted the three
+//     founding staff outright — which is precisely the structural immunity plan
+//     §3.1 requires removing. It now pays severance in lieu of notice, closes the
+//     employment record, and cleans up everything that pointed at the person, and
+//     it has no exemptions.
+//
+// The action IDS are unchanged, so nothing that referred to them by id had to
+// move. What is left here is the customer-side action, which stayed put:
+//
+//   - `ban_customer_group`: target a customer-group id, suppress their
+//     patronage/traffic, charge a reputation cost.
 
 const OK: ActionValidationResult = { ok: true }
 
 function reject(code: string, reason: string): ActionValidationResult {
   return { ok: false, code, reason }
-}
-
-// ---------- hire_staff ----------
-
-// Flat placement fee. Higher than a single shift bonus, lower than a
-// week's wage — the player pays to bring a new hand in, then carries
-// the recurring wage cost from the weekly module.
-export const HIRE_STAFF_COST = 40
-
-export const HIRE_STAFF_ACTION_ID = 'hire_staff'
-
-function listHireableRoles(_ctx: SimContext): ActionTarget[] {
-  // Every registered role is a potential hire target. The defaults
-  // file uses `seedOnDayZero` to skip seeding some roles (cook tiers)
-  // but they're still hireable.
-  return staffRegistry.all().map((def) => ({
-    id: def.id,
-    label: def.label,
-    hint: `skill ${def.defaultState.skill}, wage ${def.defaultState.wage}/wk`,
-  }))
-}
-
-function buildHireId(ctx: SimContext, roleId: string): string {
-  const today = ctx.state.calendar.totalDaysElapsed + 1
-  let counter = 0
-  let candidate = `hire_${roleId}_${today}_${counter}`
-  while (ctx.state.staff[candidate]) {
-    counter += 1
-    candidate = `hire_${roleId}_${today}_${counter}`
-  }
-  return candidate
-}
-
-const hireStaffAction: OwnerActionDefinition = {
-  id: HIRE_STAFF_ACTION_ID,
-  label: 'Hire Staff',
-  category: 'immediate',
-  tags: ['staff', 'hire'],
-  effectsPreview: 'Brings on a new hand to ease the rota',
-  pressureAffinity: ['staff_burnout'],
-  targetType: 'staff',
-  // Hiring is a big commitment — interviewing and onboarding a new hand
-  // eats most of the day.
-  timeCost: TIME_COST_HEAVY,
-  getValidTargets: listHireableRoles,
-  canApply: (ctx, input) => {
-    if (!input.targetId) {
-      return reject('missing_target', 'hire_staff requires targetId (role id)')
-    }
-    if (!staffRegistry.has(input.targetId)) {
-      return reject('unknown_role', `Unknown staff role '${input.targetId}'`)
-    }
-    if (ctx.state.coin < HIRE_STAFF_COST) {
-      return reject(
-        'insufficient_coin',
-        `Hiring costs ${HIRE_STAFF_COST} coin; have ${ctx.state.coin}.`,
-      )
-    }
-    return OK
-  },
-  apply: (ctx, input) => {
-    const roleId = input.targetId!
-    const def = staffRegistry.get(roleId)
-    const hireId = buildHireId(ctx, roleId)
-
-    const identityRng = ctx.getRngStream('staff_identity')
-    const existingNames = new Set(
-      Object.values(ctx.state.staff).map((s) => s.name.display),
-    )
-    // Optional culture preference threaded through input.options to
-    // bias the identity pool when the player wants a specific
-    // cultural flavour.
-    const preferredCultureId =
-      typeof input.options?.['preferredCultureId'] === 'string'
-        ? (input.options['preferredCultureId'] as string)
-        : undefined
-    const { identity, generatedName } = createStaffIdentity({
-      staffId: hireId,
-      roleId,
-      rng: identityRng,
-      existingNames,
-      ...(preferredCultureId !== undefined ? { preferredCultureId } : {}),
-    })
-
-    // Phase 121 / ISSUE-090 — Living Cast Phase A. Cast-attribute rolls
-    // share the staff_identity stream and land AFTER the identity rolls,
-    // matching the canonical day-zero ordering in `createInitialStaff`.
-    const castAttributes = createStaffCastAttributes({
-      roleId: def.id,
-      ...(identity.cultureId !== undefined
-        ? { cultureId: identity.cultureId }
-        : {}),
-      rng: identityRng,
-    })
-
-    const newStaff: StaffState = {
-      id: hireId,
-      name: generatedName,
-      role: def.id,
-      tags: [...def.defaultTags],
-      ...def.defaultState,
-      activeFlags: [...def.defaultState.activeFlags],
-      identity,
-      castAttributes,
-    }
-
-    spendCoin(ctx, HIRE_STAFF_COST, {
-      source: `ownerActions.${HIRE_STAFF_ACTION_ID}`,
-      category: 'wage',
-      tags: ['staff', 'hire', roleId, hireId],
-    })
-
-    ctx.addStaff(newStaff, {
-      source: `ownerActions.${HIRE_STAFF_ACTION_ID}`,
-      sourceType: 'owner_action',
-      direction: 'increase',
-      amount: 1,
-      readable: `Hired ${generatedName.display} as ${def.label}.`,
-      tags: ['staff', 'hire', roleId, hireId],
-      relatedActors: [{ kind: 'staff', id: hireId }],
-      relatedSystems: ['staff'],
-    })
-
-    ctx.addMemory({
-      id: 'staff_hired',
-      source: 'ownerActions.hire_staff',
-      actors: [{ kind: 'staff', id: hireId }],
-      tags: ['staff', 'hire', roleId, hireId],
-      metadata: {
-        staffId: hireId,
-        staffName: generatedName.display,
-        roleId,
-      },
-    })
-
-    return {
-      actionId: HIRE_STAFF_ACTION_ID,
-      label: 'Hired Staff',
-      targetId: hireId,
-      timeCost: TIME_COST_HEAVY,
-      effects: [
-        `Hired ${generatedName.display} (${def.label}).`,
-        `coin -${HIRE_STAFF_COST}`,
-      ],
-      data: {
-        staffId: hireId,
-        roleId,
-        coin: { spent: HIRE_STAFF_COST },
-      },
-    }
-  },
-}
-
-// ---------- fire_staff ----------
-
-export const FIRE_STAFF_ACTION_ID = 'fire_staff'
-
-// How much morale every remaining staff member drops on a firing.
-// Modest but real — witnessing a firing tightens up but stings.
-const FIRE_MORALE_HIT = 5
-
-// The three founding roles are a hard simulation contract: the staff
-// module's `startDayHook` throws when one is missing, so firing one
-// bricked the run on the *next* day (state validated dirty, then the
-// following `simulateDay` threw). They are never offered as targets.
-const UNDISMISSABLE_STAFF_IDS: ReadonlySet<string> = new Set(REQUIRED_STAFF_IDS)
-
-function listFireableStaff(ctx: SimContext): ActionTarget[] {
-  return Object.values(ctx.state.staff)
-    .filter((s) => !UNDISMISSABLE_STAFF_IDS.has(s.id))
-    .map((s) => ({
-      id: s.id,
-      label: s.name.display,
-      hint: `${s.role}, morale ${s.morale}`,
-    }))
-}
-
-const fireStaffAction: OwnerActionDefinition = {
-  id: FIRE_STAFF_ACTION_ID,
-  label: 'Fire Staff',
-  category: 'immediate',
-  tags: ['staff', 'fire'],
-  effectsPreview: 'Lets a staffer go; trims the wage bill',
-  targetType: 'staff',
-  timeCost: TIME_COST_STANDARD,
-  getValidTargets: listFireableStaff,
-  canApply: (ctx, input) => {
-    if (!input.targetId) {
-      return reject('missing_target', 'fire_staff requires targetId')
-    }
-    if (!ctx.state.staff[input.targetId]) {
-      return reject('unknown_target', `Unknown staff '${input.targetId}'`)
-    }
-    if (UNDISMISSABLE_STAFF_IDS.has(input.targetId)) {
-      return reject(
-        'required_staff',
-        `'${input.targetId}' is a founding role and cannot be let go.`,
-      )
-    }
-    if (Object.keys(ctx.state.staff).length <= 1) {
-      return reject(
-        'last_staff',
-        'Cannot fire the last remaining staff member.',
-      )
-    }
-    return OK
-  },
-  apply: (ctx, input) => {
-    const firedId = input.targetId!
-    const fired = ctx.state.staff[firedId]!
-    const firedName = fired.name.display
-    const firedRole = fired.role
-
-    // Drop morale on every remaining staff member before the removal
-    // so they see the empty chair land.
-    for (const member of Object.values(ctx.state.staff)) {
-      if (member.id === firedId) continue
-      const nextMorale = Math.max(0, member.morale - FIRE_MORALE_HIT)
-      if (nextMorale === member.morale) continue
-      ctx.modifyStaff(
-        member.id,
-        { morale: nextMorale },
-        {
-          source: `ownerActions.${FIRE_STAFF_ACTION_ID}.witness`,
-          sourceType: 'owner_action',
-          readable: `${member.name.display} watched ${firedName} get fired (morale -${FIRE_MORALE_HIT}).`,
-          tags: ['staff', 'morale', 'witness', firedId],
-          relatedActors: [
-            { kind: 'staff', id: member.id },
-            { kind: 'staff', id: firedId },
-          ],
-          relatedSystems: ['staff'],
-        },
-      )
-    }
-
-    ctx.removeStaff(firedId, {
-      source: `ownerActions.${FIRE_STAFF_ACTION_ID}`,
-      sourceType: 'owner_action',
-      direction: 'decrease',
-      amount: -1,
-      readable: `Fired ${firedName}.`,
-      tags: ['staff', 'fire', firedRole, firedId],
-      relatedActors: [{ kind: 'staff', id: firedId }],
-      relatedSystems: ['staff'],
-    })
-
-    ctx.addMemory({
-      id: 'staff_fired',
-      source: 'ownerActions.fire_staff',
-      actors: [{ kind: 'staff', id: firedId }],
-      tags: ['staff', 'fire', firedRole, firedId],
-      metadata: {
-        staffId: firedId,
-        staffName: firedName,
-        roleId: firedRole,
-      },
-    })
-
-    return {
-      actionId: FIRE_STAFF_ACTION_ID,
-      label: 'Fired Staff',
-      targetId: firedId,
-      timeCost: TIME_COST_STANDARD,
-      effects: [
-        `Fired ${firedName} (${firedRole}).`,
-        `Remaining staff morale -${FIRE_MORALE_HIT} each.`,
-      ],
-      data: {
-        staffId: firedId,
-        roleId: firedRole,
-        moraleHit: FIRE_MORALE_HIT,
-      },
-    }
-  },
 }
 
 // ---------- ban_customer_group ----------
@@ -437,13 +160,7 @@ const banCustomerGroupAction: OwnerActionDefinition = {
 
 // Exported for the action registry boot path.
 export const STAFF_MANAGEMENT_ACTIONS: OwnerActionDefinition[] = [
-  hireStaffAction,
-  fireStaffAction,
   banCustomerGroupAction,
 ]
 
-export {
-  hireStaffAction,
-  fireStaffAction,
-  banCustomerGroupAction,
-}
+export { banCustomerGroupAction }

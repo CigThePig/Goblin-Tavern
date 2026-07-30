@@ -53,6 +53,25 @@ export const STAFF_SPECIALTY_DOMAIN: Readonly<Record<StaffRoleId, readonly strin
       'palate_calibration',
       'crisis_recipes',
     ],
+    // Expansion Phase 3 §3.1 — the two lead roles the promotion ladder adds.
+    // A domain per role is mandatory (`getStaffSpecialtyDomain` throws without
+    // one), so a promotion target with no domain would be a role nobody could
+    // be promoted into. Both lean on what a lead actually does that their own
+    // role below them does not: running other people.
+    head_server: [
+      'floor_command',
+      'regular_diplomacy',
+      'tab_recovery',
+      'shift_handover',
+      'training_juniors',
+    ],
+    head_keeper: [
+      'house_rules',
+      'threat_reading',
+      'rota_discipline',
+      'repair_triage',
+      'training_juniors',
+    ],
   })
 
 export function getStaffSpecialtyDomain(roleId: StaffRoleId): readonly string[] {

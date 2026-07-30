@@ -157,6 +157,17 @@ export type RngStreamId =
   | 'venture'
   | 'arc'
   | 'opening'
+  // Expansion Phase 3 §3.1 — the hireable applicant roster: who is looking
+  // for work, at what skill, for what wage. Separate from `staff_identity`
+  // (which names them) for the reason architecture rule 7 exists: an extra
+  // roster refresh must not shift the name of the cook already in the
+  // kitchen.
+  | 'labor_market'
+  // Expansion Phase 3 §3.1 — illness and injury rolls. Kept out of
+  // `labor_market` so a bad week on the floor cannot reshuffle who is
+  // available to hire, and out of `service` so it cannot shift the day's
+  // service order.
+  | 'staff_wellbeing'
 
 export type RngStreamState = Record<RngStreamId, RngState>
 
@@ -196,6 +207,9 @@ const ALL_STREAM_IDS: ReadonlyArray<RngStreamId> = [
   'venture',
   'arc',
   'opening',
+  // Expansion Phase 3 §3.1.
+  'labor_market',
+  'staff_wellbeing',
 ]
 
 export function createRngStreams(

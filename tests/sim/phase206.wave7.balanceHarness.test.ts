@@ -149,6 +149,22 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
   // gate) became 3.36. The ECONOMY figures did not move — Wave 7 tuned no
   // economic lever, and 1,043 coin / 828 patrons matching Phase 7 §5.1
   // exactly is the proof.
+  //
+  // Expansion Phase 3 (ISSUE-173) moved them again, and re-pinned them again for
+  // the same reason: the route is passive, so every figure below is the
+  // simulation's own behaviour rather than a bot's decisions, and this phase
+  // changed that behaviour on purpose. Staff fatigue and stress now move by one
+  // rule owned by the staff module rather than by the service module's copy of it,
+  // absence is a real state a worn-out crew reaches, and the day's roster scales
+  // what each hand contributes. So 3.36 cards/day became 3.21 and 828 patrons
+  // became 823 — a passive tavern whose crew occasionally has a bad week serves
+  // marginally fewer people and produces marginally fewer staff cards.
+  //
+  // `finalCoin` did NOT move: 1,043 still matches Phase 7 §5.1, which is the
+  // evidence that this phase changed how the crew works and not what the tavern
+  // earns per patron. Phase 5 owns the economy and Phase 13 re-baselines the
+  // long-run matrix; this is a re-pin with the movement recorded, not a
+  // re-tuning.
   let audit: BalanceRunMetrics
 
   beforeAll(() => {
@@ -163,19 +179,20 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
   })
 
   it('reproduces the published card load exactly', () => {
-    // Wave 6 gate: 3.46 · 5. Post-Wave-7 tuning: 3.36 · 5.
-    expect(audit.meanCardsPerDay).toBe(3.36)
+    // Wave 6 gate: 3.46 · 5. Post-Wave-7 tuning: 3.36 · 5. Post-Phase-3: 3.21 · 5.
+    expect(audit.meanCardsPerDay).toBe(3.21)
     expect(audit.maxCardsPerDay).toBe(5)
     expect(audit.maxCardsPerDay).toBeLessThanOrEqual(FULL_DAY_CARD_CEILING)
   })
 
   it('reproduces the published run outcome exactly', () => {
     // Phase 7 §5.1, no-action row: 1,043 coin and 828 patrons over 28
-    // standard days. Unchanged through the Wave 7 tuning, so the harness
-    // is driving the same route the audit drove and no economic lever
-    // moved.
+    // standard days. The coin is unchanged through both the Wave 7 tuning and
+    // Expansion Phase 3, which is the evidence that neither touched an economic
+    // lever. Patrons moved to 823 in Phase 3 because a worn-out crew is
+    // occasionally a body short, which is that phase's whole point.
     expect(audit.finalCoin).toBe(1043)
-    expect(audit.totalPatrons).toBe(828)
+    expect(audit.totalPatrons).toBe(823)
   })
 
   it('prices choices as an upper bound on the real render', () => {
@@ -183,9 +200,10 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // the real card render (Wave 6 measured the render at 15.68/day —
     // never quote a default-priced figure against the 24-button `DC-06`
     // ceiling; that comparison needs `--render`). Post-Wave-7 tuning the
-    // upper bound reads 15.71/day, 440 over 28 days.
-    expect(audit.meanChoicesPerDay).toBe(15.71)
-    expect(audit.totalChoicesRendered).toBe(440)
+    // upper bound read 15.71/day, 440 over 28 days; after Expansion Phase 3's
+    // card-load movement it reads 15.25/day.
+    expect(audit.meanChoicesPerDay).toBe(15.25)
+    expect(audit.totalChoicesRendered).toBe(427)
   })
 
   it('reproduces the published family-streak figure', () => {

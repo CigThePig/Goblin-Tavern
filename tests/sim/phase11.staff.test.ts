@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { simulateDay } from '../../src/sim/core/engine'
+import { advanceDaySegment, simulateDay } from '../../src/sim/core/engine'
 import {
   canStaffWork,
   derivePriorityModifiers,
@@ -276,11 +276,16 @@ describe('Phase 11 — Priority effects via service-quality plumbing (§11.5)', 
 
 describe('Phase 11 — Daily passive recovery & state validation', () => {
   it('startDay applies modest stress/fatigue recovery', () => {
+    // Expansion Phase 3 moved the day's WORK cost into the staff module too
+    // (`applyDayLoad` at `afterService`), so a whole day now nets recovery
+    // against the shift that followed it. The morning is what this test is
+    // about, so it is measured at the morning: segment A ends before
+    // `afterService`, which is exactly the boundary the assertion wants.
     const base = createInitialTavernState()
     const tired = withStaff(base, 'cook', { stress: 80, fatigue: 80 })
-    const result = runDay(tired)
-    expect(result.state.staff.cook!.stress).toBeLessThan(80)
-    expect(result.state.staff.cook!.fatigue).toBeLessThan(80)
+    const morning = advanceDaySegment(tired, input(), [staffModule], 'A').state
+    expect(morning.staff.cook!.stress).toBeLessThan(80)
+    expect(morning.staff.cook!.fatigue).toBeLessThan(80)
   })
 
   it('staff stress and fatigue stay within 0–100 across many days', () => {

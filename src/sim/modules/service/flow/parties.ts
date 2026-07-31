@@ -162,41 +162,88 @@ export function buildParties(
     return party
   }
 
-  // Regulars first, so a named participant always gets a party even on a night
-  // the group's own demand rounded to nothing. §4.3 "visit as identifiable
-  // participants" fails if a regular's visit can be squeezed out by arithmetic.
+  // Regulars first, but only inside the headcount the customers module
+  // published. A visit intent is not an extra arrival: it identifies one of
+  // the people already counted in the group's turnout. Companions are therefore
+  // clamped to that remaining turnout rather than silently creating patrons.
   const remaining: Record<string, number> = { ...input.demandByGroup }
+  const positiveDemandGroups = Object.keys(input.demandByGroup)
+    .filter((groupId) => Math.max(0, Math.round(input.demandByGroup[groupId] ?? 0)) > 0)
+    .sort((a, b) => a.localeCompare(b))
+  const representedGroups = new Set<string>()
   const regularIds = [...input.regularVisitIds].sort((a, b) => a.localeCompare(b))
   for (const regularId of regularIds) {
-    if (parties.length >= MAX_PARTIES_PER_DAY) break
     const regular = ctx.state.world.regulars[regularId]
     if (!regular) continue
     const group = ctx.state.customerGroups[regular.customerGroupId]
     if (!group) continue
+    const available = Math.max(0, Math.round(remaining[group.id] ?? 0))
+    if (available <= 0) continue
+    // Keep one slot available for every positive-demand group that still has
+    // no party. Without the reservation, many early regulars could consume the
+    // cap and make a later group's entire turnout disappear.
+    const groupsAfterThis = new Set(representedGroups)
+    groupsAfterThis.add(group.id)
+    const reserved = positiveDemandGroups.filter(
+      (groupId) => !groupsAfterThis.has(groupId),
+    ).length
+    if (parties.length + 1 + reserved > MAX_PARTIES_PER_DAY) continue
     // A regular arrives alone or with a companion or two.
     const companions = rng.int(0, 2)
-    const size = 1 + companions
+    const size = Math.min(available, 1 + companions)
     parties.push(nextParty(group, size, regular))
-    remaining[group.id] = Math.max(0, (remaining[group.id] ?? 0) - size)
+    representedGroups.add(group.id)
+    remaining[group.id] = available - size
   }
 
-  // Then the anonymous cohorts, group by group in a stable order.
+  // Then the anonymous cohorts, group by group in a stable order. Seed one
+  // party for every still-unrepresented group before allowing an early group
+  // to consume the remaining slots. This is the bounded-cohort guarantee: the
+  // party count stays capped while every group's demand remains visible to
+  // seating, abandonment, satisfaction, and reconciliation.
   const groupIds = Object.keys(input.demandByGroup).sort((a, b) => a.localeCompare(b))
+  const rollPartySize = (
+    group: CustomerGroupState,
+    left: number,
+  ): number => {
+    const range = sizeRangeFor(group)
+    const upper = Math.min(left, range.max, MAX_PARTY_SIZE)
+    const lower = Math.min(range.min, upper)
+    return upper > 0 ? rng.int(lower, upper) : 0
+  }
+
+  for (const groupId of groupIds) {
+    if (representedGroups.has(groupId)) continue
+    const group = ctx.state.customerGroups[groupId]
+    if (!group) continue
+    const left = Math.max(0, Math.round(remaining[groupId] ?? 0))
+    if (left <= 0 || parties.length >= MAX_PARTIES_PER_DAY) continue
+    const size = rollPartySize(group, left)
+    if (size <= 0) continue
+    parties.push(nextParty(group, size, undefined))
+    representedGroups.add(groupId)
+    remaining[groupId] = left - size
+  }
+
   for (const groupId of groupIds) {
     const group = ctx.state.customerGroups[groupId]
     if (!group) continue
-    const range = sizeRangeFor(group)
     let left = Math.max(0, Math.round(remaining[groupId] ?? 0))
     while (left > 0 && parties.length < MAX_PARTIES_PER_DAY) {
-      const size = Math.min(left, rng.int(range.min, Math.min(range.max, MAX_PARTY_SIZE)))
+      const size = rollPartySize(group, left)
       if (size <= 0) break
       parties.push(nextParty(group, size, undefined))
+      representedGroups.add(groupId)
       left -= size
     }
     // Cap reached with patrons still outside: they join the parties that group
     // already has rather than vanishing.
     if (left > 0) {
       const groupParties = parties.filter((party) => party.groupId === groupId)
+      // `positiveDemandGroups` was reserved above, so this can only happen if
+      // the state itself contains more distinct active groups than the global
+      // party cap. Keep the guard defensive, but never silently hit it in a
+      // valid bounded world.
       if (groupParties.length === 0) continue
       let index = 0
       while (left > 0) {

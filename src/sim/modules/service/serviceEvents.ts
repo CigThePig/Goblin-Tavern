@@ -680,3 +680,8 @@ export function ensureServiceScheduledEventsRegistered(): void {
   }
   registered = true
 }
+
+// A saved game may resume directly in segment B or C, without running the
+// service module's start-day hook in this process. Register at import so queued
+// typed events and response hooks already have an owner during that resume.
+ensureServiceScheduledEventsRegistered()

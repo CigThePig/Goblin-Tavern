@@ -5,6 +5,7 @@ import { getServiceModuleState } from '../service/serviceModule'
 import {
   collectPatronTab,
   forgivePatronTab,
+  forgivePatronTabsForDebtor,
   listPatronTabs,
   type PatronTabIndexEntry,
 } from '../service/tabs'
@@ -112,6 +113,31 @@ function writeTabEntry(
       return {
         ...base,
         patronTabs,
+        totals: { ...base.totals, ...totals },
+      }
+    },
+    { source: 'service.tabs', reason },
+  )
+}
+
+/** Drop several settled ledger records from the bounded chase index at once. */
+function dropTabEntries(
+  ctx: SimContext,
+  obligationIds: ReadonlyArray<string>,
+  reason: string,
+  totals: Partial<ServiceModuleState['totals']> = {},
+): void {
+  if (obligationIds.length === 0 && Object.keys(totals).length === 0) return
+  const dropped = new Set(obligationIds)
+  ctx.modifyModuleState<ServiceModuleState>(
+    'service',
+    (current) => {
+      const base = current ?? readServiceSlice(ctx)
+      return {
+        ...base,
+        patronTabs: base.patronTabs.filter(
+          (entry) => !dropped.has(entry.obligationId),
+        ),
         totals: { ...base.totals, ...totals },
       }
     },
@@ -458,14 +484,32 @@ const answerRegularRequestAction: OwnerActionDefinition = {
     // `amount` is the answer: anything but an explicit 0 is yes. A refusal is a
     // real choice with a real cost, so it has to be expressible.
     const granted = input.amount !== 0
-    resolveRequest(
-      ctx,
-      regular,
-      granted ? 'granted' : 'refused',
-      granted
-        ? `You agreed: ${request.readable}`
-        : `You turned ${regular.name.display} down.`,
-    )
+    let slateForgiven = 0
+
+    // Saying yes to a slate request must perform the debt transition before
+    // the social request is scored. The old order awarded standing and closed
+    // the request while every receivable remained live.
+    if (granted && request.kind === 'forgive_my_slate') {
+      const outcome = forgivePatronTabsForDebtor(
+        ctx,
+        'regular',
+        regular.id,
+        'the owner granted the regular\'s request',
+      )
+      slateForgiven = outcome.forgiven
+      const totals = readServiceSlice(ctx).totals
+      dropTabEntries(ctx, outcome.obligationIds, 'tab_request_forgiven', {
+        tabsForgiven: totals.tabsForgiven + outcome.obligationIds.length,
+      })
+      const live = ctx.state.world.regulars[regular.id]
+      if (live && outcome.forgiven > 0) {
+        rememberService(ctx, live, {
+          kind: 'tab_forgiven',
+          readable: `You wiped ${live.name.display}'s ${outcome.forgiven}-coin slate.`,
+          standingDelta: 12,
+        })
+      }
+    }
 
     // Granting `keep_my_seat` is a promise the flow can keep: it is their
     // favourite area, and the seating step tries that first.
@@ -487,6 +531,18 @@ const answerRegularRequestAction: OwnerActionDefinition = {
       )
     }
 
+    const live = ctx.state.world.regulars[regular.id] ?? regular
+    resolveRequest(
+      ctx,
+      live,
+      granted ? 'granted' : 'refused',
+      granted
+        ? request.kind === 'forgive_my_slate'
+          ? `${regular.name.display}'s ${slateForgiven}-coin slate was wiped.`
+          : `You agreed: ${request.readable}`
+        : `You turned ${regular.name.display} down.`,
+    )
+
     return {
       actionId: ANSWER_REGULAR_REQUEST_ACTION_ID,
       label: granted ? 'Granted a Request' : 'Refused a Request',
@@ -503,6 +559,7 @@ const answerRegularRequestAction: OwnerActionDefinition = {
         requestId: request.id,
         requestKind: request.kind,
         granted,
+        ...(request.kind === 'forgive_my_slate' ? { slateForgiven } : {}),
       },
     }
   },

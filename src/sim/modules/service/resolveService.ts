@@ -278,6 +278,46 @@ export function resolveService(
 
   // ---- what the evening did to the rooms (§4.1) ----
   applyServiceAreaImpact(ctx, flow, quality)
+
+  // ---- incidents (§4.4) ----
+  const flowIncidents = generateFlowIncidents(ctx, {
+    flow,
+    quality,
+    regularsById,
+    dayType,
+  })
+  for (const incident of flowIncidents) {
+    if (incident.id !== 'minor_brawl' || !incident.areaId) continue
+    const area = ctx.state.areas[incident.areaId]
+    if (!area) continue
+    const nextDamage = clampPercent(area.damage + 1)
+    if (nextDamage === area.damage) {
+      incident.effects = incident.effects
+        .filter((effect) => effect !== `${area.id}.damage +1`)
+        .concat(`${area.id}.damage already at maximum`)
+      continue
+    }
+    ctx.modifyArea(
+      area.id,
+      { damage: nextDamage },
+      {
+        source: `${SOURCE}.incident.minor_brawl`,
+        sourceType: 'area',
+        target: area.id,
+        targetType: 'area',
+        amount: nextDamage - area.damage,
+        direction: 'increase',
+        readable: `A brawl damaged ${area.label}.`,
+        tags: ['service', 'incident', 'brawl', area.id],
+        relatedLocations: [{ kind: 'area', id: area.id }],
+        relatedSystems: ['service', 'areas'],
+      },
+    )
+  }
+  result.incidents.push(...flowIncidents)
+
+  // Detect after incident consequences so the daily result and scene/report
+  // include the physical damage the brawl itself claims.
   const areaChanges = detectAreaChanges(inputs.areasBefore, ctx.state.areas)
   result.messCreated = areaChanges.mess
   result.damageCreated = areaChanges.damage
@@ -292,10 +332,6 @@ export function resolveService(
     if (quantity > 0) result.stockConsumed.push({ stockId, quantity })
   }
 
-  // ---- incidents (§4.4) ----
-  result.incidents.push(
-    ...generateFlowIncidents(ctx, { flow, quality, regularsById, dayType }),
-  )
   // Phase 12's furniture incident, kept and re-grounded. It used to be read
   // back out of a note string the customers module had written; it is now read
   // off the damage the impact pass actually applied, in the room that took it.

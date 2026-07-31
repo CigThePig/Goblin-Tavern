@@ -306,9 +306,21 @@ function brawlIncidents(
       Math.max(0, heat - BRAWL_BASELINE - security * 30),
     )
     if (severity < 25) continue
-    const worst = occupants
-      .map((party) => party.groupId)
-      .sort((a, b) => a.localeCompare(b))[0]
+    const rowdyByGroup = new Map<string, number>()
+    for (const party of occupants) {
+      const group = ctx.state.customerGroups[party.groupId]
+      if (!group || group.rowdiness < 70) continue
+      rowdyByGroup.set(
+        party.groupId,
+        (rowdyByGroup.get(party.groupId) ?? 0) + party.size,
+      )
+    }
+    // Attribute the fight to the crowd that supplied the most rowdy bodies,
+    // with lexical order only as a deterministic tie-breaker. Picking the
+    // first occupant blamed quiet groups merely because their id sorted first.
+    const worst = [...rowdyByGroup.entries()].sort((a, b) =>
+      b[1] === a[1] ? a[0].localeCompare(b[0]) : b[1] - a[1],
+    )[0]?.[0]
     out.push({
       id: 'minor_brawl',
       severity: Math.min(100, severity),

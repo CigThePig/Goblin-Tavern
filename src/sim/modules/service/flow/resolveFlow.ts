@@ -60,11 +60,17 @@ const SEATED_PATIENCE_BONUS = 1
  * Reports against the recipe's tightest input — the ingredient that actually
  * ran out is the one the player has to buy.
  */
-function recordUnmetDemand(
+type UnmetDemand = {
+  stockId: string
+  requested: number
+  available: number
+}
+
+function findUnmetDemand(
   ctx: SimContext,
   recipeId: string,
   servings: number,
-): ShortageRecord | undefined {
+): UnmetDemand | undefined {
   if (!recipeRegistry.has(recipeId)) return undefined
   const def = recipeRegistry.get(recipeId)
   let tightest: { ingredientId: string; needed: number; available: number } | undefined
@@ -77,13 +83,11 @@ function recordUnmetDemand(
     }
   }
   if (!tightest) return undefined
-  return recordShortage(
-    ctx,
-    tightest.ingredientId,
-    tightest.needed,
-    tightest.available,
-    'unmet_demand',
-  )
+  return {
+    stockId: tightest.ingredientId,
+    requested: tightest.needed,
+    available: tightest.available,
+  }
 }
 
 /** Mess drags on how fast tables can be turned round. */
@@ -312,17 +316,27 @@ export function runServiceFlow(
       // moment of ordering, because that is when the demand existed; the
       // delivery step below only ever sees what the cellar could back.
       for (const missed of order.unmet) {
-        const shortage = recordUnmetDemand(ctx, missed.recipeId, missed.servings)
-        if (!shortage) continue
+        const unmet = findUnmetDemand(ctx, missed.recipeId, missed.servings)
+        if (!unmet) continue
         blocked.stock += 1
         party.blockedBy = 'stock'
-        party.notes.push(`No ${shortage.stockId} left for them.`)
+        party.notes.push(`No ${unmet.stockId} left for them.`)
         // Deduped PER GROUP, not globally: "the miners ran out of ale" and
         // "the goblins ran out of ale" are two facts about two crowds, and the
         // weekly reliability signal counts records. Collapsing them to one
         // would understate a night the whole room went short.
         const perGroup = result.shortagesByGroup[party.groupId] ?? []
-        if (!perGroup.some((entry) => entry.stockId === shortage.stockId)) {
+        if (!perGroup.some((entry) => entry.stockId === unmet.stockId)) {
+          // Check the group-local record before calling the mutating stock
+          // helper. Deduplicating only the service result afterward left the
+          // authoritative stock slice full of one identical row per party.
+          const shortage = recordShortage(
+            ctx,
+            unmet.stockId,
+            unmet.requested,
+            unmet.available,
+            'unmet_demand',
+          )
           perGroup.push(shortage)
           result.shortagesByGroup[party.groupId] = perGroup
           shortages.push(shortage)

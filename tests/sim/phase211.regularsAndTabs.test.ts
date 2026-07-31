@@ -315,9 +315,25 @@ describe('Phase 211 §4.5 — a slate is a debt somebody owes', () => {
       (row) => row.id === entry!.obligationId,
     )
     const stillOwed = record ? outstandingAmount(record) : 0
-    // Either they paid something, or the record escalated. Never nothing.
+    // Either they paid something, or the attempt was recorded as a refusal.
+    // A heavily traded day may then overflow-write-off this oldest slate later
+    // in the same pipeline, so the final record is not guaranteed to survive.
     const recovered = owedBefore - totalPatronTabDebt(after)
-    expect(recovered > 0 || (record?.escalation ?? 0) > 0).toBe(true)
+    const applied = (
+      after.modules['ownerActions'] as {
+        applied?: Array<{ actionId: string; targetId?: string; data?: Record<string, unknown> }>
+      }
+    ).applied?.find(
+      (action) =>
+        action.actionId === 'collect_tab' &&
+        action.targetId === entry!.obligationId,
+    )
+    expect(applied).toBeDefined()
+    expect(
+      recovered > 0 ||
+        (record?.escalation ?? 0) > 0 ||
+        applied?.data?.['status'] === 'refused',
+    ).toBe(true)
     expect(stillOwed).toBeLessThanOrEqual(entry ? entry.chases + owedBefore : 0)
 
     // §4.5 "relationship consequence" — being chased is remembered.

@@ -2,6 +2,7 @@ import type { SimContext } from '../../core/context'
 import type { RegularWorldState, TavernState } from '../../state/TavernState'
 import { clampPercent } from '../../state/normalize'
 import type { ServiceFlowResult, ServiceParty } from '../service/flow/types'
+import type { ServiceIncidentSummary } from '../service/types'
 
 import { rememberService } from './regularMemory'
 import { BAD_VISITS_BEFORE_LAPSE, learnPreferences } from './visits'
@@ -48,6 +49,13 @@ export function readServiceFlow(state: TavernState): ServiceFlowResult | undefin
   return flow?.ran ? flow : undefined
 }
 
+function readServiceIncidents(state: TavernState): ServiceIncidentSummary[] {
+  const slice = state.modules['service'] as
+    | { result?: { incidents?: ServiceIncidentSummary[] } }
+    | undefined
+  return slice?.result?.incidents ?? []
+}
+
 /**
  * Fold tonight into every regular who meant to come.
  *
@@ -79,7 +87,7 @@ export function recordVisitOutcomes(
 
     if (party.outcome === 'served') {
       visited.push(regularId)
-      creditVisit(ctx, regular, party, today)
+      creditVisit(ctx, regular, party, flow!, today)
       outcomes.push({
         regularId,
         outcome: 'served',
@@ -113,6 +121,7 @@ function creditVisit(
   ctx: SimContext,
   regular: RegularWorldState,
   party: ServiceParty,
+  flow: ServiceFlowResult,
   today: number,
 ): void {
   const gotFavourite = party.order.some(
@@ -144,21 +153,60 @@ function creditVisit(
   const live = ctx.state.world.regulars[regular.id]
   if (!live) return
 
-  // What they will remember about it. A long wait sours an otherwise fine
-  // night, which is how a kitchen bottleneck reaches a named person.
-  if (gotFavourite) {
-    rememberService(ctx, live, {
+  const shortages = flow.shortagesByGroup[party.groupId] ?? []
+  const shortageNotes = party.notes.filter(
+    (note) => note.startsWith('No ') || note.startsWith('Ran out '),
+  )
+  const incidents = readServiceIncidents(ctx.state).filter(
+    (incident) =>
+      incident.actorGroup === party.groupId ||
+      (party.areaId !== undefined && incident.areaId === party.areaId),
+  )
+  const rememberCurrent = (
+    input: Parameters<typeof rememberService>[2],
+  ): void => {
+    const current = ctx.state.world.regulars[regular.id]
+    if (current) rememberService(ctx, current, input)
+  }
+
+  // Preserve the adverse facts first. A served party can still have had a bad
+  // night: their order ran short, the room erupted, or the kitchen made them
+  // wait. These memory kinds are decision inputs, so leaving them unwritten
+  // made the same regular return as if nothing had happened.
+  let adverse = false
+  if (shortageNotes.length > 0) {
+    adverse = true
+    const stockIds = [...new Set(shortages.map((entry) => entry.stockId))]
+    rememberCurrent({
+      kind: 'shortage',
+      readable:
+        stockIds.length > 0
+          ? `${live.name.display}'s table ran short of ${stockIds.join(', ')}.`
+          : `${live.name.display}'s order could not be filled.`,
+    })
+  }
+  if (incidents.length > 0) {
+    adverse = true
+    const incidentIds = [...new Set(incidents.map((incident) => incident.id))]
+    rememberCurrent({
+      kind: 'incident',
+      readable: `${live.name.display} was caught up in ${incidentIds.join(', ')}.`,
+    })
+  }
+  if (waited) {
+    adverse = true
+    rememberCurrent({
+      kind: 'waited',
+      readable: `${live.name.display} waited ${party.wavesWaited} rounds to be served.`,
+    })
+  } else if (!adverse && gotFavourite) {
+    rememberCurrent({
       kind: 'served_favourite',
       readable: `${live.name.display} got their usual.`,
       standingDelta: 2,
     })
-  } else if (waited) {
-    rememberService(ctx, live, {
-      kind: 'waited',
-      readable: `${live.name.display} waited ${party.wavesWaited} rounds to be served.`,
-    })
-  } else {
-    rememberService(ctx, live, {
+  } else if (!adverse) {
+    rememberCurrent({
       kind: 'good_service',
       readable: `${live.name.display} had a decent night.`,
     })
@@ -180,7 +228,7 @@ function creditVisit(
     })
   }
 
-  applyWordOfMouth(ctx, regular.id, 'recommend')
+  applyWordOfMouth(ctx, regular.id, adverse ? 'criticise' : 'recommend')
 }
 
 /** A bad night, and the third one in a row ends the relationship. */

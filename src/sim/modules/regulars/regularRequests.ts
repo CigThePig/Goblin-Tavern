@@ -55,13 +55,20 @@ function slateFor(ctx: SimContext, regularId: string): number {
  * are read off live state and the first matching one wins, so no RNG is
  * involved in what somebody wants — only in whether they turn up to say it.
  */
-export function openRequests(ctx: SimContext): string[] {
+export function openRequests(
+  ctx: SimContext,
+  arrivingRegularIds: ReadonlyArray<string>,
+): string[] {
   const today = ctx.state.calendar.totalDaysElapsed
   const opened: string[] = []
+  const arrivals = new Set(arrivingRegularIds)
   const regulars = Object.values(ctx.state.world.regulars).sort((a, b) =>
     a.id.localeCompare(b.id),
   )
   for (const regular of regulars) {
+    // Requests are conversations, not mail. A failed visit roll cannot expose
+    // an action or start an expiry penalty for somebody who never arrived.
+    if (!arrivals.has(regular.id)) continue
     if (openRequestFor(regular)) continue
     if (regular.stoppedVisiting) continue
     if ((regular.ownerStanding ?? 50) < MIN_STANDING_TO_ASK) continue

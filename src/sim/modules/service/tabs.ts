@@ -16,6 +16,7 @@ import {
   openObligation,
   outstandingAmount,
   payObligation,
+  scheduleObligationDueDate,
   transitionContract,
   upsertObligation,
   type ObligationRecord,
@@ -241,6 +242,7 @@ export function openPatronTab(
     ],
   })
   upsertObligation(ctx, record, 'patron_tab_opened')
+  scheduleObligationDueDate(ctx, record)
   return {
     obligationId: id,
     debtorKind: input.debtorKind,
@@ -335,6 +337,41 @@ export function forgivePatronTab(
     forgiven: outstanding,
     readable: `Wrote off ${outstanding} coin — ${record.readable}.`,
   }
+}
+
+/**
+ * Forgive every live slate belonging to one debtor.
+ *
+ * A regular's "wipe my slate" request is about their whole balance, including
+ * records that may have fallen out of the service module's bounded chase
+ * index. The obligation ledger is authoritative, so the domain transition
+ * walks that ledger rather than pretending one indexed entry is the balance.
+ */
+export function forgivePatronTabsForDebtor(
+  ctx: SimContext,
+  debtorKind: TabDebtorKind,
+  debtorId: string,
+  reason: string,
+): { obligationIds: string[]; forgiven: number } {
+  const today = ctx.state.calendar.totalDaysElapsed
+  const tag = patronTabTag(debtorKind, debtorId)
+  const records = listPatronTabs(ctx.state).filter((record) =>
+    record.tags.includes(tag),
+  )
+  const obligationIds: string[] = []
+  let forgiven = 0
+  for (const record of records) {
+    const outstanding = outstandingAmount(record)
+    if (outstanding <= 0) continue
+    upsertObligation(
+      ctx,
+      forgiveObligation(record, today, reason),
+      'patron_tab_forgiven',
+    )
+    obligationIds.push(record.id)
+    forgiven += outstanding
+  }
+  return { obligationIds, forgiven }
 }
 
 /**

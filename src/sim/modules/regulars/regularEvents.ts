@@ -429,3 +429,8 @@ export function ensureRegularScheduledEventsRegistered(): void {
   }
   registered = true
 }
+
+// Mid-day reloads skip the regular module's start-day hook. Import-time,
+// idempotent registration keeps delayed regular consequences owned when a
+// saved segment resumes in a fresh process.
+ensureRegularScheduledEventsRegistered()

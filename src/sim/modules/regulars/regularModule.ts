@@ -238,6 +238,7 @@ const regularUpdateHook: SimulationHook = (ctx: SimContext): void => {
   const returnedToday: string[] = []
   for (const regular of sortedRegulars(ctx)) {
     const group = ctx.state.customerGroups[regular.customerGroupId]
+    let visitCandidate = regular
 
     // A lapsed regular is not rolling for a visit — they are checking whether
     // the thing that drove them off has changed (§4.3 "return under changed
@@ -270,13 +271,17 @@ const regularUpdateHook: SimulationHook = (ctx: SimContext): void => {
         relatedSystems: ['regulars'],
         mechanicalRefs: [regular.id],
       })
+      // `modifyRegular` replaces the state record. The loop value still has
+      // `stoppedVisiting`, so assessing that stale object would immediately
+      // block the return we just recorded.
+      visitCandidate = ctx.state.world.regulars[regular.id] ?? regular
     }
 
-    const assessment = assessVisit(ctx, regular, group)
+    const assessment = assessVisit(ctx, visitCandidate, group)
     if (!rollVisit(ctx, assessment)) continue
     intents.push({
-      regularId: regular.id,
-      groupId: regular.customerGroupId,
+      regularId: visitCandidate.id,
+      groupId: visitCandidate.customerGroupId,
       probability: assessment.probability,
       drivers: assessment.drivers,
     })
@@ -284,7 +289,10 @@ const regularUpdateHook: SimulationHook = (ctx: SimContext): void => {
 
   // §4.3 "make requests or pursue a small goal" — at most one open request per
   // person, opened only when they have the standing to ask.
-  const requestsOpened = openRequests(ctx)
+  const requestsOpened = openRequests(
+    ctx,
+    intents.map((intent) => intent.regularId),
+  )
 
   ctx.modifyModuleState<RegularModuleState>(
     REGULARS_MODULE_ID,

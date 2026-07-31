@@ -214,8 +214,6 @@ const serviceHook: SimulationHook = (ctx: SimContext): void => {
           totals: {
             ...base.totals,
             tabsOpened: base.totals.tabsOpened + tabsOpened.length,
-            tabsWrittenOff:
-              base.totals.tabsWrittenOff + (merged.length - kept.length),
           },
         }
       },

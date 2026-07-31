@@ -32,16 +32,21 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > unpaused work**. It is a standalone implementation document — it needs
 > no earlier audit, report, or ledger to execute — and it runs as
 > **ISSUE-170…183 (repo phases 207–220)**, one issue per plan phase 0–13.
-> **ISSUE-170 (Phase 0), ISSUE-171 (Phase 1), ISSUE-172 (Phase 2) and
-> ISSUE-173 (Phase 3) are done** — the baseline is frozen, the implementation
-> ledger exists, the shared contracts are in place, **OBL-01 is closed** (area
-> upgrades can be discovered, quoted, started, funded, paused, resumed,
-> cancelled, built, damaged, disabled, repaired, serviced and persisted, and
-> areas own real physical capacity), and **the staff half of OBL-02 is closed**:
-> staff have employment terms, shifts, stations, absence, cross-training,
-> promotion, relationships, arrears they are actually owed, and they resign —
-> founding staff included. **Next: ISSUE-174 (Phase 4 — service flow, customer
-> choice, active regulars).** The sequence is hard-ordered after that.
+> **ISSUE-170…174 (Phases 0–4) are done** — the baseline is frozen, the
+> implementation ledger exists, the shared contracts are in place, **OBL-01
+> is closed** (area upgrades can be discovered, quoted, started, funded,
+> paused, resumed, cancelled, built, damaged, disabled, repaired, serviced
+> and persisted, and areas own real physical capacity), **the staff half of
+> OBL-02 is closed** (staff have employment terms, shifts, stations, absence,
+> cross-training, promotion, relationships, arrears they are actually owed,
+> and they resign — founding staff included), and **service is now a
+> capacity-constrained flow**: patrons arrive as parties across six waves,
+> compete for seats/kitchen/delivery/reset throughput, choose dishes on a
+> scored comparison, run out of patience, run tabs, and regulars remember
+> what happened and decide whether to come back. **Next: ISSUE-175 (Phase 5 —
+> economy: quality→cash feedback, operating costs, failure/recovery states,
+> adaptive demand, enforceable policies).** The sequence is hard-ordered
+> after that.
 >
 > Everything else below — the Complete Surface resume points, the
 > onboarding arc, the standing tails — is **paused, not cancelled**, and
@@ -284,7 +289,7 @@ rather than rebuilding those routes.
 | ISSUE-171 | Expansion Phase 1 — shared contracts: typed scheduled events, obligation primitives, persistent ruleset, causal coverage, informative meters, actor interface | broken | done | 208 |
 | ISSUE-172 | Expansion Phase 2 — areas, construction, and the complete upgrade lifecycle (OBL-01) | broken | done | 209 |
 | ISSUE-173 | Expansion Phase 3 — persistent workforce: contracts, schedules, relationships, real resignation (staff half of OBL-02) | broken | done | 210 |
-| ISSUE-174 | Expansion Phase 4 — capacity-constrained service flow, customer choice, active regulars, patron tabs | thin | open | 211 |
+| ISSUE-174 | Expansion Phase 4 — capacity-constrained service flow, customer choice, active regulars, patron tabs | thin | done | 211 |
 | ISSUE-175 | Expansion Phase 5 — economy: quality→cash feedback, operating costs, failure/recovery states, adaptive demand, enforceable policies | broken | open | 212 |
 | ISSUE-176 | Expansion Phase 6 — transactional suppliers: orders, deliveries, credit, invoices (OBL-04) | broken | open | 213 |
 | ISSUE-177 | Expansion Phase 7 — loans, tenancy, and a real inspection lifecycle (OBL-03 + loan/eviction half of OBL-02) | broken | open | 214 |
@@ -744,6 +749,98 @@ beats with somebody on notice, somebody owed back pay, a cross-trained second
 trade and a live relationship graph, plus full-day-vs-segmented equivalence
 across a fortnight crossing a separation and a wage settlement). All three run in
 seconds, so none joins `HEAVY_TEST_GLOBS`.
+
+**ISSUE-174 / Phase 4 — done 2026-07-31.** Full record in the plan's Phase 4
+section ("What Phase 4 actually landed"); per-requirement detail in
+`docs/plans/expansion/ledger.csv` row **`DEP-05`** and nine `HOOK-*` rows. No
+per-phase plan doc, per the arc's convention.
+
+Service was one multiplication — turnout × spend rate × satisfaction factor,
+with stock drawn down afterwards to match. Nothing inside it could be a
+bottleneck, because there was no inside; Phase 2's kitchen throughput and
+Phase 3's roster contribution both fed report lines and never reached the till.
+Now:
+
+- **Patrons arrive as parties across six waves**, capped at 48 parties of at
+  most 12 (the §5.11 caps), with headcount conserved exactly when the cap binds.
+  Party size and arrival curve key off `trafficPattern`, so a busy night is a
+  different *shape* of evening rather than a bigger number. Regulars get their
+  parties first, so a named participant is never squeezed out.
+- **Four stages can each be the tightest** — seating, kitchen prep, delivery,
+  table reset — derived from the real area and staff rosters, with the default
+  crew scoring exactly 1 so the reference route moved only because service has
+  an interior now. The kitchen is deliberately tightest, which is what connects
+  area upgrades to takings. The report names the binding stage in words.
+- **Patience is a clock and abandonment is an outcome** (`served`,
+  `abandoned_queue`, `abandoned_wait`, `unserved_at_close`). Table reset scales
+  with the room's actual mess, so a dirty area is slow rather than merely
+  unpleasant.
+- **Customers choose on eleven bounded terms**, with hard vetoes only for
+  off-menu items and a group's disliked tags. **Stock is deliberately not a
+  veto** — wanting what the house ran out of is the content of a shortage, so
+  the unmet want is recorded against the recipe's tightest input instead of
+  being rewritten into a want for something in the cellar.
+- **Regulars are people with a history**: decaying service memory (half-life 14
+  days, capped at 8 entries), owner standing, a *learned* usual dish and usual
+  seat, open requests, word of mouth, and a lapse after three bad visits with a
+  real condition for coming back rather than a timer.
+- **Tabs are owed by somebody** — regular, group cohort or anonymous, with
+  collection odds following from that — settled or forgiven by the player and
+  swept on `endDay` under declared due/cap/write-off rules.
+- **Nine hook families became mechanical** (five service, three regular).
+  `merchant_flight_possible` is recorded as staying narrative and its ledger row
+  moved to Phase 6, where its subject will exist. **Four owner actions** —
+  `collect_tab`, `forgive_tab`, `greet_regular`, `answer_regular_request`.
+  Owner actions 51 → 55.
+
+**The duplication this phase had to avoid, and did.** `customers/purchases.ts`
+and `customers/impact.ts` were **deleted** rather than left as a second writer
+of sales and area wear — the Phase 3 fatigue lesson applied before it could
+bite. Customers own demand and satisfaction, service owns the flow and the
+slates and area wear, regulars own identity and memory and outcomes.
+
+**Judgement calls worth carrying forward.** Coin is booked at **delivery**, not
+at "served", or the ledger and `coinEarned` disagree by whatever the last wave
+could not carry out. Tabs are per head and rounded **once per debtor** —
+rounding per party inflated slates to 43% of takings. `coinByGroup` stays
+**gross**, because `netCoinEarned` already subtracts tabs and netting twice is a
+silent 2× on the worst nights. The brawl rule uses ratios and **peak concurrent
+occupancy**, so a busy tavern is not automatically a violent one.
+
+**Determinism cost more care than the rules did.** Zod rebuilds objects in
+schema order and the day diff renders slices as JSON, so key order is
+load-bearing: literal order now matches schema order, `bottleneck` moved last
+(the flow assigns it last), and `normaliseParty` **omits** absent optionals
+because an explicit `undefined` survives `structuredClone` but breaks the
+baseline-patch encoder. One `regularDefaults.ts` is shared by the factory,
+emergence and the migration, so a migrated save and a fresh one produce
+byte-identical regulars. Two new streams (`service_flow`, `regular_behaviour`),
+15 → 19.
+
+**Three probes drifted and were regenerated deliberately** — `quality-focused`,
+`staff-focused`, `responsive-route`, all on `causes` only, which is the tab
+write-off sweep recording why a slate closed. The Wave 7 harness was re-pinned
+with the movement recorded: 3.21 → 3.18 cards/day, 823 → 819 patrons,
+`finalCoin` 1,043 → 1,078. A 3% move in the till while the entire interior of
+service was replaced is the evidence the calibration held. Glossary 135 → 143.
+
+**One pre-existing gap found and deliberately not fixed here:**
+`reconcilePicksWithSurfaced` covers only the `violence` family, so
+`regular_customer` rotation is unenforced. That is ISSUE-169, which the tracker
+assigns to Phase 11 — recorded in `tests/sim/phase54.regularCustomer.test.ts`
+with a note rather than patched out of sequence.
+
+Gates: `npm run test:full` **316 files / 4,162 tests**, `typecheck` clean,
+`check` 1,052 files / 0 errors, `build` passing (same known >500 kB chunk
+warning), and all three expansion artifacts clean — `ledger:check` 134 rows (done 33),
+`baseline:probes` 0 drifted, `repo:map` 0 sections drifted. Tests:
+`tests/sim/phase211.serviceFlow.test.ts` (19),
+`phase211.regularsAndTabs.test.ts` (11), `phase211.serviceEvents.test.ts` (10),
+`phase211.regularEvents.test.ts` (8),
+`phase211.serviceBeatPersistence.test.ts` (5 — a reload at every day beat the
+new lifecycle crosses, with a live slate, an open request and a lapsing
+regular, plus full-day-vs-segmented equivalence). All five run in seconds, so
+none joins `HEAVY_TEST_GLOBS`.
 
 ### Tier 7 — Gameplay-audit remediation (closed 2026-07-28; entry retained until the next documentation cleanup as the resume map)
 

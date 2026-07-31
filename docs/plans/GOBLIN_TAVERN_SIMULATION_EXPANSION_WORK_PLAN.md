@@ -1440,6 +1440,133 @@ Replace aggregate unpaid-tab deduction as the final authority with bounded debt 
 
 Service no longer resolves as one opaque aggregate pass. Capacity, queues, allocation, patience, and individual regular behavior create the day’s results.
 
+## What Phase 4 actually landed (2026-07-31, ISSUE-174)
+
+Per-requirement detail is in `docs/plans/expansion/ledger.csv` (row `DEP-05`
+plus nine `HOOK-*` rows). No per-phase plan doc, per the arc's convention.
+
+**The shape of the old pass, and why it had to go.** Service used to be one
+multiplication: turnout × a spend rate × a satisfaction factor, with stock
+drawn down afterwards to match. Nothing inside it could be a bottleneck,
+because there was no inside. Two systems the previous phases had just built
+were therefore unreachable from the till — Phase 2's `getKitchenThroughputFactor`
+and Phase 3's roster contribution both fed report lines and nothing else. Now:
+
+- **Patrons arrive as parties across six waves.** `SERVICE_WAVES = 6`,
+  `MAX_PARTIES_PER_DAY = 48`, `MAX_PARTY_SIZE = 12` — the §5.11 caps, and
+  headcount is conserved exactly when the party cap binds (surplus patrons
+  join existing parties rather than vanishing). Party size and the arrival
+  curve are keyed on `trafficPattern`, so a `busy_night` is a different
+  *shape* of evening and not just a larger number. Regulars get their parties
+  first, so a named participant is never squeezed out by the cap.
+- **Four stages can each be the tightest.** `capacity.ts` derives per-wave
+  ceilings for seating, kitchen prep, delivery and table reset from the real
+  area roster and the real staff roster. `stageFactor(contribution, floor)`
+  is built so the default crew scores exactly 1 — the reference route did not
+  move because the crew changed, only because service now has an interior.
+  The kitchen is deliberately the tightest stage (`BASE_PREP_PER_WAVE = 40`
+  against `BASE_DELIVERY_PER_WAVE = 48`), which is what finally connects
+  Phase 2's kitchen upgrades to the day's takings. `findBottleneck` names the
+  binding stage and the report says so in words.
+- **Patience is a clock, and abandonment is an outcome.** A party leaves the
+  queue, leaves after being seated, or is still waiting at close —
+  `PartyOutcome` has four values and the aggregate can no longer round them
+  into one satisfaction number. Seating buys a party one extra wave of
+  patience; `DWELL_WAVES = 1` governs turnover, and table reset is scaled by
+  the area's actual mess, so a dirty room is slow rather than merely
+  unpleasant.
+- **Customers choose, on eleven bounded terms.** `choice.ts` scores each menu
+  recipe on preference, price, quality, experience, wait, reputation, culture,
+  purpose, competitor, regular favourite and novelty (`TERM_CAP = 2` each),
+  with hard vetoes only for off-menu items and a group's `dislikedTags`.
+  **Stock is deliberately not a veto** — wanting what the house ran out of is
+  the whole content of a shortage, so an unmet want is recorded against the
+  recipe's tightest input instead of being quietly rewritten into a want for
+  something else.
+- **Regulars are people with a history.** `serviceMemory` (half-life 14 days,
+  capped at 8 entries), `ownerStanding`, a learned `favoriteRecipeId` and
+  `favoriteAreaId`, `consecutiveBadVisits`, `stoppedVisiting`, `wordOfMouth`
+  and an `openRequest`. `assessVisit` is pure and returns its own drivers, so
+  why a regular did not come is answerable rather than inferred. Three bad
+  visits lapse them (`BAD_VISITS_BEFORE_LAPSE = 3`, `MIN_LAPSE_DAYS = 5`), and
+  the way back is a real condition, not a timer.
+- **Tabs are owed by somebody.** `TabDebtorKind` is `regular | group |
+  anonymous`, collection probability follows from that (0.7 / 0.4 / 0.15), and
+  `collect_tab` / `forgive_tab` are the counterplay. `sweepPatronTabs` on
+  `endDay` is the §5.11 rule: `TAB_DUE_DAYS = 5`, `MAX_OPEN_PATRON_TABS = 40`,
+  `TAB_WRITE_OFF_DAYS = 5`.
+- **Nine hook families became mechanical** — five service
+  (`brawl_possible`, `security_routine`, `food_poisoning_outbreak`,
+  `apology_expectation` inherited from Phase 3, `banned_group_returns`) and
+  three regular (`favour_owed`, `grudge`, `word_credibility`).
+  `merchant_flight_possible` is recorded as staying narrative and its ledger
+  row moved to Phase 6, where its subject (a supplier relationship) will exist.
+- **Four owner actions** — `collect_tab`, `forgive_tab`, `greet_regular`,
+  `answer_regular_request`. Owner actions 51 → 55.
+
+**Ownership, stated once so it stays stated.** Customers own demand and
+satisfaction; service owns the flow, the slates and area wear; regulars own
+identity, memory, requests and outcomes. `customers/purchases.ts` and
+`customers/impact.ts` were **deleted** rather than left as a second writer —
+the Phase 3 lesson about two rules moving one meter, applied before it could
+bite. `customers/serviceHook` now publishes a `CustomerDemand` and nothing
+else, and folds the flow's outcome back into its turnouts afterwards.
+
+**Judgement calls worth carrying forward.** Coin is booked at **delivery**,
+not at "served", because otherwise the ledger and `coinEarned` disagree by
+whatever the last wave could not carry out. Tabs are computed **per head** and
+rounded **once per debtor** — rounding per party inflated slates to 43% of
+takings. `coinByGroup` stays **gross**, because `netCoinEarned = coinEarned -
+unpaidTabs` already subtracts them and netting twice is a silent 2× on the
+worst nights. The brawl rule uses **ratios and peak concurrent occupancy**
+rather than the night's total, so a busy tavern is not automatically a violent
+one. Shortages dedupe **per group**, because two cohorts wanting the same
+missing dish is two facts.
+
+**Determinism cost more care than the rules did.** Zod rebuilds objects in
+schema order and the day diff renders module slices as JSON strings, so key
+order is load-bearing: a reloaded day serialised differently from the live one
+until the literal order matched the schema order, `bottleneck` moved last in
+`ServiceFlowResultSchema` (the flow assigns it last), and `normaliseParty`
+began rebuilding parties in schema order while **omitting** absent optionals —
+an explicit `undefined` survives `structuredClone` but breaks the baseline-patch
+encoder. `regularDefaults.ts` is shared by the factory, by emergence and by the
+migration, so a migrated save and a fresh one produce byte-identical regulars.
+Two new named RNG streams (`service_flow`, `regular_behaviour`) keep the flow's
+rolls from shifting anybody's generated name; streams 17 → 19.
+
+**Three probes drifted and were regenerated deliberately** —
+`quality-focused`, `staff-focused` and `responsive-route`, all on `causes`
+only, which is the tab write-off sweep recording why a slate was closed. The
+Wave 7 balance harness was **re-pinned with the movement recorded**: 3.21 →
+3.18 cards/day, 823 → 819 patrons, `finalCoin` 1,043 → 1,078. That the till
+moved by 3% while the entire interior of service was replaced is the evidence
+that the calibration held; `SERVINGS_PER_PATRON = 2.4` was chosen against the
+till, not against a plate count. `repo-map.json` moved on `rngStreams`,
+`ownerActions` and `glossaryTerms` (135 → 143 — eight new mechanic terms:
+`service_flow`, `bottleneck`, `party`, `patience`, `patron_tab`,
+`owner_standing`, `regular_request`, `lapsed_regular`).
+
+**One pre-existing gap found and deliberately not fixed here.**
+`reconcilePicksWithSurfaced` only covers the `violence` family, so
+`regular_customer` rotation is unenforced — that is ISSUE-169, which the
+tracker assigns to Phase 11 (§11.6 attention fairness). It is recorded in
+`tests/sim/phase54.regularCustomer.test.ts` with a note rather than patched
+out of sequence.
+
+Gates: `npm run test:full` **316 files / 4,162 tests**, `typecheck` clean,
+`check` 1,052 files / 0 errors, `build` passing (same known >500 kB chunk
+warning), and all three expansion artifacts clean — `ledger:check` 134 rows (done 33),
+`baseline:probes` 0 drifted, `repo:map` 0 sections drifted. Tests:
+`tests/sim/phase211.serviceFlow.test.ts` (19),
+`phase211.regularsAndTabs.test.ts` (11),
+`phase211.serviceEvents.test.ts` (10),
+`phase211.regularEvents.test.ts` (8),
+`phase211.serviceBeatPersistence.test.ts` (5 — a reload at every day beat the
+new lifecycle crosses, with a live slate, an open request and a lapsing
+regular, plus full-day-vs-segmented equivalence). All five run in seconds, so
+none joins `HEAVY_TEST_GLOBS`.
+
 ---
 
 # Phase 5 — Repair economy, demand, failure, and recovery

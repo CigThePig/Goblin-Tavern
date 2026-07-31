@@ -215,8 +215,8 @@ describe('Phase 207 — implementation ledger', () => {
     // which the arc's conventions forbid. Bump `LANDED_PHASES` when a phase
     // completes, and never to make a failing row pass.
     // Phase 0 (ISSUE-170), Phase 1 (ISSUE-171), Phase 2 (ISSUE-172),
-    // Phase 3 (ISSUE-173).
-    const LANDED_PHASES = 3
+    // Phase 3 (ISSUE-173), Phase 4 (ISSUE-174).
+    const LANDED_PHASES = 4
     const closedEarly = rows.filter(
       (r) => r.status !== 'open' && Number(r.phase) > LANDED_PHASES,
     )

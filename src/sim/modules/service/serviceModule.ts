@@ -15,7 +15,11 @@ import type { ResolveServiceInputs } from './resolveService'
 import { applyRecipesEndOfDay } from './recipesDaily'
 import { buildServiceScenes } from './serviceScenes'
 import { emptyFlowResult, ServiceFlowResultSchema } from './flow/types'
-import { MAX_OPEN_PATRON_TABS, PatronTabIndexEntrySchema } from './tabs'
+import {
+  MAX_OPEN_PATRON_TABS,
+  PatronTabIndexEntrySchema,
+  sweepPatronTabs,
+} from './tabs'
 import { ensureServiceScheduledEventsRegistered } from './serviceEvents'
 import type {
   AreaChangeSummary,
@@ -458,6 +462,51 @@ function collectSatisfactionChanges(
     })
   }
   return out
+}
+
+/**
+ * Expansion Phase 4 §5.11 — close out the slates nobody is going to pay.
+ *
+ * The obligation ledger has its own 120-record cap and a receivable that is
+ * never paid is never *settled*, so without this a fortnight of trading trips
+ * it. Writing one off drops its index entry too — there is nobody left to
+ * chase — and the coin given up is counted in the module's totals so the loss
+ * is on the record rather than merely absent.
+ */
+const sweepPatronTabsHook: SimulationHook = (ctx: SimContext): void => {
+  const swept = sweepPatronTabs(ctx)
+  if (swept.writtenOff.length === 0) return
+  const gone = new Set(swept.writtenOff)
+  ctx.modifyModuleState<ServiceModuleState>(
+    SERVICE_MODULE_ID,
+    (current) => {
+      const base = current ?? createInitialServiceModuleState()
+      return {
+        ...base,
+        patronTabs: base.patronTabs.filter(
+          (entry) => !gone.has(entry.obligationId),
+        ),
+        totals: {
+          ...base.totals,
+          tabsWrittenOff: base.totals.tabsWrittenOff + swept.writtenOff.length,
+        },
+      }
+    },
+    { source: SOURCE, reason: 'patron_tabs_written_off' },
+  )
+  if (swept.coinLost > 0) {
+    ctx.addCause({
+      source: 'service.tabs.written_off',
+      sourceType: 'service',
+      target: 'global.coin',
+      targetType: 'global',
+      amount: -swept.coinLost,
+      direction: 'decrease',
+      readable: `Gave up on ${swept.writtenOff.length} slate(s) — ${swept.coinLost} coin nobody was going to pay.`,
+      tags: ['service', 'patron_tab', 'written_off'],
+      relatedSystems: ['service'],
+    })
+  }
 }
 
 // ---------- Reports ----------
@@ -974,7 +1023,12 @@ export const serviceModule: SimulationModule = {
     afterService: [afterServiceHook],
     // Phase 67 / ISSUE-027 §6.6 — recipes daily housekeeping +
     // common-only renown decay.
-    endDay: [(ctx: SimContext): void => applyRecipesEndOfDay(ctx)],
+    // Expansion Phase 4 §5.11 — and the slate sweep, which is what keeps the
+    // shared obligation ledger from filling with dead receivables.
+    endDay: [
+      (ctx: SimContext): void => applyRecipesEndOfDay(ctx),
+      sweepPatronTabsHook,
+    ],
   },
   buildReport: buildDailyServiceReport,
   validate: validateService,

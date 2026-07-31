@@ -205,12 +205,14 @@ describe('Phase 211 §4.3 — a regular is a participant, not a counter', () => 
   })
 
   it('a regular asks for something, and the answer is recorded', () => {
-    // A cellar with no ale is the condition that makes somebody ask for their
-    // usual back.
+    // The sequence matters, and it is the natural one: they have to drink here
+    // long enough to acquire a usual before running out of it can be something
+    // they mind. A cellar that never had ale in it produces nobody whose usual
+    // is ale — preferences are LEARNED from what was actually served (§4.3).
     let state = withCoin(stocked(createInitialTavernState()), 400)
     let asker: string | undefined
-    for (let day = 0; day < 20 && !asker; day += 1) {
-      state = withStock(state, 'ale', { quantity: 0 })
+    for (let day = 0; day < 25 && !asker; day += 1) {
+      state = day >= 8 ? withStock(state, 'ale', { quantity: 0 }) : stocked(state)
       const result = runDay(state, day)
       state = result.state
       asker = Object.values(state.world.regulars).find(

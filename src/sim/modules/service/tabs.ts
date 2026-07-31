@@ -337,6 +337,64 @@ export function forgivePatronTab(
   }
 }
 
+/**
+ * Days past due-plus-grace before the house gives up on a slate.
+ *
+ * §5.11 bounded growth, and the reason it needs a rule at all: a receivable
+ * that nobody pays is never *settled*, so without this the obligation ledger
+ * fills with dead slates until it trips its own 120-record cap — which is
+ * exactly what a fortnight of trading did to the first draft of this phase.
+ * A tavern stops chasing a two-week-old slate; so does the ledger.
+ */
+export const TAB_WRITE_OFF_DAYS = 5
+
+export type TabSweepResult = {
+  /** Obligation ids written off. */
+  writtenOff: string[]
+  /** Coin given up on. */
+  coinLost: number
+}
+
+/**
+ * Close out the slates nobody is going to pay.
+ *
+ * Two rules, both bounded: anything past due + grace + `TAB_WRITE_OFF_DAYS`
+ * goes, and if that still leaves more than `MAX_OPEN_PATRON_TABS` live the
+ * oldest go too. Written off, not forgiven: the difference matters, because
+ * `forgiven` is a gesture the player made and this is the house giving up.
+ */
+export function sweepPatronTabs(ctx: SimContext): TabSweepResult {
+  const today = ctx.state.calendar.totalDaysElapsed
+  const live = listPatronTabs(ctx.state)
+  const result: TabSweepResult = { writtenOff: [], coinLost: 0 }
+
+  const stale = live.filter((record) => {
+    const due = record.dueOnDay ?? record.openedOnDay
+    return today > due + record.graceDays + TAB_WRITE_OFF_DAYS
+  })
+  const remaining = live.filter((record) => !stale.includes(record))
+  const overflow =
+    remaining.length > MAX_OPEN_PATRON_TABS
+      ? remaining.slice(0, remaining.length - MAX_OPEN_PATRON_TABS)
+      : []
+
+  for (const record of [...stale, ...overflow]) {
+    const outstanding = outstandingAmount(record)
+    const closed = transitionContract(
+      record,
+      'expired',
+      today,
+      stale.includes(record)
+        ? 'nobody was ever going to pay it'
+        : 'too many slates to keep chasing',
+    )
+    upsertObligation(ctx, closed, 'patron_tab_written_off')
+    result.writtenOff.push(record.id)
+    result.coinLost += outstanding
+  }
+  return result
+}
+
 /** Give up on a slate nobody is going to pay. */
 export function writeOffPatronTab(
   ctx: SimContext,

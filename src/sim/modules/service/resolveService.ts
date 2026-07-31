@@ -202,10 +202,16 @@ export type ResolveServiceInputs = {
   stockBefore: Record<string, { quantity: number }>
 }
 
+export type ResolveServiceOutput = {
+  result: DailyServiceResult
+  /** Slates opened tonight, for the service module's persistent index. */
+  tabsOpened: PatronTabIndexEntry[]
+}
+
 export function resolveService(
   ctx: SimContext,
   inputs: ResolveServiceInputs,
-): DailyServiceResult {
+): ResolveServiceOutput {
   const quality = readServiceQuality(ctx.state)
   const dayType = ctx.getDayType()
   const result = buildEmptyResult(ctx.state)
@@ -316,7 +322,7 @@ export function resolveService(
     )
   }
 
-  return result
+  return { result, tabsOpened: tabs.opened }
 }
 
 /**
@@ -386,11 +392,12 @@ function openTabsForFlow(
     if (amount <= 0) return
     const entry = make(amount)
     if (!entry) return
+    // `coinByGroup` stays GROSS — what the group's bill came to — and the slate
+    // is recorded beside it. Netting it off here would have subtracted the tab
+    // twice, because `netCoinEarned` is `coinEarned − unpaidTabs`; that is the
+    // arithmetic the pre-Phase-4 result used, and the ledger's `sales` total is
+    // gross, so gross is what the two have to agree on.
     flow.tabByGroup[groupId] = (flow.tabByGroup[groupId] ?? 0) + amount
-    flow.coinByGroup[groupId] = Math.max(
-      0,
-      (flow.coinByGroup[groupId] ?? 0) - amount,
-    )
     // Cap the till hit at what is actually in it, so the schema's
     // non-negative-coin invariant holds even when a night goes badly.
     const deduction = Math.min(ctx.state.coin, amount)

@@ -448,6 +448,12 @@ export function runServiceFlow(
         if (line) line.delivered += got
         if (got > 0) {
           party.paid += perServing * got
+          // Coin is booked HERE, where the plate and the money changed hands —
+          // not when the party is finally marked served. A party that was
+          // partly fed and then walked out still paid for what it ate, and the
+          // coin ledger has that money; booking it at "served" left the
+          // aggregate short of the ledger by exactly those sales.
+          bump(result.coinByGroup, party.groupId, perServing * got)
           summary.delivered += got
           delivered.set(party.id, (delivered.get(party.id) ?? 0) + got)
         }
@@ -476,7 +482,6 @@ export function runServiceFlow(
       party.blockedBy = undefined
       summary.served += party.size
       bump(result.servedByGroup, party.groupId, party.size)
-      bump(result.coinByGroup, party.groupId, party.paid)
     }
 
     // ---- 8. turnover. Parties that have had their dwell leave. ----

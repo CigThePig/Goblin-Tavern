@@ -539,7 +539,12 @@ export function buildRoster(ctx: SimContext): {
     const priorityId = member.currentPriority
     const areaId = defaultAreaFor(member, priorityId)
     const workKind = workKindFor(member, priorityId)
-    const available = !member.absence && shift !== 'rest'
+    // `unavailable` counts as well as `absence`. The two travel together
+    // everywhere the sim sets them, but `isOnDuty` — the predicate that decides
+    // who can cover, teach or be taught — checks both, and a roster that
+    // disagreed with it would put somebody on the rota that no other query
+    // thought was working.
+    const available = !member.absence && member.unavailable !== true && shift !== 'rest'
     const notes: string[] = []
 
     if (member.absence) {

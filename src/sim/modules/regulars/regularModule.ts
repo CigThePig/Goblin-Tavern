@@ -21,6 +21,7 @@ import {
 } from './state'
 import { buildRegularReport } from './regularReport'
 import { regularServiceDefaults } from './regularDefaults'
+import { ensureRegularScheduledEventsRegistered } from './regularEvents'
 import { assessVisit, returnCondition, rollVisit } from './visits'
 import { openRequests, sweepRequests } from './regularRequests'
 import { recordVisitOutcomes } from './regularOutcomes'
@@ -182,6 +183,8 @@ function createRegular(
 
 
 const startDayHook: SimulationHook = (ctx: SimContext): void => {
+  // Expansion Phase 4 §4.3 — register before the response bridge needs them.
+  ensureRegularScheduledEventsRegistered()
   ctx.modifyModuleState<RegularModuleState>(
     REGULARS_MODULE_ID,
     () => createInitialRegularModuleState(),

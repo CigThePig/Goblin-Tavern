@@ -15,7 +15,8 @@ import type { ResolveServiceInputs } from './resolveService'
 import { applyRecipesEndOfDay } from './recipesDaily'
 import { buildServiceScenes } from './serviceScenes'
 import { emptyFlowResult, ServiceFlowResultSchema } from './flow/types'
-import { PatronTabIndexEntrySchema } from './tabs'
+import { MAX_OPEN_PATRON_TABS, PatronTabIndexEntrySchema } from './tabs'
+import { ensureServiceScheduledEventsRegistered } from './serviceEvents'
 import type {
   AreaChangeSummary,
   CustomerSatisfactionChange,
@@ -48,6 +49,9 @@ import type {
 
 export const SERVICE_MODULE_ID = 'service'
 const SOURCE = SERVICE_MODULE_ID
+
+/** §5.11 — how many slates the house keeps a chaseable record of. */
+const MAX_TRACKED_PATRON_TABS = MAX_OPEN_PATRON_TABS
 
 // Expansion Phase 4 — KEY ORDER HERE IS LOAD-BEARING, and matches
 // `ServiceModuleStateSchema` below.
@@ -129,6 +133,9 @@ function writeResult(
 // ---------- Hooks ----------
 
 const startDayHook: SimulationHook = (ctx: SimContext): void => {
+  // Expansion Phase 4 §4.4 — the service module's mechanical event types must
+  // be registered before the response bridge routes a hook to one.
+  ensureServiceScheduledEventsRegistered()
   // Reset the per-day service slice so reports and downstream callers
   // never read stale data from yesterday.
   //
@@ -177,8 +184,40 @@ const serviceHook: SimulationHook = (ctx: SimContext): void => {
       ]),
     ),
   }
-  const result = resolveService(ctx, inputs)
+  const { result, tabsOpened } = resolveService(ctx, inputs)
   writeResult(ctx, result, 'service_resolved')
+  // Expansion Phase 4 §4.5 — file tonight's slates in the persistent index.
+  //
+  // §5.11 bounded growth: the index is capped, and the oldest smallest slates
+  // are dropped when it overflows rather than accumulating for a year. Dropping
+  // the INDEX entry does not lose the money — the obligation ledger keeps its
+  // own record and its own due/grace/default clock — it only means the house
+  // has stopped tracking who to chase, which is the honest reading of a slate
+  // that has aged out.
+  if (tabsOpened.length > 0) {
+    ctx.modifyModuleState<ServiceModuleState>(
+      SERVICE_MODULE_ID,
+      (current) => {
+        const base = current ?? createInitialServiceModuleState()
+        const merged = [...base.patronTabs, ...tabsOpened]
+        const kept =
+          merged.length > MAX_TRACKED_PATRON_TABS
+            ? merged.slice(merged.length - MAX_TRACKED_PATRON_TABS)
+            : merged
+        return {
+          ...base,
+          patronTabs: kept,
+          totals: {
+            ...base.totals,
+            tabsOpened: base.totals.tabsOpened + tabsOpened.length,
+            tabsWrittenOff:
+              base.totals.tabsWrittenOff + (merged.length - kept.length),
+          },
+        }
+      },
+      { source: SOURCE, reason: 'patron_tabs_opened' },
+    )
+  }
   snapshot = undefined
 }
 
@@ -430,6 +469,70 @@ function formatTrafficLines(result: DailyServiceResult): string[] {
   return sorted.map(([id, visitors]) => `  ${id}: ${visitors}`)
 }
 
+/**
+ * Expansion Phase 4 §4.1 — the service-flow block, and the reconciliation the
+ * plan's last required test asks for.
+ *
+ * Everything here is read off `result.flow`, and the aggregate figures below it
+ * in the report are DERIVED from the same object — so "reports reconcile
+ * service substeps to aggregate ledger totals" is a property of there being one
+ * calculation, not of two calculations agreeing. The block states the identity
+ * explicitly (`arrived = served + left + still in`) so a reader can check it
+ * without the test.
+ */
+function formatFlowLines(result: DailyServiceResult): string[] {
+  const flow = result.flow
+  const lines: string[] = ['Service Flow:']
+  if (!flow.ran) {
+    lines.push('  (no service)')
+    lines.push('')
+    return lines
+  }
+
+  const sum = (record: Record<string, number>): number =>
+    Object.values(record).reduce((total, value) => total + value, 0)
+  const arrived = sum(flow.demandByGroup)
+  const served = sum(flow.servedByGroup)
+  const abandoned = sum(flow.abandonedByGroup)
+
+  lines.push(
+    `  Arrived ${arrived} · seated ${sum(flow.seatedByGroup)} · served ${served} · left unserved ${abandoned}`,
+  )
+  lines.push(
+    `  Capacity: ${flow.capacity.seats} seats · ${flow.capacity.prepPerWave} prepped/wave · ` +
+      `${flow.capacity.deliveryPerWave} carried/wave · ${flow.capacity.resetPerWave} tables wiped/wave`,
+  )
+  lines.push(`  Peak queue: ${flow.peakQueue} · parties: ${flow.parties.length}`)
+  if (flow.bottleneck) {
+    lines.push(
+      `  Bottleneck: ${flow.bottleneck.reason} — ${flow.bottleneck.readable} (${flow.bottleneck.partiesHeld} party-waves held)`,
+    )
+  } else {
+    lines.push('  Bottleneck: none — the room kept up.')
+  }
+  if (flow.unresetSeats > 0) {
+    lines.push(`  Left unwiped at close: ${flow.unresetSeats} seats`)
+  }
+  for (const wave of flow.waves) {
+    lines.push(
+      `    wave ${wave.wave}: +${wave.arrived} in, ${wave.seated} seated, ${wave.served} served, ` +
+        `${wave.abandoned} gone, ${wave.prepared}/${wave.delivered} prepped/carried`,
+    )
+  }
+  // The identity the reconciliation test checks.
+  lines.push(
+    `  Reconciles: served ${served} + unserved ${abandoned} = ${served + abandoned} of ${arrived} arrivals`,
+  )
+  lines.push(
+    `  Takings reconcile: coin ${result.coinEarned} − slates ${result.unpaidTabs} = net ${result.netCoinEarned}`,
+  )
+  if (result.tabsOpened.length > 0) {
+    lines.push(`  Slates opened: ${result.tabsOpened.length}`)
+  }
+  lines.push('')
+  return lines
+}
+
 function bestSellingItem(result: DailyServiceResult): string | undefined {
   let best: { id: string; coin: number } | undefined
   for (const purchase of Object.values(result.purchasesByGroup)) {
@@ -454,6 +557,9 @@ function buildDailyServiceReport(ctx: SimContext): ReportSection {
   lines.push('Traffic:')
   lines.push(...formatTrafficLines(result))
   lines.push('')
+
+  // Expansion Phase 4 §4.1 — the evening, stage by stage.
+  lines.push(...formatFlowLines(result))
 
   lines.push('Economy:')
   lines.push(`  Coin earned: ${result.coinEarned}`)

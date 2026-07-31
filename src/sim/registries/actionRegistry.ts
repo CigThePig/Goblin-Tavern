@@ -7,6 +7,7 @@ import { POLICY_ACTIONS } from '../modules/ownerActions/policyActions'
 import { SOCIAL_ACTIONS } from '../modules/ownerActions/socialActions'
 import { AREA_UPGRADE_ACTIONS } from '../modules/ownerActions/upgradeActions'
 import { WORKFORCE_ACTIONS } from '../modules/ownerActions/workforceActions'
+import { SERVICE_ACTIONS } from '../modules/ownerActions/serviceActions'
 import type { OwnerActionDefinition } from '../modules/ownerActions/types'
 
 // Phase 13 §13.1 — Owner action registry.
@@ -49,6 +50,10 @@ export function ensureRequiredOwnerActionsRegistered(): void {
     // their ids and move here from `staffManagementActions.ts`, rebuilt around
     // the applicant board and the notice/severance lifecycle.
     ...WORKFORCE_ACTIONS,
+    // Expansion Phase 4 §"Player-facing work" — the service-floor actions:
+    // chasing and wiping patron slates, and the two that treat a regular as
+    // somebody you can actually talk to.
+    ...SERVICE_ACTIONS,
   ]
   for (const def of all) {
     if (!actionRegistry.has(def.id)) {

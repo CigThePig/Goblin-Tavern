@@ -340,7 +340,20 @@ export function runServiceFlow(
       // moment of ordering, because that is when the demand existed; the
       // delivery step below only ever sees what the cellar could back.
       for (const missed of order.unmet) {
-        const unmet = findUnmetDemand(ctx, missed.recipeId, missed.servings)
+        // `missed.servings` is ALREADY the missing share. Re-running the
+        // feasibility check against only that smaller number makes a partial
+        // shortage disappear (wanted 10, cellar backed 6, then checked whether
+        // it could back the missing 4). Reconstruct this party's full recipe
+        // demand so requested/available describe the shortage that was just
+        // computed by `chooseOrder`.
+        const backedForParty = lines.find(
+          (line) => line.recipeId === missed.recipeId,
+        )?.servings ?? 0
+        const unmet = findUnmetDemand(
+          ctx,
+          missed.recipeId,
+          backedForParty + missed.servings,
+        )
         if (!unmet) continue
         markBlocked('stock', party)
         party.notes.push(`No ${unmet.stockId} left for them.`)

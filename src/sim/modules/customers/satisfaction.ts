@@ -17,7 +17,11 @@ import type { CustomerTurnout } from './types'
 // loosely so this file does not depend on the service module's types.
 type ServiceAdjustmentInputs = {
   serviceQuality?: ServiceQualityModifiers
-  incidents?: ReadonlyArray<{ actorGroup?: string; id: string }>
+  incidents?: ReadonlyArray<{
+    actorGroup?: string
+    id: string
+    disposition?: 'adverse' | 'positive' | 'neutral'
+  }>
 }
 
 // Phase 10 §10.5 — Customer satisfaction.
@@ -179,7 +183,9 @@ function incidentSignal(
 ): number {
   if (!inputs?.incidents) return 0
   const groupIncidents = inputs.incidents.filter(
-    (i) => i.actorGroup === group.id,
+    (i) =>
+      i.actorGroup === group.id &&
+      (i.disposition === undefined || i.disposition === 'adverse'),
   )
   if (groupIncidents.length === 0) return 0
   return -groupIncidents.length

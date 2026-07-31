@@ -153,6 +153,13 @@ function regularFor(
   return ctx.state.world.regulars[entry.debtorId]
 }
 
+/** Outstanding balance across every live slate belonging to this regular. */
+function regularSlateOutstanding(ctx: SimContext, regularId: string): number {
+  return listPatronTabs(ctx.state)
+    .filter((record) => record.counterparty.id === regularId)
+    .reduce((sum, record) => sum + outstandingAmount(record), 0)
+}
+
 // ---------------------------------------------------------------------------
 // collect_tab
 // ---------------------------------------------------------------------------
@@ -205,12 +212,40 @@ const collectTabAction: OwnerActionDefinition = {
     // slight against a named person, and it is the reason they might stop
     // coming — which is what makes forgiving one a real alternative.
     const regular = regularFor(ctx, entry)
+    let groupGoodwillDelta = 0
     if (regular) {
       rememberService(ctx, regular, {
         kind: 'tab_chased',
         readable: `You sent someone after ${regular.name.display} about their slate.`,
         standingDelta: -5,
       })
+    } else if (entry.debtorKind === 'group') {
+      // An identifiable cohort has a relationship even when no named regular
+      // signed the slate. Anonymous walk-outs remain relationship-free, but a
+      // recognisable group's goodwill pays the advertised cost of a chase.
+      const group =
+        ctx.state.customerGroups[entry.debtorId] ??
+        ctx.state.customerGroups[entry.groupId]
+      if (group) {
+        const loyalty = Math.max(0, group.loyalty - 2)
+        groupGoodwillDelta = loyalty - group.loyalty
+        if (groupGoodwillDelta !== 0) {
+          ctx.modifyCustomerGroup(
+            group.id,
+            { loyalty },
+            {
+              source: 'service.tabs.chased',
+              sourceType: 'customer',
+              direction: 'decrease',
+              amount: groupGoodwillDelta,
+              readable: `The ${group.label} resented being chased for their slate.`,
+              tags: ['service', 'tab', 'chased', group.id],
+              relatedActors: [{ kind: 'customer_group', id: group.id }],
+              relatedSystems: ['service', 'customers'],
+            },
+          )
+        }
+      }
     }
 
     return {
@@ -222,6 +257,9 @@ const collectTabAction: OwnerActionDefinition = {
       effects: [
         result.readable,
         ...(result.recovered > 0 ? [`coin +${result.recovered}`] : []),
+        ...(groupGoodwillDelta < 0
+          ? [`group loyalty ${groupGoodwillDelta}`]
+          : []),
       ],
       data: {
         obligationId: entry.obligationId,
@@ -229,6 +267,7 @@ const collectTabAction: OwnerActionDefinition = {
         debtorId: entry.debtorId,
         status: result.status,
         recovered: result.recovered,
+        groupGoodwillDelta,
         coin: { earned: result.recovered },
       },
     }
@@ -280,7 +319,10 @@ const forgiveTabAction: OwnerActionDefinition = {
       })
       // A wiped slate answers the request that asked for exactly this.
       const request = openRequestFor(regular)
-      if (request?.kind === 'forgive_my_slate') {
+      if (
+        request?.kind === 'forgive_my_slate' &&
+        regularSlateOutstanding(ctx, regular.id) <= 0
+      ) {
         const live = ctx.state.world.regulars[regular.id]
         if (live) {
           resolveRequest(

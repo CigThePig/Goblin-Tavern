@@ -2758,14 +2758,14 @@
         }
       },
       "traffic": {
-        "total": 409,
+        "total": 411,
         "byGroup": {
           "adventurers": 39,
           "eccentric_noble": 0,
           "food_critic": 0,
           "foreign_envoy": 0,
           "gourmand": 0,
-          "local_goblins": 170,
+          "local_goblins": 172,
           "merchants": 63,
           "miners": 103,
           "ogres": 34
@@ -3224,8 +3224,8 @@
       },
       "collections": {
         "memories": 16,
-        "history": 89,
-        "causes": 450,
+        "history": 88,
+        "causes": 449,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -3301,9 +3301,9 @@
           "food_critic": 0,
           "foreign_envoy": 0,
           "gourmand": 0,
-          "local_goblins": 417,
+          "local_goblins": 418,
           "merchants": 88,
-          "miners": 230,
+          "miners": 229,
           "ogres": 54
         }
       },
@@ -3459,7 +3459,7 @@
         },
         "cook": {
           "role": "cook",
-          "skill": 55,
+          "skill": 56,
           "morale": 49,
           "stress": 15,
           "fatigue": 52,
@@ -3470,7 +3470,7 @@
         },
         "server": {
           "role": "server",
-          "skill": 50,
+          "skill": 51,
           "morale": 48,
           "stress": 99,
           "fatigue": 0,
@@ -3761,7 +3761,7 @@
       "collections": {
         "memories": 28,
         "history": 452,
-        "causes": 311,
+        "causes": 313,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -3830,7 +3830,7 @@
         }
       },
       "traffic": {
-        "total": 579,
+        "total": 580,
         "byGroup": {
           "adventurers": 40,
           "eccentric_noble": 0,
@@ -3839,7 +3839,7 @@
           "gourmand": 0,
           "local_goblins": 269,
           "merchants": 74,
-          "miners": 157,
+          "miners": 158,
           "ogres": 39
         }
       },
@@ -4401,7 +4401,7 @@
         "gourmand": 0,
         "local_goblins": 59,
         "merchants": 21,
-        "miners": 42,
+        "miners": 41,
         "ogres": 9
       },
       "reputation": {
@@ -4875,11 +4875,11 @@
         "dayOfWeek": 1,
         "totalDaysElapsed": 14
       },
-      "coin": 2450,
+      "coin": 2449,
       "ledger": {
         "serviceCoinEarned": 3023,
-        "serviceNetCoin": 2936,
-        "serviceUnpaidTabs": 87,
+        "serviceNetCoin": 2935,
+        "serviceUnpaidTabs": 88,
         "weekly": {
           "net": 462,
           "other": -21,
@@ -4891,8 +4891,8 @@
           "waste": 0
         },
         "monthly": {
-          "net": 2350,
-          "other": -87,
+          "net": 2349,
+          "other": -88,
           "purchases": 520,
           "rent": 0,
           "repairs": 0,
@@ -4902,14 +4902,14 @@
         }
       },
       "traffic": {
-        "total": 603,
+        "total": 604,
         "byGroup": {
           "adventurers": 42,
           "eccentric_noble": 0,
           "food_critic": 0,
           "foreign_envoy": 0,
           "gourmand": 0,
-          "local_goblins": 265,
+          "local_goblins": 266,
           "merchants": 84,
           "miners": 168,
           "ogres": 44
@@ -5411,11 +5411,11 @@
         "dayOfWeek": 1,
         "totalDaysElapsed": 14
       },
-      "coin": 1133,
+      "coin": 1134,
       "ledger": {
         "serviceCoinEarned": 1905,
-        "serviceNetCoin": 1812,
-        "serviceUnpaidTabs": 93,
+        "serviceNetCoin": 1813,
+        "serviceUnpaidTabs": 92,
         "weekly": {
           "net": 107,
           "other": -19,
@@ -5427,8 +5427,8 @@
           "waste": 0
         },
         "monthly": {
-          "net": 1033,
-          "other": -93,
+          "net": 1034,
+          "other": -92,
           "purchases": 643,
           "rent": 0,
           "repairs": 0,
@@ -5438,16 +5438,16 @@
         }
       },
       "traffic": {
-        "total": 662,
+        "total": 661,
         "byGroup": {
           "adventurers": 72,
           "eccentric_noble": 0,
           "food_critic": 0,
           "foreign_envoy": 0,
           "gourmand": 0,
-          "local_goblins": 256,
-          "merchants": 101,
-          "miners": 193,
+          "local_goblins": 257,
+          "merchants": 102,
+          "miners": 190,
           "ogres": 40
         }
       },
@@ -5473,7 +5473,7 @@
         "gourmand": 0,
         "local_goblins": 60,
         "merchants": 17,
-        "miners": 40,
+        "miners": 39,
         "ogres": 8
       },
       "reputation": {
@@ -5537,7 +5537,7 @@
           "condition": 60,
           "cleanliness": 49,
           "mess": 74,
-          "damage": 56,
+          "damage": 57,
           "smell": 7,
           "risk": 17,
           "upgradesInstalled": 0,
@@ -5895,17 +5895,17 @@
       },
       "issues": {
         "totalGenerated": 61,
-        "totalRejected": 22,
-        "seedsToday": 2,
-        "surfacedToday": 2,
-        "withheldToday": 1,
+        "totalRejected": 24,
+        "seedsToday": 1,
+        "surfacedToday": 1,
+        "withheldToday": 2,
         "responsesResolvedToday": 0,
         "responsesAppliedToday": 0
       },
       "collections": {
-        "memories": 21,
-        "history": 264,
-        "causes": 518,
+        "memories": 20,
+        "history": 263,
+        "causes": 517,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -5974,14 +5974,14 @@
         }
       },
       "traffic": {
-        "total": 582,
+        "total": 583,
         "byGroup": {
           "adventurers": 40,
           "eccentric_noble": 0,
           "food_critic": 0,
           "foreign_envoy": 0,
           "gourmand": 0,
-          "local_goblins": 268,
+          "local_goblins": 269,
           "merchants": 79,
           "miners": 156,
           "ogres": 39
@@ -6142,7 +6142,7 @@
           "skill": 55,
           "morale": 55,
           "stress": 5,
-          "fatigue": 27,
+          "fatigue": 28,
           "loyalty": 52,
           "wage": 12,
           "paidThisWeek": true,
@@ -6153,7 +6153,7 @@
           "skill": 50,
           "morale": 58,
           "stress": 100,
-          "fatigue": 14,
+          "fatigue": 15,
           "loyalty": 47,
           "wage": 10,
           "paidThisWeek": true,

@@ -146,7 +146,21 @@ describe('Phase 205 / Wave 6 — P5-PLAY-005 shortage demand truth', () => {
     const warm = withStock(createInitialTavernState(), 'ale', { quantity: 8 })
     const warmed = run(warm, 1)
 
-    const empty = run(withStock(warmed, 'ale', { quantity: 0 }), 1)
+    // Keep the other demanded staples above the shortage threshold so this
+    // wording test isolates ale instead of depending on which equally real
+    // shortage happens to win the rotation score that day.
+    const onlyAleCanBeShort = (state: TavernState, quantity: number) =>
+      withStock(
+        withStock(
+          withStock(state, 'ale', { quantity }),
+          'stew',
+          { quantity: 100 },
+        ),
+        'mushrooms',
+        { quantity: 100 },
+      )
+
+    const empty = run(onlyAleCanBeShort(warmed, 0), 1)
     const emptySeeds = getIssueSeeds(empty, { family: 'stock_shortage' })
     expect(emptySeeds.length).toBeGreaterThan(0)
     const outSeed = emptySeeds.find((s) => shortageTargetId(s) === 'ale')
@@ -156,7 +170,7 @@ describe('Phase 205 / Wave 6 — P5-PLAY-005 shortage demand truth', () => {
     expect(outStakes).not.toMatch(/may run out/i)
     expect(outSeed!.toneHints).toContain('already_out')
 
-    const low = run(withStock(warmed, 'ale', { quantity: 12 }), 1)
+    const low = run(onlyAleCanBeShort(warmed, 12), 1)
     const lowSeed = getIssueSeeds(low, { family: 'stock_shortage' }).find(
       (s) => shortageTargetId(s) === 'ale',
     )
@@ -211,29 +225,40 @@ describe('Phase 205 / Wave 6 — P7-EXP-005 attention load', () => {
 
   it('rests a family after the consecutive-day limit unless it worsens', () => {
     let state = createInitialTavernState()
-    const perDay: Array<Set<string>> = []
+    const perDay: Array<Map<string, number>> = []
     for (let day = 0; day < 24; day += 1) {
       state = run(state, 1)
       const exposed = getIssueSeedSlice(state)?.surfacedToday ?? []
-      perDay.push(new Set(exposed.map((seed) => seed.family)))
+      const byFamily = new Map<string, number>()
+      for (const seed of exposed) {
+        byFamily.set(
+          seed.family,
+          Math.max(byFamily.get(seed.family) ?? -Infinity, seed.severity),
+        )
+      }
+      perDay.push(byFamily)
     }
 
-    const families = new Set(perDay.flatMap((day) => [...day]))
+    const families = new Set(perDay.flatMap((day) => [...day.keys()]))
     for (const family of families) {
       let streak = 0
-      let longest = 0
+      let previousSeverity: number | undefined
       for (const day of perDay) {
-        streak = day.has(family) ? streak + 1 : 0
-        longest = Math.max(longest, streak)
+        const severity = day.get(family)
+        if (severity === undefined) {
+          streak = 0
+          previousSeverity = undefined
+          continue
+        }
+        streak += 1
+        if (streak > FAMILY_STREAK_LIMIT) {
+          expect(
+            materiallyWorsened(previousSeverity!, severity),
+            `family ${family} extended a ${streak}-day run without worsening (${previousSeverity} → ${severity})`,
+          ).toBe(true)
+        }
+        previousSeverity = severity
       }
-      // A streak longer than the limit is only legitimate when the
-      // family escalated or is urgent on the extra days; the passive
-      // route has no such escalation for the four families the audit
-      // measured at 25–27 days.
-      expect(
-        longest,
-        `family ${family} ran ${longest} consecutive days`,
-      ).toBeLessThanOrEqual(FAMILY_STREAK_LIMIT + 1)
     }
   })
 

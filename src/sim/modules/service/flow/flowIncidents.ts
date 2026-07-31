@@ -235,6 +235,7 @@ function servedDishIncidents(
         out.push({
           id: 'favourite_served',
           severity: Math.min(100, 10 + line.delivered * 3),
+          disposition: 'positive',
           actorGroup: party.groupId,
           ...(party.areaId ? { areaId: party.areaId } : {}),
           effects: [

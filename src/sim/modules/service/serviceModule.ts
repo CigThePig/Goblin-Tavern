@@ -496,13 +496,15 @@ const sweepPatronTabsHook: SimulationHook = (ctx: SimContext): void => {
     ctx.addCause({
       source: 'service.tabs.written_off',
       sourceType: 'service',
-      target: 'global.coin',
+      // No cash leaves today: it was already absent from takings when the tab
+      // opened. What disappears now is the receivable.
+      target: 'service.receivables',
       targetType: 'global',
       amount: -swept.coinLost,
       direction: 'decrease',
-      readable: `Gave up on ${swept.writtenOff.length} slate(s) — ${swept.coinLost} coin nobody was going to pay.`,
-      tags: ['service', 'patron_tab', 'written_off'],
-      relatedSystems: ['service'],
+      readable: `Wrote off ${swept.writtenOff.length} slate receivable(s) worth ${swept.coinLost} coin.`,
+      tags: ['service', 'patron_tab', 'receivable', 'written_off'],
+      relatedSystems: ['service', 'obligations'],
     })
   }
 }
@@ -879,6 +881,7 @@ const StaffChangeSchema = z.object({
 const IncidentSchema = z.object({
   id: z.string(),
   severity: z.number().min(0).max(100),
+  disposition: z.enum(['adverse', 'positive', 'neutral']).optional(),
   actorGroup: z.string().optional(),
   areaId: z.string().optional(),
   effects: z.array(z.string()),

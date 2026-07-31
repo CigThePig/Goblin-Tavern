@@ -1540,11 +1540,13 @@ automated-review pass — every multi-day route except the three fresh-state
 probes. The movement records corrected FIFO stock allocation, request
 fulfillment, regular memory, and brawl consequences rather than hiding them
 behind stale artifacts. The Wave 7 balance harness was **re-pinned with the
-movement recorded**: 3.21 → 3.18 cards/day, 823 → 803 patrons, `finalCoin`
+movement recorded**: 3.21 → 3.18 cards/day, 823 → 805 patrons, `finalCoin`
 1,043 → 1,078. That the till
 moved by 3% while the entire interior of service was replaced is the evidence
 that the calibration held; `SERVINGS_PER_PATRON = 2.4` was chosen against the
-till, not against a plate count. `repo-map.json` moved on `rngStreams`,
+till, not against a plate count. The final follow-up also excludes positive
+`favourite_served` incidents from generic dissatisfaction, restoring two
+patrons without changing that till. `repo-map.json` moved on `rngStreams`,
 `ownerActions` and `glossaryTerms` (135 → 143 — eight new mechanic terms:
 `service_flow`, `bottleneck`, `party`, `patience`, `patron_tab`,
 `owner_standing`, `regular_request`, `lapsed_regular`).

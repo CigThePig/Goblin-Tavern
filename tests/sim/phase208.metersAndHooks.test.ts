@@ -248,7 +248,13 @@ describe('Phase 208 §1.1 — the future-hook bridge, both branches', () => {
 
   it('a run that declares no hooks queues no expectations', () => {
     const end = run(createInitialTavernState(), 3)
-    expect(readScheduledEventsSlice(end).queue).toEqual([])
+    const queue = readScheduledEventsSlice(end).queue
+    // Service may put real slate due dates on the shared mechanical queue.
+    // This route declares no future hooks, so it must add no narrative
+    // expectations.
+    expect(
+      queue.some((record) => record.kind === 'narrative_expectation'),
+    ).toBe(false)
   })
 
   it('every queued expectation carries an owner, a key and a readable origin', () => {

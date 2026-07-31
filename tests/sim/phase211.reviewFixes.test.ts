@@ -4,20 +4,27 @@ import { FULL_PIPELINE } from '../../src/sim/canonicalPipeline'
 import type { SimContext } from '../../src/sim/core/context'
 import { simulateDay } from '../../src/sim/core/engine'
 import { createRngStreams } from '../../src/sim/core/rng'
+import { outstandingAmount } from '../../src/sim/contracts/obligations/index'
 import { getScheduledEventDefinition, readScheduledEventsSlice } from '../../src/sim/contracts/scheduledEvents/index'
-import { collectPatronTab, listPatronTabs } from '../../src/sim/modules/service/tabs'
+import { applySatisfactionUpdate } from '../../src/sim/modules/customers/satisfaction'
+import type { CustomerTurnout } from '../../src/sim/modules/customers/types'
+import { collectPatronTab, listPatronTabs, openPatronTab } from '../../src/sim/modules/service/tabs'
 import { buildParties } from '../../src/sim/modules/service/flow/parties'
 import { applyServiceAreaImpact } from '../../src/sim/modules/service/flow/areaImpact'
 import { emptyFlowResult, MAX_PARTIES_PER_DAY, type ServiceFlowResult } from '../../src/sim/modules/service/flow/types'
 import { generateFlowIncidents } from '../../src/sim/modules/service/flow/flowIncidents'
-import { createInitialServiceModuleState, getServiceModuleState } from '../../src/sim/modules/service/serviceModule'
-import { openPatronTab } from '../../src/sim/modules/service/tabs'
+import { createInitialServiceModuleState, getServiceModuleState, serviceModule } from '../../src/sim/modules/service/serviceModule'
 import { SERVICE_SCHEDULED_EVENTS } from '../../src/sim/modules/service/serviceEvents'
 import { REGULAR_SCHEDULED_EVENTS } from '../../src/sim/modules/regulars/regularEvents'
 import { getRegularModuleState } from '../../src/sim/modules/regulars/state'
 import { openRequests } from '../../src/sim/modules/regulars/regularRequests'
 import { recordVisitOutcomes } from '../../src/sim/modules/regulars/regularOutcomes'
-import { answerRegularRequestAction } from '../../src/sim/modules/ownerActions/serviceActions'
+import { favouriteAvailability } from '../../src/sim/modules/regulars/visits'
+import {
+  answerRegularRequestAction,
+  collectTabAction,
+  forgiveTabAction,
+} from '../../src/sim/modules/ownerActions/serviceActions'
 import { getStockModuleState } from '../../src/sim/modules/stock/state'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import type { RegularWorldState, TavernState } from '../../src/sim/state/TavernState'
@@ -26,8 +33,10 @@ import { withCustomerGroup, withStaff, withStock } from '../../src/sim/testing/s
 function mutableContext(initial: TavernState): {
   ctx: SimContext
   state: () => TavernState
+  causes: Array<Parameters<SimContext['addCause']>[0]>
 } {
   let current = structuredClone(initial)
+  const causes: Array<Parameters<SimContext['addCause']>[0]> = []
   const streams = createRngStreams('phase211-review-fixes')
   const ctx = {
     get state() {
@@ -84,11 +93,13 @@ function mutableContext(initial: TavernState): {
         },
       }
     },
-    addCause: () => undefined,
+    addCause: (cause: Parameters<SimContext['addCause']>[0]) => {
+      causes.push(cause)
+    },
     addMemory: () => undefined,
     addHistory: () => undefined,
   } as unknown as SimContext
-  return { ctx, state: () => current }
+  return { ctx, state: () => current, causes }
 }
 
 function stocked(state: TavernState): TavernState {
@@ -309,6 +320,57 @@ describe('Phase 211 automated-review regressions', () => {
     )
   })
 
+  it('keeps a whole-slate request open until every separate tab is wiped', () => {
+    const initial = createInitialTavernState()
+    const regular = Object.values(initial.world.regulars)[0]!
+    const mutable = mutableContext(initial)
+    const entries = [12, 8].map((amount) =>
+      openPatronTab(mutable.ctx, {
+        amount,
+        groupId: regular.customerGroupId,
+        debtorKind: 'regular',
+        debtorId: regular.id,
+        collectionProbability: 0.8,
+        readable: `${regular.name.display} owes ${amount} coin.`,
+      })!,
+    )
+    mutable.ctx.modifyModuleState('service', () => ({
+      ...createInitialServiceModuleState(),
+      patronTabs: entries,
+    }), { source: 'test' })
+    mutable.ctx.modifyRegular(regular.id, {
+      openRequest: {
+        id: 'request-whole-slate',
+        kind: 'forgive_my_slate',
+        openedOnDay: 0,
+        expiresOnDay: 7,
+        readable: `${regular.name.display} asks to clear the whole slate.`,
+        status: 'open',
+      },
+    }, { source: 'test' })
+
+    forgiveTabAction.apply!(mutable.ctx, {
+      actionId: 'forgive_tab',
+      targetId: entries[0]!.obligationId,
+    })
+    expect(mutable.state().world.regulars[regular.id]!.openRequest?.status).toBe(
+      'open',
+    )
+    expect(
+      listPatronTabs(mutable.state())
+        .filter((record) => record.counterparty.id === regular.id)
+        .reduce((sum, record) => sum + outstandingAmount(record), 0),
+    ).toBe(8)
+
+    forgiveTabAction.apply!(mutable.ctx, {
+      actionId: 'forgive_tab',
+      targetId: entries[1]!.obligationId,
+    })
+    expect(mutable.state().world.regulars[regular.id]!.openRequest?.status).toBe(
+      'granted',
+    )
+  })
+
   it('keeps a refused pre-due tab active while recording the chase', () => {
     const mutable = mutableContext(createInitialTavernState())
     const entry = openPatronTab(mutable.ctx, {
@@ -330,6 +392,71 @@ describe('Phase 211 automated-review regressions', () => {
     expect(record.status).toBe('active')
     expect(record.escalation).toBe(1)
     expect(record.history.at(-1)?.to).toBe('active')
+  })
+
+  it('charges an identifiable customer group goodwill when its tab is chased', () => {
+    const mutable = mutableContext(createInitialTavernState())
+    const entry = openPatronTab(mutable.ctx, {
+      amount: 20,
+      groupId: 'miners',
+      debtorKind: 'group',
+      debtorId: 'miners',
+      collectionProbability: 0,
+      readable: 'The miners owe 20 coin.',
+    })!
+    mutable.ctx.modifyModuleState('service', () => ({
+      ...createInitialServiceModuleState(),
+      patronTabs: [entry],
+    }), { source: 'test' })
+    const before = mutable.state().customerGroups['miners']!.loyalty
+
+    const result = collectTabAction.apply!(mutable.ctx, {
+      actionId: 'collect_tab',
+      targetId: entry.obligationId,
+    })
+
+    expect(mutable.state().customerGroups['miners']!.loyalty).toBe(before - 2)
+    expect(result.data).toMatchObject({ groupGoodwillDelta: -2 })
+  })
+
+  it('attributes a stale-tab write-off to receivables without inventing a cash loss', () => {
+    const opened = mutableContext(createInitialTavernState())
+    const entry = openPatronTab(opened.ctx, {
+      amount: 20,
+      groupId: 'miners',
+      debtorKind: 'group',
+      debtorId: 'miners',
+      collectionProbability: 0,
+      readable: 'The miners owe 20 coin.',
+    })!
+    opened.ctx.modifyModuleState('service', () => ({
+      ...createInitialServiceModuleState(),
+      patronTabs: [entry],
+    }), { source: 'test' })
+    const aged: TavernState = {
+      ...opened.state(),
+      calendar: {
+        ...opened.state().calendar,
+        totalDaysElapsed: 100,
+      },
+    }
+    const swept = mutableContext(aged)
+    const sweepHook = serviceModule.hooks?.endDay?.[1]
+    expect(sweepHook).toBeDefined()
+    sweepHook!(swept.ctx)
+
+    const cause = swept.causes.find(
+      (candidate) => candidate.source === 'service.tabs.written_off',
+    )
+    expect(cause).toMatchObject({
+      target: 'service.receivables',
+      targetType: 'global',
+      amount: -20,
+      direction: 'decrease',
+    })
+    expect(
+      swept.causes.some((candidate) => candidate.target === 'global.coin'),
+    ).toBe(false)
   })
 
   it('deduplicates authoritative shortages per group and ingredient', () => {
@@ -357,6 +484,118 @@ describe('Phase 211 automated-review regressions', () => {
       0,
     )
     expect(stockShortages.length).toBe(perGroupUnique)
+  })
+
+  it('records the missing share of a partially available recipe', () => {
+    let state = createInitialTavernState()
+    for (const groupId of Object.keys(state.customerGroups)) {
+      state = withCustomerGroup(state, groupId, {
+        patronage: groupId === 'miners' ? 100 : 0,
+      })
+    }
+    state = {
+      ...state,
+      recipes: Object.fromEntries(
+        Object.entries(state.recipes).map(([id, recipe]) => [
+          id,
+          { ...recipe, onMenu: id === 'dish_ale' },
+        ]),
+      ),
+    }
+    state = withStock(
+      withStock(withStock(state, 'ale', { quantity: 6 }), 'stew', {
+        quantity: 0,
+      }),
+      'mushrooms',
+      { quantity: 0 },
+    )
+
+    const after = simulateDay(
+      state,
+      { seed: 'phase211-partial-shortage-review' },
+      FULL_PIPELINE,
+    ).state
+    const shortage = getServiceModuleState(after).result.flow.shortagesByGroup[
+      'miners'
+    ]?.find((entry) => entry.stockId === 'ale')
+    expect(shortage).toBeDefined()
+    expect(shortage!.available).toBeGreaterThan(0)
+    expect(shortage!.requested).toBeGreaterThan(shortage!.available)
+  })
+
+  it('does not count positive favourite service as group dissatisfaction', () => {
+    const initial = stocked(createInitialTavernState())
+    const groupId = Object.keys(initial.customerGroups)[0]!
+    const makeTurnout = (): CustomerTurnout => ({
+      groupId,
+      visitors: 4,
+      coinEarned: 8,
+      satisfactionChange: 0,
+      shortages: [],
+      notes: [],
+      seated: 4,
+      served: 4,
+      abandoned: 0,
+      unpaidTab: 0,
+    })
+
+    const baseline = mutableContext(initial)
+    const baselineTurnout = makeTurnout()
+    applySatisfactionUpdate(
+      baseline.ctx,
+      baseline.state().customerGroups[groupId]!,
+      baselineTurnout,
+      { incidents: [] },
+    )
+
+    const positive = mutableContext(initial)
+    const positiveTurnout = makeTurnout()
+    applySatisfactionUpdate(
+      positive.ctx,
+      positive.state().customerGroups[groupId]!,
+      positiveTurnout,
+      {
+        incidents: [
+          {
+            id: 'favourite_served',
+            actorGroup: groupId,
+            disposition: 'positive',
+          },
+        ],
+      },
+    )
+    expect(positiveTurnout.satisfactionChange).toBe(
+      baselineTurnout.satisfactionChange,
+    )
+  })
+
+  it('requires a feasible on-menu recipe for a legacy stock favourite', () => {
+    const initial = stocked(createInitialTavernState())
+    const regular = Object.values(initial.world.regulars)[0]!
+    const legacyRegular: RegularWorldState = {
+      ...regular,
+      favoriteRecipeId: undefined,
+      favoriteStockId: 'ale',
+    }
+    const offMenu: TavernState = {
+      ...initial,
+      recipes: Object.fromEntries(
+        Object.entries(initial.recipes).map(([id, recipe]) => [
+          id,
+          { ...recipe, onMenu: false },
+        ]),
+      ),
+    }
+    expect(favouriteAvailability(offMenu, legacyRegular).available).toBe(false)
+
+    const servable: TavernState = {
+      ...offMenu,
+      recipes: {
+        ...offMenu.recipes,
+        dish_ale: { ...offMenu.recipes['dish_ale']!, onMenu: true },
+      },
+    }
+    expect(favouriteAvailability(servable, legacyRegular).available).toBe(true)
   })
 
   it('records incident, shortage, and wait instead of a favourite-only memory', () => {

@@ -66,6 +66,8 @@ export type StaffChangeSummary = {
 export type ServiceIncidentSummary = {
   id: string
   severity: number
+  /** Omitted on legacy/adverse incidents; positive/neutral incidents do not penalise groups. */
+  disposition?: 'adverse' | 'positive' | 'neutral'
   actorGroup?: string
   areaId?: string
   effects: string[]

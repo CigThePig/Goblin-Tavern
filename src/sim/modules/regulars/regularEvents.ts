@@ -82,6 +82,27 @@ function slateFor(state: TavernState, regularId: string): number {
     .reduce((sum, record) => sum + outstandingAmount(record), 0)
 }
 
+/** Did the response that scheduled this grudge record a refusal? */
+function refusalWeightSince(
+  state: TavernState,
+  regularId: string,
+  sinceDay: number,
+): number {
+  const refusal = state.memories.some(
+    (memory) =>
+      memory.strength > 0 &&
+      (memory.createdAt?.absoluteDay ?? -1) >= sinceDay &&
+      (memory.id === `regular_refused_${regularId}` ||
+        (memory.tags.includes('grudge') &&
+          memory.actors.some(
+            (actor) => actor.kind === 'regular' && actor.id === regularId,
+          ))),
+  )
+  // Equivalent to one distinctly bad visit: enough for a fresh refusal to
+  // matter, while subsequent good service can still repair the relationship.
+  return refusal ? -4 : 0
+}
+
 // ---------------------------------------------------------------------------
 // regular_favour_owed_*
 // ---------------------------------------------------------------------------
@@ -216,7 +237,9 @@ const grudgeEvent: ScheduledEventDefinition = {
         readable: `${regular.name.display} let it go — you made it right.`,
       }
     }
-    const feeling = serviceMemoryScore(regular, today)
+    const feeling =
+      serviceMemoryScore(regular, today) +
+      refusalWeightSince(ctx.state, regular.id, record.createdOnDay)
     if (feeling >= 0 && regular.irritation < 50) {
       return noOp(
         `${regular.name.display} has had a good run since (feeling ${feeling})`,

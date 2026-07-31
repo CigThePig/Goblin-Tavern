@@ -60,8 +60,21 @@ export function favouriteAvailability(
     return { available: feasible, subject: regular.favoriteRecipeId }
   }
   if (regular.favoriteStockId) {
-    const item = state.stock[regular.favoriteStockId]
-    return { available: (item?.quantity ?? 0) > 0, subject: regular.favoriteStockId }
+    // Service sells recipes, never loose ingredients. Raw stock only counts as
+    // a restored usual when at least one on-menu recipe that consumes it can
+    // actually be served from the whole ingredient set.
+    const available = Object.values(state.recipes).some(
+      (recipe) =>
+        recipe.onMenu &&
+        recipeRegistry.has(recipe.id) &&
+        recipeRegistry
+          .get(recipe.id)
+          .inputs.some(
+            (input) => input.ingredientId === regular.favoriteStockId,
+          ) &&
+        feasibleServings(state, recipe.id) > 0,
+    )
+    return { available, subject: regular.favoriteStockId }
   }
   return { available: true }
 }

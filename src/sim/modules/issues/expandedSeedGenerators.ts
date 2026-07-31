@@ -1422,6 +1422,19 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
   const goodsRef = goodsId
     ? stockRef(goodsId)
     : systemRef('market')
+  // The outbreak is a customer consequence, not a supplier consequence.
+  // Pick the crowd most likely to be exposed (highest current patronage,
+  // stable id tie-break) and carry THAT id in the mechanical hook. The old
+  // hook used `chosen.id`, which made the service resolver look for a customer
+  // group whose id happened to equal the supplier id and cancel the event.
+  const outbreakGroup = Object.values(ctx.state.customerGroups).sort((a, b) =>
+    b.patronage === a.patronage
+      ? a.id.localeCompare(b.id)
+      : b.patronage - a.patronage,
+  )[0]
+  const outbreakGroupRef = outbreakGroup
+    ? customerRef(outbreakGroup.id)
+    : undefined
 
   const responseSlots: ResponseSlot[] = [
     {
@@ -1855,13 +1868,17 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
       ],
       delayedEffects: [
         effect('pressure', 'pressure:food_safety', 8, 'Food safety risk rises', ['pressure', 'risk']),
-        effect(
-          'future_hook',
-          `food_poisoning_outbreak_${chosen.id}`,
-          0,
-          'Outbreak risk grows',
-          ['future_hook', 'risk'],
-        ),
+        ...(outbreakGroup
+          ? [
+              effect(
+                'future_hook',
+                `food_poisoning_outbreak_${outbreakGroup.id}`,
+                0,
+                'Outbreak risk grows',
+                ['future_hook', 'risk'],
+              ),
+            ]
+          : []),
       ],
       memories: [
         {
@@ -1875,13 +1892,16 @@ function generateSupplierRelationship(ctx: SimContext): IssueSeed[] {
           tags: ['tavern_identity', 'memory', 'deception'],
         },
       ],
-      futureHooks: [
-        {
-          id: `food_poisoning_outbreak_${chosen.id}`,
-          actors: [ref],
-          tags: ['food_safety', 'risk'],
-        },
-      ],
+      futureHooks:
+        outbreakGroup && outbreakGroupRef
+          ? [
+              {
+                id: `food_poisoning_outbreak_${outbreakGroup.id}`,
+                actors: [ref, outbreakGroupRef],
+                tags: ['food_safety', 'risk', outbreakGroup.id],
+              },
+            ]
+          : [],
     }),
     makeProfile({
       id: 'refuse_supplier_profile',

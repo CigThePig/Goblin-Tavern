@@ -40,6 +40,23 @@ function getResponsesSlice(state: TavernState): ResponsesModuleState {
   return state.modules[RESPONSES_MODULE_ID] as ResponsesModuleState
 }
 
+/** Find a day where the budget admits the violence card and return the state
+ * immediately before it. Other legitimate cards can win the finite hand on
+ * earlier days, so pinning this behavior test to exactly day two is brittle. */
+function findViolenceSetup(): {
+  stateBeforeSeed: TavernState
+  seed: NonNullable<ReturnType<typeof getIssueSeeds>[number]>
+} {
+  let stateBeforeSeed = violenceState()
+  for (let day = 0; day < 14; day += 1) {
+    const probe = runDay(stateBeforeSeed)
+    const seed = getIssueSeeds(probe.state, { family: 'violence' })[0]
+    if (seed) return { stateBeforeSeed, seed }
+    stateBeforeSeed = probe.state
+  }
+  throw new Error('violence seed did not surface within 14 days')
+}
+
 /**
  * Set up a state where violence pressure is elevated AND multiple
  * customer groups carrying violence tags (`rowdy`, `dangerous`,
@@ -82,15 +99,11 @@ describe('Phase 56 §ISSUE-016 — Group rotation', () => {
 
 describe('Phase 56 §ISSUE-016 — Per-slot mutations', () => {
   // Phase 186 / Cluster 1 — `violence` is a during-service seed gated on
-  // the prior day's closing pressure snapshot, so warm one day to populate
-  // it. `warmState` is the day FROM which the response is issued.
+  // the prior day's closing pressure snapshot. `stateBeforeSeed` is the day
+  // FROM which the response is issued.
   function setup() {
-    const base = violenceState()
-    const warm = runDay(base)
-    const probe = runDay(warm.state)
-    const seed = getIssueSeeds(probe.state, { family: 'violence' })[0]
-    expect(seed).toBeDefined()
-    return { warmState: warm.state, seed: seed!, targetId: seed!.primaryActor!.id }
+    const { stateBeforeSeed, seed } = findViolenceSetup()
+    return { stateBeforeSeed, seed, targetId: seed.primaryActor!.id }
   }
 
   function compareSlot(
@@ -98,7 +111,7 @@ describe('Phase 56 §ISSUE-016 — Per-slot mutations', () => {
     verb: ResponseIntent['verb'],
     shape: ResponseIntent['shape'],
   ) {
-    const { warmState, seed, targetId } = setup()
+    const { stateBeforeSeed, seed, targetId } = setup()
     const intent: ResponseIntent = {
       id: `r-${slotId}`,
       seedId: seed.id,
@@ -108,8 +121,8 @@ describe('Phase 56 §ISSUE-016 — Per-slot mutations', () => {
       intensity: 50,
       metadata: { responseSlotId: slotId },
     }
-    const control = runDay(warmState).state
-    const treatment = runDay(warmState, { responseIntents: [intent] }).state
+    const control = runDay(stateBeforeSeed).state
+    const treatment = runDay(stateBeforeSeed, { responseIntents: [intent] }).state
     return { control, treatment, targetId }
   }
 
@@ -158,20 +171,17 @@ describe('Phase 56 §ISSUE-016 — Delayed scheduling', () => {
       ['repair_damage', 'repair', 'short_term_patch'],
     ]
     for (const [slotId, verb, shape] of slots) {
-      const base = violenceState()
-      const warm = runDay(base).state
-      const seed = getIssueSeeds(runDay(warm).state, { family: 'violence' })[0]
-      expect(seed).toBeDefined()
+      const { stateBeforeSeed, seed } = findViolenceSetup()
       const intent: ResponseIntent = {
         id: `r-${slotId}`,
-        seedId: seed!.id,
+        seedId: seed.id,
         verb,
         shape,
         tags: [],
         intensity: 50,
         metadata: { responseSlotId: slotId },
       }
-      const day2 = runDay(warm, { responseIntents: [intent] })
+      const day2 = runDay(stateBeforeSeed, { responseIntents: [intent] })
       const slice = getResponsesSlice(day2.state)
       expect(
         slice.pending.length,

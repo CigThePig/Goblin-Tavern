@@ -122,13 +122,24 @@ function apologisedSince(
   sinceDay: number,
 ): boolean {
   return state.memories.some(
-    (memory) =>
-      memory.strength > 0 &&
-      (memory.createdAt?.absoluteDay ?? -1) >= sinceDay &&
-      memory.tags.includes(groupId) &&
-      (memory.id.includes('apolog') ||
-        memory.tags.includes('apology') ||
-        memory.id === 'owner_made_amends'),
+    (memory) => {
+      const namesGroup =
+        memory.tags.includes(groupId) ||
+        memory.actors.some(
+          (actor) =>
+            (actor.kind === 'customer_group' && actor.id === groupId) ||
+            (actor.kind === 'regular' &&
+              state.world.regulars[actor.id]?.customerGroupId === groupId),
+        )
+      return (
+        memory.strength > 0 &&
+        (memory.createdAt?.absoluteDay ?? -1) >= sinceDay &&
+        namesGroup &&
+        (memory.id.includes('apolog') ||
+          memory.tags.includes('apology') ||
+          memory.id === 'owner_made_amends')
+      )
+    },
   )
 }
 

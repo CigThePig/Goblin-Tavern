@@ -325,6 +325,63 @@ describe('Phase 211 §4.4 — apology_expectation_*', () => {
     expect(outcome!.mutations.length).toBeGreaterThan(0)
     expect(after.customerGroups['merchants']!.loyalty).toBeLessThan(before)
   })
+
+  it('recognizes apologies that name the group or one of its regulars as actors', () => {
+    const base = stocked(withCoin(createInitialTavernState(), 400))
+    const regular = Object.values(base.world.regulars)[0]!
+    const groupId = regular.customerGroupId
+    const cases = [
+      {
+        id: `${groupId}_apology_all`,
+        actors: [{ kind: 'customer_group' as const, id: groupId }],
+        tags: ['customer', 'favorite_order', 'attribution'],
+      },
+      {
+        id: 'regular_apologized_to_recently',
+        actors: [{ kind: 'regular' as const, id: regular.id }],
+        tags: ['owner_action', 'social'],
+      },
+    ]
+
+    for (const apology of cases) {
+      let state = scheduleByHookName(
+        base,
+        APOLOGY_EXPECTATION_EVENT,
+        `apology_expectation_${groupId}`,
+        1,
+      )
+      state = {
+        ...state,
+        memories: [
+          ...state.memories,
+          {
+            id: apology.id,
+            type: 'fact',
+            strength: 80,
+            ageDays: 0,
+            createdAt: {
+              year: state.calendar.year,
+              month: state.calendar.month,
+              week: state.calendar.week,
+              day: state.calendar.day,
+              absoluteDay: state.calendar.totalDaysElapsed,
+            },
+            actors: apology.actors,
+            locations: [],
+            relatedSystems: ['customers'],
+            tags: apology.tags,
+          },
+        ],
+      }
+      const before = state.customerGroups[groupId]!.loyalty
+      const { state: after, outcome } = runUntilResolved(
+        state,
+        APOLOGY_EXPECTATION_EVENT,
+      )
+      expect(outcome?.status, apology.id).toBe('cancelled')
+      expect(after.customerGroups[groupId]!.loyalty, apology.id).toBe(before)
+    }
+  })
 })
 
 describe('Phase 211 §4.4 — banned_group_returns_* and security_routine', () => {

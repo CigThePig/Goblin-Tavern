@@ -277,6 +277,69 @@ describe('Phase 211 §4.3 — regular_grudge_*', () => {
     expect(lapsed.stoppedVisiting!.reason.length).toBeGreaterThan(0)
   })
 
+  it('treats the refusal memory that scheduled the hook as a real grievance', () => {
+    const base = createInitialTavernState()
+    const regular = pickRegular(base)
+    const refusal: TavernState = {
+      ...base,
+      recipes: {
+        ...base.recipes,
+        dish_ale: { ...base.recipes['dish_ale']!, onMenu: false },
+      },
+      customerGroups: {
+        ...base.customerGroups,
+        [regular.customerGroupId]: {
+          ...base.customerGroups[regular.customerGroupId]!,
+          patronage: 0,
+        },
+      },
+      world: {
+        ...base.world,
+        regulars: {
+          ...base.world.regulars,
+          [regular.id]: {
+            ...regular,
+            loyalty: 0,
+            irritation: 0,
+            ownerStanding: 0,
+            favoriteRecipeId: 'dish_ale',
+            serviceMemory: [],
+          },
+        },
+      },
+      memories: [
+        ...base.memories,
+        {
+          id: `regular_refused_${regular.id}`,
+          type: 'grudge',
+          strength: 80,
+          ageDays: 0,
+          createdAt: {
+            year: base.calendar.year,
+            month: base.calendar.month,
+            week: base.calendar.week,
+            day: base.calendar.day,
+            absoluteDay: base.calendar.totalDaysElapsed,
+          },
+          actors: [{ kind: 'regular', id: regular.id }],
+          locations: [],
+          relatedSystems: ['regulars'],
+          tags: ['regular', 'grudge'],
+        },
+      ],
+    }
+    const state = scheduleByHookName(
+      refusal,
+      REGULAR_GRUDGE_EVENT,
+      `regular_grudge_${regular.id}`,
+      1,
+    )
+
+    const { state: after, outcome } = runUntilResolved(state, REGULAR_GRUDGE_EVENT)
+    expect(outcome?.status).toBe('resolved')
+    expect(after.world.regulars[regular.id]!.stoppedVisiting).toBeDefined()
+  })
+
   it('is cancelled when the player squared up with them first', () => {
     const traded = tradedFor(6)
     const regular = pickRegular(traded)

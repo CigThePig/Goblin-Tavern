@@ -5,7 +5,7 @@ import { getCustomerFacingSeating } from '../../areas/capacity'
 import type { ServiceQualityModifiers } from '../../staff/types'
 import type { ServiceIncidentSummary } from '../types'
 
-import type { ServiceFlowResult, ServiceParty } from './types'
+import { SERVICE_WAVES, type ServiceFlowResult, type ServiceParty } from './types'
 
 // Expansion Phase 4 §4.4 — incidents that come out of interactions.
 //
@@ -27,6 +27,12 @@ const IMPATIENCE_WAVES = 2
 
 /** Below this relationship score, two groups should not share a room. */
 const HOSTILE_RELATIONSHIP = -20
+
+/** Rowdy patrons in one room before trouble is even possible. */
+const MIN_ROWDY_FOR_TROUBLE = 5
+
+/** What an ordinary busy night absorbs without a fight breaking out. */
+const BRAWL_BASELINE = 60
 
 export type FlowIncidentInput = {
   flow: ServiceFlowResult
@@ -254,11 +260,15 @@ function brawlIncidents(
     const occupants = input.flow.parties.filter(
       (party) => party.areaId === areaId && party.seatedWave !== undefined,
     )
-    const patrons = occupants.reduce((sum, party) => sum + party.size, 0)
     const seats =
       input.flow.capacity.seatsByArea.find((row) => row.areaId === areaId)?.seats ?? 0
     if (seats <= 0) continue
-    const packed = patrons / seats
+    // PEAK CONCURRENT occupancy, not the night's headcount. Ninety patrons
+    // through a ninety-seat room across an evening is a good night; ninety
+    // patrons in it at once is a crush. Summing the night would have made every
+    // busy evening read as packed, which is how the first draft produced a
+    // brawl on an ordinary payday.
+    const packed = peakOccupancy(occupants) / seats
     let rowdy = 0
     let drink = 0
     for (const party of occupants) {
@@ -270,11 +280,31 @@ function brawlIncidents(
         if (recipe?.tags.includes('alcohol')) drink += line.delivered
       }
     }
-    if (rowdy < 3 || drink < 3) continue
+    const patrons = occupants.reduce((sum, party) => sum + party.size, 0)
+    if (rowdy < MIN_ROWDY_FOR_TROUBLE || drink < 3 || patrons <= 0) continue
     // The heat of the room, before anyone steps in.
-    const heat = rowdy * 3 + drink + Math.round(packed * 30) +
-      (input.dayType === 'brawl_night' ? 20 : 0)
-    const severity = Math.round(Math.max(0, heat - security * 25))
+    //
+    // CALIBRATED AGAINST THE RULE IT REPLACES. Phase 12 fired a brawl only on
+    // `brawl_night`, so brawls were a once-a-week event the calendar decided.
+    // Making them a property of the room must not make them a nightly one, and
+    // the first draft did exactly that: it counted rowdy HEADS, and on an
+    // ordinary payday sixty of the ninety-odd patrons belong to groups with
+    // `rowdiness >= 70`. Every term is therefore a RATIO — what share of the
+    // room is rowdy, how full it got at its peak, how hard they were drinking —
+    // so a big quiet night and a small ugly one are told apart. `BRAWL_BASELINE`
+    // is what an ordinary busy evening absorbs; above it, a brawl still needs a
+    // rowdy crowd, a packed room, drink actually served, and nobody on the door,
+    // each of which the player can change (§4.4).
+    const rowdyShare = Math.min(1, rowdy / patrons)
+    const drinkPerPatron = Math.min(3, drink / patrons)
+    const heat =
+      rowdyShare * 40 +
+      Math.min(1, packed) * 40 +
+      drinkPerPatron * 10 +
+      (input.dayType === 'brawl_night' ? 30 : 0)
+    const severity = Math.round(
+      Math.max(0, heat - BRAWL_BASELINE - security * 30),
+    )
     if (severity < 25) continue
     const worst = occupants
       .map((party) => party.groupId)
@@ -293,6 +323,23 @@ function brawlIncidents(
     })
   }
   return out
+}
+
+/** The most patrons this set of parties had in the room at one time. */
+function peakOccupancy(parties: ReadonlyArray<ServiceParty>): number {
+  let peak = 0
+  for (let wave = 0; wave < SERVICE_WAVES; wave++) {
+    let concurrent = 0
+    for (const party of parties) {
+      const from = party.seatedWave
+      if (from === undefined || from > wave) continue
+      const until = party.leftWave ?? SERVICE_WAVES
+      if (until < wave) continue
+      concurrent += party.size
+    }
+    peak = Math.max(peak, concurrent)
+  }
+  return peak
 }
 
 function areasWithCrowd(input: FlowIncidentInput): string[] {

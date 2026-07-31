@@ -479,9 +479,12 @@ export { REGULARS_MODULE_ID, createInitialRegularModuleState, getRegularModuleSt
 export const regularModule: SimulationModule = {
   id: REGULARS_MODULE_ID,
   version: '0.4.0',
-  // Expansion Phase 4 §4.3 — the outcome pass reads the service module's flow
-  // result, so it must run after the service module has written it.
-  dependsOn: ['service'],
+  // Expansion Phase 4 §4.3 — no `dependsOn: ['service']`, deliberately. The
+  // outcome pass reads the flow the service module wrote during the `service`
+  // PHASE, and this hook runs in `afterService`, so the pipeline's phase order
+  // already guarantees it. Declaring the dependency would additionally force
+  // every test rig that exercises regulars to drag in the whole service module,
+  // and `readServiceFlow` already copes with the flow being absent.
   hooks: {
     startDay: [startDayHook],
     regularCustomerUpdate: [regularUpdateHook],

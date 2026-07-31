@@ -84,9 +84,14 @@ export function applyServiceAreaImpact(
     // Tables nobody got round to wiping are tomorrow's problem, in the room
     // they were left in.
     const unreset = flow.unresetByArea[areaId] ?? 0
+    // `messControl` is credited once per CROWD in the room, not once for the
+    // room. Phase 10 applied it inside a per-group loop, so a cleaner keeping
+    // up with five crowds got five subtractions; charging the room once would
+    // have quietly made every night ~4 points messier than the calibration the
+    // reference route was tuned against.
     const messGain = Math.max(
       0,
-      baseMess + rowdyExtra + Math.round(unreset / 4) - messReduction,
+      baseMess + rowdyExtra + Math.round(unreset / 4) - messReduction * row.groupIds.size,
     )
     const damageGain = Math.round(rawDamage * fightFactor)
 

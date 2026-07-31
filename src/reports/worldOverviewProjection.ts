@@ -25,6 +25,12 @@ import {
 } from '../sim/modules/attribution/attributionQueries'
 import { stockRegistry } from '../sim/registries/stockRegistry'
 import { resolveEntityLabel, resolveBareEntityId } from './entityLabels'
+// Expansion Phase 4 §4.3 / §4.5 — a regular's slate and whether their usual can
+// actually be served are facts the service module owns; this reads them rather
+// than restating them.
+import { listPatronTabs } from '../sim/modules/service/tabs'
+import { feasibleServings } from '../sim/modules/service/flow/choice'
+import { outstandingAmount } from '../sim/contracts/obligations/index'
 import { humanizeId } from './labels/idLabel'
 import {
   pickFactionRelationNoun,
@@ -131,6 +137,33 @@ export type RegularRow = {
   attributionsHeld: AttributionRow[]
   attributionsAgainst: AttributionRow[]
   applicableActions: ApplicableActionRef[]
+
+  // Expansion Phase 4 §4.3 — the things a regular is now ABOUT. Without these
+  // the sheet shows two meters and a visit counter for somebody who has a usual
+  // table, a usual drink, an opinion of the owner, an outstanding request, and
+  // possibly a decision to stop coming in.
+  /** What they think of the OWNER, as distinct from the house. */
+  ownerStanding?: number
+  /** The dish they ask for, when they have learned one. */
+  favoriteRecipeId?: string
+  favoriteRecipeLabel?: string
+  /** Whether that dish can actually be served today. */
+  favoriteRecipeAvailable?: boolean
+  /** Where they like to sit. */
+  favoriteAreaId?: string
+  favoriteAreaLabel?: string
+  /** Their last night here, in a word. */
+  lastVisitOutcome?: 'served' | 'abandoned' | 'turned_away' | 'no_visit'
+  /** Set when they have stopped coming, with the reason they gave. */
+  stoppedVisiting?: { sinceDay: number; reason: string }
+  /** An open request, when they have made one. */
+  openRequest?: { kind: string; readable: string; expiresOnDay: number }
+  /** Times they have talked the place up and down. */
+  wordOfMouth?: { recommendations: number; criticisms: number }
+  /** What they remember about the place, newest last. */
+  serviceMemory: Array<{ onDay: number; kind: string; weight: number; readable: string }>
+  /** Coin they still owe on a slate. */
+  slateOwed: number
 }
 
 export type MemoryRow = {
@@ -512,6 +545,39 @@ function projectRegularRow(
     attributionsHeld,
     attributionsAgainst,
     applicableActions,
+    serviceMemory: (regular.serviceMemory ?? []).map((entry) => ({ ...entry })),
+    slateOwed: slateOwedBy(state, regular.id),
+  }
+  if (regular.ownerStanding !== undefined) row.ownerStanding = regular.ownerStanding
+  if (regular.favoriteRecipeId !== undefined) {
+    row.favoriteRecipeId = regular.favoriteRecipeId
+    const recipe = state.recipes[regular.favoriteRecipeId]
+    if (recipe) {
+      row.favoriteRecipeLabel = recipe.label
+      row.favoriteRecipeAvailable =
+        recipe.onMenu && feasibleServings(state, regular.favoriteRecipeId) > 0
+    }
+  }
+  if (regular.favoriteAreaId !== undefined) {
+    row.favoriteAreaId = regular.favoriteAreaId
+    const area = state.areas[regular.favoriteAreaId]
+    if (area) row.favoriteAreaLabel = area.label
+  }
+  if (regular.lastVisitOutcome !== undefined) {
+    row.lastVisitOutcome = regular.lastVisitOutcome
+  }
+  if (regular.stoppedVisiting !== undefined) {
+    row.stoppedVisiting = { ...regular.stoppedVisiting }
+  }
+  if (regular.openRequest?.status === 'open') {
+    row.openRequest = {
+      kind: regular.openRequest.kind,
+      readable: regular.openRequest.readable,
+      expiresOnDay: regular.openRequest.expiresOnDay,
+    }
+  }
+  if (regular.wordOfMouth !== undefined) {
+    row.wordOfMouth = { ...regular.wordOfMouth }
   }
   if (regular.cultureId !== undefined) row.cultureId = regular.cultureId
   if (cultureLabel !== undefined) row.cultureLabel = cultureLabel
@@ -523,6 +589,13 @@ function projectRegularRow(
   if (favoriteStockLabel !== undefined) row.favoriteStockLabel = favoriteStockLabel
   if (favoriteStockOnHand !== undefined) row.favoriteStockOnHand = favoriteStockOnHand
   return row
+}
+
+/** Coin this regular still owes across every live slate (§4.5). */
+function slateOwedBy(state: TavernState, regularId: string): number {
+  return listPatronTabs(state)
+    .filter((record) => record.counterparty.id === regularId)
+    .reduce((sum, record) => sum + outstandingAmount(record), 0)
 }
 
 function projectMemoriesForActor(

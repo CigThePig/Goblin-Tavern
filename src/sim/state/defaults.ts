@@ -19,6 +19,7 @@ import {
   ensureRequiredStaffRolesRegistered,
   staffRegistry,
 } from "../registries/staffRegistry";
+import { regularServiceDefaults } from "../modules/regulars/regularDefaults";
 import { createInitialStockModuleState } from "../modules/stock/state";
 import { createInitialOwnerActionsModuleState } from "../modules/ownerActions/ownerActionsModule";
 import { createInitialWeeklyModuleState } from "../modules/weekly/state";
@@ -573,6 +574,11 @@ function createInitialRegulars(
       tags,
       activeFlags: [],
       castAttributes,
+      // Expansion Phase 4 §4.3 — the active-participant fields, from the one
+      // shared definition the emergence pass and the load migration also use.
+      // A new state must already look like a migrated one or a reload changes
+      // the day (§5.10).
+      ...regularServiceDefaults(spec.loyalty),
     };
   }
   return regulars;

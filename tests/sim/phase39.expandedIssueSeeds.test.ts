@@ -385,6 +385,19 @@ describe('Phase 39 §39.7 — Supplier relationship seed', () => {
     const seed = seeds[0]!
     expect(seed.primaryActor?.kind).toBe('supplier')
     expect(seed.textIngredients.namedEntities?.length).toBeGreaterThan(0)
+    const suspiciousProfile = seed.consequenceProfiles.find(
+      (profile) => profile.responseSlotId === 'accept_suspicious_goods',
+    )
+    const outbreak = suspiciousProfile?.futureHooks.find((hook) =>
+      hook.id.startsWith('food_poisoning_outbreak_'),
+    )
+    const affectedGroup = outbreak?.actors?.find(
+      (actor) => actor.kind === 'customer_group',
+    )
+    expect(outbreak).toBeDefined()
+    expect(affectedGroup).toBeDefined()
+    expect(outbreak!.id).toBe(`food_poisoning_outbreak_${affectedGroup!.id}`)
+    expect(outbreak!.id).not.toBe(`food_poisoning_outbreak_${supplierId}`)
   })
 })
 

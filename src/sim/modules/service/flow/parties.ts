@@ -1,0 +1,303 @@
+import type { SimContext } from '../../../core/context'
+import type {
+  CustomerGroupState,
+  RegularWorldState,
+} from '../../../state/TavernState'
+
+import {
+  MAX_PARTIES_PER_DAY,
+  MAX_PARTY_SIZE,
+  SERVICE_WAVES,
+  type ServiceParty,
+} from './types'
+
+// Expansion Phase 4 §4.1 "arrivals by customer group and party/cohort" — how a
+// night's demand becomes a bounded set of parties.
+//
+// THE SCALING RULE (§4.2). "Preserve customer groups as scalable persistent
+// populations. Service can instantiate bounded parties or cohorts without
+// turning every patron into a permanent entity." So: the GROUP is the
+// population and persists; the PARTY is how a slice of it turns up tonight and
+// is gone by morning. The only named participants are regulars, who persist
+// anyway.
+//
+// THE BOUND IS A CEILING ON PARTIES, NOT ON PATRONS (§"bounded party/event
+// counts under extreme traffic"). Once `MAX_PARTIES_PER_DAY` parties exist, the
+// remaining demand is spread across them — a payday flood arrives as fewer,
+// larger parties, which is heavier to SERVE without being more expensive to
+// SIMULATE. Headcount is conserved exactly, so the flow's own arithmetic still
+// reconciles against the demand it was given.
+
+const RNG_STREAM = 'service_flow' as const
+
+/** Typical party size by the group's declared traffic pattern. */
+const PATTERN_PARTY_SIZE: Record<string, { min: number; max: number }> = {
+  evening_locals: { min: 2, max: 4 },
+  payday_burst: { min: 2, max: 5 },
+  market_day: { min: 1, max: 3 },
+  brawl_night: { min: 3, max: 6 },
+  large_party: { min: 4, max: 8 },
+  sporadic: { min: 1, max: 3 },
+  irregular: { min: 1, max: 4 },
+  rare: { min: 1, max: 3 },
+  very_rare: { min: 1, max: 2 },
+}
+
+const DEFAULT_PARTY_SIZE = { min: 2, max: 4 }
+
+/**
+ * When the group tends to arrive, as a weight per wave.
+ *
+ * Six weights, one per wave. They are shapes rather than probabilities — the
+ * builder normalises them — and they are the reason a `payday_burst` crowd can
+ * overwhelm a kitchen that would have coped with the same headcount spread
+ * across the evening. That is a real bottleneck produced by real timing, which
+ * is what §4.1 asks for.
+ */
+const PATTERN_ARRIVAL_CURVE: Record<string, ReadonlyArray<number>> = {
+  evening_locals: [1, 2, 3, 3, 2, 1],
+  payday_burst: [3, 4, 3, 1, 1, 1],
+  market_day: [3, 3, 2, 2, 1, 1],
+  brawl_night: [1, 1, 2, 3, 4, 3],
+  large_party: [1, 2, 3, 3, 2, 1],
+  sporadic: [1, 1, 1, 1, 1, 1],
+  irregular: [2, 1, 2, 1, 2, 1],
+  rare: [1, 1, 2, 2, 1, 1],
+  very_rare: [1, 1, 1, 1, 1, 1],
+}
+
+const DEFAULT_ARRIVAL_CURVE: ReadonlyArray<number> = [1, 2, 3, 3, 2, 1]
+
+function sizeRangeFor(group: CustomerGroupState): { min: number; max: number } {
+  return PATTERN_PARTY_SIZE[group.trafficPattern] ?? DEFAULT_PARTY_SIZE
+}
+
+function arrivalCurveFor(group: CustomerGroupState): ReadonlyArray<number> {
+  const curve = PATTERN_ARRIVAL_CURVE[group.trafficPattern] ?? DEFAULT_ARRIVAL_CURVE
+  return curve.length === SERVICE_WAVES ? curve : DEFAULT_ARRIVAL_CURVE
+}
+
+/**
+ * How many waves a party will wait before walking out.
+ *
+ * Loyal, satisfied cohorts give the house the benefit of the doubt; an
+ * irritated crowd does not. This is the meter that makes §4.1's "abandonment,
+ * reduced spend, or dissatisfaction from delay" a consequence of the player's
+ * standing rather than a fixed timer.
+ */
+export function patienceFor(
+  group: CustomerGroupState,
+  regular: RegularWorldState | undefined,
+): number {
+  let patience = 1 + group.loyalty / 40 + (group.satisfaction - 50) / 50
+  if (regular) {
+    // A regular waits longer for a house they like, and less for one that has
+    // been annoying them.
+    patience += regular.loyalty / 60 - regular.irritation / 50
+  }
+  return Math.max(1, Math.min(5, Math.round(patience)))
+}
+
+/** Pick an arrival wave from the group's curve. */
+function pickArrivalWave(
+  curve: ReadonlyArray<number>,
+  roll: number,
+): number {
+  const total = curve.reduce((sum, weight) => sum + weight, 0)
+  if (total <= 0) return 0
+  let cursor = roll * total
+  for (let wave = 0; wave < curve.length; wave++) {
+    cursor -= curve[wave]!
+    if (cursor <= 0) return wave
+  }
+  return curve.length - 1
+}
+
+export type PartyBuildInput = {
+  /** Per-group demand: how many patrons wanted to come tonight. */
+  demandByGroup: Record<string, number>
+  /** Regulars who decided to come in, by regular id. */
+  regularVisitIds: ReadonlyArray<string>
+}
+
+/**
+ * Turn the evening's demand into parties.
+ *
+ * The only randomness is party composition and arrival timing, drawn from the
+ * dedicated `service_flow` stream so an extra service roll cannot shift a
+ * generated name (architecture rule 7) and a change to seating logic cannot
+ * shift who arrives.
+ */
+export function buildParties(
+  ctx: SimContext,
+  input: PartyBuildInput,
+): ServiceParty[] {
+  const rng = ctx.getRngStream(RNG_STREAM)
+  const parties: ServiceParty[] = []
+  let counter = 0
+
+  const nextParty = (
+    group: CustomerGroupState,
+    size: number,
+    regular: RegularWorldState | undefined,
+  ): ServiceParty => {
+    const curve = arrivalCurveFor(group)
+    const arrivalWave = pickArrivalWave(curve, rng.float())
+    counter += 1
+    const party: ServiceParty = {
+      // Zero-padded so the lexical sort below is also the arrival order.
+      id: `party_${String(counter).padStart(3, '0')}`,
+      groupId: group.id,
+      size,
+      arrivalWave,
+      patience: patienceFor(group, regular),
+      wavesWaited: 0,
+      outcome: 'unserved_at_close',
+      order: [],
+      paid: 0,
+      tab: 0,
+      notes: [],
+    }
+    if (regular) party.regularId = regular.id
+    return party
+  }
+
+  // Regulars first, but only inside the headcount the customers module
+  // published. A visit intent is not an extra arrival: it identifies one of
+  // the people already counted in the group's turnout. Companions are therefore
+  // clamped to that remaining turnout rather than silently creating patrons.
+  const remaining: Record<string, number> = { ...input.demandByGroup }
+  const positiveDemandGroups = Object.keys(input.demandByGroup)
+    .filter((groupId) => Math.max(0, Math.round(input.demandByGroup[groupId] ?? 0)) > 0)
+    .sort((a, b) => a.localeCompare(b))
+  const representedGroups = new Set<string>()
+  const regularIds = [...input.regularVisitIds].sort((a, b) => a.localeCompare(b))
+  for (const regularId of regularIds) {
+    const regular = ctx.state.world.regulars[regularId]
+    if (!regular) continue
+    const group = ctx.state.customerGroups[regular.customerGroupId]
+    if (!group) continue
+    const available = Math.max(0, Math.round(remaining[group.id] ?? 0))
+    if (available <= 0) continue
+    // Keep one slot available for every positive-demand group that still has
+    // no party. Without the reservation, many early regulars could consume the
+    // cap and make a later group's entire turnout disappear.
+    const groupsAfterThis = new Set(representedGroups)
+    groupsAfterThis.add(group.id)
+    const reserved = positiveDemandGroups.filter(
+      (groupId) => !groupsAfterThis.has(groupId),
+    ).length
+    if (parties.length + 1 + reserved > MAX_PARTIES_PER_DAY) continue
+    // A regular arrives alone or with a companion or two.
+    const companions = rng.int(0, 2)
+    const size = Math.min(available, 1 + companions)
+    parties.push(nextParty(group, size, regular))
+    representedGroups.add(group.id)
+    remaining[group.id] = available - size
+  }
+
+  // Then the anonymous cohorts, group by group in a stable order. Seed one
+  // party for every still-unrepresented group before allowing an early group
+  // to consume the remaining slots. This is the bounded-cohort guarantee: the
+  // party count stays capped while every group's demand remains visible to
+  // seating, abandonment, satisfaction, and reconciliation.
+  const groupIds = Object.keys(input.demandByGroup).sort((a, b) => a.localeCompare(b))
+  const rollPartySize = (
+    group: CustomerGroupState,
+    left: number,
+  ): number => {
+    const range = sizeRangeFor(group)
+    const upper = Math.min(left, range.max, MAX_PARTY_SIZE)
+    const lower = Math.min(range.min, upper)
+    return upper > 0 ? rng.int(lower, upper) : 0
+  }
+
+  for (const groupId of groupIds) {
+    if (representedGroups.has(groupId)) continue
+    const group = ctx.state.customerGroups[groupId]
+    if (!group) continue
+    const left = Math.max(0, Math.round(remaining[groupId] ?? 0))
+    if (left <= 0 || parties.length >= MAX_PARTIES_PER_DAY) continue
+    const size = rollPartySize(group, left)
+    if (size <= 0) continue
+    parties.push(nextParty(group, size, undefined))
+    representedGroups.add(groupId)
+    remaining[groupId] = left - size
+  }
+
+  for (const groupId of groupIds) {
+    const group = ctx.state.customerGroups[groupId]
+    if (!group) continue
+    let left = Math.max(0, Math.round(remaining[groupId] ?? 0))
+    while (left > 0 && parties.length < MAX_PARTIES_PER_DAY) {
+      const size = rollPartySize(group, left)
+      if (size <= 0) break
+      parties.push(nextParty(group, size, undefined))
+      representedGroups.add(groupId)
+      left -= size
+    }
+    // Cap reached with patrons still outside: they join the parties that group
+    // already has rather than vanishing.
+    if (left > 0) {
+      const groupParties = parties.filter((party) => party.groupId === groupId)
+      // `positiveDemandGroups` was reserved above, so this can only happen if
+      // the state itself contains more distinct active groups than the global
+      // party cap. Keep the guard defensive, but never silently hit it in a
+      // valid bounded world.
+      if (groupParties.length === 0) continue
+      let index = 0
+      while (left > 0) {
+        const party = groupParties[index % groupParties.length]!
+        party.size += 1
+        left -= 1
+        index += 1
+      }
+    }
+  }
+
+  // Stable order: arrival wave first, then party id. The wave loop walks this
+  // order, so seating is first-come-first-served and a reload cannot reshuffle
+  // the queue.
+  parties.sort((a, b) =>
+    a.arrivalWave === b.arrivalWave
+      ? a.id.localeCompare(b.id)
+      : a.arrivalWave - b.arrivalWave,
+  )
+  return parties
+}
+
+/**
+ * Rebuild a party with its keys in `ServicePartySchema` order, dropping the
+ * ones nothing set.
+ *
+ * WHY THIS EXISTS. A saved party comes back through Zod, which rebuilds it in
+ * schema key order, and the day diff renders a new module slice as one JSON
+ * string — so a party whose keys are in assignment order reads as a different
+ * party after a reload, and the §5.10 gate fails on formatting rather than
+ * behaviour. Pre-declaring every optional key as `undefined` would fix the
+ * order but put `undefined` VALUES into persisted state, which the web layer's
+ * baseline-patch encoder treats as present-but-empty rather than absent. So the
+ * flow assigns freely and the parties are normalised once, here, at the end.
+ */
+export function normaliseParty(party: ServiceParty): ServiceParty {
+  const out: ServiceParty = {
+    id: party.id,
+    groupId: party.groupId,
+    size: party.size,
+    ...(party.regularId !== undefined ? { regularId: party.regularId } : {}),
+    arrivalWave: party.arrivalWave,
+    patience: party.patience,
+    wavesWaited: party.wavesWaited,
+    ...(party.seatedWave !== undefined ? { seatedWave: party.seatedWave } : {}),
+    ...(party.areaId !== undefined ? { areaId: party.areaId } : {}),
+    ...(party.servedWave !== undefined ? { servedWave: party.servedWave } : {}),
+    ...(party.leftWave !== undefined ? { leftWave: party.leftWave } : {}),
+    outcome: party.outcome,
+    order: party.order,
+    paid: party.paid,
+    tab: party.tab,
+    ...(party.blockedBy !== undefined ? { blockedBy: party.blockedBy } : {}),
+    notes: party.notes,
+  }
+  return out
+}

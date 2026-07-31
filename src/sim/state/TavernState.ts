@@ -674,6 +674,80 @@ export type RegularWorldState = {
   // validation. New regulars created via `regularModule.createRegular`
   // always populate it.
   castAttributes?: CastAttributes;
+
+  // -- Expansion Phase 4 §4.3 — regulars as active participants ------------
+  //
+  // Before this phase a regular was a name, two meters and a visit counter.
+  // Everything below exists because §4.3 requires a regular to sit somewhere
+  // specific, order something specific, remember how it went, ask for things,
+  // and stop coming when the answer is always no. All of it is optional so a
+  // save written before Phase 4 loads unchanged; `ensureRegularServiceFields`
+  // fills the defaults.
+
+  /** The dish they ask for. Drives the order their party actually places. */
+  favoriteRecipeId?: string | undefined;
+  /** Where they like to sit. Tried first when their party is seated. */
+  favoriteAreaId?: string | undefined;
+  /**
+   * How they feel about the OWNER, as distinct from the house.
+   *
+   * Loyalty is "do I drink here"; standing is "do I do you a favour". Chasing
+   * their slate costs standing, forgiving it buys standing, and the requests
+   * they are willing to make are gated on it.
+   */
+  ownerStanding?: number | undefined;
+  /** Bounded record of what happened to them here. Newest last. */
+  serviceMemory?: RegularServiceMemoryEntry[] | undefined;
+  /** An open request or small goal they are pursuing. One at a time. */
+  openRequest?: RegularRequest | undefined;
+  /** How their last visit went. Feeds the next visit's probability. */
+  lastVisitOutcome?: "served" | "abandoned" | "turned_away" | "no_visit" | undefined;
+  /** Consecutive visits that went badly. Three is where they stop coming. */
+  consecutiveBadVisits?: number | undefined;
+  /** Set when they have stopped visiting, with the reason and the day. */
+  stoppedVisiting?: { sinceDay: number; reason: string } | undefined;
+  /** Times they have talked the house up, and talked it down. */
+  wordOfMouth?: { recommendations: number; criticisms: number } | undefined;
+};
+
+/** §5.11 bounded growth — a regular remembers this many service events. */
+export const MAX_REGULAR_SERVICE_MEMORY = 8;
+
+/**
+ * One thing that happened to a regular during service.
+ *
+ * `weight` is signed: positive is a good night, negative a bad one. It is what
+ * `visitProbability` reads, so a memory is a decision input rather than a
+ * caption.
+ */
+export type RegularServiceMemoryEntry = {
+  onDay: number;
+  kind:
+    | "served_favourite"
+    | "good_service"
+    | "waited"
+    | "abandoned"
+    | "turned_away"
+    | "shortage"
+    | "incident"
+    | "tab_forgiven"
+    | "tab_chased"
+    | "request_granted"
+    | "request_ignored";
+  weight: number;
+  readable: string;
+};
+
+/** A small thing a regular wants. §4.3 "make requests or pursue a small goal". */
+export type RegularRequest = {
+  id: string;
+  kind: "stock_favourite" | "keep_my_seat" | "quieter_room" | "forgive_my_slate";
+  /** The stock/area the request is about, when it is about one. */
+  subjectId?: string;
+  openedOnDay: number;
+  expiresOnDay: number;
+  readable: string;
+  status: "open" | "granted" | "refused" | "expired";
 };
 
 export type NotableNpcWorldState = {

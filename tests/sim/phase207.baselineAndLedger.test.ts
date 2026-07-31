@@ -215,8 +215,8 @@ describe('Phase 207 — implementation ledger', () => {
     // which the arc's conventions forbid. Bump `LANDED_PHASES` when a phase
     // completes, and never to make a failing row pass.
     // Phase 0 (ISSUE-170), Phase 1 (ISSUE-171), Phase 2 (ISSUE-172),
-    // Phase 3 (ISSUE-173).
-    const LANDED_PHASES = 3
+    // Phase 3 (ISSUE-173), Phase 4 (ISSUE-174).
+    const LANDED_PHASES = 4
     const closedEarly = rows.filter(
       (r) => r.status !== 'open' && Number(r.phase) > LANDED_PHASES,
     )
@@ -354,10 +354,20 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       // twelve into real allocations rather than adding to them. `foundingStaff`
       // is still 3, and now means the day-zero roster rather than a structural
       // requirement: every one of them can be dismissed or resign.
+      //
+      // Expansion Phase 4 (ISSUE-174) moves exactly one count, and that it is
+      // only one is the assertion:
+      //   * `ownerActions` 51 → 55: `collect_tab`, `forgive_tab`,
+      //     `greet_regular` and `answer_regular_request` — the counterplay to
+      //     the slates the flow now opens and the regulars who now ask for
+      //     things.
+      // Nothing else grows. `customerGroups` is still 9 and `recipes` still 22:
+      // §4.2 makes the existing menu a decision rather than adding to it, and
+      // §4.1's parties are per-night cohorts, not new registry entries.
       runtimeModules: 33,
       simulationPhases: 26,
       daySegments: 3,
-      ownerActions: 51,
+      ownerActions: 55,
       staffPriorities: 12,
       pressureDomains: 21,
       feedbackDetectors: 13,

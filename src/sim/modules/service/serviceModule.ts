@@ -14,6 +14,13 @@ import {
 import type { ResolveServiceInputs } from './resolveService'
 import { applyRecipesEndOfDay } from './recipesDaily'
 import { buildServiceScenes } from './serviceScenes'
+import { emptyFlowResult, ServiceFlowResultSchema } from './flow/types'
+import {
+  MAX_OPEN_PATRON_TABS,
+  PatronTabIndexEntrySchema,
+  sweepPatronTabs,
+} from './tabs'
+import { ensureServiceScheduledEventsRegistered } from './serviceEvents'
 import type {
   AreaChangeSummary,
   CustomerSatisfactionChange,
@@ -47,10 +54,24 @@ import type {
 export const SERVICE_MODULE_ID = 'service'
 const SOURCE = SERVICE_MODULE_ID
 
+/** §5.11 — how many slates the house keeps a chaseable record of. */
+const MAX_TRACKED_PATRON_TABS = MAX_OPEN_PATRON_TABS
+
+// Expansion Phase 4 — KEY ORDER HERE IS LOAD-BEARING, and matches
+// `ServiceModuleStateSchema` below.
+//
+// A saved slice comes back through Zod, which rebuilds objects in schema key
+// order. The day diff renders a whole new slice as one JSON string, so a
+// literal whose keys are in a different order than the schema makes a reloaded
+// day read as a different day — which is the §5.10 gate failing on formatting
+// rather than on behaviour. Phase 3 fixed the same class of bug in
+// `core/diff.ts`'s module walk. Keep the two orders in step.
 export function createInitialServiceModuleState(): ServiceModuleState {
   return {
     result: {
       dayKey: '0-0-0',
+      flow: emptyFlowResult(),
+      tabsOpened: [],
       trafficByGroup: {},
       purchasesByGroup: {},
       coinEarned: 0,
@@ -75,6 +96,16 @@ export function createInitialServiceModuleState(): ServiceModuleState {
       // Phase 32 §32.1 — scene array always seeded.
       scenes: [],
     },
+    // Expansion Phase 4 §4.5 — the persistent half. Slates outlive the night.
+    patronTabs: [],
+    totals: {
+      tabsOpened: 0,
+      tabsCollected: 0,
+      tabsForgiven: 0,
+      tabsWrittenOff: 0,
+      coinRecovered: 0,
+      patronsAbandoned: 0,
+    },
   }
 }
 
@@ -96,7 +127,7 @@ function writeResult(
   ctx.modifyModuleState<ServiceModuleState>(
     SERVICE_MODULE_ID,
     (current) => {
-      const base = current ?? { result }
+      const base = current ?? createInitialServiceModuleState()
       return { ...base, result }
     },
     { source: SOURCE, reason },
@@ -106,11 +137,22 @@ function writeResult(
 // ---------- Hooks ----------
 
 const startDayHook: SimulationHook = (ctx: SimContext): void => {
+  // Expansion Phase 4 §4.4 — the service module's mechanical event types must
+  // be registered before the response bridge routes a hook to one.
+  ensureServiceScheduledEventsRegistered()
   // Reset the per-day service slice so reports and downstream callers
   // never read stale data from yesterday.
+  //
+  // Expansion Phase 4 §4.5 — `patronTabs` and `totals` survive the reset. They
+  // are the persistent half of the slice: a slate run up on Tuesday is still
+  // owed on Wednesday, and wiping it every morning would be the aggregate
+  // deduction this phase exists to replace, wearing a record's clothes.
   ctx.modifyModuleState<ServiceModuleState>(
     SERVICE_MODULE_ID,
-    () => ({ result: buildEmptyResult(ctx.state) }),
+    (current) => {
+      const base = current ?? createInitialServiceModuleState()
+      return { ...base, result: buildEmptyResult(ctx.state) }
+    },
     { source: SOURCE, reason: 'day_initialize' },
   )
 }
@@ -146,8 +188,38 @@ const serviceHook: SimulationHook = (ctx: SimContext): void => {
       ]),
     ),
   }
-  const result = resolveService(ctx, inputs)
+  const { result, tabsOpened } = resolveService(ctx, inputs)
   writeResult(ctx, result, 'service_resolved')
+  // Expansion Phase 4 §4.5 — file tonight's slates in the persistent index.
+  //
+  // §5.11 bounded growth: the index is capped, and the oldest smallest slates
+  // are dropped when it overflows rather than accumulating for a year. Dropping
+  // the INDEX entry does not lose the money — the obligation ledger keeps its
+  // own record and its own due/grace/default clock — it only means the house
+  // has stopped tracking who to chase, which is the honest reading of a slate
+  // that has aged out.
+  if (tabsOpened.length > 0) {
+    ctx.modifyModuleState<ServiceModuleState>(
+      SERVICE_MODULE_ID,
+      (current) => {
+        const base = current ?? createInitialServiceModuleState()
+        const merged = [...base.patronTabs, ...tabsOpened]
+        const kept =
+          merged.length > MAX_TRACKED_PATRON_TABS
+            ? merged.slice(merged.length - MAX_TRACKED_PATRON_TABS)
+            : merged
+        return {
+          ...base,
+          patronTabs: kept,
+          totals: {
+            ...base.totals,
+            tabsOpened: base.totals.tabsOpened + tabsOpened.length,
+          },
+        }
+      },
+      { source: SOURCE, reason: 'patron_tabs_opened' },
+    )
+  }
   snapshot = undefined
 }
 
@@ -390,6 +462,53 @@ function collectSatisfactionChanges(
   return out
 }
 
+/**
+ * Expansion Phase 4 §5.11 — close out the slates nobody is going to pay.
+ *
+ * The obligation ledger has its own 120-record cap and a receivable that is
+ * never paid is never *settled*, so without this a fortnight of trading trips
+ * it. Writing one off drops its index entry too — there is nobody left to
+ * chase — and the coin given up is counted in the module's totals so the loss
+ * is on the record rather than merely absent.
+ */
+const sweepPatronTabsHook: SimulationHook = (ctx: SimContext): void => {
+  const swept = sweepPatronTabs(ctx)
+  if (swept.writtenOff.length === 0) return
+  const gone = new Set(swept.writtenOff)
+  ctx.modifyModuleState<ServiceModuleState>(
+    SERVICE_MODULE_ID,
+    (current) => {
+      const base = current ?? createInitialServiceModuleState()
+      return {
+        ...base,
+        patronTabs: base.patronTabs.filter(
+          (entry) => !gone.has(entry.obligationId),
+        ),
+        totals: {
+          ...base.totals,
+          tabsWrittenOff: base.totals.tabsWrittenOff + swept.writtenOff.length,
+        },
+      }
+    },
+    { source: SOURCE, reason: 'patron_tabs_written_off' },
+  )
+  if (swept.coinLost > 0) {
+    ctx.addCause({
+      source: 'service.tabs.written_off',
+      sourceType: 'service',
+      // No cash leaves today: it was already absent from takings when the tab
+      // opened. What disappears now is the receivable.
+      target: 'service.receivables',
+      targetType: 'global',
+      amount: -swept.coinLost,
+      direction: 'decrease',
+      readable: `Wrote off ${swept.writtenOff.length} slate receivable(s) worth ${swept.coinLost} coin.`,
+      tags: ['service', 'patron_tab', 'receivable', 'written_off'],
+      relatedSystems: ['service', 'obligations'],
+    })
+  }
+}
+
 // ---------- Reports ----------
 
 function formatTrafficLines(result: DailyServiceResult): string[] {
@@ -397,6 +516,70 @@ function formatTrafficLines(result: DailyServiceResult): string[] {
   if (entries.length === 0) return ['  (no traffic)']
   const sorted = entries.sort((a, b) => b[1] - a[1])
   return sorted.map(([id, visitors]) => `  ${id}: ${visitors}`)
+}
+
+/**
+ * Expansion Phase 4 §4.1 — the service-flow block, and the reconciliation the
+ * plan's last required test asks for.
+ *
+ * Everything here is read off `result.flow`, and the aggregate figures below it
+ * in the report are DERIVED from the same object — so "reports reconcile
+ * service substeps to aggregate ledger totals" is a property of there being one
+ * calculation, not of two calculations agreeing. The block states the identity
+ * explicitly (`arrived = served + left + still in`) so a reader can check it
+ * without the test.
+ */
+function formatFlowLines(result: DailyServiceResult): string[] {
+  const flow = result.flow
+  const lines: string[] = ['Service Flow:']
+  if (!flow.ran) {
+    lines.push('  (no service)')
+    lines.push('')
+    return lines
+  }
+
+  const sum = (record: Record<string, number>): number =>
+    Object.values(record).reduce((total, value) => total + value, 0)
+  const arrived = sum(flow.demandByGroup)
+  const served = sum(flow.servedByGroup)
+  const abandoned = sum(flow.abandonedByGroup)
+
+  lines.push(
+    `  Arrived ${arrived} · seated ${sum(flow.seatedByGroup)} · served ${served} · left unserved ${abandoned}`,
+  )
+  lines.push(
+    `  Capacity: ${flow.capacity.seats} seats · ${flow.capacity.prepPerWave} prepped/wave · ` +
+      `${flow.capacity.deliveryPerWave} carried/wave · ${flow.capacity.resetPerWave} tables wiped/wave`,
+  )
+  lines.push(`  Peak queue: ${flow.peakQueue} · parties: ${flow.parties.length}`)
+  if (flow.bottleneck) {
+    lines.push(
+      `  Bottleneck: ${flow.bottleneck.reason} — ${flow.bottleneck.readable} (${flow.bottleneck.partiesHeld} party-waves held)`,
+    )
+  } else {
+    lines.push('  Bottleneck: none — the room kept up.')
+  }
+  if (flow.unresetSeats > 0) {
+    lines.push(`  Left unwiped at close: ${flow.unresetSeats} seats`)
+  }
+  for (const wave of flow.waves) {
+    lines.push(
+      `    wave ${wave.wave}: +${wave.arrived} in, ${wave.seated} seated, ${wave.served} served, ` +
+        `${wave.abandoned} gone, ${wave.prepared}/${wave.delivered} prepped/carried`,
+    )
+  }
+  // The identity the reconciliation test checks.
+  lines.push(
+    `  Reconciles: served ${served} + unserved ${abandoned} = ${served + abandoned} of ${arrived} arrivals`,
+  )
+  lines.push(
+    `  Takings reconcile: coin ${result.coinEarned} − slates ${result.unpaidTabs} = net ${result.netCoinEarned}`,
+  )
+  if (result.tabsOpened.length > 0) {
+    lines.push(`  Slates opened: ${result.tabsOpened.length}`)
+  }
+  lines.push('')
+  return lines
 }
 
 function bestSellingItem(result: DailyServiceResult): string | undefined {
@@ -423,6 +606,9 @@ function buildDailyServiceReport(ctx: SimContext): ReportSection {
   lines.push('Traffic:')
   lines.push(...formatTrafficLines(result))
   lines.push('')
+
+  // Expansion Phase 4 §4.1 — the evening, stage by stage.
+  lines.push(...formatFlowLines(result))
 
   lines.push('Economy:')
   lines.push(`  Coin earned: ${result.coinEarned}`)
@@ -695,6 +881,7 @@ const StaffChangeSchema = z.object({
 const IncidentSchema = z.object({
   id: z.string(),
   severity: z.number().min(0).max(100),
+  disposition: z.enum(['adverse', 'positive', 'neutral']).optional(),
   actorGroup: z.string().optional(),
   areaId: z.string().optional(),
   effects: z.array(z.string()),
@@ -778,6 +965,10 @@ const ServiceSceneSchema = z.object({
 
 const DailyServiceResultSchema = z.object({
   dayKey: z.string(),
+  // Expansion Phase 4 §4.1 — the evening's substeps. `.default(...)` so a
+  // pre-Phase-4 slice parses forward into an idle flow.
+  flow: ServiceFlowResultSchema.default(emptyFlowResult()),
+  tabsOpened: z.array(z.string()).default([]),
   trafficByGroup: z.record(z.string(), z.number().min(0)),
   purchasesByGroup: z.record(z.string(), PurchaseSummarySchema),
   coinEarned: z.number(),
@@ -796,6 +987,25 @@ const DailyServiceResultSchema = z.object({
 
 const ServiceModuleStateSchema = z.object({
   result: DailyServiceResultSchema,
+  // Expansion Phase 4 §4.5 — the persistent half.
+  patronTabs: z.array(PatronTabIndexEntrySchema).default([]),
+  totals: z
+    .object({
+      tabsOpened: z.number().int().min(0),
+      tabsCollected: z.number().int().min(0),
+      tabsForgiven: z.number().int().min(0),
+      tabsWrittenOff: z.number().int().min(0),
+      coinRecovered: z.number().min(0),
+      patronsAbandoned: z.number().int().min(0),
+    })
+    .default({
+      tabsOpened: 0,
+      tabsCollected: 0,
+      tabsForgiven: 0,
+      tabsWrittenOff: 0,
+      coinRecovered: 0,
+      patronsAbandoned: 0,
+    }),
 })
 
 export const serviceModule: SimulationModule = {
@@ -814,7 +1024,12 @@ export const serviceModule: SimulationModule = {
     afterService: [afterServiceHook],
     // Phase 67 / ISSUE-027 §6.6 — recipes daily housekeeping +
     // common-only renown decay.
-    endDay: [(ctx: SimContext): void => applyRecipesEndOfDay(ctx)],
+    // Expansion Phase 4 §5.11 — and the slate sweep, which is what keeps the
+    // shared obligation ledger from filling with dead receivables.
+    endDay: [
+      (ctx: SimContext): void => applyRecipesEndOfDay(ctx),
+      sweepPatronTabsHook,
+    ],
   },
   buildReport: buildDailyServiceReport,
   validate: validateService,

@@ -17,6 +17,13 @@ export function createInitialRegularModuleState(): RegularModuleState {
     createdToday: [],
     visitedToday: [],
     decayedToday: [],
+    // Expansion Phase 4 §4.3 — the visit lifecycle's per-day scratch.
+    visitIntents: [],
+    outcomes: [],
+    stoppedToday: [],
+    returnedToday: [],
+    requestsOpened: [],
+    requestsResolved: [],
   }
 }
 

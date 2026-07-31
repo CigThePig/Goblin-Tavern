@@ -44,11 +44,55 @@
             value={regular.irritation}
             mode="pressure"
           />
+          {#if regular.ownerStanding !== undefined}
+            <MeterBar
+              label="standing"
+              value={regular.ownerStanding}
+              mode="wellness"
+            />
+          {/if}
         </div>
         <p class="terms chip">
           <TermLabel term="loyalty" /> · <TermLabel term="irritation" />
+          {#if regular.ownerStanding !== undefined}
+            · <TermLabel term="owner_standing" />
+          {/if}
         </p>
       </section>
+
+      <!-- Expansion Phase 4 §4.3 — the state that decides whether they come in
+           at all, and what they want when they do. Shown ahead of the meters'
+           history because it is what the player can act on. -->
+      {#if regular.stoppedVisiting}
+        <section class="block lapsed">
+          <p class="block-label section-label">
+            <TermLabel term="lapsed_regular" />
+          </p>
+          <p class="lapsed-reason">
+            Has stopped coming in since day {regular.stoppedVisiting.sinceDay} —
+            {regular.stoppedVisiting.reason}.
+          </p>
+        </section>
+      {/if}
+
+      {#if regular.openRequest}
+        <section class="block request">
+          <p class="block-label section-label">
+            <TermLabel term="regular_request" />
+          </p>
+          <p class="request-text">{regular.openRequest.readable}</p>
+          <p class="chip">Expires day {regular.openRequest.expiresOnDay}</p>
+        </section>
+      {/if}
+
+      {#if regular.slateOwed > 0}
+        <section class="block">
+          <p class="block-label section-label">
+            <TermLabel term="patron_tab" />
+          </p>
+          <p class="favourite">{regular.slateOwed} coin on the slate</p>
+        </section>
+      {/if}
 
       <section class="block">
         <p class="block-label section-label">History</p>
@@ -72,14 +116,53 @@
         </dl>
       </section>
 
-      {#if regular.favoriteStockLabel}
+      {#if regular.favoriteStockLabel || regular.favoriteRecipeLabel || regular.favoriteAreaLabel}
         <section class="block">
-          <p class="block-label section-label">Favourite</p>
-          <p class="favourite">
-            {regular.favoriteStockLabel}
-            {#if regular.favoriteStockOnHand !== undefined}
-              <span class="onhand chip">— {regular.favoriteStockOnHand} on hand</span>
-            {/if}
+          <p class="block-label section-label">Their usual</p>
+          {#if regular.favoriteRecipeLabel}
+            <p class="favourite">
+              {regular.favoriteRecipeLabel}
+              <span class="onhand chip">
+                — {regular.favoriteRecipeAvailable ? 'on the menu' : 'not available'}
+              </span>
+            </p>
+          {/if}
+          {#if regular.favoriteStockLabel}
+            <p class="favourite">
+              {regular.favoriteStockLabel}
+              {#if regular.favoriteStockOnHand !== undefined}
+                <span class="onhand chip">— {regular.favoriteStockOnHand} on hand</span>
+              {/if}
+            </p>
+          {/if}
+          {#if regular.favoriteAreaLabel}
+            <p class="favourite">
+              <span class="onhand chip">sits in {regular.favoriteAreaLabel}</span>
+            </p>
+          {/if}
+        </section>
+      {/if}
+
+      {#if regular.serviceMemory.length > 0}
+        <section class="block">
+          <p class="block-label section-label">What they remember</p>
+          <ul class="memory">
+            {#each regular.serviceMemory.slice(-5).reverse() as entry (entry.onDay + entry.kind + entry.readable)}
+              <li class:good={entry.weight > 0} class:bad={entry.weight < 0}>
+                {entry.readable}
+                <span class="chip">day {entry.onDay}</span>
+              </li>
+            {/each}
+          </ul>
+        </section>
+      {/if}
+
+      {#if regular.wordOfMouth && (regular.wordOfMouth.recommendations > 0 || regular.wordOfMouth.criticisms > 0)}
+        <section class="block">
+          <p class="block-label section-label">Word of mouth</p>
+          <p class="chip">
+            spoke well {regular.wordOfMouth.recommendations}× · spoke against
+            {regular.wordOfMouth.criticisms}×
           </p>
         </section>
       {/if}
@@ -134,6 +217,35 @@
 
   .block-label {
     color: var(--accent);
+  }
+
+  .lapsed .lapsed-reason {
+    color: var(--danger, var(--text));
+  }
+
+  .request .request-text {
+    color: var(--text);
+  }
+
+  .memory {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xxs, 2px);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .memory li {
+    color: var(--text-dim);
+  }
+
+  .memory li.good {
+    color: var(--text);
+  }
+
+  .memory li.bad {
+    color: var(--warn, var(--text-dim));
   }
 
   .meters {

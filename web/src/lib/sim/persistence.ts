@@ -70,6 +70,7 @@ import {
   ensureAreaIdentityFields,
   ensureAreaConstructionFields,
   ensureStaffIdentityFields,
+  ensureRegularServiceFields,
   ensureStaffWorkforceFields,
   ensureCastAttributes,
   ensureWeeklyHistoryField,
@@ -764,7 +765,12 @@ function migrateAndValidateState(
     // being backdated into tenure nobody earned. Runs after
     // `ensureStaffIdentityFields` because the career goal is read off identity.
     const s8c = ensureStaffWorkforceFields(s8b);
-    const s9 = ensureModuleSlices(s8c);
+    // Expansion Phase 4 §5.7 — the regulars' active-participant fields. Runs
+    // after `ensureCastAttributes` so every regular is already a complete
+    // record, and derives its defaults from the loyalty the save already
+    // carries rather than rolling anything.
+    const s8d = ensureRegularServiceFields(s8c);
+    const s9 = ensureModuleSlices(s8d);
     const validation = safeValidateState(s9, { modules: FULL_PIPELINE });
     if (!validation.success) {
       const first = validation.errors[0];

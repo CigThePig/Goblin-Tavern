@@ -536,6 +536,13 @@ function makeSceneId(
   return `scene_${day}_${sceneType}_${index}`
 }
 
+/** Regular-led scenes outrank staff-led scenes, which outrank ambient ones. */
+function namedEntityRank(candidate: SceneCandidate): number {
+  if (candidate.regularIds.length > 0) return 2
+  if (candidate.staffIds.length > 0) return 1
+  return 0
+}
+
 function rankCandidates(
   candidates: ReadonlyArray<SceneCandidate>,
   ctx: SimContext,
@@ -552,8 +559,19 @@ function rankCandidates(
     if (b.numericSeverity !== a.numericSeverity) {
       return b.numericSeverity - a.numericSeverity
     }
-    // Equal severity → deterministic but rng-broken order on the
-    // `incidents` stream (Phase 24).
+    // Expansion Phase 4 — a scene about a NAMED person outranks an ambient
+    // one at equal severity.
+    //
+    // Severity saturates at 100, and a genuinely bad night now saturates
+    // several candidates at once (the room is filthy AND the slate is long AND
+    // a regular is furious). Before this phase that rarely happened, so the
+    // coin flip below decided little; once it does happen, a pure coin flip
+    // drops the scene that names Grulk in favour of the one that names the
+    // main room roughly half the time — and §32.3's whole preference is for
+    // entity-driven scenes. Ties within a tier still break on the seeded
+    // `incidents` stream, so this stays deterministic.
+    const named = namedEntityRank(b) - namedEntityRank(a)
+    if (named !== 0) return named
     return rng.float() - 0.5
   })
   return sorted.slice(0, MAX_SERVICE_SCENES_PER_DAY)

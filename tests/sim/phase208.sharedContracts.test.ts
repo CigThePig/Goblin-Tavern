@@ -281,9 +281,14 @@ describe('Phase 208 §1.1 — cancellation, supersession, missing targets', () =
     // check is exercised against a target kind that CAN: an area.
     const state = createInitialTavernState()
     const day1 = simulateDay(state, input('missing'), FULL_PIPELINE).state
-    // Nothing queued on the stock pipeline, so this asserts the shape of the
-    // helper rather than a live cancellation.
-    expect(getLiveScheduledEvents(day1)).toEqual([])
+    // Patron tabs now correctly schedule their shared obligation due events.
+    // Nothing else is queued on this path, so filter those legitimate ledger
+    // events before asserting the helper's empty result shape.
+    expect(
+      getLiveScheduledEvents(day1).filter(
+        (event) => event.type !== 'obligation_due',
+      ),
+    ).toEqual([])
   })
 
   it('caps the queue and reports it rather than growing without bound', () => {

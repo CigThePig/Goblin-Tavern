@@ -17,7 +17,11 @@ import type { CustomerTurnout } from './types'
 // loosely so this file does not depend on the service module's types.
 type ServiceAdjustmentInputs = {
   serviceQuality?: ServiceQualityModifiers
-  incidents?: ReadonlyArray<{ actorGroup?: string; id: string }>
+  incidents?: ReadonlyArray<{
+    actorGroup?: string
+    id: string
+    disposition?: 'adverse' | 'positive' | 'neutral'
+  }>
 }
 
 // Phase 10 §10.5 — Customer satisfaction.
@@ -147,6 +151,24 @@ function serviceSignal(turnout: CustomerTurnout): number {
   return 0
 }
 
+/**
+ * Expansion Phase 4 §4.1 "abandonment, reduced spend, or dissatisfaction from
+ * delay".
+ *
+ * Being turned away is a different complaint from being served badly, and
+ * before this phase the group had no way to express it: everyone who came was
+ * served, so the only way a busy night could hurt was through the crowding
+ * meter. Now the share of the group that gave up and went home is a signal in
+ * its own right, and it is the sharpest one available — nothing annoys a crowd
+ * like walking out hungry.
+ */
+function abandonmentSignal(turnout: CustomerTurnout): number {
+  const abandoned = turnout.abandoned ?? 0
+  if (abandoned <= 0 || turnout.visitors <= 0) return 0
+  const share = Math.min(1, abandoned / turnout.visitors)
+  return -Math.max(1, Math.round(share * 10))
+}
+
 function foodQualitySignal(
   quality: ServiceQualityModifiers | undefined,
 ): number {
@@ -161,7 +183,9 @@ function incidentSignal(
 ): number {
   if (!inputs?.incidents) return 0
   const groupIncidents = inputs.incidents.filter(
-    (i) => i.actorGroup === group.id,
+    (i) =>
+      i.actorGroup === group.id &&
+      (i.disposition === undefined || i.disposition === 'adverse'),
   )
   if (groupIncidents.length === 0) return 0
   return -groupIncidents.length
@@ -181,6 +205,7 @@ export function applySatisfactionUpdate(
   const quality = qualitySignal(group, ctx)
   const shortage = shortageSignal(turnout)
   const service = serviceSignal(turnout)
+  const abandonment = abandonmentSignal(turnout)
   const food = foodQualitySignal(inputs.serviceQuality)
   const incidents = incidentSignal(group, inputs)
 
@@ -193,6 +218,7 @@ export function applySatisfactionUpdate(
     quality +
     shortage +
     service +
+    abandonment +
     food +
     incidents
   if (delta === 0) return
@@ -225,6 +251,11 @@ export function applySatisfactionUpdate(
   if (quality > 0) turnout.notes.push('Stock quality was a draw.')
   if (quality < 0) turnout.notes.push('Stock quality was disappointing.')
   if (shortage < 0) turnout.notes.push(`Shortages left visitors unhappy (${shortage}).`)
+  if (abandonment < 0) {
+    turnout.notes.push(
+      `${turnout.abandoned ?? 0} gave up waiting and went home (${abandonment}).`,
+    )
+  }
   if (food > 0) turnout.notes.push('Cook lifted food quality.')
   if (food < 0) {
     turnout.notes.push('Cook stretched ingredients — food suffered.')
@@ -331,6 +362,20 @@ export function applySatisfactionUpdate(
       tags: [...causeTags, 'shortage'],
       relatedActors: [{ kind: 'customer_group', id: group.id }],
       relatedSystems: ['customers', 'stock'],
+    })
+  }
+  if (abandonment < 0) {
+    ctx.addCause({
+      source: SOURCE,
+      sourceType: 'service',
+      target: `customer:${group.id}.satisfaction`,
+      targetType: 'customer',
+      amount: abandonment,
+      weight: Math.abs(abandonment) * 3,
+      readable: `${turnout.abandoned ?? 0} of the ${group.label ?? group.id} left unserved.`,
+      tags: [...causeTags, 'abandonment', 'service_flow'],
+      relatedActors: [{ kind: 'customer_group', id: group.id }],
+      relatedSystems: ['customers', 'service'],
     })
   }
 }

@@ -325,16 +325,20 @@ describe('Phase 208 §1.1 — exact-once across every route', () => {
     expect(new Set(eventIds).size).toBe(eventIds.length)
   })
 
-  it('a run with no scheduled events writes nothing to the queue', () => {
-    // The stock pipeline, with no probe: Phase 1 must be inert on the
-    // reference route. This is what keeps the frozen Phase 0 probes valid.
+  it('a run with no narrative hooks queues only real obligation due dates', () => {
+    // The stock pipeline, with no probe, declares no narrative hooks. Service
+    // can still create slate obligations, whose mechanical due dates belong
+    // in this queue; those are not Phase 1 narrative expectations.
     let state = createInitialTavernState()
     for (let day = 0; day < 5; day += 1) {
       state = simulateDay(state, input(day), FULL_PIPELINE).state
     }
     const slice = readScheduledEventsSlice(state)
-    expect(slice.queue).toEqual([])
+    expect(slice.queue.length).toBeGreaterThan(0)
+    expect(slice.queue.every((record) => record.type === 'obligation_due')).toBe(true)
+    expect(
+      slice.queue.some((record) => record.kind === 'narrative_expectation'),
+    ).toBe(false)
     expect(slice.archive).toEqual([])
-    expect(slice.totals.scheduled).toBe(0)
   })
 })

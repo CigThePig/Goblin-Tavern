@@ -633,6 +633,41 @@ export const SupplierWorldStateSchema = z.object({
   castAttributes: CastAttributesSchema.optional(),
 });
 
+// Expansion Phase 4 §4.3 — a regular's bounded service memory and open request.
+export const RegularServiceMemoryEntrySchema = z.object({
+  onDay: nonNegativeInt(),
+  kind: z.enum([
+    "served_favourite",
+    "good_service",
+    "waited",
+    "abandoned",
+    "turned_away",
+    "shortage",
+    "incident",
+    "tab_forgiven",
+    "tab_chased",
+    "request_granted",
+    "request_ignored",
+  ]),
+  weight: z.number(),
+  readable: z.string(),
+});
+
+export const RegularRequestSchema = z.object({
+  id: z.string(),
+  kind: z.enum([
+    "stock_favourite",
+    "keep_my_seat",
+    "quieter_room",
+    "forgive_my_slate",
+  ]),
+  subjectId: z.string().optional(),
+  openedOnDay: nonNegativeInt(),
+  expiresOnDay: nonNegativeInt(),
+  readable: z.string(),
+  status: z.enum(["open", "granted", "refused", "expired"]),
+});
+
 export const RegularWorldStateSchema = z.object({
   id: z.string(),
   name: GeneratedNameSchema,
@@ -651,6 +686,27 @@ export const RegularWorldStateSchema = z.object({
   // Phase 121 / ISSUE-090 — optional during migration window;
   // `ensureCastAttributes` attaches defaults to pre-Phase-A saves.
   castAttributes: CastAttributesSchema.optional(),
+  // Expansion Phase 4 §4.3 — the active-participant fields. All optional so a
+  // pre-Phase-4 save validates unchanged; `ensureRegularServiceFields` fills
+  // them on load.
+  favoriteRecipeId: z.string().optional(),
+  favoriteAreaId: z.string().optional(),
+  ownerStanding: meter().optional(),
+  serviceMemory: z.array(RegularServiceMemoryEntrySchema).optional(),
+  openRequest: RegularRequestSchema.optional(),
+  lastVisitOutcome: z
+    .enum(["served", "abandoned", "turned_away", "no_visit"])
+    .optional(),
+  consecutiveBadVisits: nonNegativeInt().optional(),
+  stoppedVisiting: z
+    .object({ sinceDay: nonNegativeInt(), reason: z.string() })
+    .optional(),
+  wordOfMouth: z
+    .object({
+      recommendations: nonNegativeInt(),
+      criticisms: nonNegativeInt(),
+    })
+    .optional(),
 });
 
 export const NotableNpcWorldStateSchema = z.object({

@@ -20,9 +20,14 @@ import {
   getRegularModuleState,
 } from './state'
 import { buildRegularReport } from './regularReport'
+import { regularServiceDefaults } from './regularDefaults'
+import { assessVisit, returnCondition, rollVisit } from './visits'
+import { openRequests, sweepRequests } from './regularRequests'
+import { recordVisitOutcomes } from './regularOutcomes'
 import type {
   RegularEmergenceCandidate,
   RegularModuleState,
+  RegularVisitIntent,
 } from './types'
 
 // Phase 27 §27.4 / Phase 30 §30.6 — Regular customer module.
@@ -156,6 +161,9 @@ function createRegular(
     tags: ['regular', ...(group.cultureId ? [`culture:${group.cultureId}`] : [])],
     activeFlags: [],
     castAttributes,
+    // Expansion Phase 4 §4.3 — from the one shared definition, so an emergent
+    // regular, a starter regular and a migrated regular are the same shape.
+    ...regularServiceDefaults(Math.max(50, Math.min(100, group.loyalty))),
   }
 
   ctx.addRegular(regular, {
@@ -172,24 +180,6 @@ function createRegular(
   return regular
 }
 
-function shouldVisit(
-  ctx: SimContext,
-  regular: RegularWorldState,
-  group: CustomerGroupState | undefined,
-): boolean {
-  if (!group) return false
-  if (regular.irritation >= HIGH_IRRITATION_THRESHOLD) {
-    // Irritated regulars need a particularly nudging day to come back.
-    return ctx.getRngStream(STREAM_ID).chance(0.05)
-  }
-  // Base chance scales with group patronage and the regular's loyalty.
-  const base = 0.15 + (regular.loyalty / 100) * 0.35 + (group.patronage / 100) * 0.25
-  const dayType = ctx.getDayType()
-  const culture = group.cultureId ? ctx.getCulture(group.cultureId) : undefined
-  const matchesCalendar = culture?.importantCalendarTags.includes(dayType)
-  const probability = Math.min(0.9, base + (matchesCalendar ? 0.15 : 0))
-  return ctx.getRngStream(STREAM_ID).chance(probability)
-}
 
 const startDayHook: SimulationHook = (ctx: SimContext): void => {
   ctx.modifyModuleState<RegularModuleState>(
@@ -233,50 +223,65 @@ const regularUpdateHook: SimulationHook = (ctx: SimContext): void => {
     }
   }
 
-  // Decide which existing regulars (including the freshly created ones)
-  // visit today. A visit increments `visits`, refreshes `lastSeenDay`,
-  // and nudges loyalty slightly upward; an absent regular's irritation
-  // drifts up a little when the day has high traffic potential.
-  const today = ctx.state.calendar.totalDaysElapsed
-  for (const regular of Object.values(ctx.state.world.regulars)) {
+  // Expansion Phase 4 §4.3 — DECIDE, do not resolve.
+  //
+  // The old pass rolled a visit and immediately credited it: `visits + 1`,
+  // `lastSeenDay = today`, loyalty up. So a regular "visited" a tavern that
+  // might have had no seats, no cook and nothing to sell, and the visit counter
+  // measured intent rather than attendance. Now the roll produces an INTENT the
+  // service flow has to honour; the credit is given in `afterService`, to the
+  // ones who actually got in.
+  const intents: RegularVisitIntent[] = []
+  const returnedToday: string[] = []
+  for (const regular of sortedRegulars(ctx)) {
     const group = ctx.state.customerGroups[regular.customerGroupId]
-    if (shouldVisit(ctx, regular, group)) {
-      visitedToday.push(regular.id)
-      const nextLoyalty = Math.min(100, regular.loyalty + 1)
-      const nextIrritation = Math.max(0, regular.irritation - 2)
+
+    // A lapsed regular is not rolling for a visit — they are checking whether
+    // the thing that drove them off has changed (§4.3 "return under changed
+    // conditions").
+    if (regular.stoppedVisiting) {
+      const condition = returnCondition(ctx, regular)
+      if (!condition) continue
+      returnedToday.push(regular.id)
       ctx.modifyRegular(
         regular.id,
+        { stoppedVisiting: undefined, consecutiveBadVisits: 0 },
         {
-          visits: regular.visits + 1,
-          lastSeenDay: today,
-          loyalty: nextLoyalty,
-          irritation: nextIrritation,
-        },
-        {
-          source: `${SOURCE}.visit`,
+          source: `${SOURCE}.return`,
           sourceType: 'regular',
+          target: regular.id,
           targetType: 'regular',
-          readable: `${regular.name.display} visited (loyalty ${regular.loyalty} → ${nextLoyalty}).`,
-          tags: ['regular', 'visit', regular.customerGroupId],
+          amount: 1,
+          direction: 'increase',
+          readable: `${regular.name.display} came back — ${condition}.`,
+          tags: ['regular', 'return', regular.customerGroupId],
+          relatedActors: [{ kind: 'regular', id: regular.id }],
+          relatedSystems: ['regulars'],
         },
       )
-    } else if (group && group.patronage >= 40) {
-      const nextIrritation = Math.min(100, regular.irritation + 1)
-      if (nextIrritation !== regular.irritation) {
-        ctx.modifyRegular(
-          regular.id,
-          { irritation: nextIrritation },
-          {
-            source: `${SOURCE}.absent_drift`,
-            sourceType: 'regular',
-            targetType: 'regular',
-            readable: `${regular.name.display} stayed away (irritation ${regular.irritation} → ${nextIrritation}).`,
-            tags: ['regular', 'absent', regular.customerGroupId],
-          },
-        )
-      }
+      ctx.addHistory({
+        category: 'service',
+        summary: `${regular.name.display} started coming back (${condition}).`,
+        tags: ['regular', 'return'],
+        relatedActors: [{ kind: 'regular', id: regular.id }],
+        relatedSystems: ['regulars'],
+        mechanicalRefs: [regular.id],
+      })
     }
+
+    const assessment = assessVisit(ctx, regular, group)
+    if (!rollVisit(ctx, assessment)) continue
+    intents.push({
+      regularId: regular.id,
+      groupId: regular.customerGroupId,
+      probability: assessment.probability,
+      drivers: assessment.drivers,
+    })
   }
+
+  // §4.3 "make requests or pursue a small goal" — at most one open request per
+  // person, opened only when they have the standing to ask.
+  const requestsOpened = openRequests(ctx)
 
   ctx.modifyModuleState<RegularModuleState>(
     REGULARS_MODULE_ID,
@@ -287,9 +292,49 @@ const regularUpdateHook: SimulationHook = (ctx: SimContext): void => {
         candidatesToday: candidates,
         createdToday,
         visitedToday,
+        visitIntents: intents,
+        returnedToday,
+        requestsOpened,
       }
     },
     { source: `${SOURCE}.update` },
+  )
+}
+
+function sortedRegulars(ctx: SimContext): RegularWorldState[] {
+  return Object.values(ctx.state.world.regulars).sort((a, b) =>
+    a.id.localeCompare(b.id),
+  )
+}
+
+/**
+ * Expansion Phase 4 §4.3 — read the night back.
+ *
+ * Runs at `afterService`, after the service module's flow has resolved, so
+ * every regular who set out tonight gets the outcome they actually had. This
+ * is where a visit is finally counted, where the memory is written, and where
+ * three bad nights in a row end with somebody deciding not to come back.
+ */
+const afterServiceHook: SimulationHook = (ctx: SimContext): void => {
+  const slice = getRegularModuleState(ctx.state)
+  const intentIds = slice.visitIntents.map((intent) => intent.regularId)
+  const { outcomes, visited, stopped } = recordVisitOutcomes(ctx, intentIds)
+  const requestsResolved = sweepRequests(ctx)
+
+  ctx.modifyModuleState<RegularModuleState>(
+    REGULARS_MODULE_ID,
+    (current) => {
+      const base = current ?? createInitialRegularModuleState()
+      return {
+        ...base,
+        outcomes,
+        // Only the regulars who were actually served count as having visited.
+        visitedToday: visited,
+        stoppedToday: stopped,
+        requestsResolved,
+      }
+    },
+    { source: `${SOURCE}.outcomes` },
   )
 }
 
@@ -399,21 +444,48 @@ const RegularEmergenceCandidateSchema = z.object({
   tags: z.array(z.string()),
 })
 
+// Expansion Phase 4 §4.3 — the visit lifecycle's per-day scratch. All
+// `.default([])` so a slice written before this phase validates forward; the
+// hooks rewrite them every day.
+const RegularVisitIntentSchema = z.object({
+  regularId: z.string(),
+  groupId: z.string(),
+  probability: z.number().min(0).max(1),
+  drivers: z.array(z.string()),
+})
+
+const RegularVisitOutcomeSchema = z.object({
+  regularId: z.string(),
+  outcome: z.enum(['served', 'abandoned', 'turned_away', 'no_visit']),
+  partyId: z.string().optional(),
+  readable: z.string(),
+})
+
 const RegularModuleStateSchema = z.object({
   candidatesToday: z.array(RegularEmergenceCandidateSchema),
   createdToday: z.array(z.string()),
   visitedToday: z.array(z.string()),
   decayedToday: z.array(z.string()),
+  visitIntents: z.array(RegularVisitIntentSchema).default([]),
+  outcomes: z.array(RegularVisitOutcomeSchema).default([]),
+  stoppedToday: z.array(z.string()).default([]),
+  returnedToday: z.array(z.string()).default([]),
+  requestsOpened: z.array(z.string()).default([]),
+  requestsResolved: z.array(z.string()).default([]),
 })
 
 export { REGULARS_MODULE_ID, createInitialRegularModuleState, getRegularModuleState }
 
 export const regularModule: SimulationModule = {
   id: REGULARS_MODULE_ID,
-  version: '0.3.0',
+  version: '0.4.0',
+  // Expansion Phase 4 §4.3 — the outcome pass reads the service module's flow
+  // result, so it must run after the service module has written it.
+  dependsOn: ['service'],
   hooks: {
     startDay: [startDayHook],
     regularCustomerUpdate: [regularUpdateHook],
+    afterService: [afterServiceHook],
     closing: [closingHook],
   },
   buildReport: buildRegularReport,

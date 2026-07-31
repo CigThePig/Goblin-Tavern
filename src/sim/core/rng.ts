@@ -168,6 +168,16 @@ export type RngStreamId =
   // available to hire, and out of `service` so it cannot shift the day's
   // service order.
   | 'staff_wellbeing'
+  // Expansion Phase 4 §4.1 — party composition, arrival timing, and tab
+  // collection rolls. Separate from `service` (which carries the day's
+  // turnout jitter) so that adding a wave to the flow model cannot shift
+  // the forecast, and separate from `regular_identity` so a busy night
+  // cannot rename a regular.
+  | 'service_flow'
+  // Expansion Phase 4 §4.3 — whether a named regular comes in tonight, and
+  // what they ask for when they do. Kept off `service_flow` so a change to
+  // seating cannot change who turns up.
+  | 'regular_behaviour'
 
 export type RngStreamState = Record<RngStreamId, RngState>
 
@@ -210,6 +220,9 @@ const ALL_STREAM_IDS: ReadonlyArray<RngStreamId> = [
   // Expansion Phase 3 §3.1.
   'labor_market',
   'staff_wellbeing',
+  // Expansion Phase 4 §4.1 / §4.3.
+  'service_flow',
+  'regular_behaviour',
 ]
 
 export function createRngStreams(

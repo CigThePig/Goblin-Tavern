@@ -35,6 +35,7 @@ import {
 } from "../content/cast/createCastAttributes";
 import { ensureRequiredVerbalTicsRegistered } from "../content/cast/verbalTics";
 import { createRngStreams } from "../core/rng";
+import { regularServiceDefaults } from "../modules/regulars/regularDefaults";
 import { withWorkforceDefaults } from "../modules/staff/workforceDefaults";
 import {
   STAFF_MODULE_ID,
@@ -1234,6 +1235,67 @@ export function ensureModuleSlices<
   if (!changed && state.modules) return state;
   return { ...state, modules: next };
 }
+
+// Expansion Phase 4 §5.7 — the regulars' active-participant fields.
+//
+// Every field this phase adds to `RegularWorldState` is optional in the schema,
+// so a pre-Phase-4 save already validates. What it does NOT already have is a
+// sensible starting value, and the difference matters: without an
+// `ownerStanding` a returning regular would read as a total stranger to the
+// owner they have been drinking with for a month, and without a
+// `wordOfMouth` counter the first recommendation would be indistinguishable
+// from the hundredth.
+//
+// The defaults are DERIVED from what the save already knows rather than rolled,
+// so no generated identity shifts and a reloaded day is the same day (§5.10):
+// standing comes from the loyalty they already had, and the seat/dish
+// preferences are left ABSENT rather than invented — a regular acquires a usual
+// table by sitting at it, and the flow assigns one on their next visit.
+export function ensureRegularServiceFields<
+  T extends {
+    world?: { regulars?: Record<string, PartialRegular> };
+  },
+>(state: T): T {
+  const regulars = state.world?.regulars;
+  if (!regulars) return state;
+  const next: Record<string, PartialRegular> = {};
+  let changed = false;
+  for (const [id, regular] of Object.entries(regulars)) {
+    if (
+      regular.ownerStanding !== undefined &&
+      regular.serviceMemory !== undefined &&
+      regular.wordOfMouth !== undefined &&
+      regular.consecutiveBadVisits !== undefined
+    ) {
+      next[id] = regular;
+      continue;
+    }
+    changed = true;
+    const defaults = regularServiceDefaults(regular.loyalty ?? 50);
+    next[id] = {
+      ...regular,
+      ownerStanding: regular.ownerStanding ?? defaults.ownerStanding,
+      serviceMemory: regular.serviceMemory ?? defaults.serviceMemory,
+      consecutiveBadVisits:
+        regular.consecutiveBadVisits ?? defaults.consecutiveBadVisits,
+      wordOfMouth: regular.wordOfMouth ?? defaults.wordOfMouth,
+    };
+  }
+  if (!changed) return state;
+  return {
+    ...state,
+    world: { ...state.world, regulars: next },
+  };
+}
+
+type PartialRegular = {
+  loyalty?: number | undefined;
+  ownerStanding?: number | undefined;
+  serviceMemory?: unknown[] | undefined;
+  consecutiveBadVisits?: number | undefined;
+  wordOfMouth?: { recommendations: number; criticisms: number } | undefined;
+  [key: string]: unknown;
+};
 
 function isGeneratedNameLike(value: unknown): value is { display: string } {
   return (

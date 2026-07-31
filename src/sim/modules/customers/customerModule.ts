@@ -12,10 +12,9 @@ import {
 } from '../../registries/customerRegistry'
 
 import { forecastTraffic } from './forecast'
-import { resolveGroupPurchases } from './purchases'
 import { applySatisfactionUpdate } from './satisfaction'
-import { applyCustomerImpact } from './impact'
 import type {
+  CustomerDemand,
   CustomerForecast,
   CustomerModuleState,
   CustomerTurnout,
@@ -58,7 +57,52 @@ const REQUIRED_CUSTOMER_GROUP_IDS = [
 ] as const
 
 export function createInitialCustomerModuleState(): CustomerModuleState {
-  return { forecasts: [], turnouts: [], lowSatisfactionStreak: {} }
+  return { forecasts: [], turnouts: [], demand: [], lowSatisfactionStreak: {} }
+}
+
+/**
+ * Expansion Phase 4 — the service module's flow outcome, read through the
+ * slice.
+ *
+ * Read rather than imported so the dependency stays one-directional: the
+ * customers module publishes demand and reads back what happened to it; the
+ * service module never reaches into the customers slice to write.
+ */
+function readFlowOutcome(state: TavernState):
+  | {
+      seatedByGroup: Record<string, number>
+      servedByGroup: Record<string, number>
+      abandonedByGroup: Record<string, number>
+      coinByGroup: Record<string, number>
+      tabByGroup: Record<string, number>
+      shortagesByGroup: Record<string, CustomerTurnout['shortages']>
+    }
+  | undefined {
+  const slice = state.modules['service'] as
+    | {
+        result?: {
+          flow?: {
+            ran?: boolean
+            seatedByGroup?: Record<string, number>
+            servedByGroup?: Record<string, number>
+            abandonedByGroup?: Record<string, number>
+            coinByGroup?: Record<string, number>
+            tabByGroup?: Record<string, number>
+            shortagesByGroup?: Record<string, CustomerTurnout['shortages']>
+          }
+        }
+      }
+    | undefined
+  const flow = slice?.result?.flow
+  if (!flow?.ran) return undefined
+  return {
+    seatedByGroup: flow.seatedByGroup ?? {},
+    servedByGroup: flow.servedByGroup ?? {},
+    abandonedByGroup: flow.abandonedByGroup ?? {},
+    coinByGroup: flow.coinByGroup ?? {},
+    tabByGroup: flow.tabByGroup ?? {},
+    shortagesByGroup: flow.shortagesByGroup ?? {},
+  }
 }
 
 export function getCustomerModuleState(
@@ -204,34 +248,6 @@ function readServiceQuality(
   return slice?.serviceQuality
 }
 
-function findCook(state: TavernState): StaffState | undefined {
-  for (const member of Object.values(state.staff)) {
-    if (member.role === 'cook') return member
-  }
-  return undefined
-}
-
-function effectivenessSnapshot(staff: StaffState): number {
-  // Mirror `getStaffEffectiveness` without importing the staff module —
-  // keeps the customer/staff coupling at the data layer only.
-  const raw =
-    staff.skill +
-    Math.round(staff.morale * 0.2) -
-    Math.round(staff.stress * 0.25) -
-    Math.round(staff.fatigue * 0.25)
-  return Math.max(0, Math.min(100, Math.round(raw)))
-}
-
-function cookStretchFactor(state: TavernState): number {
-  const cook = findCook(state)
-  if (!cook) return 1
-  if (cook.currentPriority !== 'stretch_ingredients') return 1
-  const eff = effectivenessSnapshot(cook)
-  // ~20% reduction at average effectiveness; ~35% at very high; floor 50%.
-  const reduction = 0.2 + 0.15 * (eff / 100)
-  return Math.max(0.5, 1 - reduction)
-}
-
 function turnoutVisitorsFromForecast(
   forecast: CustomerForecast,
   quality: ServiceQualityModifiers | undefined,
@@ -257,11 +273,18 @@ function turnoutVisitorsFromForecast(
   return Math.max(0, base + variation + speedBoost)
 }
 
+// Expansion Phase 4 §4.1 — this hook publishes DEMAND and stops there.
+//
+// It used to do the whole night in one pass: roll a turnout, multiply it by a
+// fixed basket, sell the result, and dirty the main room. Everything after the
+// headcount now belongs to the service module's flow, because only the flow
+// knows whether these people ever got a seat. What stays here is the question
+// the customers module is the authority on: who set out for the tavern tonight.
 const serviceHook: SimulationHook = (ctx: SimContext): void => {
   const moduleState = getCustomerModuleState(ctx.state)
   const turnouts: CustomerTurnout[] = []
+  const demand: CustomerDemand[] = []
   const serviceQuality = readServiceQuality(ctx.state)
-  const stretchFactor = cookStretchFactor(ctx.state)
 
   for (const forecast of moduleState.forecasts) {
     const group = ctx.state.customerGroups[forecast.groupId]
@@ -272,40 +295,30 @@ const serviceHook: SimulationHook = (ctx: SimContext): void => {
       group.loyalty,
       ctx,
     )
-    const turnout: CustomerTurnout = {
+    demand.push({ groupId: group.id, patrons: visitors, notes: [] })
+    turnouts.push({
       groupId: group.id,
       visitors,
       coinEarned: 0,
       satisfactionChange: 0,
       shortages: [],
       notes: [],
-    }
-
-    if (visitors > 0) {
-      const purchase = resolveGroupPurchases(ctx, group, visitors, {
-        ...(serviceQuality ? { serviceQuality } : {}),
-        stretchFactor,
-      })
-      turnout.coinEarned = purchase.coinEarned
-      turnout.shortages = purchase.shortages
-      if (purchase.itemsBought.length > 0) {
-        const summary = purchase.itemsBought
-          .map((b) => `${b.quantity}× ${b.stockId}`)
-          .join(', ')
-        turnout.notes.push(`Bought: ${summary}.`)
-      }
-      applyCustomerImpact(
-        ctx,
-        group,
-        turnout,
-        serviceQuality ? { serviceQuality } : {},
-      )
-    }
-
-    turnouts.push(turnout)
+      seated: 0,
+      served: 0,
+      abandoned: 0,
+      unpaidTab: 0,
+    })
   }
 
-  setTurnouts(ctx, turnouts)
+  ctx.modifyModuleState<CustomerModuleState>(
+    CUSTOMERS_MODULE_ID,
+    (current) => ({
+      ...(current ?? createInitialCustomerModuleState()),
+      demand,
+      turnouts,
+    }),
+    { source: SOURCE, reason: 'service_demand' },
+  )
 }
 
 function readIncidents(
@@ -317,16 +330,39 @@ function readIncidents(
   return slice?.result?.incidents ?? []
 }
 
+/**
+ * Expansion Phase 4 — fold the service flow's outcome back into each group's
+ * own record, then judge the night.
+ *
+ * The customers module still owns satisfaction; what changed is that it now has
+ * the truth to judge on. "Sixty people came" and "sixty people were fed" used
+ * to be the same statement, so a night where half the room walked out looked
+ * identical to a night where everybody was served.
+ */
 const afterServiceHook: SimulationHook = (ctx: SimContext): void => {
   const moduleState = getCustomerModuleState(ctx.state)
   const updatedTurnouts: CustomerTurnout[] = []
   const serviceQuality = readServiceQuality(ctx.state)
   const incidents = readIncidents(ctx.state)
+  const flow = readFlowOutcome(ctx.state)
   for (const turnout of moduleState.turnouts) {
     const group = ctx.state.customerGroups[turnout.groupId]
     if (!group) {
       updatedTurnouts.push(turnout)
       continue
+    }
+    if (flow) {
+      turnout.seated = flow.seatedByGroup[group.id] ?? 0
+      turnout.served = flow.servedByGroup[group.id] ?? 0
+      turnout.abandoned = flow.abandonedByGroup[group.id] ?? 0
+      turnout.coinEarned = flow.coinByGroup[group.id] ?? 0
+      turnout.unpaidTab = flow.tabByGroup[group.id] ?? 0
+      turnout.shortages = flow.shortagesByGroup[group.id] ?? []
+      if ((turnout.abandoned ?? 0) > 0) {
+        turnout.notes.push(
+          `${turnout.abandoned} left without being served.`,
+        )
+      }
     }
     applySatisfactionUpdate(ctx, group, turnout, {
       ...(serviceQuality ? { serviceQuality } : {}),
@@ -489,11 +525,28 @@ const CustomerTurnoutSchema = z.object({
   satisfactionChange: z.number(),
   shortages: z.array(ShortageRecordSchema),
   notes: z.array(z.string()),
+  // Expansion Phase 4 §4.1 — `.default(0)` so a turnout written before the
+  // flow existed parses forward; the `afterService` pass fills them every day
+  // now.
+  seated: z.number().min(0).default(0),
+  served: z.number().min(0).default(0),
+  abandoned: z.number().min(0).default(0),
+  unpaidTab: z.number().min(0).default(0),
+})
+
+// Expansion Phase 4 §4.1 — tonight's demand, published for the service flow.
+const CustomerDemandSchema = z.object({
+  groupId: z.string(),
+  patrons: z.number().min(0),
+  notes: z.array(z.string()),
 })
 
 const CustomerModuleStateSchema: z.ZodType<CustomerModuleState> = z.object({
   forecasts: z.array(CustomerForecastSchema),
   turnouts: z.array(CustomerTurnoutSchema),
+  // `.default([])` lets a pre-Phase-4 slice validate forward; the service
+  // hook rewrites it every day.
+  demand: z.array(CustomerDemandSchema).default([]),
   // Phase 187 / ISSUE-154 — per-group low-satisfaction streak counter.
   // `.default({})` lets saves predating this field validate forward
   // (additive migration) without a dedicated ensure-slice helper.
@@ -521,6 +574,4 @@ export const customersModule: SimulationModule = {
 
 export { customerRegistry, ensureRequiredCustomerGroupsRegistered }
 export { forecastTraffic, forecastTrafficForGroup } from './forecast'
-export { resolveGroupPurchases } from './purchases'
 export { applySatisfactionUpdate } from './satisfaction'
-export { applyCustomerImpact } from './impact'

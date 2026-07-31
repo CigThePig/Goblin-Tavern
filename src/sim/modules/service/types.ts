@@ -2,6 +2,9 @@ import type { EntityRef } from '../../state/TavernState'
 import type { ShortageRecord } from '../stock/types'
 import type { ServiceQualityModifiers } from '../staff/types'
 
+import type { ServiceFlowResult } from './flow/types'
+import type { PatronTabIndexEntry } from './tabs'
+
 // Phase 12 — Daily service module types.
 //
 // `DailyServiceResult` is the structured per-day record the service module
@@ -111,6 +114,17 @@ export type ServiceScene = {
 
 export type DailyServiceResult = {
   dayKey: string
+  /**
+   * Expansion Phase 4 §4.1 — the evening's substeps, in full.
+   *
+   * The aggregate totals below are DERIVED from this rather than computed
+   * alongside it, which is what makes "reports reconcile service substeps to
+   * aggregate ledger totals" a real check: there is one calculation, and the
+   * summary is a projection of it.
+   */
+  flow: ServiceFlowResult
+  /** Ids of patron tabs opened tonight (§4.5). */
+  tabsOpened: string[]
   trafficByGroup: Record<string, number>
   purchasesByGroup: Record<string, PurchaseSummary>
   coinEarned: number
@@ -133,6 +147,26 @@ export type DailyServiceResult = {
   scenes: ServiceScene[]
 }
 
+/**
+ * Expansion Phase 4 §4.5 — the service module's persistent half.
+ *
+ * `result` is per-day and clears every morning. `patronTabs` does not: a slate
+ * outlives the night it was run up, which is the entire difference between a
+ * debt and a deduction. The money lives in the shared obligation ledger; this
+ * index holds the patron-tab facts that ledger has no field for.
+ */
 export type ServiceModuleState = {
   result: DailyServiceResult
+  /** Live tabs, oldest first. Bounded by `MAX_OPEN_PATRON_TABS`. */
+  patronTabs: PatronTabIndexEntry[]
+  totals: {
+    tabsOpened: number
+    tabsCollected: number
+    tabsForgiven: number
+    tabsWrittenOff: number
+    /** Lifetime coin recovered from chased slates. */
+    coinRecovered: number
+    /** Lifetime patrons who left without being served. */
+    patronsAbandoned: number
+  }
 }

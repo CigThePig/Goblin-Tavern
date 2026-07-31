@@ -1,47 +1,63 @@
 import type { SimContext } from '../../core/context'
 import type {
   AreaState,
-  CustomerGroupState,
+  RegularWorldState,
   TavernState,
 } from '../../state/TavernState'
 import { clampPercent } from '../../state/normalize'
+import { recipeRegistry } from '../../registries/recipeRegistry'
+import { outstandingAmount } from '../../contracts/obligations/index'
 import { spendCoin } from '../stock/ledger'
 import { effectiveQuality, isPerishable } from '../stock/spoilage'
-import type { CustomerModuleState, CustomerTurnout } from '../customers/types'
+import type { CustomerDemand, CustomerModuleState } from '../customers/types'
 import { isPolicyEnabled } from '../ownerActions/stateHelpers'
 import type {
   ServiceQualityModifiers,
   StaffModuleState,
 } from '../staff/types'
 
+import { applyServiceAreaImpact } from './flow/areaImpact'
+import { generateFlowIncidents } from './flow/flowIncidents'
+import { runServiceFlow } from './flow/resolveFlow'
+import { emptyFlowResult, type ServiceFlowResult } from './flow/types'
+import {
+  collectionProbabilityFor,
+  listPatronTabs,
+  openPatronTab,
+  tabForParty,
+  type PatronTabIndexEntry,
+  type TabDebtorKind,
+} from './tabs'
 import type {
   AreaChangeSummary,
   DailyServiceResult,
-  PurchaseSummary,
+  PurchaseLine,
   ServiceIncidentSummary,
   StaffChangeSummary,
 } from './types'
 
 // Phase 12 §12.1–12.9 — Service resolver.
+// Expansion Phase 4 §4.1–4.5 — rewritten around the within-service flow.
 //
-// The customers module produces per-group turnouts during the `service`
-// phase: visitor counts, coin earned, shortages, and the per-group
-// area impact. The service module runs *after* the customers module in
-// the same `service` phase (declared via `dependsOn`). Its job is to:
+// WHAT THIS FILE USED TO BE. A rollup. The customers module had already sold
+// everything and dirtied the main room; this pass added up the totals, took a
+// fraction off for unpaid tabs, and emitted four incidents. Nothing in it could
+// answer "why did tonight go badly?" beyond "fewer people came".
 //
-//   - compute unpaid tabs (Phase 9 `spendCoin`), per Phase 12 §12.6;
-//   - apply extra fight-control / mess-control damage adjustments,
-//     when the staff module's published modifiers are strong enough to
-//     have prevented damage that already landed (rare; mostly a hook
-//     for future tuning);
-//   - generate structured `ServiceIncidentSummary` records, per §12.7;
-//   - aggregate the day into a `DailyServiceResult` written to
-//     `state.modules.service`.
+// WHAT IT IS NOW. The orchestrator of one evening:
 //
-// All mutations route through Phase 7 §7.3.1 helpers
-// (`ctx.modifyArea`, `ctx.modifyStock`, `ctx.modifyStaff`,
-// `ctx.modifyCoin`, `ctx.modifyModuleState`). The resolver never
-// reaches for the unseeded global PRNG.
+//   1. read tonight's DEMAND from the customers module and the REGULARS who
+//      decided to come in;
+//   2. run the flow (`flow/resolveFlow.ts`) — the only place stock is sold;
+//   3. open the slates the night ran up (`tabs.ts`);
+//   4. derive the aggregate `DailyServiceResult` FROM the flow, so the summary
+//      and the substeps cannot disagree;
+//   5. charge the rooms for the wear (`flow/areaImpact.ts`);
+//   6. read the incidents out of what actually happened
+//      (`flow/flowIncidents.ts`).
+//
+// All mutations still route through the Phase 7 §7.3.1 helpers, and the
+// resolver still never reaches for the unseeded global PRNG.
 
 const SOURCE = 'service'
 
@@ -63,39 +79,31 @@ export function readServiceQuality(state: TavernState): ServiceQualityModifiers 
   return slice.serviceQuality
 }
 
-function readCustomerTurnouts(state: TavernState): CustomerTurnout[] {
+/** Expansion Phase 4 — tonight's demand, as the customers module published it. */
+function readCustomerDemand(state: TavernState): CustomerDemand[] {
   const slice = state.modules['customers'] as CustomerModuleState | undefined
-  return slice?.turnouts ?? []
+  if (slice?.demand && slice.demand.length > 0) return slice.demand
+  // A slice written before this phase has turnouts but no demand. Reading the
+  // turnout's `visitors` back out is the honest fallback: that number always
+  // meant "who turned up".
+  return (slice?.turnouts ?? []).map((turnout) => ({
+    groupId: turnout.groupId,
+    patrons: turnout.visitors,
+    notes: [],
+  }))
 }
 
-function computeUnpaidTabs(
-  group: CustomerGroupState,
-  visitors: number,
-  coinEarned: number,
-  quality: ServiceQualityModifiers,
-  policyAdjustment = 1,
-): number {
-  // Phase 12 §12.6 — Unpaid tabs.
-  //
-  // Each visitor leaves behind a fractional unpaid bill scaled by the
-  // group's `tabRisk`. Rowdy groups raise the leak. Server `watch_tabs`
-  // / bouncer `intimidate_debtors` reduce it; `maximize_sales` widens
-  // it (`tabControl < 0`). Capped at this group's actual coin earned
-  // so tabs never produce phantom debt the resolver does not know how
-  // to settle yet.
-  //
-  // Phase 33 §33.8 — `policyAdjustment` lets an enabled policy scale
-  // the computed tab. `refuse_tabs` passes a fraction <1 here; the
-  // policy never makes tabs negative and never modifies the rest of
-  // the math, so the rest of the resolver is oblivious to whether a
-  // policy is active.
-  if (visitors <= 0 || coinEarned <= 0) return 0
-  const tabBaseRate = (visitors * group.tabRisk) / 100
-  const rowdyBoost = group.rowdiness >= 70 ? 0.25 : 0
-  const controlFactor = Math.max(-0.5, Math.min(0.8, quality.tabControl / 4))
-  const raw = tabBaseRate * (1 + rowdyBoost) * (1 - controlFactor) * policyAdjustment
-  const tab = Math.round(Math.max(0, raw))
-  return Math.min(tab, coinEarned)
+/**
+ * Regulars who decided to come in tonight, as the regulars module published
+ * them during `regularCustomerUpdate` (which runs before `service`).
+ */
+function readRegularVisitIntents(state: TavernState): string[] {
+  const slice = state.modules['regulars'] as
+    | { visitIntents?: ReadonlyArray<{ regularId: string }> }
+    | undefined
+  return (slice?.visitIntents ?? [])
+    .map((intent) => intent.regularId)
+    .filter((id) => id in state.world.regulars)
 }
 
 function recordFoodComplaint(
@@ -126,76 +134,6 @@ function recordFoodComplaint(
   })
 }
 
-function generateIncidents(args: {
-  group: CustomerGroupState
-  turnout: CustomerTurnout
-  quality: ServiceQualityModifiers
-  dayType: string
-  unpaidTabs: number
-}): ServiceIncidentSummary[] {
-  // Phase 12 §12.7 — Structured incident summaries. No prose; numeric
-  // severity plus structured effect strings.
-  const incidents: ServiceIncidentSummary[] = []
-  const { group, turnout, quality, dayType, unpaidTabs } = args
-
-  // Damage incident. The customers module already applied the damage;
-  // we surface it as an incident when meaningful.
-  const damageNote = turnout.notes.find((n) =>
-    n.includes('main room damage'),
-  )
-  if (damageNote) {
-    const match = damageNote.match(/\+(\d+) main room damage/)
-    const delta = match && match[1] ? Number(match[1]) : 0
-    if (delta >= 3) {
-      incidents.push({
-        id: 'chair_damage',
-        severity: Math.min(100, 10 + delta * 4),
-        actorGroup: group.id,
-        areaId: 'main_room',
-        effects: [`main_room.damage +${delta}`],
-      })
-    }
-  }
-
-  if (
-    dayType === 'brawl_night' &&
-    group.rowdiness >= 70 &&
-    quality.fightControl < 1.5 &&
-    turnout.visitors >= 3
-  ) {
-    incidents.push({
-      id: 'minor_brawl',
-      severity: Math.min(100, 30 + Math.round((group.rowdiness - 50) / 2)),
-      actorGroup: group.id,
-      areaId: 'main_room',
-      effects: ['main_room.damage +1', 'satisfaction.rowdy_adjacent -1'],
-    })
-  }
-
-  for (const shortage of turnout.shortages) {
-    incidents.push({
-      id: 'stock_shortage',
-      severity: Math.min(
-        100,
-        20 + Math.round((shortage.requested - shortage.available) * 2),
-      ),
-      actorGroup: group.id,
-      effects: [`stock.${shortage.stockId}.shortfall`],
-    })
-  }
-
-  if (unpaidTabs > 0 && unpaidTabs >= Math.max(2, Math.round(turnout.visitors / 2))) {
-    incidents.push({
-      id: 'unpaid_tabs',
-      severity: Math.min(100, 15 + unpaidTabs * 3),
-      actorGroup: group.id,
-      effects: [`coin -${unpaidTabs}`],
-    })
-  }
-
-  return incidents
-}
-
 function dayKeyFor(state: TavernState): string {
   const c = state.calendar
   return `${c.year}-${c.month}-${c.day}`
@@ -204,6 +142,8 @@ function dayKeyFor(state: TavernState): string {
 export function buildEmptyResult(state: TavernState): DailyServiceResult {
   return {
     dayKey: dayKeyFor(state),
+    flow: emptyFlowResult(),
+    tabsOpened: [],
     trafficByGroup: {},
     purchasesByGroup: {},
     coinEarned: 0,
@@ -266,94 +206,326 @@ export function resolveService(
   ctx: SimContext,
   inputs: ResolveServiceInputs,
 ): DailyServiceResult {
-  const turnouts = readCustomerTurnouts(ctx.state)
   const quality = readServiceQuality(ctx.state)
   const dayType = ctx.getDayType()
   const result = buildEmptyResult(ctx.state)
   result.serviceQuality = quality
 
-  // Phase 33 §33.8 — Service-side policy effects. Only the modest hooks
-  // the plan calls out are wired here; broader policy effects belong to
-  // later phases.
+  // Phase 33 §33.8 — Service-side policy effects. `refuse_tabs` scales the
+  // slate a party can run up; it never makes a tab negative and never touches
+  // the rest of the maths, so the flow is oblivious to whether it is on.
   const refuseTabs = isPolicyEnabled(ctx.state, 'refuse_tabs')
   const tabPolicyAdjustment = refuseTabs ? 0.4 : 1
 
-  for (const turnout of turnouts) {
-    const group = ctx.state.customerGroups[turnout.groupId]
-    if (!group) continue
-
-    result.trafficByGroup[group.id] = turnout.visitors
-
-    // Group-level purchase rollup. Stock consumption is computed from
-    // the global stock delta below so the per-group rollup mirrors the
-    // ledger rather than re-walking baskets.
-    const unpaidTabs = computeUnpaidTabs(
-      group,
-      turnout.visitors,
-      turnout.coinEarned,
-      quality,
-      tabPolicyAdjustment,
-    )
-
-    const purchase: PurchaseSummary = {
-      groupId: group.id,
-      visitors: turnout.visitors,
-      coinEarned: turnout.coinEarned,
-      unpaidTabs,
-      netCoin: turnout.coinEarned - unpaidTabs,
-      itemsBought: [],
-      shortages: turnout.shortages.map((s) => ({ ...s })),
-    }
-    result.purchasesByGroup[group.id] = purchase
-    result.coinEarned += turnout.coinEarned
-    result.shortages.push(...turnout.shortages.map((s) => ({ ...s })))
-
-    if (unpaidTabs > 0) {
-      // Cap the deduction at current coin so the strict
-      // non-negative-coin schema invariant holds even when tabs
-      // outpace day-one capital.
-      const deduction = Math.min(ctx.state.coin, unpaidTabs)
-      if (deduction > 0) {
-        spendCoin(ctx, deduction, {
-          source: `service.tabs.${group.id}`,
-          category: 'other',
-          tags: ['unpaid_tab', group.id],
-        })
-        result.unpaidTabs += deduction
-        purchase.unpaidTabs = deduction
-        purchase.netCoin = purchase.coinEarned - deduction
-      }
-    }
-
-    const incidents = generateIncidents({
-      group,
-      turnout,
-      quality,
-      dayType,
-      unpaidTabs: purchase.unpaidTabs,
-    })
-    recordFoodComplaint(ctx, group.id, turnout.visitors, quality, incidents)
-    result.incidents.push(...incidents)
+  // ---- run the evening (§4.1) ----
+  const demand = readCustomerDemand(ctx.state)
+  const regularVisitIds = readRegularVisitIntents(ctx.state)
+  const regularsById: Record<string, RegularWorldState> = {}
+  for (const id of regularVisitIds) {
+    const regular = ctx.state.world.regulars[id]
+    if (regular) regularsById[id] = regular
   }
+  const demandByGroup: Record<string, number> = {}
+  for (const row of demand) demandByGroup[row.groupId] = row.patrons
 
-  // Area mess/damage deltas from the customers module's impact pass.
+  const { result: flow, shortages, stockConsumed } = runServiceFlow(ctx, {
+    demandByGroup,
+    regularVisitIds,
+    regularsById,
+  })
+  result.flow = flow
+
+  // ---- tabs (§4.5) ----
+  // One record per named regular who ran a slate, and one per group for the
+  // strangers — so the ledger holds real debtors rather than one row per party.
+  const tabs = openTabsForFlow(ctx, {
+    flow,
+    quality,
+    regularsById,
+    policyAdjustment: tabPolicyAdjustment,
+  })
+  result.tabsOpened = tabs.opened.map((entry) => entry.obligationId)
+
+  // ---- aggregate rollup, DERIVED from the flow ----
+  for (const groupId of Object.keys(flow.demandByGroup).sort((a, b) =>
+    a.localeCompare(b),
+  )) {
+    const group = ctx.state.customerGroups[groupId]
+    if (!group) continue
+    const coin = Math.round(flow.coinByGroup[groupId] ?? 0)
+    const tab = Math.round(flow.tabByGroup[groupId] ?? 0)
+    result.trafficByGroup[groupId] = flow.demandByGroup[groupId] ?? 0
+    result.purchasesByGroup[groupId] = {
+      groupId,
+      visitors: flow.demandByGroup[groupId] ?? 0,
+      coinEarned: coin,
+      unpaidTabs: tab,
+      netCoin: coin - tab,
+      itemsBought: itemsBoughtFor(ctx, flow, groupId),
+      shortages: (flow.shortagesByGroup[groupId] ?? []).map((s) => ({ ...s })),
+    }
+    result.coinEarned += coin
+  }
+  result.shortages = shortages.map((s) => ({ ...s }))
+  result.unpaidTabs = tabs.totalDeducted
+  result.netCoinEarned = result.coinEarned - result.unpaidTabs
+
+  // ---- what the evening did to the rooms (§4.1) ----
+  applyServiceAreaImpact(ctx, flow, quality)
   const areaChanges = detectAreaChanges(inputs.areasBefore, ctx.state.areas)
   result.messCreated = areaChanges.mess
   result.damageCreated = areaChanges.damage
 
-  // Stock consumption deltas from the customers module's purchases.
-  for (const [id, prev] of Object.entries(inputs.stockBefore)) {
-    const after = ctx.state.stock[id]
-    if (!after) continue
-    const delta = prev.quantity - after.quantity
-    if (delta > 0) {
-      result.stockConsumed.push({ stockId: id, quantity: delta })
+  // Stock consumption, from the flow's own sales rather than a global delta:
+  // the global delta would also pick up spoilage and any other module that
+  // touched the cellar during the same phase.
+  for (const stockId of Object.keys(stockConsumed).sort((a, b) =>
+    a.localeCompare(b),
+  )) {
+    const quantity = stockConsumed[stockId] ?? 0
+    if (quantity > 0) result.stockConsumed.push({ stockId, quantity })
+  }
+
+  // ---- incidents (§4.4) ----
+  result.incidents.push(
+    ...generateFlowIncidents(ctx, { flow, quality, regularsById, dayType }),
+  )
+  // Phase 12's furniture incident, kept and re-grounded. It used to be read
+  // back out of a note string the customers module had written; it is now read
+  // off the damage the impact pass actually applied, in the room that took it.
+  for (const change of result.damageCreated) {
+    if (change.delta < 3) continue
+    const worst = worstGroupIn(flow, change.areaId)
+    result.incidents.push({
+      id: 'chair_damage',
+      severity: Math.min(100, 10 + change.delta * 4),
+      ...(worst ? { actorGroup: worst } : {}),
+      areaId: change.areaId,
+      effects: [`${change.areaId}.damage +${change.delta}`],
+    })
+  }
+  for (const groupId of Object.keys(result.trafficByGroup).sort((a, b) =>
+    a.localeCompare(b),
+  )) {
+    recordFoodComplaint(
+      ctx,
+      groupId,
+      flow.servedByGroup[groupId] ?? 0,
+      quality,
+      result.incidents,
+    )
+  }
+
+  return result
+}
+
+/**
+ * Expansion Phase 4 §4.5 — open the night's slates.
+ *
+ * A named regular gets their own record; everybody else in a group is pooled
+ * into one anonymous-cohort record for that group and that night. That is the
+ * bound (§5.11): at most one row per regular plus one per group per day, not
+ * one per party.
+ *
+ * The till still comes up short on the night — the money genuinely did not
+ * arrive — so net takings match the pre-Phase-4 model exactly. What is new is
+ * that the shortfall is a receivable somebody owes.
+ */
+function openTabsForFlow(
+  ctx: SimContext,
+  args: {
+    flow: ServiceFlowResult
+    quality: ServiceQualityModifiers
+    regularsById: Record<string, RegularWorldState>
+    policyAdjustment: number
+  },
+): { opened: PatronTabIndexEntry[]; totalDeducted: number } {
+  const { flow, quality, regularsById, policyAdjustment } = args
+  const opened: PatronTabIndexEntry[] = []
+  const cohortByGroup: Record<string, number> = {}
+  const regularTabs: Array<{ regular: RegularWorldState; amount: number }> = []
+
+  for (const party of flow.parties) {
+    if (party.outcome !== 'served' || party.paid <= 0) continue
+    const group = ctx.state.customerGroups[party.groupId]
+    if (!group) continue
+    const regular = party.regularId ? regularsById[party.regularId] : undefined
+    const existingRegularDebt = regular
+      ? outstandingForRegular(ctx.state, regular.id)
+      : 0
+    const tab = tabForParty({
+      bill: party.paid,
+      patrons: party.size,
+      group,
+      quality,
+      ...(regular ? { regular } : {}),
+      policyAdjustment,
+      existingRegularDebt,
+    })
+    if (tab <= 0) continue
+    party.tab = Math.round(tab * 100) / 100
+    if (regular) {
+      regularTabs.push({ regular, amount: tab })
+    } else {
+      cohortByGroup[party.groupId] = (cohortByGroup[party.groupId] ?? 0) + tab
     }
   }
 
-  result.netCoinEarned = result.coinEarned - result.unpaidTabs
+  let totalDeducted = 0
+  /**
+   * Book one debtor's slate: round once, take the coin off the till, and move
+   * the group's published totals by the SAME rounded figure so the flow's
+   * `coinByGroup + tabByGroup` still adds up to what was billed.
+   */
+  const record = (
+    make: (rounded: number) => PatronTabIndexEntry | undefined,
+    groupId: string,
+    raw: number,
+  ): void => {
+    const amount = Math.round(raw)
+    if (amount <= 0) return
+    const entry = make(amount)
+    if (!entry) return
+    flow.tabByGroup[groupId] = (flow.tabByGroup[groupId] ?? 0) + amount
+    flow.coinByGroup[groupId] = Math.max(
+      0,
+      (flow.coinByGroup[groupId] ?? 0) - amount,
+    )
+    // Cap the till hit at what is actually in it, so the schema's
+    // non-negative-coin invariant holds even when a night goes badly.
+    const deduction = Math.min(ctx.state.coin, amount)
+    if (deduction > 0) {
+      spendCoin(ctx, deduction, {
+        source: `service.tabs.${entry.debtorId}`,
+        category: 'other',
+        tags: ['unpaid_tab', entry.groupId, entry.debtorId],
+      })
+      totalDeducted += deduction
+    }
+    opened.push(entry)
+  }
 
-  return result
+  // A regular can be in more than one party over an evening; pool their night
+  // into one slate rather than several.
+  const regularTotals = new Map<string, { regular: RegularWorldState; amount: number }>()
+  for (const { regular, amount } of regularTabs) {
+    const row = regularTotals.get(regular.id) ?? { regular, amount: 0 }
+    row.amount += amount
+    regularTotals.set(regular.id, row)
+  }
+  for (const regularId of [...regularTotals.keys()].sort((a, b) =>
+    a.localeCompare(b),
+  )) {
+    const { regular, amount } = regularTotals.get(regularId)!
+    const group = ctx.state.customerGroups[regular.customerGroupId]
+    if (!group) continue
+    record(
+      (rounded) =>
+        openPatronTab(ctx, {
+          amount: rounded,
+          groupId: group.id,
+          debtorKind: 'regular',
+          debtorId: regular.id,
+          collectionProbability: collectionProbabilityFor({
+            debtorKind: 'regular',
+            group,
+            regular,
+            quality,
+          }),
+          readable: `${regular.name.display} owes ${rounded} coin on the slate.`,
+        }),
+      group.id,
+      amount,
+    )
+  }
+
+  for (const groupId of Object.keys(cohortByGroup).sort((a, b) =>
+    a.localeCompare(b),
+  )) {
+    const amount = cohortByGroup[groupId] ?? 0
+    const group = ctx.state.customerGroups[groupId]
+    if (!group || amount <= 0) continue
+    // Identity level: a crowd you can name is a group; one you cannot is
+    // anonymous. Loyal crowds are recognisable — that is what loyalty means
+    // here — so the same debt is worth more from people who come back.
+    const debtorKind: TabDebtorKind = group.loyalty >= 55 ? 'group' : 'anonymous'
+    const debtorId = debtorKind === 'group' ? group.id : `${group.id}_strangers`
+    record(
+      (rounded) =>
+        openPatronTab(ctx, {
+          amount: rounded,
+          groupId: group.id,
+          debtorKind,
+          debtorId,
+          collectionProbability: collectionProbabilityFor({
+            debtorKind,
+            group,
+            quality,
+          }),
+          readable:
+            debtorKind === 'group'
+              ? `The ${group.label} owe ${rounded} coin from tonight.`
+              : `${rounded} coin walked out with strangers among the ${group.label}.`,
+        }),
+      group.id,
+      amount,
+    )
+  }
+
+  return { opened, totalDeducted }
+}
+
+/** The group that put the most bodies in this room tonight. */
+function worstGroupIn(
+  flow: ServiceFlowResult,
+  areaId: string,
+): string | undefined {
+  const byGroup = new Map<string, number>()
+  for (const party of flow.parties) {
+    if (party.areaId !== areaId || party.seatedWave === undefined) continue
+    byGroup.set(party.groupId, (byGroup.get(party.groupId) ?? 0) + party.size)
+  }
+  return [...byGroup.entries()].sort((a, b) =>
+    b[1] === a[1] ? a[0].localeCompare(b[0]) : b[1] - a[1],
+  )[0]?.[0]
+}
+
+/** What a named regular already owes across every live slate. */
+function outstandingForRegular(state: TavernState, regularId: string): number {
+  return listPatronTabs(state)
+    .filter((record) => record.counterparty.id === regularId)
+    .reduce((sum, entry) => sum + outstandingAmount(entry), 0)
+}
+
+/** Per-stock rollup of what a group actually got, from the flow's order lines. */
+function itemsBoughtFor(
+  ctx: SimContext,
+  flow: ServiceFlowResult,
+  groupId: string,
+): PurchaseLine[] {
+  const byStock = new Map<string, { quantity: number; coin: number }>()
+  for (const party of flow.parties) {
+    if (party.groupId !== groupId) continue
+    for (const line of party.order) {
+      if (line.delivered <= 0) continue
+      if (!recipeRegistry.has(line.recipeId)) continue
+      for (const input of recipeRegistry.get(line.recipeId).inputs) {
+        const quantity = line.delivered * input.quantity
+        const price = ctx.state.stock[input.ingredientId]?.salePrice ?? 0
+        const row = byStock.get(input.ingredientId) ?? { quantity: 0, coin: 0 }
+        row.quantity += quantity
+        row.coin += quantity * price
+        byStock.set(input.ingredientId, row)
+      }
+    }
+  }
+  return [...byStock.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([stockId, row]) => ({
+      stockId,
+      quantity: row.quantity,
+      coin: Math.round(row.coin),
+    }))
 }
 
 // Phase 12 §12.9 — Updates staff stress/fatigue based on the day's

@@ -14,6 +14,8 @@ import {
 import type { ResolveServiceInputs } from './resolveService'
 import { applyRecipesEndOfDay } from './recipesDaily'
 import { buildServiceScenes } from './serviceScenes'
+import { emptyFlowResult, ServiceFlowResultSchema } from './flow/types'
+import { PatronTabIndexEntrySchema } from './tabs'
 import type {
   AreaChangeSummary,
   CustomerSatisfactionChange,
@@ -47,10 +49,21 @@ import type {
 export const SERVICE_MODULE_ID = 'service'
 const SOURCE = SERVICE_MODULE_ID
 
+// Expansion Phase 4 — KEY ORDER HERE IS LOAD-BEARING, and matches
+// `ServiceModuleStateSchema` below.
+//
+// A saved slice comes back through Zod, which rebuilds objects in schema key
+// order. The day diff renders a whole new slice as one JSON string, so a
+// literal whose keys are in a different order than the schema makes a reloaded
+// day read as a different day — which is the §5.10 gate failing on formatting
+// rather than on behaviour. Phase 3 fixed the same class of bug in
+// `core/diff.ts`'s module walk. Keep the two orders in step.
 export function createInitialServiceModuleState(): ServiceModuleState {
   return {
     result: {
       dayKey: '0-0-0',
+      flow: emptyFlowResult(),
+      tabsOpened: [],
       trafficByGroup: {},
       purchasesByGroup: {},
       coinEarned: 0,
@@ -75,6 +88,16 @@ export function createInitialServiceModuleState(): ServiceModuleState {
       // Phase 32 §32.1 — scene array always seeded.
       scenes: [],
     },
+    // Expansion Phase 4 §4.5 — the persistent half. Slates outlive the night.
+    patronTabs: [],
+    totals: {
+      tabsOpened: 0,
+      tabsCollected: 0,
+      tabsForgiven: 0,
+      tabsWrittenOff: 0,
+      coinRecovered: 0,
+      patronsAbandoned: 0,
+    },
   }
 }
 
@@ -96,7 +119,7 @@ function writeResult(
   ctx.modifyModuleState<ServiceModuleState>(
     SERVICE_MODULE_ID,
     (current) => {
-      const base = current ?? { result }
+      const base = current ?? createInitialServiceModuleState()
       return { ...base, result }
     },
     { source: SOURCE, reason },
@@ -108,9 +131,17 @@ function writeResult(
 const startDayHook: SimulationHook = (ctx: SimContext): void => {
   // Reset the per-day service slice so reports and downstream callers
   // never read stale data from yesterday.
+  //
+  // Expansion Phase 4 §4.5 — `patronTabs` and `totals` survive the reset. They
+  // are the persistent half of the slice: a slate run up on Tuesday is still
+  // owed on Wednesday, and wiping it every morning would be the aggregate
+  // deduction this phase exists to replace, wearing a record's clothes.
   ctx.modifyModuleState<ServiceModuleState>(
     SERVICE_MODULE_ID,
-    () => ({ result: buildEmptyResult(ctx.state) }),
+    (current) => {
+      const base = current ?? createInitialServiceModuleState()
+      return { ...base, result: buildEmptyResult(ctx.state) }
+    },
     { source: SOURCE, reason: 'day_initialize' },
   )
 }
@@ -778,6 +809,10 @@ const ServiceSceneSchema = z.object({
 
 const DailyServiceResultSchema = z.object({
   dayKey: z.string(),
+  // Expansion Phase 4 §4.1 — the evening's substeps. `.default(...)` so a
+  // pre-Phase-4 slice parses forward into an idle flow.
+  flow: ServiceFlowResultSchema.default(emptyFlowResult()),
+  tabsOpened: z.array(z.string()).default([]),
   trafficByGroup: z.record(z.string(), z.number().min(0)),
   purchasesByGroup: z.record(z.string(), PurchaseSummarySchema),
   coinEarned: z.number(),
@@ -796,6 +831,25 @@ const DailyServiceResultSchema = z.object({
 
 const ServiceModuleStateSchema = z.object({
   result: DailyServiceResultSchema,
+  // Expansion Phase 4 §4.5 — the persistent half.
+  patronTabs: z.array(PatronTabIndexEntrySchema).default([]),
+  totals: z
+    .object({
+      tabsOpened: z.number().int().min(0),
+      tabsCollected: z.number().int().min(0),
+      tabsForgiven: z.number().int().min(0),
+      tabsWrittenOff: z.number().int().min(0),
+      coinRecovered: z.number().min(0),
+      patronsAbandoned: z.number().int().min(0),
+    })
+    .default({
+      tabsOpened: 0,
+      tabsCollected: 0,
+      tabsForgiven: 0,
+      tabsWrittenOff: 0,
+      coinRecovered: 0,
+      patronsAbandoned: 0,
+    }),
 })
 
 export const serviceModule: SimulationModule = {

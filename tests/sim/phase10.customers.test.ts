@@ -7,6 +7,8 @@ import {
   customerRegistry,
   getCustomerModuleState,
 } from '../../src/sim/modules/customers/index'
+import { serviceModule } from '../../src/sim/modules/service/index'
+import { staffModule } from '../../src/sim/modules/staff/index'
 import {
   getStockModuleState,
   stockModule,
@@ -22,6 +24,14 @@ import type { TavernState } from '../../src/sim/state/TavernState'
 // "Testing Requirements". The customer module runs through `simulateDay`
 // alongside the stock and areas modules so the forecast/service/satisfaction
 // pipeline is exercised against the real engine and the Phase 9 helpers.
+//
+// Expansion Phase 4 §4.1 — the pipeline gained `staffModule` and
+// `serviceModule`. The customers module no longer sells anything: it publishes
+// tonight's DEMAND and the service module's flow decides who gets seated, fed
+// and charged. Cases 7, 9 and 10 below are about sales, mess and shortages, so
+// they need the module that now produces them. Everything the customers module
+// still owns — the forecast, the turnout, satisfaction — is unchanged, which is
+// why the other eight cases needed no edit.
 
 const SEED = 'phase-10-customers-test'
 
@@ -54,7 +64,9 @@ function runDay(state: TavernState) {
   return simulateDay(state, defaultInput(), [
     areasModule,
     stockModule,
+    staffModule,
     customersModule,
+    serviceModule,
   ])
 }
 

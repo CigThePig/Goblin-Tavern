@@ -44,11 +44,52 @@ export type CustomerTurnout = {
   shortages: ShortageRecord[]
   /** Free-form notes for the customer report. */
   notes: string[]
+
+  // -- Expansion Phase 4 §4.1 — what the service flow actually did with them.
+  //
+  // `visitors` keeps its meaning (who turned up), because a dozen consumers
+  // read it. What it never used to admit is that turning up and being served
+  // are different events. These three are written by the customers module's
+  // `afterService` pass from the service module's flow result, so the group's
+  // own record says how the night went for it.
+  //
+  // Optional so a slice written before this phase still parses.
+
+  /** Patrons who got a seat. */
+  seated: number
+  /** Patrons who were served and paid (or ran a tab). */
+  served: number
+  /** Patrons who left without being served. */
+  abandoned: number
+  /** Coin this group left owing on a slate. */
+  unpaidTab: number
+}
+
+/**
+ * Expansion Phase 4 §4.1 — how many of a group wanted to come tonight.
+ *
+ * The customers module owns DEMAND: the forecast, the day-type modifiers, the
+ * niche thresholds, and the roll that turns them into a headcount. The service
+ * module owns what happens to that headcount once it is at the door. Splitting
+ * them is what makes a bottleneck possible at all — before this phase demand
+ * and outcome were the same number, so nobody could ever be turned away.
+ */
+export type CustomerDemand = {
+  groupId: string
+  /** Patrons who set out for the tavern tonight. */
+  patrons: number
+  notes: string[]
 }
 
 export type CustomerModuleState = {
   forecasts: CustomerForecast[]
   turnouts: CustomerTurnout[]
+  /**
+   * Expansion Phase 4 §4.1 — tonight's demand, published for the service
+   * module's flow to consume. Cleared every morning like the forecast.
+   * Optional so a slice written before this phase still parses.
+   */
+  demand: CustomerDemand[]
   /**
    * Phase 187 / ISSUE-154 — per-group count of consecutive evaluated
    * services that ended at or below `COMPLAINT_THRESHOLD` satisfaction.

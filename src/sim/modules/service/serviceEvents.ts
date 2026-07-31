@@ -13,6 +13,7 @@ import { effectiveQuality, isPerishable } from '../stock/spoilage'
 
 import { SERVICE_MODULE_ID_FOR_TABS, listPatronTabs } from './tabs'
 import type { DailyServiceResult, ServiceModuleState } from './types'
+import { assessBrawlRisk } from './flow/flowIncidents'
 
 // The owning module id, read from the leaf that also owns the tab records
 // rather than from `serviceModule.ts`. The module file imports THIS one (to
@@ -162,8 +163,9 @@ const brawlPossibleEvent: ScheduledEventDefinition = {
   fromFutureHook: ({ hookName }) =>
     hookName === 'brawl_possible' ? { payload: {} } : undefined,
   resolve: (ctx, record): ScheduledEventResolution => {
-    const flow = readServiceResult(ctx.state)?.flow
-    if (!flow) {
+    const result = readServiceResult(ctx.state)
+    const flow = result?.flow
+    if (!result || !flow) {
       return noOp('no service ran today', record.origin.readable)
     }
     const security = flow.capacity.securityCover
@@ -173,33 +175,39 @@ const brawlPossibleEvent: ScheduledEventDefinition = {
         'The trouble went nowhere — there was somebody on the door.',
       )
     }
-    const alreadyFought = (readServiceResult(ctx.state)?.incidents ?? []).some(
-      (incident) => incident.id === 'minor_brawl',
+    const brawlRisk = assessBrawlRisk(
+      ctx,
+      {
+        flow,
+        quality: result.serviceQuality,
+        regularsById: ctx.state.world.regulars,
+        dayType: ctx.getDayType(),
+      },
+      'main_room',
     )
-    if (alreadyFought) {
+    if (!brawlRisk?.actorGroup) {
       return noOp(
-        'a fight had already broken out tonight',
-        'The fight the warning meant had already happened.',
+        'the room never became both rowdy and packed enough',
+        'The warned trouble found no packed, rowdy room to ignite.',
       )
     }
-    const rowdy = Object.values(ctx.state.customerGroups).reduce(
-      (worst, group) =>
-        group.rowdiness > (worst?.rowdiness ?? 0) && (flow.servedByGroup[group.id] ?? 0) > 0
-          ? group
-          : worst,
-      undefined as CustomerGroupState | undefined,
-    )
+    const rowdy = ctx.state.customerGroups[brawlRisk.actorGroup]
     if (!rowdy) {
-      return noOp(
-        'nobody rowdy was in tonight',
-        'The room was too quiet for the trouble to find anyone.',
-      )
+      return noOp('the rowdy crowd is no longer present', record.origin.readable)
     }
     const room = ctx.state.areas['main_room']
     if (!room) {
       return noOp('there is no main room to fight in', record.origin.readable)
     }
-    const damage = clampPercent(room.damage + 6)
+    // The immediate flow incident already applies one point of physical
+    // damage. When this warned fight lands on the same night, add only the
+    // remaining five so one fight does not become a seven-point consequence
+    // merely because both the incident and delayed-event layers observed it.
+    const immediateBrawl = result.incidents.some(
+      (incident) =>
+        incident.id === 'minor_brawl' && incident.areaId === 'main_room',
+    )
+    const damage = clampPercent(room.damage + (immediateBrawl ? 5 : 6))
     const risk = clampPercent(room.risk + 4)
     ctx.modifyArea(
       'main_room',

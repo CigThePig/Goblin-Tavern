@@ -1535,11 +1535,13 @@ migration, so a migrated save and a fresh one produce byte-identical regulars.
 Two new named RNG streams (`service_flow`, `regular_behaviour`) keep the flow's
 rolls from shifting anybody's generated name; streams 17 → 19.
 
-**Three probes drifted and were regenerated deliberately** —
-`quality-focused`, `staff-focused` and `responsive-route`, all on `causes`
-only, which is the tab write-off sweep recording why a slate was closed. The
-Wave 7 balance harness was **re-pinned with the movement recorded**: 3.21 →
-3.18 cards/day, 823 → 819 patrons, `finalCoin` 1,043 → 1,078. That the till
+**Ten probes drifted and were regenerated deliberately** after the final
+automated-review pass — every multi-day route except the three fresh-state
+probes. The movement records corrected FIFO stock allocation, request
+fulfillment, regular memory, and brawl consequences rather than hiding them
+behind stale artifacts. The Wave 7 balance harness was **re-pinned with the
+movement recorded**: 3.21 → 3.18 cards/day, 823 → 803 patrons, `finalCoin`
+1,043 → 1,078. That the till
 moved by 3% while the entire interior of service was replaced is the evidence
 that the calibration held; `SERVINGS_PER_PATRON = 2.4` was chosen against the
 till, not against a plate count. `repo-map.json` moved on `rngStreams`,

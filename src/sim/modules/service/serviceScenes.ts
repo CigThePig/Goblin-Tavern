@@ -536,9 +536,11 @@ function makeSceneId(
   return `scene_${day}_${sceneType}_${index}`
 }
 
-/** 1 when the scene is about somebody the game can name, 0 otherwise. */
+/** Regular-led scenes outrank staff-led scenes, which outrank ambient ones. */
 function namedEntityRank(candidate: SceneCandidate): number {
-  return candidate.regularIds.length > 0 || candidate.staffIds.length > 0 ? 1 : 0
+  if (candidate.regularIds.length > 0) return 2
+  if (candidate.staffIds.length > 0) return 1
+  return 0
 }
 
 function rankCandidates(

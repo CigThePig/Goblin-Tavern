@@ -287,12 +287,18 @@ export function collectPatronTab(
   // going to pay paid the first time.
   const odds = Math.max(0.02, entry.collectionProbability * Math.pow(0.7, entry.chases))
   if (!rng.chance(odds)) {
-    const escalated = transitionContract(
-      { ...record, escalation: record.escalation + 1 },
-      record.status === 'active' ? 'grace' : record.status,
-      today,
-      'collection refused',
-    )
+    const chased = { ...record, escalation: record.escalation + 1 }
+    const due = record.dueOnDay
+    // A failed early chase is evidence about collectability, not lateness.
+    // Keep the receivable active before its due day and let the already
+    // scheduled obligation event begin grace at the contractually correct
+    // time. Once due, an active record may enter grace here; records already in
+    // grace merely gain escalation metadata instead of a grace→grace history
+    // entry.
+    const escalated =
+      record.status === 'active' && due !== undefined && today >= due
+        ? transitionContract(chased, 'grace', today, 'collection refused after due date')
+        : chased
     upsertObligation(ctx, escalated, 'patron_tab_refused')
     return {
       status: 'refused',

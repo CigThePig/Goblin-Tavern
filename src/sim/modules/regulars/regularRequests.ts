@@ -48,6 +48,36 @@ function slateFor(ctx: SimContext, regularId: string): number {
     .reduce((sum, record) => sum + outstandingAmount(record), 0)
 }
 
+/** Tonight's concrete party record, if this regular actually came in. */
+function servedPartyFor(ctx: SimContext, regularId: string) {
+  const service = ctx.state.modules['service'] as
+    | {
+        result?: {
+          flow?: {
+            ran?: boolean
+            parties?: Array<{
+              id: string
+              regularId?: string
+              outcome?: string
+              areaId?: string
+              wavesWaited?: number
+              groupId: string
+            }>
+          }
+          incidents?: Array<{ id: string; effects: string[] }>
+        }
+      }
+    | undefined
+  const flow = service?.result?.flow
+  if (!flow?.ran) return undefined
+  const party = flow.parties?.find(
+    (candidate) =>
+      candidate.regularId === regularId && candidate.outcome === 'served',
+  )
+  if (!party) return undefined
+  return { party, incidents: service?.result?.incidents ?? [] }
+}
+
 /**
  * Decide what, if anything, each regular asks for today.
  *
@@ -255,6 +285,45 @@ export function sweepRequests(ctx: SimContext): string[] {
       )
       resolved.push(regular.id)
       continue
+    }
+    if (request.kind === 'keep_my_seat' && request.subjectId) {
+      const visit = servedPartyFor(ctx, regular.id)
+      if (visit?.party.areaId === request.subjectId) {
+        resolveRequest(
+          ctx,
+          regular,
+          'granted',
+          `${regular.name.display}'s spot in ${request.subjectId} was kept.`,
+        )
+        resolved.push(regular.id)
+        continue
+      }
+    }
+    if (request.kind === 'quieter_room') {
+      const visit = servedPartyFor(ctx, regular.id)
+      const disruptive = visit?.incidents.some(
+        (incident) =>
+          (incident.id === 'minor_brawl' || incident.id === 'seating_conflict') &&
+          incident.effects.some(
+            (effect) =>
+              effect === `party ${visit.party.id}` ||
+              (effect.startsWith('parties ') &&
+                effect
+                  .slice('parties '.length)
+                  .split('+')
+                  .includes(visit.party.id)),
+          ),
+      )
+      if (visit && !disruptive && (visit.party.wavesWaited ?? 0) < 2) {
+        resolveRequest(
+          ctx,
+          regular,
+          'granted',
+          `${regular.name.display} got a quiet table without a long wait.`,
+        )
+        resolved.push(regular.id)
+        continue
+      }
     }
 
     if (today >= request.expiresOnDay) {

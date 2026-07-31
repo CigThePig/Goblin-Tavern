@@ -37,6 +37,7 @@ import {
   assessVisit,
 } from '../../src/sim/modules/regulars/visits'
 import { MAX_REGULAR_SERVICE_MEMORY } from '../../src/sim/state/TavernState'
+import { getOwnerActionsModuleState } from '../../src/sim/modules/ownerActions/stateHelpers'
 
 const SEED = 'phase211/regulars-and-tabs'
 
@@ -227,14 +228,23 @@ describe('Phase 211 §4.3 — a regular is a participant, not a counter', () => 
       { actionId: 'answer_regular_request', targetId: asker!, amount: 1 },
     ]).state
     const after = granted.world.regulars[asker!]!
+    const answer = getOwnerActionsModuleState(granted).applied.find(
+      (action) => action.actionId === 'answer_regular_request',
+    )
 
     expect(request.status).toBe('open')
-    expect(after.openRequest?.status).toBe('granted')
-    expect(after.ownerStanding ?? 0).toBeGreaterThan(standingBefore)
-    expect(
-      getRegularModuleState(granted).requestsResolved.length +
-        (after.openRequest?.status === 'granted' ? 1 : 0),
-    ).toBeGreaterThan(0)
+    expect(answer?.data.accepted).toBe(true)
+    expect(answer?.data.requestId).toBe(request.id)
+    // Saying yes is recorded immediately, but only the real outcome closes the
+    // request. Stock/slate requests may resolve this day; a promised seat or
+    // quiet room remains open until service actually provides it.
+    expect(['open', 'granted']).toContain(after.openRequest?.status)
+    if (after.openRequest?.status === 'granted') {
+      expect(after.ownerStanding ?? 0).toBeGreaterThan(standingBefore)
+      expect(getRegularModuleState(granted).requestsResolved.length).toBeGreaterThan(0)
+    } else {
+      expect(after.ownerStanding ?? 50).toBe(standingBefore)
+    }
   })
 
   it("a regular's favourite being off makes them less likely to come", () => {

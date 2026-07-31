@@ -447,12 +447,45 @@ function requestTargets(ctx: SimContext): ActionTarget[] {
     const request = openRequestFor(regular)
     if (!request) continue
     out.push({
-      id: regular.id,
-      label: request.readable,
-      hint: `${request.kind} · expires day ${request.expiresOnDay}`,
+      id: `grant::${regular.id}`,
+      label: `Accept ${regular.name.display}'s request`,
+      hint: `${request.readable} · expires day ${request.expiresOnDay}`,
+    })
+    out.push({
+      id: `refuse::${regular.id}`,
+      label: `Refuse ${regular.name.display}'s request`,
+      hint: `${request.readable} · expires day ${request.expiresOnDay}`,
     })
   }
   return out
+}
+
+type RequestAnswer = 'grant' | 'refuse'
+
+/**
+ * The generic action picker only queues action + target ids. Encode the
+ * answer in the target it offers so both choices are reachable without a
+ * bespoke web-only form. Raw regular ids remain accepted for saved/API inputs
+ * written before this target shape; only that compatibility path reads
+ * `amount`.
+ */
+function parseRequestTarget(
+  targetId: string | undefined,
+  legacyAmount?: number,
+): { regularId: string; answer: RequestAnswer } | undefined {
+  if (!targetId) return undefined
+  const separator = targetId.indexOf('::')
+  if (separator > 0) {
+    const answer = targetId.slice(0, separator)
+    const regularId = targetId.slice(separator + 2)
+    if ((answer === 'grant' || answer === 'refuse') && regularId.length > 0) {
+      return { regularId, answer }
+    }
+  }
+  return {
+    regularId: targetId,
+    answer: legacyAmount === 0 ? 'refuse' : 'grant',
+  }
 }
 
 const answerRegularRequestAction: OwnerActionDefinition = {
@@ -466,12 +499,13 @@ const answerRegularRequestAction: OwnerActionDefinition = {
   timeCost: TIME_COST_QUICK,
   getValidTargets: requestTargets,
   canApply: (ctx, input) => {
-    if (!input.targetId) {
+    const target = parseRequestTarget(input.targetId, input.amount)
+    if (!target) {
       return reject('missing_target', 'answer_regular_request requires a regular.')
     }
-    const regular = ctx.state.world.regulars[input.targetId]
+    const regular = ctx.state.world.regulars[target.regularId]
     if (!regular) {
-      return reject('unknown_regular', `No regular '${input.targetId}'.`)
+      return reject('unknown_regular', `No regular '${target.regularId}'.`)
     }
     if (!openRequestFor(regular)) {
       return reject('no_request', `${regular.name.display} has not asked for anything.`)
@@ -479,17 +513,17 @@ const answerRegularRequestAction: OwnerActionDefinition = {
     return OK
   },
   apply: (ctx, input) => {
-    const regular = ctx.state.world.regulars[input.targetId!]!
+    const target = parseRequestTarget(input.targetId, input.amount)!
+    const regular = ctx.state.world.regulars[target.regularId]!
     const request = openRequestFor(regular)!
-    // `amount` is the answer: anything but an explicit 0 is yes. A refusal is a
-    // real choice with a real cost, so it has to be expressible.
-    const granted = input.amount !== 0
+    const accepted = target.answer === 'grant'
     let slateForgiven = 0
+    let resolved = false
 
     // Saying yes to a slate request must perform the debt transition before
     // the social request is scored. The old order awarded standing and closed
     // the request while every receivable remained live.
-    if (granted && request.kind === 'forgive_my_slate') {
+    if (accepted && request.kind === 'forgive_my_slate') {
       const outcome = forgivePatronTabsForDebtor(
         ctx,
         'regular',
@@ -509,56 +543,51 @@ const answerRegularRequestAction: OwnerActionDefinition = {
           standingDelta: 12,
         })
       }
-    }
-
-    // Granting `keep_my_seat` is a promise the flow can keep: it is their
-    // favourite area, and the seating step tries that first.
-    if (granted && request.kind === 'keep_my_seat' && request.subjectId) {
-      ctx.modifyRegular(
-        regular.id,
-        { favoriteAreaId: request.subjectId },
-        {
-          source: 'regulars.request_granted',
-          sourceType: 'regular',
-          target: regular.id,
-          targetType: 'regular',
-          readable: `${regular.name.display} has a table kept in ${request.subjectId}.`,
-          tags: ['regular', 'request', 'seat'],
-          relatedActors: [{ kind: 'regular', id: regular.id }],
-          relatedLocations: [{ kind: 'area', id: request.subjectId }],
-          relatedSystems: ['regulars', 'service'],
-        },
+      const current = ctx.state.world.regulars[regular.id] ?? regular
+      resolveRequest(
+        ctx,
+        current,
+        'granted',
+        `${regular.name.display}'s ${slateForgiven}-coin slate was wiped.`,
       )
+      resolved = true
     }
 
-    const live = ctx.state.world.regulars[regular.id] ?? regular
-    resolveRequest(
-      ctx,
-      live,
-      granted ? 'granted' : 'refused',
-      granted
-        ? request.kind === 'forgive_my_slate'
-          ? `${regular.name.display}'s ${slateForgiven}-coin slate was wiped.`
-          : `You agreed: ${request.readable}`
-        : `You turned ${regular.name.display} down.`,
-    )
+    if (!accepted) {
+      const current = ctx.state.world.regulars[regular.id] ?? regular
+      resolveRequest(ctx, current, 'refused', `You turned ${regular.name.display} down.`)
+      resolved = true
+    }
+
+    // Stock, seat and quiet-room requests describe outcomes, not switches.
+    // Accepting one records the player's promise but leaves the request open;
+    // `sweepRequests` grants it only after stock is genuinely available or the
+    // regular is actually served in the promised conditions. This prevents a
+    // dialogue choice from conjuring stock or reserving imaginary capacity.
 
     return {
       actionId: ANSWER_REGULAR_REQUEST_ACTION_ID,
-      label: granted ? 'Granted a Request' : 'Refused a Request',
+      label: accepted
+        ? resolved
+          ? 'Granted a Request'
+          : 'Accepted a Request'
+        : 'Refused a Request',
       targetId: regular.id,
       targetLabel: regular.name.display,
       timeCost: TIME_COST_QUICK,
       effects: [
-        granted
-          ? `Agreed: ${request.readable}`
+        accepted
+          ? resolved
+            ? `Fulfilled: ${request.readable}`
+            : `Promised: ${request.readable}`
           : `Refused: ${request.readable}`,
       ],
       data: {
         regularId: regular.id,
         requestId: request.id,
         requestKind: request.kind,
-        granted,
+        accepted,
+        resolved,
         ...(request.kind === 'forgive_my_slate' ? { slateForgiven } : {}),
       },
     }

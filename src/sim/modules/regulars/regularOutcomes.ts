@@ -57,6 +57,34 @@ function readServiceIncidents(state: TavernState): ServiceIncidentSummary[] {
 }
 
 /**
+ * Incident summaries are deliberately compact, so qualify them against the
+ * party facts before turning one into personal memory. Positive
+ * `favourite_served` incidents and unrelated same-group/same-room incidents
+ * must not make a regular remember a bad night.
+ */
+function adverseIncidentForParty(
+  incident: ServiceIncidentSummary,
+  party: ServiceParty,
+): boolean {
+  const namedParty = incident.effects.some(
+    (effect) =>
+      effect === `party ${party.id}` ||
+      (effect.startsWith('parties ') &&
+        effect.slice('parties '.length).split('+').includes(party.id)),
+  )
+  if (incident.id === 'minor_brawl') {
+    return namedParty
+  }
+  if (incident.id === 'seating_conflict') {
+    return namedParty
+  }
+  if (incident.id === 'taboo_served') {
+    return namedParty
+  }
+  return false
+}
+
+/**
  * Fold tonight into every regular who meant to come.
  *
  * Returns the per-regular outcome list for the module slice and the report.
@@ -157,10 +185,8 @@ function creditVisit(
   const shortageNotes = party.notes.filter(
     (note) => note.startsWith('No ') || note.startsWith('Ran out '),
   )
-  const incidents = readServiceIncidents(ctx.state).filter(
-    (incident) =>
-      incident.actorGroup === party.groupId ||
-      (party.areaId !== undefined && incident.areaId === party.areaId),
+  const incidents = readServiceIncidents(ctx.state).filter((incident) =>
+    adverseIncidentForParty(incident, party),
   )
   const rememberCurrent = (
     input: Parameters<typeof rememberService>[2],

@@ -90,6 +90,21 @@ function findUnmetDemand(
   }
 }
 
+/** Servings the live cellar can back without making `sellRecipe` over-request. */
+function backedRecipeServings(
+  ctx: SimContext,
+  recipeId: string,
+  requested: number,
+): number {
+  if (!recipeRegistry.has(recipeId)) return 0
+  let backed = requested
+  for (const input of recipeRegistry.get(recipeId).inputs) {
+    const available = ctx.state.stock[input.ingredientId]?.quantity ?? 0
+    backed = Math.min(backed, Math.floor(available / input.quantity))
+  }
+  return Math.max(0, backed)
+}
+
 /** Mess drags on how fast tables can be turned round. */
 function resetEfficiency(ctx: SimContext, areaId: string): number {
   const area = ctx.state.areas[areaId]
@@ -246,6 +261,16 @@ export function runServiceFlow(
       delivered: 0,
       blocked,
     }
+    const blockedParties = new Map<FlowBlockReason, Set<string>>()
+    const markBlocked = (reason: FlowBlockReason, party: ServiceParty): void => {
+      const seen = blockedParties.get(reason) ?? new Set<string>()
+      if (!seen.has(party.id)) {
+        seen.add(party.id)
+        blockedParties.set(reason, seen)
+        blocked[reason] += 1
+      }
+      party.blockedBy = reason
+    }
 
     // ---- 1. reset. Cleaning turns dirty tables back into usable seats. ----
     let resetBudget = capacity.resetPerWave
@@ -283,8 +308,7 @@ export function runServiceFlow(
         // this is a CLEANING bottleneck, not a seating one.
         const reason: FlowBlockReason =
           totalDirty(blocks) >= party.size ? 'cleaning' : 'seats'
-        blocked[reason] += 1
-        party.blockedBy = reason
+        markBlocked(reason, party)
         stillQueued.push(party)
         continue
       }
@@ -318,8 +342,7 @@ export function runServiceFlow(
       for (const missed of order.unmet) {
         const unmet = findUnmetDemand(ctx, missed.recipeId, missed.servings)
         if (!unmet) continue
-        blocked.stock += 1
-        party.blockedBy = 'stock'
+        markBlocked('stock', party)
         party.notes.push(`No ${unmet.stockId} left for them.`)
         // Deduped PER GROUP, not globally: "the miners ran out of ale" and
         // "the goblins ran out of ale" are two facts about two crowds, and the
@@ -345,8 +368,7 @@ export function runServiceFlow(
 
       if (lines.length === 0) {
         // Nothing on the menu they could or would have. They do not stay.
-        blocked.stock += 1
-        party.blockedBy = 'stock'
+        markBlocked('stock', party)
         party.outcome = 'abandoned_wait'
         party.leftWave = wave
         party.notes.push('Nothing on the menu they would eat.')
@@ -383,9 +405,8 @@ export function runServiceFlow(
     for (const ticket of kitchenQueue) {
       if (prepBudget <= 0) {
         nextKitchen.push(ticket)
-        blocked.kitchen += 1
         const party = byId.get(ticket.partyId)
-        if (party) party.blockedBy = 'kitchen'
+        if (party) markBlocked('kitchen', party)
         continue
       }
       const cooked = Math.min(ticket.servings, prepBudget)
@@ -394,7 +415,8 @@ export function runServiceFlow(
       readyQueue.push({ ...ticket, servings: cooked })
       if (cooked < ticket.servings) {
         nextKitchen.push({ ...ticket, servings: ticket.servings - cooked })
-        blocked.kitchen += 1
+        const party = byId.get(ticket.partyId)
+        if (party) markBlocked('kitchen', party)
       }
     }
     kitchenQueue = nextKitchen
@@ -402,86 +424,81 @@ export function runServiceFlow(
     // ---- 6. delivery + payment. The ONLY place stock is sold. ----
     let deliveryBudget = capacity.deliveryPerWave
     const carried: Ticket[] = []
-    const buckets = new Map<string, { groupId: string; recipeId: string; tickets: Ticket[] }>()
+    const deliverable: Ticket[] = []
     for (const ticket of readyQueue) {
       if (deliveryBudget <= 0) {
         carried.push(ticket)
-        blocked.delivery += 1
         const party = byId.get(ticket.partyId)
-        if (party) party.blockedBy = 'delivery'
+        if (party) markBlocked('delivery', party)
         continue
       }
       const take = Math.min(ticket.servings, deliveryBudget)
       deliveryBudget -= take
-      const key = `${ticket.groupId}::${ticket.recipeId}`
-      const bucket = buckets.get(key) ?? {
-        groupId: ticket.groupId,
-        recipeId: ticket.recipeId,
-        tickets: [],
-      }
-      bucket.tickets.push({ ...ticket, servings: take })
-      buckets.set(key, bucket)
+      deliverable.push({ ...ticket, servings: take })
       if (take < ticket.servings) {
         carried.push({ ...ticket, servings: ticket.servings - take })
-        blocked.delivery += 1
+        const party = byId.get(ticket.partyId)
+        if (party) markBlocked('delivery', party)
       }
     }
     readyQueue = carried
 
-    // Stable bucket order so the sale sequence — and therefore which party
-    // loses out when the cellar runs dry — is identical on every replay.
-    const bucketKeys = [...buckets.keys()].sort((a, b) => a.localeCompare(b))
-    for (const key of bucketKeys) {
-      const bucket = buckets.get(key)!
-      const requested = bucket.tickets.reduce((sum, t) => sum + t.servings, 0)
+    // Preserve the ticket rail's FIFO order all the way through stock
+    // allocation. Grouping by a sorted `groupId::recipeId` key let a later
+    // alphabetical crowd consume stock before an earlier prepared ticket.
+    for (const ticket of deliverable) {
+      const party = byId.get(ticket.partyId)
+      if (!party) continue
+      const requested = ticket.servings
       if (requested <= 0) continue
-      const sale = sellRecipe(ctx, bucket.recipeId, requested, {
-        buyerGroupId: bucket.groupId,
-        source: `service.flow.${bucket.groupId}.${bucket.recipeId}`,
+      const unmet = findUnmetDemand(ctx, ticket.recipeId, requested)
+      const backed = backedRecipeServings(ctx, ticket.recipeId, requested)
+      // Capping before the mutating helper lets this layer record one shortage
+      // per group/ingredient while still allocating every available serving.
+      const sale = sellRecipe(ctx, ticket.recipeId, backed, {
+        buyerGroupId: ticket.groupId,
+        source: `service.flow.${ticket.groupId}.${ticket.recipeId}`,
       })
       for (const consumed of sale.itemsConsumed) {
         bump(stockConsumed, consumed.stockId, consumed.quantity)
       }
-      for (const shortage of sale.shortages) {
-        const perGroup = result.shortagesByGroup[bucket.groupId] ?? []
-        if (!perGroup.some((entry) => entry.stockId === shortage.stockId)) {
+      if (unmet) {
+        const perGroup = result.shortagesByGroup[ticket.groupId] ?? []
+        if (!perGroup.some((entry) => entry.stockId === unmet.stockId)) {
+          const shortage = recordShortage(
+            ctx,
+            unmet.stockId,
+            unmet.requested,
+            unmet.available,
+            'sale',
+          )
           perGroup.push(shortage)
-          result.shortagesByGroup[bucket.groupId] = perGroup
+          result.shortagesByGroup[ticket.groupId] = perGroup
           shortages.push(shortage)
         }
       }
       const perServing = sale.sold > 0 ? sale.earned / sale.sold : 0
-      let left = sale.sold
-      for (const ticket of bucket.tickets) {
-        const party = byId.get(ticket.partyId)
-        if (!party) continue
-        const got = Math.min(ticket.servings, left)
-        left -= got
-        const missed = ticket.servings - got
-        const line = party.order.find((entry) => entry.recipeId === ticket.recipeId)
-        if (line) line.delivered += got
-        if (got > 0) {
-          party.paid += perServing * got
-          // Coin is booked HERE, where the plate and the money changed hands —
-          // not when the party is finally marked served. A party that was
-          // partly fed and then walked out still paid for what it ate, and the
-          // coin ledger has that money; booking it at "served" left the
-          // aggregate short of the ledger by exactly those sales.
-          bump(result.coinByGroup, party.groupId, perServing * got)
-          summary.delivered += got
-          delivered.set(party.id, (delivered.get(party.id) ?? 0) + got)
-        }
-        if (missed > 0) {
-          // The cellar could not back it. Written off, not retried and not
-          // billed — a shortage is already on the record.
-          blocked.stock += 1
-          party.blockedBy = 'stock'
-          party.notes.push(`Ran out before ${missed} serving(s) reached them.`)
-          if (line) line.servings -= missed
-        }
-        const owed = (pending.get(party.id) ?? 0) - ticket.servings
-        pending.set(party.id, Math.max(0, owed))
+      const got = sale.sold
+      const missed = requested - got
+      const line = party.order.find((entry) => entry.recipeId === ticket.recipeId)
+      if (line) line.delivered += got
+      if (got > 0) {
+        party.paid += perServing * got
+        // Coin is booked HERE, where the plate and the money changed hands —
+        // not when the party is finally marked served.
+        bump(result.coinByGroup, party.groupId, perServing * got)
+        summary.delivered += got
+        delivered.set(party.id, (delivered.get(party.id) ?? 0) + got)
       }
+      if (missed > 0) {
+        // The cellar could not back it. Written off, not retried and not
+        // billed — a shortage is already on the record.
+        markBlocked('stock', party)
+        party.notes.push(`Ran out before ${missed} serving(s) reached them.`)
+        if (line) line.servings -= missed
+      }
+      const owed = (pending.get(party.id) ?? 0) - requested
+      pending.set(party.id, Math.max(0, owed))
     }
 
     // ---- 7. mark parties whose order is complete as served ----

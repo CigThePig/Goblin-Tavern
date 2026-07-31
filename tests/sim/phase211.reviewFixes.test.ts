@@ -5,7 +5,7 @@ import type { SimContext } from '../../src/sim/core/context'
 import { simulateDay } from '../../src/sim/core/engine'
 import { createRngStreams } from '../../src/sim/core/rng'
 import { getScheduledEventDefinition, readScheduledEventsSlice } from '../../src/sim/contracts/scheduledEvents/index'
-import { listPatronTabs } from '../../src/sim/modules/service/tabs'
+import { collectPatronTab, listPatronTabs } from '../../src/sim/modules/service/tabs'
 import { buildParties } from '../../src/sim/modules/service/flow/parties'
 import { applyServiceAreaImpact } from '../../src/sim/modules/service/flow/areaImpact'
 import { emptyFlowResult, MAX_PARTIES_PER_DAY, type ServiceFlowResult } from '../../src/sim/modules/service/flow/types'
@@ -102,6 +102,56 @@ function stocked(state: TavernState): TavernState {
 }
 
 describe('Phase 211 automated-review regressions', () => {
+  it('exposes accept/refuse targets and grants only a fulfilled request', () => {
+    const initial = createInitialTavernState()
+    const regular = Object.values(initial.world.regulars)[0]!
+    const withRequest: TavernState = {
+      ...initial,
+      world: {
+        ...initial.world,
+        regulars: {
+          ...initial.world.regulars,
+          [regular.id]: {
+            ...regular,
+            favoriteAreaId: 'main_room',
+            openRequest: {
+              id: 'request-seat',
+              kind: 'keep_my_seat',
+              subjectId: 'main_room',
+              openedOnDay: 0,
+              expiresOnDay: 7,
+              readable: `${regular.name.display} asks for their table.`,
+              status: 'open',
+            },
+          },
+        },
+      },
+    }
+    const accepted = mutableContext(withRequest)
+    const targets = answerRegularRequestAction.getValidTargets(accepted.ctx)
+    expect(targets.map((target) => target.id)).toEqual([
+      `grant::${regular.id}`,
+      `refuse::${regular.id}`,
+    ])
+    const result = answerRegularRequestAction.apply(accepted.ctx, {
+      actionId: 'answer_regular_request',
+      targetId: `grant::${regular.id}`,
+    })
+    expect(result.data).toMatchObject({ accepted: true, resolved: false })
+    expect(
+      accepted.state().world.regulars[regular.id]!.openRequest?.status,
+    ).toBe('open')
+
+    const refused = mutableContext(withRequest)
+    answerRegularRequestAction.apply(refused.ctx, {
+      actionId: 'answer_regular_request',
+      targetId: `refuse::${regular.id}`,
+    })
+    expect(refused.state().world.regulars[regular.id]!.openRequest?.status).toBe(
+      'refused',
+    )
+  })
+
   it('conserves every group after the party cap and clamps regular companions', () => {
     const state = createInitialTavernState()
     const streams = createRngStreams('phase211-party-review')
@@ -259,6 +309,29 @@ describe('Phase 211 automated-review regressions', () => {
     )
   })
 
+  it('keeps a refused pre-due tab active while recording the chase', () => {
+    const mutable = mutableContext(createInitialTavernState())
+    const entry = openPatronTab(mutable.ctx, {
+      amount: 20,
+      groupId: 'miners',
+      debtorKind: 'group',
+      debtorId: 'miners',
+      collectionProbability: 0,
+      readable: 'The miners owe 20 coin.',
+    })!
+    const outcome = collectPatronTab(mutable.ctx, entry)
+    expect(outcome.status).toBe('refused')
+    const record = listPatronTabs(mutable.state()).find(
+      (candidate) => candidate.id === entry.obligationId,
+    )!
+    expect(record.dueOnDay).toBeGreaterThan(
+      mutable.state().calendar.totalDaysElapsed,
+    )
+    expect(record.status).toBe('active')
+    expect(record.escalation).toBe(1)
+    expect(record.history.at(-1)?.to).toBe('active')
+  })
+
   it('deduplicates authoritative shortages per group and ingredient', () => {
     let state = createInitialTavernState()
     for (const groupId of Object.keys(state.customerGroups)) {
@@ -339,7 +412,7 @@ describe('Phase 211 automated-review regressions', () => {
                 severity: 40,
                 actorGroup: regular.customerGroupId,
                 areaId: 'main_room',
-                effects: [],
+                effects: ['parties party_001'],
               },
             ],
           },
@@ -353,6 +426,75 @@ describe('Phase 211 automated-review regressions', () => {
     )
     expect(kinds).toEqual(expect.arrayContaining(['shortage', 'incident', 'waited']))
     expect(kinds).not.toContain('served_favourite')
+  })
+
+  it('remembers favourite service positively and ignores unrelated incidents', () => {
+    const initial = createInitialTavernState()
+    const regular = Object.values(initial.world.regulars)[0]!
+    const flow = emptyFlowResult()
+    flow.ran = true
+    flow.parties = [
+      {
+        id: 'party_favourite',
+        groupId: regular.customerGroupId,
+        size: 1,
+        regularId: regular.id,
+        arrivalWave: 0,
+        patience: 3,
+        wavesWaited: 0,
+        seatedWave: 0,
+        servedWave: 0,
+        areaId: 'private_booth',
+        outcome: 'served',
+        order: [
+          { recipeId: 'dish_ale', servings: 1, delivered: 1, drivers: [] },
+        ],
+        paid: 1,
+        tab: 0,
+        notes: [],
+      },
+    ]
+    const state: TavernState = {
+      ...initial,
+      world: {
+        ...initial.world,
+        regulars: {
+          ...initial.world.regulars,
+          [regular.id]: { ...regular, favoriteRecipeId: 'dish_ale' },
+        },
+      },
+      modules: {
+        ...initial.modules,
+        service: {
+          result: {
+            flow,
+            incidents: [
+              {
+                id: 'favourite_served',
+                severity: 13,
+                actorGroup: regular.customerGroupId,
+                areaId: 'private_booth',
+                effects: [`regular ${regular.id}`, 'recipe dish_ale'],
+              },
+              {
+                id: 'minor_brawl',
+                severity: 40,
+                actorGroup: regular.customerGroupId,
+                areaId: 'main_room',
+                effects: [],
+              },
+            ],
+          },
+        },
+      },
+    }
+    const mutable = mutableContext(state)
+    recordVisitOutcomes(mutable.ctx, [regular.id])
+    const kinds = mutable.state().world.regulars[regular.id]!.serviceMemory?.map(
+      (memory) => memory.kind,
+    )
+    expect(kinds).toContain('served_favourite')
+    expect(kinds).not.toContain('incident')
   })
 
   it('attributes a brawl to the rowdy group and includes its extra damage', () => {

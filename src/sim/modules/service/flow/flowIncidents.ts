@@ -140,6 +140,7 @@ function seatingConflicts(
         actorGroup: a.groupId,
         ...(a.areaId ? { areaId: a.areaId } : {}),
         effects: [
+          `parties ${a.id}+${b.id}`,
           `groups ${a.groupId}+${b.groupId}`,
           `relationship ${score}`,
           `security ${input.flow.capacity.securityCover}`,
@@ -214,6 +215,7 @@ function servedDishIncidents(
           actorGroup: party.groupId,
           ...(party.areaId ? { areaId: party.areaId } : {}),
           effects: [
+            `party ${party.id}`,
             `recipe ${line.recipeId}`,
             `culture ${culture.id}`,
             `servings ${line.delivered}`,
@@ -235,7 +237,11 @@ function servedDishIncidents(
           severity: Math.min(100, 10 + line.delivered * 3),
           actorGroup: party.groupId,
           ...(party.areaId ? { areaId: party.areaId } : {}),
-          effects: [`regular ${regular.id}`, `recipe ${line.recipeId}`],
+          effects: [
+            `party ${party.id}`,
+            `regular ${regular.id}`,
+            `recipe ${line.recipeId}`,
+          ],
         })
       }
     }
@@ -255,81 +261,19 @@ function brawlIncidents(
   input: FlowIncidentInput,
 ): ServiceIncidentSummary[] {
   const out: ServiceIncidentSummary[] = []
-  const security = input.flow.capacity.securityCover + input.quality.fightControl / 2
   for (const areaId of areasWithCrowd(input)) {
-    const occupants = input.flow.parties.filter(
-      (party) => party.areaId === areaId && party.seatedWave !== undefined,
-    )
-    const seats =
-      input.flow.capacity.seatsByArea.find((row) => row.areaId === areaId)?.seats ?? 0
-    if (seats <= 0) continue
-    // PEAK CONCURRENT occupancy, not the night's headcount. Ninety patrons
-    // through a ninety-seat room across an evening is a good night; ninety
-    // patrons in it at once is a crush. Summing the night would have made every
-    // busy evening read as packed, which is how the first draft produced a
-    // brawl on an ordinary payday.
-    const packed = peakOccupancy(occupants) / seats
-    let rowdy = 0
-    let drink = 0
-    for (const party of occupants) {
-      const group = ctx.state.customerGroups[party.groupId]
-      if (!group) continue
-      if (group.rowdiness >= 70) rowdy += party.size
-      for (const line of party.order) {
-        const recipe = ctx.state.recipes[line.recipeId]
-        if (recipe?.tags.includes('alcohol')) drink += line.delivered
-      }
-    }
-    const patrons = occupants.reduce((sum, party) => sum + party.size, 0)
-    if (rowdy < MIN_ROWDY_FOR_TROUBLE || drink < 3 || patrons <= 0) continue
-    // The heat of the room, before anyone steps in.
-    //
-    // CALIBRATED AGAINST THE RULE IT REPLACES. Phase 12 fired a brawl only on
-    // `brawl_night`, so brawls were a once-a-week event the calendar decided.
-    // Making them a property of the room must not make them a nightly one, and
-    // the first draft did exactly that: it counted rowdy HEADS, and on an
-    // ordinary payday sixty of the ninety-odd patrons belong to groups with
-    // `rowdiness >= 70`. Every term is therefore a RATIO — what share of the
-    // room is rowdy, how full it got at its peak, how hard they were drinking —
-    // so a big quiet night and a small ugly one are told apart. `BRAWL_BASELINE`
-    // is what an ordinary busy evening absorbs; above it, a brawl still needs a
-    // rowdy crowd, a packed room, drink actually served, and nobody on the door,
-    // each of which the player can change (§4.4).
-    const rowdyShare = Math.min(1, rowdy / patrons)
-    const drinkPerPatron = Math.min(3, drink / patrons)
-    const heat =
-      rowdyShare * 40 +
-      Math.min(1, packed) * 40 +
-      drinkPerPatron * 10 +
-      (input.dayType === 'brawl_night' ? 30 : 0)
-    const severity = Math.round(
-      Math.max(0, heat - BRAWL_BASELINE - security * 30),
-    )
-    if (severity < 25) continue
-    const rowdyByGroup = new Map<string, number>()
-    for (const party of occupants) {
-      const group = ctx.state.customerGroups[party.groupId]
-      if (!group || group.rowdiness < 70) continue
-      rowdyByGroup.set(
-        party.groupId,
-        (rowdyByGroup.get(party.groupId) ?? 0) + party.size,
-      )
-    }
-    // Attribute the fight to the crowd that supplied the most rowdy bodies,
-    // with lexical order only as a deterministic tie-breaker. Picking the
-    // first occupant blamed quiet groups merely because their id sorted first.
-    const worst = [...rowdyByGroup.entries()].sort((a, b) =>
-      b[1] === a[1] ? a[0].localeCompare(b[0]) : b[1] - a[1],
-    )[0]?.[0]
+    const risk = assessBrawlRisk(ctx, input, areaId)
+    if (!risk) continue
     out.push({
       id: 'minor_brawl',
-      severity: Math.min(100, severity),
-      ...(worst ? { actorGroup: worst } : {}),
+      severity: Math.min(100, risk.severity),
+      ...(risk.actorGroup ? { actorGroup: risk.actorGroup } : {}),
       areaId,
       effects: [
-        `rowdy_patrons ${rowdy}`,
-        `drinks_served ${drink}`,
-        `security ${Math.round(security * 100) / 100}`,
+        `parties ${risk.partyIds.join('+')}`,
+        `rowdy_patrons ${risk.rowdy}`,
+        `drinks_served ${risk.drink}`,
+        `security ${Math.round(risk.security * 100) / 100}`,
         `${areaId}.damage +1`,
       ],
     })
@@ -337,21 +281,117 @@ function brawlIncidents(
   return out
 }
 
-/** The most patrons this set of parties had in the room at one time. */
-function peakOccupancy(parties: ReadonlyArray<ServiceParty>): number {
+export type BrawlRiskAssessment = {
+  areaId: string
+  actorGroup?: string
+  rowdy: number
+  drink: number
+  patrons: number
+  peakOccupancy: number
+  partyIds: string[]
+  packed: number
+  security: number
+  severity: number
+}
+
+/**
+ * One authoritative brawl predicate, shared by immediate flow incidents and
+ * delayed `brawl_possible` warnings. A delayed warning must still find the
+ * genuinely rowdy, crowded, drinking room it warned about; otherwise thinning
+ * or calming the room would not be counterplay.
+ */
+export function assessBrawlRisk(
+  ctx: SimContext,
+  input: FlowIncidentInput,
+  areaId: string,
+): BrawlRiskAssessment | undefined {
+  const occupants = input.flow.parties.filter(
+    (party) => party.areaId === areaId && party.seatedWave !== undefined,
+  )
+  const seats =
+    input.flow.capacity.seatsByArea.find((row) => row.areaId === areaId)?.seats ?? 0
+  if (seats <= 0) return undefined
+
+  const peakCrowd = crowdAtPeak(occupants)
+  const peak = peakCrowd.occupancy
+  const packed = peak / seats
+  let rowdy = 0
+  let drink = 0
+  const rowdyByGroup = new Map<string, number>()
+  for (const party of occupants) {
+    const group = ctx.state.customerGroups[party.groupId]
+    if (!group) continue
+    if (group.rowdiness >= 70) {
+      rowdy += party.size
+      rowdyByGroup.set(
+        party.groupId,
+        (rowdyByGroup.get(party.groupId) ?? 0) + party.size,
+      )
+    }
+    for (const line of party.order) {
+      const recipe = ctx.state.recipes[line.recipeId]
+      if (recipe?.tags.includes('alcohol')) drink += line.delivered
+    }
+  }
+  const patrons = occupants.reduce((sum, party) => sum + party.size, 0)
+  if (rowdy < MIN_ROWDY_FOR_TROUBLE || drink < 3 || patrons <= 0) {
+    return undefined
+  }
+
+  // PEAK CONCURRENT occupancy, not the night's headcount. Every heat term is
+  // a ratio, so a big quiet night and a small ugly one remain distinct.
+  const security = input.flow.capacity.securityCover + input.quality.fightControl / 2
+  const rowdyShare = Math.min(1, rowdy / patrons)
+  const drinkPerPatron = Math.min(3, drink / patrons)
+  const heat =
+    rowdyShare * 40 +
+    Math.min(1, packed) * 40 +
+    drinkPerPatron * 10 +
+    (input.dayType === 'brawl_night' ? 30 : 0)
+  const severity = Math.round(
+    Math.max(0, heat - BRAWL_BASELINE - security * 30),
+  )
+  if (severity < 25) return undefined
+
+  const actorGroup = [...rowdyByGroup.entries()].sort((a, b) =>
+    b[1] === a[1] ? a[0].localeCompare(b[0]) : b[1] - a[1],
+  )[0]?.[0]
+  return {
+    areaId,
+    ...(actorGroup ? { actorGroup } : {}),
+    rowdy,
+    drink,
+    patrons,
+    peakOccupancy: peak,
+    partyIds: peakCrowd.partyIds,
+    packed,
+    security,
+    severity,
+  }
+}
+
+/** The most patrons this room held at once, and the parties present then. */
+function crowdAtPeak(
+  parties: ReadonlyArray<ServiceParty>,
+): { occupancy: number; partyIds: string[] } {
   let peak = 0
+  let partyIds: string[] = []
   for (let wave = 0; wave < SERVICE_WAVES; wave++) {
-    let concurrent = 0
+    const present: ServiceParty[] = []
     for (const party of parties) {
       const from = party.seatedWave
       if (from === undefined || from > wave) continue
       const until = party.leftWave ?? SERVICE_WAVES
       if (until < wave) continue
-      concurrent += party.size
+      present.push(party)
     }
-    peak = Math.max(peak, concurrent)
+    const concurrent = present.reduce((sum, party) => sum + party.size, 0)
+    if (concurrent > peak) {
+      peak = concurrent
+      partyIds = present.map((party) => party.id).sort((a, b) => a.localeCompare(b))
+    }
   }
-  return peak
+  return { occupancy: peak, partyIds }
 }
 
 function areasWithCrowd(input: FlowIncidentInput): string[] {

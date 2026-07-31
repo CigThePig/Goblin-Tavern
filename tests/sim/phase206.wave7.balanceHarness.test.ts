@@ -194,16 +194,16 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // lever. Patrons moved to 823 in Phase 3 because a worn-out crew is
     // occasionally a body short.
     //
-    // EXPANSION PHASE 4 MOVES BOTH, AND THIS IS THE MOVEMENT: 1,078 coin and
-    // 819 patrons. Coin is up 3.4% because a party now CHOOSES what it orders
+    // EXPANSION PHASE 4 MOVES BOTH, AND THIS IS THE FINAL MOVEMENT: 1,078 coin
+    // and 803 patrons. Coin is up 3.4% because a party now CHOOSES what it orders
     // and orders a little more of it (`SERVINGS_PER_PATRON`, calibrated against
     // the till rather than the plate count — see the note there). Patrons are
-    // down 4 because the passive route occasionally cannot serve everybody who
-    // turns up, which is what a capacity model is for. Re-pinned with the
-    // movement recorded, not re-tuned; Phase 5 owns the economy and Phase 13
-    // re-baselines the long-run matrix.
+    // down 20 because the final flow preserves FIFO stock allocation and lets
+    // real shortages and service outcomes affect later turnout. Re-pinned with
+    // the movement recorded, not re-tuned; Phase 5 owns the economy and Phase
+    // 13 re-baselines the long-run matrix.
     expect(audit.finalCoin).toBe(1078)
-    expect(audit.totalPatrons).toBe(819)
+    expect(audit.totalPatrons).toBe(803)
   })
 
   it('prices choices as an upper bound on the real render', () => {

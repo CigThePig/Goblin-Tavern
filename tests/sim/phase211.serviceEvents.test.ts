@@ -73,6 +73,20 @@ function stocked(state: TavernState): TavernState {
   )
 }
 
+/** A warning can become a fight only if tonight recreates the real flow risk. */
+function packedAndRowdy(state: TavernState): TavernState {
+  let next = state
+  for (const groupId of Object.keys(state.customerGroups)) {
+    next = withCustomerGroup(next, groupId, {
+      patronage: 100,
+      rowdiness: 100,
+      loyalty: 100,
+      satisfaction: 100,
+    })
+  }
+  return next
+}
+
 /**
  * Queue an event the way the response bridge does — by NAME — and run days
  * until it resolves.
@@ -194,9 +208,9 @@ describe('Phase 211 §4.4 — the service hook families are owned', () => {
 
 describe('Phase 211 §4.4 — brawl_possible', () => {
   it('fires into real damage when nobody is on the door', () => {
-    let state = stocked(withCoin(createInitialTavernState(), 400))
-    // Rowdy crowd, nobody on security: the promise has something to land on.
-    state = withCustomerGroup(state, 'ogres', { patronage: 90, rowdiness: 95 })
+    let state = packedAndRowdy(stocked(withCoin(createInitialTavernState(), 400)))
+    // Packed rowdy crowd, nobody on security: the promise has the same real
+    // occupancy/rowdiness trigger as an immediate flow brawl.
     state = scheduleByHookName(state, BRAWL_POSSIBLE_EVENT, 'brawl_possible', 1)
 
     const damageBefore = state.areas['main_room']!.damage
@@ -223,6 +237,23 @@ describe('Phase 211 §4.4 — brawl_possible', () => {
     expect(outcome!.reason).toBeDefined()
     expect(outcome!.reason!.length).toBeGreaterThan(0)
     expect(outcome!.mutations.length).toBe(0)
+  })
+
+  it('is a no-op when a rowdy group never fills the room', () => {
+    let state = stocked(withCoin(createInitialTavernState(), 400))
+    for (const groupId of Object.keys(state.customerGroups)) {
+      state = withCustomerGroup(state, groupId, {
+        patronage: groupId === 'ogres' ? 1 : 0,
+        rowdiness: groupId === 'ogres' ? 100 : 0,
+      })
+    }
+    state = scheduleByHookName(state, BRAWL_POSSIBLE_EVENT, 'brawl_possible', 1)
+
+    const { outcome } = runUntilResolved(state, BRAWL_POSSIBLE_EVENT)
+    expect(outcome).toBeDefined()
+    expect(outcome!.status).toBe('no_op')
+    expect(outcome!.reason).toContain('rowdy and packed')
+    expect(outcome!.mutations).toEqual([])
   })
 })
 
@@ -346,8 +377,7 @@ describe('Phase 211 §4.4 — banned_group_returns_* and security_routine', () =
 
 describe('Phase 211 §1.1 — exactly once', () => {
   it('a resolved service event never fires twice', () => {
-    let state = stocked(withCoin(createInitialTavernState(), 400))
-    state = withCustomerGroup(state, 'ogres', { patronage: 90, rowdiness: 95 })
+    let state = packedAndRowdy(stocked(withCoin(createInitialTavernState(), 400)))
     state = scheduleByHookName(state, BRAWL_POSSIBLE_EVENT, 'brawl_possible', 1)
     const { state: resolved } = runUntilResolved(state, BRAWL_POSSIBLE_EVENT)
 

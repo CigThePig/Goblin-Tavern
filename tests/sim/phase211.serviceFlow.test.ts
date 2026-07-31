@@ -144,6 +144,17 @@ describe('Phase 211 §4.1 — each stage can be the bottleneck on its own', () =
     const flow = flowOf(runDay(state).state)
     expect(flow.bottleneck?.reason).toBe('kitchen')
     expect(flow.capacity.drivers.kitchen).toBe(0)
+    for (const wave of flow.waves) {
+      const partiesInService = flow.parties.filter(
+        (party) =>
+          party.seatedWave !== undefined &&
+          party.seatedWave <= wave.wave &&
+          (party.leftWave === undefined || party.leftWave >= wave.wave),
+      ).length
+      // `partiesHeld` counts party-waves, not recipe tickets. A three-line
+      // order held at prep still contributes exactly one kitchen block.
+      expect(wave.blocked.kitchen).toBeLessThanOrEqual(partiesInService)
+    }
   })
 
   it('losing the server makes delivery the bottleneck', () => {

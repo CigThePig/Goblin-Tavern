@@ -187,7 +187,9 @@
     "arc",
     "opening",
     "labor_market",
-    "staff_wellbeing"
+    "staff_wellbeing",
+    "service_flow",
+    "regular_behaviour"
   ],
   "unscopedRandomCallsInSim": [],
   "unscopedRandomCallsInCards": [],
@@ -209,6 +211,7 @@
       "ensureCastAttributes",
       "ensureExpansionContractSlices",
       "ensureStaffWorkforceFields",
+      "ensureRegularServiceFields",
       "ensureModuleSlices"
     ]
   },
@@ -221,7 +224,7 @@
     "runtimeModules": 33,
     "simulationPhases": 26,
     "daySegments": 3,
-    "ownerActions": 51,
+    "ownerActions": 55,
     "staffPriorities": 12,
     "pressureDomains": 21,
     "feedbackDetectors": 13,

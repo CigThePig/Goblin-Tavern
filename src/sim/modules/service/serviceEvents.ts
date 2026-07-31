@@ -11,8 +11,26 @@ import type {
 } from '../../contracts/scheduledEvents/index'
 import { effectiveQuality, isPerishable } from '../stock/spoilage'
 
-import { getServiceModuleState, SERVICE_MODULE_ID } from './serviceModule'
-import { listPatronTabs } from './tabs'
+import { SERVICE_MODULE_ID_FOR_TABS, listPatronTabs } from './tabs'
+import type { DailyServiceResult, ServiceModuleState } from './types'
+
+// The owning module id, read from the leaf that also owns the tab records
+// rather than from `serviceModule.ts`. The module file imports THIS one (to
+// register these types on `startDay`), so importing it back would be a cycle —
+// and under a plain ESM loader that is a temporal-dead-zone crash rather than a
+// tidiness question.
+const SERVICE_MODULE_ID = SERVICE_MODULE_ID_FOR_TABS
+
+/**
+ * Today's service result, read straight off the slice.
+ *
+ * Same reason as above: the accessor lives in the module file this one is
+ * imported by. Reading the slice is what the accessor does anyway.
+ */
+function readServiceResult(state: TavernState): DailyServiceResult | undefined {
+  const slice = state.modules[SERVICE_MODULE_ID] as ServiceModuleState | undefined
+  return slice?.result
+}
 
 // Expansion Phase 4 §4.4 + Phase 1 §1.1 — six hook families move from
 // narrative to mechanical, closing the service half of this phase's `OBL-02`
@@ -144,7 +162,10 @@ const brawlPossibleEvent: ScheduledEventDefinition = {
   fromFutureHook: ({ hookName }) =>
     hookName === 'brawl_possible' ? { payload: {} } : undefined,
   resolve: (ctx, record): ScheduledEventResolution => {
-    const flow = getServiceModuleState(ctx.state).result.flow
+    const flow = readServiceResult(ctx.state)?.flow
+    if (!flow) {
+      return noOp('no service ran today', record.origin.readable)
+    }
     const security = flow.capacity.securityCover
     if (security >= 1) {
       return noOp(
@@ -152,7 +173,7 @@ const brawlPossibleEvent: ScheduledEventDefinition = {
         'The trouble went nowhere — there was somebody on the door.',
       )
     }
-    const alreadyFought = getServiceModuleState(ctx.state).result.incidents.some(
+    const alreadyFought = (readServiceResult(ctx.state)?.incidents ?? []).some(
       (incident) => incident.id === 'minor_brawl',
     )
     if (alreadyFought) {
@@ -271,7 +292,11 @@ const securityRoutineEvent: ScheduledEventDefinition = {
   ownerModuleId: SERVICE_MODULE_ID,
   label: 'A door routine settles in',
   payloadSchema: EmptyPayloadSchema,
-  beat: 'morning',
+  // `wrap_up`, not `morning`. A routine settling in is a fact about the day
+  // that has just been worked, and at `morning` the service slice has already
+  // been reset and the roster not yet built — so a morning resolver would read
+  // an empty evening and conclude nobody had been on the door, whoever had.
+  beat: 'wrap_up',
   defaultOffsetDays: 5,
   warningWindowDays: 2,
   expiryDays: 6,
@@ -281,8 +306,8 @@ const securityRoutineEvent: ScheduledEventDefinition = {
   fromFutureHook: ({ hookName }) =>
     hookName === 'security_routine_possible' ? { payload: {} } : undefined,
   resolve: (ctx): ScheduledEventResolution => {
-    const flow = getServiceModuleState(ctx.state).result.flow
-    if (flow.capacity.securityCover <= 0) {
+    const flow = readServiceResult(ctx.state)?.flow
+    if (!flow || flow.capacity.securityCover <= 0) {
       return noOp(
         'nobody has been working the door',
         'The door routine never took — nobody has been on it.',

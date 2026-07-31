@@ -180,19 +180,30 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
 
   it('reproduces the published card load exactly', () => {
     // Wave 6 gate: 3.46 · 5. Post-Wave-7 tuning: 3.36 · 5. Post-Phase-3: 3.21 · 5.
-    expect(audit.meanCardsPerDay).toBe(3.21)
+    // Post-Phase-4: 3.18 · 5 — marginally fewer cards because a night that is
+    // served in full raises fewer problems than one measured only in aggregate.
+    expect(audit.meanCardsPerDay).toBe(3.18)
     expect(audit.maxCardsPerDay).toBe(5)
     expect(audit.maxCardsPerDay).toBeLessThanOrEqual(FULL_DAY_CARD_CEILING)
   })
 
   it('reproduces the published run outcome exactly', () => {
     // Phase 7 §5.1, no-action row: 1,043 coin and 828 patrons over 28
-    // standard days. The coin is unchanged through both the Wave 7 tuning and
-    // Expansion Phase 3, which is the evidence that neither touched an economic
+    // standard days. The coin was unchanged through both the Wave 7 tuning and
+    // Expansion Phase 3, which was the evidence that neither touched an economic
     // lever. Patrons moved to 823 in Phase 3 because a worn-out crew is
-    // occasionally a body short, which is that phase's whole point.
-    expect(audit.finalCoin).toBe(1043)
-    expect(audit.totalPatrons).toBe(823)
+    // occasionally a body short.
+    //
+    // EXPANSION PHASE 4 MOVES BOTH, AND THIS IS THE MOVEMENT: 1,078 coin and
+    // 819 patrons. Coin is up 3.4% because a party now CHOOSES what it orders
+    // and orders a little more of it (`SERVINGS_PER_PATRON`, calibrated against
+    // the till rather than the plate count — see the note there). Patrons are
+    // down 4 because the passive route occasionally cannot serve everybody who
+    // turns up, which is what a capacity model is for. Re-pinned with the
+    // movement recorded, not re-tuned; Phase 5 owns the economy and Phase 13
+    // re-baselines the long-run matrix.
+    expect(audit.finalCoin).toBe(1078)
+    expect(audit.totalPatrons).toBe(819)
   })
 
   it('prices choices as an upper bound on the real render', () => {
@@ -201,9 +212,10 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // never quote a default-priced figure against the 24-button `DC-06`
     // ceiling; that comparison needs `--render`). Post-Wave-7 tuning the
     // upper bound read 15.71/day, 440 over 28 days; after Expansion Phase 3's
-    // card-load movement it reads 15.25/day.
-    expect(audit.meanChoicesPerDay).toBe(15.25)
-    expect(audit.totalChoicesRendered).toBe(427)
+    // card-load movement it read 15.25/day, and after Phase 4's it reads
+    // 14.86/day.
+    expect(audit.meanChoicesPerDay).toBe(14.86)
+    expect(audit.totalChoicesRendered).toBe(416)
   })
 
   it('reproduces the published family-streak figure', () => {

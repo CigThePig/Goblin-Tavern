@@ -903,6 +903,79 @@ const MECHANIC_TERMS: GlossaryTerm[] = [
     category: 'mechanic',
     oneLine: 'A day when an inspector visits — food safety, cleanliness, and house rules all under scrutiny.',
   },
+
+  // Expansion Phase 4 §4.1–4.5. Every figure below is quoted from the code
+  // that owns it rather than restated: the wave count and party cap from
+  // `service/flow/types.ts`, the per-stage ceilings from `flow/capacity.ts`,
+  // the slate's due window from `service/tabs.ts`, and the three-bad-nights
+  // rule from `regulars/visits.ts`. §5.12 forbids a second, prose-only copy of
+  // timing, cost or eligibility, so these say what the rule IS and point at the
+  // number, never at a duplicate of it.
+  {
+    id: 'service_flow',
+    label: 'Service Flow',
+    category: 'mechanic',
+    oneLine:
+      'The evening, cut into six waves: people arrive, queue, sit, order, wait for the kitchen, get served, and leave.',
+    longer:
+      'Each step has a real limit — usable seats, what the kitchen can cook in a wave, what the floor can carry, how fast tables get wiped. A party that cannot get past a step waits, and a party that waits past its patience goes home. The daily service report names whichever step held the night up.',
+  },
+  {
+    id: 'bottleneck',
+    label: 'Bottleneck',
+    category: 'mechanic',
+    oneLine: 'The step of service that ran out first tonight.',
+    longer:
+      'Seats, kitchen, floor, table-clearing, or the cellar. They call for completely different spending, which is why the report names one rather than saying takings were down. The kitchen is usually the tightest, so a cook off sick or a rotting kitchen shows up fastest.',
+  },
+  {
+    id: 'party',
+    label: 'Party',
+    category: 'mechanic',
+    oneLine: 'A group of patrons who arrive together and are seated together.',
+    longer:
+      'Parties are how a crowd turns up: they last one night and are not tracked afterwards, except that a regular in one is a named person. On a very busy night the crowd arrives as bigger parties rather than more of them.',
+  },
+  {
+    id: 'patience',
+    label: 'Patience',
+    category: 'mechanic',
+    oneLine: 'How many waves a party will wait before walking out.',
+    longer:
+      'Loyal, satisfied crowds give the house the benefit of the doubt; an irritated one does not. A regular waits longer for a place they like. Walking out unserved costs satisfaction on the spot and is remembered by any regular it happened to.',
+  },
+  {
+    id: 'patron_tab',
+    label: 'Slate',
+    category: 'mechanic',
+    oneLine: 'A bill that walked out of the door — money owed, not money lost.',
+    longer:
+      'Every slate names a debtor: a regular you can find, a crowd you can recognise, or strangers you cannot. You can chase it or wipe it. Chasing a named regular is far likelier to get paid than chasing strangers, and it costs you standing with them; wiping one buys standing instead. The `refuse_tabs` house rule shrinks what walks out in the first place.',
+  },
+  {
+    id: 'owner_standing',
+    label: 'Standing',
+    category: 'mechanic',
+    oneLine: 'What a regular thinks of YOU, as distinct from the tavern.',
+    longer:
+      'Loyalty is "do I drink here"; standing is "would I do you a favour". Wiping a slate, granting a request, or sitting with somebody raises it; chasing them for money lowers it. Requests are only made by regulars who have the standing to ask.',
+  },
+  {
+    id: 'regular_request',
+    label: "A Regular's Request",
+    category: 'mechanic',
+    oneLine: 'Something a named drinker has asked you for, before it becomes a problem.',
+    longer:
+      'Keep their usual on, keep their table free, find them somewhere quieter, or wipe their slate. Granting it is worth real standing and a memory that pulls them back in; refusing or letting it lapse is worth the reverse. Restocking their usual because you needed the stock counts as granting it.',
+  },
+  {
+    id: 'lapsed_regular',
+    label: 'Stopped Coming In',
+    category: 'mechanic',
+    oneLine: 'A regular who has given up on the place, with a stated reason.',
+    longer:
+      'Three nights running where they could not get in or could not get served and they stop turning up. They come back when the thing that drove them off changes — their usual back on the menu, their slate wiped, the place running properly again — or when you go and have a word with them.',
+  },
 ]
 
 // Phase 94 — Tavern Log vocabulary. One term per `HistoryCategory` plus

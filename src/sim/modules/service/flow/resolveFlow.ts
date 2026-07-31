@@ -3,12 +3,14 @@ import type {
   CustomerGroupState,
   RegularWorldState,
 } from '../../../state/TavernState'
+import { recipeRegistry } from '../../../registries/recipeRegistry'
 import { sellRecipe } from '../recipes'
+import { recordShortage } from '../../stock/sales'
 import type { ShortageRecord } from '../../stock/types'
 
 import { cookStretchFactor, readServiceCapacity } from './capacity'
 import { chooseOrder } from './choice'
-import { buildParties, type PartyBuildInput } from './parties'
+import { buildParties, normaliseParty, type PartyBuildInput } from './parties'
 import {
   SERVICE_WAVES,
   emptyBlockedCounts,
@@ -48,6 +50,41 @@ const DWELL_WAVES = 1
 
 /** Extra waves a SEATED party will wait beyond its queue patience. */
 const SEATED_PATIENCE_BONUS = 1
+
+/**
+ * Record what a party asked for and the cellar could not supply.
+ *
+ * Uses the stock module's own `recordShortage`, so an unmet order lands in the
+ * same place as every other shortage and the weekly reliability signal, the
+ * repeated-shortage memory pattern and the restock issue seeds all see it.
+ * Reports against the recipe's tightest input — the ingredient that actually
+ * ran out is the one the player has to buy.
+ */
+function recordUnmetDemand(
+  ctx: SimContext,
+  recipeId: string,
+  servings: number,
+): ShortageRecord | undefined {
+  if (!recipeRegistry.has(recipeId)) return undefined
+  const def = recipeRegistry.get(recipeId)
+  let tightest: { ingredientId: string; needed: number; available: number } | undefined
+  for (const input of def.inputs) {
+    const available = ctx.state.stock[input.ingredientId]?.quantity ?? 0
+    const needed = servings * input.quantity
+    if (available >= needed) continue
+    if (!tightest || available - needed < tightest.available - tightest.needed) {
+      tightest = { ingredientId: input.ingredientId, needed, available }
+    }
+  }
+  if (!tightest) return undefined
+  return recordShortage(
+    ctx,
+    tightest.ingredientId,
+    tightest.needed,
+    tightest.available,
+    'unmet_demand',
+  )
+}
 
 /** Mess drags on how fast tables can be turned round. */
 function resetEfficiency(ctx: SimContext, areaId: string): number {
@@ -258,7 +295,7 @@ export function runServiceFlow(
       // ---- 4. order ----
       const group = groupOf(party)
       if (!group) continue
-      const lines = chooseOrder(
+      const order = chooseOrder(
         ctx,
         party,
         {
@@ -269,6 +306,29 @@ export function runServiceFlow(
         },
         { stretchFactor },
       )
+      const lines = order.lines
+
+      // §4.2 — what they wanted and could not have. Recorded here, at the
+      // moment of ordering, because that is when the demand existed; the
+      // delivery step below only ever sees what the cellar could back.
+      for (const missed of order.unmet) {
+        const shortage = recordUnmetDemand(ctx, missed.recipeId, missed.servings)
+        if (!shortage) continue
+        blocked.stock += 1
+        party.blockedBy = 'stock'
+        party.notes.push(`No ${shortage.stockId} left for them.`)
+        // Deduped PER GROUP, not globally: "the miners ran out of ale" and
+        // "the goblins ran out of ale" are two facts about two crowds, and the
+        // weekly reliability signal counts records. Collapsing them to one
+        // would understate a night the whole room went short.
+        const perGroup = result.shortagesByGroup[party.groupId] ?? []
+        if (!perGroup.some((entry) => entry.stockId === shortage.stockId)) {
+          perGroup.push(shortage)
+          result.shortagesByGroup[party.groupId] = perGroup
+          shortages.push(shortage)
+        }
+      }
+
       if (lines.length === 0) {
         // Nothing on the menu they could or would have. They do not stay.
         blocked.stock += 1
@@ -369,13 +429,11 @@ export function runServiceFlow(
         bump(stockConsumed, consumed.stockId, consumed.quantity)
       }
       for (const shortage of sale.shortages) {
-        if (!shortages.some((entry) => entry.stockId === shortage.stockId)) {
-          shortages.push(shortage)
-        }
         const perGroup = result.shortagesByGroup[bucket.groupId] ?? []
         if (!perGroup.some((entry) => entry.stockId === shortage.stockId)) {
           perGroup.push(shortage)
           result.shortagesByGroup[bucket.groupId] = perGroup
+          shortages.push(shortage)
         }
       }
       const perServing = sale.sold > 0 ? sale.earned / sale.sold : 0
@@ -485,6 +543,9 @@ export function runServiceFlow(
   }
   const bottleneck = findBottleneck(result.waves, capacity)
   if (bottleneck) result.bottleneck = bottleneck
+
+  // One canonical key order per party, once, at the end — see `normaliseParty`.
+  result.parties = result.parties.map(normaliseParty)
 
   return { result, shortages, stockConsumed }
 }

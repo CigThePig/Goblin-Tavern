@@ -106,9 +106,19 @@ export function applyServiceAreaImpact(
     if (nextDamage !== area.damage) patch.damage = nextDamage
     if (Object.keys(patch).length === 0) continue
 
+    const crowdActors = [...row.groupIds]
+      .sort((a, b) => a.localeCompare(b))
+      .map((id) => ({ kind: 'customer_group' as const, id }))
+    // The crowd travels with the mutation, not just with the explicit cause
+    // below: `modifyArea` emits its own auto-cause for every field it moves,
+    // and an auto-cause with no actor on it is a change nothing can be blamed
+    // for — which is the §4.2 "targeted change without a matching cause"
+    // failure in miniature.
     ctx.modifyArea(areaId, patch, {
       source: SOURCE,
       reason: `service_traffic:${row.patrons}`,
+      relatedActors: crowdActors,
+      relatedLocations: [{ kind: 'area', id: areaId }],
     })
 
     if (patch.mess !== undefined) {

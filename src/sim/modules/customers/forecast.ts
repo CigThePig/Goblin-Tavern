@@ -195,7 +195,13 @@ function stockModifier(group: CustomerGroupState, state: TavernState): number {
 
 function satisfactionModifier(group: CustomerGroupState): number {
   // 50 satisfaction is neutral. Up to ±8 swing.
-  return Math.round((group.satisfaction - 50) / 6)
+  //
+  // `+ 0` is not decoration: `Math.round` of a small negative returns NEGATIVE
+  // ZERO, which survives `structuredClone` but not `JSON.stringify` — so a
+  // group sitting one or two points below neutral made the save envelope stop
+  // round-tripping, and the Wave 0 durable-progress gate caught it. `-0 + 0` is
+  // `0`; every other value is unchanged.
+  return Math.round((group.satisfaction - 50) / 6) + 0
 }
 
 function clampForecastVisitors(value: number): number {

@@ -39,9 +39,9 @@ import { SERVICE_WAVES, type ServiceCapacitySnapshot } from './types'
 // which is a bottleneck the player caused and can undo.
 
 /** Servings a fully-staffed kitchen puts out in one wave. */
-export const BASE_PREP_PER_WAVE = 60
+export const BASE_PREP_PER_WAVE = 34
 /** Servings a fully-staffed floor gets to tables in one wave. */
-export const BASE_DELIVERY_PER_WAVE = 60
+export const BASE_DELIVERY_PER_WAVE = 40
 /** Seats a full cleaning effort turns round in one wave. */
 export const BASE_RESET_PER_WAVE = 24
 

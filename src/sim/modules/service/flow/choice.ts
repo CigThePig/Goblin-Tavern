@@ -265,7 +265,12 @@ function priceTerm(
   const price = recipeUnitPrice(state, recipe.id)
   if (price <= 0) return 0
   // What this cohort considers an ordinary price, from its own wealth.
-  const comfortable = Math.max(1, group.wealth / 20)
+  //
+  // The `1 +` matters: without it a poor cohort's comfortable price sat below
+  // the cheapest dish on the menu, so EVERY dish read as expensive and the
+  // whole tavern drifted onto whatever was cheapest. Prices in this game start
+  // at 1, so the floor belongs in the formula.
+  const comfortable = Math.max(1, 1 + group.wealth / 25)
   const overshoot = (price - comfortable) / comfortable
   if (overshoot <= 0) {
     // A cheap round is a small positive for the price-sensitive.
@@ -345,10 +350,13 @@ export function scoreRecipeForParty(
     drivers.push(`${choice.group.label} will not touch it`)
     return zero
   }
-  if (feasibleServings(state, recipe.id) <= 0) {
-    drivers.push('nothing in the cellar to make it with')
-    return zero
-  }
+  // NOTE what is deliberately NOT vetoed here: an empty cellar.
+  //
+  // Wanting something the house has run out of is the whole content of a
+  // shortage, and scoring it to zero would delete the event: patrons would
+  // silently order the thing that happens to be in stock and "we are out of
+  // ale" would never be true of anybody. `chooseOrder` scores what they WANT,
+  // discovers it cannot be served, records the shortage, and then substitutes.
 
   const terms: Array<{ id: string; value: number; readable: string }> = [
     {
@@ -402,42 +410,68 @@ export function scoreRecipeForParty(
  * Servings scale with party size, not with a fixed per-group basket: the cohort
  * decides what it wants, then how much of it. A party takes at most
  * `MAX_ORDER_LINES` distinct dishes — a crowd of six does not order six
- * different things, it orders the two the table agreed on.
+ * different things, it orders the two or three the table agreed on.
+ *
+ * Three, not two, and the difference is economic rather than cosmetic. The
+ * per-group baskets this replaces listed two or three dishes and split the
+ * night across all of them; capping an order at two concentrated the whole
+ * tavern onto whichever dish scored highest, roughly doubling ale demand and
+ * making a restock that used to cover a payday fall short. Three keeps the
+ * spread of the model it replaces while the CHOICE — which three, in what
+ * proportion, and for whom — is entirely new.
  */
-export const MAX_ORDER_LINES = 2
+export const MAX_ORDER_LINES = 3
 
 /**
  * Servings each patron takes across the party's chosen dishes.
  *
- * Calibrated against the model this replaces so the economy does not move on
- * the reference route: Phase 12's basket sold `(1 + speedBoost) × 0.5` servings
- * of each of a group's two-or-three listed recipes, which came to ~2 servings a
- * head on the default crew. A party now orders the same volume, but of dishes
- * it chose.
+ * CALIBRATED AGAINST THE TILL, NOT THE PLATE COUNT. Phase 12's fixed basket
+ * sold `(1 + speedBoost) × 0.5` servings of each of a group's two-or-three
+ * listed recipes; the reference route's first day took 561 coin off ~187
+ * servings. A chosen order is a slightly cheaper order — every group now
+ * considers the mushrooms, where only the goblins' basket used to list them —
+ * so matching the old plate count would have cut the day's takings by about a
+ * sixth and quietly re-balanced the whole game. This is set so the takings
+ * match instead (567 on the same seed): the tavern sells a few more plates at a
+ * slightly lower average price. That is a real, explicable consequence of
+ * patrons choosing rather than following a script, and it is the number the
+ * economy is tuned against.
  */
-export const SERVINGS_PER_PATRON = 2
+export const SERVINGS_PER_PATRON = 2.4
+
+export type PartyOrder = {
+  lines: Array<{ recipeId: string; servings: number; drivers: string[] }>
+  /**
+   * What they asked for and could not have.
+   *
+   * The flow turns these into shortage records: a shortage is unmet DEMAND,
+   * and demand only exists if somebody wanted the thing. Substituting silently
+   * would make an empty cellar invisible in every report that reads shortages —
+   * the weekly reliability signal, the repeated-shortage memory pattern, and
+   * the restock issue seeds all key off them.
+   */
+  unmet: Array<{ recipeId: string; servings: number }>
+}
 
 export function chooseOrder(
   ctx: SimContext,
   party: { size: number },
   choice: ChoiceContext,
   options: { stretchFactor?: number } = {},
-): Array<{ recipeId: string; servings: number; drivers: string[] }> {
+): PartyOrder {
+  const empty: PartyOrder = { lines: [], unmet: [] }
   const scored: RecipeScore[] = []
   for (const recipe of Object.values(ctx.state.recipes)) {
     const result = scoreRecipeForParty(ctx, recipe, choice)
     if (!Number.isFinite(result.score) || result.score <= 0) continue
     scored.push(result)
   }
-  if (scored.length === 0) return []
+  if (scored.length === 0) return empty
 
   // Ties break on recipe id so ordering is stable across reloads (§5.10).
   scored.sort((a, b) =>
     b.score === a.score ? a.recipeId.localeCompare(b.recipeId) : b.score - a.score,
   )
-  const picked = scored.slice(0, MAX_ORDER_LINES)
-  const totalWeight = picked.reduce((sum, entry) => sum + entry.weight, 0)
-  if (totalWeight <= 0) return []
 
   // `stretchFactor` is the cook's `stretch_ingredients` priority: smaller
   // portions, so the same party consumes less of the stores.
@@ -446,18 +480,87 @@ export function chooseOrder(
     1,
     Math.round(party.size * SERVINGS_PER_PATRON * stretch),
   )
-  const lines: Array<{ recipeId: string; servings: number; drivers: string[] }> = []
+
+  // What they wanted, before the cellar has its say.
+  //
+  // The split is by SQUARED score, not by score. A table that likes ale most
+  // orders mostly ale; splitting in proportion to the raw scores would hand the
+  // third choice a quarter of the round however weakly it was preferred, which
+  // flattens every group onto the same order and — because the third choice
+  // tends to be the cheapest dish — quietly cuts the night's takings. Squaring
+  // keeps the ranking honest while letting a clear favourite dominate.
+  const wanted = scored.slice(0, MAX_ORDER_LINES)
+  const totalWeight = wanted.reduce((sum, entry) => sum + entry.weight * entry.weight, 0)
+  if (totalWeight <= 0) return empty
+
+  const unmet: Array<{ recipeId: string; servings: number }> = []
+  const wantedLines: Array<{ recipeId: string; servings: number; drivers: string[] }> = []
   let assigned = 0
-  for (let i = 0; i < picked.length; i++) {
-    const entry = picked[i]!
-    const isLast = i === picked.length - 1
+  for (let i = 0; i < wanted.length; i++) {
+    const entry = wanted[i]!
+    const isLast = i === wanted.length - 1
     const share = isLast
       ? totalServings - assigned
-      : Math.round((entry.weight / totalWeight) * totalServings)
-    const servings = Math.max(isLast ? 0 : 0, share)
-    if (servings <= 0) continue
-    assigned += servings
-    lines.push({ recipeId: entry.recipeId, servings, drivers: entry.drivers })
+      : Math.round(((entry.weight * entry.weight) / totalWeight) * totalServings)
+    if (share <= 0) continue
+    assigned += share
+    wantedLines.push({ recipeId: entry.recipeId, servings: share, drivers: entry.drivers })
   }
-  return lines.filter((line) => line.servings > 0)
+
+  // Now the cellar. A line the kitchen cannot back at all becomes a shortage
+  // and is substituted with the best dish that IS available; a line it can only
+  // partly back keeps what it can, and the rest is short.
+  const lines: Array<{ recipeId: string; servings: number; drivers: string[] }> = []
+  const takenFrom = new Map<string, number>()
+  const remainingStock = (recipeId: string): number =>
+    feasibleServings(ctx.state, recipeId) - (takenFrom.get(recipeId) ?? 0)
+
+  // One line per recipe, always. A substitution can introduce a dish that a
+  // later wanted-line also asks for, and two lines for the same recipe would
+  // then both match the delivery step's `find` — which drove one of them
+  // negative and failed state validation.
+  const addLine = (
+    recipeId: string,
+    servings: number,
+    drivers: string[],
+  ): void => {
+    if (servings <= 0) return
+    const existing = lines.find((entry) => entry.recipeId === recipeId)
+    if (existing) {
+      existing.servings += servings
+      return
+    }
+    lines.push({ recipeId, servings, drivers })
+  }
+
+  for (const line of wantedLines) {
+    const available = Math.max(0, remainingStock(line.recipeId))
+    const served = Math.min(line.servings, available)
+    if (served > 0) {
+      takenFrom.set(line.recipeId, (takenFrom.get(line.recipeId) ?? 0) + served)
+      addLine(line.recipeId, served, line.drivers)
+    }
+    const short = line.servings - served
+    if (short <= 0) continue
+    unmet.push({ recipeId: line.recipeId, servings: short })
+
+    // Substitute: the next best thing the cellar can actually back.
+    const substitute = scored.find(
+      (entry) =>
+        entry.recipeId !== line.recipeId && remainingStock(entry.recipeId) > 0,
+    )
+    if (!substitute) continue
+    const canServe = Math.min(short, remainingStock(substitute.recipeId))
+    if (canServe <= 0) continue
+    takenFrom.set(
+      substitute.recipeId,
+      (takenFrom.get(substitute.recipeId) ?? 0) + canServe,
+    )
+    addLine(substitute.recipeId, canServe, [
+      ...substitute.drivers,
+      `instead of ${line.recipeId}`,
+    ])
+  }
+
+  return { lines: lines.filter((line) => line.servings > 0), unmet }
 }

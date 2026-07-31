@@ -144,32 +144,21 @@ export function buildParties(
     const curve = arrivalCurveFor(group)
     const arrivalWave = pickArrivalWave(curve, rng.float())
     counter += 1
-    // Every key is declared here, in `ServicePartySchema`'s order, including
-    // the ones nothing has filled in yet. See the key-order note on that
-    // schema: the flow must only ever assign in place, because a key appended
-    // mid-evening would make a reloaded day serialise differently from an
-    // uninterrupted one. `undefined` values are dropped by JSON, so nothing is
-    // stored for a party that never sat down.
     const party: ServiceParty = {
       // Zero-padded so the lexical sort below is also the arrival order.
       id: `party_${String(counter).padStart(3, '0')}`,
       groupId: group.id,
       size,
-      regularId: regular?.id,
       arrivalWave,
       patience: patienceFor(group, regular),
       wavesWaited: 0,
-      seatedWave: undefined,
-      areaId: undefined,
-      servedWave: undefined,
-      leftWave: undefined,
       outcome: 'unserved_at_close',
       order: [],
       paid: 0,
       tab: 0,
-      blockedBy: undefined,
       notes: [],
     }
+    if (regular) party.regularId = regular.id
     return party
   }
 
@@ -228,4 +217,40 @@ export function buildParties(
       : a.arrivalWave - b.arrivalWave,
   )
   return parties
+}
+
+/**
+ * Rebuild a party with its keys in `ServicePartySchema` order, dropping the
+ * ones nothing set.
+ *
+ * WHY THIS EXISTS. A saved party comes back through Zod, which rebuilds it in
+ * schema key order, and the day diff renders a new module slice as one JSON
+ * string — so a party whose keys are in assignment order reads as a different
+ * party after a reload, and the §5.10 gate fails on formatting rather than
+ * behaviour. Pre-declaring every optional key as `undefined` would fix the
+ * order but put `undefined` VALUES into persisted state, which the web layer's
+ * baseline-patch encoder treats as present-but-empty rather than absent. So the
+ * flow assigns freely and the parties are normalised once, here, at the end.
+ */
+export function normaliseParty(party: ServiceParty): ServiceParty {
+  const out: ServiceParty = {
+    id: party.id,
+    groupId: party.groupId,
+    size: party.size,
+    ...(party.regularId !== undefined ? { regularId: party.regularId } : {}),
+    arrivalWave: party.arrivalWave,
+    patience: party.patience,
+    wavesWaited: party.wavesWaited,
+    ...(party.seatedWave !== undefined ? { seatedWave: party.seatedWave } : {}),
+    ...(party.areaId !== undefined ? { areaId: party.areaId } : {}),
+    ...(party.servedWave !== undefined ? { servedWave: party.servedWave } : {}),
+    ...(party.leftWave !== undefined ? { leftWave: party.leftWave } : {}),
+    outcome: party.outcome,
+    order: party.order,
+    paid: party.paid,
+    tab: party.tab,
+    ...(party.blockedBy !== undefined ? { blockedBy: party.blockedBy } : {}),
+    notes: party.notes,
+  }
+  return out
 }

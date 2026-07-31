@@ -30,18 +30,25 @@ import { SERVICE_WAVES, type ServiceCapacitySnapshot } from './types'
 // one server on `keep_customers_happy`, one cleaner on `clean`) scores exactly
 // 1 on all three, so a tavern that has changed nothing runs at the base rate.
 //
-// CALIBRATION. The bases are set so an ordinary evening on the reference route
-// is never the binding constraint: ~95 patrons ordering ~2 servings each is
-// ~190 servings against 360 of prep and 360 of delivery, in a room seating 110.
+// CALIBRATION, AND WHY THE KITCHEN IS THE TIGHT ONE. An ordinary evening on the
+// reference route is ~95 patrons ordering ~2.4 servings each — about 230
+// servings — against ~276 of prep and ~330 of delivery in a room seating 110.
+// So a normal night is served in full, a busy one queues, and the stage that
+// runs out first is always the KITCHEN. That ordering is deliberate: it is what
+// makes `getKitchenThroughputFactor` (Phase 2's usable-workstation number)
+// reach the till at all. With delivery as the tighter stage, a wrecked kitchen
+// changed a ceiling nobody was pressing against and Phase 2's own gate test
+// stopped meaning anything.
+//
 // Capacity binds when the PLAYER loses a role, blocks a room, lets the kitchen
 // rot, or grows patronage past the room — which is §4.1's whole point. Losing
-// the cook takes the kitchen to 126 servings a night against the same demand,
+// the cook takes the kitchen to ~97 servings a night against the same demand,
 // which is a bottleneck the player caused and can undo.
 
 /** Servings a fully-staffed kitchen puts out in one wave. */
-export const BASE_PREP_PER_WAVE = 34
+export const BASE_PREP_PER_WAVE = 40
 /** Servings a fully-staffed floor gets to tables in one wave. */
-export const BASE_DELIVERY_PER_WAVE = 40
+export const BASE_DELIVERY_PER_WAVE = 48
 /** Seats a full cleaning effort turns round in one wave. */
 export const BASE_RESET_PER_WAVE = 24
 

@@ -178,9 +178,22 @@ describe('Phase 12 — Daily service simulation', () => {
 
     // §12 test "stretch_ingredients ... lowers food satisfaction" — check
     // satisfaction did not rise compared with the food-quality priority.
-    const stretchSatChange = getCustomerModuleState(stretch.state).turnouts
+    //
+    // Expansion Phase 4 §4.1 — measured on a QUIET day, and that is the point
+    // of the change rather than a way round it. `quality` carries
+    // `serviceSpeed −0.2` and serves full portions, so on a market day it now
+    // runs the kitchen past its ceiling and eighteen patrons walk out unserved:
+    // the food is better and the night is worse. That trade-off did not exist
+    // when service was one arithmetic pass, and it is exactly what §4.1 set out
+    // to create — so the food-quality claim is tested where food quality is
+    // what differs, and the throughput claim gets its own tests in
+    // `phase211.serviceFlow`.
+    const quiet = withDayType(base, 'quiet_day')
+    const quietQuality = runDay(quiet, { cook: 'quality' })
+    const quietStretch = runDay(quiet, { cook: 'stretch_ingredients' })
+    const stretchSatChange = getCustomerModuleState(quietStretch.state).turnouts
       .reduce((acc, t) => acc + t.satisfactionChange, 0)
-    const qualitySatChange = getCustomerModuleState(quality.state).turnouts
+    const qualitySatChange = getCustomerModuleState(quietQuality.state).turnouts
       .reduce((acc, t) => acc + t.satisfactionChange, 0)
     expect(stretchSatChange).toBeLessThan(qualitySatChange)
   })

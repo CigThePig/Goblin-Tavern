@@ -580,9 +580,27 @@ describe('Phase 209 §2.5 — the work schedule is load-bearing', () => {
     }
     expect(getKitchenThroughputFactor(wrecked)).toBeLessThan(1)
 
-    // And it reaches the till: the same crowd buys less from a crippled kitchen.
-    const soundCoin = runDay(state).state.coin - state.coin
-    const wreckedCoin = runDay(wrecked).state.coin - wrecked.coin
+    // And it reaches the till — but only when the kitchen is the thing standing
+    // in the way, which is what Expansion Phase 4 changed about this claim.
+    //
+    // The factor used to scale DEMAND: every patron simply bought less from a
+    // worse kitchen, whether or not the kitchen was busy. Phase 4 §4.1 makes it
+    // scale CAPACITY instead — servings per wave — which is the honest reading
+    // of "what the kitchen gets out", and it means a crippled kitchen costs
+    // nothing on a quiet night because there was slack to lose. So the crowd
+    // here is one the kitchen has to work for: at this patronage the sound
+    // kitchen is already near its ceiling, and the crippled one drops below it.
+    const busy = (input: TavernState): TavernState => ({
+      ...input,
+      customerGroups: Object.fromEntries(
+        Object.entries(input.customerGroups).map(([id, group]) => [
+          id,
+          group.patronage > 0 ? { ...group, patronage: 95 } : group,
+        ]),
+      ),
+    })
+    const soundCoin = runDay(busy(state)).state.coin - state.coin
+    const wreckedCoin = runDay(busy(wrecked)).state.coin - wrecked.coin
     expect(wreckedCoin).toBeLessThan(soundCoin)
   })
 

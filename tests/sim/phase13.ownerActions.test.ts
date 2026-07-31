@@ -448,19 +448,28 @@ describe('Phase 13 — Owner action report (§13.13)', () => {
 
 describe('Phase 13 — Same-day service impact', () => {
   it('restocking ale before payday eliminates the ale shortage that would otherwise hit', () => {
-    // 200 coin is enough to afford an 80-unit ale restock at basePrice 2.
+    // 400 coin is enough to afford a 150-unit ale restock at basePrice 2.
+    //
+    // Expansion Phase 4 §4.2 — the restock is bigger than it used to be
+    // because the ale is. A party now CHOOSES what it drinks instead of working
+    // through a fixed basket, and on a payday (`noveltyTerm` gives alcohol +0.3)
+    // most of them choose ale — so a payday crowd gets through roughly half as
+    // much again as the old per-group baskets bought. Eighty units used to
+    // cover the night and no longer does; the property under test is that
+    // restocking BEFORE service prevents the shortage, not the size of the
+    // order that does it.
     const base = withCoin(
       withStock(
         withDayType(createInitialTavernState(), 'payday'),
         'ale',
         { quantity: 4 },
       ),
-      200,
+      400,
     )
 
     const noAction = runServiceDay(base)
     const withRestock = runServiceDay(base, [
-      { actionId: 'restock_item', targetId: 'ale', amount: 80 },
+      { actionId: 'restock_item', targetId: 'ale', amount: 150 },
     ])
 
     const noActionAleShortages = getServiceModuleState(noAction.state)

@@ -73,7 +73,10 @@ export type CustomerWeeklyTrendEntry = {
 // Immediate purchases still appear in accounting.stockPurchases; credit
 // purchases additionally appear here with their actual due state.
 export type SupplierInvoice = {
+  /** Obligation row identity; distinct from the supplier entity id. */
   id: string
+  /** Added after Phase 5 review; optional only for pre-fix saved summaries. */
+  supplierId?: string
   amount: number
   dueWeek: number
   paid: boolean

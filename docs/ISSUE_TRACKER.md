@@ -887,12 +887,16 @@ Post-PR review hardened four seams: watered servings now keep their full bill
 while consuming less ingredient, intact reserves retain the declared 14-day
 deadline, empty perishable slots are snapshotted before same-day restocking,
 and unpaid-tab reversals net against cash sales instead of masquerading as
-operating costs.
+operating costs. A second review pass hardened six more: closed service clears
+customer demand before area occupancy/propagation, repeal responses disable the
+named policy, price complaints track the specific hike and pre-hike price,
+house-rule counterplay matches the memories responses really emit, and supplier
+invoice rows retain both supplier identity and remaining balance.
 
-Tests: `phase212.economy.test.ts` (20), `phase212.economyEvents.test.ts` (4),
+Tests: `phase212.economy.test.ts` (21), `phase212.economyEvents.test.ts` (5),
 `phase212.economyPersistence.test.ts` (6), and the heavy
 `phase212.economyMatrix.heavy.test.ts` (4). Gates: `npm run test:full`
-**321 files / 4,217 tests**, `npm test` **312 files / 4,084 tests**,
+**321 files / 4,220 tests**, `npm test` **312 files / 4,087 tests**,
 `typecheck` clean, `check` 0 errors / 0 warnings, `build` passing with the
 known >500 kB chunk warning, and all three expansion artifacts clean.
 

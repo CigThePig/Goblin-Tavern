@@ -32,6 +32,10 @@ import {
 } from "./types";
 import { makePendingId } from "./pendingHelpers";
 import { getVentureBlueprint } from "../ventures/ventureCatalog";
+import {
+  OWNER_ACTIONS_MODULE_ID,
+  getOwnerActionsModuleState,
+} from "../ownerActions/stateHelpers";
 
 // Phase 41 / ISSUE-001 — pure-resolver applier.
 //
@@ -155,6 +159,36 @@ function applyStateChange(
         tags: ["response"],
       });
     }
+    return { ...preview, applied: true };
+  }
+
+  if (path.startsWith("policies.")) {
+    const [, id, field] = path.split(".");
+    if (!id) {
+      return { ...preview, applied: false, notes: ["missing policy id"] };
+    }
+    if (field !== "enabled") {
+      return {
+        ...preview,
+        applied: false,
+        notes: [`unsupported policy field ${field}`],
+      };
+    }
+    const ownerActions = getOwnerActionsModuleState(state);
+    const policy = ownerActions.policies[id];
+    if (!policy) {
+      return { ...preview, applied: false, notes: [`unknown policy ${id}`] };
+    }
+    state.modules = {
+      ...state.modules,
+      [OWNER_ACTIONS_MODULE_ID]: {
+        ...ownerActions,
+        policies: {
+          ...ownerActions.policies,
+          [id]: { ...policy, enabled: amount > 0 },
+        },
+      },
+    };
     return { ...preview, applied: true };
   }
 

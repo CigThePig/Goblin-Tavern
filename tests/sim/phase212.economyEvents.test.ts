@@ -29,7 +29,9 @@ import { getEconomyModuleState } from '../../src/sim/modules/economy/state'
 
 const SEED = 'phase212/economy-events'
 
-const HOOK_CASES: ReadonlyArray<[string, string]> = [
+const HOOK_CASES: ReadonlyArray<
+  readonly [string, string, Record<string, unknown>?]
+> = [
   [HOUSE_RULE_FRICTION_EVENT, 'house_rule_friction_merchants'],
   [POLICY_HELD_UNREST_EVENT, 'policy_held_unrest_cheap_payday_specials'],
   [
@@ -40,7 +42,11 @@ const HOOK_CASES: ReadonlyArray<[string, string]> = [
     POLICY_REVERSAL_REMEMBERED_EVENT,
     'policy_reversal_remembered_serve_miners_discount',
   ],
-  [PRICE_COMPLAINT_EVENT, 'price_complaint_possible'],
+  [
+    PRICE_COMPLAINT_EVENT,
+    'price_complaint_possible',
+    { stockId: 'ale', previousSalePrice: 3 },
+  ],
   [RESERVES_INTACT_EVENT, 'reserves_intact_Y1-M1'],
 ]
 
@@ -56,6 +62,7 @@ function scheduleByHookName(
   type: string,
   hookName: string,
   offsetDays = 1,
+  metadata?: Record<string, unknown>,
 ): TavernState {
   ensureEconomyScheduledEventsRegistered()
   const definition = getScheduledEventDefinition(type)
@@ -65,6 +72,7 @@ function scheduleByHookName(
     hookName,
     readable: `a promise about ${hookName}`,
     scheduledForDay,
+    ...(metadata ? { metadata } : {}),
   })
   expect(adapted, `${type} declined ${hookName}`).toBeDefined()
   const slice = readScheduledEventsSlice(state)
@@ -124,6 +132,28 @@ function reserveMemory(monthKey: string): MemoryState {
   }
 }
 
+function policyExplanationMemory(policyId: string): MemoryState {
+  return {
+    id: `policy_explained_${policyId}`,
+    type: 'timed',
+    strength: 80,
+    ageDays: 0,
+    durationDays: 30,
+    createdAt: {
+      year: 1,
+      month: 1,
+      week: 1,
+      day: 1,
+      absoluteDay: 0,
+    },
+    actors: [{ kind: 'other', id: `policy:${policyId}` }],
+    locations: [],
+    relatedSystems: ['economy'],
+    tags: ['policy', 'explanation'],
+    source: 'response.rebrand',
+  }
+}
+
 function outcomesFor(state: TavernState, type: string) {
   return readScheduledEventsSlice(state).archive.filter(
     (entry) => entry.type === type,
@@ -146,12 +176,13 @@ describe('Phase 212 §5.6 — economy hook families are owned', () => {
 
   it('claims every exact or prefix hook name emitted by response content', () => {
     ensureEconomyScheduledEventsRegistered()
-    for (const [type, hookName] of HOOK_CASES) {
+    for (const [type, hookName, metadata] of HOOK_CASES) {
       const definition = getScheduledEventDefinition(type)!
       const adapted = definition.fromFutureHook?.({
         hookName,
         readable: hookName,
         scheduledForDay: 5,
+        ...(metadata ? { metadata } : {}),
       })
       expect(adapted, `${type} should claim ${hookName}`).toBeDefined()
       expect(definition.payloadSchema.safeParse(adapted!.payload).success).toBe(
@@ -166,8 +197,8 @@ describe('Phase 212 §5.6 — delayed economy promises have real outcomes', () =
     let state = withCoin(createInitialTavernState(), 500)
     state = withStock(state, 'ale', { quantity: 200, salePrice: 20 })
     state = { ...state, memories: [...state.memories, reserveMemory('Y1-M1')] }
-    for (const [type, hookName] of HOOK_CASES) {
-      state = scheduleByHookName(state, type, hookName)
+    for (const [type, hookName, metadata] of HOOK_CASES) {
+      state = scheduleByHookName(state, type, hookName, 1, metadata)
     }
 
     const merchantPatronage = state.customerGroups['merchants']!.patronage
@@ -193,15 +224,19 @@ describe('Phase 212 §5.6 — delayed economy promises have real outcomes', () =
 
   it('re-reads live prices and policy state so counterplay cancels harm', () => {
     let prices = withCoin(createInitialTavernState(), 500)
-    prices = withStock(prices, 'ale', { quantity: 200, salePrice: 20 })
+    const previousAlePrice = prices.stock['ale']!.salePrice
+    prices = withStock(prices, 'ale', {
+      quantity: 200,
+      salePrice: previousAlePrice + 1,
+    })
     prices = scheduleByHookName(
       prices,
       PRICE_COMPLAINT_EVENT,
       'price_complaint_possible',
+      1,
+      { stockId: 'ale', previousSalePrice: previousAlePrice },
     )
-    for (const item of Object.values(prices.stock)) {
-      prices = withStock(prices, item.id, { salePrice: item.basePrice })
-    }
+    prices = withStock(prices, 'ale', { salePrice: previousAlePrice })
     prices = simulateDay(prices, input(3), FULL_PIPELINE).state
     prices = simulateDay(prices, input(4), FULL_PIPELINE).state
     expect(outcomesFor(prices, PRICE_COMPLAINT_EVENT)[0]?.status).toBe('no_op')
@@ -226,5 +261,27 @@ describe('Phase 212 §5.6 — delayed economy promises have real outcomes', () =
     expect(outcomesFor(policy, POLICY_HELD_UNREST_EVENT)[0]?.reason).toContain(
       'repealed',
     )
+  })
+
+  it('recognizes the explanation memory emitted by the policy response', () => {
+    let state = scheduleByHookName(
+      createInitialTavernState(),
+      HOUSE_RULE_FRICTION_EVENT,
+      'house_rule_friction_merchants',
+    )
+    state = {
+      ...state,
+      memories: [
+        ...state.memories,
+        policyExplanationMemory('cheap_payday_specials'),
+      ],
+    }
+    state = simulateDay(state, input(7), FULL_PIPELINE).state
+    state = simulateDay(state, input(8), FULL_PIPELINE).state
+
+    expect(outcomesFor(state, HOUSE_RULE_FRICTION_EVENT)[0]).toMatchObject({
+      status: 'no_op',
+      reason: 'the owner explained or made an exception to the rule',
+    })
   })
 })

@@ -706,7 +706,14 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
         { id: 'raised_prices_recently', tags: ['price', 'reputation'] },
       ],
       futureHooks: [
-        { id: 'price_complaint_possible', tags: ['price', 'rumor'] },
+        {
+          id: 'price_complaint_possible',
+          tags: ['price', 'rumor'],
+          metadata: {
+            stockId: chosen.id,
+            previousSalePrice: chosen.salePrice,
+          },
+        },
       ],
     }),
     makeProfile({

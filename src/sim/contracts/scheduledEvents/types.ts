@@ -175,11 +175,12 @@ export type ScheduledEventDefinition = {
   /**
    * Adapter for the response future-hook bridge (§1.1).
    *
-   * A response profile declares a future hook as a bare NAME — no payload,
-   * no target. If that name is this event type, only the owning domain
-   * knows how to turn "the hook fired" into a valid payload, so the owner
-   * supplies the adapter and the bridge never guesses. Return `undefined`
-   * to decline (the hook then stays a narrative expectation).
+   * A response profile declares a future hook by NAME and may attach opaque
+   * producer metadata, but it does not build the event payload or target. If
+   * that name is this event type, only the owning domain knows how to validate
+   * the metadata and turn "the hook fired" into a valid payload, so the owner
+   * supplies the adapter and the bridge never guesses. Return `undefined` to
+   * decline (the hook then stays a narrative expectation).
    *
    * Omit it entirely when the event type is never named by a response
    * hook — the obligation events, for instance, are always scheduled by
@@ -189,6 +190,8 @@ export type ScheduledEventDefinition = {
     hookName: string
     readable: string
     scheduledForDay: number
+    /** Structured producer context carried by a MemoryDraft future hook. */
+    metadata?: Record<string, unknown>
   }) => { payload: unknown; target?: EntityRef } | undefined
 
   /**

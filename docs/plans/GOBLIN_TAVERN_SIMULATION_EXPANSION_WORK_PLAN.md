@@ -1786,7 +1786,13 @@ bill while consuming less ingredient; the intact-reserves hook carries its
 declared 14-day schedule through the generic response bridge; empty perishable
 slots are included in the opening spoilage snapshot before a same-day restock;
 and unpaid-tab cash reversals net against sales instead of being reported as
-operating costs. Each seam has direct regression coverage.
+operating costs. A second automated-review pass now also clears customer demand
+before closed service can reach area capacity/propagation, makes the repeal
+response disable its named policy, carries the affected stock id and pre-hike
+price into price-complaint events, recognizes the explanation/exception memory
+shape the response system actually emits, and reports supplier invoices with
+their supplier identity and remaining balance. Each seam has direct regression
+coverage.
 
 **Frozen artifacts moved for the intended reasons.** Ten of thirteen baseline
 routes were regenerated; the three fresh-state routes are unchanged, and the
@@ -1798,14 +1804,14 @@ map records the `economy` pipeline/slice owner, runtime modules 33 → 34 and
 owner actions 55 → 59. No RNG stream, simulation phase or glossary count
 moved.
 
-Tests: `tests/sim/phase212.economy.test.ts` (20),
-`phase212.economyEvents.test.ts` (4),
+Tests: `tests/sim/phase212.economy.test.ts` (21),
+`phase212.economyEvents.test.ts` (5),
 `phase212.economyPersistence.test.ts` (6 — all six financial states through
 the production save/load boundary), and
 `phase212.economyMatrix.heavy.test.ts` (4 — two seeds × three strategies at
 28/90/180 days, plus the 180-day passive-collapse proof). The matrix file joins
 `HEAVY_TEST_GLOBS`; the other three stay fast. Gates: `npm run test:full`
-**321 files / 4,217 tests**, `npm test` **312 files / 4,084 tests**,
+**321 files / 4,220 tests**, `npm test` **312 files / 4,087 tests**,
 `typecheck` clean, `check` 0 errors / 0 warnings,
 and `build` passing with the same known >500 kB chunk warning. All three
 expansion artifacts are clean: `ledger:check` 134 rows (done 40,

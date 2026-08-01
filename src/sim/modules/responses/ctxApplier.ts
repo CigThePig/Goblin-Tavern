@@ -36,6 +36,7 @@ import { OWNER_TIME_EFFECT_TARGET } from "./responseCost";
 import {
   OWNER_ACTIONS_MODULE_ID,
   getOwnerActionsModuleState,
+  writePoliciesSlice,
 } from "../ownerActions/stateHelpers";
 import type { OwnerActionsModuleState } from "../ownerActions/types";
 import { findScheduledEventDefinitionForHookName } from "../../contracts/scheduledEvents/registry";
@@ -255,6 +256,33 @@ export function applyEffectViaCtx(
       tags: ["response", "owner_time", ...preview.tags],
       relatedSystems: ["ownerActions", "responses"],
     });
+    return { ...preview, applied: true };
+  }
+
+  // Expansion Phase 5 review — a policy response that says "repeal" must
+  // update the standing policy record before its delayed reversal event is
+  // scheduled. Negative amounts disable; positive amounts enable.
+  if (path.startsWith("policies.")) {
+    const [, id, field] = path.split(".");
+    if (!id) {
+      return { ...preview, applied: false, notes: ["missing policy id"] };
+    }
+    if (field !== "enabled") {
+      return {
+        ...preview,
+        applied: false,
+        notes: [`unsupported policy field ${field}`],
+      };
+    }
+    const policy = getOwnerActionsModuleState(ctx.state).policies[id];
+    if (!policy) {
+      return { ...preview, applied: false, notes: [`unknown policy ${id}`] };
+    }
+    writePoliciesSlice(
+      ctx,
+      { [id]: { ...policy, enabled: amount > 0 } },
+      "response_policy_toggle",
+    );
     return { ...preview, applied: true };
   }
 
@@ -708,6 +736,7 @@ export function createCtxApplier(ctx: SimContext): EffectApplier {
         hookName: input.hookName,
         readable: input.readable,
         scheduledForDay: input.scheduledForDay,
+        ...(input.metadata ? { metadata: input.metadata } : {}),
       });
 
       if (definition && adapted) {

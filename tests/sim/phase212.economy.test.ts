@@ -31,6 +31,8 @@ import { stockModule } from '../../src/sim/modules/stock/index'
 import { getServiceModuleState } from '../../src/sim/modules/service/index'
 import { sellRecipe } from '../../src/sim/modules/service/recipes'
 import { getOwnerActionsModuleState } from '../../src/sim/modules/ownerActions/index'
+import { getAreasModuleState } from '../../src/sim/modules/areas/index'
+import { getCustomerModuleState } from '../../src/sim/modules/customers/index'
 import { getWeeklyModuleState } from '../../src/sim/modules/weekly/state'
 import { getMonthlyModuleState } from '../../src/sim/modules/monthly/monthlyModule'
 import { DIFFICULTY_PRESETS } from '../../src/sim/state/difficulty'
@@ -435,6 +437,32 @@ describe('Phase 212 §5.4 — group elasticity and substitution', () => {
 })
 
 describe('Phase 212 §5.3 — failure, closure, restructuring and recovery', () => {
+  it('suppresses customer demand and area occupancy while the doors are closed', () => {
+    const before = stocked(withCoin(createInitialTavernState(), 500))
+    const overcrowdedDays = getAreasModuleState(before).totals.overcrowdedDays
+    const state = simulateDay(
+      before,
+      {
+        seed: `${SEED}/voluntary-closure`,
+        ownerActions: [{ actionId: 'close_tavern_temporarily' }],
+      },
+      FULL_PIPELINE,
+    ).state
+
+    expect(getEconomyModuleState(state).financial.status).toBe(
+      'temporarily_closed',
+    )
+    expect(getServiceModuleState(state).result.flow.ran).toBe(false)
+    expect(getCustomerModuleState(state).demand).toEqual([])
+    expect(getCustomerModuleState(state).turnouts).toEqual([])
+
+    const areas = getAreasModuleState(state)
+    expect(areas.capacity.length).toBeGreaterThan(0)
+    expect(areas.capacity.every((row) => row.occupancy === 0)).toBe(true)
+    expect(areas.capacity.every((row) => row.overflow === 0)).toBe(true)
+    expect(areas.totals.overcrowdedDays).toBe(overcrowdedDays)
+  })
+
   it('reaches closure through unpaid operation and recovers through registered actions', () => {
     let state = emptyCellar(withCoin(createInitialTavernState(), 0))
     state = runDays(state, 18, `${SEED}/failure`)

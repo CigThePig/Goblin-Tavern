@@ -314,7 +314,8 @@ function supplierInvoicesForWeek(state: TavernState): SupplierInvoice[] {
     )
     .map((record) => ({
       id: record.id,
-      amount: record.principal + record.accruedCharges,
+      supplierId: record.counterparty.id,
+      amount: outstandingAmount(record),
       dueWeek: Math.ceil((record.dueOnDay ?? today) / 7),
       paid: outstandingAmount(record) <= 0,
       relatedStockIds: record.tags
@@ -737,6 +738,7 @@ const CustomerTrendSchema = z.object({
 
 const SupplierInvoiceSchema = z.object({
   id: z.string(),
+  supplierId: z.string().optional(),
   amount: z.number(),
   dueWeek: z.number(),
   paid: z.boolean(),

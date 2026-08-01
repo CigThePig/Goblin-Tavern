@@ -5243,6 +5243,13 @@ function generatePolicyBacklash(ctx: SimContext): IssueSeed[] {
           'policy',
           'repeal',
         ]),
+        effect(
+          'state_change',
+          `policies.${policy.id}.enabled`,
+          -1,
+          `Disable ${policy.label}`,
+          ['policy', 'repeal'],
+        ),
         effect('state_change', 'reputation.respectable', -3, 'Flip-flop dents respectability', [
           'reputation',
         ]),

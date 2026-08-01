@@ -35,8 +35,11 @@ export const RESERVES_INTACT_EVENT = 'economy.reserves_intact'
 
 const GroupPayloadSchema = z.object({ groupId: z.string() })
 const PolicyPayloadSchema = z.object({ policyId: z.string() })
+const PricePayloadSchema = z.object({
+  stockId: z.string(),
+  previousSalePrice: z.number().min(0),
+})
 const ReservePayloadSchema = z.object({ monthKey: z.string() })
-const EmptyPayloadSchema = z.object({}).passthrough()
 
 function noOp(reason: string, readable: string): ScheduledEventResolution {
   return { status: 'no_op', reason, readable }
@@ -54,7 +57,7 @@ function suffixAdapter(prefix: string, field: string, kind: EntityRef['kind']) {
   }
 }
 
-function exactKey(field: 'groupId' | 'policyId' | 'monthKey') {
+function exactKey(field: 'groupId' | 'policyId' | 'stockId' | 'monthKey') {
   return ({ type, payload, scheduledForDay }: {
     type: string
     payload: unknown
@@ -263,10 +266,20 @@ const houseRuleFriction: ScheduledEventDefinition = {
     const group = parsed.success ? ctx.state.customerGroups[parsed.data.groupId] : undefined
     if (!group) return noOp('the crowd no longer exists', record.origin.readable)
     const explained = ctx.state.memories.some(
-      (memory) =>
-        memory.strength > 0 &&
-        memory.actors.some((actor) => actor.kind === 'customer_group' && actor.id === group.id) &&
-        (memory.tags.includes('policy_explained') || memory.tags.includes('exception')),
+      (memory) => {
+        if (memory.strength <= 0) return false
+        const customerActors = memory.actors.filter(
+          (actor) => actor.kind === 'customer_group',
+        )
+        const appliesToGroup =
+          customerActors.length === 0 ||
+          customerActors.some((actor) => actor.id === group.id)
+        const isExplanation =
+          memory.id.startsWith('policy_explained_') &&
+          memory.tags.includes('explanation')
+        const isException = memory.tags.includes('exception')
+        return appliesToGroup && (isExplanation || isException)
+      },
     )
     if (explained) return noOp('the owner explained or made an exception to the rule', 'The house rule caused no further friction.')
     const readable = `${group.label} stayed away after the unexplained house rule.`
@@ -402,25 +415,37 @@ const priceComplaint: ScheduledEventDefinition = {
   kind: 'mechanical',
   ownerModuleId: ECONOMY_MODULE_ID,
   label: 'A price complaint returns',
-  payloadSchema: EmptyPayloadSchema,
+  payloadSchema: PricePayloadSchema,
   beat: 'wrap_up',
   defaultOffsetDays: 5,
   warningWindowDays: 2,
   expiryDays: 8,
   missingTarget: 'resolve_anyway',
-  exactOnceKey: ({ type, scheduledForDay }) => `${type}:${scheduledForDay}`,
-  fromFutureHook: ({ hookName }) =>
-    hookName === PRICE_COMPLAINT_EVENT ? { payload: {} } : undefined,
+  exactOnceKey: exactKey('stockId'),
+  fromFutureHook: ({ hookName, metadata }) => {
+    if (hookName !== PRICE_COMPLAINT_EVENT) return undefined
+    const parsed = PricePayloadSchema.safeParse(metadata)
+    if (!parsed.success) return undefined
+    return {
+      payload: parsed.data,
+      target: { kind: 'stock', id: parsed.data.stockId },
+    }
+  },
   resolve: (ctx, record) => {
-    const raised = Object.values(ctx.state.stock).some(
-      (stock) => stock.quantity > 0 && stock.salePrice > stock.basePrice,
-    )
+    const parsed = PricePayloadSchema.safeParse(record.payload)
+    if (!parsed.success) {
+      return noOp('the original price hike could not be identified', record.origin.readable)
+    }
+    const stock = ctx.state.stock[parsed.data.stockId]
+    if (!stock) return noOp('the affected menu item no longer exists', record.origin.readable)
+    const raised =
+      stock.quantity > 0 && stock.salePrice > parsed.data.previousSalePrice
     if (!raised) return noOp('the raised prices were rolled back', 'The promised price complaint faded after prices fell.')
     const group = Object.values(ctx.state.customerGroups)
       .filter((candidate) => candidate.patronage > 0)
       .sort((a, b) => b.priceSensitivity - a.priceSensitivity || a.id.localeCompare(b.id))[0]
     if (!group) return noOp('no active crowd remained to complain', record.origin.readable)
-    const readable = `${group.label} cut back visits while raised prices persisted.`
+    const readable = `${group.label} cut back visits while the ${stock.label} price hike persisted.`
     const mutations = groupConsequence(ctx, group, {
       patronage: -4,
       loyalty: -2,

@@ -333,8 +333,9 @@ function projectSupplierInvoices(
   state: TavernState,
 ): WeeklyOverviewInvoices {
   const rows: InvoiceRow[] = result.supplierInvoices.map((entry: SupplierInvoice) => {
-    const supplier = state.world.suppliers[entry.id]
-    const supplierLabel = supplier?.name?.display ?? supplier?.label ?? entry.id
+    const supplierId = entry.supplierId ?? entry.id
+    const supplier = state.world.suppliers[supplierId]
+    const supplierLabel = supplier?.name?.display ?? supplier?.label ?? supplierId
     return {
       id: entry.id,
       supplierLabel,

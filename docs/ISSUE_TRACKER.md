@@ -883,10 +883,16 @@ and six `HOOK-*` rows. No per-phase plan doc, per the arc's convention.
   weekly/monthly settlement and a day-70 fractional wage-arrears payment that
   violated the whole-coin till invariant.
 
-Tests: `phase212.economy.test.ts` (17), `phase212.economyEvents.test.ts` (4),
+Post-PR review hardened four seams: watered servings now keep their full bill
+while consuming less ingredient, intact reserves retain the declared 14-day
+deadline, empty perishable slots are snapshotted before same-day restocking,
+and unpaid-tab reversals net against cash sales instead of masquerading as
+operating costs.
+
+Tests: `phase212.economy.test.ts` (20), `phase212.economyEvents.test.ts` (4),
 `phase212.economyPersistence.test.ts` (6), and the heavy
 `phase212.economyMatrix.heavy.test.ts` (4). Gates: `npm run test:full`
-**321 files / 4,214 tests**, `npm test` **312 files / 4,081 tests**,
+**321 files / 4,217 tests**, `npm test` **312 files / 4,084 tests**,
 `typecheck` clean, `check` 0 errors / 0 warnings, `build` passing with the
 known >500 kB chunk warning, and all three expansion artifacts clean.
 

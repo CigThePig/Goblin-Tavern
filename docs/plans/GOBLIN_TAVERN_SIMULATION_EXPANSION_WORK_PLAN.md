@@ -1781,6 +1781,13 @@ reached a latent whole-coin seam: a 17-coin wage debt had accrued a 0.85-coin
 late charge and paid 17.85 out of an integer till. Late charges now accrue in
 whole coin, while the payment boundary safely settles legacy fractional debt.
 
+**Post-PR review hardening.** Watered servings now keep their full customer
+bill while consuming less ingredient; the intact-reserves hook carries its
+declared 14-day schedule through the generic response bridge; empty perishable
+slots are included in the opening spoilage snapshot before a same-day restock;
+and unpaid-tab cash reversals net against sales instead of being reported as
+operating costs. Each seam has direct regression coverage.
+
 **Frozen artifacts moved for the intended reasons.** Ten of thirteen baseline
 routes were regenerated; the three fresh-state routes are unchanged, and the
 full-day/segmented-day pair remain byte-equivalent. The one-day till moves
@@ -1791,14 +1798,14 @@ map records the `economy` pipeline/slice owner, runtime modules 33 → 34 and
 owner actions 55 → 59. No RNG stream, simulation phase or glossary count
 moved.
 
-Tests: `tests/sim/phase212.economy.test.ts` (17),
+Tests: `tests/sim/phase212.economy.test.ts` (20),
 `phase212.economyEvents.test.ts` (4),
 `phase212.economyPersistence.test.ts` (6 — all six financial states through
 the production save/load boundary), and
 `phase212.economyMatrix.heavy.test.ts` (4 — two seeds × three strategies at
 28/90/180 days, plus the 180-day passive-collapse proof). The matrix file joins
 `HEAVY_TEST_GLOBS`; the other three stay fast. Gates: `npm run test:full`
-**321 files / 4,214 tests**, `npm test` **312 files / 4,081 tests**,
+**321 files / 4,217 tests**, `npm test` **312 files / 4,084 tests**,
 `typecheck` clean, `check` 0 errors / 0 warnings,
 and `build` passing with the same known >500 kB chunk warning. All three
 expansion artifacts are clean: `ledger:check` 134 rows (done 40,

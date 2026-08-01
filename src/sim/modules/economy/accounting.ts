@@ -88,6 +88,14 @@ export function applyLedgerEntryToAccounting(
     return next
   }
 
+  if (entry.amount < 0 && hasAnyTag(entry, ['unpaid_tab'])) {
+    // Service first books the gross sale, then removes the portion moved onto
+    // a customer's slate. That reversal is net cash sales, not an operating
+    // expense; the matching receivable is reported separately as `tabCredit`.
+    next.sales += entry.amount
+    return next
+  }
+
   if (entry.amount > 0) {
     if (hasAnyTag(entry, ['patron_tab', 'tab_collection', 'collected'])) {
       next.tabCollections += entry.amount

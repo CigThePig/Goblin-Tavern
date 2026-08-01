@@ -10,6 +10,8 @@ import { describe, expect, it } from 'vitest'
 
 import { FULL_PIPELINE } from '../../src/sim/canonicalPipeline'
 import { simulateDay } from '../../src/sim/core/engine'
+import type { SimContext } from '../../src/sim/core/context'
+import type { SimulationModule } from '../../src/sim/core/module'
 import { actionRegistry } from '../../src/sim/registries/actionRegistry'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import { ensureModuleSlices } from '../../src/sim/state/migrations'
@@ -17,6 +19,7 @@ import type { TavernState } from '../../src/sim/state/TavernState'
 import { safeValidateState } from '../../src/sim/state/validation'
 import {
   advanceEconomyModifiers,
+  accountingFromEntries,
   getCompetitorChoiceFactorForGroup,
   getDemandFactorForGroup,
   getEconomyModuleState,
@@ -24,7 +27,9 @@ import {
   getServicePriceMultiplier,
 } from '../../src/sim/modules/economy/index'
 import { getStockModuleState } from '../../src/sim/modules/stock/state'
+import { stockModule } from '../../src/sim/modules/stock/index'
 import { getServiceModuleState } from '../../src/sim/modules/service/index'
+import { sellRecipe } from '../../src/sim/modules/service/recipes'
 import { getOwnerActionsModuleState } from '../../src/sim/modules/ownerActions/index'
 import { getWeeklyModuleState } from '../../src/sim/modules/weekly/state'
 import { getMonthlyModuleState } from '../../src/sim/modules/monthly/monthlyModule'
@@ -194,6 +199,68 @@ describe('Phase 212 §5.2/§5.5 — attributable costs and exact accounting', ()
       getStockModuleState(after).ledger.reduce((sum, entry) => sum + entry.amount, 0),
       8,
     )
+  })
+
+  it('includes a perishable restocked from zero in same-day deterioration', () => {
+    let base = withStock(
+      stocked(withCoin(createInitialTavernState(), 5000)),
+      'mushrooms',
+      { quantity: 0, spoilage: 25 },
+    )
+    base = {
+      ...base,
+      world: {
+        ...base.world,
+        suppliers: Object.fromEntries(
+          Object.entries(base.world.suppliers).map(([id, supplier]) => [
+            id,
+            { ...supplier, reliability: 100 },
+          ]),
+        ),
+      },
+    }
+    const after = simulateDay(
+      base,
+      {
+        seed: `${SEED}/same-day-restock-writeoff`,
+        ownerActions: [
+          { actionId: 'restock_item', targetId: 'mushrooms', amount: 200 },
+        ],
+      },
+      FULL_PIPELINE,
+    ).state
+    const economy = getEconomyModuleState(after)
+
+    expect(
+      getOwnerActionsModuleState(after).applied.some(
+        (action) => action.actionId === 'restock_item',
+      ),
+    ).toBe(true)
+    expect(economy.openingSpoilageByStock['mushrooms']).toBe(25)
+    expect(after.stock['mushrooms']!.quantity).toBeGreaterThan(0)
+    expect(after.stock['mushrooms']!.spoilage).toBeGreaterThan(25)
+    expect(economy.lastDailyRecord!.accounting.inventoryWriteOffs).toBeGreaterThan(0)
+  })
+
+  it('nets unpaid-tab reversals against cash sales instead of operating costs', () => {
+    const accounting = accountingFromEntries([
+      {
+        source: 'service.flow.locals.ale',
+        amount: 30,
+        category: 'sales',
+        tags: ['sale', 'ale'],
+      },
+      {
+        source: 'service.tabs.locals',
+        amount: -9,
+        category: 'other',
+        tags: ['unpaid_tab', 'local_goblins'],
+      },
+    ])
+
+    expect(accounting.sales).toBe(21)
+    expect(accounting.otherCosts).toBe(0)
+    expect(accounting.cashNet).toBe(21)
   })
 
   it('values expedition returns without pretending the haul was cash', () => {
@@ -422,6 +489,47 @@ describe('Phase 212 §5.3 — failure, closure, restructuring and recovery', () 
 })
 
 describe('Phase 212 §5.6 — policies are enforced rules', () => {
+  it('waters ingredient use without discounting the delivered servings', () => {
+    const state = createInitialTavernState()
+    const salePrice = state.stock['ale']!.salePrice
+    let captured:
+      | {
+          consumed: number
+          result: ReturnType<typeof sellRecipe>
+        }
+      | undefined
+    const probe: SimulationModule = {
+      id: 'phase212.test.watered-billing',
+      version: '0.0.0',
+      dependsOn: ['stock'],
+      hooks: {
+        service: [
+          (ctx: SimContext) => {
+            const before = ctx.state.stock['ale']!.quantity
+            const result = sellRecipe(ctx, 'dish_ale', 10, {
+              buyerGroupId: 'local_goblins',
+              ingredientUseFactor: 0.8,
+            })
+            captured = {
+              consumed: before - ctx.state.stock['ale']!.quantity,
+              result,
+            }
+          },
+        ],
+      },
+    }
+
+    simulateDay(state, { seed: `${SEED}/watered-billing` }, [stockModule, probe])
+
+    expect(captured).toBeDefined()
+    expect(captured!.result.sold).toBe(10)
+    expect(captured!.consumed).toBe(8)
+    expect(captured!.result.itemsConsumed).toEqual([
+      { stockId: 'ale', quantity: 8 },
+    ])
+    expect(captured!.result.earned).toBe(10 * salePrice)
+  })
+
   it('a staffed miner discount changes the bill and records compliance', () => {
     const after = simulateDay(
       stocked(createInitialTavernState()),

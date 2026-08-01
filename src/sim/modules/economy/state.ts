@@ -139,7 +139,9 @@ export function writeEconomyState(
 export function inventorySpoilageSnapshot(state: TavernState): Record<string, number> {
   const snapshot: Record<string, number> = {}
   for (const item of Object.values(state.stock)) {
-    if (item.quantity <= 0 || !item.tags.includes('perishable')) continue
+    // Empty perishable slots still need an opening quality baseline: an owner
+    // action can refill them before today's spoilage pass.
+    if (!item.tags.includes('perishable')) continue
     snapshot[item.id] = item.spoilage
   }
   return snapshot

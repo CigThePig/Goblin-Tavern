@@ -4280,6 +4280,9 @@ function generateMonthlyReview(ctx: SimContext): IssueSeed[] {
         {
           id: `reserves_intact_${result.monthKey}`,
           tags: ['reserves', 'opportunity'],
+          // The response bridge otherwise applies its generic +7 day hook
+          // schedule and overrides the economy event's +14 day definition.
+          metadata: { scheduledInDays: 14, expiresInDays: 8 },
         },
       ],
     }),

@@ -171,15 +171,19 @@ export function sellRecipe(
   for (const input of def.inputs) {
     // Consume only the bottleneck-capped amount so non-bottleneck
     // inputs are never drained past what the served dishes need.
-    const toSell = sold * input.quantity * ingredientUseFactor
-    if (toSell <= 0) continue
+    const toConsume = sold * input.quantity * ingredientUseFactor
+    if (toConsume <= 0) continue
     const sellOptions: {
       buyerGroupId?: string
       source: string
       priceMultiplier?: number
+      billableQuantity: number
     } = {
       source:
         options?.source ?? `recipe.${recipeId}.input.${input.ingredientId}`,
+      // Watering/stretching changes what leaves the cellar, not how many
+      // delivered servings appear on the customer's bill.
+      billableQuantity: sold * input.quantity,
     }
     if (options?.buyerGroupId !== undefined) {
       sellOptions.buyerGroupId = options.buyerGroupId
@@ -187,7 +191,7 @@ export function sellRecipe(
     if (options?.priceMultiplier !== undefined) {
       sellOptions.priceMultiplier = options.priceMultiplier
     }
-    const sale = sellStockItem(ctx, input.ingredientId, toSell, sellOptions)
+    const sale = sellStockItem(ctx, input.ingredientId, toConsume, sellOptions)
     result.earned += sale.earned
     if (sale.sold > 0) {
       result.itemsConsumed.push({
@@ -195,7 +199,7 @@ export function sellRecipe(
         quantity: sale.sold,
       })
     }
-    // With `toSell` capped to the bottleneck, `sale.shortage` should
+    // With `toConsume` capped to the bottleneck, `sale.shortage` should
     // not fire in steady state; surface it defensively if a mid-loop
     // quantity change makes an input tighter than expected.
     if (sale.shortage && !seenShortageStockIds.has(sale.shortage.stockId)) {

@@ -558,11 +558,12 @@ function itemsBoughtFor(
         : 1
       for (const input of recipe.inputs) {
         const quantity = line.delivered * input.quantity * ingredientUseFactor
+        const billableQuantity = line.delivered * input.quantity
         const price = ctx.state.stock[input.ingredientId]?.salePrice ?? 0
         const row = byStock.get(input.ingredientId) ?? { quantity: 0, coin: 0 }
         row.quantity += quantity
         row.coin +=
-          quantity * price * getServicePriceMultiplier(ctx.state, groupId)
+          billableQuantity * price * getServicePriceMultiplier(ctx.state, groupId)
         byStock.set(input.ingredientId, row)
       }
     }

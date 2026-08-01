@@ -121,6 +121,17 @@ describe('Phase 64 / ISSUE-024 — per-profile depth', () => {
     const ratios = profileDepthRatios(seeds)
     expect(ratios.delayedRatio).toBeGreaterThanOrEqual(0.66)
     expect(ratios.futureRatio).toBeGreaterThanOrEqual(0.31)
+
+    const raisePrices = seeds[0]!.consequenceProfiles.find(
+      (profile) => profile.responseSlotId === 'raise_prices',
+    )!
+    const stockId = raisePrices.immediateEffects
+      .find((effect) => effect.target.endsWith('.salePrice'))!
+      .target.split('.')[1]!
+    expect(raisePrices.futureHooks[0]?.metadata).toEqual({
+      stockId,
+      previousSalePrice: result.state.stock[stockId]!.salePrice,
+    })
   })
 
   it('maintenance profiles meet the 0.66 / 0.31 ratios', () => {

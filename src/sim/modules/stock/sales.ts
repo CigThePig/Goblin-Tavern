@@ -20,9 +20,11 @@ import type { ShortageRecord, StockModuleState } from './types'
 // public contract — see Phase 9 §9.4 forward note.
 
 export type SellResult = {
-  /** Units actually sold (may be less than requested when stock is short). */
+  /** Inventory units removed (may be less than requested when stock is short). */
   sold: number
-  /** Coin earned (units sold × salePrice). */
+  /** Price-bearing units on the customer bill. */
+  billed: number
+  /** Coin earned (billable units × salePrice). */
   earned: number
   /** Shortage record produced, if the request was not fulfilled. */
   shortage?: ShortageRecord
@@ -32,6 +34,14 @@ export type SellOptions = {
   buyerGroupId?: string
   /** Optional source tag for the ledger entry. Defaults to 'stock.sale'. */
   source?: string
+  /** Expansion Phase 5 — the price actually charged after a real policy. */
+  priceMultiplier?: number
+  /**
+   * Units represented on the bill before shortage scaling. Defaults to the
+   * requested inventory quantity. A stretched/diluted recipe can consume less
+   * stock without silently discounting the servings the customer received.
+   */
+  billableQuantity?: number
 }
 
 function getStock(ctx: SimContext, stockId: string): StockState {
@@ -83,12 +93,34 @@ export function sellStockItem(
   if (!Number.isFinite(quantity) || quantity < 0) {
     throw new Error(`sellStockItem: quantity must be non-negative, got ${quantity}`)
   }
+  if (
+    options?.billableQuantity !== undefined &&
+    (!Number.isFinite(options.billableQuantity) || options.billableQuantity < 0)
+  ) {
+    throw new Error(
+      `sellStockItem: billableQuantity must be non-negative, got ${options.billableQuantity}`,
+    )
+  }
   const item = getStock(ctx, stockId)
   const available = item.quantity
   const sold = Math.min(quantity, available)
-  const earned = sold * item.salePrice
+  // Scale an explicit bill by the same fulfillment fraction if stock changed
+  // after the caller's capacity check. In the ordinary path the fraction is
+  // one; without an explicit bill, the inventory units remain the billable
+  // units exactly as they were before Phase 5.
+  const billed =
+    options?.billableQuantity === undefined
+      ? sold
+      : quantity > 0
+        ? options.billableQuantity * (sold / quantity)
+        : 0
+  const multiplier = Math.max(0, options?.priceMultiplier ?? 1)
+  // Coin is an integer state invariant. Discounts and premiums change the
+  // final bill, but never create fractional currency that invalidates saves.
+  const earned = Math.round(billed * item.salePrice * multiplier)
   const source = options?.source ?? `stock.sale.${stockId}`
   const tags = ['sale', stockId]
+  if (multiplier !== 1) tags.push(`price_multiplier:${multiplier}`)
   if (options?.buyerGroupId) tags.push(`buyer:${options.buyerGroupId}`)
 
   if (sold > 0) {
@@ -104,7 +136,7 @@ export function sellStockItem(
     })
   }
 
-  const result: SellResult = { sold, earned }
+  const result: SellResult = { sold, billed, earned }
   if (sold < quantity) {
     result.shortage = recordShortage(ctx, stockId, quantity, available, 'sale')
   }

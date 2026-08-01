@@ -13,6 +13,12 @@ import { withCoin, withStock } from '../../src/sim/testing/stateFactories'
 import { buildWeeklyOverview } from '../../src/reports/weeklyOverviewProjection'
 import { getWeeklyModuleState } from '../../src/sim/modules/weekly/state'
 import type { TavernState } from '../../src/sim/state/TavernState'
+import {
+  OBLIGATIONS_MODULE_ID,
+  createInitialObligationsModuleState,
+  openObligation,
+  payObligation,
+} from '../../src/sim/contracts/obligations/index'
 
 const SEED_PREFIX = 'tests/reports/weeklyOverview'
 
@@ -23,9 +29,13 @@ function startingState(): TavernState {
   return withStock(withStew, 'mushrooms', { quantity: 200 })
 }
 
-function runDays(count: number, seedSuffix = ''): TavernState {
+function runDays(
+  count: number,
+  seedSuffix = '',
+  initialState = startingState(),
+): TavernState {
   const run = runCardlessSim({
-    initialState: startingState(),
+    initialState,
     seed: `${SEED_PREFIX}.${seedSuffix}`,
     days: count,
   })
@@ -164,6 +174,60 @@ describe('buildWeeklyOverview — single-week shape', () => {
     expect(data.supplierInvoices?.unpaidCount).toBe(0)
     expect(data.supplierInvoices?.totalUnpaid).toBe(0)
     expect(data.supplierInvoices?.rows).toEqual([])
+  })
+
+  it('shows the supplier name and remaining balance for a partial invoice', () => {
+    let initial = startingState()
+    const supplier = Object.values(initial.world.suppliers)[0]!
+    const supplierLabel = supplier.name?.display ?? supplier.label
+    const opened = openObligation({
+      id: 'obl-suppliers-review-1',
+      ownerModuleId: 'suppliers',
+      counterparty: { kind: 'supplier', id: supplier.id },
+      direction: 'payable',
+      principal: 100,
+      openedOnDay: 1,
+      dueOnDay: 14,
+      graceDays: 3,
+      lateChargeRate: 0.05,
+      readable: `100 coin invoice from ${supplierLabel}`,
+      tags: ['supplier', 'invoice', 'stock:ale'],
+    })
+    const partial = payObligation(opened, 30, 2, 'partial supplier payment')
+    const obligations = createInitialObligationsModuleState()
+    obligations.records[partial.record.id] = partial.record
+    obligations.nextSuffix = 1
+    obligations.totals.opened = 1
+    obligations.totals.paidOut = partial.applied
+    initial = {
+      ...initial,
+      modules: {
+        ...initial.modules,
+        [OBLIGATIONS_MODULE_ID]: obligations,
+      },
+    }
+
+    const state = runDays(7, 'partial-invoice', initial)
+    const source = getWeeklyModuleState(state).lastWeeklyResult!
+    expect(source.supplierInvoices).toEqual([
+      {
+        id: partial.record.id,
+        supplierId: supplier.id,
+        amount: 70,
+        dueWeek: 2,
+        paid: false,
+        relatedStockIds: ['ale'],
+      },
+    ])
+
+    const data = buildWeeklyOverview(state)
+    expect(data.supplierInvoices?.totalUnpaid).toBe(70)
+    expect(data.supplierInvoices?.rows[0]).toMatchObject({
+      id: partial.record.id,
+      supplierLabel,
+      amount: 70,
+      paid: false,
+    })
   })
 
   it('top revenue source resolves to a stock label when present', () => {

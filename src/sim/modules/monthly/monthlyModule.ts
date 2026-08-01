@@ -13,6 +13,18 @@ import {
   getWeeklyModuleState,
 } from '../weekly/state'
 import type { WeeklyResult, WeeklySignalTotals } from '../weekly/types'
+import { refreshLatestWeeklyAccounting } from '../weekly/weeklyModule'
+import {
+  EconomyAccountingTotalsSchema,
+  accountingFromEntries,
+  addAccountingTotals,
+} from '../economy/accounting'
+import { refreshLatestDailyEconomyRecord } from '../economy/economyModule'
+import {
+  emptyEconomyAccounting,
+  getEconomyModuleState,
+} from '../economy/state'
+import { getStockModuleState } from '../stock/state'
 
 import { resolveRent } from './rent'
 import { resolveLandlord } from './landlord'
@@ -87,6 +99,7 @@ function emptyAccumulator(): MonthlyAccumulator {
     signals: emptySignalTotals(),
     signalNotes: [],
     economy: emptyMonthlyEconomy(),
+    accounting: emptyEconomyAccounting(),
     shortageCount: 0,
     incidentCount: 0,
     unpaidWageWeeks: 0,
@@ -215,7 +228,7 @@ const startDayHook: SimulationHook = (ctx: SimContext): void => {
       ),
       monthNumber: ctx.state.calendar.month,
       yearNumber: ctx.state.calendar.year,
-      rent: slice.rent,
+      rent: { ...slice.rent, paidThisMonth: false },
       landlord: slice.landlord,
       inspection: slice.inspection,
       rivalTavern: slice.rivalTavern,
@@ -362,6 +375,12 @@ const endWeekHook: SimulationHook = (ctx: SimContext): void => {
         ? [...accumulator.signalNotes, ...weeklyResult.signalNotes]
         : accumulator.signalNotes,
     economy: applyWeeklyEconomyToMonthly(accumulator.economy, weeklyResult.economy),
+    accounting: weeklyResult.accounting
+      ? addAccountingTotals(
+          accumulator.accounting ?? emptyEconomyAccounting(),
+          weeklyResult.accounting,
+        )
+      : accumulator.accounting ?? emptyEconomyAccounting(),
     shortageCount: accumulator.shortageCount + shortageThisWeek,
     incidentCount: accumulator.incidentCount + incidentsThisWeek,
     unpaidWageWeeks: accumulator.unpaidWageWeeks + (weeklyResult.wages.paid ? 0 : 1),
@@ -400,7 +419,11 @@ const endMonthHook: SimulationHook = (ctx: SimContext): void => {
     ? { ...slice.rent, monthlyAmount: slice.rent.monthlyAmount + taxBump }
     : slice.rent
 
+  const ledgerBeforeRent = getStockModuleState(ctx.state).ledger.length
   const rentOutcome = resolveRent(ctx, rentForResolution)
+  const rentEntries = getStockModuleState(ctx.state).ledger.slice(ledgerBeforeRent)
+  refreshLatestDailyEconomyRecord(ctx, 'Monthly rent posted.')
+  refreshLatestWeeklyAccounting(ctx, rentEntries)
   // Preserve the configured monthlyAmount; the bump is one-month only.
   const nextRent = { ...rentOutcome.next, monthlyAmount: slice.rent.monthlyAmount }
 
@@ -414,6 +437,25 @@ const endMonthHook: SimulationHook = (ctx: SimContext): void => {
       net:
         slice.accumulator.economy.net - rentOutcome.resolution.paidAmount,
     },
+    accounting: (() => {
+      const merged = addAccountingTotals(
+        slice.accumulator.accounting ?? emptyEconomyAccounting(),
+        accountingFromEntries(rentEntries),
+      )
+      const latest = getEconomyModuleState(ctx.state).lastDailyRecord?.accounting
+      const previousRentArrears = slice.rent.arrears
+      return {
+        ...merged,
+        payableOutstanding: Math.max(
+          0,
+          (latest?.payableOutstanding ?? merged.payableOutstanding) -
+            previousRentArrears +
+            nextRent.arrears,
+        ),
+        receivableOutstanding:
+          latest?.receivableOutstanding ?? merged.receivableOutstanding,
+      }
+    })(),
   }
 
   // Inspection runs before landlord so the landlord rule can read the
@@ -502,6 +544,7 @@ const endMonthHook: SimulationHook = (ctx: SimContext): void => {
     reputationShifts: shifts,
     upgradeReadiness: upgrades,
     economy: accumulatorAfterRent.economy,
+    accounting: accumulatorAfterRent.accounting ?? emptyEconomyAccounting(),
     activeModifier: slice.currentModifier,
     nextMonthModifier,
     ...(customerTrend?.bestGroupId ? { bestGroupId: customerTrend.bestGroupId } : {}),
@@ -543,6 +586,11 @@ const endMonthHook: SimulationHook = (ctx: SimContext): void => {
     },
     'finalize_month',
   )
+  refreshLatestDailyEconomyRecord(ctx, 'Monthly rent and arrears finalized.')
+  // `resolveRent` computes new arrears before this slice is persisted. Refresh
+  // once more from the finalized state so day-28 weekly payables match daily
+  // and monthly accounting even when no rent coin moved.
+  refreshLatestWeeklyAccounting(ctx, [])
 }
 
 function nextMonthCoord(
@@ -686,6 +734,7 @@ const AccumulatorSchema = z.object({
   signals: SignalSchema,
   signalNotes: z.array(z.string()),
   economy: MonthlyEconomySchema,
+  accounting: EconomyAccountingTotalsSchema.optional(),
   shortageCount: z.number().int().min(0),
   incidentCount: z.number().int().min(0),
   unpaidWageWeeks: z.number().int().min(0),
@@ -756,6 +805,7 @@ const MonthlyResultSchema = z.object({
   reputationShifts: z.array(ReputationAxisShiftSchema),
   upgradeReadiness: z.array(UpgradeReadinessSchema),
   economy: MonthlyEconomySchema,
+  accounting: EconomyAccountingTotalsSchema.optional(),
   activeModifier: ModifierSchema,
   nextMonthModifier: ModifierSchema,
   bestGroupId: z.string().optional(),

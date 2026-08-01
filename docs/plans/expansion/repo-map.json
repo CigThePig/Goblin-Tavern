@@ -43,6 +43,7 @@
     "expeditions",
     "ownerActions",
     "service",
+    "economy",
     "weekly",
     "monthly",
     "localArcs",
@@ -129,6 +130,7 @@
     "attribution",
     "causes",
     "customers",
+    "economy",
     "feedback",
     "issueSeeds",
     "localArcs",
@@ -221,10 +223,10 @@
     "standard"
   ],
   "inventory": {
-    "runtimeModules": 33,
+    "runtimeModules": 34,
     "simulationPhases": 26,
     "daySegments": 3,
-    "ownerActions": 55,
+    "ownerActions": 59,
     "staffPriorities": 12,
     "pressureDomains": 21,
     "feedbackDetectors": 13,

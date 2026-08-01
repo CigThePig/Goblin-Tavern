@@ -8,6 +8,7 @@ import {
 } from '../../registries/staffRegistry'
 import { createStaffIdentity } from '../../content/staff/staffIdentityFactory'
 import { createStaffCastAttributes } from '../../content/cast/createCastAttributes'
+import { getEconomyModuleState } from '../economy/state'
 
 import {
   bumpStaffTotal,
@@ -180,6 +181,7 @@ export function generateApplicant(input: {
   suffix: number
   existingNames: Set<string>
   crewIds: string[]
+  wageDemandFactor?: number
   answersVacancyForRole?: StaffRoleId
 }): StaffApplicant {
   const { def, marketRng, identityRng, today } = input
@@ -196,8 +198,10 @@ export function generateApplicant(input: {
   )
   const wageAsk = Math.max(
     1,
-    Math.round(def.defaultState.wage * PROVENANCE_WAGE_FACTOR[provenance]) +
-      wageJitter,
+    Math.round(
+      (def.defaultState.wage * PROVENANCE_WAGE_FACTOR[provenance] + wageJitter) *
+        (input.wageDemandFactor ?? 1),
+    ),
   )
 
   const applicantId = `applicant_${def.id}_${today}_${input.suffix}`
@@ -276,6 +280,7 @@ export function refreshLaborMarket(ctx: SimContext, force = false): void {
     ...live.map((a) => a.name.display),
   ])
   const crewIds = Object.keys(ctx.state.staff).sort()
+  const wageDemandFactor = getEconomyModuleState(ctx.state).modifiers.wageDemandFactor
 
   // Hireable roles, in a stable order. `seedOnDayZero: false` roles are
   // hireable too — that is how a cook tier or a lead is brought in from
@@ -299,6 +304,7 @@ export function refreshLaborMarket(ctx: SimContext, force = false): void {
         suffix: suffix++,
         existingNames,
         crewIds,
+        wageDemandFactor,
         answersVacancyForRole: roleId,
       }),
     )
@@ -320,6 +326,7 @@ export function refreshLaborMarket(ctx: SimContext, force = false): void {
           suffix: suffix++,
           existingNames,
           crewIds,
+          wageDemandFactor,
         }),
       )
       existingNames.add(additions[additions.length - 1]!.name.display)

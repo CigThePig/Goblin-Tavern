@@ -32,7 +32,7 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > unpaused work**. It is a standalone implementation document — it needs
 > no earlier audit, report, or ledger to execute — and it runs as
 > **ISSUE-170…183 (repo phases 207–220)**, one issue per plan phase 0–13.
-> **ISSUE-170…174 (Phases 0–4) are done** — the baseline is frozen, the
+> **ISSUE-170…175 (Phases 0–5) are done** — the baseline is frozen, the
 > implementation ledger exists, the shared contracts are in place, **OBL-01
 > is closed** (area upgrades can be discovered, quoted, started, funded,
 > paused, resumed, cancelled, built, damaged, disabled, repaired, serviced
@@ -43,9 +43,13 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > capacity-constrained flow**: patrons arrive as parties across six waves,
 > compete for seats/kitchen/delivery/reset throughput, choose dishes on a
 > scored comparison, run out of patience, run tabs, and regulars remember
-> what happened and decide whether to come back. **Next: ISSUE-175 (Phase 5 —
-> economy: quality→cash feedback, operating costs, failure/recovery states,
-> adaptive demand, enforceable policies).** The sequence is hard-ordered
+> what happened and decide whether to come back. **The economy is now a
+> survival loop:** persistent service collapse reduces group traffic, spend and
+> tolerance; attributable costs and exact daily/weekly/monthly accounting bind
+> cash; policies require real enforcers; insolvency can constrain and close the
+> tavern; registered restructuring/reopening actions recover it. **Next:
+> ISSUE-176 (Phase 6 — transactional suppliers: orders, deliveries, credit and
+> invoices).** The sequence is hard-ordered
 > after that.
 >
 > Everything else below — the Complete Surface resume points, the
@@ -79,12 +83,13 @@ into the plan's §2.1/§3 as Phase 0's freeze reference.
    (ISSUE-182) implements it and `DC-01` is treated as superseded —
    **flagged for the user to reverse before Phase 12 if retirement was
    the intent.** Detail: plan §6.2. Nothing earlier depends on it.
-2. **Three open audit follow-ups are absorbed, not duplicated.**
-   ISSUE-168 → Phase 5 (it *is* §5.1's collapse-must-bind-cash lever),
+2. **Three audit follow-ups are absorbed, not duplicated.**
+   ISSUE-168 → Phase 5 (**closed with ISSUE-175**; it is §5.1's
+   collapse-must-bind-cash lever),
    ISSUE-167 → Phase 13 (§13.3's long-run matrix supersedes the
    2026-07-28 sweep), ISSUE-169 → Phase 11 (§11.6 attention fairness
-   owns rotation). All three keep their IDs and stay `open`; the
-   absorbing phase closes them. Detail: plan §6.1.
+   owns rotation). All three keep their IDs; the absorbing phase closes each
+   one when it lands. Detail: plan §6.1.
 
 `DC-09` (onboarding vs. complete-surface exposure) and `DC-10`
 (supported environments / persistence promise) stay open and untouched —
@@ -282,7 +287,7 @@ rather than rebuilding those routes.
 | ISSUE-165 | UX polish pass: ID leaks, theme unlock, CTA hierarchy, service feedback | solid | done | 198 |
 | ISSUE-166 | **Gameplay-audit remediation arc (2026-07-26, 29 findings, Waves 0–7)** | broken | done | 199–206 |
 | ISSUE-167 | Strategy-arm diversification: distinct `chooseResponse` policies per bot; close the two residual Wave 7 gaps (miner dominated on easy×partial; hard×actions-only identity convergence) | thin | open | 220 (absorbed by ISSUE-183) |
-| ISSUE-168 | Satisfaction→traffic elasticity (DC-04 follow-up): make demand collapse on sustained neglect so coin can bind; re-baseline the balance matrix after | design | open | 212 (absorbed by ISSUE-175) |
+| ISSUE-168 | Satisfaction→traffic elasticity (DC-04 follow-up): make demand collapse on sustained neglect so coin can bind; re-baseline the balance matrix after | design | done | 212 (absorbed by ISSUE-175) |
 | ISSUE-169 | Visible-turn rotation for the remaining rotating seed families (food_safety, stock_shortage, maintenance, staff_identity, …) — extend Wave 7's `reconcilePicksWithSurfaced` beyond violence | thin | open | 218 (absorbed by ISSUE-181) |
 | ISSUE-116 | Legible Surface Phase 3 — Choice Distinctness Gate & Legible Choice-Set Cap | broken | done | 148 |
 | ISSUE-170 | Expansion Phase 0 — freeze the baseline; build the implementation ledger | design | done | 207 |
@@ -290,7 +295,7 @@ rather than rebuilding those routes.
 | ISSUE-172 | Expansion Phase 2 — areas, construction, and the complete upgrade lifecycle (OBL-01) | broken | done | 209 |
 | ISSUE-173 | Expansion Phase 3 — persistent workforce: contracts, schedules, relationships, real resignation (staff half of OBL-02) | broken | done | 210 |
 | ISSUE-174 | Expansion Phase 4 — capacity-constrained service flow, customer choice, active regulars, patron tabs | thin | done | 211 |
-| ISSUE-175 | Expansion Phase 5 — economy: quality→cash feedback, operating costs, failure/recovery states, adaptive demand, enforceable policies | broken | open | 212 |
+| ISSUE-175 | Expansion Phase 5 — economy: quality→cash feedback, operating costs, failure/recovery states, adaptive demand, enforceable policies | broken | done | 212 |
 | ISSUE-176 | Expansion Phase 6 — transactional suppliers: orders, deliveries, credit, invoices (OBL-04) | broken | open | 213 |
 | ISSUE-177 | Expansion Phase 7 — loans, tenancy, and a real inspection lifecycle (OBL-03 + loan/eviction half of OBL-02) | broken | open | 214 |
 | ISSUE-178 | Expansion Phase 8 — autonomous social world: faction/culture/NPC agency, rumour propagation, behavioral attribution (rumour half of OBL-08) | broken | open | 215 |
@@ -335,7 +340,7 @@ consequence is a direct pressure or reputation adjustment*.
 | ISSUE-172 | 2 — areas + upgrades | 209 | **OBL-01** (closed) | ISSUE-171 |
 | ISSUE-173 | 3 — workforce | 210 | staff half of **OBL-02** (closed) | ISSUE-171 |
 | ISSUE-174 | 4 — service flow | 211 | — | ISSUE-172, ISSUE-173 |
-| ISSUE-175 | 5 — economy | 212 | supports OBL-04/05; **absorbs ISSUE-168** | ISSUE-174 |
+| ISSUE-175 | 5 — economy | 212 | done; supports OBL-04/05; **ISSUE-168 closed** | ISSUE-174 |
 | ISSUE-176 | 6 — suppliers | 213 | **OBL-04** | ISSUE-175 |
 | ISSUE-177 | 7 — loans, tenancy, inspection | 214 | **OBL-03** + loan/eviction half of **OBL-02** | ISSUE-175 |
 | ISSUE-178 | 8 — social world | 215 | rumour half of **OBL-08** | ISSUE-176, ISSUE-177 |
@@ -846,6 +851,54 @@ warning), and all three expansion artifacts clean — `ledger:check` 134 rows (d
 new lifecycle crosses, with a live slate, an open request and a lapsing
 regular, plus full-day-vs-segmented equivalence). All five run in seconds, so
 none joins `HEAVY_TEST_GLOBS`.
+
+**ISSUE-175 / Phase 5 — done 2026-08-01; ISSUE-168 absorbed and closed.**
+Full record in the plan's Phase 5 section ("What Phase 5 actually landed");
+per-requirement detail in `docs/plans/expansion/ledger.csv` row **`DEP-01`**
+and six `HOOK-*` rows. No per-phase plan doc, per the arc's convention.
+
+- The empty economy module is now a persistent survival loop: smoothed service
+  health and collapse/recovery history drive group-specific traffic, spend and
+  price tolerance plus supplier, wage, faction, landlord and repair terms. One
+  bad day cannot collapse demand; sustained neglect can.
+- Daily attributable overhead, maintenance, fitting upkeep, emergency,
+  enforcement and financing costs settle into operating arrears. Six financial
+  states constrain or stop real service, with registered pay/close/restructure/
+  reopen actions and difficulty-scaled recovery terms.
+- One exhaustive accounting shape reconciles every daily cash entry and accrual
+  fact, then rolls into weekly and monthly results. Day-28 rent refreshes both
+  the last daily and last weekly record; live supplier obligations replace the
+  old weekly invoice placeholder. Restructuring write-offs and expedition
+  return value remain explicit non-cash accruals.
+- Policies record intended versus actual operation, real enforcers, time/cost,
+  compliance evidence, support/backlash and suspension/repeal. Their actual
+  strength changes service prices, ingredients, tabs, security, waves and
+  capacity; weekly social effects read the same actual enforcement, and an
+  unenforced rule grants no full effect.
+- Six economy future-hook families are mechanical, warned, exact-once and
+  counterable. The passive 28-day re-pin moves 1,078 coin / 805 patrons to
+  **919 / 574**, and the two-seed, three-strategy 28/90/180-day matrix remains
+  valid with at least two solvent identities at every horizon. The long gate
+  also closed a day-56 compact/rich pressure synchronization seam after late
+  weekly/monthly settlement and a day-70 fractional wage-arrears payment that
+  violated the whole-coin till invariant.
+
+Post-PR review hardened four seams: watered servings now keep their full bill
+while consuming less ingredient, intact reserves retain the declared 14-day
+deadline, empty perishable slots are snapshotted before same-day restocking,
+and unpaid-tab reversals net against cash sales instead of masquerading as
+operating costs. A second review pass hardened six more: closed service clears
+customer demand before area occupancy/propagation, repeal responses disable the
+named policy, price complaints track the specific hike and pre-hike price,
+house-rule counterplay matches the memories responses really emit, and supplier
+invoice rows retain both supplier identity and remaining balance.
+
+Tests: `phase212.economy.test.ts` (21), `phase212.economyEvents.test.ts` (5),
+`phase212.economyPersistence.test.ts` (6), and the heavy
+`phase212.economyMatrix.heavy.test.ts` (4). Gates: `npm run test:full`
+**321 files / 4,220 tests**, `npm test` **312 files / 4,087 tests**,
+`typecheck` clean, `check` 0 errors / 0 warnings, `build` passing with the
+known >500 kB chunk warning, and all three expansion artifacts clean.
 
 ### Tier 7 — Gameplay-audit remediation (closed 2026-07-28; entry retained until the next documentation cleanup as the resume map)
 

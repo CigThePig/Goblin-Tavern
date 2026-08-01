@@ -1,4 +1,5 @@
 import type { EntityRef } from '../../state/TavernState'
+import type { EconomyAccountingTotals } from '../economy/types'
 
 // Phase 14 — Weekly routine module types.
 //
@@ -68,12 +69,14 @@ export type CustomerWeeklyTrendEntry = {
   notes: string[]
 }
 
-// Phase 14 §14.3 — supplier invoice placeholder shape. Phase 14 ships
-// Option A (immediate-payment restocking) so this list is always empty
-// at the moment, but the shape is reserved so later phases can opt into
-// Option B without a schema migration.
+// Phase 5 expansion — live and recently settled supplier obligations.
+// Immediate purchases still appear in accounting.stockPurchases; credit
+// purchases additionally appear here with their actual due state.
 export type SupplierInvoice = {
+  /** Obligation row identity; distinct from the supplier entity id. */
   id: string
+  /** Added after Phase 5 review; optional only for pre-fix saved summaries. */
+  supplierId?: string
   amount: number
   dueWeek: number
   paid: boolean
@@ -152,6 +155,8 @@ export type WeeklyResult = {
   endDay: number
 
   economy: WeeklyEconomyTotals
+  /** Phase 5 exact cash/accrual accounting. Optional only for old saves. */
+  accounting?: EconomyAccountingTotals
   wages: WeeklyWageResolution
 
   maintenance: MaintenanceBacklogEntry[]
@@ -204,6 +209,8 @@ export type WeeklyModuleState = {
 
   /** Running coin totals by ledger category for the week. */
   economy: WeeklyEconomyTotals
+  /** Phase 5 exact cash/accrual accounting. Optional only for old saves. */
+  accounting?: EconomyAccountingTotals
 
   /** Per-stock sales coin total for the week (best seller detection). */
   salesByStockId: Record<string, number>
@@ -231,7 +238,7 @@ export type WeeklyModuleState = {
    */
   weeklyHistory: WeeklyResult[]
 
-  /** Phase 14 §14.3 — supplier invoice placeholder. Always empty in Option A. */
+  /** Supplier invoices derived from the shared obligation ledger. */
   supplierInvoices: SupplierInvoice[]
 
   /** Has the current accumulation window already had endWeek run on it? */

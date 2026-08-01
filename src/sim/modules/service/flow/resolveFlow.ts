@@ -7,12 +7,16 @@ import { recipeRegistry } from '../../../registries/recipeRegistry'
 import { sellRecipe } from '../recipes'
 import { recordShortage } from '../../stock/sales'
 import type { ShortageRecord } from '../../stock/types'
+import {
+  getAleIngredientUseFactor,
+  getServicePriceMultiplier,
+  getServiceWaveLimit,
+} from '../../economy/policies'
 
 import { cookStretchFactor, readServiceCapacity } from './capacity'
 import { chooseOrder } from './choice'
 import { buildParties, normaliseParty, type PartyBuildInput } from './parties'
 import {
-  SERVICE_WAVES,
   emptyBlockedCounts,
   emptyFlowResult,
   type FlowBlockReason,
@@ -70,13 +74,14 @@ function findUnmetDemand(
   ctx: SimContext,
   recipeId: string,
   servings: number,
+  ingredientUseFactor = 1,
 ): UnmetDemand | undefined {
   if (!recipeRegistry.has(recipeId)) return undefined
   const def = recipeRegistry.get(recipeId)
   let tightest: { ingredientId: string; needed: number; available: number } | undefined
   for (const input of def.inputs) {
     const available = ctx.state.stock[input.ingredientId]?.quantity ?? 0
-    const needed = servings * input.quantity
+    const needed = servings * input.quantity * ingredientUseFactor
     if (available >= needed) continue
     if (!tightest || available - needed < tightest.available - tightest.needed) {
       tightest = { ingredientId: input.ingredientId, needed, available }
@@ -95,12 +100,16 @@ function backedRecipeServings(
   ctx: SimContext,
   recipeId: string,
   requested: number,
+  ingredientUseFactor = 1,
 ): number {
   if (!recipeRegistry.has(recipeId)) return 0
   let backed = requested
   for (const input of recipeRegistry.get(recipeId).inputs) {
     const available = ctx.state.stock[input.ingredientId]?.quantity ?? 0
-    backed = Math.min(backed, Math.floor(available / input.quantity))
+    backed = Math.min(
+      backed,
+      Math.floor(available / (input.quantity * ingredientUseFactor)),
+    )
   }
   return Math.max(0, backed)
 }
@@ -227,6 +236,7 @@ export function runServiceFlow(
 
   const dayType = ctx.getDayType()
   const stretchFactor = cookStretchFactor(ctx.state)
+  const waveLimit = getServiceWaveLimit(ctx.state)
   const queue: ServiceParty[] = []
   const seated: ServiceParty[] = []
   let kitchenQueue: Ticket[] = []
@@ -245,7 +255,7 @@ export function runServiceFlow(
   }
 
   let arrivalCursor = 0
-  for (let wave = 0; wave < SERVICE_WAVES; wave++) {
+  for (let wave = 0; wave < waveLimit; wave++) {
     const blocked = emptyBlockedCounts()
     const summary: ServiceWaveSummary = {
       wave,
@@ -464,13 +474,29 @@ export function runServiceFlow(
       if (!party) continue
       const requested = ticket.servings
       if (requested <= 0) continue
-      const unmet = findUnmetDemand(ctx, ticket.recipeId, requested)
-      const backed = backedRecipeServings(ctx, ticket.recipeId, requested)
+      const recipe = ctx.state.recipes[ticket.recipeId]
+      const ingredientUseFactor = recipe?.tags.includes('alcohol')
+        ? getAleIngredientUseFactor(ctx.state)
+        : 1
+      const unmet = findUnmetDemand(
+        ctx,
+        ticket.recipeId,
+        requested,
+        ingredientUseFactor,
+      )
+      const backed = backedRecipeServings(
+        ctx,
+        ticket.recipeId,
+        requested,
+        ingredientUseFactor,
+      )
       // Capping before the mutating helper lets this layer record one shortage
       // per group/ingredient while still allocating every available serving.
       const sale = sellRecipe(ctx, ticket.recipeId, backed, {
         buyerGroupId: ticket.groupId,
         source: `service.flow.${ticket.groupId}.${ticket.recipeId}`,
+        priceMultiplier: getServicePriceMultiplier(ctx.state, ticket.groupId),
+        ingredientUseFactor,
       })
       for (const consumed of sale.itemsConsumed) {
         bump(stockConsumed, consumed.stockId, consumed.quantity)
@@ -585,6 +611,14 @@ export function runServiceFlow(
       bump(result.abandonedByGroup, party.groupId, party.size)
     }
     releaseSeats(blocks, party)
+  }
+  // An enforced early close leaves later arrival cohorts outside the loop.
+  // They still belong to tonight's demand and must reconcile as unserved,
+  // rather than disappearing from the group rollups.
+  for (const party of parties.slice(arrivalCursor)) {
+    party.outcome = 'unserved_at_close'
+    party.notes.push('The doors closed before their arrival window.')
+    bump(result.abandonedByGroup, party.groupId, party.size)
   }
   result.unresetSeats = totalDirty(blocks)
   for (const block of blocks) {

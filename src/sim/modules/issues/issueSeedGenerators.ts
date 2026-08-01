@@ -706,7 +706,14 @@ function generateStockShortage(ctx: SimContext): IssueSeed[] {
         { id: 'raised_prices_recently', tags: ['price', 'reputation'] },
       ],
       futureHooks: [
-        { id: 'price_complaint_possible', tags: ['price', 'rumor'] },
+        {
+          id: 'price_complaint_possible',
+          tags: ['price', 'rumor'],
+          metadata: {
+            stockId: chosen.id,
+            previousSalePrice: chosen.salePrice,
+          },
+        },
       ],
     }),
     makeProfile({
@@ -4280,6 +4287,9 @@ function generateMonthlyReview(ctx: SimContext): IssueSeed[] {
         {
           id: `reserves_intact_${result.monthKey}`,
           tags: ['reserves', 'opportunity'],
+          // The response bridge otherwise applies its generic +7 day hook
+          // schedule and overrides the economy event's +14 day definition.
+          metadata: { scheduledInDays: 14, expiresInDays: 8 },
         },
       ],
     }),

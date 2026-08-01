@@ -1,5 +1,6 @@
 import { clampPercent } from '../../state/normalize'
 import type { TavernState } from '../../state/TavernState'
+import { getEconomyModuleState } from '../economy/state'
 
 import type {
   LandlordResolution,
@@ -102,6 +103,12 @@ export function resolveLandlord(
   if (landlord.missedRentCount >= 2) {
     pressureDelta += PRESSURE_BACKLOG
     notes.push(`Backlog of ${landlord.missedRentCount} missed payments.`)
+  }
+
+  const riskFactor = getEconomyModuleState(state).modifiers.landlordRiskFactor
+  if (pressureDelta > 0 && riskFactor > 1) {
+    pressureDelta = Math.round(pressureDelta * riskFactor)
+    notes.push(`Financial distress amplified landlord concern (×${riskFactor.toFixed(2)}).`)
   }
 
   const nextOpinion = clampPercent(landlord.opinion + opinionDelta)

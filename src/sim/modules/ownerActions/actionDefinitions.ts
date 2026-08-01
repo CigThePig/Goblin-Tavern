@@ -10,6 +10,7 @@ import {
   getMissedDeliveryProbability,
   pickRestockSupplier,
 } from '../suppliers/pricing'
+import { getEconomyModuleState } from '../economy/state'
 
 import type {
   ActionTarget,
@@ -162,9 +163,9 @@ const cleanArea: OwnerActionDefinition = {
 
 // ---------- 13.4 repair_area ----------
 
-function repairCost(damage: number): number {
+function repairCost(damage: number, factor = 1): number {
   if (damage <= 0) return 0
-  return Math.max(2, Math.ceil(damage / 5))
+  return Math.max(2, Math.ceil((damage / 5) * factor))
 }
 
 const repairArea: OwnerActionDefinition = {
@@ -182,7 +183,10 @@ const repairArea: OwnerActionDefinition = {
     const area = ctx.state.areas[input.targetId]
     if (!area) return reject('unknown_target', `Unknown area '${input.targetId}'`)
     if (area.damage <= 0) return reject('nothing_to_repair', `${area.label} has no damage`)
-    const cost = repairCost(area.damage)
+    const cost = repairCost(
+      area.damage,
+      getEconomyModuleState(ctx.state).modifiers.repairCostFactor,
+    )
     // §13.4 — recommended early behaviour: block if insufficient coin.
     if (ctx.state.coin < cost) {
       return reject(
@@ -194,7 +198,10 @@ const repairArea: OwnerActionDefinition = {
   },
   apply: (ctx, input) => {
     const area = ctx.state.areas[input.targetId!]!
-    const cost = repairCost(area.damage)
+    const cost = repairCost(
+      area.damage,
+      getEconomyModuleState(ctx.state).modifiers.repairCostFactor,
+    )
     const repairAmount = Math.min(area.damage, Math.max(8, Math.round(area.damage * 0.6)))
     const nextDamage = clampPercent(area.damage - repairAmount)
     const conditionGain = Math.max(3, Math.round(repairAmount * 0.4))

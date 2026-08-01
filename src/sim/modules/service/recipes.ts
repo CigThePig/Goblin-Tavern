@@ -104,6 +104,9 @@ export type SellRecipeResult = {
 export type SellRecipeOptions = {
   buyerGroupId?: string
   source?: string
+  priceMultiplier?: number
+  /** Ingredient use per delivered serving (watering/stretching policy). */
+  ingredientUseFactor?: number
 }
 
 function noopResult(): SellRecipeResult {
@@ -131,6 +134,10 @@ export function sellRecipe(
     throw new Error(`sellRecipe: recipe '${recipeId}' has no registry definition`)
   }
   const def = recipeRegistry.get(recipeId)
+  const ingredientUseFactor = Math.max(
+    0.5,
+    Math.min(1, options?.ingredientUseFactor ?? 1),
+  )
 
   // Compute how many servings the tightest input can actually back.
   // Each input contributes `servings * input.quantity` units; we
@@ -146,7 +153,7 @@ export function sellRecipe(
     | null = null
   for (const input of def.inputs) {
     const available = ctx.state.stock[input.ingredientId]?.quantity ?? 0
-    const capacity = Math.floor(available / input.quantity)
+    const capacity = Math.floor(available / (input.quantity * ingredientUseFactor))
     if (capacity < maxServings) {
       maxServings = capacity
       bottleneck = {
@@ -164,16 +171,27 @@ export function sellRecipe(
   for (const input of def.inputs) {
     // Consume only the bottleneck-capped amount so non-bottleneck
     // inputs are never drained past what the served dishes need.
-    const toSell = sold * input.quantity
-    if (toSell <= 0) continue
-    const sellOptions: { buyerGroupId?: string; source: string } = {
+    const toConsume = sold * input.quantity * ingredientUseFactor
+    if (toConsume <= 0) continue
+    const sellOptions: {
+      buyerGroupId?: string
+      source: string
+      priceMultiplier?: number
+      billableQuantity: number
+    } = {
       source:
         options?.source ?? `recipe.${recipeId}.input.${input.ingredientId}`,
+      // Watering/stretching changes what leaves the cellar, not how many
+      // delivered servings appear on the customer's bill.
+      billableQuantity: sold * input.quantity,
     }
     if (options?.buyerGroupId !== undefined) {
       sellOptions.buyerGroupId = options.buyerGroupId
     }
-    const sale = sellStockItem(ctx, input.ingredientId, toSell, sellOptions)
+    if (options?.priceMultiplier !== undefined) {
+      sellOptions.priceMultiplier = options.priceMultiplier
+    }
+    const sale = sellStockItem(ctx, input.ingredientId, toConsume, sellOptions)
     result.earned += sale.earned
     if (sale.sold > 0) {
       result.itemsConsumed.push({
@@ -181,7 +199,7 @@ export function sellRecipe(
         quantity: sale.sold,
       })
     }
-    // With `toSell` capped to the bottleneck, `sale.shortage` should
+    // With `toConsume` capped to the bottleneck, `sale.shortage` should
     // not fire in steady state; surface it defensively if a mid-loop
     // quantity change makes an input tighter than expected.
     if (sale.shortage && !seenShortageStockIds.has(sale.shortage.stockId)) {
@@ -198,7 +216,7 @@ export function sellRecipe(
     const shortage = recordShortage(
       ctx,
       bottleneck.ingredientId,
-      servings * bottleneck.quantity,
+      servings * bottleneck.quantity * ingredientUseFactor,
       bottleneck.available,
       'sale',
     )

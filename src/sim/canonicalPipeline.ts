@@ -52,6 +52,7 @@ import { rulesetModule } from './contracts/ruleset/index'
 import { metersModule } from './contracts/meters/index'
 import { scheduledEventsModule } from './contracts/scheduledEvents/index'
 import { obligationsModule } from './contracts/obligations/index'
+import { economyModule } from './modules/economy/index'
 
 export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   rulesetModule,
@@ -69,6 +70,7 @@ export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   expeditionsModule,
   ownerActionsModule,
   serviceModule,
+  economyModule,
   weeklyModule,
   monthlyModule,
   localArcsModule,

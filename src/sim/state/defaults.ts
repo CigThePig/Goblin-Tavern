@@ -96,6 +96,7 @@ import { createInitialRulesetModuleState } from "../contracts/ruleset/query";
 import { createInitialMetersModuleState } from "../contracts/meters/detail";
 import { createInitialScheduledEventsModuleState } from "../contracts/scheduledEvents/state";
 import { createInitialObligationsModuleState } from "../contracts/obligations/state";
+import { createInitialEconomyModuleState } from "../modules/economy/state";
 
 // Phase 8 §8.1 — Area defaults are sourced from `areaRegistry` rather than
 // inlined. The registry holds the same Phase 5 numbers, so this is a
@@ -842,6 +843,9 @@ export function createInitialTavernState(
       //     from an uninterrupted one, which is the §5.10 failure the R11 gate
       //     tests for. Seeding it means the migration has nothing to add.
       staff: createInitialStaffModuleState(),
+      // Expansion Phase 5 — persistent quality/cash feedback, financial
+      // status, policy compliance and bounded accounting history.
+      economy: createInitialEconomyModuleState(),
     },
   };
 

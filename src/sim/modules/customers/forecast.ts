@@ -6,6 +6,10 @@ import type {
 } from '../../state/TavernState'
 import type { DayType } from '../calendar/types'
 import { getCultureForecastModifier } from '../cultures/customerInfluence'
+import {
+  getCompetitorChoiceFactorForGroup,
+  getDemandFactorForGroup,
+} from '../economy/dynamics'
 
 import type { CustomerForecast } from './types'
 
@@ -257,7 +261,9 @@ export function forecastTrafficForGroup(
   const jitter = ctx.rng.int(-2, 2)
 
   const base = (group.patronage * 0.4)
-  const expected = clampForecastVisitors(
+  const economyFactor = getDemandFactorForGroup(state, group.id)
+  const competitorFactor = getCompetitorChoiceFactorForGroup(state, group.id)
+  const unconstrained =
     base +
       dayMod +
       satMod +
@@ -266,7 +272,9 @@ export function forecastTrafficForGroup(
       renownPull -
       filthPenalty -
       priceHit +
-      jitter,
+      jitter
+  const expected = clampForecastVisitors(
+    unconstrained * economyFactor * competitorFactor,
   )
 
   const notes: string[] = []
@@ -284,6 +292,16 @@ export function forecastTrafficForGroup(
     notes.push(`Culinary renown drew rarity-minded patrons (+${renownPull}).`)
   }
   for (const note of cultureInfluence.notes) notes.push(note)
+  if (economyFactor < 0.98) {
+    notes.push(
+      `Persistent service/economic trust reduced this group's traffic (×${economyFactor.toFixed(2)}).`,
+    )
+  }
+  if (competitorFactor < 0.98) {
+    notes.push(
+      `The rival tavern's appeal diverted part of this group's traffic (×${competitorFactor.toFixed(2)}).`,
+    )
+  }
 
   return {
     groupId: group.id,

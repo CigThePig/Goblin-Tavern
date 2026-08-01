@@ -101,6 +101,8 @@ export type EffectApplier = {
     origin: ApplyOrigin
     scheduledForDay: number
     expiresAfterDay: number
+    /** Structured context from a declared MemoryDraft future hook. */
+    metadata?: Record<string, unknown>
   }): 'mechanical' | 'narrative'
 
   log(entry: ApplierLog): void
@@ -220,6 +222,7 @@ export function applyResponseProfile(
       origin,
       scheduledForDay: schedule.scheduledFor,
       expiresAfterDay: schedule.expiresAt,
+      ...(draft.metadata ? { metadata: draft.metadata } : {}),
     })
     if (routed === 'mechanical') continue
     const id = applier.mintNextPendingId(applier.today)

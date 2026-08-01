@@ -12,6 +12,7 @@ import type {
 import { getIssueSeeds } from '../../src/sim/modules/issues/issueSeedQueries'
 import type { ResponsesModuleState } from '../../src/sim/modules/responses/types'
 import { RESPONSES_MODULE_ID } from '../../src/sim/modules/responses/types'
+import { isPolicyEnabled } from '../../src/sim/modules/ownerActions/stateHelpers'
 
 // Phase 53 / ISSUE-013 — `policy_backlash` family end-to-end.
 //
@@ -196,6 +197,7 @@ describe('Phase 53 §ISSUE-013 — Per-slot distinct mutations', () => {
       m.tags.includes('repeal'),
     )
     expect(repealMemory).toBeDefined()
+    expect(isPolicyEnabled(treatment, 'cheap_payday_specials')).toBe(false)
   })
 
   it('make_exception lowers policy_backlash vs control', () => {

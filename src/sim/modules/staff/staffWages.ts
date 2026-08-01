@@ -314,20 +314,26 @@ export function payDownArrears(
   if (budget <= 0) return 0
   const today = ctx.state.calendar.totalDaysElapsed
   const records = listWageArrears(ctx.state, options.staffId)
-  let remaining = Math.min(budget, ctx.state.coin)
+  // `coin` is an integer state invariant. Old saves can still contain a
+  // fractional late charge from the pre-Phase-5 obligation rule, so treat the
+  // budget as whole coins and round a final settlement up at the payment
+  // boundary. The tiny overage belongs to the creditor; it never enters the
+  // obligation's applied-payment total or makes the till fractional.
+  let remaining = Math.min(Math.floor(budget), ctx.state.coin)
   let spent = 0
 
   for (const record of records) {
     if (remaining <= 0) break
     const owed = outstandingAmount(record)
     if (owed <= 0) continue
-    const pay = Math.min(owed, remaining)
-    const result = payObligation(record, pay, today, reason)
+    const offeredCoin = Math.min(Math.ceil(owed), remaining)
+    const result = payObligation(record, offeredCoin, today, reason)
     if (result.applied <= 0) continue
+    const coinSpent = Math.ceil(result.applied)
     upsertObligation(ctx, result.record, 'wage_arrears_paid')
     recordObligationPayment(ctx, result.applied, 'wage_arrears_paid')
-    remaining -= result.applied
-    spent += result.applied
+    remaining -= coinSpent
+    spent += coinSpent
 
     const staffId = staffIdFromArrears(record)
     const member = staffId ? ctx.state.staff[staffId] : undefined

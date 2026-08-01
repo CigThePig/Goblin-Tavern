@@ -235,6 +235,14 @@ describe('Phase 59 §ISSUE-019 — Per-slot mutations', () => {
       m.tags.includes('reserves'),
     )
     expect(reservesMemory).toBeDefined()
+    const reserveHook = getResponsesSlice(treatment).pending.find(
+      (entry) =>
+        entry.payload.kind === 'memory_future_hook' &&
+        entry.payload.draft.id.startsWith('reserves_intact_'),
+    )
+    expect(reserveHook).toBeDefined()
+    expect(reserveHook!.scheduledFor - control.calendar.totalDaysElapsed).toBe(14)
+    expect(reserveHook!.expiresAt - reserveHook!.scheduledFor).toBe(8)
   })
 
   it('settle_with_rival spends coin and lowers rival_tavern_pressure vs control (when rival_taverns is seeded)', () => {

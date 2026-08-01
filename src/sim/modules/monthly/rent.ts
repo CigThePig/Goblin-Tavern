@@ -118,6 +118,19 @@ export function resolveRent(
   ctx: SimContext,
   rent: RentState,
 ): { next: RentState; resolution: RentResolution } {
+  if (rent.paidThisMonth && rent.arrears <= 0) {
+    return {
+      next: rent,
+      resolution: {
+        amountDue: 0,
+        paid: true,
+        paidAmount: 0,
+        arrears: 0,
+        missedPayments: rent.missedPayments,
+      },
+    }
+  }
+
   // Rent is due, plus any rolled-over arrears.
   const amountDue = rent.monthlyAmount + rent.arrears
 

@@ -24,6 +24,7 @@ import type {
   StaffModuleState,
 } from '../staff/types'
 import type { StaffState, TavernState } from '../../state/TavernState'
+import { isTavernTemporarilyClosed } from '../economy/dynamics'
 
 // Phase 10 §10.2 — Customer module.
 //
@@ -281,6 +282,24 @@ function turnoutVisitorsFromForecast(
 // knows whether these people ever got a seat. What stays here is the question
 // the customers module is the authority on: who set out for the tavern tonight.
 const serviceHook: SimulationHook = (ctx: SimContext): void => {
+  // Expansion Phase 5 review — forecasts describe who might visit if the
+  // doors open; they are not actual turnout. Owner actions can close the
+  // tavern after forecastTraffic but before service, so clear the customer-
+  // owned demand/turnout rows here. Areas and service both consume these
+  // rows later in the same phase sequence and must see zero real traffic.
+  if (isTavernTemporarilyClosed(ctx.state)) {
+    ctx.modifyModuleState<CustomerModuleState>(
+      CUSTOMERS_MODULE_ID,
+      (current) => ({
+        ...(current ?? createInitialCustomerModuleState()),
+        demand: [],
+        turnouts: [],
+      }),
+      { source: SOURCE, reason: 'service_closed' },
+    )
+    return
+  }
+
   const moduleState = getCustomerModuleState(ctx.state)
   const turnouts: CustomerTurnout[] = []
   const demand: CustomerDemand[] = []

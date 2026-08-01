@@ -4,6 +4,7 @@ import { recipeRegistry } from '../../../registries/recipeRegistry'
 import { getCustomerFacingSeating } from '../../areas/capacity'
 import type { ServiceQualityModifiers } from '../../staff/types'
 import type { ServiceIncidentSummary } from '../types'
+import { getWeaponsPolicySecurityBonus } from '../../economy/policies'
 
 import { SERVICE_WAVES, type ServiceFlowResult, type ServiceParty } from './types'
 
@@ -341,7 +342,10 @@ export function assessBrawlRisk(
 
   // PEAK CONCURRENT occupancy, not the night's headcount. Every heat term is
   // a ratio, so a big quiet night and a small ugly one remain distinct.
-  const security = input.flow.capacity.securityCover + input.quality.fightControl / 2
+  const security =
+    input.flow.capacity.securityCover +
+    input.quality.fightControl / 2 +
+    getWeaponsPolicySecurityBonus(ctx.state)
   const rowdyShare = Math.min(1, rowdy / patrons)
   const drinkPerPatron = Math.min(3, drink / patrons)
   const heat =

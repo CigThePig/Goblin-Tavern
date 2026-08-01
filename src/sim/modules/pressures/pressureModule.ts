@@ -654,7 +654,10 @@ const PressureModuleStateSchema = z.object({
 // causality survives: the writer's own cause entry is already in
 // `state.causes` with full attribution, and the snapshot gains a line
 // noting the morning adjustment rather than silently teleporting.
-const syncSnapshotsToCompactHook: SimulationHook = (ctx: SimContext): void => {
+function syncSnapshotsToCompact(
+  ctx: SimContext,
+  timing: 'morning' | 'settlement',
+): void {
   const slice = getPressureModuleState(ctx.state)
   let changed = false
   const nextSnapshots: Record<string, PressureSnapshot> = {}
@@ -674,18 +677,34 @@ const syncSnapshotsToCompactHook: SimulationHook = (ctx: SimContext): void => {
       causes: [
         ...snapshot.causes,
         {
-          id: `${id}_morning_adjustment`,
-          readable: `Adjusted ${delta > 0 ? '+' : ''}${delta} by a morning event (arc, supplier or delayed effect) after yesterday's calculation.`,
+          id: `${id}_${timing}_adjustment`,
+          readable:
+            timing === 'morning'
+              ? `Adjusted ${delta > 0 ? '+' : ''}${delta} by a morning event (arc, supplier or delayed effect) after yesterday's calculation.`
+              : `Adjusted ${delta > 0 ? '+' : ''}${delta} by a weekly or monthly settlement after today's calculation.`,
           amount: delta,
           weight: Math.abs(delta),
           direction: delta > 0 ? 'increase' : 'decrease',
-          tags: ['pressure', id, 'morning_adjustment'],
+          tags: ['pressure', id, `${timing}_adjustment`],
         },
       ],
       lastUpdated: stampFromState(ctx.state),
     }
   }
-  if (changed) writeSlice(ctx, { snapshots: nextSnapshots }, 'segment_a_sync')
+  if (changed) writeSlice(ctx, { snapshots: nextSnapshots }, `${timing}_sync`)
+}
+
+const syncMorningSnapshotsHook: SimulationHook = (ctx: SimContext): void => {
+  syncSnapshotsToCompact(ctx, 'morning')
+}
+
+// `endDay` owns the final calculation, but weekly payroll/employment and
+// month-end local-arc effects run later in Segment C. They may legitimately
+// nudge compact pressure values, so each settlement boundary closes by
+// restoring the same compact === rich-snapshot invariant as the morning
+// pause. On day 28, the endMonth call includes any endWeek movement too.
+const syncSettlementSnapshotsHook: SimulationHook = (ctx: SimContext): void => {
+  syncSnapshotsToCompact(ctx, 'settlement')
 }
 
 export const pressuresModule: SimulationModule = {
@@ -698,7 +717,7 @@ export const pressuresModule: SimulationModule = {
     // Phase 206 / audit Wave 7 — reconcile snapshots with compact values
     // before the Morning pause; `forecastTraffic` is the last Segment A
     // phase, after every Morning writer has run.
-    forecastTraffic: [syncSnapshotsToCompactHook],
+    forecastTraffic: [syncMorningSnapshotsHook],
     // Run during `closing` (after service, before endDay/Week/Month
     // hooks decide their finalisation) so the pressure values reflect
     // the full day's mechanical movement and closing-time seed
@@ -709,6 +728,8 @@ export const pressuresModule: SimulationModule = {
     // read the same post-response value the player carries forward. This
     // is the pass that owns the day's pressure causes and history.
     endDay: [finalizePressuresHook],
+    endWeek: [syncSettlementSnapshotsHook],
+    endMonth: [syncSettlementSnapshotsHook],
   },
   buildReport: buildReport,
   validate: validatePressures,

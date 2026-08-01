@@ -5,9 +5,23 @@ import type { SimContext } from '../../core/context'
 import type { ReportSection } from '../../core/reports'
 import type { ValidationIssue } from '../../state/types'
 import type { TavernState } from '../../state/TavernState'
+import {
+  outstandingAmount,
+  readObligationsSlice,
+} from '../../contracts/obligations/index'
 
 import { getStockModuleState } from '../stock/state'
 import type { CoinLedgerEntry } from '../stock/types'
+import {
+  EconomyAccountingTotalsSchema,
+  accountingFromEntries,
+  addAccountingTotals,
+} from '../economy/accounting'
+import { refreshLatestDailyEconomyRecord } from '../economy/economyModule'
+import {
+  emptyEconomyAccounting,
+  getEconomyModuleState,
+} from '../economy/state'
 import type { CustomerModuleState } from '../customers/types'
 import type { RegularModuleState } from '../regulars/types'
 import type {
@@ -39,6 +53,7 @@ import type {
   WeeklyEconomyTotals,
   WeeklyModuleState,
   WeeklyResult,
+  SupplierInvoice,
 } from './types'
 
 // Phase 14 — Weekly routine module.
@@ -62,8 +77,6 @@ import type {
 // no narrative event content. The slice is data only.
 
 const SOURCE = WEEKLY_MODULE_ID
-
-const SUPPLIER_INVOICES_OPTION: 'A' | 'B' = 'A'
 
 function writeSlice(
   ctx: SimContext,
@@ -131,6 +144,7 @@ function freshAccumulator(state: TavernState): WeeklyModuleState {
     shortageCountByStock: {},
     dayTypeCounts: {},
     economy: emptyEconomyTotals(),
+    accounting: emptyEconomyAccounting(),
     salesByStockId: {},
     signals: emptySignalTotals(),
     signalNotes: [],
@@ -278,6 +292,39 @@ function averageAleSalePrice(state: TavernState): number {
   return ale.salePrice
 }
 
+function supplierInvoicesForWeek(state: TavernState): SupplierInvoice[] {
+  const today = state.calendar.totalDaysElapsed + 1
+  const weekStart = Math.max(1, today - 6)
+  const obligations = readObligationsSlice(state)
+  const records = [
+    ...Object.values(obligations.records),
+    ...obligations.closed.filter(
+      (record) => record.lastTransitionOnDay >= weekStart,
+    ),
+  ]
+  return records
+    .filter(
+      (record) =>
+        record.direction === 'payable' &&
+        (record.counterparty.kind === 'supplier' ||
+          record.ownerModuleId === 'suppliers' ||
+          record.tags.some((tag) =>
+            ['supplier', 'invoice', 'credit_purchase'].includes(tag),
+          )),
+    )
+    .map((record) => ({
+      id: record.id,
+      supplierId: record.counterparty.id,
+      amount: outstandingAmount(record),
+      dueWeek: Math.ceil((record.dueOnDay ?? today) / 7),
+      paid: outstandingAmount(record) <= 0,
+      relatedStockIds: record.tags
+        .map((tag) => (tag.startsWith('stock:') ? tag.slice(6) : tag))
+        .filter((tag) => state.stock[tag] !== undefined),
+    }))
+    .sort((a, b) => a.dueWeek - b.dueWeek || a.id.localeCompare(b.id))
+}
+
 // ---------- Hooks ----------
 
 // Phase 7 §7.4 — the engine processes phases sequentially within a
@@ -315,6 +362,13 @@ const endDayHook: SimulationHook = (ctx: SimContext): void => {
   const turnouts = customerSlice?.turnouts ?? []
 
   let economy = slice.economy
+  const dailyAccounting =
+    getEconomyModuleState(ctx.state).lastDailyRecord?.accounting ??
+    accountingFromEntries(dailyLedger)
+  const accounting = addAccountingTotals(
+    slice.accounting ?? emptyEconomyAccounting(),
+    dailyAccounting,
+  )
   let salesByStockId = slice.salesByStockId
   for (const entry of dailyLedger) {
     economy = applyLedgerEntryToEconomy(economy, entry)
@@ -422,6 +476,7 @@ const endDayHook: SimulationHook = (ctx: SimContext): void => {
       satisfactionSamplesByGroup,
       dayTypeCounts,
       economy,
+      accounting,
       salesByStockId,
       signals: addSignalTotals(slice.signals, deltas),
       signalNotes: nextSignalNotes,
@@ -447,21 +502,34 @@ const endWeekHook: SimulationHook = (ctx: SimContext): void => {
   // just-appended daily ledger row never depends on the next day's
   // endDay to reach the report.
   const before = getWeeklyModuleState(ctx.state)
+  const ledgerBeforeWages = getStockModuleState(ctx.state).ledger.length
   const wages = resolveWages(ctx)
 
   let economy: WeeklyEconomyTotals = { ...before.economy }
-  if (wages.paid && wages.paidAmount > 0) {
-    economy = {
-      ...economy,
-      wages: economy.wages + wages.paidAmount,
-      net: economy.net - wages.paidAmount,
+  const wageEntries = getStockModuleState(ctx.state).ledger.slice(ledgerBeforeWages)
+  for (const entry of wageEntries) {
+    economy = applyLedgerEntryToEconomy(economy, entry)
+  }
+
+  refreshLatestDailyEconomyRecord(ctx, 'Weekly wages posted.')
+  const latestDailyAccounting =
+    getEconomyModuleState(ctx.state).lastDailyRecord?.accounting
+  let accounting = addAccountingTotals(
+    before.accounting ?? emptyEconomyAccounting(),
+    accountingFromEntries(wageEntries),
+  )
+  if (latestDailyAccounting) {
+    accounting = {
+      ...accounting,
+      payableOutstanding: latestDailyAccounting.payableOutstanding,
+      receivableOutstanding: latestDailyAccounting.receivableOutstanding,
     }
   }
 
   // Step 2 — read latest slice (wage payment may have rewritten it
   // through `spendCoin` → `appendEntry` → `modifyModuleState('stock')`,
   // but our own slice is untouched until we patch it below).
-  const sliceAfterWages: WeeklyModuleState = { ...before, economy }
+  const sliceAfterWages: WeeklyModuleState = { ...before, economy, accounting }
 
   // Step 3 — staff and customer trends. These mutate state but only
   // produce summary entries for the report; their math is gated on the
@@ -476,9 +544,7 @@ const endWeekHook: SimulationHook = (ctx: SimContext): void => {
   const highlights = findRevenueAndCostHighlights(sliceAfterWages)
   const bestWorst = findBestWorstGroup(customerTrend)
 
-  const supplierInvoices = SUPPLIER_INVOICES_OPTION === 'A'
-    ? []
-    : [...sliceAfterWages.supplierInvoices]
+  const supplierInvoices = supplierInvoicesForWeek(ctx.state)
 
   // Phase 34 §34.2 — resolve community block after the rest of the
   // weekly result is in hand but before the report is built. The
@@ -493,6 +559,7 @@ const endWeekHook: SimulationHook = (ctx: SimContext): void => {
     yearNumber: sliceAfterWages.yearNumber,
     endDay: ctx.state.calendar.day,
     economy,
+    accounting,
     wages,
     maintenance,
     staffTrend,
@@ -532,6 +599,49 @@ const endWeekHook: SimulationHook = (ctx: SimContext): void => {
       supplierInvoices,
     },
     'finalize_week',
+  )
+}
+
+/**
+ * A month-close charge is posted after `endWeek`, even when day 28 is also
+ * the final day of the current week. Keep that completed week's durable
+ * report aligned with the same final daily ledger instead of leaving rent
+ * visible only in the monthly view.
+ */
+export function refreshLatestWeeklyAccounting(
+  ctx: SimContext,
+  lateEntries: ReadonlyArray<CoinLedgerEntry>,
+): void {
+  const slice = getWeeklyModuleState(ctx.state)
+  const current = slice.lastWeeklyResult
+  if (!current || current.endDay !== ctx.state.calendar.day) return
+
+  let economy = { ...current.economy }
+  for (const entry of lateEntries) economy = applyLedgerEntryToEconomy(economy, entry)
+  const currentAccounting = current.accounting ?? emptyEconomyAccounting()
+  const accounting =
+    lateEntries.length > 0
+      ? addAccountingTotals(currentAccounting, accountingFromEntries(lateEntries))
+      : { ...currentAccounting }
+  const latest = getEconomyModuleState(ctx.state).lastDailyRecord?.accounting
+  const next: WeeklyResult = {
+    ...current,
+    economy,
+    accounting: latest
+      ? {
+          ...accounting,
+          payableOutstanding: latest.payableOutstanding,
+          receivableOutstanding: latest.receivableOutstanding,
+        }
+      : accounting,
+  }
+  const weeklyHistory = slice.weeklyHistory.map((entry) =>
+    entry.weekKey === current.weekKey ? next : entry,
+  )
+  writeSlice(
+    ctx,
+    { lastWeeklyResult: next, weeklyHistory },
+    'late_accounting_refresh',
   )
 }
 
@@ -628,6 +738,7 @@ const CustomerTrendSchema = z.object({
 
 const SupplierInvoiceSchema = z.object({
   id: z.string(),
+  supplierId: z.string().optional(),
   amount: z.number(),
   dueWeek: z.number(),
   paid: z.boolean(),
@@ -714,6 +825,7 @@ const WeeklyResultSchema = z.object({
   yearNumber: z.number(),
   endDay: z.number(),
   economy: EconomySchema,
+  accounting: EconomyAccountingTotalsSchema.optional(),
   wages: WageResolutionSchema,
   maintenance: z.array(MaintenanceEntrySchema),
   staffTrend: z.array(StaffTrendSchema),
@@ -743,6 +855,7 @@ const WeeklyModuleStateSchema = z.object({
   shortageCountByStock: z.record(z.string(), z.number()),
   dayTypeCounts: z.record(z.string(), z.number()),
   economy: EconomySchema,
+  accounting: EconomyAccountingTotalsSchema.optional(),
   salesByStockId: z.record(z.string(), z.number()),
   signals: SignalSchema,
   signalNotes: z.array(z.string()),

@@ -8,10 +8,9 @@ import type {
 } from '../../state/TavernState'
 import { clampPercent } from '../../state/normalize'
 
-import {
-  getOwnerActionsModuleState,
-  isPolicyEnabled,
-} from '../ownerActions/stateHelpers'
+import { getOwnerActionsModuleState } from '../ownerActions/stateHelpers'
+import { getEconomyModuleState } from '../economy/state'
+import { getPolicyEffectStrength } from '../economy/policies'
 import type {
   OwnerSocialActionRecord,
 } from '../ownerActions/types'
@@ -235,9 +234,12 @@ function regularWeeklyTrend(
     apologizedThisWeek.add(record.targetId)
   }
 
-  const allowTabs = isPolicyEnabled(ctx.state, 'allow_tabs_for_regulars')
-  const refuseTabs = isPolicyEnabled(ctx.state, 'refuse_tabs')
-  const waterAle = isPolicyEnabled(ctx.state, 'water_ale_quietly')
+  // Weekly social consequences read the rule that was actually carried out,
+  // not the owner's intent tag. A policy with no available enforcer therefore
+  // cannot grant its full loyalty benefit or create evidence that it operated.
+  const allowTabs = getPolicyEffectStrength(ctx.state, 'allow_tabs_for_regulars')
+  const refuseTabs = getPolicyEffectStrength(ctx.state, 'refuse_tabs')
+  const waterAle = getPolicyEffectStrength(ctx.state, 'water_ale_quietly')
 
   const entries: WeeklyRegularTrendEntry[] = []
 
@@ -263,17 +265,20 @@ function regularWeeklyTrend(
       )
     }
 
-    if (allowTabs) {
+    if (allowTabs > 0) {
       loyaltyDelta += 1
       pushNote(notes, 'Tabs allowed for regulars boosted loyalty.')
-    } else if (refuseTabs && regular.loyalty >= 60) {
+    } else if (refuseTabs > 0 && regular.loyalty >= 60) {
       irritationDelta += 1
       pushNote(notes, 'Refusing tabs irritated long-time regular.')
     }
 
-    if (waterAle) {
+    if (waterAle > 0) {
       // Long-loyalty regulars notice watered ale faster than newcomers.
-      irritationDelta += regular.loyalty >= 60 ? 2 : 1
+      irritationDelta += Math.max(
+        1,
+        Math.round((regular.loyalty >= 60 ? 2 : 1) * waterAle),
+      )
       pushNote(notes, 'Suspects the ale is watered down.')
     }
 
@@ -372,8 +377,9 @@ function factionWeeklyTrend(
     if (record.actionId === 'host_faction_night') hostedThisWeek.add(record.targetId)
   }
 
-  const banWeapons = isPolicyEnabled(ctx.state, 'ban_weapons_inside')
-  const minersDiscount = isPolicyEnabled(ctx.state, 'serve_miners_discount')
+  const banWeapons = getPolicyEffectStrength(ctx.state, 'ban_weapons_inside') > 0
+  const minersDiscount = getPolicyEffectStrength(ctx.state, 'serve_miners_discount') > 0
+  const serviceHealth = getEconomyModuleState(ctx.state).serviceHealth
   const groups = Object.values(ctx.state.customerGroups)
 
   const entries: WeeklyFactionTrendEntry[] = []
@@ -416,6 +422,18 @@ function factionWeeklyTrend(
     ) {
       satisfactionDelta += 1
       pushNote(notes, 'Miner discount policy improved satisfaction.')
+    }
+
+    if (serviceHealth < 40) {
+      const representedGroup = groups.some(
+        (group) =>
+          factionGroupTagMatches(faction, group.tags) ||
+          faction.cultureId === group.cultureId,
+      )
+      if (representedGroup) {
+        tensionDelta += 1
+        pushNote(notes, 'Persistent poor service is straining this faction relationship.')
+      }
     }
 
     // Use customer-group satisfaction drift as a faction influence proxy.
@@ -596,10 +614,14 @@ function generateRumours(
   const rumours: WeeklyCommunityRumour[] = []
 
   // Watered-ale policy → "tavern waters down ale" rumour, partial truth.
-  if (isPolicyEnabled(ctx.state, 'water_ale_quietly')) {
+  const wateredAleStrength = getPolicyEffectStrength(
+    ctx.state,
+    'water_ale_quietly',
+  )
+  if (wateredAleStrength > 0) {
     // Strength scales with regular irritation totals: louder regulars,
     // louder rumour.
-    let strength = 25
+    let strength = Math.round(25 * wateredAleStrength)
     for (const trend of regularTrend) {
       if (trend.irritationDelta > 0) strength += trend.irritationDelta * 2
     }

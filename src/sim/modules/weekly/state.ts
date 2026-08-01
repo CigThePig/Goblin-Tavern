@@ -4,6 +4,7 @@ import type {
   WeeklyModuleState,
   WeeklySignalTotals,
 } from './types'
+import { emptyEconomyAccounting } from '../economy/state'
 
 // Phase 14 — weekly module state lives at `state.modules.weekly`. The
 // shape mirrors how the Phase 9 stock module owns `state.modules.stock`
@@ -60,6 +61,7 @@ export function createInitialWeeklyModuleState(): WeeklyModuleState {
     shortageCountByStock: {},
     dayTypeCounts: {},
     economy: emptyEconomyTotals(),
+    accounting: emptyEconomyAccounting(),
     salesByStockId: {},
     signals: emptySignalTotals(),
     signalNotes: [],

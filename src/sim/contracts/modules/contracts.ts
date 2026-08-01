@@ -168,7 +168,10 @@ export const MODULE_CONTRACTS: Readonly<Record<string, ModuleContract>> = {
     writesStatePaths: ['areas'],
   },
   stock: {
-    slices: [{ sliceId: 'ruleset', version: 1, access: 'reads' }],
+    slices: [
+      { sliceId: 'stock', version: 1, access: 'owns' },
+      { sliceId: 'ruleset', version: 1, access: 'reads' },
+    ],
     writesStatePaths: ['stock', 'coin'],
   },
   staff: {
@@ -211,6 +214,37 @@ export const MODULE_CONTRACTS: Readonly<Record<string, ModuleContract>> = {
       { sliceId: 'meters', version: 1, access: 'writes' },
     ],
     writesStatePaths: ['pressures'],
+  },
+  economy: {
+    // Expansion Phase 5 — the economy owns its persisted accounting,
+    // financial-state and policy-compliance evidence. Coin movements go
+    // through the stock ledger, hence the deliberate foreign slice write.
+    slices: [
+      { sliceId: 'economy', version: 1, access: 'owns' },
+      { sliceId: 'stock', version: 1, access: 'writes' },
+      { sliceId: 'ownerActions', version: 1, access: 'reads' },
+      { sliceId: 'obligations', version: 1, access: 'reads' },
+      { sliceId: 'service', version: 1, access: 'reads' },
+      { sliceId: 'monthly', version: 1, access: 'reads' },
+    ],
+    readsStatePaths: [
+      'areas',
+      'calendar',
+      'coin',
+      'customerGroups',
+      'memories',
+      'staff',
+      'stock',
+    ],
+    writesStatePaths: ['coin', 'customerGroups'],
+    ownsEventTypes: [
+      'economy.house_rule_friction',
+      'economy.policy_held_unrest',
+      'economy.policy_punishment_grudge',
+      'economy.policy_reversal_remembered',
+      'price_complaint_possible',
+      'economy.reserves_intact',
+    ],
   },
 }
 

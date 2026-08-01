@@ -375,6 +375,24 @@ describe('Phase 208 §1.2 — obligation primitives', () => {
     expect(outstandingAmount(record)).toBe(110)
   })
 
+  it('keeps late charges in the same whole-coin currency as the till', () => {
+    const small = openObligation({
+      id: 'obl-small',
+      ownerModuleId: 'test',
+      counterparty: { kind: 'staff', id: 'server' },
+      direction: 'payable',
+      principal: 17,
+      openedOnDay: 1,
+      dueOnDay: 8,
+      graceDays: 3,
+      lateChargeRate: 0.05,
+      readable: '17 coin of back pay',
+    })
+    const charged = accrueLateCharge(small, 12)
+    expect(charged.accruedCharges).toBe(1)
+    expect(Number.isInteger(outstandingAmount(charged))).toBe(true)
+  })
+
   it('paying into a defaulted debt pulls it back to grace but keeps the escalation', () => {
     let record = enterGrace(base(), 8, 'came due')
     record = defaultObligation(record, 12, 'grace expired')

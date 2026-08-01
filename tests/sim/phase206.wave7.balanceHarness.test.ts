@@ -180,9 +180,9 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
 
   it('reproduces the published card load exactly', () => {
     // Wave 6 gate: 3.46 · 5. Post-Wave-7 tuning: 3.36 · 5. Post-Phase-3: 3.21 · 5.
-    // Post-Phase-4: 3.18 · 5 — marginally fewer cards because a night that is
-    // served in full raises fewer problems than one measured only in aggregate.
-    expect(audit.meanCardsPerDay).toBe(3.18)
+    // Post-Phase-4: 3.18 · 5. Post-Phase-5: 3.14 · 5 — persistent demand
+    // collapse leaves marginally fewer live problems to expose.
+    expect(audit.meanCardsPerDay).toBe(3.14)
     expect(audit.maxCardsPerDay).toBe(5)
     expect(audit.maxCardsPerDay).toBeLessThanOrEqual(FULL_DAY_CARD_CEILING)
   })
@@ -194,16 +194,20 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // lever. Patrons moved to 823 in Phase 3 because a worn-out crew is
     // occasionally a body short.
     //
-    // EXPANSION PHASE 4 MOVES BOTH, AND THIS IS THE FINAL MOVEMENT: 1,078 coin
+    // EXPANSION PHASE 4 MOVED BOTH: 1,078 coin
     // and 805 patrons. Coin is up 3.4% because a party now CHOOSES what it orders
     // and orders a little more of it (`SERVINGS_PER_PATRON`, calibrated against
     // the till rather than the plate count — see the note there). Patrons are
     // down 18 because the final flow preserves FIFO stock allocation and lets
     // real shortages and service outcomes affect later turnout. Re-pinned with
-    // the movement recorded, not re-tuned; Phase 5 owns the economy and Phase
-    // 13 re-baselines the long-run matrix.
-    expect(audit.finalCoin).toBe(1078)
-    expect(audit.totalPatrons).toBe(805)
+    // the movement recorded, not re-tuned.
+    //
+    // EXPANSION PHASE 5 deliberately moves them again: 919 coin and 574
+    // patrons. Recurring attributable costs now leave the till, and sustained
+    // service collapse reduces traffic and spend instead of remaining
+    // compatible with indefinite growth. This is the ISSUE-168 re-baseline.
+    expect(audit.finalCoin).toBe(919)
+    expect(audit.totalPatrons).toBe(574)
   })
 
   it('prices choices as an upper bound on the real render', () => {
@@ -212,10 +216,10 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // never quote a default-priced figure against the 24-button `DC-06`
     // ceiling; that comparison needs `--render`). Post-Wave-7 tuning the
     // upper bound read 15.71/day, 440 over 28 days; after Expansion Phase 3's
-    // card-load movement it read 15.25/day, and after Phase 4's it reads
-    // 14.86/day.
-    expect(audit.meanChoicesPerDay).toBe(14.86)
-    expect(audit.totalChoicesRendered).toBe(416)
+    // card-load movement it read 15.25/day, after Phase 4's it read
+    // 14.86/day, and Phase 5's smaller passive crowd reads 14.75/day.
+    expect(audit.meanChoicesPerDay).toBe(14.75)
+    expect(audit.totalChoicesRendered).toBe(413)
   })
 
   it('reproduces the published family-streak figure', () => {

@@ -8,6 +8,7 @@ import { SOCIAL_ACTIONS } from '../modules/ownerActions/socialActions'
 import { AREA_UPGRADE_ACTIONS } from '../modules/ownerActions/upgradeActions'
 import { WORKFORCE_ACTIONS } from '../modules/ownerActions/workforceActions'
 import { SERVICE_ACTIONS } from '../modules/ownerActions/serviceActions'
+import { ECONOMY_ACTIONS } from '../modules/economy/actions'
 import type { OwnerActionDefinition } from '../modules/ownerActions/types'
 
 // Phase 13 §13.1 — Owner action registry.
@@ -54,6 +55,9 @@ export function ensureRequiredOwnerActionsRegistered(): void {
     // chasing and wiping patron slates, and the two that treat a regular as
     // somebody you can actually talk to.
     ...SERVICE_ACTIONS,
+    // Expansion Phase 5 — insolvency and recovery are player capabilities,
+    // not hidden state transitions.
+    ...ECONOMY_ACTIONS,
   ]
   for (const def of all) {
     if (!actionRegistry.has(def.id)) {

@@ -104,6 +104,9 @@ export type SellRecipeResult = {
 export type SellRecipeOptions = {
   buyerGroupId?: string
   source?: string
+  priceMultiplier?: number
+  /** Ingredient use per delivered serving (watering/stretching policy). */
+  ingredientUseFactor?: number
 }
 
 function noopResult(): SellRecipeResult {
@@ -131,6 +134,10 @@ export function sellRecipe(
     throw new Error(`sellRecipe: recipe '${recipeId}' has no registry definition`)
   }
   const def = recipeRegistry.get(recipeId)
+  const ingredientUseFactor = Math.max(
+    0.5,
+    Math.min(1, options?.ingredientUseFactor ?? 1),
+  )
 
   // Compute how many servings the tightest input can actually back.
   // Each input contributes `servings * input.quantity` units; we
@@ -146,7 +153,7 @@ export function sellRecipe(
     | null = null
   for (const input of def.inputs) {
     const available = ctx.state.stock[input.ingredientId]?.quantity ?? 0
-    const capacity = Math.floor(available / input.quantity)
+    const capacity = Math.floor(available / (input.quantity * ingredientUseFactor))
     if (capacity < maxServings) {
       maxServings = capacity
       bottleneck = {
@@ -164,14 +171,21 @@ export function sellRecipe(
   for (const input of def.inputs) {
     // Consume only the bottleneck-capped amount so non-bottleneck
     // inputs are never drained past what the served dishes need.
-    const toSell = sold * input.quantity
+    const toSell = sold * input.quantity * ingredientUseFactor
     if (toSell <= 0) continue
-    const sellOptions: { buyerGroupId?: string; source: string } = {
+    const sellOptions: {
+      buyerGroupId?: string
+      source: string
+      priceMultiplier?: number
+    } = {
       source:
         options?.source ?? `recipe.${recipeId}.input.${input.ingredientId}`,
     }
     if (options?.buyerGroupId !== undefined) {
       sellOptions.buyerGroupId = options.buyerGroupId
+    }
+    if (options?.priceMultiplier !== undefined) {
+      sellOptions.priceMultiplier = options.priceMultiplier
     }
     const sale = sellStockItem(ctx, input.ingredientId, toSell, sellOptions)
     result.earned += sale.earned
@@ -198,7 +212,7 @@ export function sellRecipe(
     const shortage = recordShortage(
       ctx,
       bottleneck.ingredientId,
-      servings * bottleneck.quantity,
+      servings * bottleneck.quantity * ingredientUseFactor,
       bottleneck.available,
       'sale',
     )

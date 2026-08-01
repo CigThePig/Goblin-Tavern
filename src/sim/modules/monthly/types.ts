@@ -1,4 +1,5 @@
 import type { WeeklySignalTotals } from '../weekly/types'
+import type { EconomyAccountingTotals } from '../economy/types'
 
 // Phase 15 — Monthly pressure system types.
 //
@@ -148,6 +149,8 @@ export type MonthlyAccumulator = {
   signalNotes: string[]
   /** Sum of weekly economy totals across the month. */
   economy: MonthlyEconomyTotals
+  /** Phase 5 exact cash/accrual accounting. Optional only for old saves. */
+  accounting?: EconomyAccountingTotals
   /** Cumulative shortage count across the month. */
   shortageCount: number
   /** Cumulative incidents observed across the month. */
@@ -208,6 +211,8 @@ export type MonthlyResult = {
   upgradeReadiness: UpgradeReadinessEntry[]
 
   economy: MonthlyEconomyTotals
+  /** Phase 5 exact cash/accrual accounting. Optional only for old saves. */
+  accounting?: EconomyAccountingTotals
 
   /** The modifier that was active for the month that just ended. */
   activeModifier: MonthModifier

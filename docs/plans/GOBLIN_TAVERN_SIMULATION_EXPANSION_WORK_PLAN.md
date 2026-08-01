@@ -1690,6 +1690,121 @@ A policy with no current enforcer may be inconsistently applied rather than sile
 
 Cash is no longer compatible with indefinite total service collapse unless another clearly modeled strategy genuinely supports it. Financial success, social success, failure, and recovery are legible but not identical.
 
+## What Phase 5 actually landed (2026-08-01, ISSUE-175)
+
+Per-requirement detail is in `docs/plans/expansion/ledger.csv` (`DEP-01`
+plus six `HOOK-*` rows). No per-phase plan doc, per the arc's convention.
+
+**Quality now reaches the till through a persistent state, not one night's
+penalty.** The formerly empty `economy` module owns a bounded daily history,
+smoothed `serviceHealth`, collapse/recovery streaks and eight published
+modifiers. Health combines patronage-weighted satisfaction, the real service
+flow's served ratio, customer-facing area condition and the relevant
+reputation axes. A poor first night moves health but cannot move demand; the
+persistence term begins on night two, accumulates over ten bad days and
+recovers more slowly than it falls. The resulting group-specific traffic,
+spend and price-tolerance factors are consumed by customer forecasting and
+the service choice/flow loop. Distress also reaches supplier quotes, labour
+market wage asks, faction tension, landlord concern and repair cost through
+the same published state rather than through unrelated penalties.
+
+**Failure is an operating lifecycle with player leverage.** Six explicit
+states (`stable`, `cash_stress`, `insolvent`, `restructuring`,
+`temporarily_closed`, `recovering`) advance on cash cushion, arrears and time.
+Stress and insolvency progressively constrain real service capacity; closure
+sets it to zero and retains only a one-coin watch/utility cost. The phase keeps
+the intended soft-fail sandbox—there is no permanent game-over invented here—
+but makes the alternative visible and costly. Four registered owner actions
+pay operating arrears, close voluntarily, restructure, and reopen. A
+restructure writes down part of operating arrears, advances working capital,
+creates a repayable restructuring balance and uses the ruleset's ongoing
+recovery-assistance multiplier, so Easy and Hard have mechanically different
+recovery terms.
+
+**Costs are small, recurring and attributable.** Daily cost lines name usable
+area overhead, damage maintenance, installed-fitting upkeep, neglect emergency
+premiums, policy enforcement and restructuring finance. Each line records due,
+paid, shortfall, tags and readable cause; shortfalls become operating arrears.
+Existing stock purchases, repairs/construction, wages, rent, tabs and
+expeditions remain owned by their domains and flow into the same ledger rather
+than being charged twice.
+
+**Accounting now has one exhaustive vocabulary.** Daily records reconcile the
+opening and closing till against every coin-ledger entry and separately retain
+accrual facts: sales, purchases, wages, rent, maintenance, construction,
+fittings, overhead, financing, fines, tab credit/collections, supplier credit
+and invoice payments, loans, write-offs, inventory deterioration, expeditions,
+other cash and outstanding payables/receivables. Restructuring debt relief and
+returned expedition stock are recorded as accrual value without pretending
+coin moved. Weekly results fold the seven
+daily records and real supplier obligations; monthly results fold the four
+weeks and month-close rent. The last weekly record is refreshed when day-28
+rent posts after `endWeek`, which fixed the real 140-coin reconciliation seam
+the new test exposed. Daily, weekly and monthly reports render the same typed
+totals; the old empty supplier-invoice placeholder is gone.
+
+**Prices and policies became operating rules.** Choice scoring now combines a
+group's price sensitivity with reputation-backed tolerance and substitutes
+between available recipes when one becomes poor value. Every starter policy
+declares the staff role that carries it out, enforcement minutes, operating
+cost, support and backlash. The pre-service pass records the intended state,
+actual compliance, available enforcers and bounded daily evidence. Service
+reads only actual effect strength: discounts change the bill, watering changes
+ingredient use, tabs change collection risk, the weapons ban changes security,
+festival closing removes waves, and enforcement time reduces capacity. A rule
+with nobody available is a recorded violation and grants no free effect;
+suspension/repeal is persistent and visible. Weekly regular, faction and rumour
+effects also read actual enforcement rather than the owner's intent tag.
+
+**Six economy promise families became mechanical and exact-once.** House-rule
+friction, held-policy unrest, punishment grudges, remembered reversals, price
+complaints and intact reserves are registered under `economyEvents.ts`, each
+with a schema, warning window, live-state resolver, authoritative mutation and
+explained counterplay/no-op. The reserve resolver requires both the player's
+original held-reserve memory and the cash still being present; price and policy
+resolvers re-read the due-day price/rule rather than the state at scheduling.
+
+**Calibration and proof.** The required passive re-pin is intentional:
+`phase7-integrated-shared` moves from 1,078 coin / 805 patrons to **919 / 574**
+over 28 days; attributable operating costs and sustained demand collapse now
+bind a tavern that does nothing. One bad day remains `stable` with demand at
+least ×0.90. An empty-cellar/no-cash route reaches temporary closure, then
+uses the registered restructure/reopen actions to resume operation. A separate
+180-day passive collapse ends closed with operating and rent arrears, while the
+multi-seed 28/90/180 strategy matrix stays schema-valid and retains at least
+two solvent, rent-current identities at every horizon. The 90/180 gate also
+surfaced a pre-existing day-56 seam: local-arc pressure changes happen after
+the ordinary `endDay` pressure pass. Pressure snapshots now synchronize again
+after weekly/monthly settlement, preserving the compact/snapshot invariant at
+every stable beat instead of weakening the gate. The final 180-day pass also
+reached a latent whole-coin seam: a 17-coin wage debt had accrued a 0.85-coin
+late charge and paid 17.85 out of an integer till. Late charges now accrue in
+whole coin, while the payment boundary safely settles legacy fractional debt.
+
+**Frozen artifacts moved for the intended reasons.** Ten of thirteen baseline
+routes were regenerated; the three fresh-state routes are unchanged, and the
+full-day/segmented-day pair remain byte-equivalent. The one-day till moves
+705 → 694 from the first attributable operating charge; longer passive and
+managed routes then reflect both those costs and adaptive demand (the frozen
+month-boundary route moves 1,079 → 920 coin and 831 → 587 patrons). The repo
+map records the `economy` pipeline/slice owner, runtime modules 33 → 34 and
+owner actions 55 → 59. No RNG stream, simulation phase or glossary count
+moved.
+
+Tests: `tests/sim/phase212.economy.test.ts` (17),
+`phase212.economyEvents.test.ts` (4),
+`phase212.economyPersistence.test.ts` (6 — all six financial states through
+the production save/load boundary), and
+`phase212.economyMatrix.heavy.test.ts` (4 — two seeds × three strategies at
+28/90/180 days, plus the 180-day passive-collapse proof). The matrix file joins
+`HEAVY_TEST_GLOBS`; the other three stay fast. Gates: `npm run test:full`
+**321 files / 4,214 tests**, `npm test` **312 files / 4,081 tests**,
+`typecheck` clean, `check` 0 errors / 0 warnings,
+and `build` passing with the same known >500 kB chunk warning. All three
+expansion artifacts are clean: `ledger:check` 134 rows (done 40,
+in-progress 2, open 92), `baseline:probes` 0 drifted routes and `repo:map`
+0 drifted sections.
+
 ---
 
 # Phase 6 — Create a transactional supplier and procurement system

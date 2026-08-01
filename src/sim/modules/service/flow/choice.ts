@@ -5,6 +5,11 @@ import type {
   RegularWorldState,
   TavernState,
 } from '../../../state/TavernState'
+import {
+  getPriceToleranceFactorForGroup,
+  getSpendFactorForGroup,
+} from '../../economy/dynamics'
+import { getServicePriceMultiplier } from '../../economy/policies'
 import { recipeRegistry } from '../../../registries/recipeRegistry'
 import { effectiveQuality, isPerishable } from '../../stock/spoilage'
 
@@ -262,7 +267,8 @@ function priceTerm(
   group: CustomerGroupState,
   recipe: RecipeState,
 ): number {
-  const price = recipeUnitPrice(state, recipe.id)
+  const price =
+    recipeUnitPrice(state, recipe.id) * getServicePriceMultiplier(state, group.id)
   if (price <= 0) return 0
   // What this cohort considers an ordinary price, from its own wealth.
   //
@@ -270,7 +276,8 @@ function priceTerm(
   // the cheapest dish on the menu, so EVERY dish read as expensive and the
   // whole tavern drifted onto whatever was cheapest. Prices in this game start
   // at 1, so the floor belongs in the formula.
-  const comfortable = Math.max(1, 1 + group.wealth / 25)
+  const tolerance = getPriceToleranceFactorForGroup(state, group.id)
+  const comfortable = Math.max(1, (1 + group.wealth / 25) * tolerance)
   const overshoot = (price - comfortable) / comfortable
   if (overshoot <= 0) {
     // A cheap round is a small positive for the price-sensitive.
@@ -476,9 +483,10 @@ export function chooseOrder(
   // `stretchFactor` is the cook's `stretch_ingredients` priority: smaller
   // portions, so the same party consumes less of the stores.
   const stretch = Math.max(0.5, Math.min(1, options.stretchFactor ?? 1))
+  const spend = getSpendFactorForGroup(ctx.state, choice.group.id)
   const totalServings = Math.max(
     1,
-    Math.round(party.size * SERVINGS_PER_PATRON * stretch),
+    Math.round(party.size * SERVINGS_PER_PATRON * stretch * spend),
   )
 
   // What they wanted, before the cellar has its say.

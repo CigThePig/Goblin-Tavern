@@ -185,8 +185,11 @@ export function accrueLateCharge(
   record: ObligationRecord,
   onDay: number,
 ): ObligationRecord {
-  const charge =
-    Math.round(record.principal * record.lateChargeRate * 100) / 100
+  // The tavern's till is whole-coin. Keep monetary obligations on that same
+  // boundary so a later payment can never turn an integer till fractional.
+  // Small debts may round to no charge; that is preferable to a compulsory
+  // one-coin daily fee becoming an unrecoverable spiral.
+  const charge = Math.round(record.principal * record.lateChargeRate)
   if (charge <= 0) return record
   return {
     ...record,

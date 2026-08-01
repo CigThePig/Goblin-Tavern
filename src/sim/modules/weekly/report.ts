@@ -1,4 +1,5 @@
 import type { ReportSection } from '../../core/reports'
+import { formatEconomyAccountingLines } from '../economy/report'
 
 import type {
   CustomerWeeklyTrendEntry,
@@ -191,6 +192,12 @@ export function buildWeeklyReportSection(result: WeeklyResult): ReportSection {
   const lines: string[] = []
   lines.push('Economy:')
   for (const line of formatEconomyLines(result.economy)) lines.push(`  ${line}`)
+  if (result.accounting) {
+    lines.push('  Exact cash & accrual view:')
+    for (const line of formatEconomyAccountingLines(result.accounting)) {
+      lines.push(`    ${line}`)
+    }
+  }
   lines.push('')
 
   lines.push('Wages:')
@@ -257,6 +264,7 @@ export function buildWeeklyReportSection(result: WeeklyResult): ReportSection {
       yearNumber: result.yearNumber,
       endDay: result.endDay,
       economy: { ...result.economy },
+      ...(result.accounting ? { accounting: { ...result.accounting } } : {}),
       wages: { ...result.wages, unpaidStaffIds: [...result.wages.unpaidStaffIds] },
       maintenance: result.maintenance.map((m) => ({
         ...m,

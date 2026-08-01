@@ -10,7 +10,12 @@ import { outstandingAmount } from '../../contracts/obligations/index'
 import { spendCoin } from '../stock/ledger'
 import { effectiveQuality, isPerishable } from '../stock/spoilage'
 import type { CustomerDemand, CustomerModuleState } from '../customers/types'
-import { isPolicyEnabled } from '../ownerActions/stateHelpers'
+import { isTavernTemporarilyClosed } from '../economy/dynamics'
+import {
+  getAleIngredientUseFactor,
+  getServicePriceMultiplier,
+  getTabsPolicyAdjustment,
+} from '../economy/policies'
 import type {
   ServiceQualityModifiers,
   StaffModuleState,
@@ -216,12 +221,9 @@ export function resolveService(
   const dayType = ctx.getDayType()
   const result = buildEmptyResult(ctx.state)
   result.serviceQuality = quality
-
-  // Phase 33 §33.8 — Service-side policy effects. `refuse_tabs` scales the
-  // slate a party can run up; it never makes a tab negative and never touches
-  // the rest of the maths, so the flow is oblivious to whether it is on.
-  const refuseTabs = isPolicyEnabled(ctx.state, 'refuse_tabs')
-  const tabPolicyAdjustment = refuseTabs ? 0.4 : 1
+  if (isTavernTemporarilyClosed(ctx.state)) {
+    return { result, tabsOpened: [] }
+  }
 
   // ---- run the evening (§4.1) ----
   const demand = readCustomerDemand(ctx.state)
@@ -248,7 +250,6 @@ export function resolveService(
     flow,
     quality,
     regularsById,
-    policyAdjustment: tabPolicyAdjustment,
   })
   result.tabsOpened = tabs.opened.map((entry) => entry.obligationId)
 
@@ -379,10 +380,9 @@ function openTabsForFlow(
     flow: ServiceFlowResult
     quality: ServiceQualityModifiers
     regularsById: Record<string, RegularWorldState>
-    policyAdjustment: number
   },
 ): { opened: PatronTabIndexEntry[]; totalDeducted: number } {
-  const { flow, quality, regularsById, policyAdjustment } = args
+  const { flow, quality, regularsById } = args
   const opened: PatronTabIndexEntry[] = []
   const cohortByGroup: Record<string, number> = {}
   const regularTabs: Array<{ regular: RegularWorldState; amount: number }> = []
@@ -401,7 +401,7 @@ function openTabsForFlow(
       group,
       quality,
       ...(regular ? { regular } : {}),
-      policyAdjustment,
+      policyAdjustment: getTabsPolicyAdjustment(ctx.state, regular !== undefined),
       existingRegularDebt,
     })
     if (tab <= 0) continue
@@ -552,12 +552,17 @@ function itemsBoughtFor(
     for (const line of party.order) {
       if (line.delivered <= 0) continue
       if (!recipeRegistry.has(line.recipeId)) continue
-      for (const input of recipeRegistry.get(line.recipeId).inputs) {
-        const quantity = line.delivered * input.quantity
+      const recipe = recipeRegistry.get(line.recipeId)
+      const ingredientUseFactor = recipe.tags.includes('alcohol')
+        ? getAleIngredientUseFactor(ctx.state)
+        : 1
+      for (const input of recipe.inputs) {
+        const quantity = line.delivered * input.quantity * ingredientUseFactor
         const price = ctx.state.stock[input.ingredientId]?.salePrice ?? 0
         const row = byStock.get(input.ingredientId) ?? { quantity: 0, coin: 0 }
         row.quantity += quantity
-        row.coin += quantity * price
+        row.coin +=
+          quantity * price * getServicePriceMultiplier(ctx.state, groupId)
         byStock.set(input.ingredientId, row)
       }
     }

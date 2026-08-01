@@ -5,6 +5,7 @@ import type {
   TavernState,
 } from '../../state/TavernState'
 import type { ActiveMarketCondition } from './types'
+import { getEconomyModuleState } from '../economy/state'
 import { getSupplierModuleState } from './state'
 
 // Phase 29 §29.6 — Effective base price helper.
@@ -134,6 +135,7 @@ export function pickRestockSupplier(
   const stock = state.stock[stockId]
   if (!stock) return undefined
   const moduleState = getSupplierModuleState(state)
+  const supplierTermsFactor = getEconomyModuleState(state).modifiers.supplierTermsFactor
   const activeConditions = moduleState.activeMarketConditions
   let best: RestockSupplierPick | undefined
   for (const supplier of Object.values(state.world.suppliers)) {
@@ -141,7 +143,10 @@ export function pickRestockSupplier(
     // `getEffectiveBasePrice` already applies the MIN_UNIT_PRICE floor
     // (Phase 200 / audit Wave 1); the old `Math.max(0, …)` here was what
     // let a zero price through as a legitimate "cheapest" pick.
-    const effectivePrice = getEffectiveBasePrice(stock, supplier, activeConditions)
+    const effectivePrice = Math.max(
+      MIN_UNIT_PRICE,
+      getEffectiveBasePrice(stock, supplier, activeConditions) * supplierTermsFactor,
+    )
     if (!best) {
       best = { supplier, effectivePrice }
       continue

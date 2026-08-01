@@ -1,4 +1,5 @@
 import type { ReportSection } from '../../core/reports'
+import { formatEconomyAccountingLines } from '../economy/report'
 
 import type {
   MonthlyEconomyTotals,
@@ -130,6 +131,12 @@ export function buildMonthlyReportSection(result: MonthlyResult): ReportSection 
 
   lines.push('Economy:')
   for (const line of formatEconomy(result.economy)) lines.push(`  ${line}`)
+  if (result.accounting) {
+    lines.push('  Exact cash & accrual view:')
+    for (const line of formatEconomyAccountingLines(result.accounting)) {
+      lines.push(`    ${line}`)
+    }
+  }
   lines.push('')
 
   lines.push(`Active Modifier: ${result.activeModifier.label}`)
@@ -168,6 +175,7 @@ export function buildMonthlyReportSection(result: MonthlyResult): ReportSection 
       })),
       upgradeReadiness: result.upgradeReadiness.map((u) => ({ ...u })),
       economy: { ...result.economy },
+      ...(result.accounting ? { accounting: { ...result.accounting } } : {}),
       activeModifier: { ...result.activeModifier, tags: [...result.activeModifier.tags] },
       nextMonthModifier: {
         ...result.nextMonthModifier,

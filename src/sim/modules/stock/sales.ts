@@ -32,6 +32,8 @@ export type SellOptions = {
   buyerGroupId?: string
   /** Optional source tag for the ledger entry. Defaults to 'stock.sale'. */
   source?: string
+  /** Expansion Phase 5 — the price actually charged after a real policy. */
+  priceMultiplier?: number
 }
 
 function getStock(ctx: SimContext, stockId: string): StockState {
@@ -86,9 +88,13 @@ export function sellStockItem(
   const item = getStock(ctx, stockId)
   const available = item.quantity
   const sold = Math.min(quantity, available)
-  const earned = sold * item.salePrice
+  const multiplier = Math.max(0, options?.priceMultiplier ?? 1)
+  // Coin is an integer state invariant. Discounts and premiums change the
+  // final bill, but never create fractional currency that invalidates saves.
+  const earned = Math.round(sold * item.salePrice * multiplier)
   const source = options?.source ?? `stock.sale.${stockId}`
   const tags = ['sale', stockId]
+  if (multiplier !== 1) tags.push(`price_multiplier:${multiplier}`)
   if (options?.buyerGroupId) tags.push(`buyer:${options.buyerGroupId}`)
 
   if (sold > 0) {

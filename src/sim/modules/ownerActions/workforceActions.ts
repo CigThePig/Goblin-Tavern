@@ -822,7 +822,9 @@ const payStaffWagesAction: OwnerActionDefinition = {
     // whatever the till holds.
     const budget = Math.min(
       ctx.state.coin,
-      input.amount !== undefined ? Math.max(0, Math.round(input.amount)) : owedBefore,
+      input.amount !== undefined
+        ? Math.max(0, Math.round(input.amount))
+        : Math.ceil(owedBefore),
     )
     const paid = payDownArrears(ctx, budget, 'owner paid back wages', {
       spend: true,

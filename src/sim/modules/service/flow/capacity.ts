@@ -9,6 +9,8 @@ import type {
   StaffRosterEntry,
   StaffWorkKind,
 } from '../../staff/workforceTypes'
+import { getPolicyServiceCapacityFactor } from '../../economy/policies'
+import { getFinancialServiceCapacityFactor } from '../../economy/dynamics'
 
 import { SERVICE_WAVES, type ServiceCapacitySnapshot } from './types'
 
@@ -105,6 +107,9 @@ export function readServiceCapacity(ctx: SimContext): ServiceCapacitySnapshot {
   const seating = getCustomerFacingSeating(state)
   const kitchenThroughput = getKitchenThroughputFactor(state)
   const speed = speedFactor(state)
+  const operatingCapacity =
+    getPolicyServiceCapacityFactor(state) *
+    getFinancialServiceCapacityFactor(state)
 
   const kitchen = rosterContribution(state, 'kitchen')
   const service = rosterContribution(state, 'service')
@@ -114,16 +119,16 @@ export function readServiceCapacity(ctx: SimContext): ServiceCapacitySnapshot {
   const prepPerWave = Math.max(
     1,
     Math.round(
-      BASE_PREP_PER_WAVE * stageFactor(kitchen, PREP_FLOOR) * kitchenThroughput * speed,
+      BASE_PREP_PER_WAVE * stageFactor(kitchen, PREP_FLOOR) * kitchenThroughput * speed * operatingCapacity,
     ),
   )
   const deliveryPerWave = Math.max(
     1,
-    Math.round(BASE_DELIVERY_PER_WAVE * stageFactor(service, DELIVERY_FLOOR) * speed),
+    Math.round(BASE_DELIVERY_PER_WAVE * stageFactor(service, DELIVERY_FLOOR) * speed * operatingCapacity),
   )
   const resetPerWave = Math.max(
     1,
-    Math.round(BASE_RESET_PER_WAVE * stageFactor(cleaning, RESET_FLOOR)),
+    Math.round(BASE_RESET_PER_WAVE * stageFactor(cleaning, RESET_FLOOR) * operatingCapacity),
   )
 
   return {

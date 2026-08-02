@@ -230,7 +230,7 @@ export function paySupplierInvoice(
   requested: number,
 ): InvoicePaymentResult | undefined {
   const record = getObligation(ctx.state, invoiceId)
-  if (!record) return undefined
+  if (!record || !isSupplierInvoice(record)) return undefined
   const today = ctx.state.calendar.totalDaysElapsed
   const outstanding = outstandingAmount(record)
   if (outstanding <= 0) return undefined
@@ -344,7 +344,7 @@ export function creditNoteAgainstInvoice(
   reason: string,
 ): number {
   const record = getObligation(ctx.state, invoiceId)
-  if (!record) return 0
+  if (!record || !isSupplierInvoice(record)) return 0
   const today = ctx.state.calendar.totalDaysElapsed
   const outstanding = outstandingAmount(record)
   const relief = Math.min(Math.round(amount), Math.ceil(outstanding))
@@ -356,7 +356,15 @@ export function creditNoteAgainstInvoice(
     lastTransitionOnDay: today,
     history: [
       ...record.history,
-      { onDay: today, from: record.status, to: record.status, reason, amount: relief },
+      {
+        onDay: today,
+        from: record.status,
+        to: record.status,
+        // Phase 5 accounting recognizes this explicit non-cash write-off
+        // marker even when the credit only reduces part of a live invoice.
+        reason: `write-off: supplier credit note — ${reason}`,
+        amount: relief,
+      },
     ],
   }
   const settled = outstandingAmount(credited) <= 0

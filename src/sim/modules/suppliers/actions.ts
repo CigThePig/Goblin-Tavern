@@ -31,6 +31,7 @@ import {
 import { creditEligibility, quoteSupplierOrder } from './quote'
 import { scheduleSupplierPayment } from './supplierEvents'
 import {
+  atOpenOrderCap,
   findPurchaseOrder,
   getPurchaseOrder,
   getSupplierAccount,
@@ -98,8 +99,12 @@ function splitTarget(targetId: string): { supplierId: string; stockId: string } 
 function listOrderTargets(ctx: SimContext): ActionTarget[] {
   const targets: ActionTarget[] = []
   for (const supplier of Object.values(ctx.state.world.suppliers)) {
-    for (const stockId of supplier.goodsProvided) {
-      if (!ctx.state.stock[stockId]) continue
+    // Include the full stock catalogue. A related good the supplier does
+    // not normally carry becomes valid when the player explicitly allows
+    // substitution; excluding it here made that option impossible to
+    // queue because the shared input validator rejected the composite
+    // target before it ever read the option.
+    for (const stockId of Object.keys(ctx.state.stock)) {
       const quote = quoteSupplierOrder(ctx.state, {
         supplierId: supplier.id,
         stockId,
@@ -127,8 +132,30 @@ const placeSupplierOrder: OwnerActionDefinition = {
   pressureAffinity: ['stock_shortage', 'supplier_distrust'],
   targetType: 'supplier',
   timeCost: TIME_COST_SHORT,
+  composer: 'supplier',
+  canOpen: (ctx) => {
+    if (atOpenOrderCap(ctx.state)) {
+      return reject(
+        'order_cap',
+        'You already have as many orders running as you can keep track of.',
+      )
+    }
+    if (
+      Object.keys(ctx.state.world.suppliers).length === 0 ||
+      Object.keys(ctx.state.stock).length === 0
+    ) {
+      return reject('no_valid_targets', 'No supplier goods can be ordered right now.')
+    }
+    return OK
+  },
   getValidTargets: listOrderTargets,
   canApply: (ctx, input) => {
+    if (atOpenOrderCap(ctx.state)) {
+      return reject(
+        'order_cap',
+        'You already have as many orders running as you can keep track of.',
+      )
+    }
     if (!input.targetId) {
       return reject('missing_target', 'Choose a supplier and a good.')
     }
@@ -248,6 +275,16 @@ function listOpenOrders(ctx: SimContext): ActionTarget[] {
   }))
 }
 
+function listAmendableOrders(ctx: SimContext): ActionTarget[] {
+  return listPurchaseOrders(ctx.state, { open: true })
+    .filter((order) => canAmendOrder(ctx.state, order).ok)
+    .map((order) => ({
+      id: order.id,
+      label: order.readable,
+      hint: `${outstandingUnits(order)} units outstanding · promised day ${order.promisedOnDay}`,
+    }))
+}
+
 const amendSupplierOrder: OwnerActionDefinition = {
   id: 'amend_supplier_order',
   label: 'Amend Supplier Order',
@@ -256,7 +293,12 @@ const amendSupplierOrder: OwnerActionDefinition = {
   effectsPreview: 'Changes the quantity on an order not yet loaded',
   targetType: 'supplier',
   timeCost: TIME_COST_QUICK,
-  getValidTargets: listOpenOrders,
+  composer: 'supplier',
+  canOpen: (ctx) =>
+    listAmendableOrders(ctx).length > 0
+      ? OK
+      : reject('no_valid_targets', 'There are no orders that can still be amended.'),
+  getValidTargets: listAmendableOrders,
   canApply: (ctx, input) => {
     if (!input.targetId) return reject('missing_target', 'Choose an order.')
     const order = getPurchaseOrder(ctx.state, input.targetId)
@@ -592,6 +634,14 @@ const payInvoice: OwnerActionDefinition = {
   pressureAffinity: ['debt', 'supplier_distrust'],
   targetType: 'supplier',
   timeCost: TIME_COST_QUICK,
+  composer: 'supplier',
+  canOpen: (ctx) => {
+    if (listSuppliersOwed(ctx).length === 0) {
+      return reject('nothing_owed', 'There are no supplier invoices to pay.')
+    }
+    if (ctx.state.coin <= 0) return reject('insufficient_coin', 'The till is empty.')
+    return OK
+  },
   getValidTargets: listSuppliersOwed,
   canApply: (ctx, input) => {
     if (!input.targetId) return reject('missing_target', 'Choose a supplier.')
@@ -660,6 +710,11 @@ const schedulePayment: OwnerActionDefinition = {
   pressureAffinity: ['debt', 'supplier_distrust'],
   targetType: 'supplier',
   timeCost: TIME_COST_QUICK,
+  composer: 'supplier',
+  canOpen: (ctx) =>
+    listSuppliersOwed(ctx).length > 0
+      ? OK
+      : reject('nothing_owed', 'There are no supplier invoices to schedule.'),
   getValidTargets: listSuppliersOwed,
   canApply: (ctx, input) => {
     if (!input.targetId) return reject('missing_target', 'Choose a supplier.')

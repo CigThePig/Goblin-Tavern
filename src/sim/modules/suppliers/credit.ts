@@ -5,7 +5,7 @@ import {
   overdueSupplierInvoices,
   outstandingSupplierInvoices,
 } from './invoices'
-import { creditEligibility, netTermsFor } from './quote'
+import { creditEligibility, creditLimitFor, netTermsFor } from './quote'
 import {
   SUPPLIERS_MODULE_ID,
   getSupplierAccount,
@@ -193,6 +193,11 @@ export function reviewSupplierCredit(
     }
   } else if (
     account.creditStatus === 'suspended' &&
+    !(
+      account.refusingReason === 'retaliation' &&
+      account.refusingUntilDay !== undefined &&
+      today < account.refusingUntilDay
+    ) &&
     outstandingSupplierInvoices(ctx.state, supplierId).every(
       (invoice) => invoice.status === 'active' || invoice.status === 'pending',
     )
@@ -200,7 +205,10 @@ export function reviewSupplierCredit(
     // Nothing overdue any more: the line thaws on its own, because the thing
     // that froze it was the arrears rather than a decision to punish.
     next = 'approved'
-    reason = 'arrears cleared; the line is live again'
+    reason =
+      account.refusingReason === 'retaliation'
+        ? 'the retaliation ended; the line is live again'
+        : 'arrears cleared; the line is live again'
     reviewOnDay = undefined
   }
 
@@ -223,6 +231,13 @@ export function reviewSupplierCredit(
     refusingUntilDay = undefined
     refusingReason = undefined
     reason = 'arrears cleared; the supplier is trading again'
+  }
+
+  // Expired refusal metadata should not keep a retaliation suspension alive
+  // forever or leave the report implying the supplier is still refusing.
+  if (refusingUntilDay !== undefined && refusingUntilDay <= today) {
+    refusingUntilDay = undefined
+    refusingReason = undefined
   }
 
   const limit =
@@ -423,9 +438,10 @@ export function negotiateSupplierTerms(
   const discount = Math.max(0.02, Math.min(0.12, standing * 0.06))
   const termsAdjustment = Math.round((1 - discount) * 100) / 100
   const untilDay = today + NEGOTIATION_TERM_DAYS
+  const baseCreditLimit = creditLimitFor(ctx.state, supplier, account)
   const creditLimit =
     account.creditStatus === 'approved'
-      ? Math.round(account.creditLimit * (1 + Math.min(0.4, standing * 0.2)))
+      ? Math.round(baseCreditLimit * (1 + Math.min(0.4, standing * 0.2)))
       : account.creditLimit
 
   writeSupplierAccount(

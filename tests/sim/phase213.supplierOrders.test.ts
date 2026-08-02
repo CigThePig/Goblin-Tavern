@@ -178,6 +178,7 @@ describe('Phase 213 §6.1 — an order is a quote the supplier is held to', () =
     expect(appliedIds(after)).toContain('place_supplier_order')
     const order = listPurchaseOrders(after)[0]!
     expect(order.quotedUnitPrice).toBe(quote.unitPrice)
+    expect(order.quotedMissChance).toBe(quote.missChance)
     expect(order.lines[0]!.quantity).toBe(30)
     expect(order.promisedOnDay).toBe(quote.deliveryDay)
     const spent = getStockModuleState(after)
@@ -300,6 +301,41 @@ describe('Phase 213 §6.1 — an order is a quote the supplier is held to', () =
     expect(after.paid).toBe(1)
     expect(after.outstanding).toBe(invoice.outstanding - 1)
     expect(['active', 'pending', 'grace']).toContain(after.status)
+  })
+
+  it('reserves an approved credit line when a net order is placed', () => {
+    let state = creditedTavern()
+    const before = quoteSupplierOrder(state, {
+      supplierId: 'brakka_mushroom_cart',
+      stockId: 'mushrooms',
+      quantity: 8,
+      onCredit: true,
+    })
+    expect(before.refusal).toBeUndefined()
+
+    state = day(state, 41, [
+      {
+        actionId: 'place_supplier_order',
+        targetId: 'brakka_mushroom_cart:mushrooms',
+        amount: 8,
+        options: { onCredit: true },
+      },
+    ])
+    const order = listPurchaseOrders(state, {
+      supplierId: 'brakka_mushroom_cart',
+      open: true,
+    }).at(-1)!
+    expect(order.paymentTerms).toBe('net')
+
+    const after = quoteSupplierOrder(state, {
+      supplierId: 'brakka_mushroom_cart',
+      stockId: 'mushrooms',
+      quantity: 1,
+      onCredit: true,
+    })
+    expect(after.creditAvailable).toBe(
+      Math.max(0, before.creditAvailable - Math.ceil(order.quotedUnitPrice * 8)),
+    )
   })
 })
 
@@ -531,23 +567,76 @@ describe('Phase 213 §6.4 — counterplay', () => {
     const state = ready()
     const refused = quoteSupplierOrder(state, {
       supplierId: 'marsh_root_peddler',
-      stockId: 'stew',
+      stockId: 'ingredients',
       quantity: 10,
     })
     expect(refused.refusal?.code).toBe('does_not_stock')
 
     const substituted = quoteSupplierOrder(state, {
       supplierId: 'marsh_root_peddler',
-      stockId: 'stew',
+      stockId: 'ingredients',
       quantity: 10,
       allowSubstitution: true,
     })
     expect(substituted.refusal).toBeUndefined()
-    expect(substituted.substitutedFor).toBe('stew')
-    expect(substituted.stockId).not.toBe('stew')
+    expect(substituted.substitutedFor).toBe('ingredients')
+    expect(substituted.stockId).not.toBe('ingredients')
     expect(
       state.world.suppliers['marsh_root_peddler']!.goodsProvided,
     ).toContain(substituted.stockId)
+  })
+
+  it('does not substitute prepared food for a raw ingredient role', () => {
+    const quote = quoteSupplierOrder(ready(), {
+      supplierId: 'scrap_meat_vendor',
+      stockId: 'mushrooms',
+      quantity: 10,
+      allowSubstitution: true,
+    })
+    expect(quote.refusal?.code).toBe('does_not_stock')
+  })
+
+  it('an allowed lower-grade substitution turns a failed fulfillment into real stock', () => {
+    let substituted:
+      | { quality: number; quotedQuality: number; quantity: number }
+      | undefined
+
+    // A failed reliability roll is deterministic for a seed, but no one
+    // seed should be hard-coded as a magic outcome. Sweep several natural
+    // order routes and stop at the first sanctioned lower-grade fill.
+    for (let i = 0; i < 30 && !substituted; i += 1) {
+      let trial = withReliability(
+        withRelationship(ready(2_000), 'gildlock_brewhouse', 10),
+        'gildlock_brewhouse',
+        0,
+      )
+      trial = day(trial, 550 + i * 10, [
+        {
+          actionId: 'place_supplier_order',
+          targetId: 'gildlock_brewhouse:ale',
+          amount: 10,
+          options: { allowSubstitution: true },
+        },
+      ])
+      const order = listPurchaseOrders(trial, { open: true })[0]!
+      for (let d = 0; d <= order.deliveryWindowDays + 1; d += 1) {
+        trial = day(trial, 551 + i * 10 + d)
+        const delivery = getSupplierModuleState(trial).deliveriesToday.find(
+          (entry) => entry.tags.includes(`order:${order.id}`),
+        )
+        if (!delivery || delivery.quality >= order.quotedQuality) continue
+        substituted = {
+          quality: delivery.quality,
+          quotedQuality: order.quotedQuality,
+          quantity: delivery.quantity,
+        }
+        break
+      }
+    }
+
+    expect(substituted, 'no lower-grade substitution occurred').toBeDefined()
+    expect(substituted!.quantity).toBeGreaterThan(0)
+    expect(substituted!.quality).toBeLessThan(substituted!.quotedQuality)
   })
 
   it('the local market is the emergency channel: dearer, common goods only, capped', () => {
@@ -615,6 +704,66 @@ describe('Phase 213 §6.4 — counterplay', () => {
     expect(getSupplierModuleState(state).orderArchive.at(-1)?.status).toBe(
       'cancelled',
     )
+    expect(
+      getEconomyModuleState(state).lastDailyRecord!.accounting.stockPurchases,
+    ).toBe(-prepaid)
+  })
+
+  it('a failed prepaid order closes inside the original window and refunds undelivered goods', () => {
+    let proof:
+      | {
+          closedOnDay: number
+          lastPermittedDay: number
+          refund: number
+          expectedRefund: number
+        }
+      | undefined
+
+    for (let i = 0; i < 40 && !proof; i += 1) {
+      let trial = withReliability(
+        withRelationship(ready(2_000), 'gildlock_brewhouse', 0),
+        'gildlock_brewhouse',
+        0,
+      )
+      trial = day(trial, 720 + i * 10, [
+        {
+          actionId: 'place_supplier_order',
+          targetId: 'gildlock_brewhouse:ale',
+          amount: 10,
+        },
+      ])
+      const placed = listPurchaseOrders(trial, { open: true })[0]!
+      expect(placed.paymentTerms).toBe('cash')
+      const originalDue = placed.dueOnDay!
+      const lastPermittedDay = originalDue + placed.deliveryWindowDays
+
+      for (let d = 0; d <= placed.deliveryWindowDays + 2; d += 1) {
+        trial = day(trial, 721 + i * 10 + d)
+        const archived = getSupplierModuleState(trial).orderArchive.find(
+          (order) => order.id === placed.id,
+        )
+        if (!archived || archived.status !== 'expired') continue
+        const delivered = archived.delivered['ale'] ?? 0
+        const retainedPrepayment = Math.ceil(
+          archived.lines[0]!.unitPrice * delivered,
+        )
+        const refund = getStockModuleState(trial).ledger
+          .filter((entry) => entry.tags.includes('order_refund'))
+          .reduce((sum, entry) => sum + Math.max(0, entry.amount), 0)
+        proof = {
+          closedOnDay: archived.closedOnDay!,
+          lastPermittedDay,
+          refund,
+          expectedRefund: archived.prepaid - retainedPrepayment,
+        }
+        break
+      }
+    }
+
+    expect(proof, 'no prepaid order failed during the deterministic sweep').toBeDefined()
+    expect(proof!.closedOnDay).toBeLessThanOrEqual(proof!.lastPermittedDay)
+    expect(proof!.refund).toBe(proof!.expectedRefund)
+    expect(proof!.refund).toBeGreaterThan(0)
   })
 
   it('amending an order before it loads changes what is owed and what was paid', () => {
@@ -687,7 +836,7 @@ describe('Phase 213 §6.4 — counterplay', () => {
     // for it, so it is reported as a write-off.
     expect(
       getEconomyModuleState(state).lastDailyRecord!.accounting.writeOffs,
-    ).toBeGreaterThan(0)
+    ).toBeGreaterThanOrEqual(Number(applied.data['relief']))
     expect(
       getSupplierAccount(state, 'brakka_mushroom_cart').history.disputesUpheld,
     ).toBe(1)
@@ -786,6 +935,21 @@ describe('Phase 213 — reconciliation, bounds and discovery', () => {
     // Credit standing is legible without opening a form.
     expect(row.credit.status).toBe('approved')
     expect(row.credit.limit).toBeGreaterThan(0)
+
+    // Actions that need quantity/options must route to the dedicated form;
+    // otherwise the generic picker queues a payload the action itself
+    // rejects (amend), or silently hides the phase's rush/split/substitution
+    // and partial-payment capabilities.
+    for (const id of [
+      'place_supplier_order',
+      'amend_supplier_order',
+      'pay_supplier_invoice',
+      'schedule_supplier_payment',
+    ]) {
+      expect(actionRegistry.get(id).composer, `${id} has no UI composer`).toBe(
+        'supplier',
+      )
+    }
   })
 
   it('the supplier report names open orders and outstanding invoices', () => {

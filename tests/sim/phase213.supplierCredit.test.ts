@@ -22,6 +22,7 @@ import { getWeeklyModuleState } from '../../src/sim/modules/weekly/state'
 import { getEconomyModuleState } from '../../src/sim/modules/economy/index'
 import {
   creditEligibility,
+  creditLimitFor,
   getSupplierAccount,
   listPurchaseOrders,
   quoteSupplierOrder,
@@ -463,6 +464,19 @@ describe('Phase 213 §6.2 — relationship and belief price the quote', () => {
     const untilDay = account.termsAdjustmentUntilDay!
     state = runDays(state, untilDay - state.calendar.totalDaysElapsed + 1, 20)
     expect(getSupplierAccount(state, CART).termsAdjustment).toBe(1)
+
+    // Repeating the negotiation is bounded by the supplier's live base
+    // appetite; it cannot compound the previously negotiated line forever.
+    const beforeRepeat = getSupplierAccount(state, CART)
+    const boundedLimit = Math.round(
+      creditLimitFor(state, state.world.suppliers[CART]!, beforeRepeat) * 1.4,
+    )
+    state = day(state, 80, [
+      { actionId: 'negotiate_supplier_terms', targetId: CART },
+    ])
+    expect(getSupplierAccount(state, CART).creditLimit).toBeLessThanOrEqual(
+      boundedLimit,
+    )
   })
 
   it('a supplier will not discuss terms while an invoice is past due', () => {

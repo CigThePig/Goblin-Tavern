@@ -15,7 +15,7 @@ export function formatEconomyAccountingLines(
 ): string[] {
   const lines = [
     `Sales: ${signed(accounting.sales)}`,
-    `Stock purchases: -${accounting.stockPurchases}`,
+    `Stock purchases: ${signed(-accounting.stockPurchases)}`,
     `Wages: -${accounting.wages}`,
     `Rent: -${accounting.rent}`,
     `Maintenance: -${accounting.maintenance}`,

@@ -15,7 +15,9 @@ import type { EconomyAccountingTotals } from './types'
 
 export const EconomyAccountingTotalsSchema = z.object({
   sales: z.number().min(0),
-  stockPurchases: z.number().min(0),
+  // A supplier refund is a contra-expense and can make a single day's net
+  // purchases negative when it reverses a prepayment made on an earlier day.
+  stockPurchases: z.number(),
   wages: z.number().min(0),
   rent: z.number().min(0),
   maintenance: z.number().min(0),
@@ -68,6 +70,11 @@ export function applyLedgerEntryToAccounting(
   if (entry.category === 'purchase') {
     if (hasAnyTag(entry, ['invoice_payment', 'supplier_invoice'])) {
       next.invoicePayments += magnitude
+    } else if (hasAnyTag(entry, ['order_refund'])) {
+      // Refunds return coin against the original purchase. Treating their
+      // positive ledger amount as another absolute expense doubles the
+      // reported cost instead of reversing it.
+      next.stockPurchases -= Math.max(0, entry.amount)
     } else {
       next.stockPurchases += magnitude
     }
@@ -189,7 +196,16 @@ function accrualFacts(
     ) {
       creditPurchases += record.principal
     }
-    if (
+    const explicitWriteOff = record.history
+      .filter(
+        (entry) =>
+          entry.onDay === ledgerToday &&
+          entry.reason.startsWith('write-off:'),
+      )
+      .reduce((sum, entry) => sum + Math.max(0, entry.amount ?? 0), 0)
+    if (explicitWriteOff > 0) {
+      writeOffs += explicitWriteOff
+    } else if (
       record.lastTransitionOnDay === ledgerToday &&
       (record.status === 'forgiven' || record.status === 'expired')
     ) {

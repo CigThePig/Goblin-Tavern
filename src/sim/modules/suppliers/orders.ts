@@ -16,6 +16,7 @@ import {
   quoteSupplierOrder,
   spotMarketAvailable,
   spotMarketUnitPrice,
+  supplierCreditExposure,
   type QuoteRequest,
   type SupplierQuote,
 } from './quote'
@@ -71,6 +72,8 @@ const PARTIAL_SHARE_OF_MISSES = 0.5
 const RETRY_DELAY_DAYS = 2
 /** Days after delivery that a deposit order's balance falls due. */
 const DEPOSIT_BALANCE_DAYS = 3
+/** Quality lost when the player authorises a lower-grade fallback. */
+const LOWER_GRADE_QUALITY_PENALTY = 20
 
 export type PlaceOrderInput = QuoteRequest & {
   /** Recorded on split orders so the report can group them. */
@@ -163,6 +166,7 @@ export function placeOrder(
     supplierId: quote.supplierId,
     quotedUnitPrice: quote.unitPrice,
     quotedQuality: quote.quality,
+    quotedMissChance: quote.missChance,
     leadTimeDays: quote.leadTimeDays,
     deliveryWindowDays: quote.deliveryWindowDays,
     paymentTerms: quote.paymentTerms,
@@ -271,8 +275,15 @@ export function placeSplitOrder(
   const rejections: string[] = []
   const orders: PurchaseOrderRecord[] = []
   let remaining = Math.floor(input.quantity)
+  const requestId =
+    input.splitFromRequestId ??
+    `split-${ctx.state.calendar.totalDaysElapsed}-${getSupplierModuleState(ctx.state).nextOrderSuffix}`
 
-  const first = placeOrder(ctx, { ...input, quantity: remaining })
+  const first = placeOrder(ctx, {
+    ...input,
+    quantity: remaining,
+    splitFromRequestId: requestId,
+  })
   if (first.ok) {
     orders.push(first.order)
     remaining -= first.quote.quantity
@@ -280,7 +291,6 @@ export function placeSplitOrder(
     rejections.push(first.reason)
   }
 
-  const requestId = orders[0]?.id ?? `split-${ctx.state.calendar.totalDaysElapsed}`
   const tried = new Set<string>([input.supplierId])
   while (remaining > 0) {
     const alternatives = quoteAlternativeSuppliers(ctx.state, {
@@ -382,19 +392,25 @@ export function deliverOrder(
   const stockLabel = ctx.state.stock[line.stockId]?.label ?? line.stockId
 
   const rng = ctx.getRngStream('supplier_delivery')
-  const missChance = supplier
-    ? Math.max(
-        0,
-        Math.min(0.6, (70 - supplier.reliability) * 0.006 + (order.rush ? 0.08 : 0)),
-      )
-    : 0
+  // The risk shown in the accepted quote includes load and rush pressure.
+  // Snapshotting it on the order keeps the displayed decision and the
+  // later fulfilment roll identical even if the market moves in between.
+  const missChance = order.quotedMissChance
   const failedRoll = missChance > 0 && rng.chance(missChance)
-  const partial = failedRoll && rng.chance(PARTIAL_SHARE_OF_MISSES)
+  const partial =
+    failedRoll &&
+    !order.substitutionsAllowed &&
+    owed > 1 &&
+    rng.chance(PARTIAL_SHARE_OF_MISSES)
 
   let quantity = owed
+  let quality = order.quotedQuality
   let outcome: DeliveryOutcome = 'full'
   let reason = 'delivered in full'
-  if (failedRoll && partial) {
+  if (failedRoll && order.substitutionsAllowed) {
+    quality = Math.max(5, order.quotedQuality - LOWER_GRADE_QUALITY_PENALTY)
+    reason = `${supplierLabel} filled the order with lower-grade substitute stock`
+  } else if (failedRoll && partial) {
     const share = PARTIAL_MIN + rng.float() * (PARTIAL_MAX - PARTIAL_MIN)
     quantity = Math.max(1, Math.floor(owed * share))
     outcome = 'partial'
@@ -411,7 +427,7 @@ export function deliverOrder(
       onDay: today,
       outcome,
       quantity,
-      quality: quantity > 0 ? order.quotedQuality : 0,
+      quality: quantity > 0 ? quality : 0,
       reason,
     },
   ].slice(-MAX_ORDER_ATTEMPTS)
@@ -421,10 +437,12 @@ export function deliverOrder(
   let invoiceId: string | undefined
 
   if (quantity > 0) {
+    const deliveredBefore = order.delivered[line.stockId] ?? 0
+    const deliveredAfter = deliveredBefore + quantity
     receiveGoods(ctx, {
       stockId: line.stockId,
       quantity,
-      quality: order.quotedQuality,
+      quality,
       supplierId: order.supplierId,
       coinCost: Math.round(quantity * line.unitPrice),
       orderId: order.id,
@@ -438,11 +456,20 @@ export function deliverOrder(
     }
     // Only what ARRIVED is billable, and only the part not already prepaid.
     if (order.paymentTerms !== 'cash') {
-      const value = Math.round(quantity * line.unitPrice)
-      const prepaidShare = Math.round(
-        order.prepaid * (quantity / Math.max(1, line.quantity)),
+      // Cumulative deltas make every partial delivery add up to the exact
+      // accepted quote despite integer-coin rounding at each attempt.
+      const valueBefore = Math.ceil(line.unitPrice * deliveredBefore)
+      const valueAfter = Math.ceil(line.unitPrice * deliveredAfter)
+      const prepaidBefore = Math.round(
+        order.prepaid * (deliveredBefore / Math.max(1, line.quantity)),
       )
-      const billable = Math.max(0, value - prepaidShare)
+      const prepaidAfter = Math.round(
+        order.prepaid * (deliveredAfter / Math.max(1, line.quantity)),
+      )
+      const billable = Math.max(
+        0,
+        valueAfter - valueBefore - (prepaidAfter - prepaidBefore),
+      )
       const invoice = openSupplierInvoice(ctx, {
         supplierId: order.supplierId,
         supplierLabel,
@@ -461,7 +488,8 @@ export function deliverOrder(
 
   const stillOwed = outstandingUnits(next, line.stockId)
   const exhausted = attempts.length >= MAX_ORDER_ATTEMPTS
-  const pastWindow = today >= order.promisedOnDay + order.deliveryWindowDays
+  const originalDue = order.dueOnDay ?? order.promisedOnDay
+  const pastWindow = today >= originalDue + order.deliveryWindowDays
 
   let closed = false
   let failed = false
@@ -471,12 +499,27 @@ export function deliverOrder(
   } else if (exhausted || pastWindow) {
     // The supplier has run out of chances. Refund the prepaid share of what
     // never arrived — a deposit buys goods, not the promise of goods.
-    const undeliveredShare = stillOwed / Math.max(1, line.quantity)
-    const refund = Math.round(order.prepaid * undeliveredShare)
+    const deliveredUnits = Math.max(0, line.quantity - stillOwed)
+    const retainedPrepayment =
+      order.paymentTerms === 'cash'
+        ? Math.ceil(line.unitPrice * deliveredUnits)
+        : Math.round(
+            order.prepaid * (deliveredUnits / Math.max(1, line.quantity)),
+          )
+    const refund = Math.max(0, order.prepaid - retainedPrepayment)
+    if (refund > 0) {
+      refundCoin(
+        ctx,
+        refund,
+        order.supplierId,
+        line.stockId,
+        'supplier failed to deliver the prepaid balance',
+      )
+    }
     next = expireContract(
       next,
       today,
-      `${stillOwed} units never arrived${refund > 0 ? `; ${refund} coin of deposit written off` : ''}`,
+      `${stillOwed} units never arrived${refund > 0 ? `; ${refund} coin refunded` : ''}`,
     )
     closed = true
     failed = true
@@ -518,7 +561,7 @@ export function deliverOrder(
     outcome,
     order: next,
     quantity,
-    quality: quantity > 0 ? order.quotedQuality : 0,
+    quality: quantity > 0 ? quality : 0,
     invoiced,
     ...(invoiceId !== undefined ? { invoiceId } : {}),
     closed,
@@ -840,11 +883,31 @@ export function amendOrder(
     if (headroom.refusal) {
       return { ok: false, code: headroom.refusal.code, reason: headroom.refusal.reason }
     }
+    if (order.paymentTerms === 'net') {
+      const account = getSupplierAccount(ctx.state, order.supplierId)
+      const addedValue =
+        Math.ceil(line.unitPrice * target) -
+        Math.ceil(line.unitPrice * line.quantity)
+      const available = Math.max(
+        0,
+        account.creditLimit - supplierCreditExposure(ctx.state, order.supplierId),
+      )
+      if (addedValue > available) {
+        return {
+          ok: false,
+          code: 'credit_limit_reached',
+          reason: `${ctx.state.world.suppliers[order.supplierId]?.label ?? order.supplierId} will carry ${available} more coin; this amendment adds ${addedValue}.`,
+        }
+      }
+    }
   }
 
   const today = ctx.state.calendar.totalDaysElapsed
   const prepaidPerUnit = order.prepaid / Math.max(1, line.quantity)
-  const newPrepaid = Math.round(prepaidPerUnit * target)
+  const newPrepaid =
+    order.paymentTerms === 'cash'
+      ? Math.ceil(line.unitPrice * target)
+      : Math.round(prepaidPerUnit * target)
   const delta = newPrepaid - order.prepaid
   let refund = 0
   let extraDue = 0

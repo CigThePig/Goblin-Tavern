@@ -110,6 +110,9 @@ export type ActionPickerRequest = {
  */
 export type ComposerRequest = {
   composer: string
+  actionId?: string
+  targetId?: string
+  targetLabel?: string
 }
 
 /**
@@ -949,19 +952,38 @@ class GameStore {
    * composer. Navigates to the screen that hosts it and leaves a
    * consume-once request the panel picks up.
    */
-  requestComposer(composer: string): void {
+  requestComposer(
+    composer: string,
+    context: Omit<ComposerRequest, 'composer'> = {},
+  ): void {
     if (composer === 'expedition') {
       this.route = 'tavern'
       this.tavernSubview = 'stock'
+    } else if (composer === 'supplier') {
+      this.route = 'world'
+      this.worldSubview = 'suppliers'
     }
-    this.composerRequest = { composer }
+    this.composerRequest = {
+      composer,
+      ...(context.actionId !== undefined ? { actionId: context.actionId } : {}),
+      ...(context.targetId !== undefined ? { targetId: context.targetId } : {}),
+      ...(context.targetLabel !== undefined
+        ? { targetLabel: context.targetLabel }
+        : {}),
+    }
+  }
+
+  /** Read-and-clear a pending composer request, preserving its context. */
+  takeComposerRequest(composer: string): ComposerRequest | undefined {
+    if (this.composerRequest?.composer !== composer) return undefined
+    const request = this.composerRequest
+    this.composerRequest = undefined
+    return request
   }
 
   /** Read-and-clear the pending composer request (consume-once). */
   consumeComposerRequest(composer: string): boolean {
-    if (this.composerRequest?.composer !== composer) return false
-    this.composerRequest = undefined
-    return true
+    return this.takeComposerRequest(composer) !== undefined
   }
 
   setReportsSubview(v: ReportsSubview): void {

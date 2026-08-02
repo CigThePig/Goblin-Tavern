@@ -40,6 +40,7 @@ export {
   spotMarketUnitPrice,
   supplierBaseCapacity,
   supplierBaseLeadDays,
+  supplierCreditExposure,
   supplierGrievance,
   supplierOutstanding,
   type QuoteRequest,

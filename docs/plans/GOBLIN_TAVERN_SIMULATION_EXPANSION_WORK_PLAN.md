@@ -165,6 +165,12 @@ reputation axes** (`state.reputation`).
 | 2 | Stock records | 20 → 22 | `timber` + `cut_stone`, the materials §2.3 makes a build consume |
 | 2 | Recipes | 20 → 22 | the 1:1 `dish_<id>` rows the stock/recipe pairing invariant requires; both carry `upkeep`, so nothing serves them |
 | 2 | Owner actions | 41 → 41 | seven upgrade-lifecycle actions in, seven retired project actions out |
+| 3 | Owner actions | 41 → 51 | twelve workforce actions in, two obsolete founding-staff actions out |
+| 3 | Staff roles | 6 → 8 | steward and handyman complete the promotion graph |
+| 4 | Owner actions | 51 → 55 | tab and regular counterplay |
+| 5 | Runtime modules | 33 → 34 | economy becomes an authoritative module |
+| 5 | Owner actions | 55 → 59 | financial failure and recovery actions |
+| 6 | Owner actions | 59 → 67 | order, credit, invoice-payment and negotiation actions |
 
 **Area-upgrade definitions stay at 18 through Phase 2** — the phase makes
 the existing catalogue buildable rather than growing it.
@@ -1908,6 +1914,55 @@ Provide:
 ## Completion gate
 
 OBL-04 is closed. Supplier misses are failed transactions rather than diagnostic text, and procurement is a strategic loop connected to service and finance.
+
+## What Phase 6 actually landed (2026-08-02, ISSUE-176)
+
+**Procurement is a dated contract, not an instant stock mutation.** A single
+pure quote weighs the eleven decision inputs in §6.2 and snapshots supplier,
+good, quantity, price, quality, capacity, terms, lead time, window, risk and
+substitution rules onto a real purchase order. Orders reserve supplier
+capacity and approved credit immediately. Delivery events roll the named
+`supplier_delivery` stream against that order, blend delivered quality into
+the cellar, record shortages on a short or miss, and either settle within the
+original window or refund the undelivered prepaid balance. Partial deliveries
+invoice cumulative value deltas, so integer rounding still reconciles exactly
+to the accepted quote.
+
+**Credit now has an operating lifecycle.** A completed trading record and
+relationship open a debt-tolerance-sized line; undelivered net orders and
+live invoices consume it without an order-placement overcommit window.
+Delivered goods create shared-ledger obligations with supplier-specific terms.
+Partial and scheduled payments, grace, late charges, default, collections,
+supply refusal, settlement and archive all operate through the shared
+obligation machinery, while supplier standing and the next quote read the
+result. Weekly invoice and Phase 5 accounting rows are derived from those same
+records.
+
+**The player has counterplay at every link.** Eight registered actions cover
+placing, amending, cancelling, splitting and disputing orders; requesting
+credit; paying or scheduling invoices; and negotiating terms. Rush, alternate
+supplier, related/lower-grade substitution, bulk stockpiling and a dearer
+common-goods spot market are materially different routes. The World supplier
+sheet shows live quotes, orders, credit and invoices, and a dedicated composer
+collects every quantity and option the generic picker cannot represent. Six
+supplier future-hook families now resolve mechanically from real trading
+records; no-trade and evenly split dual-supplier comparisons are explained
+no-ops rather than arbitrary rewards.
+
+**Persistence and proof landed with the loop.** Orders and accounts are
+schema-backed and migrated; live orders, archives and attempts have declared
+caps; save/reload and full-day/segmented routes cannot double-deliver or
+double-invoice. The implementation ledger closes `OBL-04` and `DEP-06`, and
+the repo map records 67 owner actions. Contract coverage lives in the four
+`phase213.*` simulation files plus the supplier composer component test.
+
+**Final verification after review follow-ups:** `npm run test:full` passed all
+326 files / 4,284 tests; the fast suite passed all 317 files / 4,151 tests;
+TypeScript and Svelte checks completed with zero errors or warnings; and the
+production build completed with only the existing large-chunk advisory. The
+expansion artifacts also passed with 134 ledger rows (50 done, 2 in progress,
+82 open), 98 future hooks across 189 sites, 13 baseline routes with no drift,
+and a 34-module / 26-phase / 19-stream / 143-term repo map with no drift.
 
 ---
 

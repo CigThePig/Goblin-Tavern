@@ -56,12 +56,16 @@ describe('Phase 90 — owner-action queue gate', () => {
 
   it('accepts a valid (action, target) pair with budget remaining', () => {
     const state = createInitialTavernState()
-    const def = actionRegistry.get('restock_item')
-    const stockId = Object.keys(state.stock)[0]!
+    // Phase 6 made restocking a deliberately premium spot-market purchase,
+    // so the default 40-unit payload is not necessarily affordable from a
+    // fresh till. Use a no-cash targeted action to keep this test about the
+    // shared target/budget gate.
+    const def = actionRegistry.get('clean_area')
+    const areaId = Object.keys(state.areas)[0]!
     const reason = actionDisabledReasonForTarget(
       def,
       state,
-      stockId,
+      areaId,
       DAY_MINUTES,
     )
     expect(reason).toBeUndefined()

@@ -404,6 +404,7 @@ const PurchaseOrderRecordSchema = z.object({
   supplierId: z.string(),
   quotedUnitPrice: z.number().min(0),
   quotedQuality: z.number().min(0).max(100),
+  quotedMissChance: z.number().min(0).max(1),
   leadTimeDays: z.number().int().min(0),
   deliveryWindowDays: z.number().int().min(0),
   paymentTerms: z.enum(['cash', 'deposit', 'net']),

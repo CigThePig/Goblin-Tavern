@@ -41,6 +41,7 @@ import {
   SUPPLIER_RETALIATION_EVENT,
   SUPPLIER_SCHEDULED_PAYMENT_EVENT,
   getSupplierAccount,
+  getSupplierModuleState,
   quoteSupplierOrder,
 } from '../../src/sim/modules/suppliers/index'
 
@@ -84,6 +85,28 @@ function withSupplier(
   }
 }
 
+function withSupplierAccount(
+  state: TavernState,
+  supplierId: string,
+  patch: Partial<ReturnType<typeof getSupplierAccount>>,
+): TavernState {
+  const slice = getSupplierModuleState(state)
+  const account = getSupplierAccount(state, supplierId)
+  return {
+    ...state,
+    modules: {
+      ...state.modules,
+      suppliers: {
+        ...slice,
+        accounts: {
+          ...slice.accounts,
+          [supplierId]: { ...account, ...patch },
+        },
+      },
+    },
+  }
+}
+
 /**
  * Queue a mechanical event the way a response's future hook would, then run
  * the day it comes due.
@@ -97,6 +120,7 @@ function scheduleAndResolve(
   state: TavernState,
   type: string,
   supplierId: string,
+  secondarySupplierId?: string,
   daysOut = 1,
 ): TavernState {
   const scheduledForDay = state.calendar.totalDaysElapsed + daysOut
@@ -110,7 +134,10 @@ function scheduleAndResolve(
             type,
             target: { kind: 'supplier', id: supplierId },
             scheduledForDay,
-            payload: { supplierId },
+            payload: {
+              supplierId,
+              ...(secondarySupplierId ? { secondarySupplierId } : {}),
+            },
             origin: {
               source: 'phase213.probe',
               readable: `${type} for ${supplierId}`,
@@ -185,6 +212,24 @@ describe('Phase 213 — the supplier events are owned, typed and bridged', () =>
     expect(
       findScheduledEventDefinitionForHookName('supplier_retaliation_'),
     ).toBeUndefined()
+
+    const dual = getScheduledEventDefinition(DUAL_SUPPLIER_BALANCE_EVENT)!
+    expect(
+      dual.fromFutureHook!({
+        hookName: `dual_supplier_balance_${CART}`,
+        readable: 'Split orders',
+        scheduledForDay: 4,
+        metadata: {
+          actors: [
+            { kind: 'supplier', id: CART },
+            { kind: 'supplier', id: 'old_keg_brewers' },
+          ],
+        },
+      })?.payload,
+    ).toEqual({
+      supplierId: CART,
+      secondarySupplierId: 'old_keg_brewers',
+    })
   })
 
   it('merchant_flight_possible stays narrative, as the ledger records', () => {
@@ -213,7 +258,11 @@ describe('Phase 213 — the supplier events are owned, typed and bridged', () =>
 
 describe('Phase 213 — every supplier family resolves into terms a quote reads', () => {
   it('retaliation stops supply and hardens terms', () => {
-    const start = withSupplier(ready(), CART, { relationship: 20 })
+    const start = withSupplierAccount(
+      withSupplier(ready(), CART, { relationship: 20 }),
+      CART,
+      { creditStatus: 'approved', creditLimit: 50 },
+    )
     const after = scheduleAndResolve(start, SUPPLIER_RETALIATION_EVENT, CART)
     const outcome = outcomeFor(after, SUPPLIER_RETALIATION_EVENT)!
     expect(outcome.status).toBe('resolved')
@@ -224,6 +273,8 @@ describe('Phase 213 — every supplier family resolves into terms a quote reads'
       after.calendar.totalDaysElapsed,
     )
     expect(account.termsAdjustment).toBeGreaterThan(1)
+    expect(account.creditStatus).toBe('suspended')
+    expect(account.creditLimit).toBe(0)
     expect(
       quoteSupplierOrder(after, {
         supplierId: CART,
@@ -266,11 +317,20 @@ describe('Phase 213 — every supplier family resolves into terms a quote reads'
   })
 
   it('goodwill cuts the price, and may open a line the record now supports', () => {
-    const start = withSupplier(ready(), CART, { relationship: 75 })
+    const concessionUntil = 20
+    const start = withSupplierAccount(
+      withSupplier(ready(), CART, { relationship: 75 }),
+      CART,
+      {
+        termsAdjustment: 0.9,
+        termsAdjustmentUntilDay: concessionUntil,
+      },
+    )
     const after = scheduleAndResolve(start, SUPPLIER_GOODWILL_EVENT, CART)
     expect(outcomeFor(after, SUPPLIER_GOODWILL_EVENT)!.status).toBe('resolved')
     const account = getSupplierAccount(after, CART)
-    expect(account.termsAdjustment).toBeLessThanOrEqual(0.93)
+    expect(account.termsAdjustment).toBe(0.9)
+    expect(account.termsAdjustmentUntilDay).toBe(concessionUntil)
     expect(after.world.suppliers[CART]!.relationship).toBeGreaterThan(75)
   })
 
@@ -312,13 +372,45 @@ describe('Phase 213 — every supplier family resolves into terms a quote reads'
   })
 
   it('the dual-supplier balance resolves against both suppliers', () => {
-    const after = scheduleAndResolve(ready(), DUAL_SUPPLIER_BALANCE_EVENT, CART)
+    const selectedSecondary = 'old_keg_brewers'
+    const traded = simulateDay(
+      ready(),
+      {
+        seed: `${SEED}-dual-business`,
+        ownerActions: [
+          {
+            actionId: 'place_supplier_order',
+            targetId: `${CART}:mushrooms`,
+            amount: 4,
+          },
+          {
+            actionId: 'place_supplier_order',
+            targetId: `${CART}:mushrooms`,
+            amount: 4,
+          },
+          {
+            actionId: 'place_supplier_order',
+            targetId: `${selectedSecondary}:ale`,
+            amount: 4,
+          },
+        ],
+      },
+      FULL_PIPELINE,
+    ).state
+    const after = scheduleAndResolve(
+      traded,
+      DUAL_SUPPLIER_BALANCE_EVENT,
+      CART,
+      selectedSecondary,
+    )
     const outcome = outcomeFor(after, DUAL_SUPPLIER_BALANCE_EVENT)!
     expect(outcome.status).toBe('resolved')
     expect(outcome.mutations).toHaveLength(2)
     const touched = new Set(outcome.mutations.map((m) => m.targetId))
     expect(touched.size).toBe(2)
     expect(touched.has(CART)).toBe(true)
+    expect(touched.has(selectedSecondary)).toBe(true)
+    expect(touched.has('marsh_root_peddler')).toBe(false)
     // One of them improved and the other hardened — a real trade-off, not a
     // pair of identical nudges.
     const adjustments = [...touched].map(
@@ -326,6 +418,14 @@ describe('Phase 213 — every supplier family resolves into terms a quote reads'
     )
     expect(Math.min(...adjustments)).toBeLessThan(1)
     expect(Math.max(...adjustments)).toBeGreaterThan(1)
+  })
+
+  it('the dual-supplier balance does not invent loyalty before either supplier trades', () => {
+    const after = scheduleAndResolve(ready(), DUAL_SUPPLIER_BALANCE_EVENT, CART)
+    const outcome = outcomeFor(after, DUAL_SUPPLIER_BALANCE_EVENT)!
+    expect(outcome.status).toBe('no_op')
+    expect(outcome.readable).toMatch(/no business to compare/)
+    expect(getSupplierAccount(after, CART).termsAdjustment).toBe(1)
   })
 
   it('an investigation clears a clean supplier and marks down a failing one', () => {

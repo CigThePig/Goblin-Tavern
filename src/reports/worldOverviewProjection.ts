@@ -38,7 +38,7 @@ import { actionRegistry } from '../sim/registries/actionRegistry'
 import {
   creditEligibility,
   quoteSupplierOrder,
-  supplierOutstanding,
+  supplierCreditExposure,
 } from '../sim/modules/suppliers/quote'
 import { outstandingSupplierInvoices } from '../sim/modules/suppliers/invoices'
 import {
@@ -875,7 +875,7 @@ function projectSupplierCredit(
   supplierId: string,
 ): SupplierCreditRow {
   const account = getSupplierAccount(state, supplierId)
-  const used = supplierOutstanding(state, supplierId)
+  const used = supplierCreditExposure(state, supplierId)
   const eligibility = creditEligibility(state, supplierId)
   const row: SupplierCreditRow = {
     status: account.creditStatus,
@@ -1257,5 +1257,4 @@ function applicableActionsForRow(
     return ref
   })
 }
-
 

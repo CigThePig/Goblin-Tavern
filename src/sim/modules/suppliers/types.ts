@@ -118,6 +118,8 @@ export type PurchaseOrderRecord = OrderRecord & {
   /** The quote the player accepted. Never recomputed. */
   quotedUnitPrice: number
   quotedQuality: number
+  /** Fulfilment risk shown when the order was accepted. Never recomputed. */
+  quotedMissChance: number
   leadTimeDays: number
   /** Days after `promisedOnDay` the supplier may still deliver in. */
   deliveryWindowDays: number

@@ -8,6 +8,8 @@
 <script lang="ts">
   import MeterBar from '../tavern/MeterBar.svelte'
   import SupplierDetailSheet from './SupplierDetailSheet.svelte'
+  import SupplierActionComposer from './SupplierActionComposer.svelte'
+  import { gameStore, type ComposerRequest } from '../../sim/gameStore.svelte'
   import type {
     SupplierRow,
     SuppliersPanelData,
@@ -16,6 +18,17 @@
   let { data }: { data: SuppliersPanelData } = $props()
 
   let selected = $state<SupplierRow | null>(null)
+  let composerRequest = $state<ComposerRequest | undefined>(undefined)
+
+  // Quantity/options-driven supplier actions route here from both the
+  // central picker and row-level quick actions. Consume once so returning
+  // to the Suppliers tab later does not reopen a stale form.
+  $effect(() => {
+    const request = gameStore.takeComposerRequest('supplier')
+    if (!request) return
+    selected = null
+    composerRequest = request
+  })
 </script>
 
 <section class="panel" aria-label="Suppliers">
@@ -65,6 +78,13 @@
   supplier={selected}
   open={selected !== null}
   onclose={() => (selected = null)}
+/>
+
+<SupplierActionComposer
+  data={data}
+  request={composerRequest}
+  open={composerRequest !== undefined}
+  onclose={() => (composerRequest = undefined)}
 />
 
 <style>

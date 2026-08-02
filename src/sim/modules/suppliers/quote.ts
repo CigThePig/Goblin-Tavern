@@ -450,6 +450,44 @@ export function supplierOutstanding(state: TavernState, supplierId: string): num
 }
 
 /**
+ * Coin already committed against a supplier's credit line.
+ *
+ * A net order reserves credit as soon as the supplier accepts it, not only
+ * after the cart arrives and an invoice is raised. Otherwise several orders
+ * placed on the same day can each see the whole line as available and
+ * collectively promise more credit than the supplier approved. Delivered
+ * units move from this reservation into an invoice, so only the undelivered
+ * value of open net orders is added to live invoice balances.
+ */
+export function supplierCreditExposure(
+  state: TavernState,
+  supplierId: string,
+): number {
+  const reservedForOpenOrders = Object.values(
+    getSupplierModuleState(state).orders,
+  )
+    .filter(
+      (order) =>
+        order.supplierId === supplierId &&
+        order.paymentTerms === 'net' &&
+        ['pending', 'active'].includes(order.status),
+    )
+    .reduce((sum, order) => {
+      const reserved = order.lines.reduce((lineSum, line) => {
+        const delivered = order.delivered[line.stockId] ?? 0
+        const acceptedValue = Math.ceil(line.unitPrice * line.quantity)
+        const deliveredValue = Math.ceil(
+          line.unitPrice * Math.min(line.quantity, delivered),
+        )
+        return lineSum + Math.max(0, acceptedValue - deliveredValue)
+      }, 0)
+      return sum + reserved
+    }, 0)
+
+  return supplierOutstanding(state, supplierId) + reservedForOpenOrders
+}
+
+/**
  * The one answer to "what would this supplier do?".
  *
  * Pure. No RNG, no mutation. Callers that need a random outcome (the
@@ -614,7 +652,7 @@ export function quoteSupplierOrder(
     account.creditStatus === 'approved'
       ? account.creditLimit
       : creditLimitFor(state, supplier, account)
-  const creditUsed = supplierOutstanding(state, supplier.id)
+  const creditUsed = supplierCreditExposure(state, supplier.id)
   const creditAvailable = Math.max(0, creditLimit - creditUsed)
   let paymentTerms: SupplierPaymentTerms = 'cash'
   if (request.onCredit) {
@@ -787,7 +825,7 @@ function labelForStock(state: TavernState, stockId: string): string {
 
 /**
  * A good this supplier does carry that could stand in for the one asked
- * for: same registry tag family, and actually stocked by them.
+ * for: same functional stock family, and actually stocked by them.
  *
  * Deliberately conservative — a substitution the player did not sanction
  * would be the sim inventing an outcome, so it only ever runs when
@@ -800,8 +838,11 @@ function findSubstitute(
 ): string | undefined {
   const wanted = state.stock[stockId]
   if (!wanted) return undefined
+  // `food` and `perishable` are properties, not interchangeable roles: a
+  // bowl of prepared stew cannot replace raw mushrooms in a recipe merely
+  // because both spoil. These tags describe what the stock can do.
   const family = wanted.tags.filter((tag) =>
-    ['food', 'alcohol', 'ingredient', 'perishable'].includes(tag),
+    ['alcohol', 'ingredient', 'fuel', 'equipment', 'material'].includes(tag),
   )
   if (family.length === 0) return undefined
   const candidates = supplier.goodsProvided

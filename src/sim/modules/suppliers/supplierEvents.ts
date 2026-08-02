@@ -72,6 +72,9 @@ const ScheduledPaymentPayloadSchema = z.object({
 })
 
 const SupplierPayloadSchema = z.object({ supplierId: z.string() })
+const DualSupplierPayloadSchema = SupplierPayloadSchema.extend({
+  secondarySupplierId: z.string().optional(),
+})
 
 function noOp(reason: string, readable: string): ScheduledEventResolution {
   return { status: 'no_op', reason, readable }
@@ -120,6 +123,21 @@ function supplierExactOnceKey({
 }): string {
   const parsed = SupplierPayloadSchema.safeParse(payload)
   return `${type}|${parsed.success ? parsed.data.supplierId : 'unknown'}|${scheduledForDay}`
+}
+
+function dualSupplierExactOnceKey({
+  type,
+  payload,
+  scheduledForDay,
+}: {
+  type: string
+  payload: unknown
+  scheduledForDay: number
+}): string {
+  const parsed = DualSupplierPayloadSchema.safeParse(payload)
+  return parsed.success
+    ? `${type}|${parsed.data.supplierId}|${parsed.data.secondarySupplierId ?? 'auto'}|${scheduledForDay}`
+    : `${type}|unknown|${scheduledForDay}`
 }
 
 // ---------------------------------------------------------------------------
@@ -563,20 +581,26 @@ const goodwillEvent: ScheduledEventDefinition = {
     writeSupplierAccount(
       ctx,
       supplier.id,
-      (current) => ({
-        ...current,
-        termsAdjustment: Math.min(current.termsAdjustment, 0.93),
-        termsAdjustmentUntilDay: untilDay,
-        ...(grantsCredit
-          ? {
-              creditStatus: 'approved' as const,
-              creditLimit: eligibility.limit,
-              netTermDays: eligibility.netTermDays,
-            }
-          : {}),
-        lastDecisionDay: today,
-        lastDecisionReason: 'goodwill from a bill paid on time',
-      }),
+      (current) => {
+        const preservesExistingConcession = current.termsAdjustment <= 0.93
+        const adjustmentExpiry = preservesExistingConcession
+          ? Math.max(current.termsAdjustmentUntilDay ?? untilDay, untilDay)
+          : untilDay
+        return {
+          ...current,
+          termsAdjustment: Math.min(current.termsAdjustment, 0.93),
+          termsAdjustmentUntilDay: adjustmentExpiry,
+          ...(grantsCredit
+            ? {
+                creditStatus: 'approved' as const,
+                creditLimit: eligibility.limit,
+                netTermDays: eligibility.netTermDays,
+              }
+            : {}),
+          lastDecisionDay: today,
+          lastDecisionReason: 'goodwill from a bill paid on time',
+        }
+      },
       'goodwill_return',
     )
     ctx.modifySupplier(
@@ -706,40 +730,88 @@ const newSupplierEvent: ScheduledEventDefinition = {
 /**
  * Splitting the business between two suppliers comes to a head.
  *
- * Both of them find out. The one carrying more of the tavern's outstanding
- * commitment reads it as loyalty and improves terms; the other reads it as
- * being kept on a string and hardens. The comparison is made from real
- * committed units, so which way it lands is a consequence of orders the
- * player actually placed.
+ * Both of them find out. The one that has carried more of the tavern's real
+ * orders reads it as loyalty and improves terms; the other reads it as
+ * being kept on a string and hardens. With no trade — or an exactly even
+ * split — there is no honest basis for favouring one of them arbitrarily.
  */
 const dualSupplierEvent: ScheduledEventDefinition = {
   type: DUAL_SUPPLIER_BALANCE_EVENT,
   kind: 'mechanical',
   ownerModuleId: SUPPLIERS_MODULE_ID,
   label: 'Two suppliers compare notes',
-  payloadSchema: SupplierPayloadSchema,
+  payloadSchema: DualSupplierPayloadSchema,
   beat: 'morning',
   defaultOffsetDays: 6,
   warningWindowDays: 2,
   expiryDays: 7,
   missingTarget: 'cancel',
-  exactOnceKey: supplierExactOnceKey,
+  exactOnceKey: dualSupplierExactOnceKey,
   futureHookPrefixes: ['dual_supplier_balance_'],
-  fromFutureHook: supplierHookAdapter('dual_supplier_balance_'),
+  fromFutureHook: ({ hookName, metadata }) => {
+    const adapted = supplierHookAdapter('dual_supplier_balance_')({ hookName })
+    if (!adapted) return undefined
+    const parsed = SupplierPayloadSchema.parse(adapted.payload)
+    const actors = Array.isArray(metadata?.['actors']) ? metadata['actors'] : []
+    const secondary = actors.find(
+      (entry): entry is { kind: string; id: string } =>
+        typeof entry === 'object' &&
+        entry !== null &&
+        (entry as { kind?: unknown }).kind === 'supplier' &&
+        typeof (entry as { id?: unknown }).id === 'string' &&
+        (entry as { id: string }).id !== parsed.supplierId,
+    )
+    return {
+      payload: {
+        supplierId: parsed.supplierId,
+        ...(secondary ? { secondarySupplierId: secondary.id } : {}),
+      },
+      target: supplierRef(parsed.supplierId),
+    }
+  },
   resolve: (ctx, record): ScheduledEventResolution => {
-    const supplier = supplierOf(ctx.state, record.payload)
+    const parsed = DualSupplierPayloadSchema.safeParse(record.payload)
+    if (!parsed.success) {
+      return noOp('the event did not name its suppliers', record.origin.readable)
+    }
+    const supplier = ctx.state.world.suppliers[parsed.data.supplierId]
     if (!supplier) return noOp('that supplier no longer trades here', record.origin.readable)
     const today = ctx.state.calendar.totalDaysElapsed
-    const rival = findRivalSupplier(ctx.state, supplier)
+    const namedRival = parsed.data.secondarySupplierId
+    const rival = namedRival
+      ? ctx.state.world.suppliers[namedRival]
+      : findRivalSupplier(ctx.state, supplier)
     if (!rival) {
       return noOp(
-        `nobody else carries what ${supplier.label} carries`,
-        `${supplier.label} has no rival to compare notes with.`,
+        namedRival
+          ? `the selected second supplier '${namedRival}' no longer trades here`
+          : `nobody else carries what ${supplier.label} carries`,
+        namedRival
+          ? `${supplier.label}'s selected counterpart was no longer available.`
+          : `${supplier.label} has no rival to compare notes with.`,
+      )
+    }
+    if (rival.id === supplier.id) {
+      return noOp(
+        'the event named the same supplier twice',
+        `${supplier.label} had no second supplier to compare with.`,
       )
     }
     const mine = getSupplierAccount(ctx.state, supplier.id).history.ordersPlaced
     const theirs = getSupplierAccount(ctx.state, rival.id).history.ordersPlaced
-    const favoured = mine >= theirs ? supplier : rival
+    if (mine + theirs === 0) {
+      return noOp(
+        `the tavern has not ordered from either ${supplier.label} or ${rival.label}`,
+        `${supplier.label} and ${rival.label} had no business to compare.`,
+      )
+    }
+    if (mine === theirs) {
+      return noOp(
+        `the tavern split ${mine + theirs} orders evenly`,
+        `${supplier.label} and ${rival.label} found the business evenly split.`,
+      )
+    }
+    const favoured = mine > theirs ? supplier : rival
     const slighted = favoured.id === supplier.id ? rival : supplier
 
     for (const [entity, adjustment, delta] of [

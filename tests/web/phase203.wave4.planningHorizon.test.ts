@@ -254,6 +254,21 @@ describe('P3-BHV-002 — a completed commission reaches the queue', () => {
     expect(gameStore.consumeComposerRequest('something-else')).toBe(false)
     expect(gameStore.consumeComposerRequest('expedition')).toBe(true)
     expect(gameStore.consumeComposerRequest('expedition')).toBe(false)
+
+    gameStore.requestComposer('supplier', {
+      actionId: 'place_supplier_order',
+      targetId: 'gildlock_brewhouse:ale',
+      targetLabel: 'Ale from Gildlock Brewhouse',
+    })
+    expect(gameStore.route).toBe('world')
+    expect(gameStore.worldSubview).toBe('suppliers')
+    expect(gameStore.takeComposerRequest('supplier')).toEqual({
+      composer: 'supplier',
+      actionId: 'place_supplier_order',
+      targetId: 'gildlock_brewhouse:ale',
+      targetLabel: 'Ale from Gildlock Brewhouse',
+    })
+    expect(gameStore.takeComposerRequest('supplier')).toBeUndefined()
   })
 })
 
@@ -342,6 +357,9 @@ describe('P7-EXP-006 — a suggestion and a CTA keep their target', () => {
       targetType: 'stock',
       targetId: 'ale',
       targetLabel: 'Ale',
+      // Phase 6 turns this into a premium spot-market purchase. Keep this
+      // provenance test focused on the handoff with an affordable unit.
+      amount: 1,
       timeCost: 60,
       contextReason: 'lost ale yesterday',
     })

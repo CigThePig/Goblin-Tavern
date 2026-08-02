@@ -32,7 +32,7 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > unpaused work**. It is a standalone implementation document — it needs
 > no earlier audit, report, or ledger to execute — and it runs as
 > **ISSUE-170…183 (repo phases 207–220)**, one issue per plan phase 0–13.
-> **ISSUE-170…175 (Phases 0–5) are done** — the baseline is frozen, the
+> **ISSUE-170…176 (Phases 0–6) are done** — the baseline is frozen, the
 > implementation ledger exists, the shared contracts are in place, **OBL-01
 > is closed** (area upgrades can be discovered, quoted, started, funded,
 > paused, resumed, cancelled, built, damaged, disabled, repaired, serviced
@@ -48,8 +48,9 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > tolerance; attributable costs and exact daily/weekly/monthly accounting bind
 > cash; policies require real enforcers; insolvency can constrain and close the
 > tavern; registered restructuring/reopening actions recover it. **Next:
-> ISSUE-176 (Phase 6 — transactional suppliers: orders, deliveries, credit and
-> invoices).** The sequence is hard-ordered
+> ISSUE-177 (Phase 7 — loans, tenancy, regulation and inspections).** Phase 6
+> closes **OBL-04**: supplier orders, deliveries, credit and invoices are now
+> one transactional loop. The sequence is hard-ordered
 > after that.
 >
 > Everything else below — the Complete Surface resume points, the
@@ -296,7 +297,7 @@ rather than rebuilding those routes.
 | ISSUE-173 | Expansion Phase 3 — persistent workforce: contracts, schedules, relationships, real resignation (staff half of OBL-02) | broken | done | 210 |
 | ISSUE-174 | Expansion Phase 4 — capacity-constrained service flow, customer choice, active regulars, patron tabs | thin | done | 211 |
 | ISSUE-175 | Expansion Phase 5 — economy: quality→cash feedback, operating costs, failure/recovery states, adaptive demand, enforceable policies | broken | done | 212 |
-| ISSUE-176 | Expansion Phase 6 — transactional suppliers: orders, deliveries, credit, invoices (OBL-04) | broken | open | 213 |
+| ISSUE-176 | Expansion Phase 6 — transactional suppliers: orders, deliveries, credit, invoices (OBL-04) | broken | done | 213 |
 | ISSUE-177 | Expansion Phase 7 — loans, tenancy, and a real inspection lifecycle (OBL-03 + loan/eviction half of OBL-02) | broken | open | 214 |
 | ISSUE-178 | Expansion Phase 8 — autonomous social world: faction/culture/NPC agency, rumour propagation, behavioral attribution (rumour half of OBL-08) | broken | open | 215 |
 | ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | open | 216 |
@@ -341,7 +342,7 @@ consequence is a direct pressure or reputation adjustment*.
 | ISSUE-173 | 3 — workforce | 210 | staff half of **OBL-02** (closed) | ISSUE-171 |
 | ISSUE-174 | 4 — service flow | 211 | — | ISSUE-172, ISSUE-173 |
 | ISSUE-175 | 5 — economy | 212 | done; supports OBL-04/05; **ISSUE-168 closed** | ISSUE-174 |
-| ISSUE-176 | 6 — suppliers | 213 | **OBL-04** | ISSUE-175 |
+| ISSUE-176 | 6 — suppliers | 213 | done; **OBL-04 closed** | ISSUE-175 |
 | ISSUE-177 | 7 — loans, tenancy, inspection | 214 | **OBL-03** + loan/eviction half of **OBL-02** | ISSUE-175 |
 | ISSUE-178 | 8 — social world | 215 | rumour half of **OBL-08** | ISSUE-176, ISSUE-177 |
 | ISSUE-179 | 9 — rivals, arcs, expeditions | 216 | — | ISSUE-178 |

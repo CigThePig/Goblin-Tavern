@@ -2,7 +2,13 @@ import type { SimContext } from '../../core/context'
 import type { ReportSection } from '../../core/reports'
 import { marketConditionRegistry } from '../../content/suppliers/marketConditionRegistry'
 import { getRelationshipPriceMultiplier } from './pricing'
-import { getSupplierModuleState } from './state'
+import {
+  getSupplierAccount,
+  getSupplierModuleState,
+  listPurchaseOrders,
+  outstandingUnits,
+} from './state'
+import { listSupplierInvoices } from './invoices'
 
 // Phase 29 §29.7 — Supplier report.
 //
@@ -19,13 +25,19 @@ const POOR_RELATIONSHIP_THRESHOLD = 30
 export function buildSupplierReport(ctx: SimContext): ReportSection | null {
   const suppliers = Object.values(ctx.state.world.suppliers)
   const slice = getSupplierModuleState(ctx.state)
+  const openOrders = listPurchaseOrders(ctx.state, { open: true })
+  const invoices = listSupplierInvoices(ctx.state).filter(
+    (invoice) => invoice.outstanding > 0,
+  )
 
   const hasContent =
     suppliers.length > 0 ||
     slice.activeMarketConditions.length > 0 ||
     slice.deliveriesToday.length > 0 ||
     slice.priceAdjustmentsToday.length > 0 ||
-    slice.missedDeliveriesToday.length > 0
+    slice.missedDeliveriesToday.length > 0 ||
+    openOrders.length > 0 ||
+    invoices.length > 0
   if (!hasContent) return null
 
   const lines: string[] = []
@@ -47,8 +59,49 @@ export function buildSupplierReport(ctx: SimContext): ReportSection | null {
           : discountPct > 0
             ? `, ${discountPct}% discount`
             : `, ${Math.abs(discountPct)}% surcharge`
+      // Expansion Phase 6 — credit standing is part of who a supplier is
+      // now, not a separate screen: `debtTolerance` finally has a line
+      // behind it.
+      const account = getSupplierAccount(ctx.state, supplier.id)
+      const creditTag =
+        account.creditStatus === 'approved'
+          ? `, credit ${account.creditLimit}c net ${account.netTermDays}d`
+          : account.creditStatus === 'none'
+            ? ''
+            : `, credit ${account.creditStatus}`
+      const refusalTag =
+        account.refusingUntilDay !== undefined &&
+        account.refusingUntilDay > ctx.state.calendar.totalDaysElapsed
+          ? `, refusing orders until day ${account.refusingUntilDay}`
+          : ''
       lines.push(
-        `  ${supplier.label}: reliability ${supplier.reliability}, relationship ${supplier.relationship}${discountTag} (${goodsLabel})`,
+        `  ${supplier.label}: reliability ${supplier.reliability}, relationship ${supplier.relationship}${discountTag}${creditTag}${refusalTag} (${goodsLabel})`,
+      )
+    }
+  }
+
+  if (openOrders.length > 0) {
+    lines.push('')
+    lines.push('Open orders:')
+    for (const order of openOrders) {
+      const line = order.lines[0]
+      const label = ctx.state.stock[line?.stockId ?? '']?.label ?? line?.stockId ?? '?'
+      lines.push(
+        `  ${order.id}: ${outstandingUnits(order)} ${label} from ${order.supplierId}` +
+          ` @ ${order.quotedUnitPrice} · due day ${order.promisedOnDay} · ${order.paymentTerms}` +
+          (order.attempts.length > 0 ? ` · ${order.attempts.length} attempt(s)` : ''),
+      )
+    }
+  }
+
+  if (invoices.length > 0) {
+    const owed = invoices.reduce((sum, invoice) => sum + invoice.outstanding, 0)
+    lines.push('')
+    lines.push(`Supplier invoices (${Math.ceil(owed)} coin outstanding):`)
+    for (const invoice of invoices) {
+      lines.push(
+        `  ${invoice.id}: ${Math.ceil(invoice.outstanding)} coin to ${invoice.supplierId}` +
+          ` · due day ${invoice.dueOnDay} · ${invoice.status}`,
       )
     }
   }
@@ -139,6 +192,12 @@ export function buildSupplierReport(ctx: SimContext): ReportSection | null {
       missedDeliveryCount: slice.missedDeliveriesToday.length,
       priceAdjustmentCount: slice.priceAdjustmentsToday.length,
       unreliableSupplierIds: unreliable.map((s) => s.id),
+      openOrderCount: openOrders.length,
+      outstandingInvoiceCount: invoices.length,
+      outstandingInvoiceCoin: Math.ceil(
+        invoices.reduce((sum, invoice) => sum + invoice.outstanding, 0),
+      ),
+      totals: slice.totals,
     },
   }
 }

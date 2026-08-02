@@ -214,6 +214,7 @@
       "ensureExpansionContractSlices",
       "ensureStaffWorkforceFields",
       "ensureRegularServiceFields",
+      "ensureSupplierProcurementFields",
       "ensureModuleSlices"
     ]
   },
@@ -226,7 +227,7 @@
     "runtimeModules": 34,
     "simulationPhases": 26,
     "daySegments": 3,
-    "ownerActions": 59,
+    "ownerActions": 67,
     "staffPriorities": 12,
     "pressureDomains": 21,
     "feedbackDetectors": 13,

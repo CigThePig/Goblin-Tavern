@@ -215,8 +215,9 @@ describe('Phase 207 — implementation ledger', () => {
     // which the arc's conventions forbid. Bump `LANDED_PHASES` when a phase
     // completes, and never to make a failing row pass.
     // Phase 0 (ISSUE-170), Phase 1 (ISSUE-171), Phase 2 (ISSUE-172),
-    // Phase 3 (ISSUE-173), Phase 4 (ISSUE-174), Phase 5 (ISSUE-175).
-    const LANDED_PHASES = 5
+    // Phase 3 (ISSUE-173), Phase 4 (ISSUE-174), Phase 5 (ISSUE-175),
+    // Phase 6 (ISSUE-176).
+    const LANDED_PHASES = 6
     const closedEarly = rows.filter(
       (r) => r.status !== 'open' && Number(r.phase) > LANDED_PHASES,
     )
@@ -371,10 +372,14 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       //     compliance instead of leaving economy as a placeholder.
       //   * `ownerActions` 55 → 59: pay arrears, close temporarily,
       //     restructure and reopen are the explicit financial counterplay.
+      //
+      // Expansion Phase 6 (ISSUE-176) moves one count:
+      //   * `ownerActions` 59 → 67: place/amend/cancel/dispute an order,
+      //     request credit, pay/schedule an invoice, and negotiate terms.
       runtimeModules: 34,
       simulationPhases: 26,
       daySegments: 3,
-      ownerActions: 59,
+      ownerActions: 67,
       staffPriorities: 12,
       pressureDomains: 21,
       feedbackDetectors: 13,

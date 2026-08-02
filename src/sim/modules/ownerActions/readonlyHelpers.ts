@@ -235,6 +235,11 @@ export function actionDisabledReasonForTarget(
   const targets = listValidTargets(def, state);
   if (!targets.some((t) => t.id === targetId)) return "invalid target";
 
+  if (def.canOpen) {
+    const verdict = canOpenAction(def, state);
+    return verdict.ok ? undefined : verdict.reason;
+  }
+
   const verdict = canApplyAction(def, state, { actionId: def.id, targetId });
   return verdict.ok ? undefined : verdict.reason;
 }

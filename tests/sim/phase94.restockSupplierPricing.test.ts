@@ -151,8 +151,17 @@ describe('Phase 94 — restock_item integration', () => {
     // Make sure restock is affordable.
     warm = { ...warm, coin: warm.coin + 2_000 }
 
+    // Expansion Phase 6 §6.1 — `restock_item` is the LOCAL SPOT MARKET now.
+    // It buys from a barrow, not from a supplier, so it deliberately earns
+    // no supplier relationship: warming a supplier is what placing an order
+    // with them does. Both halves of that are asserted here, because the
+    // pair is the whole point of separating the two channels.
     const baselineRelationship = warm.world.suppliers[supplierId]!.relationship
-    const result = simulateDay(
+    const providerIds = Object.entries(warm.world.suppliers)
+      .filter(([, s]) => s.goodsProvided.includes(stockId!))
+      .map(([id]) => id)
+
+    const marketDay = simulateDay(
       warm,
       {
         seed: 'tests/phase94-restock',
@@ -160,15 +169,44 @@ describe('Phase 94 — restock_item integration', () => {
       },
       FULL_PIPELINE,
     )
-    // Best-supplier was nudged +1 from the successful purchase (or the
-    // best supplier was a different id but among the providers).
-    const providerIds = Object.entries(warm.world.suppliers)
-      .filter(([, s]) => s.goodsProvided.includes(stockId!))
-      .map(([id]) => id)
-    const anyNudged = providerIds.some(
-      (id) =>
-        result.state.world.suppliers[id]!.relationship > baselineRelationship,
+    // The day's service also draws the cellar down, so read what the
+    // action itself did rather than the day's net quantity.
+    const marketLedger = (
+      marketDay.state.modules['stock'] as {
+        ledger: { source: string; amount: number }[]
+      }
+    ).ledger
+    expect(
+      marketLedger.some(
+        (entry) =>
+          entry.source === `ownerActions.restock_item.${stockId}` &&
+          entry.amount < 0,
+      ),
+    ).toBe(true)
+    expect(
+      providerIds.some(
+        (id) =>
+          marketDay.state.world.suppliers[id]!.relationship >
+          baselineRelationship,
+      ),
+    ).toBe(false)
+
+    const orderDay = simulateDay(
+      warm,
+      {
+        seed: 'tests/phase94-order',
+        ownerActions: [
+          {
+            actionId: 'place_supplier_order',
+            targetId: `${supplierId}:${stockId}`,
+            amount: 20,
+          },
+        ],
+      },
+      FULL_PIPELINE,
     )
-    expect(anyNudged).toBe(true)
+    expect(
+      orderDay.state.world.suppliers[supplierId]!.relationship,
+    ).toBeGreaterThan(baselineRelationship)
   })
 })

@@ -76,11 +76,26 @@ function mostDamagedAreaId(state: TavernState): string | undefined {
   return worstDamage > 0 ? worstId : undefined
 }
 
+/**
+ * The service good the bot should top up.
+ *
+ * Expansion Phase 6 — scoped to the COMMON service goods the tavern
+ * actually trades in. It used to walk every stock record, so it always
+ * returned an uncommon-or-better ingredient (they all sit at quantity 0)
+ * and the bots spent their day buying legendary fruit they could not cook.
+ * That was only possible because the pre-Phase-6 `restock_item` fell back
+ * to `basePrice` when no supplier carried the good — an accidental cash
+ * bypass of the rare-ingredient gate the Tier 1.5 economy exists to
+ * enforce. Uncommon goods are now bought from the suppliers who carry
+ * them (`place_supplier_order`); rare and legendary stay expedition-only.
+ */
 function lowestStockId(state: TavernState, exclude: string[] = []): string | undefined {
   let lowestId: string | undefined
   let lowestQty = Infinity
   for (const item of Object.values(state.stock)) {
     if (exclude.includes(item.id)) continue
+    if (item.rarity !== 'common') continue
+    if (item.tags.includes('construction')) continue
     if (item.quantity < lowestQty) {
       lowestQty = item.quantity
       lowestId = item.id

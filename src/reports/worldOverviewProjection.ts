@@ -31,6 +31,21 @@ import { resolveEntityLabel, resolveBareEntityId } from './entityLabels'
 import { listPatronTabs } from '../sim/modules/service/tabs'
 import { feasibleServings } from '../sim/modules/service/flow/choice'
 import { outstandingAmount } from '../sim/contracts/obligations/index'
+// Expansion Phase 6 §6.1–6.4 — procurement facts the supplier sheet shows.
+// Read from the sim's own quote/ledger helpers so the sheet cannot disagree
+// with what an order actually costs.
+import { actionRegistry } from '../sim/registries/actionRegistry'
+import {
+  creditEligibility,
+  quoteSupplierOrder,
+  supplierCreditExposure,
+} from '../sim/modules/suppliers/quote'
+import { outstandingSupplierInvoices } from '../sim/modules/suppliers/invoices'
+import {
+  getSupplierAccount,
+  listPurchaseOrders,
+  outstandingUnits,
+} from '../sim/modules/suppliers/state'
 import { humanizeId } from './labels/idLabel'
 import {
   pickFactionRelationNoun,
@@ -203,6 +218,60 @@ export type SupplierRow = {
   activeFlags: string[]
   attributionsAgainst: AttributionRow[]
   applicableActions: ApplicableActionRef[]
+  // Expansion Phase 6 §6.1–6.4 — the transactional half of a supplier.
+  credit: SupplierCreditRow
+  openOrders: SupplierOrderRow[]
+  invoices: SupplierInvoiceRow[]
+  /** Set while a resolved event or a default has the supplier refusing trade. */
+  refusingUntilDay?: number
+}
+
+export type SupplierCreditRow = {
+  status: 'none' | 'approved' | 'suspended' | 'revoked'
+  limit: number
+  used: number
+  available: number
+  netTermDays: number
+  depositPercent: number
+  /** Multiplicative price adjustment currently in force; 1 is neutral. */
+  termsAdjustment: number
+  termsAdjustmentUntilDay?: number
+  onTimePayments: number
+  latePayments: number
+  ordersDelivered: number
+  ordersMissed: number
+  lastDecisionReason: string
+  /** Why credit could not be opened today, when it cannot. */
+  eligibilityReason: string
+  eligible: boolean
+}
+
+export type SupplierOrderRow = {
+  id: string
+  stockId: string
+  stockLabel: string
+  outstanding: number
+  ordered: number
+  unitPrice: number
+  quality: number
+  promisedOnDay: number
+  daysUntilDue: number
+  paymentTerms: 'cash' | 'deposit' | 'net'
+  prepaid: number
+  attempts: number
+  rush: boolean
+  applicableActions: ApplicableActionRef[]
+}
+
+export type SupplierInvoiceRow = {
+  id: string
+  outstanding: number
+  principal: number
+  dueOnDay: number
+  daysUntilDue: number
+  status: string
+  escalation: number
+  readable: string
 }
 
 export type SupplierGoodRow = {
@@ -210,6 +279,28 @@ export type SupplierGoodRow = {
   ingredientLabel: string
   onHand: number
   basePrice: number
+  // Expansion Phase 6 — the live quote for a default-sized order, or the
+  // reason there isn't one. The player should never have to open the order
+  // form to find out that this supplier is out of capacity.
+  quote?: SupplierGoodQuoteRow
+  quoteRefusal?: string
+  /** `place_supplier_order` against this `<supplier>:<stock>` pair. */
+  applicableActions: ApplicableActionRef[]
+}
+
+export type SupplierGoodQuoteRow = {
+  quantity: number
+  unitPrice: number
+  totalPrice: number
+  quality: number
+  leadTimeDays: number
+  deliveryDay: number
+  paymentTerms: 'cash' | 'deposit' | 'net'
+  dueAtPlacement: number
+  invoicedOnDelivery: number
+  missChancePercent: number
+  capacityAvailable: number
+  factors: string[]
 }
 
 // ---------- Factions ----------
@@ -677,7 +768,43 @@ function projectSupplierRow(
       state.stock[ingredientId]?.label ??
       stockRegistry.get(ingredientId)?.label ??
       ingredientId
-    return { ingredientId, ingredientLabel, onHand, basePrice }
+    // Expansion Phase 6 — the quote is the SIM's quote, read from the one
+    // pure function the validator and the applied action also read, so the
+    // number on the sheet is the number that leaves the till.
+    const quote = quoteSupplierOrder(state, {
+      supplierId: supplier.id,
+      stockId: ingredientId,
+      quantity: DEFAULT_SUPPLIER_ORDER_QUANTITY,
+    })
+    const row: SupplierGoodRow = {
+      ingredientId,
+      ingredientLabel,
+      onHand,
+      basePrice,
+      applicableActions: orderActionRefs(
+        state,
+        `${supplier.id}:${ingredientId}`,
+      ),
+    }
+    if (quote.refusal) {
+      row.quoteRefusal = quote.refusal.reason
+    } else {
+      row.quote = {
+        quantity: quote.quantity,
+        unitPrice: quote.unitPrice,
+        totalPrice: quote.totalPrice,
+        quality: quote.quality,
+        leadTimeDays: quote.leadTimeDays,
+        deliveryDay: quote.deliveryDay,
+        paymentTerms: quote.paymentTerms,
+        dueAtPlacement: quote.dueAtPlacement,
+        invoicedOnDelivery: quote.invoicedOnDelivery,
+        missChancePercent: Math.round(quote.missChance * 100),
+        capacityAvailable: quote.capacityAvailable,
+        factors: [...quote.factors],
+      }
+    }
+    return row
   })
   const attributionsAgainst = projectAttributionRows(
     state,
@@ -700,6 +827,16 @@ function projectSupplierRow(
     activeFlags: [...supplier.activeFlags],
     attributionsAgainst,
     applicableActions,
+    credit: projectSupplierCredit(state, supplier.id),
+    openOrders: projectSupplierOrders(state, supplier.id, today),
+    invoices: projectSupplierInvoices(state, supplier.id, today),
+  }
+  const account = getSupplierAccount(state, supplier.id)
+  if (
+    account.refusingUntilDay !== undefined &&
+    account.refusingUntilDay > today
+  ) {
+    row.refusingUntilDay = account.refusingUntilDay
   }
   if (supplier.factionId !== undefined) row.factionId = supplier.factionId
   if (factionLabel !== undefined) row.factionLabel = factionLabel
@@ -710,6 +847,132 @@ function projectSupplierRow(
     row.daysSinceLastDelivery = Math.max(0, today - supplier.lastDeliveryDay)
   }
   return row
+}
+
+/** The order size the sheet quotes. Matches `place_supplier_order`'s default. */
+const DEFAULT_SUPPLIER_ORDER_QUANTITY = 40
+
+/** `place_supplier_order` against a `<supplier>:<stock>` composite target. */
+function orderActionRefs(
+  state: TavernState,
+  targetId: string,
+): ApplicableActionRef[] {
+  if (!actionRegistry.has('place_supplier_order')) return []
+  const def = actionRegistry.get('place_supplier_order')
+  const reason = actionDisabledReasonForTarget(def, state, targetId, DAY_MINUTES)
+  const ref: ApplicableActionRef = {
+    actionId: def.id,
+    label: def.label,
+    category: def.category,
+    timeCost: def.timeCost,
+  }
+  if (reason !== undefined) ref.disabledReason = reason
+  return [ref]
+}
+
+function projectSupplierCredit(
+  state: TavernState,
+  supplierId: string,
+): SupplierCreditRow {
+  const account = getSupplierAccount(state, supplierId)
+  const used = supplierCreditExposure(state, supplierId)
+  const eligibility = creditEligibility(state, supplierId)
+  const row: SupplierCreditRow = {
+    status: account.creditStatus,
+    limit: account.creditLimit,
+    used: Math.ceil(used),
+    available: Math.max(0, Math.floor(account.creditLimit - used)),
+    netTermDays: account.netTermDays,
+    depositPercent: Math.round(account.depositFraction * 100),
+    termsAdjustment: account.termsAdjustment,
+    onTimePayments: account.history.onTimePayments,
+    latePayments: account.history.latePayments,
+    ordersDelivered: account.history.ordersDelivered,
+    ordersMissed: account.history.ordersMissed + account.history.ordersPartial,
+    lastDecisionReason: account.lastDecisionReason,
+    eligibilityReason: eligibility.reason,
+    eligible: eligibility.eligible,
+  }
+  if (account.termsAdjustmentUntilDay !== undefined) {
+    row.termsAdjustmentUntilDay = account.termsAdjustmentUntilDay
+  }
+  return row
+}
+
+function projectSupplierOrders(
+  state: TavernState,
+  supplierId: string,
+  today: number,
+): SupplierOrderRow[] {
+  return listPurchaseOrders(state, { supplierId, open: true }).map((order) => {
+    const line = order.lines[0]
+    const stockId = line?.stockId ?? ''
+    return {
+      id: order.id,
+      stockId,
+      stockLabel: state.stock[stockId]?.label ?? stockId,
+      outstanding: outstandingUnits(order),
+      ordered: line?.quantity ?? 0,
+      unitPrice: order.quotedUnitPrice,
+      quality: order.quotedQuality,
+      promisedOnDay: order.promisedOnDay,
+      daysUntilDue: order.promisedOnDay - today,
+      paymentTerms: order.paymentTerms,
+      prepaid: order.prepaid,
+      attempts: order.attempts.length,
+      rush: order.rush,
+      applicableActions: [
+        ...orderRowActionRefs(state, order.id, [
+          'amend_supplier_order',
+          'cancel_supplier_order',
+          'dispute_supplier_delivery',
+        ]),
+      ],
+    }
+  })
+}
+
+function orderRowActionRefs(
+  state: TavernState,
+  orderId: string,
+  actionIds: ReadonlyArray<string>,
+): ApplicableActionRef[] {
+  const refs: ApplicableActionRef[] = []
+  for (const actionId of actionIds) {
+    if (!actionRegistry.has(actionId)) continue
+    const def = actionRegistry.get(actionId)
+    const reason = actionDisabledReasonForTarget(def, state, orderId, DAY_MINUTES)
+    // An action that is simply wrong for this order's state (disputing an
+    // order nobody has failed) is dropped rather than shown greyed out —
+    // the row already says what state it is in.
+    if (reason === 'invalid target' || reason === 'no valid targets') continue
+    const ref: ApplicableActionRef = {
+      actionId: def.id,
+      label: def.label,
+      category: def.category,
+      timeCost: def.timeCost,
+    }
+    if (reason !== undefined) ref.disabledReason = reason
+    refs.push(ref)
+  }
+  return refs
+}
+
+function projectSupplierInvoices(
+  state: TavernState,
+  supplierId: string,
+  today: number,
+): SupplierInvoiceRow[] {
+  return outstandingSupplierInvoices(state, supplierId).map((invoice) => ({
+    id: invoice.id,
+    outstanding: Math.ceil(invoice.outstanding),
+    principal: invoice.principal,
+    dueOnDay: invoice.dueOnDay,
+    daysUntilDue: invoice.dueOnDay - today,
+    status: invoice.status,
+    escalation: invoice.escalation,
+    readable: invoice.readable,
+  }))
 }
 
 // ---------- Factions ----------
@@ -994,5 +1257,4 @@ function applicableActionsForRow(
     return ref
   })
 }
-
 

@@ -240,7 +240,15 @@
     // picker cannot assemble hands off to the form that can, instead of
     // queueing something half-specified.
     if (def.composer) {
-      gameStore.requestComposer(def.composer)
+      gameStore.requestComposer(def.composer, {
+        actionId: def.id,
+        ...(suggestion?.targetId
+          ? { targetId: suggestion.targetId }
+          : activeTargetId
+            ? { targetId: activeTargetId }
+            : {}),
+        ...(activeTargetLabel ? { targetLabel: activeTargetLabel } : {}),
+      })
       onclose()
       return
     }

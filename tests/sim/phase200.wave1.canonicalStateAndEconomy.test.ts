@@ -30,6 +30,7 @@ import {
   pickRestockSupplier,
 } from '../../src/sim/modules/suppliers/pricing'
 import { getSupplierModuleState } from '../../src/sim/modules/suppliers/state'
+import { spotMarketUnitPrice } from '../../src/sim/modules/suppliers/quote'
 import { marketConditionRegistry } from '../../src/sim/content/suppliers/marketConditionRegistry'
 import { MIN_UNIT_PRICE } from '../../src/sim/modules/suppliers/pricing'
 import type { RentState } from '../../src/sim/modules/monthly/types'
@@ -258,9 +259,13 @@ describe('P7-EXP-002 — ordinary purchases are never free', () => {
     }
   })
 
+  // Expansion Phase 6 §6.1 — `restock_item` now buys on the local spot
+  // market, so the quote to hold it to is the market's, not the cheapest
+  // supplier's. The property under test is unchanged: what the player was
+  // shown is what leaves the till, and it is never zero.
   it('a restock actually costs coin, and the quote matches the spend', () => {
     const state = createInitialTavernState()
-    const quoted = pickRestockSupplier(state, 'mushrooms')!.effectivePrice
+    const quoted = spotMarketUnitPrice(state, 'mushrooms')
     const day = runDay(state, {
       ownerActions: [
         { actionId: 'restock_item', targetId: 'mushrooms', amount: 40 },
@@ -282,6 +287,9 @@ describe('P7-EXP-002 — ordinary purchases are never free', () => {
     expect(spent).toBeGreaterThan(0)
     // The quote the player was shown is the amount that left the till.
     expect(spent).toBe(Math.ceil(40 * quoted))
+    // …and the market is dearer than ordering, which is what makes the
+    // planned route worth planning.
+    expect(quoted).toBeGreaterThan(pickRestockSupplier(state, 'mushrooms')!.effectivePrice)
   })
 })
 

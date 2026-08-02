@@ -2,9 +2,16 @@ import { describe, expect, it } from 'vitest'
 
 import { quoteOwnerAction } from '../../src/sim/modules/ownerActions/quoteOwnerAction'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
+import {
+  quoteAlternativeSuppliers,
+  spotMarketUnitPrice,
+} from '../../src/sim/modules/suppliers/quote'
 
 describe('quoteOwnerAction', () => {
-  it('restock item quote includes amount, cost, supplier, before/after stock', () => {
+  // Expansion Phase 6 §6.1 — `restock_item` is the local spot market, not a
+  // supplier purchase, so the quote prices the market and names the cheaper
+  // planned alternative instead of naming a supplier it is not buying from.
+  it('restock item quote includes amount, market cost, and before/after stock', () => {
     const state = createInitialTavernState()
     const before = state.stock.ale!.quantity
     const quote = quoteOwnerAction(state, {
@@ -15,10 +22,10 @@ describe('quoteOwnerAction', () => {
 
     expect(quote.amount).toBe(40)
     expect(quote.cost?.coin).toBeGreaterThan(0)
-    expect(quote.supplier?.name).toBeTruthy()
-    expect(quote.supplier?.unitPrice).toBeGreaterThan(0)
-    expect(quote.supplier?.totalCost).toBe(quote.cost?.coin)
-    expect(quote.supplier?.reliability).toEqual(expect.any(Number))
+    expect(quote.supplier).toBeUndefined()
+    expect(quote.risks?.[0]).toMatch(/Market premium/)
+    // The planned route is quoted alongside it, so the premium is legible.
+    expect(quote.risks?.some((risk) => /would sell at/.test(risk))).toBe(true)
     expect(quote.stockChanges).toContainEqual(
       expect.objectContaining({
         stockId: 'ale',
@@ -27,6 +34,23 @@ describe('quoteOwnerAction', () => {
         delta: 40,
       }),
     )
+  })
+
+  it('quotes the local market price, not the supplier price it undercuts', () => {
+    const state = createInitialTavernState()
+    const quote = quoteOwnerAction(state, {
+      actionId: 'restock_item',
+      targetId: 'ale',
+      amount: 40,
+    })
+    const cheapest = quoteAlternativeSuppliers(state, {
+      stockId: 'ale',
+      quantity: 40,
+    })[0]!
+    expect(quote.cost!.coin).toBe(
+      Math.ceil(40 * spotMarketUnitPrice(state, 'ale')),
+    )
+    expect(quote.cost!.coin).toBeGreaterThan(cheapest.totalPrice)
   })
 
   it('pay staff bonus quote includes cost, morale, stress, loyalty', () => {

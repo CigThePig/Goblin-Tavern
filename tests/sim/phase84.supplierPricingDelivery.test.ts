@@ -107,25 +107,55 @@ describe('Phase 84 / ISSUE-044 — supplier reliability affects missed-delivery 
     )
   })
 
-  it('low-reliability supplier misses deliveries over a sweep; high-reliability supplier does not', () => {
-    // Two suppliers, identical except reliability.
-    const reliable = makeSupplier('reliable_supplier', { reliability: 90 })
-    const flaky = makeSupplier('flaky_supplier', { reliability: 30 })
-    const state = withSuppliers(createInitialTavernState(), [reliable, flaky])
+  // Expansion Phase 6 §6.2 — "reliability rolls must occur on real orders".
+  // Phase 84 rolled every supplier every day against nothing and recorded a
+  // "missed delivery" that missed no delivery; that diagnostic is gone. The
+  // property it was reaching for is still true and is now testable against
+  // an actual promise: an unreliable supplier fails orders, a reliable one
+  // keeps them, and the failure is a transaction rather than a log line.
+  it('a low-reliability supplier fails real orders; a reliable one keeps them', () => {
+    const reliable = makeSupplier('reliable_supplier', { reliability: 95 })
+    const flaky = makeSupplier('flaky_supplier', { reliability: 20 })
+    let current = withSuppliers(createInitialTavernState(), [reliable, flaky])
+    current = { ...current, coin: 5_000 }
 
-    let flakyMisses = 0
-    let reliableMisses = 0
-    let current = state
-    for (let i = 0; i < 60; i += 1) {
-      current = runOneDay(current, { seed: `${SEED}-sweep-${i}` }).state
+    let flakyFailures = 0
+    let reliableFailures = 0
+    let flakyDeliveries = 0
+    let reliableDeliveries = 0
+
+    for (let i = 0; i < 20; i += 1) {
+      current = runOneDay(current, {
+        seed: `${SEED}-orders-${i}`,
+        ownerActions: [
+          {
+            actionId: 'place_supplier_order',
+            targetId: 'reliable_supplier:ale',
+            amount: 5,
+          },
+          {
+            actionId: 'place_supplier_order',
+            targetId: 'flaky_supplier:ale',
+            amount: 5,
+          },
+        ],
+      }).state
       const slice = getSupplierModuleState(current)
       for (const missed of slice.missedDeliveriesToday) {
-        if (missed.supplierId === 'flaky_supplier') flakyMisses += 1
-        if (missed.supplierId === 'reliable_supplier') reliableMisses += 1
+        if (missed.supplierId === 'flaky_supplier') flakyFailures += 1
+        if (missed.supplierId === 'reliable_supplier') reliableFailures += 1
+      }
+      for (const delivery of slice.deliveriesToday) {
+        if (delivery.supplierId === 'flaky_supplier') flakyDeliveries += 1
+        if (delivery.supplierId === 'reliable_supplier') reliableDeliveries += 1
       }
     }
-    expect(reliableMisses).toBe(0)
-    expect(flakyMisses).toBeGreaterThan(0)
+
+    // Both suppliers actually traded — otherwise the comparison is vacuous.
+    expect(reliableDeliveries).toBeGreaterThan(0)
+    expect(reliableFailures).toBe(0)
+    expect(flakyFailures).toBeGreaterThan(0)
+    expect(flakyDeliveries).toBeGreaterThan(0)
   })
 })
 

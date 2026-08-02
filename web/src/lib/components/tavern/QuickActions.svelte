@@ -37,6 +37,15 @@
     }
     if (ref.disabledReason !== undefined) return
     const def = actionRegistry.get(ref.actionId)
+    if (def.composer) {
+      gameStore.requestComposer(def.composer, {
+        actionId: def.id,
+        ...(targetId !== undefined ? { targetId } : {}),
+        ...(targetLabel !== undefined ? { targetLabel } : {}),
+      })
+      liveReason = undefined
+      return
+    }
     // Phase 90 / ISSUE-050 — Funnel through tryAddPick so the daily
     // time budget and live canApply check gate quick actions the same
     // way the central picker does.

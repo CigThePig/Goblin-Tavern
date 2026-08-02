@@ -1145,9 +1145,19 @@ function generateStaffBurnout(ctx: SimContext): IssueSeed[] {
       .sort((a, b) => b.score - a.score)
     worst = ranked[0]!.s
   } else {
-    worst = allStaff
+    // Nobody crosses the threshold. The family may still fire on a small
+    // roster or an early-game state, but only against somebody the state
+    // can actually back: the fallback used to name whoever merely RANKED
+    // highest, so a rested server could be handed a card that says "the
+    // same worn knot riding their shoulders". A staff member whose stress
+    // and fatigue are both in the `low` band (< 40, the `staff.stress` /
+    // `staff.fatigue` band floor the faithfulness gate reads) is not
+    // burning out, and naming them would be the card inventing truth.
+    const ranked = allStaff
       .slice()
       .sort((a, b) => b.stress + b.fatigue - (a.stress + a.fatigue))[0]!
+    if (ranked.stress < 40 && ranked.fatigue < 40) return []
+    worst = ranked
   }
   recordBurnoutPick(ctx, `staff:${worst.id}`)
 

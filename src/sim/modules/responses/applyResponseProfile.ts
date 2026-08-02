@@ -216,13 +216,22 @@ export function applyResponseProfile(
       applier.today,
       DEFAULT_FUTURE_HOOK_OFFSET,
     )
+    // Actors are structured producer context too. Supplier events in
+    // particular need the exact second counterparty selected by the response;
+    // reducing the hook to its name would force the resolver to guess later.
+    const hookMetadata: Record<string, unknown> = {
+      ...(draft.metadata ?? {}),
+      ...(draft.actors ? { actors: draft.actors } : {}),
+    }
     const routed = applier.routeFutureHook?.({
       hookName: draft.id,
       readable: draft.label ?? draft.id,
       origin,
       scheduledForDay: schedule.scheduledFor,
       expiresAfterDay: schedule.expiresAt,
-      ...(draft.metadata ? { metadata: draft.metadata } : {}),
+      ...(Object.keys(hookMetadata).length > 0
+        ? { metadata: hookMetadata }
+        : {}),
     })
     if (routed === 'mechanical') continue
     const id = applier.mintNextPendingId(applier.today)

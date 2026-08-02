@@ -894,9 +894,18 @@ describe('Phase 209 §2.2 — three future-hook families become mechanical', () 
       findScheduledEventDefinitionForHookName('area_project_completion_cellar')?.type,
     ).toBe(AREA_PROJECT_COMPLETION_EVENT)
     // A name no domain claims stays unclaimed, so it is filed as narrative.
+    // (`supplier_retaliation_possible` was the example here until expansion
+    // Phase 6 gave the supplier domain the terms and credit to honour it;
+    // `merchant_flight_possible` is recorded in the implementation ledger as
+    // deliberately staying narrative, so it is the stable example now.)
     expect(
-      findScheduledEventDefinitionForHookName('supplier_retaliation_possible'),
+      findScheduledEventDefinitionForHookName('merchant_flight_possible'),
     ).toBeUndefined()
+    // Phase 6 owns the supplier families the areas module never could.
+    expect(
+      findScheduledEventDefinitionForHookName('supplier_retaliation_possible')
+        ?.ownerModuleId,
+    ).toBe('suppliers')
     // The bare prefix with no subject is not a valid family member.
     expect(
       findScheduledEventDefinitionForHookName('area_collapse_risk_'),

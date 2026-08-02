@@ -65,6 +65,48 @@
         <p class="block-label section-label">Terms</p>
         <dl class="kv">
           <div>
+            <dt>credit</dt>
+            <dd class="mono">
+              {supplier.credit.status}
+              {#if supplier.credit.status === 'approved'}
+                · {supplier.credit.available}/{supplier.credit.limit}c free · net {supplier.credit.netTermDays}d
+              {/if}
+            </dd>
+          </div>
+          {#if supplier.credit.status !== 'approved'}
+            <div>
+              <dt>why</dt>
+              <dd>{supplier.credit.eligibilityReason}</dd>
+            </div>
+          {/if}
+          <div>
+            <dt>deposit</dt>
+            <dd class="mono">{supplier.credit.depositPercent}%</dd>
+          </div>
+          {#if supplier.credit.termsAdjustment !== 1}
+            <div>
+              <dt>negotiated</dt>
+              <dd class="mono">
+                ×{supplier.credit.termsAdjustment.toFixed(2)}
+                {#if supplier.credit.termsAdjustmentUntilDay !== undefined}
+                  · to day {supplier.credit.termsAdjustmentUntilDay}
+                {/if}
+              </dd>
+            </div>
+          {/if}
+          <div>
+            <dt>paid on time</dt>
+            <dd class="mono">
+              {supplier.credit.onTimePayments} on time · {supplier.credit.latePayments} late
+            </dd>
+          </div>
+          <div>
+            <dt>deliveries</dt>
+            <dd class="mono">
+              {supplier.credit.ordersDelivered} kept · {supplier.credit.ordersMissed} short or missed
+            </dd>
+          </div>
+          <div>
             <dt>debt tolerance</dt>
             <dd class="mono">{supplier.debtTolerance}</dd>
           </div>
@@ -84,7 +126,67 @@
             </div>
           {/if}
         </dl>
+        {#if supplier.refusingUntilDay !== undefined}
+          <p class="warn chip">
+            Not taking orders until day {supplier.refusingUntilDay}.
+          </p>
+        {/if}
       </section>
+
+      {#if supplier.openOrders.length > 0}
+        <section class="block">
+          <p class="block-label section-label">Open orders</p>
+          <ul class="orders">
+            {#each supplier.openOrders as order (order.id)}
+              <li class="order">
+                <p class="order-head">
+                  <span>{order.outstanding} {order.stockLabel}</span>
+                  <span class="mono dim">
+                    day {order.promisedOnDay}
+                    {#if order.daysUntilDue <= 0}· due{/if}
+                  </span>
+                </p>
+                <p class="chip dim mono">
+                  {order.unitPrice}c/unit · quality {order.quality} · {order.paymentTerms}
+                  {#if order.prepaid > 0}· {order.prepaid}c paid{/if}
+                  {#if order.rush}· rush{/if}
+                  {#if order.attempts > 0}· {order.attempts} attempt(s){/if}
+                </p>
+                <QuickActions
+                  actions={order.applicableActions}
+                  targetId={order.id}
+                  targetLabel={`${order.stockLabel} order`}
+                />
+              </li>
+            {/each}
+          </ul>
+        </section>
+      {/if}
+
+      {#if supplier.invoices.length > 0}
+        <section class="block">
+          <p class="block-label section-label">Invoices</p>
+          <ul class="orders">
+            {#each supplier.invoices as invoice (invoice.id)}
+              <li class="order">
+                <p class="order-head">
+                  <span class="mono">{invoice.outstanding}c</span>
+                  <span
+                    class="mono"
+                    class:loss={invoice.status !== 'active' &&
+                      invoice.status !== 'pending'}
+                  >
+                    due day {invoice.dueOnDay} · {invoice.status}
+                  </span>
+                </p>
+                {#if invoice.escalation > 0}
+                  <p class="chip loss">escalation {invoice.escalation}</p>
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        </section>
+      {/if}
 
       {#if supplier.goods.length > 0}
         <section class="block">
@@ -92,10 +194,36 @@
           <ul class="goods">
             {#each supplier.goods as good (good.ingredientId)}
               <li class="good">
-                <span class="good-label">{good.ingredientLabel}</span>
-                <span class="good-meta mono">
-                  {good.onHand} on hand · base {good.basePrice}c
-                </span>
+                <p class="good-head">
+                  <span class="good-label">{good.ingredientLabel}</span>
+                  <span class="good-meta mono">
+                    {good.onHand} on hand · base {good.basePrice}c
+                  </span>
+                </p>
+                {#if good.quote}
+                  <p class="chip dim mono">
+                    {good.quote.quantity} @ {good.quote.unitPrice}c =
+                    {good.quote.totalPrice}c · day {good.quote.deliveryDay} ·
+                    quality {good.quote.quality} · {good.quote.paymentTerms}
+                  </p>
+                  <p class="chip dim">
+                    {good.quote.dueAtPlacement}c now, {good.quote
+                      .invoicedOnDelivery}c on delivery
+                    {#if good.quote.missChancePercent > 0}
+                      · {good.quote.missChancePercent}% miss risk
+                    {/if}
+                  </p>
+                  {#each good.quote.factors as factor (factor)}
+                    <p class="chip factor">{factor}</p>
+                  {/each}
+                {:else if good.quoteRefusal}
+                  <p class="chip warn">{good.quoteRefusal}</p>
+                {/if}
+                <QuickActions
+                  actions={good.applicableActions}
+                  targetId={`${supplier.id}:${good.ingredientId}`}
+                  targetLabel={`${good.ingredientLabel} from ${supplier.name}`}
+                />
               </li>
             {/each}
           </ul>
@@ -187,12 +315,58 @@
 
   .good {
     display: flex;
-    justify-content: space-between;
-    align-items: baseline;
+    flex-direction: column;
+    gap: 2px;
     padding: var(--sp-xs) var(--sp-sm);
     background: var(--surface-raised);
     border-radius: var(--radius-sm);
     border: var(--border-faint);
+  }
+
+  .good-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--sp-sm);
+  }
+
+  .orders {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xs);
+  }
+
+  .order {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--sp-xs) var(--sp-sm);
+    background: var(--surface-raised);
+    border-radius: var(--radius-sm);
+    border: var(--border-faint);
+  }
+
+  .order-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--sp-sm);
+  }
+
+  .dim {
+    color: var(--text-faint);
+  }
+
+  .warn {
+    color: var(--warn, var(--text-dim));
+  }
+
+  .loss {
+    color: var(--loss, var(--text-dim));
+  }
+
+  .factor {
+    color: var(--text-faint);
   }
 
   .good-label {

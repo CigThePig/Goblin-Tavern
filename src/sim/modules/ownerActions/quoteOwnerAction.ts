@@ -2,9 +2,11 @@ import { actionRegistry } from '../../registries/actionRegistry'
 import { clampPercent } from '../../state/normalize'
 import type { TavernState } from '../../state/TavernState'
 import {
-  getMissedDeliveryProbability,
-  pickRestockSupplier,
-} from '../suppliers/pricing'
+  SPOT_MARKET_PREMIUM,
+  quoteAlternativeSuppliers,
+  spotMarketAvailable,
+  spotMarketUnitPrice,
+} from '../suppliers/quote'
 import { makeReadOnlyCtx } from './readonlyHelpers'
 import type { OwnerActionInput } from './types'
 
@@ -134,47 +136,55 @@ export function quoteOwnerAction(
   let quote: OwnerActionQuote
   switch (input.actionId) {
     case 'restock_item': {
+      // Expansion Phase 6 §6.1 — `restock_item` is the LOCAL SPOT MARKET.
+      // The quote therefore prices the market, not a supplier: a premium
+      // over the cheapest supplier price, and only what the market can
+      // still supply today. The alternative — a planned supplier order —
+      // is named as a risk line so the player can see the trade rather
+      // than having to infer it.
       const stockId = input.targetId
       const item = stockId ? state.stock[stockId] : undefined
       if (!stockId || !item) {
-        quote = { ...base, title: 'Restock Item', warnings: ['Choose a stock item.'] }
+        quote = {
+          ...base,
+          title: 'Buy at Local Market',
+          warnings: ['Choose a stock item.'],
+        }
         break
       }
-      const amount = positiveFloor(input.amount, DEFAULT_RESTOCK_AMOUNT)
-      const pick = pickRestockSupplier(state, stockId)
-      const unitPrice = pick?.effectivePrice ?? item.basePrice
+      const requested = positiveFloor(input.amount, DEFAULT_RESTOCK_AMOUNT)
+      const available = spotMarketAvailable(state, stockId)
+      const amount = Math.min(requested, available)
+      const unitPrice = spotMarketUnitPrice(state, stockId)
       const totalCost = Math.ceil(amount * unitPrice)
       const before = item.quantity
       const after = before + amount
-      const supplier = pick?.supplier
-      const missProbability = supplier
-        ? getMissedDeliveryProbability(supplier)
-        : 0
+      const cheapestOrder = quoteAlternativeSuppliers(state, {
+        stockId,
+        quantity: requested,
+      })[0]
       quote = {
         ...base,
         amount,
-        title: `Restock ${item.label}`,
-        summary: `${item.label} +${amount} · Coin -${totalCost}${supplier ? ` · Supplier: ${supplier.label} · Reliability ${supplier.reliability}` : ''}`,
+        title: `Buy ${item.label} at market`,
+        summary: `${item.label} +${amount} · Coin -${totalCost} · Market ${unitPrice}/unit`,
         cost: { coin: totalCost },
         stockChanges: [stockChange(item.id, item.label, before, after)],
-        ...(supplier
+        risks: [
+          `Market premium: ${Math.round((SPOT_MARKET_PREMIUM - 1) * 100)}% over a supplier's price`,
+          ...(cheapestOrder
+            ? [
+                `${cheapestOrder.supplierLabel} would sell at ${cheapestOrder.unitPrice}/unit for day ${cheapestOrder.deliveryDay}`,
+              ]
+            : []),
+        ],
+        ...(amount < requested
           ? {
-              supplier: {
-                supplierId: supplier.id,
-                name: supplier.label,
-                reliability: supplier.reliability,
-                relationship: supplier.relationship,
-                unitPrice,
-                totalCost,
-              },
+              warnings: [
+                `The market can only supply ${amount} of ${requested} today.`,
+              ],
             }
           : {}),
-        risks:
-          missProbability > 0
-            ? [`Delivery miss risk ${Math.round(missProbability * 100)}%`]
-            : supplier
-              ? ['No delivery miss risk at current reliability.']
-              : ['No supplier relationship; using base price.'],
         canAfford: coinCanAfford(state, totalCost),
       }
       break

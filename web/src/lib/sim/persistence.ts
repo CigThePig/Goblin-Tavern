@@ -69,6 +69,7 @@ import {
   ensureWorldBranch,
   ensureAreaIdentityFields,
   ensureAreaConstructionFields,
+  ensureSupplierProcurementFields,
   ensureStaffIdentityFields,
   ensureRegularServiceFields,
   ensureStaffWorkforceFields,
@@ -770,7 +771,13 @@ function migrateAndValidateState(
     // record, and derives its defaults from the loyalty the save already
     // carries rather than rolling anything.
     const s8d = ensureRegularServiceFields(s8c);
-    const s9 = ensureModuleSlices(s8d);
+    // Expansion Phase 6 §5.7 — the procurement fields inside the existing
+    // `modules.suppliers` slice. Runs before `ensureModuleSlices` because
+    // that sweep only installs slices that are missing entirely, and this
+    // one is not: every post-Phase-29 save already has a suppliers slice
+    // holding the four per-day arrays and nothing else.
+    const s8e = ensureSupplierProcurementFields(s8d);
+    const s9 = ensureModuleSlices(s8e);
     const validation = safeValidateState(s9, { modules: FULL_PIPELINE });
     if (!validation.success) {
       const first = validation.errors[0];

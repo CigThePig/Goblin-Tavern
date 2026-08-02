@@ -238,9 +238,13 @@ describe('Phase 212 §5.2/§5.5 — attributable costs and exact accounting', ()
         (action) => action.actionId === 'restock_item',
       ),
     ).toBe(true)
-    expect(economy.openingSpoilageByStock['mushrooms']).toBe(25)
+    // Expansion Phase 6 — an empty slot opens at zero: the 25 described a
+    // batch that is gone, and the arriving batch blends its own freshness
+    // into the record. The day's deterioration is measured against the goods
+    // that actually spent the day in the cellar.
+    expect(economy.openingSpoilageByStock['mushrooms']).toBe(0)
     expect(after.stock['mushrooms']!.quantity).toBeGreaterThan(0)
-    expect(after.stock['mushrooms']!.spoilage).toBeGreaterThan(25)
+    expect(after.stock['mushrooms']!.spoilage).toBeGreaterThan(0)
     expect(economy.lastDailyRecord!.accounting.inventoryWriteOffs).toBeGreaterThan(0)
   })
 

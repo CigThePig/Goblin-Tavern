@@ -139,10 +139,16 @@ export function writeEconomyState(
 export function inventorySpoilageSnapshot(state: TavernState): Record<string, number> {
   const snapshot: Record<string, number> = {}
   for (const item of Object.values(state.stock)) {
-    // Empty perishable slots still need an opening quality baseline: an owner
-    // action can refill them before today's spoilage pass.
+    // Empty perishable slots still need an opening baseline: an owner action
+    // or a supplier delivery can refill them before today's spoilage pass.
     if (!item.tags.includes('perishable')) continue
-    snapshot[item.id] = item.spoilage
+    // Expansion Phase 6 — an EMPTY slot opens at zero, not at whatever number
+    // the last batch happened to leave behind. Deliveries now blend the
+    // arriving batch's freshness into the record (`receiveGoods`), so goods
+    // that land in an empty cellar legitimately start near-fresh; measuring
+    // their deterioration against a stale high-water mark would report a
+    // whole day of spoilage as nothing at all.
+    snapshot[item.id] = item.quantity > 0 ? item.spoilage : 0
   }
   return snapshot
 }

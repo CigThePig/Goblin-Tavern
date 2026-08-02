@@ -9,6 +9,7 @@ import { AREA_UPGRADE_ACTIONS } from '../modules/ownerActions/upgradeActions'
 import { WORKFORCE_ACTIONS } from '../modules/ownerActions/workforceActions'
 import { SERVICE_ACTIONS } from '../modules/ownerActions/serviceActions'
 import { ECONOMY_ACTIONS } from '../modules/economy/actions'
+import { SUPPLIER_ACTIONS } from '../modules/suppliers/actions'
 import type { OwnerActionDefinition } from '../modules/ownerActions/types'
 
 // Phase 13 §13.1 — Owner action registry.
@@ -58,6 +59,12 @@ export function ensureRequiredOwnerActionsRegistered(): void {
     // Expansion Phase 5 — insolvency and recovery are player capabilities,
     // not hidden state transitions.
     ...ECONOMY_ACTIONS,
+    // Expansion Phase 6 §6.1–6.4 — procurement is a strategic loop the
+    // player plays: order, amend, cancel, dispute, ask for credit, pay or
+    // promise to pay an invoice, and negotiate terms. `place_supplier_order`
+    // targets `"<supplierId>:<stockId>"` composite ids and carries its quote
+    // in every target hint, the same convention the upgrade actions use.
+    ...SUPPLIER_ACTIONS,
   ]
   for (const def of all) {
     if (!actionRegistry.has(def.id)) {

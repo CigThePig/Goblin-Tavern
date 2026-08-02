@@ -147,6 +147,18 @@ function obligationTagged(record: ObligationRecord, tags: ReadonlyArray<string>)
   return tags.some((tag) => record.tags.includes(tag))
 }
 
+/**
+ * Accrual facts read the OBLIGATION LEDGER's day convention.
+ *
+ * The daily record numbers its days `totalDaysElapsed + 1` (a 1-based day
+ * counter, which expeditions also use for `resolvedDay`). Obligations —
+ * patron tabs, supplier invoices — stamp `openedOnDay` with
+ * `totalDaysElapsed` itself, like every other contract record. Comparing an
+ * obligation's day against the record's day therefore never matched, so
+ * `tabCredit` and `creditPurchases` were silently always zero. Nothing had
+ * exercised `creditPurchases` before expansion Phase 6 produced the first
+ * real supplier invoice, which is how it went unnoticed.
+ */
 function accrualFacts(
   state: TavernState,
   today: number,
@@ -161,23 +173,24 @@ function accrualFacts(
   let tabCredit = 0
   let creditPurchases = 0
   let writeOffs = 0
+  const ledgerToday = state.calendar.totalDaysElapsed
   for (const record of allObligations(state)) {
     if (
-      record.openedOnDay === today &&
+      record.openedOnDay === ledgerToday &&
       record.direction === 'receivable' &&
       obligationTagged(record, ['patron_tab', 'tab'])
     ) {
       tabCredit += record.principal
     }
     if (
-      record.openedOnDay === today &&
+      record.openedOnDay === ledgerToday &&
       record.direction === 'payable' &&
       obligationTagged(record, ['supplier', 'invoice', 'credit_purchase'])
     ) {
       creditPurchases += record.principal
     }
     if (
-      record.lastTransitionOnDay === today &&
+      record.lastTransitionOnDay === ledgerToday &&
       (record.status === 'forgiven' || record.status === 'expired')
     ) {
       writeOffs += Math.max(

@@ -51,6 +51,10 @@ import type {
   MonthlyResult,
 } from "../modules/monthly/types";
 import { OWNER_ACTIONS_MODULE_ID } from "../modules/ownerActions/stateHelpers";
+import {
+  SUPPLIERS_MODULE_ID,
+  createInitialSupplierModuleState,
+} from "../modules/suppliers/state";
 import { areaUpgradeRegistry } from "../content/tavern/areaUpgradeRegistry";
 import { RULESET_MODULE_ID } from "../contracts/ruleset/types";
 import { createInitialRulesetModuleState } from "../contracts/ruleset/query";
@@ -1285,6 +1289,50 @@ export function ensureRegularServiceFields<
   return {
     ...state,
     world: { ...state.world, regulars: next },
+  };
+}
+
+// Expansion Phase 6 §5.7 — the procurement fields on `modules.suppliers`.
+//
+// NAMED rather than left to `ensureModuleSlices`, because that sweep only
+// installs a slice that is missing ENTIRELY. Every save written since Phase
+// 29 already has a `modules.suppliers` object holding the four per-day
+// arrays, so the sweep sees it, leaves it alone, and the save then fails
+// schema validation on the six procurement fields it has never heard of.
+//
+// The defaults are the honest reading of a save that predates the phase:
+// no orders have been placed, no invoice exists, and nobody has been
+// granted credit. The alternative — backdating a credit line from
+// `debtTolerance` — would fabricate a line the player never asked for and
+// never earned, which §5 forbids as firmly as losing one they had. The
+// supplier module seeds a blank account for each supplier on the next day
+// it runs, so an existing player simply starts the procurement loop where a
+// new one does.
+export function ensureSupplierProcurementFields<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const slice = current[SUPPLIERS_MODULE_ID];
+  if (!isRecord(slice)) return state;
+  const defaults = createInitialSupplierModuleState() as unknown as Record<
+    string,
+    unknown
+  >;
+  const PROCUREMENT_KEYS = [
+    "orders",
+    "orderArchive",
+    "accounts",
+    "spotPurchasesToday",
+    "nextOrderSuffix",
+    "totals",
+  ] as const;
+  const missing = PROCUREMENT_KEYS.filter((key) => !(key in slice));
+  if (missing.length === 0) return state;
+  const next: Record<string, unknown> = { ...slice };
+  for (const key of missing) next[key] = defaults[key];
+  return {
+    ...state,
+    modules: { ...current, [SUPPLIERS_MODULE_ID]: next },
   };
 }
 

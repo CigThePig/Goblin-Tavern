@@ -6,10 +6,11 @@ import { stockRegistry } from '../../registries/stockRegistry'
 import { recipeRegistry } from '../../registries/recipeRegistry'
 import { restockItem } from '../stock/sales'
 import { spendCoin } from '../stock/ledger'
+import { buyOnSpotMarket } from '../suppliers/orders'
 import {
-  getMissedDeliveryProbability,
-  pickRestockSupplier,
-} from '../suppliers/pricing'
+  spotMarketAvailable,
+  spotMarketUnitPrice,
+} from '../suppliers/quote'
 import { getEconomyModuleState } from '../economy/state'
 
 import type {
@@ -266,141 +267,116 @@ const repairArea: OwnerActionDefinition = {
 }
 
 // ---------- 13.5 restock_item ----------
+//
+// Expansion Phase 6 §6.1 — this is now the LOCAL SPOT MARKET, not a
+// supplier purchase.
+//
+// It used to pick the cheapest supplier, buy instantly at their quoted
+// price, and roll that supplier's reliability against a purchase that had
+// no existence to fail — a miss simply cancelled the action. That made the
+// planned route (`place_supplier_order`) strictly worse than the instant
+// one, and it is why §6.1 says an immediate purchase may remain "for
+// emergency channels, but should have distinct cost and availability".
+//
+// So: the market carries what the cheapest supplier carries, at a premium,
+// and only so much of one good per day. It always succeeds — the goods are
+// in front of you — it never earns supplier relationship, and it never
+// creates credit. Ordering is the cheaper, riskier, planned play; the
+// market is the expensive one you can always fall back on.
 
 const DEFAULT_RESTOCK_AMOUNT = 40
 
-// Phase 94 / ISSUE-054 — Compute the per-unit price the restock action
-// will pay. Uses the best available supplier's effective price (which
-// folds in relationship, reliability tie-break, market conditions,
-// and price bias). Falls back to the stock's bare base price when no
-// supplier provides the item — that's the legacy behaviour the
-// original action used.
-function computeRestockUnitPrice(
-  ctx: SimContext,
-  stockId: string,
-): { unitPrice: number; supplierId: string | undefined } {
-  const pick = pickRestockSupplier(ctx.state, stockId)
-  if (pick) {
-    return { unitPrice: pick.effectivePrice, supplierId: pick.supplier.id }
-  }
-  const item = ctx.state.stock[stockId]
-  return { unitPrice: item?.basePrice ?? 0, supplierId: undefined }
-}
-
 const restockItemAction: OwnerActionDefinition = {
   id: 'restock_item',
-  label: 'Restock Item',
+  label: 'Buy at Local Market',
   category: 'immediate',
-  tags: ['supply', 'stock'],
-  effectsPreview: 'Refills a stock item from a supplier',
+  tags: ['supply', 'stock', 'market'],
+  effectsPreview: 'Buys stock immediately at a market premium',
   pressureAffinity: ['stock_shortage'],
   targetType: 'stock',
   timeCost: TIME_COST_SHORT,
-  getValidTargets: listStock,
+  getValidTargets: (ctx) =>
+    Object.values(ctx.state.stock).map((s) => ({
+      id: s.id,
+      label: s.label,
+      hint: `qty ${s.quantity} · market ${spotMarketUnitPrice(ctx.state, s.id)}c · ${spotMarketAvailable(ctx.state, s.id)} available today`,
+    })),
   canApply: (ctx, input) => {
     if (!input.targetId) return reject('missing_target', 'restock_item requires targetId')
     const item = ctx.state.stock[input.targetId]
     if (!item) return reject('unknown_target', `Unknown stock item '${input.targetId}'`)
-    const amount =
+    const available = spotMarketAvailable(ctx.state, input.targetId)
+    if (available <= 0) {
+      return reject(
+        'market_exhausted',
+        `The market has no more ${item.label} today; order from a supplier instead.`,
+      )
+    }
+    const amount = Math.min(
       input.amount !== undefined && input.amount > 0
         ? Math.floor(input.amount)
-        : DEFAULT_RESTOCK_AMOUNT
-    const { unitPrice } = computeRestockUnitPrice(ctx, input.targetId)
-    const cost = Math.ceil(amount * unitPrice)
+        : DEFAULT_RESTOCK_AMOUNT,
+      available,
+    )
+    const cost = Math.ceil(amount * spotMarketUnitPrice(ctx.state, input.targetId))
     if (ctx.state.coin < cost) {
       return reject(
         'insufficient_coin',
-        `Restock costs ${cost} coin; only ${ctx.state.coin} available`,
+        `${amount} ${item.label} costs ${cost} coin at market; only ${ctx.state.coin} available`,
       )
     }
     return OK
   },
   apply: (ctx, input) => {
     const item = ctx.state.stock[input.targetId!]!
-    const amount =
+    const requested =
       input.amount !== undefined && input.amount > 0
         ? Math.floor(input.amount)
         : DEFAULT_RESTOCK_AMOUNT
-    const { unitPrice, supplierId } = computeRestockUnitPrice(ctx, item.id)
-    const cost = Math.ceil(amount * unitPrice)
     const before = item.quantity
-
-    // Phase 94 / ISSUE-054 — Missed-delivery integration. If the picked
-    // supplier rolls a miss, the order is queued but the stock doesn't
-    // arrive today. Coin is NOT spent (player-friendly: nothing changes
-    // hands until product does). The cause is recorded so the daily
-    // report attributes the failure to the supplier.
-    let missed = false
-    if (supplierId) {
-      const supplier = ctx.state.world.suppliers[supplierId]
-      if (supplier) {
-        const missProb = getMissedDeliveryProbability(supplier)
-        if (missProb > 0) {
-          const roll = ctx.getRngStream('supplier_delivery').float()
-          missed = roll < missProb
-        }
-      }
-    }
-
-    if (missed && supplierId) {
+    const result = buyOnSpotMarket(
+      ctx,
+      item.id,
+      requested,
+      `ownerActions.restock_item.${item.id}`,
+    )
+    if (!result.ok) {
       return {
         actionId: restockItemAction.id,
-        label: `Missed restock: ${item.label}`,
+        label: `No ${item.label} at market`,
         targetId: item.id,
         timeCost: restockItemAction.timeCost,
-        effects: [
-          `${item.label} delivery missed (supplier ${supplierId})`,
-          'coin unchanged',
-        ],
+        effects: [result.reason],
         data: {
           stockId: item.id,
           quantity: { before, after: before },
           coin: { spent: 0 },
-          supplierId,
-          missed: true,
-          unitPrice,
+          bought: false,
+          reason: result.reason,
         },
       }
     }
-
-    restockItem(
-      ctx,
-      item.id,
-      amount,
-      cost,
-      `ownerActions.restock_item.${item.id}`,
-    )
     const after = ctx.state.stock[item.id]!.quantity
-
-    // Phase 94 / ISSUE-054 — Successful purchase nudges the supplier
-    // relationship up by 1, closing the feedback loop (higher
-    // relationship → cheaper future restocks).
-    if (supplierId) {
-      const supplier = ctx.state.world.suppliers[supplierId]
-      if (supplier) {
-        ctx.modifySupplier(
-          supplierId,
-          { relationship: Math.min(100, supplier.relationship + 1) },
-          { source: 'ownerActions', reason: 'restock_relationship_nudge' },
-        )
-      }
-    }
-
     return {
       actionId: restockItemAction.id,
-      label: `Restocked ${item.label}`,
+      label: `Bought ${item.label} at market`,
       targetId: item.id,
       timeCost: restockItemAction.timeCost,
       effects: [
         `${item.label} ${before} → ${after}`,
-        `coin -${cost}`,
-        ...(supplierId ? [`supplier ${supplierId}`] : []),
+        `coin -${result.cost}`,
+        `market price ${result.unitPrice}/unit`,
+        ...(result.quantity < requested
+          ? [`market could only supply ${result.quantity} of ${requested}`]
+          : []),
       ],
       data: {
         stockId: item.id,
         quantity: { before, after },
-        coin: { spent: cost },
-        ...(supplierId ? { supplierId, unitPrice } : {}),
+        coin: { spent: result.cost },
+        unitPrice: result.unitPrice,
+        bought: true,
+        spotMarket: true,
       },
     }
   },

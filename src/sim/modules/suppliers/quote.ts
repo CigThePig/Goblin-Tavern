@@ -134,8 +134,18 @@ export type SupplierQuote = {
   creditStatus: SupplierAccountState['creditStatus']
   creditLimit: number
   creditAvailable: number
-  /** Probability the supplier misses or shorts the delivery. */
+  /** Probability the supplier fails to deliver what was promised. */
   missChance: number
+  /**
+   * What that probability actually does when it lands.
+   *
+   * An order the player let the supplier substitute on never arrives short
+   * or empty — the sanctioned fallback is lower-grade stock — so quoting it
+   * as "chance of a short or missed delivery" advertised a consequence the
+   * order could not produce. The number is the same roll either way; this
+   * says which outcome it buys.
+   */
+  riskKind: 'short_or_missed' | 'lower_grade'
   substitutionsAllowed: boolean
   rush: boolean
   /** Whether the goods are a substitute for what was asked for. */
@@ -183,6 +193,7 @@ function refusal(
     creditLimit: base.creditLimit ?? 0,
     creditAvailable: base.creditAvailable ?? 0,
     missChance: base.missChance ?? 0,
+    riskKind: base.riskKind ?? 'short_or_missed',
     substitutionsAllowed: base.substitutionsAllowed ?? false,
     rush: base.rush ?? false,
     factors: base.factors ?? [],
@@ -699,9 +710,17 @@ export function quoteSupplierOrder(
     committedUnits: committed,
     capacity: Math.max(1, grossCapacity),
   })
+  // The roll is the same; what it costs is not. `deliverOrder` turns a failed
+  // roll on a substitution-enabled order into lower-grade goods rather than a
+  // short or missed delivery, so the quote names that consequence instead.
+  const riskKind: SupplierQuote['riskKind'] = request.allowSubstitution
+    ? 'lower_grade'
+    : 'short_or_missed'
   if (missChance > 0) {
     factors.push(
-      `reliability ${supplier.reliability}: ${Math.round(missChance * 100)}% chance of a short or missed delivery`,
+      riskKind === 'lower_grade'
+        ? `reliability ${supplier.reliability}: ${Math.round(missChance * 100)}% chance the order arrives as lower-grade stock`
+        : `reliability ${supplier.reliability}: ${Math.round(missChance * 100)}% chance of a short or missed delivery`,
     )
   }
 
@@ -727,6 +746,7 @@ export function quoteSupplierOrder(
     creditLimit,
     creditAvailable,
     missChance,
+    riskKind,
     substitutionsAllowed: request.allowSubstitution ?? false,
     rush: request.rush ?? false,
     ...(substitutedFor !== undefined ? { substitutedFor } : {}),
@@ -800,6 +820,51 @@ export function spotMarketAvailable(state: TavernState, stockId: string): number
   const { multiplier } = availabilityMultiplier(state, stock)
   const cap = Math.floor(SPOT_MARKET_DAILY_UNITS * multiplier)
   return Math.max(0, cap - bought)
+}
+
+/**
+ * Where a shortage of `stockId` can actually be answered today.
+ *
+ * The spot market only deals in common goods, and only so many units of one
+ * good a day (`spotMarketAvailable`), so a recommendation that always points
+ * at `restock_item` sends the player at a rejection — `market_exhausted` —
+ * for every uncommon ingredient and every rare expedition find. This is the
+ * one place that decides which channel is open, so the Plan-beat suggestion
+ * and the drilldown CTA cannot disagree with what the action will accept.
+ *
+ * `none` is an honest answer: a rare good has no purchasable route at all,
+ * and offering a dead button is worse than offering nothing.
+ */
+export type ShortageRemedy =
+  | { kind: 'spot_market'; stockId: string }
+  | {
+      kind: 'supplier_order'
+      stockId: string
+      supplierId: string
+      supplierLabel: string
+    }
+  | { kind: 'none'; stockId: string }
+
+export function shortageRemedyFor(
+  state: TavernState,
+  stockId: string,
+): ShortageRemedy {
+  if (!state.stock[stockId]) return { kind: 'none', stockId }
+  if (spotMarketAvailable(state, stockId) > 0) {
+    return { kind: 'spot_market', stockId }
+  }
+  // Quote a single unit: this asks "would anyone take this order at all",
+  // not "at what size" — the quote caps quantity to capacity by itself.
+  const best = quoteAlternativeSuppliers(state, { stockId, quantity: 1 })[0]
+  if (best) {
+    return {
+      kind: 'supplier_order',
+      stockId,
+      supplierId: best.supplierId,
+      supplierLabel: best.supplierLabel,
+    }
+  }
+  return { kind: 'none', stockId }
 }
 
 /** Days of grace a supplier invoice opens with, from the ruleset. */

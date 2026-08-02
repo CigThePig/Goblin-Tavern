@@ -31,6 +31,7 @@ import {
   MAX_ARCHIVED_PURCHASE_ORDERS,
   getSupplierAccount,
   getSupplierModuleState,
+  isOrderOpen,
   listAllPurchaseOrders,
   listPurchaseOrders,
   outstandingUnits,
@@ -785,6 +786,78 @@ describe('Phase 213 §6.4 — counterplay', () => {
     expect(amended.prepaid).toBeLessThanOrEqual(order.prepaid)
   })
 
+  it('an amendment the rules would refuse costs no owner time', () => {
+    // The composer pre-fills the CURRENT quantity, so "queue without
+    // touching the field" was the easiest amendment to make — and the one
+    // `amendOrder` always refused, after the day had already been charged
+    // for it. Validation now knows the answer the rules already know.
+    let state = ready()
+    state = day(state, 810, [
+      {
+        actionId: 'place_supplier_order',
+        targetId: 'silken_road_caravan:ingredients',
+        amount: 20,
+      },
+    ])
+    const order = listPurchaseOrders(state)[0]!
+
+    const unchanged = day(state, 811, [
+      { actionId: 'amend_supplier_order', targetId: order.id, amount: 20 },
+    ])
+    expect(appliedIds(unchanged)).not.toContain('amend_supplier_order')
+    expect(rejections(unchanged).join(' ')).toMatch(/no_change/)
+    expect(listPurchaseOrders(unchanged)[0]!.amendmentsUsed).toBe(0)
+
+    // An increase the till cannot pay for is refused on the same terms,
+    // rather than applied as a refusal with a time cost.
+    const broke = withCoin(state, 0)
+    const unaffordable = day(broke, 812, [
+      { actionId: 'amend_supplier_order', targetId: order.id, amount: 200 },
+    ])
+    expect(appliedIds(unaffordable)).not.toContain('amend_supplier_order')
+    expect(rejections(unaffordable).join(' ')).toMatch(
+      /insufficient_coin|no_capacity|credit_limit_reached/,
+    )
+  })
+
+  it('a substitution-enabled order quotes downgrade risk, not a miss it cannot have', () => {
+    // `deliverOrder` absorbs a failed roll on these orders as lower-grade
+    // stock: the full quantity still arrives. Advertising the same number as
+    // "short or missed" promised a consequence the order cannot produce.
+    const state = withReliability(ready(), 'gildlock_brewhouse', 10)
+    const plain = quoteSupplierOrder(state, {
+      supplierId: 'gildlock_brewhouse',
+      stockId: 'ale',
+      quantity: 10,
+    })
+    const insured = quoteSupplierOrder(state, {
+      supplierId: 'gildlock_brewhouse',
+      stockId: 'ale',
+      quantity: 10,
+      allowSubstitution: true,
+    })
+    expect(plain.missChance).toBeGreaterThan(0)
+    expect(plain.riskKind).toBe('short_or_missed')
+    expect(insured.missChance).toBe(plain.missChance)
+    expect(insured.riskKind).toBe('lower_grade')
+    expect(insured.factors.join(' ')).toMatch(/lower-grade/)
+    expect(insured.factors.join(' ')).not.toMatch(/short or missed/)
+
+    const placed = day(state, 820, [
+      {
+        actionId: 'place_supplier_order',
+        targetId: 'gildlock_brewhouse:ale',
+        amount: 10,
+        options: { allowSubstitution: true },
+      },
+    ])
+    const applied = getOwnerActionsModuleState(placed).applied.find(
+      (a) => a.actionId === 'place_supplier_order',
+    )!
+    expect(applied.effects.join(' ')).toMatch(/lower-grade stock/)
+    expect(applied.effects.join(' ')).not.toMatch(/short or missed/)
+  })
+
   it('a shorted delivery can be disputed for a credit note against its invoice', () => {
     // A well-liked but hopeless supplier: high relationship holds the
     // deposit terms that produce an invoice, low reliability produces the
@@ -840,6 +913,57 @@ describe('Phase 213 §6.4 — counterplay', () => {
     expect(
       getSupplierAccount(state, 'brakka_mushroom_cart').history.disputesUpheld,
     ).toBe(1)
+  })
+
+  it('a dispute waits until the delivery record can no longer change', () => {
+    // A dispute resolves once and for all. Raised against an order that is
+    // still owed a redelivery, a single slip by a reliable supplier is
+    // rejected — and `already_disputed` then refuses to hear the complaint
+    // that the second miss would have upheld. So the action is not offered
+    // until the evidence is final.
+    // Reliability 55: dependable enough that ONE slip is not upheld
+    // (the verdict's bar is `reliability < 50`), unreliable enough to slip.
+    let state = withRelationship(
+      withReliability(ready(8_000), 'old_keg_brewers', 55),
+      'old_keg_brewers',
+      95,
+    )
+    let pending: string | undefined
+    for (let i = 0; i < 40 && !pending; i += 1) {
+      state = day(state, 1_200 + i, [
+        {
+          actionId: 'place_supplier_order',
+          targetId: 'old_keg_brewers:ale',
+          amount: 8,
+        },
+        // Settle as you go, so arrears never stop the supplier trading.
+        { actionId: 'pay_supplier_invoice', targetId: 'old_keg_brewers' },
+      ])
+      pending = listAllPurchaseOrders(state).find(
+        (order) =>
+          order.dispute === undefined &&
+          isOrderOpen(order) &&
+          order.attempts.filter((a) => a.outcome !== 'full').length === 1,
+      )?.id
+    }
+    expect(pending, 'no single-slip order stayed open').toBeDefined()
+
+    // Not offered, and refused with the reason that names what would change
+    // the answer.
+    const targets = actionRegistry
+      .get('dispute_supplier_delivery')
+      .getValidTargets!({ state } as never)
+    expect(targets.map((t) => t.id)).not.toContain(pending)
+
+    const attempted = day(state, 1_300, [
+      { actionId: 'dispute_supplier_delivery', targetId: pending! },
+    ])
+    expect(appliedIds(attempted)).not.toContain('dispute_supplier_delivery')
+    expect(rejections(attempted).join(' ')).toMatch(/evidence_pending/)
+    // Nothing was spent, so the complaint is still available later.
+    expect(
+      listAllPurchaseOrders(attempted).find((o) => o.id === pending)!.dispute,
+    ).toBeUndefined()
   })
 })
 

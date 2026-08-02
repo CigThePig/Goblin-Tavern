@@ -34,6 +34,7 @@ import {
 import {
   MAX_ORDER_ATTEMPTS,
   type DeliveryOutcome,
+  type PurchaseOrderLine,
   type PurchaseOrderRecord,
   type SupplierDeliveryRecord,
   type SupplierMissedDelivery,
@@ -359,6 +360,13 @@ export type DeliveryResult = {
   invoiceId?: string
   /** True when the order is finished, one way or the other. */
   closed: boolean
+  /**
+   * True when the failed roll was absorbed by the substitution the player
+   * sanctioned: the full quantity arrived, at a lower grade. The quantity is
+   * kept, so the outcome is `full` — but the goods are not what was quoted,
+   * and the record has to say so.
+   */
+  downgraded: boolean
   readable: string
   reason: string
   /** Set when the order failed for good and the goods will never come. */
@@ -407,9 +415,15 @@ export function deliverOrder(
   let quality = order.quotedQuality
   let outcome: DeliveryOutcome = 'full'
   let reason = 'delivered in full'
+  // The player who allowed substitutions bought insurance against a short or
+  // missed delivery and paid for it in quality; the quote says so
+  // (`riskKind: 'lower_grade'`) rather than advertising a shortage this
+  // branch makes impossible.
+  let downgraded = false
   if (failedRoll && order.substitutionsAllowed) {
     quality = Math.max(5, order.quotedQuality - LOWER_GRADE_QUALITY_PENALTY)
     reason = `${supplierLabel} filled the order with lower-grade substitute stock`
+    downgraded = true
   } else if (failedRoll && partial) {
     const share = PARTIAL_MIN + rng.float() * (PARTIAL_MAX - PARTIAL_MIN)
     quantity = Math.max(1, Math.floor(owed * share))
@@ -548,6 +562,7 @@ export function deliverOrder(
   recordDeliveryOutcome(ctx, {
     order: next,
     outcome,
+    downgraded,
     quantity,
     stockId: line.stockId,
     reason,
@@ -565,10 +580,12 @@ export function deliverOrder(
     invoiced,
     ...(invoiceId !== undefined ? { invoiceId } : {}),
     closed,
+    downgraded,
     failed,
     reason,
-    readable:
-      outcome === 'full'
+    readable: downgraded
+      ? `${supplierLabel} delivered ${quantity} ${stockLabel} as lower-grade stock (quality ${quality}).`
+      : outcome === 'full'
         ? `${supplierLabel} delivered ${quantity} ${stockLabel}.`
         : outcome === 'partial'
           ? `${supplierLabel} delivered only ${quantity} of ${owed} ${stockLabel}.`
@@ -662,6 +679,8 @@ function recordDeliveryOutcome(
   input: {
     order: PurchaseOrderRecord
     outcome: DeliveryOutcome
+    /** A full-quantity delivery of lower-grade goods. */
+    downgraded: boolean
     quantity: number
     stockId: string
     reason: string
@@ -767,11 +786,19 @@ function recordDeliveryOutcome(
     amount: input.quantity,
     direction: outcome === 'full' ? 'increase' : 'decrease',
     weight: Math.max(1, input.quantity),
-    readable:
-      outcome === 'full'
+    readable: input.downgraded
+      ? `${input.supplierLabel} filled order ${order.id} with lower-grade ${input.stockLabel}: ${input.reason}.`
+      : outcome === 'full'
         ? `${input.supplierLabel} delivered ${input.quantity} ${input.stockLabel} against order ${order.id}.`
         : `${input.supplierLabel} ${outcome === 'missed' ? 'missed' : 'shorted'} order ${order.id}: ${input.reason}.`,
-    tags: ['supplier', 'delivery', outcome, order.supplierId, input.stockId],
+    tags: [
+      'supplier',
+      'delivery',
+      outcome,
+      ...(input.downgraded ? ['downgraded'] : []),
+      order.supplierId,
+      input.stockId,
+    ],
     relatedSystems: [SUPPLIERS_MODULE_ID, 'stock'],
   })
 
@@ -846,21 +873,38 @@ export function canAmendOrder(
   return { ok: true }
 }
 
+export type AmendPlan =
+  | {
+      ok: true
+      order: PurchaseOrderRecord
+      line: PurchaseOrderLine
+      target: number
+      newPrepaid: number
+      /** Coin returning to the till (a reduction), before it moves. */
+      refund: number
+      /** Coin the till must find up front (an increase), before it moves. */
+      extraDue: number
+    }
+  | { ok: false; code: string; reason: string }
+
 /**
- * Change the quantity on an open order.
+ * Everything `amendOrder` will refuse for, decided without changing anything.
  *
- * Reducing refunds the prepaid share; increasing charges it, and is capped
- * by the same capacity the original quote respected — an amendment is not a
- * back door around what the supplier can actually carry.
+ * The owner-action loop charges an action's time cost the moment `apply`
+ * returns a result, refusal or not, so an amendment the rules were always
+ * going to reject has to be rejectable at VALIDATION time — otherwise the
+ * player pays minutes for "Amendment refused". Both the action's `canApply`
+ * and `amendOrder` itself read this one answer, so the queue and the
+ * outcome cannot disagree.
  */
-export function amendOrder(
-  ctx: SimContext,
+export function planAmendOrder(
+  state: TavernState,
   orderId: string,
   newQuantity: number,
-): AmendResult {
-  const order = getSupplierModuleState(ctx.state).orders[orderId]
+): AmendPlan {
+  const order = getSupplierModuleState(state).orders[orderId]
   if (!order) return { ok: false, code: 'unknown_order', reason: `No order '${orderId}'` }
-  const gate = canAmendOrder(ctx.state, order)
+  const gate = canAmendOrder(state, order)
   if (!gate.ok) return gate
   const line = order.lines[0]
   if (!line) return { ok: false, code: 'no_lines', reason: 'That order has no lines.' }
@@ -874,7 +918,7 @@ export function amendOrder(
   }
 
   if (target > line.quantity) {
-    const headroom = quoteSupplierOrder(ctx.state, {
+    const headroom = quoteSupplierOrder(state, {
       supplierId: order.supplierId,
       stockId: line.stockId,
       quantity: target - line.quantity,
@@ -884,41 +928,69 @@ export function amendOrder(
       return { ok: false, code: headroom.refusal.code, reason: headroom.refusal.reason }
     }
     if (order.paymentTerms === 'net') {
-      const account = getSupplierAccount(ctx.state, order.supplierId)
+      const account = getSupplierAccount(state, order.supplierId)
       const addedValue =
         Math.ceil(line.unitPrice * target) -
         Math.ceil(line.unitPrice * line.quantity)
       const available = Math.max(
         0,
-        account.creditLimit - supplierCreditExposure(ctx.state, order.supplierId),
+        account.creditLimit - supplierCreditExposure(state, order.supplierId),
       )
       if (addedValue > available) {
         return {
           ok: false,
           code: 'credit_limit_reached',
-          reason: `${ctx.state.world.suppliers[order.supplierId]?.label ?? order.supplierId} will carry ${available} more coin; this amendment adds ${addedValue}.`,
+          reason: `${state.world.suppliers[order.supplierId]?.label ?? order.supplierId} will carry ${available} more coin; this amendment adds ${addedValue}.`,
         }
       }
     }
   }
 
-  const today = ctx.state.calendar.totalDaysElapsed
   const prepaidPerUnit = order.prepaid / Math.max(1, line.quantity)
   const newPrepaid =
     order.paymentTerms === 'cash'
       ? Math.ceil(line.unitPrice * target)
       : Math.round(prepaidPerUnit * target)
   const delta = newPrepaid - order.prepaid
+  if (delta > state.coin) {
+    return {
+      ok: false,
+      code: 'insufficient_coin',
+      reason: `Increasing the order needs ${delta} more coin up front.`,
+    }
+  }
+  return {
+    ok: true,
+    order,
+    line,
+    target,
+    newPrepaid,
+    refund: delta < 0 ? -delta : 0,
+    extraDue: delta > 0 ? delta : 0,
+  }
+}
+
+/**
+ * Change the quantity on an open order.
+ *
+ * Reducing refunds the prepaid share; increasing charges it, and is capped
+ * by the same capacity the original quote respected — an amendment is not a
+ * back door around what the supplier can actually carry.
+ */
+export function amendOrder(
+  ctx: SimContext,
+  orderId: string,
+  newQuantity: number,
+): AmendResult {
+  const plan = planAmendOrder(ctx.state, orderId, newQuantity)
+  if (!plan.ok) return plan
+  const { order, line, target, newPrepaid } = plan
+
+  const today = ctx.state.calendar.totalDaysElapsed
+  const delta = newPrepaid - order.prepaid
   let refund = 0
   let extraDue = 0
   if (delta > 0) {
-    if (delta > ctx.state.coin) {
-      return {
-        ok: false,
-        code: 'insufficient_coin',
-        reason: `Increasing the order needs ${delta} more coin up front.`,
-      }
-    }
     extraDue = delta
     spendCoin(ctx, delta, {
       source: `${SUPPLIERS_MODULE_ID}.order_amendment.${orderId}`,

@@ -21,6 +21,7 @@ import type {
   PressureSnapshot,
 } from '../../src/sim/modules/pressures/index'
 import type { TavernState } from '../../src/sim/state/TavernState'
+import { createInitialTavernState } from '../../src/sim/state/defaults'
 import type { DailyReportData } from '../../src/reports/types'
 
 const { suggestActions } = await import('../../web/src/lib/sim/suggestActions')
@@ -56,20 +57,25 @@ function snapshot(
   }
 }
 
-/** A bare state carrying just the pressure snapshots + stock the engine reads. */
-function makeState(
-  snapshots: PressureSnapshot[],
-  stock: Record<string, { id: string; label: string }> = {},
-): TavernState {
+/**
+ * A real starting state with the pressure snapshots planted on it.
+ *
+ * Phase 213 — this used to be a two-field stub. It cannot be any more: a
+ * stock-loss suggestion now asks the sim which channel can actually answer
+ * the shortage (`shortageRemedyFor` reads rarity, the spot-market cap and
+ * the supplier roster), and a stub state cannot answer that honestly.
+ */
+function makeState(snapshots: PressureSnapshot[]): TavernState {
+  const base = createInitialTavernState()
   const slice: PressureModuleState = {
     snapshots: Object.fromEntries(snapshots.map((s) => [s.id, s])),
     history: {},
     lastCalculatedDay: 1,
   }
   return {
-    modules: { [PRESSURES_MODULE_ID]: slice },
-    stock,
-  } as unknown as TavernState
+    ...base,
+    modules: { ...base.modules, [PRESSURES_MODULE_ID]: slice },
+  }
 }
 
 /** A report carrying just the stock loss lines the engine reads. */
@@ -132,12 +138,33 @@ describe('suggestActions (Phase 193)', () => {
   })
 
   it('suggests restocking after a yesterday stock loss', () => {
-    const state = makeState([], { ale: { id: 'ale', label: 'Ale' } })
+    const state = makeState([])
     const report = reportWithStockLosses([{ id: 'ale', delta: -50 }])
     const out = suggestActions(state, [], report)
     const restock = out.find((s) => s.action.id === 'restock_item')
     expect(restock).toBeDefined()
     expect(restock?.reason).toBe('lost ale yesterday')
+    expect(restock?.targetId).toBe('ale')
+  })
+
+  // Phase 213 — the spot market deals in common goods only, so a shortage
+  // recommendation has to name the channel that will actually take the
+  // order. Pointing every loss at `restock_item` produced a suggestion whose
+  // target was rejected with `market_exhausted` the moment it was tapped.
+  it('routes an uncommon shortage to the supplier who carries it', () => {
+    const state = makeState([])
+    const report = reportWithStockLosses([{ id: 'wild_thyme', delta: -8 }])
+    const out = suggestActions(state, [], report)
+    expect(out.some((s) => s.action.id === 'restock_item')).toBe(false)
+    const order = out.find((s) => s.action.id === 'place_supplier_order')
+    expect(order?.reason).toBe('lost wild thyme yesterday')
+    expect(order?.targetId).toBe('marsh_root_peddler:wild_thyme')
+  })
+
+  it('stays silent for a rare loss no channel can answer', () => {
+    const state = makeState([])
+    const report = reportWithStockLosses([{ id: 'kraken_ink', delta: -2 }])
+    expect(suggestActions(state, [], report)).toHaveLength(0)
   })
 
   it('caps the list at three suggestions', () => {

@@ -128,7 +128,14 @@
         quote.dueAtPlacement <= gameStore.state.coin
       )
     }
-    if (actionId === 'amend_supplier_order') return selectedOrder !== undefined
+    if (actionId === 'amend_supplier_order') {
+      // The field opens on the CURRENT quantity, and an amendment to the
+      // quantity it already has is a refusal the sim will make anyway.
+      return (
+        selectedOrder !== undefined &&
+        Math.floor(amount) !== selectedOrder.order.ordered
+      )
+    }
     if (!selectedSupplier || outstandingForSupplier <= 0) return false
     if (actionId === 'pay_supplier_invoice') return gameStore.state.coin > 0
     return inDays >= 1 && inDays <= 7
@@ -338,7 +345,8 @@
             </p>
             <p class="chip">
               {quote.dueAtPlacement}c now · {quote.invoicedOnDelivery}c on delivery ·
-              {Math.round(quote.missChance * 100)}% miss risk
+              {Math.round(quote.missChance * 100)}%
+              {quote.riskKind === 'lower_grade' ? 'downgrade risk' : 'miss risk'}
             </p>
             {#if quote.substitutedFor}
               <p class="notice">The supplier will ship {quote.stockLabel} instead.</p>

@@ -24,6 +24,7 @@ import {
   type OwnerActionDefinition,
 } from '../../../../src/sim/registries/actionRegistry'
 import { getAllPressureSnapshots } from '../../../../src/sim/modules/pressures/pressureQueries'
+import { shortageRemedyFor } from '../../../../src/sim/modules/suppliers/quote'
 import type { DailyReportData } from '../../../../src/reports/types'
 
 export type SuggestedAction = {
@@ -48,8 +49,9 @@ export type SuggestedAction = {
 /** At most three suggestions, so the section stays a pointer, not a list. */
 const MAX_SUGGESTIONS = 3
 
-/** The restock action a stock loss points at. */
+/** The two channels a stock loss can point at. */
 const RESTOCK_ACTION_ID = 'restock_item'
+const ORDER_ACTION_ID = 'place_supplier_order'
 
 type Candidate = {
   action: OwnerActionDefinition
@@ -120,19 +122,35 @@ export function suggestActions(
   }
 
   // 2. Yesterday-loss triggers — biggest stock loss first.
+  //
+  // Which remedy is offered comes from the sim (`shortageRemedyFor`), not
+  // from this file: the local market only carries common goods, and only so
+  // many a day, so an unconditional `restock_item` suggestion sent the
+  // player at a `market_exhausted` rejection for every uncommon ingredient
+  // and every rare expedition find. A good with no open channel gets no
+  // suggestion at all.
   if (previousReport) {
     const losses = previousReport.groupedDiffs.stock
       .filter((d) => d.direction === 'loss' && d.path.endsWith('.quantity'))
       .sort((a, b) => a.delta - b.delta)
-    if (losses.length > 0 && actionRegistry.has(RESTOCK_ACTION_ID)) {
-      const action = actionRegistry.get(RESTOCK_ACTION_ID)
-      for (const loss of losses) {
-        const itemId = stockIdFromPath(loss.path)
-        if (!itemId) continue
-        const label = state.stock[itemId]?.label ?? itemId
-        push(action, `lost ${label.toLowerCase()} yesterday`, 0, {
+    for (const loss of losses) {
+      const itemId = stockIdFromPath(loss.path)
+      if (!itemId) continue
+      const label = state.stock[itemId]?.label ?? itemId
+      const reason = `lost ${label.toLowerCase()} yesterday`
+      const remedy = shortageRemedyFor(state, itemId)
+      if (remedy.kind === 'spot_market' && actionRegistry.has(RESTOCK_ACTION_ID)) {
+        push(actionRegistry.get(RESTOCK_ACTION_ID), reason, 0, {
           id: itemId,
           label,
+        })
+      } else if (
+        remedy.kind === 'supplier_order' &&
+        actionRegistry.has(ORDER_ACTION_ID)
+      ) {
+        push(actionRegistry.get(ORDER_ACTION_ID), reason, 0, {
+          id: `${remedy.supplierId}:${itemId}`,
+          label: `${label} from ${remedy.supplierLabel}`,
         })
       }
     }

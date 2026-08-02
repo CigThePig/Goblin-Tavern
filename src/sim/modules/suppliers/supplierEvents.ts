@@ -6,6 +6,7 @@ import { registerScheduledEvent } from '../../contracts/scheduledEvents/registry
 import { scheduleEvent } from '../../contracts/scheduledEvents/state'
 import type {
   ScheduledEventDefinition,
+  ScheduledEventMutation,
   ScheduledEventResolution,
 } from '../../contracts/scheduledEvents/index'
 
@@ -69,6 +70,11 @@ const DeliveryPayloadSchema = z.object({
 const ScheduledPaymentPayloadSchema = z.object({
   invoiceId: z.string(),
   amount: z.number().min(1),
+  /**
+   * Who the promise was made to. Optional so promises scheduled before this
+   * field existed still resolve — they simply pay the one invoice they name.
+   */
+  supplierId: z.string().optional(),
 })
 
 const SupplierPayloadSchema = z.object({ supplierId: z.string() })
@@ -297,8 +303,48 @@ const scheduledPaymentEvent: ScheduledEventDefinition = {
     if (!parsed.success) {
       return noOp('the event did not name an invoice', record.origin.readable)
     }
-    const result = paySupplierInvoice(ctx, parsed.data.invoiceId, parsed.data.amount)
-    if (!result) {
+    // A promise made against a supplier's whole balance pays that balance
+    // down: the named invoice first, then the rest in the same priority the
+    // player was shown. Capping it at one invoice discarded the remainder
+    // and left later invoices untouched on the day the promise came due.
+    const supplierId = parsed.data.supplierId
+    const queue = supplierId
+      ? [
+          parsed.data.invoiceId,
+          ...outstandingSupplierInvoices(ctx.state, supplierId)
+            .sort(
+              (a, b) =>
+                b.escalation - a.escalation ||
+                a.dueOnDay - b.dueOnDay ||
+                a.id.localeCompare(b.id),
+            )
+            .map((invoice) => invoice.id)
+            .filter((id) => id !== parsed.data.invoiceId),
+        ]
+      : [parsed.data.invoiceId]
+
+    let remaining = parsed.data.amount
+    let applied = 0
+    let settledCount = 0
+    let lastOutstanding = 0
+    const mutations: ScheduledEventMutation[] = []
+    for (const invoiceId of queue) {
+      if (remaining <= 0 || ctx.state.coin <= 0) break
+      const result = paySupplierInvoice(ctx, invoiceId, remaining)
+      if (!result) continue
+      applied += result.applied
+      remaining -= result.applied
+      lastOutstanding = result.outstandingAfter
+      if (result.settled) settledCount += 1
+      mutations.push({
+        targetKind: 'obligation',
+        targetId: result.invoiceId,
+        field: 'paid',
+        readable: `${result.applied} coin paid against the invoice.`,
+      })
+    }
+
+    if (applied <= 0) {
       return noOp(
         ctx.state.coin <= 0
           ? 'the till was empty on the day the payment was promised'
@@ -306,19 +352,21 @@ const scheduledPaymentEvent: ScheduledEventDefinition = {
         record.origin.readable,
       )
     }
+    // What is still owed is read back from the ledger, not accumulated from
+    // the payments: invoices the promise never reached are still owed too.
+    const stillOwed = supplierId
+      ? outstandingSupplierInvoices(ctx.state, supplierId).reduce(
+          (sum, invoice) => sum + invoice.outstanding,
+          0,
+        )
+      : lastOutstanding
     return {
       status: 'resolved',
-      readable: result.settled
-        ? `The promised payment settled the invoice (${result.applied} coin).`
-        : `The promised payment covered ${result.applied} coin; ${result.outstandingAfter} still owed.`,
-      mutations: [
-        {
-          targetKind: 'obligation',
-          targetId: result.invoiceId,
-          field: 'paid',
-          readable: `${result.applied} coin paid against the invoice.`,
-        },
-      ],
+      readable:
+        stillOwed <= 0
+          ? `The promised payment settled ${settledCount === 1 ? 'the invoice' : `${settledCount} invoices`} (${applied} coin).`
+          : `The promised payment covered ${applied} coin; ${Math.ceil(stillOwed)} still owed.`,
+      mutations,
     }
   },
 }
@@ -334,7 +382,11 @@ export function scheduleSupplierPayment(
     type: SUPPLIER_SCHEDULED_PAYMENT_EVENT,
     target: supplierRef(input.supplierId),
     scheduledForDay: input.onDay,
-    payload: { invoiceId: input.invoiceId, amount: input.amount },
+    payload: {
+      invoiceId: input.invoiceId,
+      amount: input.amount,
+      supplierId: input.supplierId,
+    },
     origin: {
       source: `${SUPPLIERS_MODULE_ID}.scheduled_payment`,
       readable: `${input.amount} coin promised to ${label} on day ${input.onDay}.`,

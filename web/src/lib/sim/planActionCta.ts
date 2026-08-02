@@ -22,6 +22,7 @@ import {
   type OwnerActionDefinition,
 } from '../../../../src/sim/registries/actionRegistry'
 import { getPressureSnapshot } from '../../../../src/sim/modules/pressures/pressureQueries'
+import { shortageRemedyFor } from '../../../../src/sim/modules/suppliers/quote'
 
 export type PlanActionCta = {
   /** The action category tab the ActionPicker should open on. */
@@ -44,8 +45,9 @@ export type PlanActionCta = {
   preferredTargetLabel?: string
 }
 
-/** The action a stock-level drilldown points at. */
+/** The two actions a stock-level drilldown can point at. */
 const RESTOCK_ACTION_ID = 'restock_item'
+const ORDER_ACTION_ID = 'place_supplier_order'
 
 /**
  * Context for a "Plan an action against this" drilldown CTA, or
@@ -69,17 +71,34 @@ export function planActionCtaForPath(
   // owner action, and names the item too. This returned `undefined` for
   // inventory paths, so the audit's shortage route reached the picker
   // through the Suggested list and arrived with the item stripped off.
+  //
+  // Expansion Phase 6 — which action, though, is the sim's call: the spot
+  // market carries common goods only, so an uncommon ingredient's drilldown
+  // has to hand off to the supplier order it can actually be bought with,
+  // and a rare one with no open channel stays silent rather than opening a
+  // picker on a target that always rejects.
   if (path.startsWith('stock.')) {
     const itemId = path.split('.')[1]
     if (!itemId || !state.stock[itemId]) return undefined
-    if (!actionRegistry.has(RESTOCK_ACTION_ID)) return undefined
-    const def = actionRegistry.get(RESTOCK_ACTION_ID)
-    return {
-      tab: def.category,
-      focusSuggested: false,
-      preferredTargetId: itemId,
-      preferredTargetLabel: state.stock[itemId]!.label,
+    const label = state.stock[itemId]!.label
+    const remedy = shortageRemedyFor(state, itemId)
+    if (remedy.kind === 'spot_market' && actionRegistry.has(RESTOCK_ACTION_ID)) {
+      return {
+        tab: actionRegistry.get(RESTOCK_ACTION_ID).category,
+        focusSuggested: false,
+        preferredTargetId: itemId,
+        preferredTargetLabel: label,
+      }
     }
+    if (remedy.kind === 'supplier_order' && actionRegistry.has(ORDER_ACTION_ID)) {
+      return {
+        tab: actionRegistry.get(ORDER_ACTION_ID).category,
+        focusSuggested: false,
+        preferredTargetId: `${remedy.supplierId}:${itemId}`,
+        preferredTargetLabel: `${label} from ${remedy.supplierLabel}`,
+      }
+    }
+    return undefined
   }
   // coin / reputation paths: no owner-action affinity in the model maps to
   // them, so there is nothing honest to suggest. Omit.

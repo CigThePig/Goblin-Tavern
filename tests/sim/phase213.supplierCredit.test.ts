@@ -363,6 +363,45 @@ describe('Phase 213 §6.3 — an unpaid invoice has consequences that end', () =
       outstandingSupplierInvoices(state, CART).some((row) => row.id === invoice.id),
     ).toBe(false)
   })
+
+  it('a promise made against the whole balance pays every invoice it names', () => {
+    // The promise is offered as "what you owe this supplier", so two open
+    // invoices have to be two invoices the promise clears. Attaching the
+    // aggregate to the first invoice capped the payment at that invoice and
+    // dropped the remainder on the day it came due.
+    let state = withCredit()
+    for (const [index, amount] of [12, 9].entries()) {
+      state = day(state, 30 + index, [
+        {
+          actionId: 'place_supplier_order',
+          targetId: `${CART}:mushrooms`,
+          amount,
+          options: { onCredit: true },
+        },
+      ])
+      const placed = listPurchaseOrders(state).at(-1)!
+      state = runThroughDay(state, placed.promisedOnDay, 40 + index * 10)
+    }
+    const open = outstandingSupplierInvoices(state, CART)
+    expect(open.length).toBeGreaterThanOrEqual(2)
+    const owed = open.reduce((sum, invoice) => sum + invoice.outstanding, 0)
+
+    state = day(state, 60, [
+      {
+        actionId: 'schedule_supplier_payment',
+        targetId: CART,
+        amount: Math.ceil(owed),
+        options: { inDays: 1 },
+      },
+    ])
+    const applied = getOwnerActionsModuleState(state).applied.find(
+      (a) => a.actionId === 'schedule_supplier_payment',
+    )!
+    expect(applied.data['amount']).toBe(Math.ceil(owed))
+
+    state = runDays(state, 2, 61)
+    expect(outstandingSupplierInvoices(state, CART)).toHaveLength(0)
+  })
 })
 
 // ---------------------------------------------------------------------------

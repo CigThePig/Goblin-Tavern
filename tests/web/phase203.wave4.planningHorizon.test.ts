@@ -334,6 +334,19 @@ describe('P7-EXP-006 — a suggestion and a CTA keep their target', () => {
     ).toBeUndefined()
   })
 
+  // Phase 213 — `restock_item` is the local spot market now, and the market
+  // carries common goods only. A drilldown on anything scarcer has to hand
+  // off to the channel that can actually fill it, or say nothing.
+  it('routes a scarcer stock drilldown to its real channel', () => {
+    const uncommon = planActionCtaForPath('stock.wild_thyme.quantity', gameStore.state)
+    expect(uncommon?.preferredTargetId).toBe('marsh_root_peddler:wild_thyme')
+    // Rare goods come back from expeditions; no purchase channel is open,
+    // so the drilldown renders no CTA rather than a rejecting one.
+    expect(
+      planActionCtaForPath('stock.kraken_ink.quantity', gameStore.state),
+    ).toBeUndefined()
+  })
+
   it('carries the preferred target and reason through the picker request', () => {
     gameStore.requestActionPicker({
       tab: 'immediate',

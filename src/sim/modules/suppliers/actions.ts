@@ -27,6 +27,7 @@ import {
   canAmendOrder,
   placeOrder,
   placeSplitOrder,
+  planAmendOrder,
 } from './orders'
 import { creditEligibility, quoteSupplierOrder } from './quote'
 import { scheduleSupplierPayment } from './supplierEvents'
@@ -42,6 +43,7 @@ import {
   recordOrderDispute,
   writeSupplierAccount,
 } from './state'
+import type { PurchaseOrderRecord } from './types'
 
 // Expansion Phase 6 — player capability.
 //
@@ -246,7 +248,11 @@ const placeSupplierOrder: OwnerActionDefinition = {
         `${quote.supplierLabel}: ${quote.quantity} ${quote.stockLabel} for day ${quote.deliveryDay}`,
         `${quote.paymentTerms} terms · ${quote.dueAtPlacement} coin now, ${quote.invoicedOnDelivery} on delivery`,
         ...(quote.missChance > 0
-          ? [`${Math.round(quote.missChance * 100)}% risk of a short or missed delivery`]
+          ? [
+              quote.riskKind === 'lower_grade'
+                ? `${Math.round(quote.missChance * 100)}% risk the order arrives as lower-grade stock`
+                : `${Math.round(quote.missChance * 100)}% risk of a short or missed delivery`,
+            ]
           : []),
       ],
       data: {
@@ -308,6 +314,13 @@ const amendSupplierOrder: OwnerActionDefinition = {
     if (input.amount === undefined || Math.floor(input.amount) <= 0) {
       return reject('invalid_amount', 'Name the new quantity.')
     }
+    // Every reason `amendOrder` would refuse for — the unchanged quantity the
+    // composer pre-fills, an increase past the supplier's capacity or credit
+    // line, a deposit the till cannot cover — is decided here, before the
+    // action is queued. Otherwise the day paid minutes for "Amendment
+    // refused".
+    const plan = planAmendOrder(ctx.state, input.targetId, Math.floor(input.amount))
+    if (!plan.ok) return reject(plan.code, plan.reason)
     return OK
   },
   apply: (ctx, input): OwnerActionApplied => {
@@ -398,6 +411,47 @@ const cancelSupplierOrder: OwnerActionDefinition = {
 // ---------- dispute ----------
 
 /**
+ * The verdict, and the evidence it rests on.
+ *
+ * Repeated failures on the record uphold the complaint; a single slip
+ * against a reliable supplier does not. `apply` and the availability gate
+ * below read the same function so the player is never shown an action whose
+ * answer the rules already know is "no, and now you may never ask again".
+ */
+function disputeCase(
+  state: TavernState,
+  order: PurchaseOrderRecord,
+): { failures: PurchaseOrderRecord['attempts']; upheld: boolean } {
+  const failures = order.attempts.filter((attempt) => attempt.outcome !== 'full')
+  const supplier = state.world.suppliers[order.supplierId]
+  return {
+    failures,
+    upheld:
+      failures.length >= 2 || (supplier !== undefined && supplier.reliability < 50),
+  }
+}
+
+/**
+ * Whether the delivery record can still change under the complaint.
+ *
+ * A dispute is resolved once and for all — `recordOrderDispute` stamps the
+ * order — so raising one against an order that still has retries left
+ * spends the verdict on incomplete evidence: the supplier misses again the
+ * next day, the complaint would now be upheld, and `already_disputed`
+ * refuses to hear it. So the action waits until the evidence is final: the
+ * order is closed and can gain no further attempts, or the record already
+ * meets the bar, which a retry can only reinforce.
+ */
+function disputeEvidenceIsFinal(
+  state: TavernState,
+  order: PurchaseOrderRecord,
+): boolean {
+  const { failures, upheld } = disputeCase(state, order)
+  if (failures.length === 0) return false
+  return !isOrderOpen(order) || upheld
+}
+
+/**
  * Orders whose delivery record gives the player something to dispute.
  *
  * Reads the archive as well as the live map: the order most worth
@@ -408,8 +462,7 @@ function listDisputableOrders(ctx: SimContext): ActionTarget[] {
   return listAllPurchaseOrders(ctx.state)
     .filter(
       (order) =>
-        order.dispute === undefined &&
-        order.attempts.some((attempt) => attempt.outcome !== 'full'),
+        order.dispute === undefined && disputeEvidenceIsFinal(ctx.state, order),
     )
     .map((order) => ({
       id: order.id,
@@ -441,6 +494,12 @@ const disputeSupplierDelivery: OwnerActionDefinition = {
         'That order has not been shorted or missed.',
       )
     }
+    if (!disputeEvidenceIsFinal(ctx.state, order)) {
+      return reject(
+        'evidence_pending',
+        `${ctx.state.world.suppliers[order.supplierId]?.label ?? order.supplierId} is still due to deliver the balance on day ${order.promisedOnDay}; a complaint now would be settled on one slip.`,
+      )
+    }
     return OK
   },
   apply: (ctx, input): OwnerActionApplied => {
@@ -448,13 +507,7 @@ const disputeSupplierDelivery: OwnerActionDefinition = {
     const today = ctx.state.calendar.totalDaysElapsed
     const supplier = ctx.state.world.suppliers[order.supplierId]
     const label = supplier?.label ?? order.supplierId
-    const failures = order.attempts.filter((attempt) => attempt.outcome !== 'full')
-
-    // The verdict is the evidence, not a roll: repeated failures on the
-    // record uphold the complaint, a single slip against a reliable
-    // supplier does not.
-    const upheld =
-      failures.length >= 2 || (supplier !== undefined && supplier.reliability < 50)
+    const { failures, upheld } = disputeCase(ctx.state, order)
 
     let relief = 0
     if (upheld) {
@@ -617,12 +670,25 @@ function listSuppliersOwed(ctx: SimContext): ActionTarget[] {
     .sort((a, b) => a.id.localeCompare(b.id))
 }
 
-/** The invoice a payment should go to first: soonest due, then most escalated. */
-function nextInvoiceFor(state: TavernState, supplierId: string) {
+/** A supplier's live invoices in the order a payment should clear them. */
+function invoicePriorityFor(state: TavernState, supplierId: string) {
   return outstandingSupplierInvoices(state, supplierId).sort(
     (a, b) =>
       b.escalation - a.escalation || a.dueOnDay - b.dueOnDay || a.id.localeCompare(b.id),
-  )[0]
+  )
+}
+
+/** The invoice a payment should go to first: soonest due, then most escalated. */
+function nextInvoiceFor(state: TavernState, supplierId: string) {
+  return invoicePriorityFor(state, supplierId)[0]
+}
+
+/** Everything this supplier is owed across its live invoices. */
+function totalOwedTo(state: TavernState, supplierId: string): number {
+  return invoicePriorityFor(state, supplierId).reduce(
+    (sum, invoice) => sum + invoice.outstanding,
+    0,
+  )
 }
 
 const payInvoice: OwnerActionDefinition = {
@@ -735,16 +801,27 @@ const schedulePayment: OwnerActionDefinition = {
     const label = ctx.state.world.suppliers[supplierId]?.label ?? supplierId
     const days = readScheduleDays(input)
     const onDay = ctx.state.calendar.totalDaysElapsed + days
-    const amount =
-      input.amount !== undefined && input.amount > 0
-        ? Math.floor(input.amount)
-        : Math.ceil(invoice.outstanding)
+    // A promise is made to the SUPPLIER, and the composer offers the whole
+    // balance owed to them. Capping it at the first invoice quietly threw
+    // the rest away on the due day; the promise carries the supplier so the
+    // resolver can walk their invoices in the same priority order.
+    const owed = Math.ceil(totalOwedTo(ctx.state, supplierId))
+    const amount = Math.max(
+      1,
+      Math.min(
+        owed,
+        input.amount !== undefined && input.amount > 0
+          ? Math.floor(input.amount)
+          : owed,
+      ),
+    )
     const scheduled = scheduleSupplierPayment(ctx, {
       invoiceId: invoice.id,
       supplierId,
       amount,
       onDay,
     })
+    const spread = amount > Math.ceil(invoice.outstanding)
     return {
       actionId: schedulePayment.id,
       label: `Promised ${label} ${amount} coin`,
@@ -753,7 +830,12 @@ const schedulePayment: OwnerActionDefinition = {
       timeCost: schedulePayment.timeCost,
       effects:
         scheduled.status === 'scheduled'
-          ? [`${amount} coin promised for day ${onDay}`]
+          ? [
+              `${amount} coin promised for day ${onDay}`,
+              ...(spread
+                ? [`covers ${label}'s invoices in turn, most pressing first`]
+                : []),
+            ]
           : ['that payment was already promised'],
       data: {
         invoiceId: invoice.id,

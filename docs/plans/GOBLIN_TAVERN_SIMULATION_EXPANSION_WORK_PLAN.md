@@ -2227,13 +2227,22 @@ in-progress, 66 open), 98 future hooks across 189 sites, 13 baseline routes
 with no drift, and a 37-module / 26-phase / 20-stream / 143-term repo map
 with no drift.
 
-The review-fix pass above adds **8 tests** to those four files (330 files /
-4,384 tests). Re-verified after it: the four `phase214.*` files (93 tests),
-the domains its changes touch — economy, monthly, supplier credit, the
-shared contracts and exact-once gates, every `tests/reports/` file, web
-persistence and the reports screen (657 tests) — plus `typecheck`, `check`
-(1,095 files, 0 errors), and all three expansion artifacts still at **zero
-drift**, which is the evidence the fixes did not move the frozen routes. The 180-day balance matrix finishes solvent on all six rows —
+The review-fix pass above adds **8 tests** to those four files, and
+`npm run test:full` was re-run on top of it: **330 files / 4,384 tests
+passing**, which is the pre-fix 4,376 plus exactly those 8 and nothing
+else moved. Also re-verified after it: `typecheck`, `check` (1,095 files,
+0 errors), and all three expansion artifacts still at **zero drift**,
+which is the evidence the fixes did not move the frozen routes.
+
+**The back-rent migration was checked against the live save system and
+needs no change.** `ensureExternalObligationSlices` seeds a tenancy only
+when `modules.tenancy` is ABSENT, and `createInitialTavernState` seeds all
+three Phase 7 slices from day zero — so the branch is unreachable for any
+save this implementation writes. Probed on a save carrying real arrears
+(312 coin across two `in_collections` rent obligations, an evicted
+tenancy, four notices): the reload step leaves the slice byte-identical,
+fabricates no belief, and is idempotent. The judgement recorded above
+therefore applies only to saves written before this phase existed. The 180-day balance matrix finishes solvent on all six rows —
 11.8k to 65k coin, 4.8k to 7.0k patrons — across three distinct identities,
 while the passive route still collapses into closure, eviction and real
 arrears.

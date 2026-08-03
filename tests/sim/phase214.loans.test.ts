@@ -466,6 +466,152 @@ describe('Phase 214 §7.1 — the loan is visible, bounded and valid', () => {
     )
   })
 
+  it('offers a loan row exactly the actions addressed BY a loan id, and no others', () => {
+    const state = run(ready(600), 0, [
+      { actionId: 'take_loan', targetId: 'merchant_syndicate', amount: 120 },
+    ])
+    const row = buildObligationCalendar(state).rows.find(
+      (entry) => entry.kind === 'loan',
+    )
+    expect(row).toBeDefined()
+    const offered = row!.options.map((option) => option.actionId).sort()
+    // Asserting ABSENCE is the point. A tag scan matched `take_loan` here —
+    // an action addressed by a LENDER id — so every loan row carried a
+    // permanently-disabled "Borrow coin" whose reason ("no lender 'loan-0'
+    // operates here") leaked a record id at the player. The same scan
+    // dropped `renegotiate_loan`, which is not tagged `coin`.
+    expect(offered).toEqual(['renegotiate_loan', 'repay_loan', 'settle_loan'])
+  })
+
+  it('never leaves a missed instalment owing in the ledger with no way to pay it', () => {
+    // Borrow, then let the till run dry so instalments go past grace. The
+    // schedule moves on from a missed instalment — so the obligation behind
+    // it must move on too, or it sits live, unreachable by `repay_loan`
+    // (which only ever finds the OPEN instalment) and counted as arrears
+    // for the rest of the run. That is the promise-nobody-can-keep shape
+    // OBL-02 exists to remove, and it is checkable from the ledger side.
+    let state = run(ready(400), 0, [
+      { actionId: 'take_loan', targetId: 'grimwick', amount: 100 },
+    ])
+    state = { ...state, coin: 0 }
+    state = runDays(state, 40, 1)
+
+    const loans = [
+      ...listLoans(state),
+      ...getFinanceModuleState(state).loanArchive,
+    ]
+    expect(loans.length).toBeGreaterThan(0)
+    const missed = loans.flatMap((loan) =>
+      loan.instalments.filter((entry) => entry.status === 'missed'),
+    )
+    expect(missed.length, 'the run must actually miss a payment').toBeGreaterThan(
+      0,
+    )
+
+    for (const loan of loans) {
+      for (const instalment of loan.instalments) {
+        if (instalment.status === 'open' || !instalment.obligationId) continue
+        const obligation = getObligation(state, instalment.obligationId)
+        if (!obligation) continue
+        expect(
+          outstandingAmount(obligation),
+          `instalment ${instalment.index} of ${loan.id} is ${instalment.status} but its obligation still owes`,
+        ).toBe(0)
+      }
+    }
+    // The module's own validator must agree, so this cannot regress quietly.
+    const validation = safeValidateState(state, { modules: FULL_PIPELINE })
+    expect(validation.success).toBe(true)
+  })
+
+  it('carries a missed instalment’s late charges onto the agreement rather than dropping them', () => {
+    let state = run(ready(400), 0, [
+      { actionId: 'take_loan', targetId: 'grimwick', amount: 100 },
+    ])
+    const opened = listLoans(state)[0]!
+    const repayableAtSigning = opened.totalRepayable
+    state = { ...state, coin: 0 }
+    state = runDays(state, 20, 1)
+
+    const loan =
+      listLoans(state)[0] ??
+      getFinanceModuleState(state).loanArchive.find(
+        (entry) => entry.id === opened.id,
+      )!
+    expect(loan.missedInstalments).toBeGreaterThan(0)
+    // Missing a payment costs what the loan's snapshotted late-charge rate
+    // says it costs. Before, the charge accrued on an obligation the player
+    // could never reach, so it was simultaneously "owed" and unpayable.
+    expect(loan.totalRepayable).toBeGreaterThan(repayableAtSigning)
+  })
+
+  it('closes a settled loan out of the ledger even when an earlier payment was missed', () => {
+    let state = run(ready(400), 0, [
+      { actionId: 'take_loan', targetId: 'grimwick', amount: 100 },
+    ])
+    const loanId = listLoans(state)[0]!.id
+    // Dry till long enough to miss one, then money again and settle in full.
+    state = { ...state, coin: 0 }
+    state = runDays(state, 12, 1)
+    expect(listLoans(state)[0]?.missedInstalments ?? 0).toBeGreaterThan(0)
+
+    state = { ...state, coin: 2_000 }
+    state = run(state, 13, [{ actionId: 'settle_loan', targetId: loanId }])
+
+    const archived = getFinanceModuleState(state).loanArchive.find(
+      (entry) => entry.id === loanId,
+    )
+    const live = listLoans(state).find((entry) => entry.id === loanId)
+    const loan = archived ?? live
+    expect(loan).toBeDefined()
+    for (const instalment of loan!.instalments) {
+      if (!instalment.obligationId) continue
+      const obligation = getObligation(state, instalment.obligationId)
+      if (!obligation) continue
+      expect(outstandingAmount(obligation), `instalment ${instalment.index}`).toBe(0)
+    }
+    // Nothing loan-shaped may still be showing on the player's calendar.
+    const calendar = buildObligationCalendar(state)
+    expect(calendar.rows.filter((row) => row.kind === 'loan')).toHaveLength(0)
+  })
+
+  it('refuses a third renegotiation in the PICKER, not after charging the walk', () => {
+    let state = withLenderStanding(ready(2_000), 'merchant_syndicate', 90)
+    state = run(state, 0, [
+      { actionId: 'take_loan', targetId: 'merchant_syndicate', amount: 200 },
+    ])
+    const loanId = listLoans(state)[0]!.id
+    for (let i = 0; i < MAX_RENEGOTIATIONS; i += 1) {
+      state = run(state, 1 + i, [
+        { actionId: 'renegotiate_loan', targetId: loanId },
+      ])
+    }
+    expect(listLoans(state)[0]!.renegotiations).toBe(MAX_RENEGOTIATIONS)
+
+    state = run(state, 1 + MAX_RENEGOTIATIONS, [
+      { actionId: 'renegotiate_loan', targetId: loanId },
+    ])
+    // Rejected by `canApply` — so no time was spent — rather than accepted
+    // and then refused inside `apply`, which is what charged the player for
+    // an action that could only ever say no.
+    expect(rejectedAction(state, 'renegotiate_loan')?.code).toBe(
+      'renegotiation_exhausted',
+    )
+    expect(appliedAction(state, 'renegotiate_loan')).toBeUndefined()
+  })
+
+  it('reads collections terms off the agreement, not off the live registry', () => {
+    const state = run(ready(400), 0, [
+      { actionId: 'take_loan', targetId: 'grimwick', amount: 100 },
+    ])
+    const loan = listLoans(state)[0]!
+    // Snapshotted at signing alongside rate and schedule: a lender re-tuned
+    // after the deal was struck must not change what this loan does.
+    expect(loan.collections).toBe('seizure')
+    expect(loan.seizureFraction).toBeGreaterThan(0)
+    expect(loan.refusalDays).toBeGreaterThan(0)
+  })
+
   it('keeps state valid across a month of borrowing and repaying', () => {
     let state = ready(1_500)
     for (let day = 0; day < 28; day += 1) {

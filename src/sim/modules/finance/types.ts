@@ -4,6 +4,7 @@ import {
   ContractRecordBaseSchema,
   type ContractRecordBase,
 } from '../../contracts/obligations/index'
+import type { LenderCollectionsMode } from '../../content/finance/lenderRegistry'
 
 // Expansion Phase 7 §7.1 — loans.
 //
@@ -133,6 +134,18 @@ export type LoanRecord = ContractRecordBase & {
   renegotiations: number
   /** Coin the lender has taken directly during collections. */
   collectedByLender: number
+  /**
+   * What the lender does on a default, snapshotted with the rest of the
+   * terms. Read from the agreement rather than from the registry, because a
+   * lender whose collections behaviour was re-tuned after signing would
+   * otherwise change what an in-flight loan does to the player — the same
+   * "terms that moved under the player" this record exists to prevent.
+   */
+  collections: LenderCollectionsMode
+  /** Days the lender refuses further dealings after a default. */
+  refusalDays: number
+  /** Share of the balance a seizure lender takes from the till. */
+  seizureFraction: number
   purpose: string
 }
 
@@ -236,6 +249,13 @@ export const LoanRecordSchema = ContractRecordBaseSchema.extend({
   missedInstalments: z.number().int().min(0),
   renegotiations: z.number().int().min(0),
   collectedByLender: z.number().min(0),
+  // Snapshotted collections terms. Defaulted rather than required purely as
+  // belt-and-braces — loans are new in this phase, so no save can be missing
+  // them — and the defaults are the lenient end, never a harsher bargain
+  // than the player agreed to.
+  collections: z.enum(['seizure', 'refusal']).default('refusal'),
+  refusalDays: z.number().int().min(0).default(30),
+  seizureFraction: z.number().min(0).max(1).default(0),
   purpose: z.string(),
 })
 

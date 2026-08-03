@@ -2154,13 +2154,86 @@ solvent tavern with an unpaid fine was insolvent in three days and shut in
 ten. It now reads `arrears > coin`, which is what "could no longer fund safe
 operation" always meant.
 
+**Seven review findings fixed before merge** (PR #253 — two P1, three P2,
+two P3), each with a regression test that fails on the pre-fix tree:
+
+- **P1, and `OBL-02` reappearing inside its own fix:** a missed instalment's
+  ledger obligation was never discharged. The schedule marked the instalment
+  `missed` and opened the next one, but `repayLoan`/`settleLoan` reach the
+  ledger only through the instalment that is currently `open` — so the
+  missed one sat live, unreachable by any action, double-counting debt the
+  loan record already carried, and climbing the generic grace-expiry ladder
+  for four more firings. A tavern that recovered from one missed payment
+  carried permanent phantom arrears into `externalArrears`, insolvency and
+  the calendar. `absorbInstalmentObligation` now discharges it and folds its
+  accrued charges ONTO the agreement (so lateness still costs what the
+  loan's snapshotted rate says, payable where the player can reach it), and
+  `closeLoan` sweeps anything still live when a loan goes terminal.
+  `financeModule.validate` gained the reverse-direction check that would
+  have caught it: a live loan-tagged obligation must belong to an instalment
+  that is still open.
+- **P1: the obligation calendar offered the wrong actions and hid the right
+  ones.** `optionsFor` matched by tag, but an action's `targetId` has a KIND.
+  Every loan row therefore carried `take_loan` — addressed by a LENDER id —
+  permanently disabled with "no lender 'loan-0' operates here", leaking a
+  record id at the player as if it were guidance; every fine row carried
+  case-scoped `bribe_inspector` the same way; `renegotiate_loan` was hidden
+  because it is not tagged `coin`; and supplier invoices offered **nothing**,
+  because no supplier action is tagged `coin` either — the one row whose
+  whole purpose is surfacing `pay_supplier_invoice`. Replaced with an
+  explicit per-kind list that also records how each action wants to be
+  addressed, and supplier rows now carry the supplier id their actions
+  expect. Eligibility still comes from the registry's own `canApply`.
+- **P2: `renegotiate_loan` charged the walk for an answer it already knew.**
+  `renegotiateLoan` enforces the renegotiation cap and a standing floor, but
+  `canApply` checked neither, so a player at the cap spent the action's time
+  on an `apply` that could only refuse — and the greyed-out reason they were
+  meant to plan against never appeared. Both bars mirrored into `canApply`.
+- **P2: two definitions of "overdue".** The economy's arrears sum and the
+  §7.4 calendar each wrote their own, and the calendar's headline total and
+  the Svelte component's urgency styling were a third and fourth. They agree
+  only because the due event fires on the due day, which nothing enforces.
+  `isOverdue(record, today)` now lives on the obligation contract and every
+  consumer reads it, including a new `row.overdue` the view styles from
+  instead of re-deriving lateness from `daysUntilDue`.
+- **P2: collections terms were read live from the registry.** `feeRate`,
+  `graceDays` and the schedule were snapshotted at signing, but
+  `collections`, `refusalDays` and `seizureFraction` were fetched from
+  `lenderRegistry` at default time — so a lender re-tuned after signing
+  would have changed what an in-flight loan did to that player, the exact
+  "terms that moved under you" the record exists to prevent. Now snapshotted
+  with the rest, and `runCollections` no longer needs the lender to still
+  exist to collect the debt it is owed.
+- **P3: the borrow preview promised coin a refusing lender would not give.**
+  `cloneApplier`'s branch credited the principal unconditionally while the
+  engine's branch can refuse (loan already open, refusal window, loan cap).
+  It now asks the same `quoteLoan` — a pure read — and reports itself
+  unapplied on a refusal.
+- **P3: nine tests could silently stop asserting anything.** Guards of the
+  shape `if (fines.length === 0) return` took the live branch only because
+  the seeds happened to reach it; a balance change (this phase already made
+  two) would have turned them into green no-ops. All are canary assertions
+  now. Alongside them: the per-difficulty inspection cases each asserted the
+  same three facts against their own run, so they would all have passed if
+  difficulty changed nothing — a divergence test now pins that identical
+  neglect costs materially more on hard than on easy, and the tenancy
+  concession test forces the grant branch instead of branching on it.
+
 **Final verification.** `npm run test:full` passed all 330 files / 4,376
 tests; TypeScript and Svelte checks completed with zero errors or warnings;
 and the production build completed with only the existing large-chunk
 advisory. The expansion artifacts passed with 134 ledger rows (66 done, 2
 in-progress, 66 open), 98 future hooks across 189 sites, 13 baseline routes
 with no drift, and a 37-module / 26-phase / 20-stream / 143-term repo map
-with no drift. The 180-day balance matrix finishes solvent on all six rows —
+with no drift.
+
+The review-fix pass above adds **8 tests** to those four files (330 files /
+4,384 tests). Re-verified after it: the four `phase214.*` files (93 tests),
+the domains its changes touch — economy, monthly, supplier credit, the
+shared contracts and exact-once gates, every `tests/reports/` file, web
+persistence and the reports screen (657 tests) — plus `typecheck`, `check`
+(1,095 files, 0 errors), and all three expansion artifacts still at **zero
+drift**, which is the evidence the fixes did not move the frozen routes. The 180-day balance matrix finishes solvent on all six rows —
 11.8k to 65k coin, 4.8k to 7.0k patrons — across three distinct identities,
 while the passive route still collapses into closure, eviction and real
 arrears.

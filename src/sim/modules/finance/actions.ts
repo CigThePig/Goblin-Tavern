@@ -21,8 +21,8 @@ import {
   settleLoan,
   takeLoan,
 } from './loans'
-import { getLoan, listLoans } from './state'
-import { loanOutstanding } from './types'
+import { getLenderAccount, getLoan, listLoans } from './state'
+import { MAX_RENEGOTIATIONS, loanOutstanding } from './types'
 
 // Expansion Phase 7 §7.1 — "borrowing must be a deliberate capability with
 // visible terms".
@@ -225,6 +225,23 @@ const renegotiateLoanAction: OwnerActionDefinition = {
     }
     if (loanOutstanding(loan) <= 0) {
       return reject('nothing_owed', `${loan.readable} is already repaid.`)
+    }
+    // The two bars `renegotiateLoan` itself enforces, mirrored here so the
+    // picker can say no BEFORE the walk is charged. Without them the player
+    // spent the action's time on an `apply` that could only ever refuse, and
+    // the greyed-out reason a player is meant to plan against never appeared.
+    if (loan.renegotiations >= MAX_RENEGOTIATIONS) {
+      return reject(
+        'renegotiation_exhausted',
+        `${loan.lenderLabel} has already rewritten this loan ${loan.renegotiations} times and will not do it again.`,
+      )
+    }
+    const account = getLenderAccount(ctx.state, loan.lenderId)
+    if (account && account.standing < 15) {
+      return reject(
+        'standing_too_low',
+        `${loan.lenderLabel} thinks too little of you to rewrite terms (standing ${account.standing}). Pay something first.`,
+      )
     }
     return OK
   },

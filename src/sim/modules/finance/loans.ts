@@ -5,6 +5,7 @@ import {
   getObligation,
   nextObligationId,
   openObligation,
+  forgiveObligation,
   outstandingAmount,
   payObligation,
   recordObligationPayment,
@@ -303,6 +304,11 @@ export function takeLoan(
     missedInstalments: 0,
     renegotiations: 0,
     collectedByLender: 0,
+    // Snapshotted with the rest of the terms: what this lender does on a
+    // default is part of the bargain the player agreed to.
+    collections: def.collections,
+    refusalDays: def.refusalDays,
+    seizureFraction: def.seizureFraction,
     purpose,
   }
 
@@ -459,6 +465,79 @@ export function openInstalmentOf(
   loan: LoanRecord,
 ): LoanInstalment | undefined {
   return loan.instalments.find((instalment) => instalment.status === 'open')
+}
+
+/**
+ * Discharge the ledger obligation behind an instalment the schedule has
+ * stopped billing, folding what it accrued into the agreement's own balance.
+ *
+ * The AGREEMENT, not the ledger, is what the player pays down once the
+ * schedule has moved past an instalment: `loanOutstanding` still contains the
+ * unpaid principal, but `repayLoan`/`settleLoan` reach the ledger only
+ * through the CURRENTLY open instalment. So an obligation left live behind a
+ * `missed` instalment is both a double count and a debt no player action can
+ * ever reach — a promise nobody can keep, which is precisely the shape
+ * `OBL-02` exists to remove, and `renegotiateLoan` already settles its open
+ * instalment for the same reason.
+ *
+ * Late charges the ledger managed to accrue are real and move ONTO the
+ * agreement rather than being written off with it, so missing a payment still
+ * costs what the loan's snapshotted `lateChargeRate` says it costs — the
+ * player simply pays it where they can actually reach it.
+ */
+function absorbInstalmentObligation(
+  ctx: SimContext,
+  loan: LoanRecord,
+  instalment: LoanInstalment,
+  reason: string,
+): LoanRecord {
+  if (!instalment.obligationId) return loan
+  const obligation = getObligation(ctx.state, instalment.obligationId)
+  if (!obligation) return loan
+  const outstanding = outstandingAmount(obligation)
+  if (outstanding <= 0) return loan
+
+  upsertObligation(
+    ctx,
+    settleObligation(obligation, ctx.state.calendar.totalDaysElapsed, reason),
+    'loan_instalment_absorbed',
+  )
+
+  // Only the part the agreement does not already carry moves across. The
+  // unpaid principal is inside `totalRepayable - repaid` already; the charges
+  // the ledger added on top of it are not.
+  const alreadyOnTheLoan = Math.max(0, instalment.amount - instalment.paid)
+  const extra = Math.max(0, outstanding - alreadyOnTheLoan)
+  if (extra <= 0) return loan
+  return { ...loan, totalRepayable: loan.totalRepayable + extra }
+}
+
+/**
+ * Close out every ledger obligation a terminal loan still has open.
+ *
+ * A settled loan discharges them; a forgiven one writes them off. Either way
+ * nothing loan-shaped is left live in the shared ledger once the agreement it
+ * belonged to is gone.
+ */
+function dischargeRemainingInstalments(
+  ctx: SimContext,
+  loan: LoanRecord,
+  status: 'settled' | 'forgiven',
+  reason: string,
+): void {
+  const today = ctx.state.calendar.totalDaysElapsed
+  for (const instalment of loan.instalments) {
+    if (!instalment.obligationId) continue
+    const obligation = getObligation(ctx.state, instalment.obligationId)
+    if (!obligation || outstandingAmount(obligation) <= 0) continue
+    upsertObligation(
+      ctx,
+      status === 'settled'
+        ? settleObligation(obligation, today, reason)
+        : forgiveObligation(obligation, today, reason),
+      `loan_${status}`,
+    )
+  }
 }
 
 export function loanForObligation(
@@ -632,8 +711,19 @@ export function recordMissedInstalment(
   )
   const missed = loan.missedInstalments + 1
   const defaulting = missed >= 3
+  // The schedule stops billing this instalment from here, so its ledger
+  // obligation must stop being the thing that carries the debt — otherwise it
+  // sits live, unreachable and double-counted for the rest of the run.
+  const absorbed = instalment
+    ? absorbInstalmentObligation(
+        ctx,
+        loan,
+        instalment,
+        `${reason}; carried onto ${loan.readable}`,
+      )
+    : loan
   let next: LoanRecord = {
-    ...loan,
+    ...absorbed,
     missedInstalments: missed,
     escalation: loan.escalation + 1,
     loanStatus: defaulting ? 'defaulted' : 'delinquent',
@@ -668,8 +758,9 @@ export function recordMissedInstalment(
         loansDefaulted: defaulting ? account.loansDefaulted + 1 : account.loansDefaulted,
         ...(defaulting
           ? {
-              refusingUntilDay:
-                today + (getLenderDefinition(loan.lenderId)?.refusalDays ?? 30),
+              // From the AGREEMENT, not the registry: the refusal window is
+              // one of the terms this loan snapshotted at signing.
+              refusingUntilDay: today + loan.refusalDays,
               refusingReason: 'defaulted loan',
             }
           : {}),
@@ -713,15 +804,18 @@ export function runCollections(
   loan: LoanRecord,
 ): { seized: number; loan: LoanRecord; readable: string } {
   const today = ctx.state.calendar.totalDaysElapsed
-  const def = getLenderDefinition(loan.lenderId)
   const outstanding = loanOutstanding(loan)
-  if (outstanding <= 0 || !def) {
+  if (outstanding <= 0) {
     return { seized: 0, loan, readable: `${loan.readable} has nothing left to collect.` }
   }
 
+  // Collections behaviour comes off the AGREEMENT, not off the registry: a
+  // lender re-tuned since signing must not change what an in-flight loan
+  // does to this player, and a lender removed from the registry entirely
+  // must still be able to collect on the debt it is owed.
   let seized = 0
-  if (def.collections === 'seizure') {
-    const wanted = Math.max(1, Math.round(outstanding * def.seizureFraction))
+  if (loan.collections === 'seizure') {
+    const wanted = Math.max(1, Math.round(outstanding * loan.seizureFraction))
     seized = Math.min(wanted, ctx.state.coin)
     if (seized > 0) {
       spendCoin(ctx, seized, {
@@ -1001,6 +1095,10 @@ export function closeLoan(
   reason: string,
 ): LoanRecord {
   const today = ctx.state.calendar.totalDaysElapsed
+  // Nothing loan-shaped may outlive the agreement it belonged to: any
+  // instalment obligation still live in the shared ledger is discharged here,
+  // so a closed loan cannot go on accruing charges or showing on the calendar.
+  dischargeRemainingInstalments(ctx, loan, status, `${loan.readable} ${status}: ${reason}`)
   const next: LoanRecord = {
     ...loan,
     loanStatus: status,

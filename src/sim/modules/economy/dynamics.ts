@@ -1,6 +1,6 @@
 import type { SimContext } from '../../core/context'
 import type { CustomerGroupState, TavernState } from '../../state/TavernState'
-import { listObligations, outstandingAmount } from '../../contracts/obligations/index'
+import { isOverdue, listObligations, outstandingAmount } from '../../contracts/obligations/index'
 import type { DailyServiceResult, ServiceModuleState } from '../service/types'
 
 import { getEconomyModuleState, writeEconomyState } from './state'
@@ -186,14 +186,8 @@ export function getCompetitorChoiceFactorForGroup(
 function externalArrears(state: TavernState): number {
   const today = state.calendar.totalDaysElapsed
   return listObligations(state, { direction: 'payable' }).reduce(
-    (sum, obligation) => {
-      const late =
-        obligation.status === 'grace' ||
-        obligation.status === 'defaulted' ||
-        obligation.status === 'in_collections' ||
-        (obligation.dueOnDay !== undefined && obligation.dueOnDay < today)
-      return late ? sum + outstandingAmount(obligation) : sum
-    },
+    (sum, obligation) =>
+      isOverdue(obligation, today) ? sum + outstandingAmount(obligation) : sum,
     0,
   )
 }

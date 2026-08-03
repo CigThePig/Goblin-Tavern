@@ -30,9 +30,12 @@
     return `day ${row.dueOnDay} · ${-days} ${-days === 1 ? 'day' : 'days'} late`
   }
 
+  // `row.overdue` is the projection's carry of the obligation lifecycle's own
+  // `isOverdue`. The view must not re-derive lateness from `daysUntilDue` —
+  // that is the simulation's rule to own, and a second copy here is how the
+  // screen ends up disagreeing with the arrears the economy acts on.
   function urgencyOf(row: ObligationCalendarRow): 'late' | 'soon' | 'calm' {
-    if (row.status === 'defaulted' || row.status === 'in_collections') return 'late'
-    if (row.daysUntilDue !== undefined && row.daysUntilDue < 0) return 'late'
+    if (row.overdue) return 'late'
     if (row.daysUntilDue !== undefined && row.daysUntilDue <= 2) return 'soon'
     return 'calm'
   }

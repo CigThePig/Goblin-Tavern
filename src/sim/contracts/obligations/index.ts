@@ -8,6 +8,7 @@ export {
   ContractStatusSchema,
   ContractTransitionSchema,
   ObligationRecordSchema,
+  isOverdue,
   isSettled,
   isTerminalContractStatus,
   outstandingAmount,

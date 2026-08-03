@@ -3,7 +3,7 @@ import type { SimulationHook, SimulationModule } from '../../core/module'
 import type { ReportSection } from '../../core/reports'
 import type { ValidationIssue } from '../../state/types'
 import { ensureRequiredLendersRegistered } from '../../content/finance/lenderRegistry'
-import { getObligation } from '../../contracts/obligations/index'
+import { getObligation, outstandingAmount } from '../../contracts/obligations/index'
 
 import { ensureFinanceEventsRegistered, reconcileOverdueInstalments } from './financeEvents'
 import { buildFinanceReport } from './financeReport'
@@ -110,6 +110,35 @@ function validate(ctx: SimContext): ValidationIssue[] {
           code: 'finance_instalment_obligation_missing',
         })
       }
+    }
+  }
+
+  // …and the same invariant read the OTHER way, which is the direction that
+  // actually catches a leak: an obligation the ledger still holds must belong
+  // to an instalment that is still open. One left behind a `missed` or closed
+  // instalment is unreachable by every player action — a debt that can only
+  // grow — so it is a defect, not merely untidy. Archived loans are included
+  // because a closed loan must not leave one behind either.
+  const liveInstalmentObligationIds = new Set(
+    loans.flatMap((loan) =>
+      loan.instalments
+        .filter((entry) => entry.status === 'open' && entry.obligationId)
+        .map((entry) => entry.obligationId as string),
+    ),
+  )
+  for (const loan of [...loans, ...slice.loanArchive]) {
+    for (const instalment of loan.instalments) {
+      if (!instalment.obligationId) continue
+      if (liveInstalmentObligationIds.has(instalment.obligationId)) continue
+      const obligation = getObligation(ctx.state, instalment.obligationId)
+      if (!obligation || outstandingAmount(obligation) <= 0) continue
+      issues.push({
+        path: `modules.${FINANCE_MODULE_ID}.loans.${loan.id}.instalments.${instalment.index}`,
+        message:
+          `Instalment ${instalment.index} on '${loan.id}' is ${instalment.status} but its obligation ` +
+          `'${instalment.obligationId}' still owes ${outstandingAmount(obligation)} — no action can reach it`,
+        code: 'finance_orphaned_instalment_obligation',
+      })
     }
   }
 

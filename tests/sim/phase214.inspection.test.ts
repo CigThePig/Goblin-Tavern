@@ -204,7 +204,9 @@ describe('Phase 214 §7.3.3–6 — a case is opened and an inspector actually v
   it('a tavern cleaned during the preparation window is graded on the clean state', () => {
     let state = runDays(neglected(), 12)
     const record = openCases(getRegulatoryModuleState(state))[0]
-    if (!record?.nextVisitDay) return
+    // Asserted rather than guarded: a silent `return` here would let a future
+    // balance change turn this test into a no-op that still reports green.
+    expect(record?.nextVisitDay, 'the fixture must schedule a visit').toBeDefined()
     // Do the work the window is for.
     for (const id of Object.keys(state.areas)) {
       state = withArea(state, id, { cleanliness: 95, smell: 5, damage: 0 })
@@ -247,7 +249,10 @@ describe('Phase 214 §7.3.7–8 — findings, fines and orders are real records'
       ownerModuleId: 'regulatory',
     })
     const slice = getRegulatoryModuleState(state)
-    if (slice.totals.finesRaised === 0) return
+    expect(
+      slice.totals.finesRaised,
+      'the fixture must actually raise a fine',
+    ).toBeGreaterThan(0)
     expect(fines.length + slice.totals.finesRaised).toBeGreaterThan(0)
     for (const fine of fines) {
       expect(fine.dueOnDay).toBeDefined()
@@ -261,7 +266,7 @@ describe('Phase 214 §7.3.7–8 — findings, fines and orders are real records'
       direction: 'payable',
       ownerModuleId: 'regulatory',
     })
-    if (fines.length === 0) return
+    expect(fines.length, 'the fixture must leave a fine to pay').toBeGreaterThan(0)
     const fine = fines[0]!
     state = run(state, 100, [
       { actionId: 'pay_watch_fine', targetId: fine.id, amount: 5 },
@@ -302,7 +307,10 @@ describe('Phase 214 §7.3.9 — the player has real responses', () => {
     const open = listFindings(state).filter(
       (finding) => finding.status === 'open' && !checkRequirement(state, finding),
     )
-    if (open.length === 0) return
+    expect(
+      open.length,
+      'the fixture must leave an unmet finding to declare',
+    ).toBeGreaterThan(0)
     const finding = open[0]!
     state = run(state, 100, [
       { actionId: 'declare_remediation', targetId: finding.id },
@@ -318,16 +326,19 @@ describe('Phase 214 §7.3.9 — the player has real responses', () => {
     const areaFinding = listFindings(state).find(
       (finding) => finding.status === 'open' && finding.target.kind === 'area',
     )
-    if (!areaFinding?.target.id) return
-    state = withArea(state, areaFinding.target.id, {
+    expect(
+      areaFinding?.target.id,
+      'the fixture must produce an area finding',
+    ).toBeDefined()
+    state = withArea(state, areaFinding!.target.id!, {
       cleanliness: 95,
       smell: 5,
       damage: 0,
     })
     state = run(state, 100, [
-      { actionId: 'declare_remediation', targetId: areaFinding.id },
+      { actionId: 'declare_remediation', targetId: areaFinding!.id },
     ])
-    const after = listFindings(state).find((entry) => entry.id === areaFinding.id)
+    const after = listFindings(state).find((entry) => entry.id === areaFinding!.id)
     expect(after?.status).toBe('verified')
   })
 
@@ -336,15 +347,18 @@ describe('Phase 214 §7.3.9 — the player has real responses', () => {
     const areaFinding = listFindings(state).find(
       (finding) => finding.status === 'open' && finding.target.kind === 'area',
     )
-    if (!areaFinding?.target.id) return
+    expect(
+      areaFinding?.target.id,
+      'the fixture must produce an area finding',
+    ).toBeDefined()
     // Fix the room, then contest the finding: it is no longer true.
-    state = withArea(state, areaFinding.target.id, {
+    state = withArea(state, areaFinding!.target.id!, {
       cleanliness: 95,
       smell: 5,
       damage: 0,
     })
     state = run(state, 100, [
-      { actionId: 'appeal_finding', targetId: areaFinding.id },
+      { actionId: 'appeal_finding', targetId: areaFinding!.id },
     ])
     const outcome =
       appliedAction(state, 'appeal_finding') ??
@@ -352,7 +366,7 @@ describe('Phase 214 §7.3.9 — the player has real responses', () => {
         (entry) => entry.actionId === 'appeal_finding',
       )
     expect(outcome, JSON.stringify(getOwnerActionsModuleState(state).rejected)).toBeDefined()
-    const after = listFindings(state).find((entry) => entry.id === areaFinding.id)
+    const after = listFindings(state).find((entry) => entry.id === areaFinding!.id)
     // Heard, and decided on whether the finding is still true. `verified` is
     // the other legitimate landing: the follow-up may re-read the room the
     // same day and clear the finding outright, which is the appeal getting
@@ -363,10 +377,10 @@ describe('Phase 214 §7.3.9 — the player has real responses', () => {
   it('a bribe is a gamble with a recorded outcome, not a purchase', () => {
     let state = runDays(neglected(3_000), 12)
     const record = openCases(getRegulatoryModuleState(state))[0]
-    if (!record) return
+    expect(record, 'the fixture must open a case to bribe').toBeDefined()
     const coinBefore = state.coin
     state = run(state, 100, [
-      { actionId: 'bribe_inspector', targetId: record.id, amount: 80 },
+      { actionId: 'bribe_inspector', targetId: record!.id, amount: 80 },
     ])
     const applied = appliedAction(state, 'bribe_inspector')
     expect(applied?.data['ok']).toBe(true)
@@ -408,7 +422,10 @@ describe('Phase 214 §7.3.10 — follow-up and closure', () => {
     const outstandingBefore = listFindings(state).filter(
       (finding) => finding.status === 'open' || finding.status === 'remediated',
     )
-    if (outstandingBefore.length === 0) return
+    expect(
+      outstandingBefore.length,
+      'the fixture must leave standing orders outstanding',
+    ).toBeGreaterThan(0)
 
     // Clean everything so a second visit finds nothing new to write down,
     // but do NOT report the standing orders as done.
@@ -582,6 +599,40 @@ describe('Phase 214 §7.3 — inspection under every difficulty', () => {
       expect(validation.success).toBe(true)
     })
   }
+
+  it('fines the same neglect harder on hard than on easy', () => {
+    // The per-preset cases above prove the lifecycle is REACHABLE on each
+    // difficulty; they would all still pass if difficulty changed nothing at
+    // all, because each asserts the same three facts against its own run.
+    // This is the divergence check: identical neglect, identical seed, and a
+    // materially different bill. `fineFor` scales by
+    // 1 / recoveryAssistanceMultiplier (easy 1.5, hard 0.6), so the watch on
+    // hard costs more for the same failures — an ongoing rule, not an
+    // opening value.
+    const finesUnder = (presetId: 'easy' | 'hard'): number => {
+      let state = applyDifficultyToBase(
+        createInitialTavernState(),
+        DIFFICULTY_PRESETS[presetId] as DifficultyConfig,
+      )
+      for (const id of ['ale', 'stew', 'ingredients', 'mushrooms']) {
+        state = withStock(state, id, { quantity: 300, spoilage: 0 })
+      }
+      state = withArea(state, 'kitchen', { cleanliness: 8, smell: 85 })
+      state = withArea(state, 'privy', { cleanliness: 5, smell: 95 })
+      state = withArea(state, 'main_room', { cleanliness: 15, damage: 70 })
+      state = withStock(state, 'stew', { spoilage: 85, quantity: 200 })
+      state = runDays(state, 24)
+      return listObligations(state, {
+        direction: 'payable',
+        ownerModuleId: 'regulatory',
+      }).reduce((sum, record) => sum + record.principal, 0)
+    }
+
+    const easy = finesUnder('easy')
+    const hard = finesUnder('hard')
+    expect(hard, 'hard must actually raise fines').toBeGreaterThan(0)
+    expect(hard).toBeGreaterThan(easy)
+  })
 })
 
 describe('Phase 214 §7.3 — the case is visible, bounded and valid', () => {

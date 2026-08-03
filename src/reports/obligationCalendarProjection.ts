@@ -1,6 +1,7 @@
 import type { TavernState } from '../sim/state/TavernState'
 import {
   graceEndsOnDay,
+  isOverdue,
   listObligations,
   outstandingAmount,
   type ObligationRecord,
@@ -60,6 +61,13 @@ export type ObligationCalendarRow = {
   /** Days from today. Negative when it is already late. */
   daysUntilDue?: number
   status: ObligationRecord['status']
+  /**
+   * Whether this debt is late, decided by the obligation lifecycle's own
+   * `isOverdue` rather than by any view re-reading the calendar. Carried on
+   * the row so the UI styles urgency from simulation truth instead of
+   * reconstructing the rule from `daysUntilDue`.
+   */
+  overdue: boolean
   /** The day the grace window closes, when the record is inside one. */
   graceEndsOnDay?: number
   escalation: number
@@ -197,19 +205,45 @@ function counterpartyLabel(record: ObligationRecord, state: TavernState): string
 /**
  * Which registered actions bear on a row of this kind.
  *
- * Asked of the REGISTRY by tag rather than hardcoded, so an action a later
- * phase adds to one of these domains appears here without this file
- * changing. Eligibility comes from each definition's own `canApply`, so an
- * option offered is one the registry will accept and an option greyed out
+ * Named explicitly rather than scanned by tag, because an action's `targetId`
+ * has a KIND — a lender, a case, a supplier, an obligation — and a tag match
+ * cannot tell whether the id a row carries is the one that action expects.
+ * The tag scan this replaces put `take_loan` on every loan row, where it
+ * wants a LENDER id and so could only ever answer "no lender 'loan-0'
+ * operates here"; it put case-scoped `bribe_inspector` under every individual
+ * fine; it hid `renegotiate_loan`, which is not tagged `coin`; and it offered
+ * nothing at all on a supplier invoice, because no supplier action is tagged
+ * `coin` either.
+ *
+ * `addressed` records how each action wants to be addressed FROM THIS ROW, so
+ * a global action that takes no target is not handed one it would reject.
+ * Eligibility still comes from each definition's own `canApply`, so an option
+ * offered is one the registry will accept and an option greyed out still
  * carries the registry's own reason for saying no — §5's "a player cannot
  * discover what action is available and why" read from the report side.
  */
-const OPTION_TAGS: Record<ObligationKind, string> = {
-  loan: 'loan',
-  rent: 'tenancy',
-  fine: 'regulatory',
-  supplier: 'supplier',
-  other: 'obligation',
+type CalendarOptionSpec = {
+  actionId: string
+  /** `row` passes the row's own target id; `none` passes no target. */
+  addressed: 'row' | 'none'
+}
+
+const OPTION_ACTIONS: Record<ObligationKind, ReadonlyArray<CalendarOptionSpec>> = {
+  loan: [
+    { actionId: 'repay_loan', addressed: 'row' },
+    { actionId: 'settle_loan', addressed: 'row' },
+    { actionId: 'renegotiate_loan', addressed: 'row' },
+  ],
+  // `pay_rent` pays the tenancy down oldest-month-first and takes no target;
+  // `negotiate_tenancy` is addressed by concession kind, not by an
+  // obligation, so it belongs to the rent LEDGER view rather than to a row.
+  rent: [{ actionId: 'pay_rent', addressed: 'none' }],
+  fine: [{ actionId: 'pay_watch_fine', addressed: 'row' }],
+  supplier: [
+    { actionId: 'pay_supplier_invoice', addressed: 'row' },
+    { actionId: 'schedule_supplier_payment', addressed: 'row' },
+  ],
+  other: [],
 }
 
 function optionsFor(
@@ -217,21 +251,23 @@ function optionsFor(
   kind: ObligationKind,
   targetId: string,
 ): ObligationCalendarRow['options'] {
-  const tag = OPTION_TAGS[kind]
-  return actionRegistry
-    .all()
-    .filter((def) => def.tags.includes(tag) && def.tags.includes('coin'))
-    .map((def) => {
-      const verdict = canApplyAction(def, state, {
-        actionId: def.id,
-        targetId,
-      })
-      return {
-        actionId: def.id,
-        label: def.label,
-        ...(verdict.ok ? {} : { disabledReason: verdict.reason }),
-      }
+  const out: ObligationCalendarRow['options'] = []
+  for (const spec of OPTION_ACTIONS[kind]) {
+    const def = actionRegistry.get(spec.actionId)
+    // A registry that does not carry the action is a pipeline without that
+    // module, not a defect: the row simply offers one fewer way out.
+    if (!def) continue
+    const verdict = canApplyAction(def, state, {
+      actionId: def.id,
+      ...(spec.addressed === 'row' ? { targetId } : {}),
     })
+    out.push({
+      actionId: def.id,
+      label: def.label,
+      ...(verdict.ok ? {} : { disabledReason: verdict.reason }),
+    })
+  }
+  return out
 }
 
 export function buildObligationCalendar(
@@ -239,12 +275,13 @@ export function buildObligationCalendar(
 ): ObligationCalendarData {
   const today = state.calendar.totalDaysElapsed
 
-  const rows: ObligationCalendarRow[] = listObligations(state, {
-    direction: 'payable',
-  }).map((record) => {
+  const payables = listObligations(state, { direction: 'payable' })
+
+  const rows: ObligationCalendarRow[] = payables.map((record) => {
     const kind = kindOf(record)
-    // The row's own target id: a loan row is acted on through its loan, a
-    // fine through its obligation, rent through the tenancy.
+    // The row's own target id, in the shape the row's actions address: a loan
+    // row is acted on through its LOAN, a supplier invoice through its
+    // SUPPLIER, a fine through its own obligation.
     const targetId =
       kind === 'loan'
         ? (listLoans(state).find((loan) =>
@@ -252,7 +289,9 @@ export function buildObligationCalendar(
               (instalment) => instalment.obligationId === record.id,
             ),
           )?.id ?? record.id)
-        : record.id
+        : kind === 'supplier'
+          ? record.counterparty.id
+          : record.id
     return {
       id: record.id,
       kind,
@@ -263,6 +302,7 @@ export function buildObligationCalendar(
         ? { dueOnDay: record.dueOnDay, daysUntilDue: record.dueOnDay - today }
         : {}),
       status: record.status,
+      overdue: isOverdue(record, today),
       ...(record.status === 'grace'
         ? { graceEndsOnDay: graceEndsOnDay(record) }
         : {}),
@@ -274,11 +314,16 @@ export function buildObligationCalendar(
   })
 
   const totalOutstanding = rows.reduce((sum, row) => sum + row.outstanding, 0)
-  const overdue = rows.reduce(
-    (sum, row) =>
-      row.dueOnDay !== undefined && row.dueOnDay < today
-        ? sum + row.outstanding
-        : sum,
+  // Read from the obligation's own STATUS, not from `dueOnDay < today`. The
+  // lifecycle owns what "late" means — `enterGrace`/`defaultObligation` are
+  // the only things that decide it — and a report that re-derives it by date
+  // arithmetic is inventing truth the simulation already holds. The two agree
+  // today only because the due event fires on the due day; nothing enforces
+  // that, and the same definition read off status is what the economy module
+  // uses for arrears.
+  const overdue = payables.reduce(
+    (sum, record) =>
+      isOverdue(record, today) ? sum + outstandingAmount(record) : sum,
     0,
   )
 

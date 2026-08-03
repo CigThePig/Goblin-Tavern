@@ -20,6 +20,8 @@ import {
   RENT_PAYMENT_EFFECT_TARGET,
 } from "../monthly/types";
 import { LOAN_BORROW_EFFECT_TARGET } from "../finance/types";
+import { quoteLoan } from "../finance/loans";
+import { INFORMAL_LENDER_ID } from "../../content/finance/lenderRegistry";
 
 import type {
   EffectApplier,
@@ -173,14 +175,31 @@ function applyStateChange(
     if (principal <= 0) {
       return { ...preview, applied: false, notes: ["nothing to borrow"] };
     }
-    state.coin += principal;
+    // Ask the same quote the engine's branch asks. `quoteLoan` is a pure read
+    // of state, so the preview can afford it — and without it the preview
+    // promised coin a refusing lender was never going to hand over (a loan
+    // already open with them, a refusal window after a default, the open-loan
+    // cap). A preview that over-promises is the same broken contract as a
+    // card that invents truth.
+    const quote = quoteLoan(state, {
+      lenderId: INFORMAL_LENDER_ID,
+      principal,
+    });
+    if (quote.refusal) {
+      return {
+        ...preview,
+        applied: false,
+        notes: [`loan not taken: ${quote.refusal.reason}`],
+      };
+    }
+    state.coin += quote.principal;
     appendCoinLedgerEntry(state, {
       source,
-      amount: principal,
+      amount: quote.principal,
       category: "other",
       tags: ["response", "loan", "loan_proceeds"],
     });
-    return { ...preview, amount: principal, applied: true };
+    return { ...preview, amount: quote.principal, applied: true };
   }
 
   if (path === "coin") {

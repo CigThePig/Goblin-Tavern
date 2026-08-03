@@ -37,6 +37,8 @@ import {
 import { getEconomyModuleState } from '../../src/sim/modules/economy/index'
 import {
   getObligation,
+  isOverdue,
+  listObligations,
   outstandingAmount,
 } from '../../src/sim/contracts/obligations/index'
 import { readScheduledEventsSlice } from '../../src/sim/contracts/scheduledEvents/state'
@@ -62,6 +64,23 @@ function destitute(): TavernState {
     state = withStock(state, id, { quantity: 0 })
   }
   return state
+}
+
+/**
+ * A starting condition, not an injected outcome: this landlord already
+ * thinks well (or badly) of the tavern. Used only where the case under test
+ * is about what the landlord DOES at a given opinion; the tests that prove
+ * the opinion itself moves earn it through play.
+ */
+function withLandlordOpinion(state: TavernState, opinion: number): TavernState {
+  const slice = getTenancyModuleState(state)
+  return {
+    ...state,
+    modules: {
+      ...state.modules,
+      tenancy: { ...slice, landlord: { ...slice.landlord, opinion } },
+    },
+  }
 }
 
 function run(state: TavernState, day: number, ownerActions: Actions = []): TavernState {
@@ -239,20 +258,27 @@ describe('Phase 214 §7.2 — arrears, notices and their remedies', () => {
 
 describe('Phase 214 §7.2 — negotiation, access and repairs', () => {
   it('grants a concession when the landlord thinks well enough of the tavern', () => {
+    // The grant branch, forced rather than hoped for. A landlord who thinks
+    // well of the tavern is a legitimate STARTING condition — the test that
+    // earns that opinion through play is the arrears/cure case above — and
+    // pinning it is what stops this from silently becoming a refusal test
+    // that asserts nothing about granting.
     let state = runDays(trading(2_000), 3)
+    state = withLandlordOpinion(state, 75)
     // Pay the rent first: that is what buys the standing to ask.
     state = run(state, 4, [{ actionId: 'pay_rent' }])
     state = run(state, 5, [
       { actionId: 'negotiate_tenancy', targetId: 'deferral' },
     ])
     const applied = appliedAction(state, 'negotiate_tenancy')
-    expect(applied).toBeDefined()
-    if (applied?.data['ok'] === true) {
-      expect(getTenancy(state)!.concession).toBeDefined()
-    } else {
-      // A refusal is legitimate — but it must name the bar.
-      expect(String(applied?.effects[0])).toMatch(/opinion|concession|grant/i)
-    }
+    expect(applied?.data['ok']).toBe(true)
+    const concession = getTenancy(state)!.concession
+    expect(concession).toBeDefined()
+    expect(concession!.kind).toBe('deferral')
+    // A deferral is worth something: the current period's deadline moves.
+    expect(concession!.expiresOnDay).toBeGreaterThan(
+      state.calendar.totalDaysElapsed,
+    )
   })
 
   it('refuses a concession the landlord will not give, and says why', () => {
@@ -352,7 +378,13 @@ describe('Phase 214 §7.2 — eviction is terminal, reachable, and escapable', (
 
   it('an evicted tavern can buy the tenancy back', () => {
     let state = runDays(destitute(), 90)
-    if (getTenancy(state)!.tenancyStatus !== 'evicted') return
+    // Asserted rather than guarded: reinstatement is only reachable from an
+    // eviction, so a fixture that stopped evicting would silently turn this
+    // test into a no-op that still reported green.
+    expect(
+      getTenancy(state)!.tenancyStatus,
+      'the destitute route must actually reach eviction',
+    ).toBe('evicted')
     const owed = rentOutstanding(state)
     state = withCoin(state, owed * 3 + 500)
     state = run(state, 300, [{ actionId: 'reinstate_tenancy' }])
@@ -412,6 +444,33 @@ describe('Phase 214 §7.2 — the tenancy is visible, bounded and valid', () => 
       expect(calendar.rent!.notice.remedies.length).toBeGreaterThan(0)
     }
     expect(calendar.rows.some((row) => row.kind === 'rent')).toBe(true)
+  })
+
+  it('offers a rent row the way to pay it, and counts late rent the way the economy does', () => {
+    const state = runDays(destitute(), 29)
+    const calendar = buildObligationCalendar(state)
+    const row = calendar.rows.find((entry) => entry.kind === 'rent')
+    expect(row).toBeDefined()
+    // `pay_rent` takes no target — it clears oldest-first — so the row must
+    // offer it without handing it an obligation id it would reject.
+    expect(row!.options.map((option) => option.actionId)).toEqual(['pay_rent'])
+
+    // The calendar's "already late" figure and the obligation lifecycle's own
+    // `isOverdue` must be the same rule, not two date comparisons that happen
+    // to agree today. This is the join that keeps Reports → Owed and the
+    // economy's arrears from drifting apart.
+    const today = state.calendar.totalDaysElapsed
+    const expected = listObligations(state, { direction: 'payable' })
+      .filter((record) => isOverdue(record, today))
+      .reduce((sum, record) => sum + outstandingAmount(record), 0)
+    expect(calendar.overdue).toBe(expected)
+    expect(calendar.overdue).toBeGreaterThan(0)
+    // …and every row agrees with the same rule.
+    for (const entry of calendar.rows) {
+      const record = getObligation(state, entry.id)
+      if (!record) continue
+      expect(entry.overdue, entry.id).toBe(isOverdue(record, today))
+    }
   })
 
   it('keeps state valid across three months of never paying', () => {

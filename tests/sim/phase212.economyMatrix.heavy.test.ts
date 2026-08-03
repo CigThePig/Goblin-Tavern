@@ -104,9 +104,13 @@ describe('Phase 212 §5 required long-run strategy matrix', () => {
     // does not merely stop trading, it loses the building.
     expect(getTenancy(finalState)?.tenancyStatus).toBe('evicted')
 
-    // The till is spent. Not exactly zero — a closed tavern still takes the
-    // odd coin and the sweeps no longer drain it to the last penny — but far
-    // less than a single day of operating cost.
+    // The till is spent. This was `toBe(0)` before Phase 7: a closed tavern
+    // now still takes the odd coin and the sweeps no longer drain it to the
+    // last penny, so the exact-zero pin no longer holds. The observed value
+    // on this route is 19, and the bound brackets it deliberately — loose
+    // enough not to re-pin on every balance nudge, tight enough that a
+    // regression leaving a day's operating cost (30+) in the till fails.
+    expect(finalState.coin).toBeGreaterThanOrEqual(0)
     expect(finalState.coin).toBeLessThan(30)
   }, 300_000)
 })

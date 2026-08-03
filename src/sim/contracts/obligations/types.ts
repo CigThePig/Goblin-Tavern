@@ -244,6 +244,30 @@ export function isSettled(record: ObligationRecord): boolean {
   return outstandingAmount(record) <= 0
 }
 
+/**
+ * Is this debt late? The one definition every consumer must share.
+ *
+ * The lifecycle's own statuses are the primary signal — `enterGrace` and
+ * `defaultObligation` are the only things that decide a debt has gone bad —
+ * and the due-day comparison catches the window between a debt falling due
+ * and the `morning` beat that moves it into grace, so a debt is never
+ * "not yet late" on a day that is already past its due date.
+ *
+ * Lives here, exported, because it had begun to be re-derived: the economy's
+ * arrears sum and the §7.4 obligation calendar each wrote their own version,
+ * and a report that reconstructs a financial rule the simulation already
+ * owns is inventing truth. Change it here and every consumer moves together.
+ */
+export function isOverdue(record: ObligationRecord, today: number): boolean {
+  if (outstandingAmount(record) <= 0) return false
+  return (
+    record.status === 'grace' ||
+    record.status === 'defaulted' ||
+    record.status === 'in_collections' ||
+    (record.dueOnDay !== undefined && record.dueOnDay < today)
+  )
+}
+
 // ---------- Schemas (§5.7) ----------
 
 const EntityRefSchema = z.object({ kind: z.string(), id: z.string() })

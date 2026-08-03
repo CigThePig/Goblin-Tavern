@@ -15,6 +15,12 @@ import { Registry } from '../../registries/Registry'
 // anybody and takes it out of the till when you are late. A player who can
 // only tell them apart by their fee has no decision to make.
 
+/**
+ * How hard a lender comes after a defaulted loan. Named because a loan
+ * SNAPSHOTS it at signing — see `LoanRecord.collections`.
+ */
+export type LenderCollectionsMode = 'seizure' | 'refusal'
+
 export type LenderDefinition = {
   id: string
   label: string
@@ -37,7 +43,7 @@ export type LenderDefinition = {
    * that change what the player can do next — neither is a pressure nudge,
    * which §5 lists as a fail condition.
    */
-  collections: 'seizure' | 'refusal'
+  collections: LenderCollectionsMode
   /** Fraction of the outstanding balance a seizure takes per collections beat. */
   seizureFraction: number
   /** Days of refusal after a default before the lender will talk again. */

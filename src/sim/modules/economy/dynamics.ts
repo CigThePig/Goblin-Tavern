@@ -206,7 +206,17 @@ function transitionFinancial(
 ): FinancialState {
   const arrears = previous.operatingArrears + externalArrears(state)
   const dailyNeed = Math.max(8, settlement.due)
-  const distressed = state.coin < dailyNeed * 2 || arrears > 0
+  // Expansion Phase 7 — distress is being UNABLE to meet what is owed, not
+  // owing anything at all.
+  //
+  // `arrears > 0` was a defensible reading while overdue payables were rare;
+  // once a watch fine or a late rent period could exist, a tavern with 640
+  // coin in the till and a 156-coin fine it simply had not paid yet was
+  // "distressed" for three days, then insolvent, then shut — while solvent
+  // the whole way. Judging arrears against the till keeps Phase 5's actual
+  // meaning ("could no longer fund safe operation") and makes an unpaid bill
+  // what it is: a decision with consequences, not a death sentence.
+  const distressed = state.coin < dailyNeed * 2 || arrears > state.coin
   const cashStressDays = distressed ? previous.cashStressDays + 1 : 0
   const healthyDays = distressed ? 0 : previous.healthyDays + 1
   let status: FinancialStatus = previous.status

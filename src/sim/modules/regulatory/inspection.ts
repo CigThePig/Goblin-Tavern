@@ -78,6 +78,8 @@ const INSPECTORS: ReadonlyArray<{ id: string; name: string; temperament: string 
 
 /** Evidence weight at which the watch opens a case. */
 export const CASE_THRESHOLD = 55
+/** How far the follow-up ladder climbs before the watch stops coming back. */
+export const MAX_CASE_ESCALATIONS = 3
 /** Evidence weight at which the watch turns up unannounced. */
 const UNANNOUNCED_THRESHOLD = 95
 
@@ -445,10 +447,37 @@ export type VisitResult = {
   record: TavernRegulatoryCase
 }
 
-/** Fine scaled to the failure and to the ruleset's appetite for punishment. */
+/**
+ * Fine scaled to the failure and to the ruleset's appetite for punishment.
+ *
+ * Deliberately a bite rather than a month's takings. The first sizing
+ * (`score * 4`, uncapped) produced 156-coin fines on a tavern turning over
+ * about a hundred a day, and four of them across one case's follow-ups came
+ * to more than the till ever held — which made the watch, not the market,
+ * the thing that decided whether a tavern survived. A fine has to be worth
+ * paying attention to and worth paying; `MAX_FINE` is what keeps it the
+ * second as well as the first.
+ */
+const MAX_FINE = 80
+
 function fineFor(state: TavernState, score: number): number {
   const harshness = 1 / Math.max(0.4, getRule(state, 'recoveryAssistanceMultiplier'))
-  return Math.max(10, Math.round(score * 4 * harshness))
+  return Math.max(8, Math.min(MAX_FINE, Math.round(score * 1.5 * harshness)))
+}
+
+/**
+ * The penalty for an order left unmet.
+ *
+ * Smaller than the fine that raised the order, and rising slowly with the
+ * rung: the point is to keep the cost of ignoring the watch above zero, not
+ * to double the debt every week.
+ */
+function escalationPenaltyFor(
+  state: TavernState,
+  score: number,
+  rung: number,
+): number {
+  return Math.min(60, Math.round(fineFor(state, score) / 2) + 5 * rung)
 }
 
 /**
@@ -1069,12 +1098,25 @@ export function performFollowUp(
     bumpRegulatoryTotals(ctx, { findingsCleared: verified }, 'follow_up')
   }
 
-  const escalated = outstanding.length > 0
+  // §5.11 applied to the LADDER rather than to a collection.
+  //
+  // The escalation rung has a top. Without one, a case whose orders are
+  // never met raised a fresh penalty every seven days for ever — a tavern
+  // the watch had already shut, and which therefore could not trade its way
+  // to meeting them, accumulated two thousand coin of penalties by day 100.
+  // Past the top rung the case is `escalated` and stays there: the watch has
+  // done everything it is going to do, and the next move is the player's.
+  const exhausted = record.escalation >= MAX_CASE_ESCALATIONS
+  const escalated = outstanding.length > 0 && !exhausted
   let next: TavernRegulatoryCase = {
     ...record,
     visitsCompleted: record.visitsCompleted + 1,
     escalation: escalated ? record.escalation + 1 : record.escalation,
-    caseStatus: escalated ? 'awaiting_remediation' : 'closing',
+    caseStatus: escalated
+      ? 'awaiting_remediation'
+      : outstanding.length > 0
+        ? 'escalated'
+        : 'closing',
     nextVisitDay: escalated ? today + 7 : undefined,
     scheduledVisitDays: escalated
       ? [...record.scheduledVisitDays, today + 7]
@@ -1086,7 +1128,7 @@ export function performFollowUp(
     // An ignored order costs money the second time. The fine is a real
     // payable, so ignoring it in turn has the ledger's own consequences.
     const score = outstanding.reduce((sum, finding) => sum + finding.severity, 0)
-    const fine = fineFor(ctx.state, score) + 10 * next.escalation
+    const fine = escalationPenaltyFor(ctx.state, score, next.escalation)
     const obligation = openObligation({
       id: nextObligationId(ctx.state, REGULATORY_MODULE_ID),
       ownerModuleId: REGULATORY_MODULE_ID,
@@ -1116,10 +1158,22 @@ export function performFollowUp(
     }
     bumpRegulatoryTotals(ctx, { finesRaised: 1, fineValue: fine }, 'escalation_fine')
 
-    // Three unmet follow-ups on serious orders shut the tavern. The ladder
-    // ends somewhere — but a single trivial order left undone for three
-    // weeks is neglect, not a public danger, so the severity bar is real.
-    if (next.escalation >= 3 && score >= 20) {
+    // Three unmet follow-ups can shut the tavern — but only over something
+    // that endangers the public.
+    //
+    // The bar is the same one the visit's own closure uses, and for the same
+    // reason: the watch shuts a tavern that is poisoning people, not one
+    // whose paperwork is a fortnight behind. Judged on any accumulated
+    // score, a tavern that kept every room spotless and simply never sorted
+    // its books was shut on day 55 — a consequence with no proportion to the
+    // fault. Everything short of that lands on the `escalated` rung, where
+    // the penalties stand and the doors stay open.
+    const dangerous = outstanding.some(
+      (finding) =>
+        finding.severity >= 15 &&
+        (finding.dimension === 'food_safety' || finding.dimension === 'cleanliness'),
+    )
+    if (next.escalation >= MAX_CASE_ESCALATIONS && dangerous) {
       ctx.modifyModuleState<EconomyModuleState>(
         ECONOMY_MODULE_ID,
         (current) => {
@@ -1167,7 +1221,9 @@ export function performFollowUp(
 
   const readable = escalated
     ? `${record.inspectorName} came back and found ${outstanding.length} order(s) still unmet.`
-    : `${record.inspectorName} came back, found everything put right, and closed the case.`
+    : outstanding.length > 0
+      ? `${record.inspectorName} has stopped coming back. ${outstanding.length} order(s) stand against the tavern until somebody meets them.`
+      : `${record.inspectorName} came back, found everything put right, and closed the case.`
   ctx.addHistory({
     category: 'system',
     summary: readable,

@@ -132,10 +132,15 @@ function validate(ctx: SimContext): ValidationIssue[] {
     const outstandingFindings = listFindings(ctx.state, { caseId: record.id }).filter(
       (finding) => finding.status === 'open' || finding.status === 'remediated',
     )
+    // `escalated` is the top of the ladder: the watch has come back as many
+    // times as it is going to, and the orders stand against the tavern until
+    // somebody meets them. That is a deliberate terminal state, not a
+    // promise nothing will keep, so it is exempt.
     if (
       outstandingFindings.length > 0 &&
       record.nextVisitDay === undefined &&
-      record.caseStatus !== 'closed'
+      record.caseStatus !== 'closed' &&
+      record.caseStatus !== 'escalated'
     ) {
       issues.push({
         path: `modules.${REGULATORY_MODULE_ID}.cases.${record.id}`,

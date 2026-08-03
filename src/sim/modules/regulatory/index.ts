@@ -42,6 +42,7 @@ export {
 } from './evidence'
 export {
   CASE_THRESHOLD,
+  MAX_CASE_ESCALATIONS,
   appealFinding,
   bribeInspector,
   caseIsSettled,

@@ -386,7 +386,14 @@ describe('Phase 214 §7.3.10 — follow-up and closure', () => {
         (finding) => finding.status === 'open' || finding.status === 'remediated',
       )
       if (outstanding.length === 0) continue
-      expect(record.nextVisitDay).toBeDefined()
+      // Either the watch is coming back, or it has climbed to the top of the
+      // ladder and stopped — `escalated` is a deliberate terminal rung where
+      // the orders stand until the player meets them, not a promise nothing
+      // will keep.
+      expect(
+        record.nextVisitDay !== undefined || record.caseStatus === 'escalated',
+        `case ${record.id} (${record.caseStatus})`,
+      ).toBe(true)
     }
   })
 
@@ -423,7 +430,10 @@ describe('Phase 214 §7.3.10 — follow-up and closure', () => {
         (finding) => finding.status === 'open' || finding.status === 'remediated',
       )
       if (outstanding.length === 0) continue
-      expect(record.nextVisitDay, `case ${record.id}`).toBeDefined()
+      expect(
+        record.nextVisitDay !== undefined || record.caseStatus === 'escalated',
+        `case ${record.id} (${record.caseStatus})`,
+      ).toBe(true)
     }
     // And the state itself agrees — this is the validator that caught it.
     const validation = safeValidateState(state, { modules: FULL_PIPELINE })
@@ -462,7 +472,12 @@ describe('Phase 214 §7.3.10 — follow-up and closure', () => {
       const outstanding = listFindings(state, { caseId: record.id }).filter(
         (finding) => finding.status === 'open' || finding.status === 'remediated',
       )
-      if (outstanding.length > 0) expect(record.nextVisitDay).toBeDefined()
+      if (outstanding.length > 0) {
+        expect(
+          record.nextVisitDay !== undefined || record.caseStatus === 'escalated',
+          `case ${record.id} (${record.caseStatus})`,
+        ).toBe(true)
+      }
     }
     expect(
       slice.caseArchive.length + openCases(slice).length,

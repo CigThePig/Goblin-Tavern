@@ -390,6 +390,46 @@ describe('Phase 214 §7.3.10 — follow-up and closure', () => {
     }
   })
 
+  it('a visit that writes nothing down still leaves the earlier orders a follow-up', () => {
+    // The regression this guards: `performVisit` used to decide whether a
+    // follow-up was needed from the findings raised THAT DAY. A visit that
+    // produced none of its own — because the tavern fixed today's fault, or
+    // because the inspector had been paid — cleared `nextVisitDay` while
+    // last week's orders were still outstanding, and nothing ever came back
+    // to check them. That is `OBL-03` reappearing one level down.
+    let state = runDays(neglected(3_000), 22)
+    const outstandingBefore = listFindings(state).filter(
+      (finding) => finding.status === 'open' || finding.status === 'remediated',
+    )
+    if (outstandingBefore.length === 0) return
+
+    // Clean everything so a second visit finds nothing new to write down,
+    // but do NOT report the standing orders as done.
+    for (const id of Object.keys(state.areas)) {
+      state = withArea(state, id, {
+        cleanliness: 95,
+        smell: 5,
+        damage: 0,
+        condition: 95,
+      })
+    }
+    for (const id of Object.keys(state.stock)) {
+      state = withStock(state, id, { spoilage: 0 })
+    }
+    state = runDays(state, 10, 400)
+
+    for (const record of openCases(getRegulatoryModuleState(state))) {
+      const outstanding = listFindings(state, { caseId: record.id }).filter(
+        (finding) => finding.status === 'open' || finding.status === 'remediated',
+      )
+      if (outstanding.length === 0) continue
+      expect(record.nextVisitDay, `case ${record.id}`).toBeDefined()
+    }
+    // And the state itself agrees — this is the validator that caught it.
+    const validation = safeValidateState(state, { modules: FULL_PIPELINE })
+    expect(validation.success).toBe(true)
+  })
+
   it('meeting every order and settling every fine closes the case', () => {
     let state = runDays(neglected(3_000), 22)
     // Do the work: clean everything, sort the books, pay whatever is owed.

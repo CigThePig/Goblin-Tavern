@@ -544,8 +544,21 @@ export function performVisit(
   }
 
   const passed = outcome === 'pass' || outcome === 'conditional_pass'
+
+  // Orders left over from an EARLIER visit still need somebody to come back
+  // and look at them. Reading only `findings` — the ones raised today — left
+  // a case with outstanding orders and no visit scheduled whenever a visit
+  // produced none of its own: a bought inspector writes nothing down, and a
+  // tavern that fixed today's fault but not last week's passes on the day.
+  // Either way the earlier orders would have sat there forever with nothing
+  // coming, which is `OBL-03` reappearing one level down.
+  const stillOutstanding = listFindings(ctx.state, { caseId: record.id }).filter(
+    (finding) => finding.status === 'open' || finding.status === 'remediated',
+  )
   const followUpDay =
-    findings.length > 0 || outcome === 'escalation' || outcome === 'closure'
+    stillOutstanding.length > 0 ||
+    outcome === 'escalation' ||
+    outcome === 'closure'
       ? today + 7
       : undefined
 
@@ -570,7 +583,7 @@ export function performVisit(
     fineObligationIds: fineObligationId
       ? [...record.fineObligationIds, fineObligationId]
       : record.fineObligationIds,
-    caseStatus: findings.length > 0 ? 'awaiting_remediation' : 'closing',
+    caseStatus: stillOutstanding.length > 0 ? 'awaiting_remediation' : 'closing',
     escalation:
       outcome === 'escalation' || outcome === 'closure'
         ? record.escalation + 1

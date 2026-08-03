@@ -23,6 +23,13 @@ import {
   resolveInspection,
   resolveRivalTavern,
 } from '../../src/sim/modules/monthly/index'
+import { economyModule } from '../../src/sim/modules/economy/index'
+import { rulesetModule } from '../../src/sim/contracts/ruleset/index'
+import { scheduledEventsModule } from '../../src/sim/contracts/scheduledEvents/index'
+import { obligationsModule } from '../../src/sim/contracts/obligations/index'
+import { tenancyModule } from '../../src/sim/modules/tenancy/index'
+import { regulatoryModule } from '../../src/sim/modules/regulatory/index'
+import { getRegulatoryModuleState } from '../../src/sim/modules/regulatory/index'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import {
   withArea,
@@ -46,15 +53,28 @@ import type { TavernState } from '../../src/sim/state/TavernState'
 
 const SEED = 'phase-15-monthly-test'
 
+// Expansion Phase 7 — rent and inspection MOVED out of this module.
+//
+// `monthly.rent` and `monthly.inspection` are now projections of records the
+// tenancy and regulatory modules own, so a slice that leaves those two out
+// would be testing a monthly module with nothing behind half its report.
+// The shared ledger and the scheduled-event queue come with them: a rent
+// period is an obligation, and its rollover is a dated event.
 const MODULE_SLICE = [
+  rulesetModule,
   areasModule,
   stockModule,
   staffModule,
   customersModule,
   ownerActionsModule,
   serviceModule,
+  economyModule,
   weeklyModule,
   monthlyModule,
+  scheduledEventsModule,
+  obligationsModule,
+  tenancyModule,
+  regulatoryModule,
 ]
 
 function input(overrides: Partial<SimInput> = {}): SimInput {
@@ -83,6 +103,22 @@ function runMonth(state: TavernState, overrides: Partial<SimInput> = {}): Tavern
     current = runDay(current, overrides).state
   }
   return current
+}
+
+/**
+ * Expansion Phase 7 — one day past the month end.
+ *
+ * The month-end sweep runs on day 28; the tenancy's period rollover runs the
+ * MORNING AFTER, because the sweep is the last thing that can pay the month
+ * and a rollover on the same day would judge it unpaid before the payment
+ * had a chance to happen. A caller asserting on the missed-payment count
+ * therefore has to let day 29 open.
+ */
+function runPastMonthEnd(
+  state: TavernState,
+  overrides: Partial<SimInput> = {},
+): TavernState {
+  return runDay(runMonth(state, overrides), overrides).state
 }
 
 describe('Phase 15 — Module shape', () => {
@@ -192,7 +228,7 @@ describe('Phase 15 §15.2 — Rent', () => {
     for (const id of Object.keys(base.stock)) {
       base = withStock(base, id, { quantity: 0 })
     }
-    const result = runMonth(base)
+    const result = runPastMonthEnd(base)
     const slice = getMonthlyModuleState(result)
     expect(slice.rent.paidThisMonth).toBe(false)
     expect(slice.rent.missedPayments).toBeGreaterThanOrEqual(1)
@@ -274,43 +310,61 @@ describe('Phase 15 §15.3 — Landlord pressure', () => {
 })
 
 describe('Phase 15 §15.4 — Inspection suspicion', () => {
+  // Expansion Phase 7 §7.3 — these three cases used to call
+  // `resolveInspection` on a hand-built state and expect it to compute
+  // suspicion from the areas. It no longer computes anything: the regulatory
+  // module accumulates itemised evidence daily and `resolveInspection` is the
+  // monthly report's projection of it. So the cases now drive the real
+  // lifecycle for a few days and assert on what the watch actually observed,
+  // which is the same question asked of the system that now answers it.
   it('a filthy kitchen raises inspection suspicion', () => {
-    const dirtyKitchen = withArea(
+    let dirty = withArea(
       plentyOfStock(createInitialTavernState()),
       'kitchen',
       { cleanliness: 5, smell: 80 },
     )
-    const accum = emptyAccumulator()
-    const result = resolveInspection(
-      dirtyKitchen,
-      { suspicion: 25, warningCount: 0 },
-      accum,
-      1,
-    )
-    expect(result.next.suspicion).toBeGreaterThan(25)
+    for (let day = 0; day < 3; day += 1) dirty = runDay(dirty).state
+    const suspicion = getMonthlyModuleState(dirty).inspection.suspicion
+    expect(suspicion).toBeGreaterThan(0)
+    expect(
+      getRegulatoryModuleState(dirty).evidence.some(
+        (entry) => entry.dimension === 'food_safety',
+      ),
+    ).toBe(true)
   })
 
   it('a clean tavern lowers inspection suspicion', () => {
-    const cleanState = withArea(
+    let clean = withArea(
+      withArea(
+        withArea(plentyOfStock(createInitialTavernState()), 'kitchen', {
+          cleanliness: 90,
+          smell: 10,
+        }),
+        'privy',
+        { cleanliness: 85, smell: 15 },
+      ),
+      'cellar',
+      { cleanliness: 85, smell: 15 },
+    )
+    let dirty = withArea(
       withArea(plentyOfStock(createInitialTavernState()), 'kitchen', {
-        cleanliness: 80,
-        smell: 10,
+        cleanliness: 5,
+        smell: 90,
       }),
       'privy',
-      { cleanliness: 70, smell: 20 },
+      { cleanliness: 5, smell: 95 },
     )
-    const accum = emptyAccumulator()
-    const result = resolveInspection(
-      cleanState,
-      { suspicion: 50, warningCount: 0 },
-      accum,
-      1,
+    for (let day = 0; day < 3; day += 1) {
+      clean = runDay(clean).state
+      dirty = runDay(dirty).state
+    }
+    expect(getMonthlyModuleState(clean).inspection.suspicion).toBeLessThan(
+      getMonthlyModuleState(dirty).inspection.suspicion,
     )
-    expect(result.next.suspicion).toBeLessThan(50)
   })
 
   it('warning count increments when suspicion crosses the threshold', () => {
-    const filthy = withArea(
+    let filthy = withArea(
       withArea(
         withCustomerGroup(plentyOfStock(createInitialTavernState()), 'merchants', {
           satisfaction: 10,
@@ -321,6 +375,9 @@ describe('Phase 15 §15.4 — Inspection suspicion', () => {
       'privy',
       { smell: 95, cleanliness: 5 },
     )
+    // A warning is now a real case being opened, so it takes days of the
+    // watch noticing rather than one threshold crossing.
+    for (let day = 0; day < 12; day += 1) filthy = runDay(filthy).state
     const accum = emptyAccumulator()
     const result = resolveInspection(
       filthy,

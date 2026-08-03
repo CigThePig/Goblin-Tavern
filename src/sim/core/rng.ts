@@ -178,6 +178,12 @@ export type RngStreamId =
   // what they ask for when they do. Kept off `service_flow` so a change to
   // seating cannot change who turns up.
   | 'regular_behaviour'
+  // Expansion Phase 7 §7.3 — which inspector comes, how much warning the
+  // tavern gets, whether a bribe is taken, and whether it later comes out.
+  // Kept off every other stream for the reason architectural rule 7 exists:
+  // an extra service roll must not change who turns up at the door, and a
+  // regulatory case must not shift a generated name.
+  | 'regulatory'
 
 export type RngStreamState = Record<RngStreamId, RngState>
 
@@ -223,6 +229,8 @@ const ALL_STREAM_IDS: ReadonlyArray<RngStreamId> = [
   // Expansion Phase 4 §4.1 / §4.3.
   'service_flow',
   'regular_behaviour',
+  // Expansion Phase 7 §7.3.
+  'regulatory',
 ]
 
 export function createRngStreams(

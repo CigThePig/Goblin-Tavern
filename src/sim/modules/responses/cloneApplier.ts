@@ -19,6 +19,9 @@ import {
   MONTHLY_MODULE_ID,
   RENT_PAYMENT_EFFECT_TARGET,
 } from "../monthly/types";
+import { LOAN_BORROW_EFFECT_TARGET } from "../finance/types";
+import { quoteLoan } from "../finance/loans";
+import { INFORMAL_LENDER_ID } from "../../content/finance/lenderRegistry";
 
 import type {
   EffectApplier,
@@ -107,9 +110,16 @@ function applyStateChange(
 
   // Phase 200 / audit Wave 1 (`P7-EXP-001`) — mirror of the engine
   // applier's rent branch, so the pure resolver's preview of a rent
-  // payment matches what the engine actually does: affordable or nothing,
-  // and the month is marked paid with arrears cleared rather than the
-  // coin simply vanishing.
+  // payment matches what the engine actually does.
+  //
+  // Expansion Phase 7 §7.2 — the engine's branch now allows a PART payment,
+  // because the tenancy's notice ladder names "a part payment delays the
+  // next step" as a remedy. This mirror pays what the till can reach rather
+  // than refusing anything short of the full amount, so the two still
+  // agree. It works off `modules.monthly.rent`, which is the tenancy
+  // module's own projection of the live rent obligations — the pure
+  // resolver has no `SimContext` and so cannot walk the obligation ledger,
+  // and the projection is exactly the summary it needs.
   if (path === RENT_PAYMENT_EFFECT_TARGET) {
     const monthly = state.modules[MONTHLY_MODULE_ID] as
       | { rent?: RentState }
@@ -122,28 +132,74 @@ function applyStateChange(
       return { ...preview, applied: false, notes: ["rent already settled"] };
     }
     const amountDue = rent.monthlyAmount + rent.arrears;
-    if (state.coin < amountDue) {
+    const paid = Math.min(amountDue, state.coin);
+    if (paid <= 0) {
       return {
         ...preview,
         applied: false,
-        notes: [`rent payment needs ${amountDue} coin, ${state.coin} on hand`],
+        notes: [`rent payment needs coin; ${state.coin} on hand`],
       };
     }
-    state.coin -= amountDue;
+    state.coin -= paid;
     appendCoinLedgerEntry(state, {
       source,
-      amount: -amountDue,
+      amount: -paid,
       category: "rent",
       tags: ["response", "rent"],
     });
+    // Oldest debt first, matching `payRent`: arrears are cleared before the
+    // current month, so a part payment shows up where the ladder reads it.
+    const arrearsPaid = Math.min(paid, rent.arrears);
+    const currentPaid = paid - arrearsPaid;
     state.modules = {
       ...state.modules,
       [MONTHLY_MODULE_ID]: {
         ...(monthly as object),
-        rent: { ...rent, paidThisMonth: true, arrears: 0 },
+        rent: {
+          ...rent,
+          arrears: rent.arrears - arrearsPaid,
+          paidThisMonth: currentPaid >= rent.monthlyAmount,
+        },
       },
     };
-    return { ...preview, amount: -amountDue, applied: true };
+    return { ...preview, amount: -paid, applied: true };
+  }
+
+  // Expansion Phase 7 §7.1 — mirror of the engine applier's borrow branch.
+  //
+  // The pure resolver has no `SimContext` and so cannot open a loan record;
+  // what it CAN do is predict the coin honestly, which is what a preview is
+  // for. The engine's branch is the one that creates the agreement.
+  if (path === LOAN_BORROW_EFFECT_TARGET) {
+    const principal = Math.max(0, amount);
+    if (principal <= 0) {
+      return { ...preview, applied: false, notes: ["nothing to borrow"] };
+    }
+    // Ask the same quote the engine's branch asks. `quoteLoan` is a pure read
+    // of state, so the preview can afford it — and without it the preview
+    // promised coin a refusing lender was never going to hand over (a loan
+    // already open with them, a refusal window after a default, the open-loan
+    // cap). A preview that over-promises is the same broken contract as a
+    // card that invents truth.
+    const quote = quoteLoan(state, {
+      lenderId: INFORMAL_LENDER_ID,
+      principal,
+    });
+    if (quote.refusal) {
+      return {
+        ...preview,
+        applied: false,
+        notes: [`loan not taken: ${quote.refusal.reason}`],
+      };
+    }
+    state.coin += quote.principal;
+    appendCoinLedgerEntry(state, {
+      source,
+      amount: quote.principal,
+      category: "other",
+      tags: ["response", "loan", "loan_proceeds"],
+    });
+    return { ...preview, amount: quote.principal, applied: true };
   }
 
   if (path === "coin") {

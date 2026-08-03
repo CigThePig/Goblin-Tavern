@@ -26,8 +26,18 @@ import type { EntityRef } from '../../state/TavernState'
 // every domain inherits it.
 
 export type ContractFamily =
-  /** A sum owed in one direction or the other. Invoices, loans, rent, fines, tabs. */
+  /** A sum owed in one direction or the other. Invoices, rent periods, fines, tabs. */
   | 'obligation'
+  /**
+   * A borrowing agreement with a lender: principal, fee, and a schedule of
+   * instalments. Expansion Phase 7 owns it.
+   *
+   * Distinct from `obligation` because a loan is not a single sum falling
+   * due — it is the agreement that *produces* those sums. Each instalment
+   * IS an `obligation` in the shared ledger, so the loan keeps the terms
+   * and the schedule while the ledger keeps the timekeeping.
+   */
+  | 'loan'
   /** A promise of goods on a day. Purchase orders, standing orders, deliveries. */
   | 'order'
   /** Employment terms and the notice/separation clock. */
@@ -234,6 +244,30 @@ export function isSettled(record: ObligationRecord): boolean {
   return outstandingAmount(record) <= 0
 }
 
+/**
+ * Is this debt late? The one definition every consumer must share.
+ *
+ * The lifecycle's own statuses are the primary signal — `enterGrace` and
+ * `defaultObligation` are the only things that decide a debt has gone bad —
+ * and the due-day comparison catches the window between a debt falling due
+ * and the `morning` beat that moves it into grace, so a debt is never
+ * "not yet late" on a day that is already past its due date.
+ *
+ * Lives here, exported, because it had begun to be re-derived: the economy's
+ * arrears sum and the §7.4 obligation calendar each wrote their own version,
+ * and a report that reconstructs a financial rule the simulation already
+ * owns is inventing truth. Change it here and every consumer moves together.
+ */
+export function isOverdue(record: ObligationRecord, today: number): boolean {
+  if (outstandingAmount(record) <= 0) return false
+  return (
+    record.status === 'grace' ||
+    record.status === 'defaulted' ||
+    record.status === 'in_collections' ||
+    (record.dueOnDay !== undefined && record.dueOnDay < today)
+  )
+}
+
 // ---------- Schemas (§5.7) ----------
 
 const EntityRefSchema = z.object({ kind: z.string(), id: z.string() })
@@ -262,6 +296,7 @@ export const ContractRecordBaseSchema = z.object({
   id: z.string(),
   family: z.enum([
     'obligation',
+    'loan',
     'order',
     'employment',
     'regulatory',

@@ -96,6 +96,9 @@ import { createInitialRulesetModuleState } from "../contracts/ruleset/query";
 import { createInitialMetersModuleState } from "../contracts/meters/detail";
 import { createInitialScheduledEventsModuleState } from "../contracts/scheduledEvents/state";
 import { createInitialObligationsModuleState } from "../contracts/obligations/state";
+import { createInitialFinanceModuleState } from "../modules/finance/state";
+import { createInitialTenancyModuleState } from "../modules/tenancy/state";
+import { createInitialRegulatoryModuleState } from "../modules/regulatory/state";
 import { createInitialEconomyModuleState } from "../modules/economy/state";
 
 // Phase 8 §8.1 — Area defaults are sourced from `areaRegistry` rather than
@@ -832,6 +835,22 @@ export function createInitialTavernState(
       // anything.
       scheduledEvents: createInitialScheduledEventsModuleState(),
       obligations: createInitialObligationsModuleState(),
+      // Expansion Phase 7 §7.1–7.3 — the three external-obligation slices,
+      // seeded empty from day zero for the same two reasons the staff slice
+      // below is: their schemas validate before anything has happened, and
+      // the web layer's day baseline goes through the migration chain on
+      // reload, so a slice present in one and absent in the other would make
+      // a resumed day differ from an uninterrupted one.
+      //
+      // Empty is the honest starting position for two of them (nobody has
+      // lent the tavern anything, and the watch has heard nothing). The
+      // tenancy is different — the Crooked Keg does rent its building — so
+      // `ensureTenancy` opens the agreement on the module's first day rather
+      // than the record being conjured here with a due date the calendar has
+      // not agreed to.
+      finance: createInitialFinanceModuleState(),
+      tenancy: createInitialTenancyModuleState(),
+      regulatory: createInitialRegulatoryModuleState(),
       // Expansion Phase 3 §3.1 — the staff slice is seeded from day zero rather
       // than conjured by the module's first `startDay`. Two reasons, and the
       // second is the load-bearing one:

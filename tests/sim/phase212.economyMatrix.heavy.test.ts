@@ -7,6 +7,11 @@ import { runBalanceMatrix } from '../../src/sim/testing/balanceMatrix'
 import { runBalanceScenario } from '../../src/sim/testing/balanceHarness'
 import { getEconomyModuleState } from '../../src/sim/modules/economy/index'
 import { getMonthlyModuleState } from '../../src/sim/modules/monthly/monthlyModule'
+import { getTenancy } from '../../src/sim/modules/tenancy/index'
+import {
+  listObligations,
+  outstandingAmount,
+} from '../../src/sim/contracts/obligations/index'
 
 const HORIZONS = [28, 90, 180] as const
 const BOTS = [
@@ -74,8 +79,38 @@ describe('Phase 212 §5 required long-run strategy matrix', () => {
     const monthly = getMonthlyModuleState(finalState)
 
     expect(economy.financial.status).toBe('temporarily_closed')
-    expect(economy.financial.operatingArrears).toBeGreaterThan(0)
     expect(monthly.rent.arrears).toBeGreaterThan(0)
-    expect(finalState.coin).toBe(0)
+
+    // Expansion Phase 7 re-pins two of these, and what moved is WHERE the
+    // debt lives rather than whether the collapse happened.
+    //
+    // `operatingArrears` was the economy module's own accumulator, and while
+    // it was the only place an unpaid obligation could live it was the right
+    // thing to assert. Rent is now an `ObligationRecord` in the shared
+    // ledger, so a tavern can owe a great deal with that counter at zero —
+    // which is why the assertion moves to the ledger itself. Overdue
+    // payables is the same claim made against the record that now holds it.
+    const overdue = listObligations(finalState, { direction: 'payable' })
+      .filter(
+        (record) =>
+          record.status === 'grace' ||
+          record.status === 'defaulted' ||
+          record.status === 'in_collections',
+      )
+      .reduce((sum, record) => sum + outstandingAmount(record), 0)
+    expect(overdue).toBeGreaterThan(0)
+
+    // And the tenancy itself ran its ladder to the end: a passive tavern
+    // does not merely stop trading, it loses the building.
+    expect(getTenancy(finalState)?.tenancyStatus).toBe('evicted')
+
+    // The till is spent. This was `toBe(0)` before Phase 7: a closed tavern
+    // now still takes the odd coin and the sweeps no longer drain it to the
+    // last penny, so the exact-zero pin no longer holds. The observed value
+    // on this route is 19, and the bound brackets it deliberately — loose
+    // enough not to re-pin on every balance nudge, tight enough that a
+    // regression leaving a day's operating cost (30+) in the till fails.
+    expect(finalState.coin).toBeGreaterThanOrEqual(0)
+    expect(finalState.coin).toBeLessThan(30)
   }, 300_000)
 })

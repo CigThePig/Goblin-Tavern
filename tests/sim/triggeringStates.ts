@@ -24,6 +24,23 @@ import {
 import type { SimInput } from '../../src/sim/core/context'
 import { runOneDay } from '../../src/sim/testing/simRunner'
 import type { MonthlyModuleState } from '../../src/sim/modules/monthly/types'
+import {
+  OBLIGATIONS_MODULE_ID,
+  createInitialObligationsModuleState,
+  openObligation,
+} from '../../src/sim/contracts/obligations/index'
+import {
+  LANDLORD_ID,
+  LANDLORD_LABEL,
+  RENT_PERIOD_DAYS,
+  TENANCY_MODULE_ID,
+  createInitialTenancyModuleState,
+  landlordRef,
+} from '../../src/sim/modules/tenancy/index'
+import type {
+  TavernTenancyRecord,
+  TenancyModuleState,
+} from '../../src/sim/modules/tenancy/index'
 import type {
   AttributionState,
   AttributionType,
@@ -270,6 +287,18 @@ export function buildReputationShiftTriggeringState(): TavernState {
   }
 }
 
+/**
+ * A tavern that has already missed a month's rent.
+ *
+ * Expansion Phase 7 §7.2 — this used to write `monthly.rent.arrears` and
+ * stop. That field is now a PROJECTION of real rent obligations, so writing
+ * it alone produced a fixture the tenancy module corrected back to zero on
+ * the first day, and the debt/rent card then quoted a debt the tavern did
+ * not have. The fixture therefore builds the thing the projection describes:
+ * a tenancy record whose previous period is an unpaid obligation in the
+ * shared ledger, which is exactly the state a tavern that missed a month
+ * reaches by playing.
+ */
 function withRentArrears(
   state: TavernState,
   arrears: number,
@@ -277,19 +306,95 @@ function withRentArrears(
 ): TavernState {
   const monthly = (state.modules['monthly'] ?? null) as MonthlyModuleState | null
   if (!monthly) return state
+  const today = state.calendar.totalDaysElapsed
+  const rentPerPeriod = monthly.rent.monthlyAmount
+
+  const obligations = {
+    ...createInitialObligationsModuleState(),
+    ...((state.modules[OBLIGATIONS_MODULE_ID] ?? {}) as object),
+  } as ReturnType<typeof createInitialObligationsModuleState>
+
+  const arrearIds: string[] = []
+  const records = { ...obligations.records }
+  if (!paid && arrears > 0) {
+    const id = `obl-${TENANCY_MODULE_ID}-arrear`
+    records[id] = {
+      ...openObligation({
+        id,
+        ownerModuleId: TENANCY_MODULE_ID,
+        counterparty: landlordRef(),
+        direction: 'payable',
+        principal: arrears,
+        openedOnDay: Math.max(0, today - RENT_PERIOD_DAYS),
+        dueOnDay: Math.max(0, today - 1),
+        graceDays: 3,
+        lateChargeRate: 0.05,
+        readable: 'Rent, previous month',
+        tags: ['rent', 'tenancy'],
+      }),
+      status: 'defaulted',
+    }
+    arrearIds.push(id)
+  }
+
+  const tenancy: TavernTenancyRecord = {
+    id: 'tenancy-main',
+    family: 'tenancy',
+    ownerModuleId: TENANCY_MODULE_ID,
+    counterparty: landlordRef(),
+    status: paid ? 'active' : 'defaulted',
+    openedOnDay: 0,
+    dueOnDay: today + RENT_PERIOD_DAYS,
+    graceDays: 3,
+    lastTransitionOnDay: today,
+    history: [
+      {
+        onDay: 0,
+        from: 'pending',
+        to: 'active',
+        reason: `tenancy at ${rentPerPeriod} coin a month`,
+        amount: rentPerPeriod,
+      },
+    ],
+    escalation: paid ? 0 : 1,
+    readable: `Tenancy with ${LANDLORD_LABEL} at ${rentPerPeriod} a month`,
+    tags: ['tenancy', 'rent'],
+    rentPerPeriod,
+    periodDays: RENT_PERIOD_DAYS,
+    missedPeriods: paid ? monthly.rent.missedPayments : monthly.rent.missedPayments + 1,
+    landlordId: LANDLORD_ID,
+    tenancyStatus: paid ? 'current' : 'in_arrears',
+    // The current period has not been billed yet, so the module's own
+    // `ensurePeriodObligation` raises it on the first day exactly as it would
+    // for a tavern that reached this position by playing.
+    periodEndsOnDay: today + RENT_PERIOD_DAYS,
+    periodIndex: 1,
+    lastBilledPeriodIndex: 0,
+    arrearObligationIds: arrearIds,
+    totalPaid: 0,
+    periodsPaidOnTime: 0,
+    everPaid: paid,
+  }
+
+  const tenancySlice: TenancyModuleState = {
+    ...createInitialTenancyModuleState(),
+    ...((state.modules[TENANCY_MODULE_ID] ?? {}) as object),
+    tenancy,
+  } as TenancyModuleState
+
   return {
     ...state,
     modules: {
       ...state.modules,
+      [OBLIGATIONS_MODULE_ID]: { ...obligations, records },
+      [TENANCY_MODULE_ID]: tenancySlice,
       monthly: {
         ...monthly,
         rent: {
           ...monthly.rent,
           arrears,
           paidThisMonth: paid,
-          missedPayments: paid
-            ? monthly.rent.missedPayments
-            : monthly.rent.missedPayments + 1,
+          missedPayments: tenancy.missedPeriods,
         },
         landlord: {
           ...monthly.landlord,

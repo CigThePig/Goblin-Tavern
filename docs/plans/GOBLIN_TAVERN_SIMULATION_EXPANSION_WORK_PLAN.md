@@ -2057,6 +2057,196 @@ Add:
 
 The loan and eviction portions of OBL-02 and all of OBL-03 are closed. External obligations have real lifecycles instead of warnings that terminate in metadata.
 
+## What Phase 7 actually landed (2026-08-02, ISSUE-177)
+
+**An inspector actually comes.** `OBL-03` was the plainest broken promise in
+the arc — Phase 15's own comment said "there is no inspection event yet" —
+and it is closed. The new `regulatory` module accumulates itemised, dated
+evidence every closing beat from the rooms, the cellar, the declared house
+rules and the tavern's own books; enough of it opens a case with a named
+inspector, a scheduled visit and (usually) a preparation window whose length
+falls to nothing the longer the evidence has been piling up. The visit is a
+morning beat that grades all seven §7.3.7 dimensions against live state and
+lands on the outcome ladder — pass, conditional pass, warning, fine,
+remediation order, escalation, closure — where closure requires two prior
+failed visits rather than one bad night. Findings carry a requirement the
+follow-up **re-reads against the room**, so declaring an order done without
+doing it is `remediated` and not `verified`. Fines are payable obligations
+with due dates, not numbers that evaporate. `modules.monthly.inspection` now
+projects the evidence rather than computing a parallel meter, and
+`pressure:inspection` stays what §7.3 says it should be: a forecast.
+
+**Loans exist.** There were none: `loan_due_soon` was a string queued after
+the card handed the player forty coin from nowhere. Three lenders now offer
+materially different bargains, priced by a standing the tavern earns and
+loses. `take_loan` disburses against a real agreement whose terms are
+snapshotted at signing; each instalment opens as an `ObligationRecord` in the
+shared ledger with its own due day, grace and late charges, and opening one
+also schedules the day it stops being optional. Partial payment, early
+settlement with a rebate, bounded renegotiation, delinquency, default and a
+lender-specific collections behaviour (Grimwick takes it out of the till; the
+guild simply shuts the door) are all reachable. `loan_due_soon` binds to the
+soonest live instalment and **declines to become mechanical when the tavern
+owes nobody** — the §7.1 requirement, enforced where it can be.
+
+**Rent is a tenancy, and eviction is real.** `monthly.rent` was four numbers
+settled once a month; it is now a projection of a `tenancy` record that bills
+each period as an obligation, carries unpaid months into arrears that keep
+their own history, and runs a five-rung notice ladder whose every rung names
+on the record what would prevent or delay it. Each deadline re-evaluates the
+CURRENT position on the `wrap_up` beat, so a player who finds the coin during
+the day is not escalated for a debt they no longer owe. An eviction hearing
+can be dismissed by clearing the arrears, adjourned by a payment plan or a
+landlord who has come round, or granted — which shuts the doors through the
+economy module's own `temporarily_closed` state, with reinstatement still
+purchasable. The landlord has beliefs, an access request the player answers
+either way, and repair responsibility for structural decay that its tradesmen
+actually turn up and fix.
+
+**Fourteen future-hook families stopped draining into memories.**
+`loan_due_soon`, `eviction_threat_possible`, `landlord_goodwill_window`, the
+four inspection-follow-up families, `inspection_discovery_possible`,
+`inspection_bribe_exposed_*`, `corrupt_inspector_relationship`,
+`inspector_advisor_*`, `town_watch_advisor`, `town_watch_goodwill` and
+`cleaning_routine_streak` all resolve into a domain that can deliver, and each
+declines when its subject does not exist. Two pre-existing whole-name claims
+(`brawl_possible`, `security_routine_possible`) started working as a
+side-effect: the prefix matcher skipped any hook whose name equalled the
+declared prefix, which rejected the exact name the prefix was declared for.
+
+**Two corrections the phase forced.** `externalArrears` counted every live
+payable, which was defensible while the only payables were overdue — a rent
+period raised on the day it opens would have declared a spotless tavern
+insolvent by day three, so it now counts only what has actually passed its due
+day. And every new record is normalised **through its own Zod schema** on
+write (`src/sim/state/schemaOrder.ts`), because a reloaded save is parsed into
+schema key order while an in-memory one keeps insertion order, and the diff
+layer stringifies slices — which is exactly how a resumed day's report stops
+matching an uninterrupted one.
+
+**Player capability and proof.** Fifteen registered owner actions cover
+borrowing, repaying, renegotiating and settling; paying rent, negotiating,
+answering access, requesting repairs and buying an evicted tenancy back; and
+the books, compliance, appeal, the fine and the quiet word with an inspector.
+Every rung of the notice ladder names one of them as its way out. Reports and
+calendars land as `src/reports/obligationCalendarProjection.ts` and a new
+Reports → **Owed** screen: due dates, warning provenance (including the
+player's own wording for the choice that promised it), exact settlement
+entries, each record's history, and the registry's own reason for every
+option it greys out. Contract coverage lives in the four `phase214.*` files —
+84 tests across loans, tenancy, inspection (on all three difficulties) and
+beat persistence, including full-day-vs-segmented equivalence, an exact-once
+check across a reload, and a migration that carries an old save's rent
+forward without inventing evidence.
+
+**Three defects the 180-day balance matrix found, and the phase fixed.** A
+visit that wrote nothing down — because the tavern had fixed today's fault,
+or because the inspector had been paid — cleared the case's follow-up while
+earlier orders stood, which is `OBL-03` reappearing one level down; the
+follow-up ladder had no top, so a tavern the watch had already shut
+accumulated two thousand coin of penalties it could not trade its way out
+of; and closure at the end of that ladder was judged on accumulated
+severity, so a tavern that kept every room spotless was shut on day 55 over
+its bookkeeping. Fines were also four times too large for a tavern turning
+over a hundred a day. Alongside them, one Phase 5 rule that had been
+defensible until this phase: `distressed` counted `arrears > 0`, so a
+solvent tavern with an unpaid fine was insolvent in three days and shut in
+ten. It now reads `arrears > coin`, which is what "could no longer fund safe
+operation" always meant.
+
+**Seven review findings fixed before merge** (PR #253 — two P1, three P2,
+two P3), each with a regression test that fails on the pre-fix tree:
+
+- **P1, and `OBL-02` reappearing inside its own fix:** a missed instalment's
+  ledger obligation was never discharged. The schedule marked the instalment
+  `missed` and opened the next one, but `repayLoan`/`settleLoan` reach the
+  ledger only through the instalment that is currently `open` — so the
+  missed one sat live, unreachable by any action, double-counting debt the
+  loan record already carried, and climbing the generic grace-expiry ladder
+  for four more firings. A tavern that recovered from one missed payment
+  carried permanent phantom arrears into `externalArrears`, insolvency and
+  the calendar. `absorbInstalmentObligation` now discharges it and folds its
+  accrued charges ONTO the agreement (so lateness still costs what the
+  loan's snapshotted rate says, payable where the player can reach it), and
+  `closeLoan` sweeps anything still live when a loan goes terminal.
+  `financeModule.validate` gained the reverse-direction check that would
+  have caught it: a live loan-tagged obligation must belong to an instalment
+  that is still open.
+- **P1: the obligation calendar offered the wrong actions and hid the right
+  ones.** `optionsFor` matched by tag, but an action's `targetId` has a KIND.
+  Every loan row therefore carried `take_loan` — addressed by a LENDER id —
+  permanently disabled with "no lender 'loan-0' operates here", leaking a
+  record id at the player as if it were guidance; every fine row carried
+  case-scoped `bribe_inspector` the same way; `renegotiate_loan` was hidden
+  because it is not tagged `coin`; and supplier invoices offered **nothing**,
+  because no supplier action is tagged `coin` either — the one row whose
+  whole purpose is surfacing `pay_supplier_invoice`. Replaced with an
+  explicit per-kind list that also records how each action wants to be
+  addressed, and supplier rows now carry the supplier id their actions
+  expect. Eligibility still comes from the registry's own `canApply`.
+- **P2: `renegotiate_loan` charged the walk for an answer it already knew.**
+  `renegotiateLoan` enforces the renegotiation cap and a standing floor, but
+  `canApply` checked neither, so a player at the cap spent the action's time
+  on an `apply` that could only refuse — and the greyed-out reason they were
+  meant to plan against never appeared. Both bars mirrored into `canApply`.
+- **P2: two definitions of "overdue".** The economy's arrears sum and the
+  §7.4 calendar each wrote their own, and the calendar's headline total and
+  the Svelte component's urgency styling were a third and fourth. They agree
+  only because the due event fires on the due day, which nothing enforces.
+  `isOverdue(record, today)` now lives on the obligation contract and every
+  consumer reads it, including a new `row.overdue` the view styles from
+  instead of re-deriving lateness from `daysUntilDue`.
+- **P2: collections terms were read live from the registry.** `feeRate`,
+  `graceDays` and the schedule were snapshotted at signing, but
+  `collections`, `refusalDays` and `seizureFraction` were fetched from
+  `lenderRegistry` at default time — so a lender re-tuned after signing
+  would have changed what an in-flight loan did to that player, the exact
+  "terms that moved under you" the record exists to prevent. Now snapshotted
+  with the rest, and `runCollections` no longer needs the lender to still
+  exist to collect the debt it is owed.
+- **P3: the borrow preview promised coin a refusing lender would not give.**
+  `cloneApplier`'s branch credited the principal unconditionally while the
+  engine's branch can refuse (loan already open, refusal window, loan cap).
+  It now asks the same `quoteLoan` — a pure read — and reports itself
+  unapplied on a refusal.
+- **P3: nine tests could silently stop asserting anything.** Guards of the
+  shape `if (fines.length === 0) return` took the live branch only because
+  the seeds happened to reach it; a balance change (this phase already made
+  two) would have turned them into green no-ops. All are canary assertions
+  now. Alongside them: the per-difficulty inspection cases each asserted the
+  same three facts against their own run, so they would all have passed if
+  difficulty changed nothing — a divergence test now pins that identical
+  neglect costs materially more on hard than on easy, and the tenancy
+  concession test forces the grant branch instead of branching on it.
+
+**Final verification.** `npm run test:full` passed all 330 files / 4,376
+tests; TypeScript and Svelte checks completed with zero errors or warnings;
+and the production build completed with only the existing large-chunk
+advisory. The expansion artifacts passed with 134 ledger rows (66 done, 2
+in-progress, 66 open), 98 future hooks across 189 sites, 13 baseline routes
+with no drift, and a 37-module / 26-phase / 20-stream / 143-term repo map
+with no drift.
+
+The review-fix pass above adds **8 tests** to those four files, and
+`npm run test:full` was re-run on top of it: **330 files / 4,384 tests
+passing**, which is the pre-fix 4,376 plus exactly those 8 and nothing
+else moved. Also re-verified after it: `typecheck`, `check` (1,095 files,
+0 errors), and all three expansion artifacts still at **zero drift**,
+which is the evidence the fixes did not move the frozen routes.
+
+**The back-rent migration was checked against the live save system and
+needs no change.** `ensureExternalObligationSlices` seeds a tenancy only
+when `modules.tenancy` is ABSENT, and `createInitialTavernState` seeds all
+three Phase 7 slices from day zero — so the branch is unreachable for any
+save this implementation writes. Probed on a save carrying real arrears
+(312 coin across two `in_collections` rent obligations, an evicted
+tenancy, four notices): the reload step leaves the slice byte-identical,
+fabricates no belief, and is idempotent. The judgement recorded above
+therefore applies only to saves written before this phase existed. The 180-day balance matrix finishes solvent on all six rows —
+11.8k to 65k coin, 4.8k to 7.0k patrons — across three distinct identities,
+while the passive route still collapses into closure, eviction and real
+arrears.
+
 ---
 
 # Phase 8 — Build an autonomous social world

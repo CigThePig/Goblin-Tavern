@@ -216,8 +216,8 @@ describe('Phase 207 — implementation ledger', () => {
     // completes, and never to make a failing row pass.
     // Phase 0 (ISSUE-170), Phase 1 (ISSUE-171), Phase 2 (ISSUE-172),
     // Phase 3 (ISSUE-173), Phase 4 (ISSUE-174), Phase 5 (ISSUE-175),
-    // Phase 6 (ISSUE-176).
-    const LANDED_PHASES = 6
+    // Phase 6 (ISSUE-176), Phase 7 (ISSUE-177).
+    const LANDED_PHASES = 7
     const closedEarly = rows.filter(
       (r) => r.status !== 'open' && Number(r.phase) > LANDED_PHASES,
     )
@@ -376,10 +376,26 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       // Expansion Phase 6 (ISSUE-176) moves one count:
       //   * `ownerActions` 59 → 67: place/amend/cancel/dispute an order,
       //     request credit, pay/schedule an invoice, and negotiate terms.
-      runtimeModules: 34,
+      //
+      // Expansion Phase 7 (ISSUE-177) moves two counts, and that it is only
+      // two is the assertion:
+      //   * `runtimeModules` 34 → 37: `finance`, `tenancy` and `regulatory`.
+      //     Three modules rather than one because §5.4 wants one domain per
+      //     transition, and a lender, a landlord and the watch are three
+      //     counterparties with three unrelated escalation ladders.
+      //   * `ownerActions` 67 → 82: four for loans (borrow, repay,
+      //     renegotiate, settle), six for the tenancy (pay, negotiate, grant
+      //     and refuse access, request a repair, buy the tenancy back) and
+      //     five for the watch (the books, report an order done, appeal, pay
+      //     a fine, and the quiet word).
+      // Nothing else grows. There are no new areas, stock records, recipes or
+      // customer groups: §7 deepens what the tavern OWES rather than what it
+      // is made of, and the inspection reads the existing rooms and cellar
+      // rather than adding anything to inspect.
+      runtimeModules: 37,
       simulationPhases: 26,
       daySegments: 3,
-      ownerActions: 67,
+      ownerActions: 82,
       staffPriorities: 12,
       pressureDomains: 21,
       feedbackDetectors: 13,

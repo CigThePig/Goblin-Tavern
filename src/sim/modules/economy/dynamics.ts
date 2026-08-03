@@ -1,6 +1,6 @@
 import type { SimContext } from '../../core/context'
 import type { CustomerGroupState, TavernState } from '../../state/TavernState'
-import { listObligations, outstandingAmount } from '../../contracts/obligations/index'
+import { isOverdue, listObligations, outstandingAmount } from '../../contracts/obligations/index'
 import type { DailyServiceResult, ServiceModuleState } from '../service/types'
 
 import { getEconomyModuleState, writeEconomyState } from './state'
@@ -163,15 +163,33 @@ export function getCompetitorChoiceFactorForGroup(
   return round2(clamp(1 - appealDelta * 0.2 * susceptibility, 0.75, 1.08))
 }
 
+/**
+ * Money the tavern is BEHIND on — not money it owes.
+ *
+ * Expansion Phase 7 §7.2 corrected two things here.
+ *
+ * First, this used to total every live payable. That was a reasonable
+ * reading while the only payables were overdue supplier invoices and patron
+ * slates, but it stopped being one the moment rent became a real obligation:
+ * a tenancy raises the month's rent as a payable on the day the period
+ * OPENS, so a tavern that has never missed a payment in its life would have
+ * shown "arrears" from day one and been declared insolvent by day three.
+ * Arrears means late, so only records that have actually passed their due
+ * day count — `grace`, `defaulted` and `in_collections` are exactly the
+ * shared ledger's names for that, and a record still inside its term is a
+ * normal liability the daily accounting already reports.
+ *
+ * Second, `modules.monthly.rent.arrears` is no longer added on top. It is
+ * now a projection OF those same overdue rent obligations, so counting it
+ * would double every late month.
+ */
 function externalArrears(state: TavernState): number {
-  const rent = state.modules['monthly'] as
-    | { rent?: { arrears?: number } }
-    | undefined
-  const payable = listObligations(state, { direction: 'payable' }).reduce(
-    (sum, obligation) => sum + outstandingAmount(obligation),
+  const today = state.calendar.totalDaysElapsed
+  return listObligations(state, { direction: 'payable' }).reduce(
+    (sum, obligation) =>
+      isOverdue(obligation, today) ? sum + outstandingAmount(obligation) : sum,
     0,
   )
-  return (rent?.rent?.arrears ?? 0) + payable
 }
 
 function transitionFinancial(
@@ -182,7 +200,17 @@ function transitionFinancial(
 ): FinancialState {
   const arrears = previous.operatingArrears + externalArrears(state)
   const dailyNeed = Math.max(8, settlement.due)
-  const distressed = state.coin < dailyNeed * 2 || arrears > 0
+  // Expansion Phase 7 — distress is being UNABLE to meet what is owed, not
+  // owing anything at all.
+  //
+  // `arrears > 0` was a defensible reading while overdue payables were rare;
+  // once a watch fine or a late rent period could exist, a tavern with 640
+  // coin in the till and a 156-coin fine it simply had not paid yet was
+  // "distressed" for three days, then insolvent, then shut — while solvent
+  // the whole way. Judging arrears against the till keeps Phase 5's actual
+  // meaning ("could no longer fund safe operation") and makes an unpaid bill
+  // what it is: a decision with consequences, not a death sentence.
+  const distressed = state.coin < dailyNeed * 2 || arrears > state.coin
   const cashStressDays = distressed ? previous.cashStressDays + 1 : 0
   const healthyDays = distressed ? 0 : previous.healthyDays + 1
   let status: FinancialStatus = previous.status

@@ -22,6 +22,12 @@ import {
 } from '../../src/sim/modules/memories/index'
 import { historyModule } from '../../src/sim/modules/history/index'
 
+import { economyModule } from '../../src/sim/modules/economy/index'
+import { rulesetModule } from '../../src/sim/contracts/ruleset/index'
+import { scheduledEventsModule } from '../../src/sim/contracts/scheduledEvents/index'
+import { obligationsModule } from '../../src/sim/contracts/obligations/index'
+import { tenancyModule } from '../../src/sim/modules/tenancy/index'
+import { regulatoryModule } from '../../src/sim/modules/regulatory/index'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import {
   withArea,
@@ -37,15 +43,24 @@ import type { MemoryState, TavernState } from '../../src/sim/state/TavernState'
 
 const SEED = 'phase-16-memories-test'
 
+// Expansion Phase 7 — rent and inspection moved into the tenancy and
+// regulatory modules, and a rent period is now an obligation with a dated
+// rollover. A slice that leaves them out has no rent to miss.
 const MODULE_SLICE = [
+  rulesetModule,
   areasModule,
   stockModule,
   staffModule,
   customersModule,
   ownerActionsModule,
   serviceModule,
+  economyModule,
   weeklyModule,
   monthlyModule,
+  scheduledEventsModule,
+  obligationsModule,
+  tenancyModule,
+  regulatoryModule,
   memoriesModule,
   historyModule,
 ]
@@ -332,7 +347,11 @@ describe('Phase 16 §16.3 — Memory creation from existing systems', () => {
     for (const id of Object.keys(base.stock)) {
       base = withStock(base, id, { quantity: 0 })
     }
-    const final = runManyDays(base, 28)
+    // Expansion Phase 7 §7.2 — the missed month is recorded by the tenancy's
+    // period rollover, which runs the MORNING AFTER the month ends: the
+    // month-end sweep is the last thing that can pay it, so judging the month
+    // on the same day would call it missed before the payment could happen.
+    const final = runManyDays(base, 29)
     const memory = findMemory(final, 'rent_missed_recently')
     expect(memory).toBeDefined()
     expect(memory!.strength).toBeGreaterThan(0)

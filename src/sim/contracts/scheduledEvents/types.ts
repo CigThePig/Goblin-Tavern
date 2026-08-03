@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import type { SimContext } from '../../core/context'
-import type { EntityRef } from '../../state/TavernState'
+import type { EntityRef, TavernState } from '../../state/TavernState'
 import type { CauseDraft } from '../../modules/causes/causeTypes'
 import type { MemoryDraft } from '../../modules/memories/memoryTypes'
 import type { HistoryEntryDraft } from '../../modules/history/types'
@@ -190,6 +190,24 @@ export type ScheduledEventDefinition = {
     hookName: string
     readable: string
     scheduledForDay: number
+    /**
+     * Live state at the moment the hook is being routed.
+     *
+     * Expansion Phase 7 §7.1. A hook name does not always identify its own
+     * subject: `loan_due_soon` says a debt is coming, not WHICH debt, and
+     * the owning domain is the only thing that can look one up. Without
+     * this the finance adapter could not tell "the player borrowed and owes
+     * a real payment" from "the player owes nobody", and §7.1's rule that
+     * the hook "cannot be scheduled when no loan exists" would be
+     * unenforceable. Adapters that key off the hook name alone ignore it.
+     *
+     * Optional because the field is younger than the adapters: every
+     * production caller (the response bridge) supplies it, and an adapter
+     * that NEEDS it must decline when it is absent rather than guess — a
+     * promise you cannot verify the subject of is exactly the promise this
+     * arc exists to stop making.
+     */
+    state?: TavernState | undefined
     /** Structured producer context carried by a MemoryDraft future hook. */
     metadata?: Record<string, unknown>
   }) => { payload: unknown; target?: EntityRef } | undefined

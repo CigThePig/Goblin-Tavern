@@ -16,23 +16,36 @@
   import WeeklyOverview from '../components/WeeklyOverview.svelte'
   import MonthlyOverview from '../components/MonthlyOverview.svelte'
   import TavernLog from '../components/TavernLog.svelte'
+  import ObligationsOverview from '../components/ObligationsOverview.svelte'
   import CauseDrilldown from '../components/CauseDrilldown.svelte'
   import { gameStore } from '../sim/gameStore.svelte'
   import {
     buildDailyReport,
     buildMonthlyOverview,
+    buildObligationCalendar,
     buildWeeklyOverview,
   } from '../../../../src/reports/index'
+  import type { ObligationCalendarData } from '../../../../src/reports/obligationCalendarProjection'
   import type { DailyReportData } from '../../../../src/reports/types'
   import type { WeeklyOverviewData } from '../../../../src/reports/weeklyOverviewProjection'
   import type { MonthlyOverviewData } from '../../../../src/reports/monthlyOverviewProjection'
   import { safeProject, type ProjectionSlot } from '../sim/projectionSlot'
 
-  type Subview = 'today' | 'pressures' | 'weekly' | 'monthly' | 'log'
+  type Subview =
+    | 'today'
+    | 'pressures'
+    | 'obligations'
+    | 'weekly'
+    | 'monthly'
+    | 'log'
 
   const TABS: { id: Subview; label: string }[] = [
     { id: 'today', label: 'Today' },
     { id: 'pressures', label: 'Pressures' },
+    // Expansion Phase 7 §7.4 — the scheduled obligation view. It sits next
+    // to Pressures deliberately: a pressure is a forecast of risk, and this
+    // is the dated, itemised thing the forecast is about.
+    { id: 'obligations', label: 'Owed' },
     { id: 'weekly', label: 'Weekly' },
     { id: 'monthly', label: 'Monthly' },
     { id: 'log', label: 'Log' },
@@ -72,6 +85,9 @@
   )
   const monthlyOverview: ProjectionSlot<MonthlyOverviewData> = $derived.by(() =>
     safeProject(() => buildMonthlyOverview(gameStore.state)),
+  )
+  const obligations: ProjectionSlot<ObligationCalendarData> = $derived.by(() =>
+    safeProject(() => buildObligationCalendar(gameStore.state)),
   )
 
   let pressureDrilldownPath = $state<string | undefined>(undefined)
@@ -122,6 +138,15 @@
       {/if}
     {:else if subview === 'pressures'}
       <PressuresDashboard onselect={openPressureDrilldown} />
+    {:else if subview === 'obligations'}
+      {#if obligations.ok === 'success'}
+        <ObligationsOverview data={obligations.data} />
+      {:else if obligations.ok === 'error'}
+        <div class="report-error" role="alert">
+          <p class="report-error-title">Obligations unavailable</p>
+          <p class="report-error-message mono">{obligations.error}</p>
+        </div>
+      {/if}
     {:else if subview === 'weekly'}
       {#if weeklyOverview.ok === 'success'}
         <WeeklyOverview data={weeklyOverview.data} />

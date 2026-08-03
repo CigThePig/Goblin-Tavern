@@ -182,7 +182,14 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // Wave 6 gate: 3.46 · 5. Post-Wave-7 tuning: 3.36 · 5. Post-Phase-3: 3.21 · 5.
     // Post-Phase-4: 3.18 · 5. Post-Phase-5: 3.14 · 5 — persistent demand
     // collapse leaves marginally fewer live problems to expose.
-    expect(audit.meanCardsPerDay).toBe(3.14)
+    //
+    // Post-Phase-7: 3.50 · 5. This is the largest single move in the arc so
+    // far, and it is the point of the phase rather than a side-effect: a
+    // passive tavern now genuinely owes rent on a dated schedule and now
+    // genuinely attracts the watch, so it has live problems on days it
+    // previously had none. The ceiling is unmoved, which is the part that
+    // matters — the route gained problems, not a worse day.
+    expect(audit.meanCardsPerDay).toBe(3.5)
     expect(audit.maxCardsPerDay).toBe(5)
     expect(audit.maxCardsPerDay).toBeLessThanOrEqual(FULL_DAY_CARD_CEILING)
   })
@@ -206,7 +213,16 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // patrons. Recurring attributable costs now leave the till, and sustained
     // service collapse reduces traffic and spend instead of remaining
     // compatible with indefinite growth. This is the ISSUE-168 re-baseline.
-    expect(audit.finalCoin).toBe(919)
+    //
+    // EXPANSION PHASE 7 moves the coin by five: 924. The rent a passive
+    // tavern pays is unchanged in amount — it is the same 120 a month to the
+    // same landlord — but it is now paid against an obligation whose exact
+    // outstanding balance the sweep settles, rather than against a
+    // recomputed figure, and a watch fine can land in the month. Five coin
+    // over 28 days is the whole economic footprint of the change, which is
+    // the evidence that Phase 7 deepened what the tavern owes without
+    // re-tuning what it earns.
+    expect(audit.finalCoin).toBe(924)
     expect(audit.totalPatrons).toBe(574)
   })
 
@@ -218,8 +234,10 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // upper bound read 15.71/day, 440 over 28 days; after Expansion Phase 3's
     // card-load movement it read 15.25/day, after Phase 4's it read
     // 14.86/day, and Phase 5's smaller passive crowd reads 14.75/day.
-    expect(audit.meanChoicesPerDay).toBe(14.75)
-    expect(audit.totalChoicesRendered).toBe(413)
+    // Phase 7's extra cards carry their own choices, so the upper bound
+    // reads 16.61/day. It is still an upper bound on the real render.
+    expect(audit.meanChoicesPerDay).toBe(16.61)
+    expect(audit.totalChoicesRendered).toBe(465)
   })
 
   it('reproduces the published family-streak figure', () => {

@@ -8,6 +8,18 @@ export { buildWeeklyOverview } from './weeklyOverviewProjection'
 export { buildMonthlyOverview } from './monthlyOverviewProjection'
 export { buildTavernOverview } from './tavernOverviewProjection'
 export { buildWorldOverview } from './worldOverviewProjection'
+// Expansion Phase 7 §7.4 — the scheduled-obligation view: loans, rent,
+// inspection cases, due dates, warning provenance and the player's options.
+export { buildObligationCalendar } from './obligationCalendarProjection'
+export type {
+  ObligationCalendarData,
+  ObligationCalendarRow,
+  ObligationKind,
+  LoanLedgerRow,
+  RentLedgerView,
+  RegulatoryCaseView,
+  ScheduledObligationEvent,
+} from './obligationCalendarProjection'
 export {
   buildTavernLog,
   HISTORY_CATEGORY_LABELS,

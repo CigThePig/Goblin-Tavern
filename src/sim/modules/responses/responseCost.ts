@@ -17,11 +17,16 @@
 
 import type { ConsequenceProfile, IssueSeed } from '../issues/issueSeedTypes'
 import { RENT_PAYMENT_EFFECT_TARGET } from '../monthly/types'
+import { LOAN_BORROW_EFFECT_TARGET } from '../finance/types'
 
 /** Effect targets that take coin out of the till when applied. */
 const COIN_TARGETS: ReadonlySet<string> = new Set([
   'coin',
   RENT_PAYMENT_EFFECT_TARGET,
+  // Expansion Phase 7 §7.1 — a loan disbursement moves coin the other way,
+  // and a profile that borrows and spends in the same breath must net off
+  // rather than be judged unaffordable against the till it is about to fill.
+  LOAN_BORROW_EFFECT_TARGET,
 ])
 
 /**

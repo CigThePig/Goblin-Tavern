@@ -32,6 +32,9 @@ import { getVentureBlueprint } from "../ventures/ventureCatalog";
 import { recordPressureAdjustment } from "../pressures/pressureModule";
 import { payRentFromResponse } from "../monthly/rent";
 import { RENT_PAYMENT_EFFECT_TARGET } from "../monthly/types";
+import { LOAN_BORROW_EFFECT_TARGET } from "../finance/types";
+import { takeLoan } from "../finance/loans";
+import { INFORMAL_LENDER_ID } from "../../content/finance/lenderRegistry";
 import { OWNER_TIME_EFFECT_TARGET } from "./responseCost";
 import {
   OWNER_ACTIONS_MODULE_ID,
@@ -191,6 +194,30 @@ export function applyEffectViaCtx(
       };
     }
     return { ...preview, amount: -paidAmount, applied: true };
+  }
+
+  // Expansion Phase 7 §7.1 — borrowing is a transition, not free coin.
+  //
+  // The `borrow` choice used to be `coin +40` with a `loan_due_soon` future
+  // hook stapled on: money from nowhere and a promise no domain could keep,
+  // which is `OBL-02` in miniature. It now opens a real loan with a real
+  // lender, real terms and a dated repayment schedule — and the hook it
+  // schedules has that loan to resolve against. It fails closed: a lender
+  // who refuses mutates nothing and the choice reports itself unapplied.
+  if (path === LOAN_BORROW_EFFECT_TARGET) {
+    const result = takeLoan(ctx, {
+      lenderId: INFORMAL_LENDER_ID,
+      principal: Math.max(0, amount),
+      purpose: readable || "an urgent bill",
+    });
+    if (!result.ok) {
+      return {
+        ...preview,
+        applied: false,
+        notes: [`loan not taken: ${result.reason}`],
+      };
+    }
+    return { ...preview, amount: result.quote.principal, applied: true };
   }
 
   if (path === "coin") {
@@ -736,6 +763,10 @@ export function createCtxApplier(ctx: SimContext): EffectApplier {
         hookName: input.hookName,
         readable: input.readable,
         scheduledForDay: input.scheduledForDay,
+        // Expansion Phase 7 §7.1 — the adapter may need to look its subject
+        // up. A loan-due hook has to find the loan, and declining when there
+        // is none is what keeps the promise honest.
+        state: ctx.state,
         ...(input.metadata ? { metadata: input.metadata } : {}),
       });
 

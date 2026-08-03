@@ -47,11 +47,16 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > survival loop:** persistent service collapse reduces group traffic, spend and
 > tolerance; attributable costs and exact daily/weekly/monthly accounting bind
 > cash; policies require real enforcers; insolvency can constrain and close the
-> tavern; registered restructuring/reopening actions recover it. **Next:
-> ISSUE-177 (Phase 7 — loans, tenancy, regulation and inspections).** Phase 6
+> tavern; registered restructuring/reopening actions recover it. Phase 6
 > closes **OBL-04**: supplier orders, deliveries, credit and invoices are now
-> one transactional loop. The sequence is hard-ordered
-> after that.
+> one transactional loop. **Phase 7 closes OBL-03 and the loan/eviction half
+> of OBL-02**: loans have lenders, schedules, delinquency, collections,
+> renegotiation and settlement; the tenancy bills real rent periods and runs
+> a notice ladder that ends in an eviction hearing the tavern can still
+> escape; and an inspector actually visits, grades seven dimensions against
+> live state, and leaves findings, fines and orders a follow-up re-reads.
+> **Next: ISSUE-178 (Phase 8 — the autonomous social world).** The sequence
+> is hard-ordered after that.
 >
 > Everything else below — the Complete Surface resume points, the
 > onboarding arc, the standing tails — is **paused, not cancelled**, and
@@ -298,7 +303,7 @@ rather than rebuilding those routes.
 | ISSUE-174 | Expansion Phase 4 — capacity-constrained service flow, customer choice, active regulars, patron tabs | thin | done | 211 |
 | ISSUE-175 | Expansion Phase 5 — economy: quality→cash feedback, operating costs, failure/recovery states, adaptive demand, enforceable policies | broken | done | 212 |
 | ISSUE-176 | Expansion Phase 6 — transactional suppliers: orders, deliveries, credit, invoices (OBL-04) | broken | done | 213 |
-| ISSUE-177 | Expansion Phase 7 — loans, tenancy, and a real inspection lifecycle (OBL-03 + loan/eviction half of OBL-02) | broken | open | 214 |
+| ISSUE-177 | Expansion Phase 7 — loans, tenancy, and a real inspection lifecycle (OBL-03 + loan/eviction half of OBL-02) | broken | done | 214 |
 | ISSUE-178 | Expansion Phase 8 — autonomous social world: faction/culture/NPC agency, rumour propagation, behavioral attribution (rumour half of OBL-08) | broken | open | 215 |
 | ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | open | 216 |
 | ISSUE-180 | Expansion Phase 10 — populated teleology, causal identity with hysteresis, character arcs, earned nicknames (OBL-09 + mastery half of OBL-08) | broken | open | 217 |
@@ -343,7 +348,7 @@ consequence is a direct pressure or reputation adjustment*.
 | ISSUE-174 | 4 — service flow | 211 | — | ISSUE-172, ISSUE-173 |
 | ISSUE-175 | 5 — economy | 212 | done; supports OBL-04/05; **ISSUE-168 closed** | ISSUE-174 |
 | ISSUE-176 | 6 — suppliers | 213 | done; **OBL-04 closed** | ISSUE-175 |
-| ISSUE-177 | 7 — loans, tenancy, inspection | 214 | **OBL-03** + loan/eviction half of **OBL-02** | ISSUE-175 |
+| ISSUE-177 | 7 — loans, tenancy, inspection | 214 | done; **OBL-03 closed** + loan/eviction half of **OBL-02** | ISSUE-175 |
 | ISSUE-178 | 8 — social world | 215 | rumour half of **OBL-08** | ISSUE-176, ISSUE-177 |
 | ISSUE-179 | 9 — rivals, arcs, expeditions | 216 | — | ISSUE-178 |
 | ISSUE-180 | 10 — teleology + identity | 217 | **OBL-09** + mastery half of **OBL-08** | ISSUE-179 |

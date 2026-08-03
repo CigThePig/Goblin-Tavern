@@ -2057,6 +2057,88 @@ Add:
 
 The loan and eviction portions of OBL-02 and all of OBL-03 are closed. External obligations have real lifecycles instead of warnings that terminate in metadata.
 
+## What Phase 7 actually landed (2026-08-02, ISSUE-177)
+
+**An inspector actually comes.** `OBL-03` was the plainest broken promise in
+the arc — Phase 15's own comment said "there is no inspection event yet" —
+and it is closed. The new `regulatory` module accumulates itemised, dated
+evidence every closing beat from the rooms, the cellar, the declared house
+rules and the tavern's own books; enough of it opens a case with a named
+inspector, a scheduled visit and (usually) a preparation window whose length
+falls to nothing the longer the evidence has been piling up. The visit is a
+morning beat that grades all seven §7.3.7 dimensions against live state and
+lands on the outcome ladder — pass, conditional pass, warning, fine,
+remediation order, escalation, closure — where closure requires two prior
+failed visits rather than one bad night. Findings carry a requirement the
+follow-up **re-reads against the room**, so declaring an order done without
+doing it is `remediated` and not `verified`. Fines are payable obligations
+with due dates, not numbers that evaporate. `modules.monthly.inspection` now
+projects the evidence rather than computing a parallel meter, and
+`pressure:inspection` stays what §7.3 says it should be: a forecast.
+
+**Loans exist.** There were none: `loan_due_soon` was a string queued after
+the card handed the player forty coin from nowhere. Three lenders now offer
+materially different bargains, priced by a standing the tavern earns and
+loses. `take_loan` disburses against a real agreement whose terms are
+snapshotted at signing; each instalment opens as an `ObligationRecord` in the
+shared ledger with its own due day, grace and late charges, and opening one
+also schedules the day it stops being optional. Partial payment, early
+settlement with a rebate, bounded renegotiation, delinquency, default and a
+lender-specific collections behaviour (Grimwick takes it out of the till; the
+guild simply shuts the door) are all reachable. `loan_due_soon` binds to the
+soonest live instalment and **declines to become mechanical when the tavern
+owes nobody** — the §7.1 requirement, enforced where it can be.
+
+**Rent is a tenancy, and eviction is real.** `monthly.rent` was four numbers
+settled once a month; it is now a projection of a `tenancy` record that bills
+each period as an obligation, carries unpaid months into arrears that keep
+their own history, and runs a five-rung notice ladder whose every rung names
+on the record what would prevent or delay it. Each deadline re-evaluates the
+CURRENT position on the `wrap_up` beat, so a player who finds the coin during
+the day is not escalated for a debt they no longer owe. An eviction hearing
+can be dismissed by clearing the arrears, adjourned by a payment plan or a
+landlord who has come round, or granted — which shuts the doors through the
+economy module's own `temporarily_closed` state, with reinstatement still
+purchasable. The landlord has beliefs, an access request the player answers
+either way, and repair responsibility for structural decay that its tradesmen
+actually turn up and fix.
+
+**Fourteen future-hook families stopped draining into memories.**
+`loan_due_soon`, `eviction_threat_possible`, `landlord_goodwill_window`, the
+four inspection-follow-up families, `inspection_discovery_possible`,
+`inspection_bribe_exposed_*`, `corrupt_inspector_relationship`,
+`inspector_advisor_*`, `town_watch_advisor`, `town_watch_goodwill` and
+`cleaning_routine_streak` all resolve into a domain that can deliver, and each
+declines when its subject does not exist. Two pre-existing whole-name claims
+(`brawl_possible`, `security_routine_possible`) started working as a
+side-effect: the prefix matcher skipped any hook whose name equalled the
+declared prefix, which rejected the exact name the prefix was declared for.
+
+**Two corrections the phase forced.** `externalArrears` counted every live
+payable, which was defensible while the only payables were overdue — a rent
+period raised on the day it opens would have declared a spotless tavern
+insolvent by day three, so it now counts only what has actually passed its due
+day. And every new record is normalised **through its own Zod schema** on
+write (`src/sim/state/schemaOrder.ts`), because a reloaded save is parsed into
+schema key order while an in-memory one keeps insertion order, and the diff
+layer stringifies slices — which is exactly how a resumed day's report stops
+matching an uninterrupted one.
+
+**Player capability and proof.** Fifteen registered owner actions cover
+borrowing, repaying, renegotiating and settling; paying rent, negotiating,
+answering access, requesting repairs and buying an evicted tenancy back; and
+the books, compliance, appeal, the fine and the quiet word with an inspector.
+Every rung of the notice ladder names one of them as its way out. Reports and
+calendars land as `src/reports/obligationCalendarProjection.ts` and a new
+Reports → **Owed** screen: due dates, warning provenance (including the
+player's own wording for the choice that promised it), exact settlement
+entries, each record's history, and the registry's own reason for every
+option it greys out. Contract coverage lives in the four `phase214.*` files —
+84 tests across loans, tenancy, inspection (on all three difficulties) and
+beat persistence, including full-day-vs-segmented equivalence, an exact-once
+check across a reload, and a migration that carries an old save's rent
+forward without inventing evidence.
+
 ---
 
 # Phase 8 — Build an autonomous social world

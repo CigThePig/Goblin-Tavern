@@ -83,6 +83,7 @@ import {
   ensureTeleologySlices,
   ensureModuleSlices,
   ensureExpansionContractSlices,
+  ensureExternalObligationSlices,
   flipUpkeepRecipesOffMenu,
 } from "../../../../src/sim/state/migrations";
 import { safeValidateState } from "../../../../src/sim/state/validation";
@@ -126,6 +127,8 @@ export type Route = "day" | "reports" | "tavern" | "world" | "more";
 export type ReportsSubview =
   | "today"
   | "pressures"
+  // Expansion Phase 7 §7.4 — the scheduled obligation view.
+  | "obligations"
   | "weekly"
   | "monthly"
   | "log";
@@ -263,6 +266,7 @@ const VALID_ROUTES: ReadonlySet<Route> = new Set<Route>([
 const VALID_REPORTS_SUBVIEWS: ReadonlySet<ReportsSubview> = new Set([
   "today",
   "pressures",
+  "obligations",
   "weekly",
   "monthly",
   "log",
@@ -777,7 +781,13 @@ function migrateAndValidateState(
     // one is not: every post-Phase-29 save already has a suppliers slice
     // holding the four per-day arrays and nothing else.
     const s8e = ensureSupplierProcurementFields(s8d);
-    const s9 = ensureModuleSlices(s8e);
+    // Expansion Phase 7 §5.7 — the loans / tenancy / regulatory slices.
+    // Named rather than left to the generic sweep because a blank tenancy
+    // would wipe rent the save already owes, and a fabricated evidence list
+    // would invent observations nobody made. Runs after the monthly slice is
+    // guaranteed present, because it reads the rent it is replacing.
+    const s8f = ensureExternalObligationSlices(s8e);
+    const s9 = ensureModuleSlices(s8f);
     const validation = safeValidateState(s9, { modules: FULL_PIPELINE });
     if (!validation.success) {
       const first = validation.errors[0];

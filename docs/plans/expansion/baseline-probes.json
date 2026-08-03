@@ -2029,7 +2029,7 @@
           "missedRentCount": 0
         },
         "inspection": {
-          "suspicion": 25,
+          "suspicion": 14,
           "warningCount": 0
         },
         "unpaidStaff": 0
@@ -2565,7 +2565,7 @@
           "missedRentCount": 0
         },
         "inspection": {
-          "suspicion": 25,
+          "suspicion": 14,
           "warningCount": 0
         },
         "unpaidStaff": 0
@@ -3101,7 +3101,7 @@
           "missedRentCount": 0
         },
         "inspection": {
-          "suspicion": 25,
+          "suspicion": 40,
           "warningCount": 0
         },
         "unpaidStaff": 0
@@ -3637,8 +3637,8 @@
           "missedRentCount": 0
         },
         "inspection": {
-          "suspicion": 67,
-          "warningCount": 0
+          "suspicion": 100,
+          "warningCount": 1
         },
         "unpaidStaff": 0
       },
@@ -3654,8 +3654,8 @@
           "topCauses": []
         },
         "debt": {
-          "value": 0,
-          "trend": -1,
+          "value": 10,
+          "trend": 1,
           "topCauses": []
         },
         "faction_anger": {
@@ -3674,12 +3674,12 @@
           "topCauses": []
         },
         "inspection": {
-          "value": 26,
-          "trend": 1,
+          "value": 52,
+          "trend": -1,
           "topCauses": []
         },
         "landlord": {
-          "value": 34,
+          "value": 44,
           "trend": 1,
           "topCauses": []
         },
@@ -3750,18 +3750,18 @@
         }
       },
       "issues": {
-        "totalGenerated": 146,
-        "totalRejected": 57,
-        "seedsToday": 3,
-        "surfacedToday": 3,
+        "totalGenerated": 161,
+        "totalRejected": 65,
+        "seedsToday": 4,
+        "surfacedToday": 4,
         "withheldToday": 2,
         "responsesResolvedToday": 0,
         "responsesAppliedToday": 0
       },
       "collections": {
-        "memories": 26,
-        "history": 426,
-        "causes": 306,
+        "memories": 28,
+        "history": 436,
+        "causes": 312,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -3782,7 +3782,7 @@
         "expeditionsActive": 0,
         "expeditionsCompleted": 0,
         "responsesPending": 0,
-        "issueCooldowns": 8
+        "issueCooldowns": 9
       },
       "validation": {
         "ok": true,
@@ -4173,8 +4173,8 @@
           "missedRentCount": 0
         },
         "inspection": {
-          "suspicion": 25,
-          "warningCount": 0
+          "suspicion": 65,
+          "warningCount": 1
         },
         "unpaidStaff": 0
       },
@@ -4210,7 +4210,7 @@
           "topCauses": []
         },
         "inspection": {
-          "value": 26,
+          "value": 52,
           "trend": 1,
           "topCauses": []
         },
@@ -4286,18 +4286,18 @@
         }
       },
       "issues": {
-        "totalGenerated": 63,
+        "totalGenerated": 67,
         "totalRejected": 24,
-        "seedsToday": 0,
-        "surfacedToday": 0,
+        "seedsToday": 2,
+        "surfacedToday": 2,
         "withheldToday": 3,
         "responsesResolvedToday": 0,
         "responsesAppliedToday": 0
       },
       "collections": {
-        "memories": 20,
-        "history": 213,
-        "causes": 390,
+        "memories": 22,
+        "history": 218,
+        "causes": 395,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -4318,7 +4318,7 @@
         "expeditionsActive": 0,
         "expeditionsCompleted": 0,
         "responsesPending": 0,
-        "issueCooldowns": 6
+        "issueCooldowns": 7
       },
       "validation": {
         "ok": true,
@@ -4709,7 +4709,7 @@
           "missedRentCount": 0
         },
         "inspection": {
-          "suspicion": 25,
+          "suspicion": 8,
           "warningCount": 0
         },
         "unpaidStaff": 0
@@ -5245,8 +5245,8 @@
           "missedRentCount": 0
         },
         "inspection": {
-          "suspicion": 25,
-          "warningCount": 0
+          "suspicion": 68,
+          "warningCount": 1
         },
         "unpaidStaff": 0
       },
@@ -5282,7 +5282,7 @@
           "topCauses": []
         },
         "inspection": {
-          "value": 26,
+          "value": 52,
           "trend": 1,
           "topCauses": []
         },
@@ -5358,18 +5358,18 @@
         }
       },
       "issues": {
-        "totalGenerated": 70,
-        "totalRejected": 24,
-        "seedsToday": 2,
-        "surfacedToday": 2,
+        "totalGenerated": 76,
+        "totalRejected": 26,
+        "seedsToday": 3,
+        "surfacedToday": 3,
         "withheldToday": 2,
         "responsesResolvedToday": 0,
         "responsesAppliedToday": 0
       },
       "collections": {
-        "memories": 19,
-        "history": 253,
-        "causes": 489,
+        "memories": 21,
+        "history": 258,
+        "causes": 494,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -5390,7 +5390,7 @@
         "expeditionsActive": 0,
         "expeditionsCompleted": 0,
         "responsesPending": 0,
-        "issueCooldowns": 8
+        "issueCooldowns": 9
       },
       "validation": {
         "ok": true,
@@ -5781,7 +5781,7 @@
           "missedRentCount": 0
         },
         "inspection": {
-          "suspicion": 25,
+          "suspicion": 13,
           "warningCount": 0
         },
         "unpaidStaff": 0
@@ -6317,8 +6317,8 @@
           "missedRentCount": 0
         },
         "inspection": {
-          "suspicion": 25,
-          "warningCount": 0
+          "suspicion": 69,
+          "warningCount": 1
         },
         "unpaidStaff": 0
       },
@@ -6354,7 +6354,7 @@
           "topCauses": []
         },
         "inspection": {
-          "value": 26,
+          "value": 52,
           "trend": 1,
           "topCauses": []
         },
@@ -6430,18 +6430,18 @@
         }
       },
       "issues": {
-        "totalGenerated": 63,
-        "totalRejected": 23,
-        "seedsToday": 1,
-        "surfacedToday": 1,
+        "totalGenerated": 68,
+        "totalRejected": 24,
+        "seedsToday": 3,
+        "surfacedToday": 3,
         "withheldToday": 2,
         "responsesResolvedToday": 0,
         "responsesAppliedToday": 0
       },
       "collections": {
-        "memories": 18,
-        "history": 216,
-        "causes": 473,
+        "memories": 20,
+        "history": 221,
+        "causes": 478,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -6462,7 +6462,7 @@
         "expeditionsActive": 0,
         "expeditionsCompleted": 0,
         "responsesPending": 0,
-        "issueCooldowns": 7
+        "issueCooldowns": 8
       },
       "validation": {
         "ok": true,
@@ -6856,7 +6856,7 @@
           "missedRentCount": 0
         },
         "inspection": {
-          "suspicion": 25,
+          "suspicion": 14,
           "warningCount": 0
         },
         "unpaidStaff": 0

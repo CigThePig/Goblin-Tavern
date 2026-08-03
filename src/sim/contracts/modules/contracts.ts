@@ -246,6 +246,100 @@ export const MODULE_CONTRACTS: Readonly<Record<string, ModuleContract>> = {
       'economy.reserves_intact',
     ],
   },
+  // Expansion Phase 7 §7.2/§7.3 — the monthly slice gains a declared owner.
+  //
+  // It had none before, and did not need one: nothing outside the module
+  // wrote it. Two things do now — the tenancy writes `monthly.rent` and the
+  // regulatory module writes `monthly.inspection`, both as projections of
+  // the records that replaced them — and a foreign write into an unowned
+  // slice is precisely what `checkSliceOwnership` exists to catch. Declaring
+  // the ownership is what makes those two writes legible as deliberate.
+  monthly: {
+    slices: [
+      { sliceId: 'monthly', version: 1, access: 'owns' },
+      { sliceId: 'weekly', version: 1, access: 'reads' },
+      { sliceId: 'economy', version: 1, access: 'reads' },
+      { sliceId: 'tenancy', version: 1, access: 'reads' },
+      { sliceId: 'regulatory', version: 1, access: 'reads' },
+      { sliceId: 'stock', version: 1, access: 'writes' },
+    ],
+    readsStatePaths: ['areas', 'calendar', 'coin', 'reputation', 'stock'],
+    writesStatePaths: ['coin', 'reputation', 'pressures'],
+  },
+  // Expansion Phase 7 §7.1–7.3 — the three external-obligation domains.
+  //
+  // Each owns its own slice and writes two shared ones on purpose: the
+  // scheduled-event queue (for the events it registered) and the obligation
+  // ledger (for the money it raises). Both are declared `writes` rather than
+  // `owns` precisely so the architecture check reports them as deliberate
+  // cross-module writes rather than a second owner.
+  finance: {
+    slices: [
+      { sliceId: 'finance', version: 1, access: 'owns' },
+      { sliceId: 'ruleset', version: 1, access: 'reads' },
+      { sliceId: 'scheduledEvents', version: 1, access: 'writes' },
+      { sliceId: 'obligations', version: 1, access: 'writes' },
+      { sliceId: 'stock', version: 1, access: 'writes' },
+    ],
+    readsStatePaths: ['calendar', 'coin'],
+    writesStatePaths: ['coin', 'pressures'],
+    ownsEventTypes: ['loan_instalment_review', 'loan_collections'],
+    schedulesEventTypes: ['loan_instalment_review', 'loan_collections'],
+  },
+  tenancy: {
+    // The tenancy writes `modules.monthly.rent` as a PROJECTION of its own
+    // record — declared here so the deliberate foreign write is visible
+    // rather than looking like a second owner of the rent.
+    slices: [
+      { sliceId: 'tenancy', version: 1, access: 'owns' },
+      { sliceId: 'ruleset', version: 1, access: 'reads' },
+      { sliceId: 'scheduledEvents', version: 1, access: 'writes' },
+      { sliceId: 'obligations', version: 1, access: 'writes' },
+      { sliceId: 'monthly', version: 1, access: 'writes' },
+      { sliceId: 'economy', version: 1, access: 'writes' },
+      { sliceId: 'stock', version: 1, access: 'writes' },
+    ],
+    readsStatePaths: ['areas', 'calendar', 'coin'],
+    writesStatePaths: ['areas', 'coin', 'pressures'],
+    ownsEventTypes: [
+      'rent_period_rollover',
+      'tenancy_escalation_review',
+      'eviction_hearing',
+      'landlord_goodwill',
+      'landlord_access_request',
+    ],
+    schedulesEventTypes: [
+      'rent_period_rollover',
+      'tenancy_escalation_review',
+      'eviction_hearing',
+      'landlord_access_request',
+    ],
+  },
+  regulatory: {
+    slices: [
+      { sliceId: 'regulatory', version: 1, access: 'owns' },
+      { sliceId: 'ruleset', version: 1, access: 'reads' },
+      { sliceId: 'scheduledEvents', version: 1, access: 'writes' },
+      { sliceId: 'obligations', version: 1, access: 'writes' },
+      { sliceId: 'monthly', version: 1, access: 'writes' },
+      { sliceId: 'economy', version: 1, access: 'writes' },
+      { sliceId: 'stock', version: 1, access: 'writes' },
+    ],
+    readsStatePaths: ['areas', 'calendar', 'coin', 'stock'],
+    writesStatePaths: ['coin', 'pressures'],
+    ownsEventTypes: [
+      'regulatory_visit',
+      'regulatory_followup',
+      'inspection_bribe_exposed',
+      'watch_relationship',
+      'cleaning_routine_review',
+    ],
+    schedulesEventTypes: [
+      'regulatory_visit',
+      'regulatory_followup',
+      'inspection_bribe_exposed',
+    ],
+  },
 }
 
 /** Every slice a module declares it owns. Used to detect two owners. */

@@ -163,15 +163,39 @@ export function getCompetitorChoiceFactorForGroup(
   return round2(clamp(1 - appealDelta * 0.2 * susceptibility, 0.75, 1.08))
 }
 
+/**
+ * Money the tavern is BEHIND on — not money it owes.
+ *
+ * Expansion Phase 7 §7.2 corrected two things here.
+ *
+ * First, this used to total every live payable. That was a reasonable
+ * reading while the only payables were overdue supplier invoices and patron
+ * slates, but it stopped being one the moment rent became a real obligation:
+ * a tenancy raises the month's rent as a payable on the day the period
+ * OPENS, so a tavern that has never missed a payment in its life would have
+ * shown "arrears" from day one and been declared insolvent by day three.
+ * Arrears means late, so only records that have actually passed their due
+ * day count — `grace`, `defaulted` and `in_collections` are exactly the
+ * shared ledger's names for that, and a record still inside its term is a
+ * normal liability the daily accounting already reports.
+ *
+ * Second, `modules.monthly.rent.arrears` is no longer added on top. It is
+ * now a projection OF those same overdue rent obligations, so counting it
+ * would double every late month.
+ */
 function externalArrears(state: TavernState): number {
-  const rent = state.modules['monthly'] as
-    | { rent?: { arrears?: number } }
-    | undefined
-  const payable = listObligations(state, { direction: 'payable' }).reduce(
-    (sum, obligation) => sum + outstandingAmount(obligation),
+  const today = state.calendar.totalDaysElapsed
+  return listObligations(state, { direction: 'payable' }).reduce(
+    (sum, obligation) => {
+      const late =
+        obligation.status === 'grace' ||
+        obligation.status === 'defaulted' ||
+        obligation.status === 'in_collections' ||
+        (obligation.dueOnDay !== undefined && obligation.dueOnDay < today)
+      return late ? sum + outstandingAmount(obligation) : sum
+    },
     0,
   )
-  return (rent?.rent?.arrears ?? 0) + payable
 }
 
 function transitionFinancial(

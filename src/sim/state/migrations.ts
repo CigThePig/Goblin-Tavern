@@ -46,6 +46,12 @@ import type { EmploymentRecord } from "../contracts/obligations/index";
 import { WEEKLY_MODULE_ID } from "../modules/weekly/state";
 import type { WeeklyModuleState, WeeklyResult } from "../modules/weekly/types";
 import { MONTHLY_MODULE_ID } from "../modules/monthly/types";
+import { FINANCE_MODULE_ID } from "../modules/finance/types";
+import { createInitialFinanceModuleState } from "../modules/finance/state";
+import { TENANCY_MODULE_ID } from "../modules/tenancy/types";
+import { createInitialTenancyModuleState } from "../modules/tenancy/state";
+import { REGULATORY_MODULE_ID } from "../modules/regulatory/types";
+import { createInitialRegulatoryModuleState } from "../modules/regulatory/state";
 import type {
   MonthlyModuleState,
   MonthlyResult,
@@ -1065,6 +1071,101 @@ export function ensureExpansionContractSlices<
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// Expansion Phase 7 §5.7 — the loans, tenancy and regulatory slices.
+//
+// NAMED rather than left to `ensureModuleSlices` because two of its choices
+// are judgements the generic sweep cannot make, and both are on the §5 line
+// between "silently loses a material obligation" and "fabricates one".
+//
+//   1. RENT THE SAVE ALREADY OWES MUST SURVIVE. A pre-Phase-7 save carries
+//      `modules.monthly.rent` with a real `monthlyAmount`, real `arrears`
+//      and a real `missedPayments` count. A blank tenancy slice would wipe
+//      all three: the player would wake up owing nothing, which is losing a
+//      material obligation. So the tenancy is seeded FROM the projection —
+//      same rent, same missed count — and `ensureTenancy` raises the period
+//      obligation on the first day it runs. The arrears are carried as the
+//      landlord's own belief and as the projection the notice ladder reads,
+//      rather than back-dated into obligation records with due dates the
+//      save never had; the next rollover bills honestly from there.
+//
+//   2. SUSPICION IS NOT EVIDENCE. A pre-Phase-7 save carries
+//      `modules.monthly.inspection.suspicion`, but nothing itemised. The
+//      regulatory slice starts with no evidence and no case, because
+//      inventing observations to justify a number would be exactly the
+//      fabrication §5 forbids — the daily evidence pass rebuilds a true
+//      picture within a day of the save being loaded. `warningCount` is kept
+//      on the projection so the player's history is not erased.
+//
+// The finance slice is simply blank: nobody has lent the tavern anything,
+// and backdating a loan from a `debt` pressure would invent a lender.
+export function ensureExternalObligationSlices<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const next: Record<string, unknown> = { ...current };
+  let changed = false;
+
+  if (!isRecord(next[FINANCE_MODULE_ID])) {
+    next[FINANCE_MODULE_ID] = createInitialFinanceModuleState();
+    changed = true;
+  }
+
+  if (!isRecord(next[TENANCY_MODULE_ID])) {
+    const monthly = isRecord(current[MONTHLY_MODULE_ID])
+      ? (current[MONTHLY_MODULE_ID] as Record<string, unknown>)
+      : undefined;
+    const rent = isRecord(monthly?.["rent"])
+      ? (monthly["rent"] as Record<string, unknown>)
+      : undefined;
+    const landlordRaw = isRecord(monthly?.["landlord"])
+      ? (monthly["landlord"] as Record<string, unknown>)
+      : undefined;
+    const slice = createInitialTenancyModuleState();
+    const opinion =
+      typeof landlordRaw?.["opinion"] === "number"
+        ? (landlordRaw["opinion"] as number)
+        : slice.landlord.opinion;
+    const missed =
+      typeof rent?.["missedPayments"] === "number"
+        ? (rent["missedPayments"] as number)
+        : 0;
+    const arrears =
+      typeof rent?.["arrears"] === "number" ? (rent["arrears"] as number) : 0;
+    next[TENANCY_MODULE_ID] = {
+      ...slice,
+      landlord: {
+        ...slice.landlord,
+        opinion,
+        // Concern the save had already earned, expressed on this module's
+        // own scale rather than copied off `pressure:landlord` — a pressure
+        // is a forecast, and the ladder reads concern.
+        concern: Math.max(0, Math.min(100, missed * 20)),
+        beliefs:
+          arrears > 0
+            ? [
+                {
+                  id: "arrears_outstanding",
+                  readable: `${arrears} coin of rent outstanding when the tenancy was recorded.`,
+                  weight: -Math.min(80, arrears),
+                  lastSeenOnDay: 0,
+                },
+              ]
+            : [],
+      },
+      totals: { ...slice.totals, periodsMissed: missed },
+    };
+    changed = true;
+  }
+
+  if (!isRecord(next[REGULATORY_MODULE_ID])) {
+    next[REGULATORY_MODULE_ID] = createInitialRegulatoryModuleState();
+    changed = true;
+  }
+
+  if (!changed && state.modules) return state;
+  return { ...state, modules: next };
 }
 
 // Expansion Phase 3 §5.7 — the workforce fields and the employment records.

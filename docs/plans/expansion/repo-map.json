@@ -61,7 +61,10 @@
     "issueSeeds",
     "responses",
     "scheduledEvents",
-    "obligations"
+    "obligations",
+    "finance",
+    "tenancy",
+    "regulatory"
   ],
   "phases": [
     "startDay",
@@ -132,6 +135,7 @@
     "customers",
     "economy",
     "feedback",
+    "finance",
     "issueSeeds",
     "localArcs",
     "memories",
@@ -142,6 +146,7 @@
     "ownerActions",
     "pressures",
     "regulars",
+    "regulatory",
     "responses",
     "ruleset",
     "scheduledEvents",
@@ -149,6 +154,7 @@
     "staff",
     "stock",
     "suppliers",
+    "tenancy",
     "weekly"
   ],
   "topLevelStateSlices": [
@@ -191,7 +197,8 @@
     "labor_market",
     "staff_wellbeing",
     "service_flow",
-    "regular_behaviour"
+    "regular_behaviour",
+    "regulatory"
   ],
   "unscopedRandomCallsInSim": [],
   "unscopedRandomCallsInCards": [],
@@ -215,6 +222,7 @@
       "ensureStaffWorkforceFields",
       "ensureRegularServiceFields",
       "ensureSupplierProcurementFields",
+      "ensureExternalObligationSlices",
       "ensureModuleSlices"
     ]
   },
@@ -224,10 +232,10 @@
     "standard"
   ],
   "inventory": {
-    "runtimeModules": 34,
+    "runtimeModules": 37,
     "simulationPhases": 26,
     "daySegments": 3,
-    "ownerActions": 67,
+    "ownerActions": 82,
     "staffPriorities": 12,
     "pressureDomains": 21,
     "feedbackDetectors": 13,

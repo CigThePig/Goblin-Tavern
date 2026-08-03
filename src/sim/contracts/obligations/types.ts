@@ -26,8 +26,18 @@ import type { EntityRef } from '../../state/TavernState'
 // every domain inherits it.
 
 export type ContractFamily =
-  /** A sum owed in one direction or the other. Invoices, loans, rent, fines, tabs. */
+  /** A sum owed in one direction or the other. Invoices, rent periods, fines, tabs. */
   | 'obligation'
+  /**
+   * A borrowing agreement with a lender: principal, fee, and a schedule of
+   * instalments. Expansion Phase 7 owns it.
+   *
+   * Distinct from `obligation` because a loan is not a single sum falling
+   * due — it is the agreement that *produces* those sums. Each instalment
+   * IS an `obligation` in the shared ledger, so the loan keeps the terms
+   * and the schedule while the ledger keeps the timekeeping.
+   */
+  | 'loan'
   /** A promise of goods on a day. Purchase orders, standing orders, deliveries. */
   | 'order'
   /** Employment terms and the notice/separation clock. */
@@ -262,6 +272,7 @@ export const ContractRecordBaseSchema = z.object({
   id: z.string(),
   family: z.enum([
     'obligation',
+    'loan',
     'order',
     'employment',
     'regulatory',

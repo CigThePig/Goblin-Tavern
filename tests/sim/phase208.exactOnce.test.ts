@@ -329,13 +329,25 @@ describe('Phase 208 §1.1 — exact-once across every route', () => {
     // The stock pipeline, with no probe, declares no narrative hooks. Service
     // can still create slate obligations, whose mechanical due dates belong
     // in this queue; those are not Phase 1 narrative expectations.
+    //
+    // Expansion Phase 7 adds one more piece of real timekeeping to a quiet
+    // run: the tenancy's rent period rollover, which is on the calendar from
+    // day one because the tavern rents its building from day one. It is a
+    // mechanical event with a registered owner and a real record behind it,
+    // which is exactly what this test is asserting the queue contains.
+    const LEDGER_TIMEKEEPING = new Set([
+      'obligation_due',
+      'rent_period_rollover',
+    ])
     let state = createInitialTavernState()
     for (let day = 0; day < 5; day += 1) {
       state = simulateDay(state, input(day), FULL_PIPELINE).state
     }
     const slice = readScheduledEventsSlice(state)
     expect(slice.queue.length).toBeGreaterThan(0)
-    expect(slice.queue.every((record) => record.type === 'obligation_due')).toBe(true)
+    expect(
+      slice.queue.every((record) => LEDGER_TIMEKEEPING.has(record.type)),
+    ).toBe(true)
     expect(
       slice.queue.some((record) => record.kind === 'narrative_expectation'),
     ).toBe(false)

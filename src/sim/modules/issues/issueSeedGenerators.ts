@@ -56,6 +56,7 @@ import { ventureIssueSeedGenerator } from '../ventures/ventureIssueSeeds'
 import { openingIssueSeedGenerator } from '../openings/openingIssueSeeds'
 import { arcIssueSeedGenerator } from '../arcs/arcIssueSeeds'
 import { RENT_PAYMENT_EFFECT_TARGET } from '../monthly/types'
+import { LOAN_BORROW_EFFECT_TARGET } from '../finance/types'
 import {
   generateLiquorCompliance,
   generateLicensedService,
@@ -2851,7 +2852,21 @@ function generateDebtRent(ctx: SimContext): IssueSeed[] {
       id: 'borrow_profile',
       responseSlotId: 'borrow',
       immediateEffects: [
-        effect('state_change', 'coin', 40, 'Borrowed coin', ['coin']),
+        // Expansion Phase 7 §7.1 — borrowing opens a real loan.
+        //
+        // This was `coin +40`: forty coin from nowhere, with a
+        // `loan_due_soon` hook stapled on that no domain could keep. The
+        // named target routes the choice through the finance module, so the
+        // coin is a disbursement against an agreement with a lender, a fee
+        // and a dated repayment schedule — and the hook below now has that
+        // loan to resolve against.
+        effect(
+          'state_change',
+          LOAN_BORROW_EFFECT_TARGET,
+          40,
+          'Borrowed coin',
+          ['coin', 'loan'],
+        ),
       ],
       delayedEffects: [
         effect('pressure', 'pressure:debt', 12, 'Future debt builds', ['pressure']),

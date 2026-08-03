@@ -53,6 +53,10 @@ import { metersModule } from './contracts/meters/index'
 import { scheduledEventsModule } from './contracts/scheduledEvents/index'
 import { obligationsModule } from './contracts/obligations/index'
 import { economyModule } from './modules/economy/index'
+// Expansion Phase 7 — the three external-obligation domains.
+import { financeModule } from './modules/finance/index'
+import { tenancyModule } from './modules/tenancy/index'
+import { regulatoryModule } from './modules/regulatory/index'
 
 export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   rulesetModule,
@@ -89,4 +93,13 @@ export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   responsesModule,
   scheduledEventsModule,
   obligationsModule,
+  // Expansion Phase 7 — the three external-obligation domains sit AFTER the
+  // shared ledger they write into, because each declares a dependency on it
+  // and the architecture check requires a dependency to run first. Their own
+  // hooks are on `beforeOwnerActions` and `closing`, both far downstream of
+  // any `startDay` ordering question, so nothing about the day beat depends
+  // on this position — only the declared dependency does.
+  financeModule,
+  tenancyModule,
+  regulatoryModule,
 ]

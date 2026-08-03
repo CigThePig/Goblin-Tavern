@@ -10,6 +10,9 @@ import { WORKFORCE_ACTIONS } from '../modules/ownerActions/workforceActions'
 import { SERVICE_ACTIONS } from '../modules/ownerActions/serviceActions'
 import { ECONOMY_ACTIONS } from '../modules/economy/actions'
 import { SUPPLIER_ACTIONS } from '../modules/suppliers/actions'
+import { FINANCE_ACTIONS } from '../modules/finance/actions'
+import { TENANCY_ACTIONS } from '../modules/tenancy/actions'
+import { REGULATORY_ACTIONS } from '../modules/regulatory/actions'
 import type { OwnerActionDefinition } from '../modules/ownerActions/types'
 
 // Phase 13 §13.1 — Owner action registry.
@@ -65,6 +68,17 @@ export function ensureRequiredOwnerActionsRegistered(): void {
     // targets `"<supplierId>:<stockId>"` composite ids and carries its quote
     // in every target hint, the same convention the upgrade actions use.
     ...SUPPLIER_ACTIONS,
+    // Expansion Phase 7 §7.1–7.3 — the external obligations. Borrowing,
+    // repaying, renegotiating and settling a loan; paying rent, talking to
+    // the landlord, answering an access request, asking for a repair and
+    // buying an evicted tenancy back; and the five responses to an
+    // inspection — the books, compliance, appeal, the fine, and the quiet
+    // word. Every rung of the tenancy notice ladder names one of these as
+    // its way out, so the promise the notice makes is one the registry can
+    // keep.
+    ...FINANCE_ACTIONS,
+    ...TENANCY_ACTIONS,
+    ...REGULATORY_ACTIONS,
   ]
   for (const def of all) {
     if (!actionRegistry.has(def.id)) {

@@ -33,6 +33,12 @@ import {
   getRecentCauses,
 } from '../../src/sim/modules/causes/index'
 
+import { economyModule } from '../../src/sim/modules/economy/index'
+import { rulesetModule } from '../../src/sim/contracts/ruleset/index'
+import { scheduledEventsModule } from '../../src/sim/contracts/scheduledEvents/index'
+import { obligationsModule } from '../../src/sim/contracts/obligations/index'
+import { tenancyModule } from '../../src/sim/modules/tenancy/index'
+import { regulatoryModule } from '../../src/sim/modules/regulatory/index'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import {
   withArea,
@@ -49,15 +55,24 @@ import type { CauseEntry, TavernState } from '../../src/sim/state/TavernState'
 
 const SEED = 'phase-17-causes-test'
 
+// Expansion Phase 7 — rent and inspection moved into the tenancy and
+// regulatory modules, and a rent period is now an obligation with a dated
+// rollover. A slice that leaves them out has no rent to miss.
 const MODULE_SLICE = [
+  rulesetModule,
   areasModule,
   stockModule,
   staffModule,
   customersModule,
   ownerActionsModule,
   serviceModule,
+  economyModule,
   weeklyModule,
   monthlyModule,
+  scheduledEventsModule,
+  obligationsModule,
+  tenancyModule,
+  regulatoryModule,
   memoriesModule,
   historyModule,
   causesModule,
@@ -328,7 +343,9 @@ describe('Phase 17 §17.5 — Weekly & monthly causes', () => {
     for (const id of Object.keys(base.stock)) {
       base = withStock(base, id, { quantity: 0 })
     }
-    const final = runManyDays(base, 28)
+    // Expansion Phase 7 §7.2 — see the memory test: the rollover that
+    // records a missed month runs the morning after the month ends.
+    const final = runManyDays(base, 29)
     const cause = final.causes.find(
       (c) =>
         c.target === 'pressure:landlord' &&
@@ -413,7 +430,7 @@ describe('Phase 17 §17.7 — Explanation queries', () => {
     for (const id of Object.keys(base.stock)) {
       base = withStock(base, id, { quantity: 0 })
     }
-    const final = runManyDays(base, 28)
+    const final = runManyDays(base, 29)
     const causes = explainPressure(final, 'landlord')
     expect(causes.length).toBeGreaterThan(0)
   })

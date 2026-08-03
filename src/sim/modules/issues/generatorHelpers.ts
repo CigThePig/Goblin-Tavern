@@ -35,6 +35,7 @@ import {
 } from '../attribution/attributionQueries'
 import { pressureRegistry } from '../pressures/pressureRegistry'
 import { RENT_PAYMENT_EFFECT_TARGET } from '../monthly/types'
+import { LOAN_BORROW_EFFECT_TARGET } from '../finance/types'
 import { OWNER_TIME_EFFECT_TARGET } from '../responses/responseCost'
 import type {
   AttributionState,
@@ -204,6 +205,11 @@ export function classifyTargetKind(target: string): EffectTargetKind {
   // preview selection off `targetKind`, so without this the rent choice
   // lost its magnitude token, its `Coin -N` chip and its declared coin cost.
   if (target === RENT_PAYMENT_EFFECT_TARGET) return 'coin'
+  // Expansion Phase 7 §7.1 — borrowing puts coin IN the till; it just puts
+  // it there through a loan agreement rather than out of nowhere. Same
+  // reasoning as the rent target above: the card layer keys its preview
+  // prose and its magnitude token off `targetKind`.
+  if (target === LOAN_BORROW_EFFECT_TARGET) return 'coin'
   if (target.startsWith('stock.')) return 'stock'
   if (target.startsWith('areas.')) return 'area'
   if (target.startsWith('customers.')) return 'customer'

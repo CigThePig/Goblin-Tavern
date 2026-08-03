@@ -281,12 +281,18 @@ describe('Phase 208 §1.1 — cancellation, supersession, missing targets', () =
     // check is exercised against a target kind that CAN: an area.
     const state = createInitialTavernState()
     const day1 = simulateDay(state, input('missing'), FULL_PIPELINE).state
-    // Patron tabs now correctly schedule their shared obligation due events.
-    // Nothing else is queued on this path, so filter those legitimate ledger
-    // events before asserting the helper's empty result shape.
+    // Patron tabs now correctly schedule their shared obligation due events,
+    // and Expansion Phase 7 gave the tenancy a real rent period whose
+    // rollover is on the calendar from day one. Both are legitimate ledger
+    // timekeeping rather than a queued promise, so filter them before
+    // asserting the helper's empty result shape.
+    const LEDGER_TIMEKEEPING = new Set([
+      'obligation_due',
+      'rent_period_rollover',
+    ])
     expect(
       getLiveScheduledEvents(day1).filter(
-        (event) => event.type !== 'obligation_due',
+        (event) => !LEDGER_TIMEKEEPING.has(event.type),
       ),
     ).toEqual([])
   })

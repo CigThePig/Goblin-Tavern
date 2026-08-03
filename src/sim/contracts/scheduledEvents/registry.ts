@@ -79,7 +79,15 @@ export function findScheduledEventDefinitionForHookName(
   for (const definition of allScheduledEventDefinitions()) {
     for (const prefix of definition.futureHookPrefixes ?? []) {
       if (!hookName.startsWith(prefix)) continue
-      if (hookName.length === prefix.length) continue
+      // Expansion Phase 7 — a prefix ending in `_` is a PARAMETERISED family
+      // (`staff_quit_risk_`, `regular_grudge_`), and a name with no suffix
+      // after it names no subject, so there is nothing for the owner's
+      // adapter to parse. A prefix WITHOUT the underscore is a claim on a
+      // fixed hook name (`loan_due_soon`, `brawl_possible`), and skipping
+      // the exact-length case there rejected the very name it was declared
+      // for. The rule is now about the shape of the claim rather than about
+      // string length, which is what it always meant.
+      if (hookName.length === prefix.length && prefix.endsWith('_')) continue
       if (
         !best ||
         prefix.length > best.length ||

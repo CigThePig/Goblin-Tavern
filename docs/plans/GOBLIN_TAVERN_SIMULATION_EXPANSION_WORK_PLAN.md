@@ -2139,6 +2139,32 @@ beat persistence, including full-day-vs-segmented equivalence, an exact-once
 check across a reload, and a migration that carries an old save's rent
 forward without inventing evidence.
 
+**Three defects the 180-day balance matrix found, and the phase fixed.** A
+visit that wrote nothing down — because the tavern had fixed today's fault,
+or because the inspector had been paid — cleared the case's follow-up while
+earlier orders stood, which is `OBL-03` reappearing one level down; the
+follow-up ladder had no top, so a tavern the watch had already shut
+accumulated two thousand coin of penalties it could not trade its way out
+of; and closure at the end of that ladder was judged on accumulated
+severity, so a tavern that kept every room spotless was shut on day 55 over
+its bookkeeping. Fines were also four times too large for a tavern turning
+over a hundred a day. Alongside them, one Phase 5 rule that had been
+defensible until this phase: `distressed` counted `arrears > 0`, so a
+solvent tavern with an unpaid fine was insolvent in three days and shut in
+ten. It now reads `arrears > coin`, which is what "could no longer fund safe
+operation" always meant.
+
+**Final verification.** `npm run test:full` passed all 330 files / 4,376
+tests; TypeScript and Svelte checks completed with zero errors or warnings;
+and the production build completed with only the existing large-chunk
+advisory. The expansion artifacts passed with 134 ledger rows (66 done, 2
+in-progress, 66 open), 98 future hooks across 189 sites, 13 baseline routes
+with no drift, and a 37-module / 26-phase / 20-stream / 143-term repo map
+with no drift. The 180-day balance matrix finishes solvent on all six rows —
+11.8k to 65k coin, 4.8k to 7.0k patrons — across three distinct identities,
+while the passive route still collapses into closure, eviction and real
+arrears.
+
 ---
 
 # Phase 8 — Build an autonomous social world

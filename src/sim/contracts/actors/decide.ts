@@ -35,6 +35,51 @@ function targetKey(target: unknown): string {
   return String(target)
 }
 
+/**
+ * Rebuild an actor record in the SCHEMA's key order.
+ *
+ * Object key order is normally nobody's business, but an actor record is
+ * persisted inside a module slice, and a slice's diff entry renders its
+ * value with `JSON.stringify`. Hydration runs a loaded save through Zod,
+ * which rebuilds objects in schema order — so an actor whose keys were laid
+ * down in a different order produced a DIFFERENT readable diff line after a
+ * reload than before one, with identical state on both sides. That is a
+ * §5.10 failure in the only place it can still hide: not in what the
+ * simulation decided, but in how the decision was written down.
+ *
+ * Building in schema order here makes hydration a no-op, so the live record
+ * and the reloaded one serialise identically.
+ */
+export function orderActorState(actor: ActorState): ActorState {
+  const ordered = {
+    ref: actor.ref,
+    ownerModuleId: actor.ownerModuleId,
+    budget: actor.budget,
+    goals: actor.goals,
+    beliefs: actor.beliefs,
+    cooldowns: actor.cooldowns,
+    ...(actor.committedUntilDay !== undefined
+      ? { committedUntilDay: actor.committedUntilDay }
+      : {}),
+    ...(actor.intent
+      ? {
+          intent: {
+            actionId: actor.intent.actionId,
+            ...(actor.intent.targetRef ? { targetRef: actor.intent.targetRef } : {}),
+            goalId: actor.intent.goalId,
+            readable: actor.intent.readable,
+            decidedOnDay: actor.intent.decidedOnDay,
+          },
+        }
+      : {}),
+    history: actor.history,
+    ...(actor.lastActedOnDay !== undefined
+      ? { lastActedOnDay: actor.lastActedOnDay }
+      : {}),
+  }
+  return ordered
+}
+
 export type DecideInput<TTarget> = {
   actor: ActorState
   perception: ActorPerception
@@ -155,10 +200,10 @@ export function declareActorIntent<TTarget>(
 ): ActorState {
   if (decision.status !== 'decided') {
     const { intent: _dropped, ...rest } = actor
-    return rest
+    return orderActorState(rest)
   }
   const targetRef = asEntityRef(decision.target)
-  return {
+  return orderActorState({
     ...actor,
     intent: {
       actionId: decision.actionId,
@@ -167,7 +212,7 @@ export function declareActorIntent<TTarget>(
       readable,
       decidedOnDay: today,
     },
-  }
+  })
 }
 
 /**
@@ -212,7 +257,7 @@ export function performActorAction<TTarget>(
   const history = [...input.actor.history, record]
 
   return {
-    actor: {
+    actor: orderActorState({
       ...withoutIntent,
       budget: round2(input.actor.budget - input.action.cost),
       cooldowns: {
@@ -231,7 +276,7 @@ export function performActorAction<TTarget>(
           ? history.slice(history.length - MAX_ACTOR_HISTORY)
           : history,
       lastActedOnDay: today,
-    },
+    }),
     outcome,
   }
 }
@@ -244,7 +289,7 @@ export function createActorState(input: {
   goals: ActorState['goals']
   beliefs?: Record<string, string>
 }): ActorState {
-  return {
+  return orderActorState({
     ref: input.ref,
     ownerModuleId: input.ownerModuleId,
     budget: input.budget,
@@ -252,7 +297,7 @@ export function createActorState(input: {
     beliefs: input.beliefs ?? {},
     cooldowns: {},
     history: [],
-  }
+  })
 }
 
 function asEntityRef(target: unknown): EntityRef | undefined {

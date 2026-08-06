@@ -189,7 +189,12 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // genuinely attracts the watch, so it has live problems on days it
     // previously had none. The ceiling is unmoved, which is the part that
     // matters — the route gained problems, not a worse day.
-    expect(audit.meanCardsPerDay).toBe(3.5)
+    //
+    // Post-Phase-8.1: 3.64 · 5. Factions now act on their own — they ask
+    // for things, back the house, call boycotts — so a PASSIVE tavern has
+    // live social problems on days when nothing it did created one. That is
+    // the phase working, not the phase costing: the ceiling is still 5.
+    expect(audit.meanCardsPerDay).toBe(3.64)
     expect(audit.maxCardsPerDay).toBe(5)
     expect(audit.maxCardsPerDay).toBeLessThanOrEqual(FULL_DAY_CARD_CEILING)
   })
@@ -222,8 +227,17 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // over 28 days is the whole economic footprint of the change, which is
     // the evidence that Phase 7 deepened what the tavern owes without
     // re-tuning what it earns.
+    //
+    // EXPANSION PHASE 8.1 moves the patrons and NOT the coin: 924 coin and
+    // 591 patrons. The 17 extra bodies are the constituency effect — a
+    // faction that thinks well of the house sends its people, and one that
+    // does not keeps them away, read by the customers module's own forecast
+    // rule. That `finalCoin` did not move by a single coin across a 28-day
+    // passive route is the evidence that §8.1 changed who walks through the
+    // door rather than what the tavern earns from them: the faction layer
+    // touches no price, no cost and no economic lever.
     expect(audit.finalCoin).toBe(924)
-    expect(audit.totalPatrons).toBe(574)
+    expect(audit.totalPatrons).toBe(591)
   })
 
   it('prices choices as an upper bound on the real render', () => {
@@ -236,8 +250,10 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // 14.86/day, and Phase 5's smaller passive crowd reads 14.75/day.
     // Phase 7's extra cards carry their own choices, so the upper bound
     // reads 16.61/day. It is still an upper bound on the real render.
-    expect(audit.meanChoicesPerDay).toBe(16.61)
-    expect(audit.totalChoicesRendered).toBe(465)
+    // Phase 8.1's faction cards carry their own choices, so the upper bound
+    // reads 17.04/day. It is still an upper bound on the real render.
+    expect(audit.meanChoicesPerDay).toBe(17.04)
+    expect(audit.totalChoicesRendered).toBe(477)
   })
 
   it('reproduces the published family-streak figure', () => {

@@ -13,6 +13,7 @@ import { SUPPLIER_ACTIONS } from '../modules/suppliers/actions'
 import { FINANCE_ACTIONS } from '../modules/finance/actions'
 import { TENANCY_ACTIONS } from '../modules/tenancy/actions'
 import { REGULATORY_ACTIONS } from '../modules/regulatory/actions'
+import { FACTION_ACTIONS } from '../modules/ownerActions/factionActions'
 import type { OwnerActionDefinition } from '../modules/ownerActions/types'
 
 // Phase 13 §13.1 — Owner action registry.
@@ -79,6 +80,12 @@ export function ensureRequiredOwnerActionsRegistered(): void {
     ...FINANCE_ACTIONS,
     ...TENANCY_ACTIONS,
     ...REGULATORY_ACTIONS,
+    // Expansion Phase 8 §8.1 — the player's half of the faction
+    // conversation. A faction that can act must be answerable, so granting,
+    // refusing, appealing and repaying are on the board whenever a faction
+    // has asked for something, announced a move, or been sponsoring the
+    // house. Without these the faction layer would be weather again.
+    ...FACTION_ACTIONS,
   ]
   for (const def of all) {
     if (!actionRegistry.has(def.id)) {

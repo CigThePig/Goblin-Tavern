@@ -11,6 +11,13 @@ import type { SupplierDefinition } from './supplierTypes'
 // tallow, scrap meat as distinct items) are deliberately omitted until
 // the stock layer grows; see Phase 29 §29.1 "Important Compatibility Rule".
 
+// Expansion Phase 8 §8.1 — the brewers and the caravans answer to a
+// faction. The `factionId` field has existed since Phase 29 and nothing
+// filled it, which left the Brewers Guild and the Market Caravan Circle as
+// authorities over an empty membership: they could be angry, but they had
+// nobody to lean on. `squeeze_supply` and the "money owed to their people"
+// grievance both read this link, so without it two of the eight faction
+// moves would be permanently unreachable.
 export const supplierRegistry = new Registry<SupplierDefinition>()
 
 // Phase 29 §29.1 — Starter suppliers. Each one provides at least one
@@ -32,6 +39,7 @@ const REQUIRED_SUPPLIERS: SupplierDefinition[] = [
   {
     id: 'old_keg_brewers',
     label: 'Old Keg Brewers',
+    factionId: 'brewers_guild',
     supplierType: 'brewer',
     namingProfileId: 'goblin_common',
     goodsProvided: ['ale'],
@@ -45,6 +53,7 @@ const REQUIRED_SUPPLIERS: SupplierDefinition[] = [
   {
     id: 'mudroad_grain_runner',
     label: 'Mudroad Grain Runner',
+    factionId: 'market_caravan_circle',
     supplierType: 'caravan',
     namingProfileId: 'merchant_roadfolk',
     goodsProvided: ['ingredients'],
@@ -92,6 +101,7 @@ const REQUIRED_SUPPLIERS: SupplierDefinition[] = [
   {
     id: 'gildlock_brewhouse',
     label: 'Gildlock Brewhouse',
+    factionId: 'brewers_guild',
     supplierType: 'brewer',
     namingProfileId: 'goblin_common',
     // Alternate to old_keg_brewers. Higher reliability, higher
@@ -107,6 +117,7 @@ const REQUIRED_SUPPLIERS: SupplierDefinition[] = [
   {
     id: 'silken_road_caravan',
     label: 'Silken Road Caravan',
+    factionId: 'market_caravan_circle',
     supplierType: 'caravan',
     namingProfileId: 'merchant_roadfolk',
     // Alternate to mudroad_grain_runner. Premium goods, more
@@ -143,6 +154,7 @@ const REQUIRED_SUPPLIERS: SupplierDefinition[] = [
   {
     id: 'crystalspine_traders',
     label: 'Crystalspine Traders',
+    factionId: 'market_caravan_circle',
     supplierType: 'specialty_goods',
     namingProfileId: 'merchant_roadfolk',
     goodsProvided: ['bog_truffle', 'frost_cap_mushroom', 'wild_thyme'],

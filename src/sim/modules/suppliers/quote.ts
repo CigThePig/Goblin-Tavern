@@ -3,6 +3,7 @@ import { supplierRegistry } from '../../content/suppliers/supplierRegistry'
 import { stockRegistry } from '../../registries/stockRegistry'
 import { attributionsHeldBy } from '../attribution/attributionQueries'
 import { getEconomyModuleState } from '../economy/state'
+import { getFactionSupplyPressure } from '../factions/stances'
 import { getRule } from '../../contracts/ruleset/index'
 import { totalOutstanding } from '../../contracts/obligations/index'
 import type { StockState, SupplierWorldState, TavernState } from '../../state/TavernState'
@@ -350,14 +351,21 @@ function factionTieMultiplier(
   // the player builds with the supplier directly.
   const raw = (faction.relationship - 50) * 0.0012
   const bounded = Math.max(-0.03, Math.min(0.03, raw))
-  if (bounded === 0) return { multiplier: 1 }
-  return {
-    multiplier: 1 - bounded,
-    note:
-      bounded > 0
-        ? `${faction.label} ties: ${Math.round(bounded * 100)}% off`
-        : `${faction.label} coolness: ${Math.abs(Math.round(bounded * 100))}% on`,
-  }
+  // Expansion Phase 8 §8.1 — a faction that has decided to lean on its own
+  // suppliers is doing something deliberate, and it is worth more than the
+  // standing warmth of the tie. The supplier still sets its own price; this
+  // is one bounded term in it.
+  const stance = getFactionSupplyPressure(state, supplier)
+  const multiplier = (1 - bounded) * stance.priceMultiplier
+  if (multiplier === 1) return { multiplier: 1 }
+  const tieNote =
+    bounded > 0
+      ? `${faction.label} ties: ${Math.round(bounded * 100)}% off`
+      : bounded < 0
+        ? `${faction.label} coolness: ${Math.abs(Math.round(bounded * 100))}% on`
+        : undefined
+  const note = [stance.note, tieNote].filter(Boolean).join('; ')
+  return { multiplier, ...(note ? { note } : {}) }
 }
 
 /** The credit limit this supplier would extend, given the trading record. */
@@ -372,7 +380,12 @@ export function creditLimitFor(
     Math.min(0.5, account.history.onTimePayments * 0.08) -
     Math.min(0.6, account.history.latePayments * 0.1) -
     Math.min(0.8, account.history.defaults * 0.4)
-  const raw = supplier.debtTolerance * 1.5 * relationshipFactor * recordFactor
+  // Expansion Phase 8 §8.1 — the faction behind this supplier can tighten
+  // or ease what it is willing to carry. Capped at -35% / +17% so a squeeze
+  // hurts the line without ever closing it on its own.
+  const factionFactor = getFactionSupplyPressure(state, supplier).creditMultiplier
+  const raw =
+    supplier.debtTolerance * 1.5 * relationshipFactor * recordFactor * factionFactor
   return Math.max(0, Math.round(raw))
 }
 

@@ -210,7 +210,7 @@ describe('Phase 207 — implementation ledger', () => {
     // is a statement about the arc's STARTING point, not an invariant — as
     // phases land, their rows legitimately move to `in-progress` and `done`.
     //
-    // What must stay true is that no row is closed ahead of its phase. This
+    // What must stay true is that no row is closed ahead of its work. This
     // is the check that would catch a row marked done to quiet a red test,
     // which the arc's conventions forbid. Bump `LANDED_PHASES` when a phase
     // completes, and never to make a failing row pass.
@@ -218,9 +218,32 @@ describe('Phase 207 — implementation ledger', () => {
     // Phase 3 (ISSUE-173), Phase 4 (ISSUE-174), Phase 5 (ISSUE-175),
     // Phase 6 (ISSUE-176), Phase 7 (ISSUE-177).
     const LANDED_PHASES = 7
-    const closedEarly = rows.filter(
-      (r) => r.status !== 'open' && Number(r.phase) > LANDED_PHASES,
-    )
+
+    // Phase 8 is being executed IN PARTS (§8.1 factions, §8.2 cultures,
+    // §8.3 notable NPCs, §8.4 rumours, §8.5 behavioural attribution), so a
+    // whole-phase watermark cannot express what has actually landed. Rather
+    // than bump `LANDED_PHASES` to 8 — which would silently exempt the four
+    // parts still to come, and is exactly the loophole this test exists to
+    // shut — the landed part names its own rows. Anything else in phase 8
+    // still fails.
+    //
+    // §8.1 (2026-08-06) closed the four faction retaliation/favour hook
+    // families and took DEP-08 to `in-progress`: the faction half is done,
+    // the culture half belongs to §8.2.
+    const LANDED_PART_ROWS = new Map<string, string>([
+      ['DEP-08', 'in-progress'],
+      ['HOOK-faction_grudge_*', 'done'],
+      ['HOOK-faction_revenge_*', 'done'],
+      ['HOOK-faction_deception_exposed_*', 'done'],
+      ['HOOK-*_boycott_possible', 'done'],
+      ['HOOK-shrine_favour_owed_*', 'done'],
+    ])
+
+    const closedEarly = rows.filter((r) => {
+      if (r.status === 'open') return false
+      if (Number(r.phase) <= LANDED_PHASES) return false
+      return LANDED_PART_ROWS.get(r.requirement_id) !== r.status
+    })
     expect(
       closedEarly.map((r) => `${r.requirement_id} (phase ${r.phase}, ${r.status})`),
     ).toEqual([])
@@ -392,10 +415,21 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       // customer groups: §7 deepens what the tavern OWES rather than what it
       // is made of, and the inspection reads the existing rooms and cellar
       // rather than adding anything to inspect.
+      //
+      // Expansion Phase 8.1 (ISSUE-178) moves exactly one count, and that it
+      // is only one is the assertion:
+      //   * `ownerActions` 82 → 86: grant and refuse a faction's request,
+      //     appeal against a move it has made, and repay a sponsorship
+      //     before it is called in. §8.1 requires faction outcomes that can
+      //     be OPPOSED, and opposition has to be a move on the board.
+      // `factions` stays at 9 and `runtimeModules` at 37 on purpose: 8.1
+      // gives the factions that already exist goals, memory and a bounded
+      // action set inside the module that already owned them, rather than
+      // growing the cast or adding a domain.
       runtimeModules: 37,
       simulationPhases: 26,
       daySegments: 3,
-      ownerActions: 82,
+      ownerActions: 86,
       staffPriorities: 12,
       pressureDomains: 21,
       feedbackDetectors: 13,

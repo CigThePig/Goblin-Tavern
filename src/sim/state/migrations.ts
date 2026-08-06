@@ -52,6 +52,11 @@ import { TENANCY_MODULE_ID } from "../modules/tenancy/types";
 import { createInitialTenancyModuleState } from "../modules/tenancy/state";
 import { REGULATORY_MODULE_ID } from "../modules/regulatory/types";
 import { createInitialRegulatoryModuleState } from "../modules/regulatory/state";
+import {
+  FACTIONS_MODULE_ID,
+  createInitialFactionModuleState,
+  normalizeFactionSlice,
+} from "../modules/factions/factionState";
 import type {
   MonthlyModuleState,
   MonthlyResult,
@@ -1166,6 +1171,54 @@ export function ensureExternalObligationSlices<
 
   if (!changed && state.modules) return state;
   return { ...state, modules: next };
+}
+
+// Expansion Phase 8 §5.7 — the faction agency fields.
+//
+// A save written before this phase HAS a `modules.factions` slice — it is
+// `{}`, because the module's schema was an empty passthrough object and the
+// module kept no state at all. That is precisely why this cannot be left to
+// the generic `ensureModuleSlices` sweep, which only installs slices that
+// are missing entirely and would walk straight past an empty one.
+//
+// Every field is installed EMPTY, and that is the honest choice rather than
+// a lazy one. The alternative would be to reconstruct a standing ledger
+// from the relationship meters the save already carries, which would
+// fabricate grievances and favours that nobody ever earned — inventing a
+// history the player never played is the same failure as losing one. So a
+// migrated save starts with factions that remember nothing, and their
+// meters stay exactly where the save left them until the evidence pass
+// gives the summary something real to work from. Nothing here opens a
+// demand, a stance, a favour or a scheduled event: a migrated save owes
+// nobody anything it did not already owe.
+export function ensureFactionAgencyFields<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const existing = current[FACTIONS_MODULE_ID];
+  const base = createInitialFactionModuleState();
+
+  if (!isRecord(existing)) {
+    return {
+      ...state,
+      modules: { ...current, [FACTIONS_MODULE_ID]: base },
+    };
+  }
+
+  // Present but partial (the `{}` case, and any future partial write).
+  const keys = Object.keys(base) as Array<keyof typeof base>;
+  const complete = keys.every((key) => key in existing);
+  if (complete) return state;
+
+  return {
+    ...state,
+    modules: {
+      ...current,
+      [FACTIONS_MODULE_ID]: normalizeFactionSlice(
+        existing as Partial<ReturnType<typeof createInitialFactionModuleState>>,
+      ),
+    },
+  };
 }
 
 // Expansion Phase 3 §5.7 — the workforce fields and the employment records.

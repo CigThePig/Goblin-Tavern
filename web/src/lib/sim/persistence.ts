@@ -84,6 +84,7 @@ import {
   ensureModuleSlices,
   ensureExpansionContractSlices,
   ensureExternalObligationSlices,
+  ensureFactionAgencyFields,
   flipUpkeepRecipesOffMenu,
 } from "../../../../src/sim/state/migrations";
 import { safeValidateState } from "../../../../src/sim/state/validation";
@@ -787,7 +788,13 @@ function migrateAndValidateState(
     // would invent observations nobody made. Runs after the monthly slice is
     // guaranteed present, because it reads the rent it is replacing.
     const s8f = ensureExternalObligationSlices(s8e);
-    const s9 = ensureModuleSlices(s8f);
+    // Expansion Phase 8 §5.7 — the faction agency fields. Named rather than
+    // left to the generic sweep because every pre-Phase-8 save already HAS a
+    // `modules.factions` slice — an empty one — which the sweep would walk
+    // past, leaving the standing ledger, stances, demands and favours
+    // undefined for every reader.
+    const s8g = ensureFactionAgencyFields(s8f);
+    const s9 = ensureModuleSlices(s8g);
     const validation = safeValidateState(s9, { modules: FULL_PIPELINE });
     if (!validation.success) {
       const first = validation.errors[0];

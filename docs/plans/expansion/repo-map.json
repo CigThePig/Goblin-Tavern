@@ -134,6 +134,7 @@
     "causes",
     "customers",
     "economy",
+    "factions",
     "feedback",
     "finance",
     "issueSeeds",
@@ -223,6 +224,7 @@
       "ensureRegularServiceFields",
       "ensureSupplierProcurementFields",
       "ensureExternalObligationSlices",
+      "ensureFactionAgencyFields",
       "ensureModuleSlices"
     ]
   },
@@ -235,7 +237,7 @@
     "runtimeModules": 37,
     "simulationPhases": 26,
     "daySegments": 3,
-    "ownerActions": 82,
+    "ownerActions": 86,
     "staffPriorities": 12,
     "pressureDomains": 21,
     "feedbackDetectors": 13,

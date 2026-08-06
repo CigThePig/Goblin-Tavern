@@ -1,6 +1,7 @@
 import type { SimContext } from '../../core/context'
 import type { CustomerGroupState, TavernState } from '../../state/TavernState'
 import { isOverdue, listObligations, outstandingAmount } from '../../contracts/obligations/index'
+import { getFactionRivalBacking } from '../factions/stances'
 import type { DailyServiceResult, ServiceModuleState } from '../service/types'
 
 import { getEconomyModuleState, writeEconomyState } from './state'
@@ -154,7 +155,11 @@ export function getCompetitorChoiceFactorForGroup(
     | { rivalTavern?: { appeal?: number } }
     | undefined
   const appeal = monthly?.rivalTavern?.appeal ?? 30
-  const appealDelta = (appeal - 30) / 70
+  // Expansion Phase 8 §8.1 — a faction backing the competition adds to the
+  // rival's pull without writing the rival's own appeal, which belongs to
+  // the monthly module. Bounded to 0.12 of the 0..1 appeal space.
+  const backing = getFactionRivalBacking(state).appealDelta
+  const appealDelta = (appeal - 30) / 70 + backing
   const susceptibility = clamp(
     0.55 + group.priceSensitivity / 200 - group.loyalty / 150,
     0.35,

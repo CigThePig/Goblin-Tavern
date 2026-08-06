@@ -99,6 +99,7 @@ import { createInitialObligationsModuleState } from "../contracts/obligations/st
 import { createInitialFinanceModuleState } from "../modules/finance/state";
 import { createInitialTenancyModuleState } from "../modules/tenancy/state";
 import { createInitialRegulatoryModuleState } from "../modules/regulatory/state";
+import { createInitialFactionModuleState } from "../modules/factions/factionState";
 import { createInitialEconomyModuleState } from "../modules/economy/state";
 
 // Phase 8 §8.1 — Area defaults are sourced from `areaRegistry` rather than
@@ -803,6 +804,12 @@ export function createInitialTavernState(
       // conditions, no deliveries today, no price adjustments) so the
       // module's schema validates from day zero.
       suppliers: createInitialSupplierModuleState(),
+      // Expansion Phase 8 §8.1 — seed the factions slice. Before this
+      // phase the module had no state at all (its schema was an empty
+      // passthrough object); it now holds each faction's actor record,
+      // standing ledger, live stances, open requests and favours owed,
+      // so it must be present and normalised from day zero.
+      factions: createInitialFactionModuleState(),
       // Phase 30 §30.6 — seed an empty regulars slice (no candidates,
       // no creations, no visits) so the module's schema validates from
       // day zero before any regular has emerged.

@@ -7,6 +7,7 @@ import type {
 import type { DayType } from '../calendar/types'
 import { getCultureForecastModifier } from '../cultures/customerInfluence'
 import { getFactionForecastModifier } from '../factions/stances'
+import { getBeliefForecastModifier } from './beliefInfluence'
 import {
   getCompetitorChoiceFactorForGroup,
   getDemandFactorForGroup,
@@ -257,6 +258,10 @@ export function forecastTrafficForGroup(
   // module's; what it does to turnout is decided here, in the group's own
   // forecast rule, capped like every other term.
   const factionInfluence = getFactionForecastModifier(state, group)
+  // Expansion Phase 8 §8.5 — what this group has come to BELIEVE about the
+  // house. The belief layer supplies a bounded weight; the size of it in
+  // bodies is decided here, in the group's own forecast rule.
+  const beliefInfluence = getBeliefForecastModifier(state, group)
   // Phase 79 / ISSUE-039 — culinary_renown lifts attraction for groups
   // that explicitly prefer rare/legendary fare.
   const renownPull = renownAttractionModifier(group, state)
@@ -276,6 +281,7 @@ export function forecastTrafficForGroup(
       stockMod +
       cultureInfluence.modifier +
       factionInfluence.modifier +
+      beliefInfluence.modifier +
       renownPull -
       filthPenalty -
       priceHit +
@@ -300,6 +306,7 @@ export function forecastTrafficForGroup(
   }
   for (const note of cultureInfluence.notes) notes.push(note)
   for (const note of factionInfluence.notes) notes.push(note)
+  for (const note of beliefInfluence.notes) notes.push(note)
   if (economyFactor < 0.98) {
     notes.push(
       `Persistent service/economic trust reduced this group's traffic (×${economyFactor.toFixed(2)}).`,

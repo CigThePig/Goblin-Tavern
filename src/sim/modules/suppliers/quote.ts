@@ -1,7 +1,10 @@
 import { marketConditionRegistry } from '../../content/suppliers/marketConditionRegistry'
 import { supplierRegistry } from '../../content/suppliers/supplierRegistry'
 import { stockRegistry } from '../../registries/stockRegistry'
-import { attributionsHeldBy } from '../attribution/attributionQueries'
+import {
+  beliefAgainstHouse,
+  beliefEffect,
+} from '../attribution/beliefInputs'
 import { getEconomyModuleState } from '../economy/state'
 import { getFactionSupplyPressure } from '../factions/stances'
 import { getRule } from '../../contracts/ruleset/index'
@@ -323,20 +326,19 @@ export function supplierGrievance(
   state: TavernState,
   supplierId: string,
 ): number {
-  const held = attributionsHeldBy(state, { kind: 'supplier', id: supplierId })
-  let worst = 0
-  for (const attribution of held) {
-    if (
-      attribution.attributionType !== 'blame' &&
-      attribution.attributionType !== 'resentment'
-    ) {
-      continue
-    }
-    const weight = (attribution.strength / 100) * (attribution.confidence / 100)
-    worst = Math.max(worst, weight)
-  }
-  return Math.max(0, Math.min(1, worst))
+  // Expansion Phase 8 §8.5 — this walked the attribution list itself, which
+  // made it the ONE behavioural reader of belief in the game and its own
+  // private definition of what a grievance weighs. It now asks the shared
+  // belief input, so the supplier's price, the supplier's credit line, the
+  // group's forecast and the staff member's patience are all reading the
+  // same number. Suspicion and distrust count too: a supplier who thinks you
+  // are about to stiff them quotes like it, and the old list only looked for
+  // blame and resentment.
+  return beliefAgainstHouse(state, { kind: 'supplier', id: supplierId })?.weight ?? 0
 }
+
+/** The most of a supplier's credit line their opinion of you can withdraw. */
+export const MAX_CREDIT_BELIEF_CUT = 0.25
 
 /** Warmth of the faction behind the supplier, as a price multiplier. */
 function factionTieMultiplier(
@@ -384,8 +386,18 @@ export function creditLimitFor(
   // or ease what it is willing to carry. Capped at -35% / +17% so a squeeze
   // hurts the line without ever closing it on its own.
   const factionFactor = getFactionSupplyPressure(state, supplier).creditMultiplier
+  // Expansion Phase 8 §8.5 — a supplier who holds something against the house
+  // carries less of its debt. Capped at -25%: what they BELIEVE about you is
+  // worth less than what your payment record actually shows, which is the
+  // `recordFactor` above and can already take the line to nothing.
+  const beliefFactor = 1 - beliefEffect(beliefAgainstHouse(state, { kind: 'supplier', id: supplier.id }), MAX_CREDIT_BELIEF_CUT)
   const raw =
-    supplier.debtTolerance * 1.5 * relationshipFactor * recordFactor * factionFactor
+    supplier.debtTolerance *
+    1.5 *
+    relationshipFactor *
+    recordFactor *
+    factionFactor *
+    beliefFactor
   return Math.max(0, Math.round(raw))
 }
 

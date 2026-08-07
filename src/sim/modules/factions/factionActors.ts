@@ -19,6 +19,11 @@ import type { FactionActionId } from '../../content/factions/factionTypes'
 import { noteIncidentEvidence } from '../regulatory/evidence'
 import { getEconomyModuleState } from '../economy/state'
 import { addCoin } from '../stock/ledger'
+import {
+  beliefAgainstHouse,
+  beliefEffect,
+  goodwillTowardHouse,
+} from '../attribution/beliefInputs'
 
 import {
   activeStance,
@@ -92,6 +97,9 @@ type FactionActorTarget = EntityRef
 // ---------------------------------------------------------------------------
 
 /** Moves a faction can afford in a week, from the influence it actually has. */
+/** The most a faction's belief about the house can weigh on its goals. */
+export const MAX_FACTION_BELIEF_WEIGHT = 0.2
+
 export function weeklyBudgetFor(faction: FactionWorldState): number {
   return Math.max(1, Math.round(faction.influence / 20))
 }
@@ -149,10 +157,20 @@ export function deriveGoals(
       (net > 20 ? 0.15 : 0),
   )
 
+  // Expansion Phase 8 §8.5 — a faction that has come to blame the house wants
+  // the score settled more than its ledger alone says. Capped at 0.2 so
+  // belief tilts the goal rather than deciding it: the ledger of how they
+  // have actually been treated stays the larger term, which is what keeps
+  // §8.1's "memory of treatment" the thing a player manages.
+  const grievance = beliefEffect(
+    beliefAgainstHouse(state, { kind: 'faction', id: faction.id }),
+    MAX_FACTION_BELIEF_WEIGHT,
+  )
   const scoreWeight = clamp01(
     (net <= -20 ? 0.35 : net <= -8 ? 0.18 : 0) +
       (faction.relationship <= 30 ? 0.25 : 0) +
-      (def?.tags.includes('competition') ? 0.15 : 0),
+      (def?.tags.includes('competition') ? 0.15 : 0) +
+      grievance,
   )
 
   return [
@@ -228,9 +246,18 @@ export function buildPerception(
       id: supplier.id,
     })),
   ]
+  // Expansion Phase 8 §8.5 — §8.1 left `beliefs` empty with a note that a
+  // later part would widen a faction's view to what it merely BELIEVES. This
+  // is that: the strongest thing the faction holds against the house, as a
+  // reading its action scores can use and a sentence its intent can quote.
+  const grievance = beliefAgainstHouse(state, { kind: 'faction', id: faction.id })
+  const goodwill = goodwillTowardHouse(state, { kind: 'faction', id: faction.id })
+
   return {
     readings: {
       relationship: faction.relationship,
+      grievanceAgainstHouse: Math.round((grievance?.weight ?? 0) * 100),
+      goodwillTowardHouse: Math.round((goodwill?.weight ?? 0) * 100),
       trust: faction.trust,
       fear: faction.fear,
       influence: faction.influence,
@@ -246,7 +273,10 @@ export function buildPerception(
       houseInDistress:
         getEconomyModuleState(state).financial.status === 'stable' ? 0 : 1,
     },
-    beliefs: {},
+    beliefs: {
+      ...(grievance ? { againstHouse: grievance.readable } : {}),
+      ...(goodwill ? { towardHouse: goodwill.readable } : {}),
+    },
     visibleTargets,
   }
 }

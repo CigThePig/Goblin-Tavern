@@ -249,6 +249,9 @@ describe('Phase 207 — implementation ledger', () => {
       ['HOOK-rumour_denial_backfire_*', 'done'],
       ['HOOK-rumour_denial_backfire_*_*', 'done'],
       ['HOOK-counter_rumour_runaway_*', 'done'],
+      ['DEP-11', 'done'],
+      ['HOOK-rumour_blame_grudge_*_*', 'done'],
+      ['HOOK-rumour_bribe_exposed_*_*', 'done'],
     ])
 
     const closedEarly = rows.filter((r) => {
@@ -474,10 +477,21 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       // `customerGroups`, `cultures`, `factions` and `notableNpcs` are all
       // unchanged: the channels a rumour travels through are the people the
       // world already has.
+      //
+      // Expansion Phase 8.5 (ISSUE-178) moves exactly one, and that it is
+      // only one is the assertion:
+      //   * `ownerActions` 96 → 97: `address_grievance`. §8.5 is six domains
+      //     ACTING on what people believe, and without a move on the other
+      //     side of it the player could only watch. Answering something
+      //     somebody is right about hardens it, so it is a move that can be
+      //     played badly.
+      // `runtimeModules` stays at 39 on purpose: belief already had a domain
+      // that owned it since Phase 37, and §8.5 makes that domain's output an
+      // input to six existing rules rather than adding a seventh owner.
       runtimeModules: 39,
       simulationPhases: 26,
       daySegments: 3,
-      ownerActions: 96,
+      ownerActions: 97,
       staffPriorities: 12,
       pressureDomains: 21,
       feedbackDetectors: 13,

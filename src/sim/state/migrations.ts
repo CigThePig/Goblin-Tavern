@@ -20,6 +20,10 @@ import type { SimulationModule } from "../core/module";
 import { createInitialWorldState, createInitialTavernState } from "./defaults";
 import { defaultRumourCredibility } from "./rumourDefaults";
 import {
+  ATTRIBUTION_MODULE_ID,
+  createInitialBeliefBehaviour,
+} from "../modules/attribution/index";
+import {
   ensureRequiredRecipesRegistered,
   recipeRegistry,
 } from "../registries/recipeRegistry";
@@ -1274,6 +1278,38 @@ export function ensureRumourNetworkFields<
       ? { world: { ...(state.world ?? {}), socialRumours: nextRumours } }
       : {}),
     ...(nextModules ? { modules: nextModules } : {}),
+  } as T;
+}
+
+// Expansion Phase 8 §5.7 — the belief-behaviour record.
+//
+// §8.5 adds one persisted field: `modules.attribution.behaviour`, the record
+// of which beliefs are heavy enough to be changing decisions.
+//
+// It installs EMPTY, and nothing is reconstructed from the beliefs already in
+// the save. That looks wasteful — the derivation is pure, and running it here
+// would fill the record immediately — but `sinceDay` is the reason not to. A
+// belief that has been acting for a fortnight reads differently from one that
+// started today, and a migration that stamped every existing belief with the
+// load day would assert a history the save cannot support. Left empty, the
+// first end-of-day pass fills it from the same beliefs with the right day on
+// them, and the only thing the player loses is one evening of "since when".
+export function ensureBeliefBehaviourFields<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const existing = current[ATTRIBUTION_MODULE_ID];
+  if (!isRecord(existing)) return state;
+  if (isRecord(existing["behaviour"])) return state;
+  return {
+    ...state,
+    modules: {
+      ...current,
+      [ATTRIBUTION_MODULE_ID]: {
+        ...existing,
+        behaviour: createInitialBeliefBehaviour(),
+      },
+    },
   } as T;
 }
 

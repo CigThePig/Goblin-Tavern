@@ -10,6 +10,7 @@
 // appear.
 
 import { describe, expect, it } from 'vitest'
+import { createInitialBeliefBehaviour } from '../../src/sim/modules/attribution/beliefBehaviour'
 
 import { runCardlessSim, runOneDay } from '../../src/sim/testing/simRunner'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
@@ -314,6 +315,7 @@ describe('buildWorldOverview — attributions', () => {
       generatedToday: ['attr_test_001'],
       lastUpdatedDay: state.calendar.totalDaysElapsed,
       recentDistrustByRumour: {},
+      behaviour: createInitialBeliefBehaviour(),
     }
     const patched: TavernState = {
       ...state,
@@ -368,6 +370,7 @@ describe('buildWorldOverview — attributions', () => {
       generatedToday: attributions.map((a) => a.id),
       lastUpdatedDay: state.calendar.totalDaysElapsed,
       recentDistrustByRumour: {},
+      behaviour: createInitialBeliefBehaviour(),
     }
     const patched: TavernState = {
       ...state,

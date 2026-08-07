@@ -87,6 +87,7 @@ import {
   ensureCultureAgencyFields,
   ensureNpcAgencyFields,
   ensureRumourNetworkFields,
+  ensureBeliefBehaviourFields,
   ensureFactionAgencyFields,
   flipUpkeepRecipesOffMenu,
 } from "../../../../src/sim/state/migrations";
@@ -814,7 +815,9 @@ function migrateAndValidateState(
     // — its audience list left EMPTY rather than populated: nobody in that
     // save ever heard it from anybody.
     const s8j = ensureRumourNetworkFields(s8i);
-    const s9 = ensureModuleSlices(s8j);
+    // Expansion Phase 8 §8.5 — the belief-behaviour record.
+    const s8k = ensureBeliefBehaviourFields(s8j);
+    const s9 = ensureModuleSlices(s8k);
     const validation = safeValidateState(s9, { modules: FULL_PIPELINE });
     if (!validation.success) {
       const first = validation.errors[0];

@@ -18,6 +18,11 @@ import {
   ATTRIBUTION_MODULE_ID,
   getAttributionModuleState,
 } from './attributionQueries'
+import {
+  createInitialBeliefBehaviour,
+  nextBeliefBehaviour,
+  normalizeBeliefBehaviour,
+} from './beliefBehaviour'
 import type {
   AttributionDraft,
   AttributionModuleState,
@@ -68,6 +73,7 @@ export function createInitialAttributionModuleState(): AttributionModuleState {
     generatedToday: [],
     lastUpdatedDay: -1,
     recentDistrustByRumour: {},
+    behaviour: createInitialBeliefBehaviour(),
   }
 }
 
@@ -563,19 +569,100 @@ const startDayHook: SimulationHook = (ctx: SimContext): void => {
   )
 }
 
-function runRulesAndApply(ctx: SimContext, reason: string): void {
-  const drafts = evaluateAllRules(ctx)
-  if (drafts.length === 0) {
-    writeSlice(
-      ctx,
-      (current) => ({
-        ...current,
-        lastUpdatedDay: ctx.state.calendar.totalDaysElapsed,
-      }),
-      reason,
-    )
-    return
+/**
+ * Expansion Phase 8 §8.5 — the domain-facing way to record a belief.
+ *
+ * Until now the only producer of attributions was `ATTRIBUTION_RULES`, a
+ * frozen list this module walks itself. §8.5 makes belief an INPUT to other
+ * domains' decisions, and the counterpart of that is letting a domain report
+ * what it has just seen somebody come to believe — the rumour a supplier now
+ * credits, the grudge a staff member has settled — without either reaching
+ * into `state.modules.attribution` or growing `SimContext`.
+ *
+ * It is the same free-function-taking-ctx shape as `addGroupedCause`, and it
+ * runs the identical path a rule's draft takes: merge by narrative, age,
+ * clamp, and propagate to memories, causes and rumours. Nothing here can
+ * write a belief the rule pass could not have written.
+ */
+export function recordAttribution(
+  ctx: SimContext,
+  draft: AttributionDraft,
+  reason = 'domain_reported_belief',
+): void {
+  applyAndPropagate(ctx, [draft], reason)
+}
+
+/**
+ * Expansion Phase 8 §8.5 — move an existing belief without inventing one.
+ *
+ * The player's answer to a grievance has to be able to change how firmly it
+ * is held, and nothing could: `applyDrafts` merges and STRENGTHENS, and
+ * aging only ever runs downhill on its own schedule. This is the deliberate
+ * counterpart — a named belief, a signed change to its strength and
+ * confidence, and a cause saying who moved it and why.
+ *
+ * It cannot create a belief (an unknown id is a no-op) and it cannot push
+ * either meter outside 0–100, so the worst a caller can do is waste a move.
+ */
+export function easeAttribution(
+  ctx: SimContext,
+  attributionId: string,
+  change: {
+    strengthDelta: number
+    confidenceDelta: number
+    readable: string
+    source: string
+    tags?: string[]
+  },
+): AttributionState | undefined {
+  const before = readSlice(ctx.state).attributions.find(
+    (entry) => entry.id === attributionId,
+  )
+  if (!before) return undefined
+  const after: AttributionState = {
+    ...before,
+    strength: clampMeter(before.strength + change.strengthDelta),
+    confidence: clampMeter(before.confidence + change.confidenceDelta),
   }
+  if (after.strength === before.strength && after.confidence === before.confidence) {
+    return before
+  }
+  writeSlice(
+    ctx,
+    (current) => ({
+      ...current,
+      attributions: current.attributions.map((entry) =>
+        entry.id === attributionId ? after : entry,
+      ),
+    }),
+    'belief_answered',
+  )
+  ctx.addCause({
+    source: change.source,
+    sourceType: 'memory',
+    target: `attribution:${attributionId}`,
+    targetType: 'global',
+    amount: after.strength - before.strength,
+    direction:
+      after.strength < before.strength
+        ? 'decrease'
+        : after.strength > before.strength
+          ? 'increase'
+          : 'neutral',
+    weight: Math.abs(after.strength - before.strength) + Math.abs(after.confidence - before.confidence),
+    readable: change.readable,
+    tags: ['attribution', 'belief', ...(change.tags ?? [])],
+    relatedActors: [{ ...before.perceivedBy }],
+    relatedSystems: ['attribution'],
+  })
+  return after
+}
+
+function applyAndPropagate(
+  ctx: SimContext,
+  drafts: AttributionDraft[],
+  reason: string,
+): void {
   let addedOrRefreshed: AttributionState[] = []
   let crossedCauseThreshold: ReadonlySet<string> = new Set<string>()
   writeSlice(
@@ -593,12 +680,38 @@ function runRulesAndApply(ctx: SimContext, reason: string): void {
   propagateToRumours(ctx, addedOrRefreshed)
 }
 
+function runRulesAndApply(ctx: SimContext, reason: string): void {
+  const drafts = evaluateAllRules(ctx)
+  if (drafts.length === 0) {
+    writeSlice(
+      ctx,
+      (current) => ({
+        ...current,
+        lastUpdatedDay: ctx.state.calendar.totalDaysElapsed,
+      }),
+      reason,
+    )
+    return
+  }
+  applyAndPropagate(ctx, drafts, reason)
+}
+
 const afterServiceHook: SimulationHook = (ctx: SimContext): void => {
   runRulesAndApply(ctx, 'after_service_attribution_pass')
 }
 
 const endDayHook: SimulationHook = (ctx: SimContext): void => {
   writeSlice(ctx, (current) => ageAttributions(current, 1), 'aging')
+  // Expansion Phase 8 §8.5 — after aging, so what is recorded as acting is
+  // what will be read tomorrow rather than what was read this morning.
+  writeSlice(
+    ctx,
+    (current) => {
+      const behaviour = nextBeliefBehaviour(ctx.state, normalizeBeliefBehaviour(current.behaviour))
+      return behaviour === current.behaviour ? current : { ...current, behaviour }
+    },
+    'belief_behaviour',
+  )
 }
 
 const endWeekHook: SimulationHook = (ctx: SimContext): void => {
@@ -671,11 +784,33 @@ const AttributionStateSchema = z.object({
   expiresAfterDays: z.number().int().min(0).optional(),
 })
 
+const BeliefActingRecordSchema = z.object({
+  attributionId: z.string(),
+  holder: EntityRefSchema,
+  subject: EntityRefSchema,
+  direction: z.enum(['against', 'toward']),
+  weight: z.number().min(0).max(1),
+  domains: z.array(z.string()),
+  readable: z.string(),
+  sinceDay: z.number().int(),
+})
+
+const BeliefBehaviourSchema = z.object({
+  acting: z.array(BeliefActingRecordSchema),
+  history: z.array(BeliefActingRecordSchema),
+  totals: z.object({
+    everActed: z.number().int().min(0),
+    answered: z.number().int().min(0),
+    refusedAsTrue: z.number().int().min(0),
+  }),
+})
+
 const AttributionModuleStateSchema = z.object({
   attributions: z.array(AttributionStateSchema),
   generatedToday: z.array(z.string()),
   lastUpdatedDay: z.number().int(),
   recentDistrustByRumour: z.record(z.string(), z.number().int().min(0)),
+  behaviour: BeliefBehaviourSchema,
 })
 
 function buildReport(ctx: SimContext): ReportSection {

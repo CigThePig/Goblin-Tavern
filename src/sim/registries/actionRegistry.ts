@@ -17,6 +17,7 @@ import { FACTION_ACTIONS } from '../modules/ownerActions/factionActions'
 import { CULTURE_ACTIONS } from '../modules/ownerActions/cultureActions'
 import { NPC_ACTIONS } from '../modules/ownerActions/npcActions'
 import { RUMOUR_ACTIONS } from '../modules/ownerActions/rumourActions'
+import { BELIEF_ACTIONS } from '../modules/ownerActions/beliefActions'
 import type { OwnerActionDefinition } from '../modules/ownerActions/types'
 
 // Phase 13 §13.1 — Owner action registry.
@@ -105,6 +106,11 @@ export function ensureRequiredOwnerActionsRegistered(): void {
     // only when a card happened to be dealt; as owner actions they are on
     // the board whenever there is something being said.
     ...RUMOUR_ACTIONS,
+    // Expansion Phase 8 §8.5 — the answer to a belief. Everything else in
+    // §8.5 is other people acting on what they think of the house; without
+    // this the player could only watch it happen. Answering something they
+    // are RIGHT about hardens it, so the move can be the wrong one.
+    ...BELIEF_ACTIONS,
   ]
   for (const def of all) {
     if (!actionRegistry.has(def.id)) {

@@ -7,7 +7,16 @@ import type {
 import { recipeRegistry } from '../../registries/recipeRegistry'
 import { feasibleServings } from '../service/flow/choice'
 
+import {
+  beliefAgainstHouse,
+  beliefEffect,
+  goodwillTowardHouse,
+} from '../attribution/beliefInputs'
+
 import { serviceMemoryScore } from './regularMemory'
+
+/** The most a regular's opinion of the house can move their visit chance. */
+export const MAX_BELIEF_VISIT_PULL = 0.12
 
 // Expansion Phase 4 §4.3 — whether a named regular comes in tonight.
 //
@@ -175,6 +184,23 @@ export function assessVisit(
       add(-0.25)
       drivers.push(`their usual (${favourite.subject}) is off`)
     }
+  }
+
+  // Expansion Phase 8 §8.5 — what this regular has come to believe about the
+  // house. Capped at 0.12: a settled grievance is worth about half of finding
+  // their usual off the board, which keeps belief a reason among the reasons
+  // rather than the one that empties the room.
+  const grievance = beliefAgainstHouse(ctx.state, { kind: 'regular', id: regular.id })
+  const grievancePull = beliefEffect(grievance, MAX_BELIEF_VISIT_PULL)
+  if (grievancePull > 0) {
+    add(-grievancePull)
+    drivers.push('they hold something against the house')
+  }
+  const goodwill = goodwillTowardHouse(ctx.state, { kind: 'regular', id: regular.id })
+  const goodwillPull = beliefEffect(goodwill, MAX_BELIEF_VISIT_PULL / 2)
+  if (goodwillPull > 0) {
+    add(goodwillPull)
+    drivers.push('they credit the house with something')
   }
 
   const identity = identityPull(ctx, group)

@@ -233,6 +233,7 @@
       "ensureCultureAgencyFields",
       "ensureNpcAgencyFields",
       "ensureRumourNetworkFields",
+      "ensureBeliefBehaviourFields",
       "ensureModuleSlices"
     ]
   },
@@ -245,7 +246,7 @@
     "runtimeModules": 39,
     "simulationPhases": 26,
     "daySegments": 3,
-    "ownerActions": 96,
+    "ownerActions": 97,
     "staffPriorities": 12,
     "pressureDomains": 21,
     "feedbackDetectors": 13,

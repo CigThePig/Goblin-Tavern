@@ -16,6 +16,10 @@ import { spendCoin } from '../stock/ledger'
 import { ECONOMY_MODULE_ID } from '../economy/state'
 import { getEconomyModuleState } from '../economy/state'
 import type { EconomyModuleState } from '../economy/types'
+import {
+  beliefAgainstHouse,
+  beliefEffect,
+} from '../attribution/beliefInputs'
 
 import { suspicionFromEvidence } from './evidence'
 import {
@@ -82,6 +86,11 @@ export const CASE_THRESHOLD = 55
 export const MAX_CASE_ESCALATIONS = 3
 /** Evidence weight at which the watch turns up unannounced. */
 const UNANNOUNCED_THRESHOLD = 95
+
+/** The faction whose opinion the inspector carries into a visit. */
+const WATCH_FACTION_ID = 'town_watch'
+/** The most that opinion may harden a grade. */
+export const MAX_INSPECTION_BELIEF_BUMP = 6
 
 export function inspectorFor(index: number): (typeof INSPECTORS)[number] {
   return INSPECTORS[index % INSPECTORS.length]!
@@ -408,7 +417,20 @@ export function outcomeFor(
   // A repeat offender is judged harder at the same score — but the bump is
   // bounded, because a tavern that has failed six times and then cleaned up
   // should still be able to pass.
-  const adjusted = score + Math.min(12, priors * 3)
+  // Expansion Phase 8 §8.5 — "landlord and inspector interpretation where
+  // legitimate". The watch does not invent findings: every result above came
+  // from live state and would be there whatever anybody believed. What belief
+  // moves is how the same sheet is READ — an inspector who has come to
+  // distrust the house grades a borderline visit at the harsher end of the
+  // band. Capped at 6, half the repeat-offender bump, because a prior FAILURE
+  // is a fact on the record and a belief is not.
+  const distrust = Math.round(
+    beliefEffect(
+      beliefAgainstHouse(state, { kind: 'faction', id: WATCH_FACTION_ID }),
+      MAX_INSPECTION_BELIEF_BUMP,
+    ),
+  )
+  const adjusted = score + Math.min(12, priors * 3) + distrust
   const worst = results.reduce((max, result) => Math.max(max, result.severity), 0)
 
   // The bands are set against what the seven dimensions can actually

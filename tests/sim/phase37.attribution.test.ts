@@ -288,6 +288,15 @@ describe('Phase 37 §37.3 — Attribution module state', () => {
       generatedToday: [],
       lastUpdatedDay: -1,
       recentDistrustByRumour: {},
+      // Expansion Phase 8 §8.5 — the record of which beliefs are heavy
+      // enough to be changing decisions. Empty on a fresh slice for the
+      // same reason everything else here is: nobody has believed anything
+      // yet.
+      behaviour: {
+        acting: [],
+        history: [],
+        totals: { everActed: 0, answered: 0, refusedAsTrue: 0 },
+      },
     })
   })
 })

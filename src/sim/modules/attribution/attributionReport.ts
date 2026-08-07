@@ -2,6 +2,7 @@ import type { ReportSection } from '../../core/reports'
 import type { TavernState } from '../../state/TavernState'
 
 import { ATTRIBUTION_MODULE_ID, getAttributionModuleState } from './attributionQueries'
+import { normalizeBeliefBehaviour } from './beliefBehaviour'
 import type { AttributionState } from './attributionTypes'
 
 // Phase 37 §37.8 — Attribution report.
@@ -86,6 +87,23 @@ export function buildAttributionReport(state: TavernState): ReportSection {
     lines.push('')
   }
 
+  // Expansion Phase 8 §8.5 — the half of the report that says what belief is
+  // COSTING. Everything above is what people think; this is whose decisions
+  // it is reaching, which is the only part of the belief layer the player can
+  // act on.
+  const behaviour = normalizeBeliefBehaviour(slice?.behaviour)
+  lines.push('Beliefs changing decisions:')
+  if (behaviour.acting.length === 0) {
+    lines.push('  (nothing anybody believes is heavy enough to be acting)')
+  } else {
+    for (const row of behaviour.acting) {
+      lines.push(
+        `  - ${describeRef(row.holder)} (holding it at ${Math.round(row.weight * 100)}` +
+          `, since day ${row.sinceDay}) → ${row.domains.join(', ')}: ${row.readable}`,
+      )
+    }
+  }
+
   return {
     id: ATTRIBUTION_REPORT_ID,
     source: ATTRIBUTION_REPORT_SOURCE,
@@ -97,6 +115,10 @@ export function buildAttributionReport(state: TavernState): ReportSection {
       strongestIds: strongest.map((a) => a.id),
       falseCount: falseBeliefs.length,
       byType: countByType(attributions),
+      actingCount: behaviour.acting.length,
+      actingIds: behaviour.acting.map((row) => row.attributionId),
+      beliefsAnswered: behaviour.totals.answered,
+      beliefsRefusedAsTrue: behaviour.totals.refusedAsTrue,
     },
   }
 }

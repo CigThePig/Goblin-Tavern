@@ -55,8 +55,9 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > a notice ladder that ends in an eviction hearing the tavern can still
 > escape; and an inspector actually visits, grades seven dimensions against
 > live state, and leaves findings, fines and orders a follow-up re-reads.
-> **In progress: ISSUE-178 (Phase 8 — the autonomous social world), being
-> executed part by part.** **§8.1 (factions) is done (2026-08-06).**
+> **ISSUE-178 (Phase 8 — the autonomous social world) is DONE, executed part
+> by part (8.1–8.5). Next: ISSUE-179 (Phase 9 — rivals, local arcs,
+> expeditions).** **§8.1 (factions) is done (2026-08-06).**
 > Factions are now actors rather than meters: each has goals derived from
 > live state, a budget derived from its influence, a constituency of real
 > customer groups and suppliers, a dated and decaying ledger of how it has
@@ -139,8 +140,34 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > had mentioned in three months, which also made the monthly stale prune
 > dead code; and a rumour created between the day's `rumourUpdate` and a
 > save was migrated into different network fields than the uninterrupted
-> run had, which failed §5.10. **Next: §8.5 (attribution becomes
-> behavioral).** The sequence is hard-ordered after that.
+> run had, which failed §5.10.
+>
+> **§8.5 (attribution becomes behavioral) is done (2026-08-07), which closes
+> DEP-11 and completes ISSUE-178.** Since Phase 37 the attribution layer has
+> produced a rich, aging, merging record of what everybody in the world
+> thinks — and exactly one rule in the whole simulation read it as an input
+> to a decision (the supplier's price). Everywhere else it fed pressure
+> calculators, issue-seed selection and report prose: belief you could read
+> about but never feel. It is now a bounded input to **six** domains' own
+> rules — supplier quotes and credit lines, customer-group forecast, regular
+> visits, staff quit risk, faction goals and target selection, and the way
+> the watch and the landlord READ the same facts — and the two words doing
+> the work are *capped* and *domain-owned*: the belief layer returns a 0–1
+> weight and each domain declares its own ceiling as a named constant.
+> Nothing outside a domain mutates that domain. The landlord and the watch
+> read only what is being said ALOUD (publicness ≥ 60), because overhearing
+> a private grudge would be the leak §8.5 forbids, and the weight is the
+> strongest single belief rather than a sum, so "how many separate things
+> went wrong" cannot accumulate the way the Wave 7 pressure stacking did.
+> `address_grievance` is the move on the other side of it, and it can be
+> played badly: answering something somebody is RIGHT about hardens it,
+> exactly as denying a true rumour does in §8.4. The two remaining Phase-8
+> hook families close here rather than with the rumour network because both
+> are promises about belief — the party the house deflected blame onto now
+> resents it (accuracy `true`, so it cannot be talked away), and a bribe that
+> gets out is believed by the watch, which then reads the next inspection
+> harder. **ISSUE-178 is complete; next is ISSUE-179 (Phase 9 — rivals,
+> local arcs, expeditions).** The sequence is hard-ordered after that.
 >
 > Everything else below — the Complete Surface resume points, the
 > onboarding arc, the standing tails — is **paused, not cancelled**, and
@@ -388,7 +415,7 @@ rather than rebuilding those routes.
 | ISSUE-175 | Expansion Phase 5 — economy: quality→cash feedback, operating costs, failure/recovery states, adaptive demand, enforceable policies | broken | done | 212 |
 | ISSUE-176 | Expansion Phase 6 — transactional suppliers: orders, deliveries, credit, invoices (OBL-04) | broken | done | 213 |
 | ISSUE-177 | Expansion Phase 7 — loans, tenancy, and a real inspection lifecycle (OBL-03 + loan/eviction half of OBL-02) | broken | done | 214 |
-| ISSUE-178 | Expansion Phase 8 — autonomous social world: faction/culture/NPC agency, rumour propagation, behavioral attribution (rumour half of OBL-08) | broken | in progress (8.1–8.4 done) | 215 |
+| ISSUE-178 | Expansion Phase 8 — autonomous social world: faction/culture/NPC agency, rumour propagation, behavioral attribution (rumour half of OBL-08) | broken | done (8.1–8.5) | 215 |
 | ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | open | 216 |
 | ISSUE-180 | Expansion Phase 10 — populated teleology, causal identity with hysteresis, character arcs, earned nicknames (OBL-09 + mastery half of OBL-08) | broken | open | 217 |
 | ISSUE-181 | Expansion Phase 11 — reconnect issues, responses, pressures, feedback, memory and history to the deepened domains (closes OBL-02) | broken | open | 218 |
@@ -433,7 +460,7 @@ consequence is a direct pressure or reputation adjustment*.
 | ISSUE-175 | 5 — economy | 212 | done; supports OBL-04/05; **ISSUE-168 closed** | ISSUE-174 |
 | ISSUE-176 | 6 — suppliers | 213 | done; **OBL-04 closed** | ISSUE-175 |
 | ISSUE-177 | 7 — loans, tenancy, inspection | 214 | done; **OBL-03 closed** + loan/eviction half of **OBL-02** | ISSUE-175 |
-| ISSUE-178 | 8 — social world | 215 | rumour half of **OBL-08**; **8.1–8.4 done (DEP-08 and DEP-10 closed, DEP-09 NPC half, OBL-08 rumour half)** | ISSUE-176, ISSUE-177 |
+| ISSUE-178 | 8 — social world | 215 | **done** — rumour half of **OBL-08** closed; DEP-08, DEP-10 and DEP-11 closed, DEP-09 NPC half | ISSUE-176, ISSUE-177 |
 | ISSUE-179 | 9 — rivals, arcs, expeditions | 216 | — | ISSUE-178 |
 | ISSUE-180 | 10 — teleology + identity | 217 | **OBL-09** + mastery half of **OBL-08** | ISSUE-179 |
 | ISSUE-181 | 11 — issues/responses refit | 218 | all of **OBL-02**; **absorbs ISSUE-169** | ISSUE-180 |

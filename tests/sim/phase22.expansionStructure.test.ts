@@ -230,6 +230,10 @@ describe('Phase 22 type surfaces match the plan', () => {
     // Phase 22 fields still exist on the type; the new Phase 30 fields
     // (description, conflictTags, defaultFamiliarity, defaultComfort,
     // defaultTension) are required and provided here.
+    //
+    // Expansion Phase 8 §8.2 adds three more (frictionWith, defaultTrust,
+    // observanceHonouredBy) on the same additive terms — nothing is renamed,
+    // so this sample keeps its original shape and gains the new fields.
     const sample: import('../../src/sim/content/cultures/cultureTypes').CultureDefinition = {
       id: 'sample',
       label: 'Sample',
@@ -243,6 +247,9 @@ describe('Phase 22 type surfaces match the plan', () => {
       defaultFamiliarity: 50,
       defaultComfort: 50,
       defaultTension: 50,
+      frictionWith: [],
+      defaultTrust: 50,
+      observanceHonouredBy: [],
     }
     expect(sample.namingProfileId).toBe('goblin_common')
   })

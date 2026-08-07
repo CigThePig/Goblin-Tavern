@@ -84,6 +84,7 @@ import {
   ensureModuleSlices,
   ensureExpansionContractSlices,
   ensureExternalObligationSlices,
+  ensureCultureAgencyFields,
   ensureFactionAgencyFields,
   flipUpkeepRecipesOffMenu,
 } from "../../../../src/sim/state/migrations";
@@ -794,7 +795,13 @@ function migrateAndValidateState(
     // past, leaving the standing ledger, stances, demands and favours
     // undefined for every reader.
     const s8g = ensureFactionAgencyFields(s8f);
-    const s9 = ensureModuleSlices(s8g);
+    // Expansion Phase 8 §5.7 — the culture agency fields. Named for the same
+    // two reasons: every pre-Phase-8 save already HAS an empty
+    // `modules.cultures` slice the generic sweep would skip, and the new
+    // `trust` meter is derived from the comfort and tension the save already
+    // carries rather than defaulted flat.
+    const s8h = ensureCultureAgencyFields(s8g);
+    const s9 = ensureModuleSlices(s8h);
     const validation = safeValidateState(s9, { modules: FULL_PIPELINE });
     if (!validation.success) {
       const first = validation.errors[0];

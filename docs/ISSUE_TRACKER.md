@@ -71,8 +71,27 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > mean every move can be opposed. Five `HOOK-*` families stop draining:
 > `faction_grudge_*`, `faction_revenge_*`, `faction_deception_exposed_*`,
 > `<group>_boycott_possible` and `shrine_favour_owed_*` now resolve into
-> real faction moves. **Next: §8.2 (cultures), then 8.3–8.5.** The sequence
-> is hard-ordered after that.
+> real faction moves.
+>
+> **§8.2 (cultures) is done (2026-08-07), which closes DEP-08.** The two
+> things §8.2 names as broken are fixed at the source rather than
+> re-heuristicked: food taboo and delight now read the order lines a party
+> was actually DELIVERED (they scanned the cellar, so a crate of something a
+> culture does not eat offended them whether or not a plate ever left the
+> kitchen), and seating tension now reads actual placement and crowding from
+> the Phase 4 flow (it compared two patronage meters, so groups could
+> "conflict over seating" on a night neither sat down). On top of that:
+> comfort, familiarity, trust and tension are derived daily from that
+> evidence instead of being seeded at day zero and never written again;
+> cultures keep an accommodation history, observe the calendar, rub against
+> each other by actually sharing a room, shift their preferences toward what
+> they have been served, and pass the word weekly; and a real slight opens a
+> misunderstanding that names its own remedy, which `make_amends_to_culture`
+> settles. `seat_groups_apart` is the first policy to carry the
+> `cultural_accommodation` tag that two systems had been looking for since
+> Phase 38 without ever finding — it buys friction off and charges seats and
+> server time for it. **Next: §8.3 (notable NPCs), then 8.4–8.5.** The
+> sequence is hard-ordered after that.
 >
 > Everything else below — the Complete Surface resume points, the
 > onboarding arc, the standing tails — is **paused, not cancelled**, and
@@ -320,7 +339,7 @@ rather than rebuilding those routes.
 | ISSUE-175 | Expansion Phase 5 — economy: quality→cash feedback, operating costs, failure/recovery states, adaptive demand, enforceable policies | broken | done | 212 |
 | ISSUE-176 | Expansion Phase 6 — transactional suppliers: orders, deliveries, credit, invoices (OBL-04) | broken | done | 213 |
 | ISSUE-177 | Expansion Phase 7 — loans, tenancy, and a real inspection lifecycle (OBL-03 + loan/eviction half of OBL-02) | broken | done | 214 |
-| ISSUE-178 | Expansion Phase 8 — autonomous social world: faction/culture/NPC agency, rumour propagation, behavioral attribution (rumour half of OBL-08) | broken | in progress (8.1 done) | 215 |
+| ISSUE-178 | Expansion Phase 8 — autonomous social world: faction/culture/NPC agency, rumour propagation, behavioral attribution (rumour half of OBL-08) | broken | in progress (8.1–8.2 done) | 215 |
 | ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | open | 216 |
 | ISSUE-180 | Expansion Phase 10 — populated teleology, causal identity with hysteresis, character arcs, earned nicknames (OBL-09 + mastery half of OBL-08) | broken | open | 217 |
 | ISSUE-181 | Expansion Phase 11 — reconnect issues, responses, pressures, feedback, memory and history to the deepened domains (closes OBL-02) | broken | open | 218 |
@@ -365,7 +384,7 @@ consequence is a direct pressure or reputation adjustment*.
 | ISSUE-175 | 5 — economy | 212 | done; supports OBL-04/05; **ISSUE-168 closed** | ISSUE-174 |
 | ISSUE-176 | 6 — suppliers | 213 | done; **OBL-04 closed** | ISSUE-175 |
 | ISSUE-177 | 7 — loans, tenancy, inspection | 214 | done; **OBL-03 closed** + loan/eviction half of **OBL-02** | ISSUE-175 |
-| ISSUE-178 | 8 — social world | 215 | rumour half of **OBL-08**; **8.1 factions done** | ISSUE-176, ISSUE-177 |
+| ISSUE-178 | 8 — social world | 215 | rumour half of **OBL-08**; **8.1 factions + 8.2 cultures done (DEP-08 closed)** | ISSUE-176, ISSUE-177 |
 | ISSUE-179 | 9 — rivals, arcs, expeditions | 216 | — | ISSUE-178 |
 | ISSUE-180 | 10 — teleology + identity | 217 | **OBL-09** + mastery half of **OBL-08** | ISSUE-179 |
 | ISSUE-181 | 11 — issues/responses refit | 218 | all of **OBL-02**; **absorbs ISSUE-169** | ISSUE-180 |

@@ -265,8 +265,7 @@ function actingFaction(state: TavernState, actorRef: EntityRef): FactionWorldSta
 }
 
 /** A faction may only take a move its definition says it is capable of. */
-function capableOf(state: TavernState, factionId: string, actionId: FactionActionId): boolean {
-  void state
+function capableOf(factionId: string, actionId: FactionActionId): boolean {
   return factionRegistry.get(factionId)?.actions.includes(actionId) ?? false
 }
 
@@ -291,7 +290,7 @@ const makeDemand: ActorActionDefinition<FactionActorTarget> = {
   ],
   eligibleTargets: (perception, state) => {
     const ref = self(perception)[0]
-    if (!ref || !capableOf(state, ref.id, 'make_demand')) return []
+    if (!ref || !capableOf(ref.id, 'make_demand')) return []
     // One ask at a time. A faction that piles requests on top of an
     // unanswered one is noise, not pressure.
     if (openDemandFor(state, ref.id)) return []
@@ -354,7 +353,7 @@ const pledgeSupport: ActorActionDefinition<FactionActorTarget> = {
   servesGoals: [FACTION_GOALS.PROTECT_CONSTITUENCY, FACTION_GOALS.GAIN_STANDING],
   eligibleTargets: (perception, state) => {
     const ref = self(perception)[0]
-    if (!ref || !capableOf(state, ref.id, 'pledge_support')) return []
+    if (!ref || !capableOf(ref.id, 'pledge_support')) return []
     if (activeStance(state, ref.id, 'support')) return []
     if (activeStance(state, ref.id, 'boycott')) return []
     return [ref]
@@ -399,7 +398,7 @@ const callBoycott: ActorActionDefinition<FactionActorTarget> = {
   servesGoals: [FACTION_GOALS.SETTLE_THE_SCORE, FACTION_GOALS.PROTECT_CONSTITUENCY],
   eligibleTargets: (perception, state) => {
     const ref = self(perception)[0]
-    if (!ref || !capableOf(state, ref.id, 'call_boycott')) return []
+    if (!ref || !capableOf(ref.id, 'call_boycott')) return []
     if (activeStance(state, ref.id, 'boycott')) return []
     // A boycott needs people to keep away. Pick the biggest group they
     // speak for; the stance covers the whole constituency.
@@ -458,7 +457,7 @@ const pressInspection: ActorActionDefinition<FactionActorTarget> = {
   servesGoals: [FACTION_GOALS.ENFORCE_STANDARDS, FACTION_GOALS.SETTLE_THE_SCORE],
   eligibleTargets: (perception, state) => {
     const ref = self(perception)[0]
-    if (!ref || !capableOf(state, ref.id, 'press_inspection')) return []
+    if (!ref || !capableOf(ref.id, 'press_inspection')) return []
     return [ref]
   },
   score: ({ perception }) => {
@@ -503,7 +502,7 @@ const squeezeSupply: ActorActionDefinition<FactionActorTarget> = {
   servesGoals: [FACTION_GOALS.COLLECT_WHAT_IS_OWED, FACTION_GOALS.SETTLE_THE_SCORE],
   eligibleTargets: (perception, state) => {
     const ref = self(perception)[0]
-    if (!ref || !capableOf(state, ref.id, 'squeeze_supply')) return []
+    if (!ref || !capableOf(ref.id, 'squeeze_supply')) return []
     if (activeStance(state, ref.id, 'supply_squeeze')) return []
     const suppliers = memberSuppliers(state, ref.id)
     if (suppliers.length === 0) return []
@@ -549,7 +548,7 @@ const sponsorHouse: ActorActionDefinition<FactionActorTarget> = {
   servesGoals: [FACTION_GOALS.GAIN_STANDING, FACTION_GOALS.PROTECT_CONSTITUENCY],
   eligibleTargets: (perception, state) => {
     const ref = self(perception)[0]
-    if (!ref || !capableOf(state, ref.id, 'sponsor_house')) return []
+    if (!ref || !capableOf(ref.id, 'sponsor_house')) return []
     // Nobody sponsors a house that already owes them a favour.
     if (owedFavourFor(state, ref.id)) return []
     // And nobody puts money into a house that is going under. A faction
@@ -644,7 +643,7 @@ const offerProtection: ActorActionDefinition<FactionActorTarget> = {
   servesGoals: [FACTION_GOALS.PROTECT_CONSTITUENCY, FACTION_GOALS.ENFORCE_STANDARDS],
   eligibleTargets: (perception, state) => {
     const ref = self(perception)[0]
-    if (!ref || !capableOf(state, ref.id, 'offer_protection')) return []
+    if (!ref || !capableOf(ref.id, 'offer_protection')) return []
     if (activeStance(state, ref.id, 'protection')) return []
     return [ref]
   },
@@ -684,7 +683,7 @@ const backRival: ActorActionDefinition<FactionActorTarget> = {
   servesGoals: [FACTION_GOALS.SETTLE_THE_SCORE, FACTION_GOALS.GAIN_STANDING],
   eligibleTargets: (perception, state) => {
     const ref = self(perception)[0]
-    if (!ref || !capableOf(state, ref.id, 'back_rival')) return []
+    if (!ref || !capableOf(ref.id, 'back_rival')) return []
     if (activeStance(state, ref.id, 'rival_backing')) return []
     return [ref]
   },

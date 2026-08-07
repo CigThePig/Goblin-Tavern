@@ -593,6 +593,10 @@ export const CultureWorldStateSchema = z.object({
   familiarity: meter(),
   comfort: meter(),
   tension: meter(),
+  // Expansion Phase 8 §8.2 — optional during the migration window; a
+  // pre-Phase-8 save carries no trust and `ensureCultureAgencyFields`
+  // derives one from the comfort and tension it already has.
+  trust: meter().optional(),
   namingProfileId: z.string(),
   preferredStockTags: z.array(z.string()),
   dislikedTags: z.array(z.string()),

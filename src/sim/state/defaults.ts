@@ -100,6 +100,7 @@ import { createInitialFinanceModuleState } from "../modules/finance/state";
 import { createInitialTenancyModuleState } from "../modules/tenancy/state";
 import { createInitialRegulatoryModuleState } from "../modules/regulatory/state";
 import { createInitialFactionModuleState } from "../modules/factions/factionState";
+import { createInitialCultureModuleState } from "../modules/cultures/cultureState";
 import { createInitialEconomyModuleState } from "../modules/economy/state";
 
 // Phase 8 §8.1 — Area defaults are sourced from `areaRegistry` rather than
@@ -439,6 +440,7 @@ function createInitialCultures(): Record<string, CultureWorldState> {
       familiarity: def.defaultFamiliarity,
       comfort: def.defaultComfort,
       tension: def.defaultTension,
+      trust: def.defaultTrust,
       namingProfileId: def.namingProfileId,
       preferredStockTags: [...def.preferredStockTags],
       dislikedTags: [...def.dislikedTags],
@@ -810,6 +812,11 @@ export function createInitialTavernState(
       // standing ledger, live stances, open requests and favours owed,
       // so it must be present and normalised from day zero.
       factions: createInitialFactionModuleState(),
+      // Expansion Phase 8 §8.2 — seed the cultures slice. Before this phase
+      // the module had no state at all; it now holds each culture's
+      // evidence ledger, accommodation history, dish and area experience,
+      // live misunderstandings and culture-to-culture friction.
+      cultures: createInitialCultureModuleState(),
       // Phase 30 §30.6 — seed an empty regulars slice (no candidates,
       // no creations, no visits) so the module's schema validates from
       // day zero before any regular has emerged.

@@ -11,6 +11,7 @@ import type {
 } from '../../staff/workforceTypes'
 import { getPolicyServiceCapacityFactor } from '../../economy/policies'
 import { getFinancialServiceCapacityFactor } from '../../economy/dynamics'
+import { getSeatSeparationFactor } from '../../cultures/friction'
 
 import { SERVICE_WAVES, type ServiceCapacitySnapshot } from './types'
 
@@ -131,11 +132,22 @@ export function readServiceCapacity(ctx: SimContext): ServiceCapacitySnapshot {
     Math.round(BASE_RESET_PER_WAVE * stageFactor(cleaning, RESET_FLOOR) * operatingCapacity),
   )
 
+  // Expansion Phase 8 §8.2 — keeping frictional groups in separate rooms
+  // wastes seats: a table cannot be filled by the only party waiting for it
+  // if that party is one you are keeping apart from the room's occupants.
+  // The culture module owns the policy; what it costs the floor is decided
+  // here, where seating is.
+  const separation = getSeatSeparationFactor(state)
+  const usableSeats = Math.max(0, Math.floor(seating.usableSeats * separation))
+
   return {
-    seats: seating.usableSeats,
+    seats: usableSeats,
     seatsByArea: seating.byArea
       .filter((row) => row.usableSeats > 0)
-      .map((row) => ({ areaId: row.areaId, seats: row.usableSeats })),
+      .map((row) => ({
+        areaId: row.areaId,
+        seats: Math.max(0, Math.floor(row.usableSeats * separation)),
+      })),
     prepPerWave,
     deliveryPerWave,
     resetPerWave,

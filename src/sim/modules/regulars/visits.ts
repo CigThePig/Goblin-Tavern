@@ -126,12 +126,30 @@ export function assessVisit(
 
   // The Phase 30 base — loyalty and how busy their crowd is — is kept, because
   // it is the honest floor: people go where their friends go.
-  let probability = 0.15 + (regular.loyalty / 100) * 0.35 + (group.patronage / 100) * 0.25
+  //
+  // Expansion Phase 8 §8.2 — the upward and downward terms are now
+  // accumulated SEPARATELY, and the ceiling is applied to the upward side
+  // before the downward side is taken off.
+  //
+  // The final clamp used to be the only ceiling, which meant a regular whose
+  // loyalty and crowd already carried them past `MAX_VISIT_CHANCE` had every
+  // negative driver silently absorbed: the assessment still listed "their
+  // usual is off" as a reason they were less likely to come, and the
+  // probability did not move a point. A driver the player is shown has to be
+  // a driver that acts — that is the whole premise of this arc — so nothing
+  // that pushes a regular away can be eaten by the cap.
+  const base = 0.15 + (regular.loyalty / 100) * 0.35 + (group.patronage / 100) * 0.25
+  let bonus = 0
+  let penalty = 0
+  const add = (delta: number): void => {
+    if (delta >= 0) bonus += delta
+    else penalty -= delta
+  }
 
   const memory = serviceMemoryScore(regular, today)
   if (memory !== 0) {
     const pull = Math.max(-0.35, Math.min(0.25, memory / 40))
-    probability += pull
+    add(pull)
     if (Math.abs(pull) >= 0.05) {
       drivers.push(
         pull > 0 ? 'good memories of the place' : 'bad memories of the place',
@@ -142,7 +160,7 @@ export function assessVisit(
   const standing = regular.ownerStanding ?? 50
   if (standing !== 50) {
     const pull = (standing - 50) / 400
-    probability += pull
+    add(pull)
     if (Math.abs(pull) >= 0.05) {
       drivers.push(pull > 0 ? 'they like you' : 'they have gone off you')
     }
@@ -151,30 +169,36 @@ export function assessVisit(
   const favourite = favouriteAvailability(ctx.state, regular)
   if (favourite.subject) {
     if (favourite.available) {
-      probability += 0.12
+      add(0.12)
       drivers.push(`their usual (${favourite.subject}) is on`)
     } else {
-      probability -= 0.25
+      add(-0.25)
       drivers.push(`their usual (${favourite.subject}) is off`)
     }
   }
 
   const identity = identityPull(ctx, group)
   if (Math.abs(identity) >= 0.03) {
-    probability += identity
+    add(identity)
     drivers.push(identity > 0 ? "the tavern's name draws them" : "the tavern's name puts them off")
-  }
-
-  if (regular.irritation >= 70) {
-    probability *= 0.25
-    drivers.push('they are thoroughly fed up')
   }
 
   const dayType = ctx.getDayType()
   const culture = group.cultureId ? ctx.getCulture(group.cultureId) : undefined
   if (culture?.importantCalendarTags.includes(dayType)) {
-    probability += 0.15
+    add(0.15)
     drivers.push(`it is ${dayType}`)
+  }
+
+  // The ceiling binds what draws a regular in; what puts them off comes off
+  // afterwards, so it is always felt.
+  let probability = Math.min(MAX_VISIT_CHANCE, base + bonus) - penalty
+
+  // Being thoroughly fed up is a multiplier rather than a term: it does not
+  // add a reason, it discounts every other one.
+  if (regular.irritation >= 70) {
+    probability *= 0.25
+    drivers.push('they are thoroughly fed up')
   }
 
   return {

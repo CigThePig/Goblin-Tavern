@@ -74,6 +74,26 @@ export const POLICY_STARTERS: PolicyStarterDefinition[] = [
     ],
     conflictsWith: ['allow_tabs_for_regulars'],
   },
+  // Expansion Phase 8 §8.2 — the first policy that actually carries the
+  // `cultural_accommodation` tag.
+  //
+  // `culturalTension`'s friction-relief term and the old culture module's
+  // `hasAnyFrictionReliefPolicy` guard had BOTH been looking for a policy
+  // tagged `cultural_accommodation` / `seating` / `friction_reduction` since
+  // Phase 38, and no policy in the game carried any of the three — so the
+  // relief was unreachable and the guard never fired. §8.2 asks cultures to
+  // have real relationships with policies; this is the one that gives the
+  // seating half of that something to read.
+  {
+    id: 'seat_groups_apart',
+    policyType: 'seat_groups_apart',
+    label: 'Seat Groups Apart',
+    tags: ['policy', 'seating', 'cultural_accommodation', 'friction_reduction'],
+    effects: [
+      'cultures that rub against each other are kept in separate rooms',
+      'fewer usable seats per group, so a busy night fills up sooner',
+    ],
+  },
   {
     id: 'ban_weapons_inside',
     policyType: 'ban_weapons_inside',

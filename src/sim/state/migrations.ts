@@ -57,6 +57,12 @@ import {
   createInitialFactionModuleState,
   normalizeFactionSlice,
 } from "../modules/factions/factionState";
+import {
+  CULTURES_MODULE_ID,
+  createInitialCultureModuleState,
+  normalizeCultureSlice,
+} from "../modules/cultures/cultureState";
+import { cultureRegistry } from "../content/cultures/cultureRegistry";
 import type {
   MonthlyModuleState,
   MonthlyResult,
@@ -1171,6 +1177,89 @@ export function ensureExternalObligationSlices<
 
   if (!changed && state.modules) return state;
   return { ...state, modules: next };
+}
+
+// Expansion Phase 8 §5.7 — the culture agency fields.
+//
+// Two halves, for the same reason the faction migration has one: a
+// pre-Phase-8 save carries `modules.cultures = {}` — present and empty — so
+// the generic `ensureModuleSlices` sweep walks past it, and every culture in
+// `world.cultures` is missing the `trust` meter §8.2 adds.
+//
+// TRUST IS DERIVED, NOT ROLLED AND NOT DEFAULTED FLAT. The save already
+// knows how a culture feels: it carries comfort and tension the player
+// earned. Trust starts from the registry's anchor and is nudged by the gap
+// between those and their own defaults, so a culture the save had left
+// comfortable and untense starts trusting, and one it had left tense does
+// not. That reads the save rather than inventing a history — and because it
+// is arithmetic on existing fields, no RNG cursor moves and no generated
+// identity shifts (architecture rule 7).
+//
+// The slice itself is installed EMPTY. Reconstructing an evidence ledger
+// from the meters would fabricate meals nobody ate and seats nobody sat in,
+// which is the same failure as losing them.
+export function ensureCultureAgencyFields<
+  T extends {
+    world?: { cultures?: Record<string, unknown> };
+    modules?: Record<string, unknown>;
+  },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const base = createInitialCultureModuleState();
+  let next: Record<string, unknown> = current;
+  let changed = false;
+
+  const existing = current[CULTURES_MODULE_ID];
+  if (!isRecord(existing)) {
+    next = { ...next, [CULTURES_MODULE_ID]: base };
+    changed = true;
+  } else {
+    const keys = Object.keys(base) as Array<keyof typeof base>;
+    if (!keys.every((key) => key in existing)) {
+      next = {
+        ...next,
+        [CULTURES_MODULE_ID]: normalizeCultureSlice(
+          existing as Partial<ReturnType<typeof createInitialCultureModuleState>>,
+        ),
+      };
+      changed = true;
+    }
+  }
+
+  const cultures = state.world?.cultures;
+  let nextCultures: Record<string, unknown> | undefined;
+  if (isRecord(cultures)) {
+    for (const [id, raw] of Object.entries(cultures)) {
+      if (!isRecord(raw)) continue;
+      if (typeof raw["trust"] === "number") continue;
+      const def = cultureRegistry.has(id) ? cultureRegistry.get(id) : undefined;
+      const anchor = def?.defaultTrust ?? 50;
+      const comfort =
+        typeof raw["comfort"] === "number"
+          ? (raw["comfort"] as number)
+          : (def?.defaultComfort ?? 50);
+      const tension =
+        typeof raw["tension"] === "number"
+          ? (raw["tension"] as number)
+          : (def?.defaultTension ?? 50);
+      const comfortGap = comfort - (def?.defaultComfort ?? 50);
+      const tensionGap = tension - (def?.defaultTension ?? 50);
+      const trust = Math.max(
+        0,
+        Math.min(100, Math.round(anchor + comfortGap / 2 - tensionGap / 2)),
+      );
+      nextCultures = { ...(nextCultures ?? cultures), [id]: { ...raw, trust } };
+    }
+  }
+
+  if (!changed && !nextCultures) return state;
+  return {
+    ...state,
+    ...(nextCultures
+      ? { world: { ...(state.world ?? {}), cultures: nextCultures } }
+      : {}),
+    ...(changed ? { modules: next } : {}),
+  } as T;
 }
 
 // Expansion Phase 8 §5.7 — the faction agency fields.

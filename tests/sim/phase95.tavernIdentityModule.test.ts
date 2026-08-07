@@ -294,26 +294,53 @@ describe('tavernIdentityModule integrated with FULL_PIPELINE', () => {
     )
   })
 
-  it('does not rewrite identity when the inputs are stable', () => {
+  it('writes a recompute cause if and only if the identity actually changed', () => {
+    // ORIGINALLY this ran two days and asserted day two wrote nothing,
+    // on the premise that the identity's inputs were stable by then.
+    //
+    // Expansion Phase 8 §8.2 retired that premise rather than the
+    // invariant. `atmosphereTags` is derived from each culture's
+    // familiarity and comfort, and those two meters were seeded at day
+    // zero and never written by anything — so "stable" was guaranteed for
+    // free. They are now re-derived daily from what each culture was
+    // actually served and where it actually sat, so a tavern whose miners
+    // had a bad night legitimately stops being miner-welcoming, and day two
+    // is no longer a no-op day.
+    //
+    // The invariant that mattered is unchanged and is now stated directly:
+    // the recompute cause must track the arrays, appearing when they move
+    // and staying silent when they do not. That is the no-op guard the test
+    // was written for, checked without depending on any input holding
+    // still.
     let state = createInitialTavernState()
     state.reputation.cheap = 75
     state.reputation.goblinAuthentic = 80
-    const day1 = simulateDay(state, { seed: 'phase95-stable-d1' }, FULL_PIPELINE)
-    const day2 = simulateDay(
-      day1.state,
-      { seed: 'phase95-stable-d2' },
-      FULL_PIPELINE,
-    )
-    // After day1 the identity stabilises; day2's cause stream must
-    // not contain a tavernIdentity.recompute write from a no-op.
-    const causeFromDay2 = day2.state.causes.filter(
-      (c) =>
-        c.source === 'tavernIdentity.recompute' &&
-        c.timestamp.absoluteDay === day2.state.calendar.totalDaysElapsed - 1,
-    )
-    // The recompute fires only when the array changes. On a stable day
-    // we expect zero new tavernIdentity causes.
-    expect(causeFromDay2.length).toBe(0)
+
+    let previous = simulateDay(state, { seed: 'phase95-stable-d0' }, FULL_PIPELINE)
+    for (let day = 1; day <= 6; day += 1) {
+      const next = simulateDay(
+        previous.state,
+        { seed: `phase95-stable-d${day}` },
+        FULL_PIPELINE,
+      )
+      const before = previous.state.world.tavernIdentity
+      const after = next.state.world.tavernIdentity
+      const changed =
+        before.knownFor.join('|') !== after.knownFor.join('|') ||
+        before.houseRules.join('|') !== after.houseRules.join('|') ||
+        before.atmosphereTags.join('|') !== after.atmosphereTags.join('|')
+
+      const causes = next.state.causes.filter(
+        (c) =>
+          c.source === 'tavernIdentity.recompute' &&
+          c.timestamp.absoluteDay === next.state.calendar.totalDaysElapsed - 1,
+      )
+      expect(
+        causes.length > 0,
+        `day ${day}: identity ${changed ? 'changed' : 'did not change'} but wrote ${causes.length} cause(s)`,
+      ).toBe(changed)
+      previous = next
+    }
   })
 
   it('emits a cause tagged tavern_identity when identity changes', () => {

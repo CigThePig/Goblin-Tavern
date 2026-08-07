@@ -14,6 +14,7 @@ import { FINANCE_ACTIONS } from '../modules/finance/actions'
 import { TENANCY_ACTIONS } from '../modules/tenancy/actions'
 import { REGULATORY_ACTIONS } from '../modules/regulatory/actions'
 import { FACTION_ACTIONS } from '../modules/ownerActions/factionActions'
+import { CULTURE_ACTIONS } from '../modules/ownerActions/cultureActions'
 import type { OwnerActionDefinition } from '../modules/ownerActions/types'
 
 // Phase 13 §13.1 — Owner action registry.
@@ -86,6 +87,12 @@ export function ensureRequiredOwnerActionsRegistered(): void {
     // has asked for something, announced a move, or been sponsoring the
     // house. Without these the faction layer would be weather again.
     ...FACTION_ACTIONS,
+    // Expansion Phase 8 §8.2 — a culture that can hold something against the
+    // house has to be answerable too. Making amends settles a specific,
+    // named slight; marking an observance keeps an occasion on the day it
+    // matters. Both surface exactly when there is something to answer, and
+    // the target hint carries the remedy the misunderstanding recorded.
+    ...CULTURE_ACTIONS,
   ]
   for (const def of all) {
     if (!actionRegistry.has(def.id)) {

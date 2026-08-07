@@ -228,10 +228,10 @@ describe('Phase 207 — implementation ledger', () => {
     // still fails.
     //
     // §8.1 (2026-08-06) closed the four faction retaliation/favour hook
-    // families and took DEP-08 to `in-progress`: the faction half is done,
-    // the culture half belongs to §8.2.
+    // families. §8.2 (2026-08-07) closed the culture half, so DEP-08 —
+    // which covers factions AND cultures in one row — is now `done`.
     const LANDED_PART_ROWS = new Map<string, string>([
-      ['DEP-08', 'in-progress'],
+      ['DEP-08', 'done'],
       ['HOOK-faction_grudge_*', 'done'],
       ['HOOK-faction_revenge_*', 'done'],
       ['HOOK-faction_deception_exposed_*', 'done'],
@@ -426,10 +426,20 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       // gives the factions that already exist goals, memory and a bounded
       // action set inside the module that already owned them, rather than
       // growing the cast or adding a domain.
+      //
+      // Expansion Phase 8.2 (ISSUE-178) moves the same one count again:
+      //   * `ownerActions` 86 → 90: make amends to a culture and mark an
+      //     observance, plus the enable/disable pair for `seat_groups_apart`
+      //     — the first policy in the game to carry the
+      //     `cultural_accommodation` tag that `culturalTension`'s relief
+      //     term and the old culture module had both been looking for since
+      //     Phase 38 without ever finding.
+      // `cultures` stays at 8 for the same reason `factions` stayed at 9:
+      // 8.2 deepens the cultures that exist rather than adding any.
       runtimeModules: 37,
       simulationPhases: 26,
       daySegments: 3,
-      ownerActions: 86,
+      ownerActions: 90,
       staffPriorities: 12,
       pressureDomains: 21,
       feedbackDetectors: 13,

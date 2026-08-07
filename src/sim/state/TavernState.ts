@@ -608,6 +608,20 @@ export type CultureWorldState = {
   familiarity: number;
   comfort: number;
   tension: number;
+  /**
+   * Expansion Phase 8 §8.2 — will this house look after our people again?
+   *
+   * The fourth meter §8.2 asks for, and deliberately NOT a synonym for
+   * comfort: comfort is how a culture feels in the room tonight, trust is
+   * whether it expects to be treated well next time. A warm room does not
+   * buy back a taboo served last week, and it is trust — not comfort — that
+   * the attendance and recommendation effects read.
+   *
+   * Optional during the migration window; `ensureCultureAgencyFields`
+   * derives it from the save's existing comfort/tension rather than rolling
+   * it, so no generated identity shifts.
+   */
+  trust?: number;
   namingProfileId: NamingProfileId;
   preferredStockTags: string[];
   dislikedTags: string[];

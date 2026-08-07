@@ -194,7 +194,14 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // for things, back the house, call boycotts — so a PASSIVE tavern has
     // live social problems on days when nothing it did created one. That is
     // the phase working, not the phase costing: the ceiling is still 5.
-    expect(audit.meanCardsPerDay).toBe(3.64)
+    //
+    // Post-Phase-8.2: 4.07 · 5. Cultures now react to what was actually
+    // served and where people actually sat, so a passive tavern has live
+    // culture problems — an unresolved slight, an occasion let pass, two
+    // groups rubbing along badly — on days it previously had none. Same
+    // shape as 8.1's move and the same reading: the route gained problems,
+    // not a worse day. The ceiling is still 5.
+    expect(audit.meanCardsPerDay).toBe(4.07)
     expect(audit.maxCardsPerDay).toBe(5)
     expect(audit.maxCardsPerDay).toBeLessThanOrEqual(FULL_DAY_CARD_CEILING)
   })
@@ -236,8 +243,22 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // passive route is the evidence that §8.1 changed who walks through the
     // door rather than what the tavern earns from them: the faction layer
     // touches no price, no cost and no economic lever.
-    expect(audit.finalCoin).toBe(924)
-    expect(audit.totalPatrons).toBe(591)
+    //
+    // EXPANSION PHASE 8.2 moves both, and the size of the move is the
+    // number that was actually tuned rather than observed: 922 coin and 555
+    // patrons. A passive tavern now neglects every culture in it — nobody's
+    // occasion is marked, nobody's slight is answered — and the cultures
+    // notice, so about 6% of the crowd stops bothering.
+    //
+    // Six percent is a DECIDED figure. Uncapped, the culture terms summed to
+    // roughly -13 on a neglected group and cost 10% of all patrons, and the
+    // knock-on lower turnout pushed `customer_complaint` to a four-day
+    // streak past the ceiling the Wave 6 audit set at three. The layer is
+    // now bounded as a whole (`MAX_CULTURE_FORECAST_SWING`), which is what
+    // keeps cultures one input among several rather than the one that
+    // decides the night — the streak is back inside its guard at 3.
+    expect(audit.finalCoin).toBe(922)
+    expect(audit.totalPatrons).toBe(555)
   })
 
   it('prices choices as an upper bound on the real render', () => {
@@ -251,9 +272,10 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // Phase 7's extra cards carry their own choices, so the upper bound
     // reads 16.61/day. It is still an upper bound on the real render.
     // Phase 8.1's faction cards carry their own choices, so the upper bound
-    // reads 17.04/day. It is still an upper bound on the real render.
-    expect(audit.meanChoicesPerDay).toBe(17.04)
-    expect(audit.totalChoicesRendered).toBe(477)
+    // reads 17.04/day; Phase 8.2's culture cards take it to 19.50/day. It is
+    // still an upper bound on the real render.
+    expect(audit.meanChoicesPerDay).toBe(19.5)
+    expect(audit.totalChoicesRendered).toBe(546)
   })
 
   it('reproduces the published family-streak figure', () => {

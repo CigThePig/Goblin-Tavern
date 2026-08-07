@@ -24,6 +24,8 @@ const REQUIRED_FACTIONS: FactionDefinition[] = [
     interests: ['payday_traffic', 'cheap_drink'],
     likedPolicies: ['cheap_payday_specials'],
     dislikedPolicies: ['inflated_prices'],
+    representedGroupIds: ['miners'],
+    actions: ['make_demand', 'pledge_support', 'call_boycott', 'offer_protection'],
     tags: ['worker', 'payday_pressure'],
   },
   {
@@ -39,6 +41,8 @@ const REQUIRED_FACTIONS: FactionDefinition[] = [
     interests: ['ale_supply', 'tavern_debt'],
     likedPolicies: ['prompt_payment'],
     dislikedPolicies: ['watered_drinks', 'unpaid_tabs'],
+    representedGroupIds: [],
+    actions: ['make_demand', 'pledge_support', 'call_boycott', 'squeeze_supply'],
     tags: ['supplier_authority', 'debt_pressure', 'ale'],
   },
   {
@@ -53,6 +57,8 @@ const REQUIRED_FACTIONS: FactionDefinition[] = [
     interests: ['violence_control', 'inspection'],
     likedPolicies: ['quiet_nights', 'compliance'],
     dislikedPolicies: ['brawls', 'unpaid_fines'],
+    representedGroupIds: [],
+    actions: ['make_demand', 'pledge_support', 'press_inspection', 'offer_protection'],
     tags: ['inspection_authority', 'violence_sensitive'],
   },
   {
@@ -67,6 +73,8 @@ const REQUIRED_FACTIONS: FactionDefinition[] = [
     interests: ['road_safety', 'market_day'],
     likedPolicies: ['reliable_purchasing'],
     dislikedPolicies: ['merchant_disrespect'],
+    representedGroupIds: ['merchants'],
+    actions: ['make_demand', 'pledge_support', 'call_boycott', 'squeeze_supply'],
     tags: ['supplier_authority', 'merchant', 'road_sensitive'],
   },
   {
@@ -81,6 +89,8 @@ const REQUIRED_FACTIONS: FactionDefinition[] = [
     interests: ['festivals', 'goblin_traditions'],
     likedPolicies: ['festival_participation'],
     dislikedPolicies: ['festival_disregard'],
+    representedGroupIds: ['local_goblins'],
+    actions: ['make_demand', 'pledge_support', 'call_boycott', 'sponsor_house'],
     tags: ['ritual', 'reputation_influence'],
   },
   {
@@ -95,6 +105,8 @@ const REQUIRED_FACTIONS: FactionDefinition[] = [
     interests: ['waste_removal', 'pest_control'],
     likedPolicies: ['regular_waste_payment'],
     dislikedPolicies: ['missed_pickups'],
+    representedGroupIds: [],
+    actions: ['make_demand', 'pledge_support', 'call_boycott'],
     tags: ['pest_relevant', 'cleanliness_relevant'],
   },
   // Phase 52 / ISSUE-012 — Niche factions. Three additions broaden the
@@ -113,6 +125,8 @@ const REQUIRED_FACTIONS: FactionDefinition[] = [
     interests: ['contraband', 'late_night_trade'],
     likedPolicies: ['discreet_back_room'],
     dislikedPolicies: ['watch_friendly'],
+    representedGroupIds: [],
+    actions: ['make_demand', 'sponsor_house', 'offer_protection', 'back_rival'],
     tags: ['underground', 'risk_tolerant'],
   },
   {
@@ -128,6 +142,8 @@ const REQUIRED_FACTIONS: FactionDefinition[] = [
     interests: ['reputation', 'high_table'],
     likedPolicies: ['quality_service'],
     dislikedPolicies: ['rowdy_nights', 'filth'],
+    representedGroupIds: ['eccentric_noble', 'foreign_envoy'],
+    actions: ['make_demand', 'pledge_support', 'sponsor_house', 'press_inspection', 'back_rival'],
     tags: ['wealthy', 'reputation_authority'],
   },
   {
@@ -142,6 +158,8 @@ const REQUIRED_FACTIONS: FactionDefinition[] = [
     interests: ['market_share', 'staff_poaching'],
     likedPolicies: ['neutral_relations'],
     dislikedPolicies: ['poaching_clients'],
+    representedGroupIds: [],
+    actions: ['make_demand', 'call_boycott', 'squeeze_supply', 'back_rival'],
     tags: ['competition', 'rival_owner'],
   },
 ]

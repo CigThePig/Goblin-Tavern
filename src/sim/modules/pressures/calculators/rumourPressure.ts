@@ -35,18 +35,29 @@ export function calculateRumourPressure(
   const causes: PressureCauseRef[] = []
 
   // Social rumours.
+  //
+  // Expansion Phase 8 §8.4 — weighted by how much the town CREDITS each
+  // story, not just how often it is repeated. Before §8.4 a rumour had only
+  // a strength, so volume was the only thing pressure could read; now a
+  // story carries a credibility that rises when it is confirmed from two
+  // directions and falls when it is denied, countered, contradicted or
+  // traced back to its source. A loud story nobody believes should not press
+  // on the house as hard as a quiet one everybody does — and it is what
+  // makes the three rumour owner actions move this meter honestly, by
+  // changing what people credit rather than by deducting points.
   let totalStrength = 0
   let falseStrength = 0
   for (const rumour of Object.values(ctx.state.world.socialRumours)) {
-    totalStrength += rumour.strength
+    const credited = (rumour.strength * (rumour.credibility ?? 50)) / 100
+    totalStrength += credited
     if (rumour.accuracy === 'false' || rumour.accuracy === 'partial') {
-      falseStrength += rumour.strength
+      falseStrength += credited
     }
   }
   if (totalStrength > 0) {
     pushCause(causes, {
       id: 'active_rumours',
-      readable: `Active rumours total strength ${Math.round(totalStrength)}.`,
+      readable: `Active rumours, weighted by belief, total ${Math.round(totalStrength)}.`,
       amount: Math.round(totalStrength * RUMOUR_PER_STRENGTH),
       tags: ['rumour'],
       relatedSystems: ['rumours'],
@@ -70,9 +81,12 @@ export function calculateRumourPressure(
     if (rumour.subject) actors.push(rumour.subject)
     pushCause(causes, {
       id: `rumour_${rumour.id}`,
-      readable: `${rumour.label} circulating (strength ${Math.round(rumour.strength)}).`,
+      readable: `${rumour.label} circulating (strength ${Math.round(rumour.strength)}, credited ${rumour.credibility ?? 50}).`,
       amount: 0,
-      weight: Math.round(rumour.strength * RUMOUR_PER_STRENGTH),
+      weight: Math.round(
+        ((rumour.strength * (rumour.credibility ?? 50)) / 100) *
+          RUMOUR_PER_STRENGTH,
+      ),
       tags: ['rumour', ...rumour.tags],
       relatedActors: actors,
       relatedSystems: ['rumours'],

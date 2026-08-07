@@ -1,6 +1,7 @@
 import type { SimContext } from '../../../core/context'
 import type { PressureCalculationResult, PressureCauseRef } from '../pressureTypes'
 import type { EntityRef } from '../../../state/TavernState'
+import { getFactionProtection } from '../../factions/stances'
 import {
   combineToValue,
   pushCause,
@@ -128,6 +129,22 @@ export function calculateViolence(ctx: SimContext): PressureCalculationResult {
         relatedSystems: ['staff'],
       })
     }
+  }
+
+  // Expansion Phase 8 §8.1 — a faction that has taken the door is doing the
+  // same job as a bouncer, so it lands in the same place rather than
+  // inventing a second channel. The stance is the factions module's; what
+  // it is worth to violence is decided here.
+  const protection = getFactionProtection(ctx.state)
+  if (protection.relief > 0) {
+    pushCause(causes, {
+      id: 'faction_protection',
+      readable: protection.readable ?? 'A faction is keeping order.',
+      amount: -protection.relief,
+      tags: ['faction', 'protection'],
+      origin: 'external',
+      relatedSystems: ['factions'],
+    })
   }
 
   const value = combineToValue(0, causes)

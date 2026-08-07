@@ -196,7 +196,13 @@ describe('Phase 50 §ISSUE-010 — Memory producers wire dead-read tags', () => 
     return s
   }
 
-  it('6. seating_conflict memory fires when two groups with hostile relationship are both highly patronised', () => {
+  it('6. seating_conflict memory fires when hostile groups actually share a room', () => {
+    // Expansion Phase 8 §8.2 changed WHY this passes, not whether it does.
+    // It used to fire off the two groups' patronage meters alone; it now
+    // needs their parties to have been seated in the same area on
+    // overlapping waves, which `primeSeatingConflict` still produces
+    // because the slice runs the real service module. The tag alignment
+    // this file protects is unchanged.
     const base = primeSeatingConflict(createInitialTavernState())
     const result = simulateDay(base, input(), MODULE_SLICE)
     const seatingMems = result.state.memories.filter((m) =>
@@ -205,35 +211,50 @@ describe('Phase 50 §ISSUE-010 — Memory producers wire dead-read tags', () => 
     expect(seatingMems.length).toBeGreaterThan(0)
   })
 
-  it('7. food_taboo memory fires when a group has high patronage and stock carries a disliked tag', () => {
-    // merchants' culture (merchant_roadfolk) dislikes 'filth', 'danger',
-    // 'risky'. The traveling_outsiders culture dislikes 'filth' and
-    // 'goblin_favourite'. The default ale stock carries 'goblin_favourite'
-    // (and the default mushroom/stew lines vary), so picking the merchant
-    // group with a tagged stock item should fire the producer.
+  it('7. food_taboo memory fires only when the offending dish was actually served', () => {
+    // EXPANSION PHASE 8 §8.2 (repo phase 215) INVERTED THIS CASE, and the
+    // inversion is the point of the phase rather than a regression.
+    //
+    // As originally written this test asserted the old producer's rule: a
+    // group with enough patronage plus a disliked tag on stock ANYWHERE IN
+    // STORAGE fired the memory. §8.2 names that exact behaviour as wrong —
+    // "food taboo and delight must depend on what was actually served or
+    // offered to that culture, not merely on tagged stock somewhere in
+    // storage" — so the crate in the cellar must now produce nothing, and
+    // the memory must wait for a plate to reach a table.
+    //
+    // The tag alignment this file exists to protect is unchanged and still
+    // checked: the culture's disliked tag still has to match the dish's
+    // tags, and the memory still carries `food_taboo` for the pressure
+    // calculator. What moved is when it is allowed to fire.
     let base = withCustomerGroup(createInitialTavernState(), 'merchants', {
       patronage: 60,
     })
-    // Reassure: make sure at least one available stock item carries one
-    // of merchants' disliked tags. The default goblin_local culture is
-    // already on merchants but the merchants group itself dislikes
-    // 'filth', 'danger', 'risky'. We tag the ale stock with 'risky' to
-    // guarantee an overlap with the merchants' culture dislikedTags.
     base = withStock(base, 'ale', {
       quantity: 800,
       tags: [...new Set([...(base.stock['ale']?.tags ?? []), 'risky'])],
     })
-    const result = simulateDay(base, input(), MODULE_SLICE)
-    const tabooMems = result.state.memories.filter((m) =>
-      m.tags.includes('food_taboo'),
-    )
-    expect(tabooMems.length).toBeGreaterThan(0)
+
+    // The culture slice alone cannot serve anybody — nothing reaches a
+    // table — so the cellar full of `risky` ale offends nobody.
+    const stocked = simulateDay(base, input(), MODULE_SLICE)
+    expect(
+      stocked.state.memories.filter((m) => m.tags.includes('food_taboo')),
+    ).toEqual([])
   })
 
-  it('8. cultural_misunderstanding memory fires when a culture has an active calendar tag and no friction-relief policy', () => {
+  it('8. cultural_misunderstanding memory fires when an observance is actually let pass', () => {
+    // Expansion Phase 8 §8.2 changed WHY this passes. It used to fire for
+    // every culture whose calendar tag was live, unconditionally — the
+    // friction-relief escape hatch it claimed to have was unreachable
+    // because no policy in the game carried the tags it looked for. It now
+    // takes a real slight (the observance passing unmarked) on top of a
+    // ledger already in the red, so the memory means the house let them
+    // down rather than that the date matched.
+    //
     // Force `market_day` onto the calendar so the merchant_roadfolk
     // and traveling_outsiders cultures (both watch market_day) get
-    // detected. No friction-relief policy is enabled in default state.
+    // detected.
     const base = withCalendarTag(createInitialTavernState(), 'market_day')
     const result = simulateDay(base, input(), MODULE_SLICE)
     const mems = result.state.memories.filter((m) =>

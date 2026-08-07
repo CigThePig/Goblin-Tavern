@@ -12,6 +12,13 @@ import type { SimContext } from '../../core/context'
 //   2. Reserves Phase 27's new world phase hooks
 //      (`identityGeneration`, `localEventUpdate`) with no-op slots so the
 //      pipeline order is observable in tests.
+// Expansion Phase 8 §8.4 — THE RUMOUR LIFECYCLE HAS MOVED to
+// `modules/rumours/`. The world module owned decay and pruning only because
+// nothing else did; `world.socialRumours` now has start, spread, contradict,
+// correct, decay and prune, which is a domain rather than a chore, and §5.4
+// wants one owner per transition. The constants below are re-exported from
+// their new home so existing importers keep working.
+//
 //   3. Phase 83 / ISSUE-043 — prunes `state.world.socialRumours` on
 //      `endMonth`, mirroring the history pruning policy in
 //      `historyModule.ts`. Long runs that emitted rumours weekly were
@@ -38,9 +45,13 @@ const WorldModuleStateSchema = z.object({}).passthrough().optional()
 // over the cap, the lowest-strength survivors drop until it isn't.
 // Magnitudes mirror the history pruning intent: 90-day window, low-
 // strength floor, hard cap to keep walks bounded.
-export const RUMOUR_MAX_ENTRIES = 60
-export const RUMOUR_STALE_DAYS = 90
-export const RUMOUR_STALE_STRENGTH = 10
+// Expansion Phase 8 §8.4 — re-exported from their new owner so every
+// existing importer keeps working. The values are unchanged.
+export {
+  RUMOUR_MAX_ENTRIES,
+  RUMOUR_STALE_DAYS,
+  RUMOUR_STALE_STRENGTH,
+} from '../rumours/rumourModule'
 
 // Phase 206 / audit Wave 7 — daily rumour decay.
 //
@@ -60,95 +71,15 @@ export const RUMOUR_STALE_STRENGTH = 10
 // weekly pass keeps re-confirming stays alive indefinitely. Entries that
 // fall below `RUMOUR_FADE_FLOOR` are removed outright — a rumour nobody
 // repeats stops existing rather than idling at strength 2.
-export const RUMOUR_DAILY_RETENTION = 0.85
-export const RUMOUR_FADE_FLOOR = 5
+export {
+  RUMOUR_DAILY_RETENTION,
+  RUMOUR_SPREADING_RETENTION,
+  RUMOUR_FADE_FLOOR,
+} from '../rumours/belief'
 
 const noop = (_ctx: SimContext): void => {
   // Phase 27 phases exist before they have content. Domain modules
   // (cultures, suppliers, etc.) attach the actual behaviour later.
-}
-
-// Phase 206 / audit Wave 7 — fade every social rumour a little each day.
-// Runs on the `rumourUpdate` phase (reserved by Phase 27 for exactly this
-// kind of work, a no-op until now), before `forecastTraffic`, so the
-// pressure pass later in the day reads post-decay strengths.
-const decayRumoursHook: SimulationHook = (ctx: SimContext): void => {
-  const rumours = ctx.state.world.socialRumours
-  const faded: string[] = []
-  for (const [id, rumour] of Object.entries(rumours)) {
-    const next =
-      Math.round(rumour.strength * RUMOUR_DAILY_RETENTION * 100) / 100
-    if (next < RUMOUR_FADE_FLOOR) {
-      delete rumours[id]
-      faded.push(id)
-      continue
-    }
-    rumour.strength = next
-  }
-  if (faded.length > 0) {
-    ctx.addCause({
-      source: `${SOURCE}.rumour_decay`,
-      sourceType: 'system',
-      target: 'world.socialRumours',
-      targetType: 'global',
-      amount: -faded.length,
-      direction: 'decrease',
-      readable: `${faded.length} rumour${
-        faded.length === 1 ? '' : 's'
-      } faded away — nobody is repeating ${faded.length === 1 ? 'it' : 'them'} any more.`,
-      tags: ['world', 'rumour', 'decay'],
-      relatedSystems: ['world'],
-    })
-  }
-}
-
-const pruneRumoursHook: SimulationHook = (ctx: SimContext): void => {
-  const rumours = ctx.state.world.socialRumours
-  const ids = Object.keys(rumours)
-  if (ids.length === 0) return
-  const today = ctx.state.calendar.totalDaysElapsed
-  const ageCutoff = today - RUMOUR_STALE_DAYS
-
-  const dropped: string[] = []
-  // 1. Drop stale + low-strength entries.
-  for (const id of ids) {
-    const r = rumours[id]!
-    if (r.lastSpreadDay <= ageCutoff && r.strength < RUMOUR_STALE_STRENGTH) {
-      delete rumours[id]
-      dropped.push(id)
-    }
-  }
-
-  // 2. If still over cap, drop lowest-strength survivors.
-  let remainingIds = Object.keys(rumours)
-  if (remainingIds.length > RUMOUR_MAX_ENTRIES) {
-    const survivors = remainingIds
-      .map((id) => ({ id, strength: rumours[id]!.strength }))
-      .sort((a, b) => a.strength - b.strength)
-    const overage = remainingIds.length - RUMOUR_MAX_ENTRIES
-    for (let i = 0; i < overage; i += 1) {
-      const victim = survivors[i]!.id
-      delete rumours[victim]
-      dropped.push(victim)
-    }
-    remainingIds = Object.keys(rumours)
-  }
-
-  if (dropped.length > 0) {
-    ctx.addCause({
-      source: `${SOURCE}.rumour_prune`,
-      sourceType: 'system',
-      target: 'world.socialRumours',
-      targetType: 'global',
-      amount: -dropped.length,
-      direction: 'decrease',
-      readable: `Pruned ${dropped.length} stale/oversaturated social rumour${
-        dropped.length === 1 ? '' : 's'
-      }.`,
-      tags: ['world', 'rumour', 'prune'],
-      relatedSystems: ['world'],
-    })
-  }
 }
 
 export const worldModule: SimulationModule = {
@@ -157,8 +88,8 @@ export const worldModule: SimulationModule = {
   hooks: {
     identityGeneration: [noop],
     localEventUpdate: [noop],
-    rumourUpdate: [decayRumoursHook],
-    endMonth: [pruneRumoursHook],
+    rumourUpdate: [noop],
+    endMonth: [noop],
   },
   stateSchema: WorldModuleStateSchema,
 }

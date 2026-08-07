@@ -540,6 +540,12 @@ export type CauseSourceType =
   | "faction"
   | "supplier"
   | "regular"
+  // Expansion Phase 8 §8.3 — a notable NPC can now be the SOURCE of a
+  // change, not only its target. It was already a valid `CauseTargetType`
+  // (things happened to them); §8.3 gives selected NPCs a small action set,
+  // so things now happen BECAUSE of them and the cause has to be able to say
+  // so.
+  | "notable_npc"
   | "local_event"
   | "rumour";
 
@@ -608,6 +614,20 @@ export type CultureWorldState = {
   familiarity: number;
   comfort: number;
   tension: number;
+  /**
+   * Expansion Phase 8 §8.2 — will this house look after our people again?
+   *
+   * The fourth meter §8.2 asks for, and deliberately NOT a synonym for
+   * comfort: comfort is how a culture feels in the room tonight, trust is
+   * whether it expects to be treated well next time. A warm room does not
+   * buy back a taboo served last week, and it is trust — not comfort — that
+   * the attendance and recommendation effects read.
+   *
+   * Optional during the migration window; `ensureCultureAgencyFields`
+   * derives it from the save's existing comfort/tension rather than rolling
+   * it, so no generated identity shifts.
+   */
+  trust?: number;
   namingProfileId: NamingProfileId;
   preferredStockTags: string[];
   dislikedTags: string[];
@@ -914,6 +934,25 @@ export type TavernIdentityState = {
   atmosphereTags: string[];
 };
 
+/**
+ * Who has heard a rumour, and how much of it they believe.
+ *
+ * Expansion Phase 8 §8.4. `strength` alone said how loud a rumour was and
+ * nothing about who was carrying it, so a rumour could be at strength 90
+ * without a single person in the world believing anything. An audience is a
+ * culture, a faction, a customer group or a notable NPC — the actors §8.1 to
+ * §8.3 built — and its `belief` is what the decision rules read.
+ */
+export type RumourAudience = {
+  id: string;
+  kind: "culture" | "faction" | "customer_group" | "notable_npc";
+  /** 0..100. How much of it this audience takes as true. */
+  belief: number;
+  heardOnDay: number;
+  /** Who they heard it from. Absent when they were the source. */
+  fromId?: string;
+};
+
 export type SocialRumourState = {
   id: string;
   label: string;
@@ -926,6 +965,35 @@ export type SocialRumourState = {
   lastSpreadDay: number;
   tags: string[];
   involvedRefs?: EntityRef[];
+
+  // -- Expansion Phase 8 §8.4 — a rumour that actually travels ------------
+  //
+  // Every field below is optional so a pre-Phase-8 save parses unchanged;
+  // `ensureRumourNetworkFields` fills them from what the save already knows.
+
+  /**
+   * How believable it is, 0..100 — as distinct from `strength`, which is how
+   * widely it is being repeated. The two come apart constantly: a wild story
+   * everybody has heard and nobody credits is loud and weak, and a quiet
+   * word from somebody reliable is the opposite.
+   */
+  credibility?: number;
+  /** Behind closed doors, or out in the open. Public talk reaches further. */
+  reach?: "private" | "public";
+  /** Who has heard it. Bounded — see `MAX_RUMOUR_AUDIENCES`. */
+  audiences?: RumourAudience[];
+  /** 0..100. How far the telling has drifted from what was first said. */
+  distortion?: number;
+  /** What it said when it started, so the drift is legible. */
+  originalLabel?: string;
+  /** How many times it has been passed on. The anti-recursion bound. */
+  hops?: number;
+  /** The rumour that contradicts this one, when somebody has put one about. */
+  counterRumourId?: string;
+  /** Set when it was put right rather than merely forgotten. */
+  correctedOnDay?: number;
+  /** Who started it. */
+  originRef?: EntityRef;
 };
 
 export type WorldState = {

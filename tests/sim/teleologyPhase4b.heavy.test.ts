@@ -53,8 +53,19 @@ describe('teleology phase 4b — heavy arc autonomy playtest', () => {
 
     // No arc advancement ever wrote a pressure target. `causes` is a
     // per-day log, so scan every day across the run.
+    //
+    // Filtered on `teleology`, which every cause the arcs module emits
+    // carries (`arcs.spawn` / `.attach` / `.advance` / `.proven` /
+    // `.progress`), rather than on `arc`. `arc` is also worn by the
+    // arc-escalation PRESSURE calculator's bleed-in entries — causes about
+    // arcs rather than causes from one — and those target
+    // `pressure:arc_escalation` by definition, so matching them made this
+    // invariant assert something it never meant. It went unnoticed because
+    // the bleed-in needs a related pressure at 40+, and nothing reached
+    // that on an unmanaged 40-day route until expansion Phase 8.2 gave
+    // cultural tension something to rise from.
     const arcCauses = trail.flatMap((s) =>
-      s.causes.filter((c) => c.tags.includes('arc')),
+      s.causes.filter((c) => c.tags.includes('teleology')),
     )
     expect(arcCauses.length).toBeGreaterThan(0)
     expect(arcCauses.every((c) => !c.target.startsWith('pressure'))).toBe(true)

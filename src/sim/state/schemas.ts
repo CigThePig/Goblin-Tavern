@@ -526,6 +526,7 @@ export const CauseEntrySchema = z.object({
     "faction",
     "supplier",
     "regular",
+    "notable_npc",
     "local_event",
     "rumour",
   ]),
@@ -593,6 +594,10 @@ export const CultureWorldStateSchema = z.object({
   familiarity: meter(),
   comfort: meter(),
   tension: meter(),
+  // Expansion Phase 8 §8.2 — optional during the migration window; a
+  // pre-Phase-8 save carries no trust and `ensureCultureAgencyFields`
+  // derives one from the comfort and tension it already has.
+  trust: meter().optional(),
   namingProfileId: z.string(),
   preferredStockTags: z.array(z.string()),
   dislikedTags: z.array(z.string()),
@@ -802,6 +807,27 @@ export const SocialRumourStateSchema = z.object({
   lastSpreadDay: nonNegativeInt(),
   tags: z.array(z.string()),
   involvedRefs: z.array(EntityRefSchema).optional(),
+  // Expansion Phase 8 §8.4 — all optional during the migration window;
+  // `ensureRumourNetworkFields` fills them from what the save already knows.
+  credibility: meter().optional(),
+  reach: z.enum(["private", "public"]).optional(),
+  audiences: z
+    .array(
+      z.object({
+        id: z.string(),
+        kind: z.enum(["culture", "faction", "customer_group", "notable_npc"]),
+        belief: meter(),
+        heardOnDay: nonNegativeInt(),
+        fromId: z.string().optional(),
+      }),
+    )
+    .optional(),
+  distortion: meter().optional(),
+  originalLabel: z.string().optional(),
+  hops: nonNegativeInt().optional(),
+  counterRumourId: z.string().optional(),
+  correctedOnDay: nonNegativeInt().optional(),
+  originRef: EntityRefSchema.optional(),
 });
 
 export const WorldStateSchema = z.object({

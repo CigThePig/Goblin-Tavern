@@ -1,3 +1,83 @@
 export { factionModule, FACTIONS_MODULE_ID } from './factionModule'
 export { buildFactionReport } from './factionReport'
-export type { FactionModuleState } from './types'
+export {
+  CLOSED_RECORD_RETENTION_DAYS,
+  FactionModuleStateSchema,
+  MAX_FACTION_MOVE_HISTORY,
+  MAX_FACTION_RECORDS,
+  activeStance,
+  activeStances,
+  bumpFactionTotal,
+  createInitialFactionModuleState,
+  createInitialFactionTotals,
+  getFactionModuleState,
+  getFactionStanding,
+  normalizeFactionSlice,
+  openDemandFor,
+  openDemands,
+  owedFavourFor,
+  owedFavours,
+  pruneFactionRecords,
+  recordFactionMove,
+  stanceId,
+  writeFactionSlice,
+} from './factionState'
+export {
+  MAX_STANDING_ENTRIES,
+  STANDING_MEMORY_DAYS,
+  constituencyReach,
+  entryWeightToday,
+  memberRegulars,
+  memberSuppliers,
+  netStanding,
+  noteStanding,
+  representedGroups,
+  standingNet,
+  summariseStanding,
+  worstGrievance,
+} from './standing'
+export {
+  STANCE_DURATION_DAYS,
+  closeStance,
+  contestableStances,
+  getFactionForecastModifier,
+  getFactionProtection,
+  getFactionRivalBacking,
+  getFactionSupplyPressure,
+  openStance,
+  syncFactionFlags,
+} from './stances'
+export {
+  FACTION_ACTOR_ACTION_LIST,
+  FACTION_GOALS,
+  FACTION_INTENT_LEAD_DAYS,
+  amountOwedToMembers,
+  buildPerception,
+  clearFactionIntent,
+  deriveGoals,
+  listFactionIntents,
+  runFactionActors,
+  weeklyBudgetFor,
+} from './factionActors'
+export {
+  FACTION_DEMAND_DEADLINE_EVENT,
+  FACTION_FAVOUR_DUE_EVENT,
+  FACTION_RETALIATION_EVENT,
+  FACTION_SCHEDULED_EVENTS,
+  FACTION_SCHEDULED_EVENT_TYPES,
+  ensureFactionScheduledEventsRegistered,
+  openDemandRecord,
+  scheduleRetaliation,
+} from './factionEvents'
+export { observeFactionTreatment } from './factionEvidence'
+export type {
+  FactionDemand,
+  FactionFavour,
+  FactionModuleState,
+  FactionMoveEntry,
+  FactionStance,
+  FactionStanceKind,
+  FactionStanding,
+  FactionStandingEntry,
+  FactionTotals,
+} from './types'

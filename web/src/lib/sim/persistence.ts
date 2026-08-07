@@ -84,6 +84,11 @@ import {
   ensureModuleSlices,
   ensureExpansionContractSlices,
   ensureExternalObligationSlices,
+  ensureCultureAgencyFields,
+  ensureNpcAgencyFields,
+  ensureRumourNetworkFields,
+  ensureBeliefBehaviourFields,
+  ensureFactionAgencyFields,
   flipUpkeepRecipesOffMenu,
 } from "../../../../src/sim/state/migrations";
 import { safeValidateState } from "../../../../src/sim/state/validation";
@@ -787,7 +792,32 @@ function migrateAndValidateState(
     // would invent observations nobody made. Runs after the monthly slice is
     // guaranteed present, because it reads the rent it is replacing.
     const s8f = ensureExternalObligationSlices(s8e);
-    const s9 = ensureModuleSlices(s8f);
+    // Expansion Phase 8 §5.7 — the faction agency fields. Named rather than
+    // left to the generic sweep because every pre-Phase-8 save already HAS a
+    // `modules.factions` slice — an empty one — which the sweep would walk
+    // past, leaving the standing ledger, stances, demands and favours
+    // undefined for every reader.
+    const s8g = ensureFactionAgencyFields(s8f);
+    // Expansion Phase 8 §5.7 — the culture agency fields. Named for the same
+    // two reasons: every pre-Phase-8 save already HAS an empty
+    // `modules.cultures` slice the generic sweep would skip, and the new
+    // `trust` meter is derived from the comfort and tension the save already
+    // carries rather than defaulted flat.
+    const s8h = ensureCultureAgencyFields(s8g);
+    // Expansion Phase 8 §5.7 — the notable-NPC slice. Named rather than left
+    // to the generic sweep for one judgement: `lastSeenDay` is left ABSENT
+    // rather than backdated, because stamping any day would claim a visit
+    // nobody played.
+    const s8i = ensureNpcAgencyFields(s8h);
+    // Expansion Phase 8 §5.7 — the rumour network. Named because every
+    // rumour record in an old save needs its credibility derived from the
+    // strength and accuracy it already carries, and — the load-bearing part
+    // — its audience list left EMPTY rather than populated: nobody in that
+    // save ever heard it from anybody.
+    const s8j = ensureRumourNetworkFields(s8i);
+    // Expansion Phase 8 §8.5 — the belief-behaviour record.
+    const s8k = ensureBeliefBehaviourFields(s8j);
+    const s9 = ensureModuleSlices(s8k);
     const validation = safeValidateState(s9, { modules: FULL_PIPELINE });
     if (!validation.success) {
       const first = validation.errors[0];

@@ -46,6 +46,13 @@ import {
   type TenancyNotice,
   type TenancyNoticeKind,
 } from './types'
+import {
+  beliefEffect,
+  publicBeliefAgainstHouse,
+} from '../attribution/beliefInputs'
+
+/** The most the town's talk may raise the landlord's bar. */
+export const MAX_LANDLORD_BELIEF_BUMP = 8
 
 // Expansion Phase 7 §7.2 — every tenancy transition, in one place (§5.4).
 //
@@ -820,12 +827,24 @@ export function negotiateTenancy(
   }
   // The bar rises with the ask, and falls with the landlord's opinion of the
   // tavern. Paying rent is how a player lowers it.
-  const bar = kind === 'deferral' ? 35 : kind === 'payment_plan' ? 45 : 60
+  // Expansion Phase 8 §8.5 — "landlord interpretation where legitimate". The
+  // landlord does not read the tavern's staff grudges or a supplier's private
+  // opinion; what reaches them is what is being said ALOUD about their
+  // tenant, and it makes them want more before they bend. Capped at 8 points
+  // of the bar — the rent record is still what decides this, which is why the
+  // refusal keeps naming it.
+  const talk = publicBeliefAgainstHouse(ctx.state)
+  const talkBump = Math.round(beliefEffect(talk, MAX_LANDLORD_BELIEF_BUMP))
+  const baseBar = kind === 'deferral' ? 35 : kind === 'payment_plan' ? 45 : 60
+  const bar = baseBar + talkBump
   if (landlord.opinion < bar) {
     return {
       ok: false,
       code: 'refused',
-      reason: `${LANDLORD_LABEL} thinks too little of you for that (opinion ${landlord.opinion}, needs ${bar}). Pay something toward the rent first.`,
+      reason:
+        talkBump > 0
+          ? `${LANDLORD_LABEL} thinks too little of you for that (opinion ${landlord.opinion}, needs ${bar} — ${talk!.readable}). Pay something toward the rent first.`
+          : `${LANDLORD_LABEL} thinks too little of you for that (opinion ${landlord.opinion}, needs ${bar}). Pay something toward the rent first.`,
     }
   }
 

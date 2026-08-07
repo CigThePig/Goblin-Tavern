@@ -997,7 +997,10 @@ describe('Phase 208 §1.7 — engine extension surface', () => {
     // Not a failure — §1.7 says migrate one domain at a time. This pins the
     // number so it can only go DOWN, and so a new module cannot quietly
     // join the undeclared pile.
-    expect(undeclaredModules(FULL_PIPELINE).length).toBeLessThanOrEqual(24)
+    // Expansion Phase 8 (ISSUE-178) drives it down rather than up: `npcs`
+    // and `rumours` both declare contracts as they land, so the two new
+    // domains cost nothing and `npcs` pays back the one 8.3 added.
+    expect(undeclaredModules(FULL_PIPELINE).length).toBeLessThanOrEqual(23)
   })
 
   it('the four new contract modules each declare and own their slice', () => {

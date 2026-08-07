@@ -5,6 +5,7 @@ import {
 } from "../modules/calendar/index";
 import { cloneTavernState } from "../state/defaults";
 import { safeValidateState } from "../state/validation";
+import { withRumourDefaults } from "../state/rumourDefaults";
 import { freezeInDev } from "./devGuard";
 import type {
   AreaState,
@@ -1367,6 +1368,19 @@ function createContext(
       };
       addCauseInternal(meta, { target: id, targetType: "regular" });
     },
+    removeSocialRumour(id, meta): void {
+      if (!runtime.current.world.socialRumours[id]) return;
+      const nextRumours = { ...runtime.current.world.socialRumours };
+      delete nextRumours[id];
+      runtime.current = {
+        ...runtime.current,
+        world: {
+          ...runtime.current.world,
+          socialRumours: nextRumours,
+        },
+      };
+      addCauseInternal(meta, { target: id, targetType: "rumour" });
+    },
     addSocialRumour(rumour, meta): void {
       if (runtime.current.world.socialRumours[rumour.id]) {
         throw new Error(`addSocialRumour: duplicate rumour id '${rumour.id}'`);
@@ -1377,7 +1391,10 @@ function createContext(
           ...runtime.current.world,
           socialRumours: {
             ...runtime.current.world.socialRumours,
-            [rumour.id]: rumour,
+            // Expansion Phase 8 §8.4 — a rumour enters the world with its
+            // network fields already set, so a save taken before the next
+            // `rumourUpdate` cannot be migrated into different ones.
+            [rumour.id]: withRumourDefaults(rumour),
           },
         },
       };

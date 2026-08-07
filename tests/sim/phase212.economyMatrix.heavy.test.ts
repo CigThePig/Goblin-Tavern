@@ -66,12 +66,32 @@ describe('Phase 212 §5 required long-run strategy matrix', () => {
     300_000,
   )
 
-  it('turns a 180-day passive collapse into closure and real arrears', () => {
+  // Expansion Phase 8 — the horizon moves 180 → 210, and WHY is worth
+  // recording because the number is not arbitrary and the old one was never
+  // as solid as it looked.
+  //
+  // The eviction ladder is fast once it starts (reminder → formal → final →
+  // filed → hearing is about 28 days). What decides whether it finishes
+  // inside the run is which month's rent is the first one the tavern cannot
+  // pay, and at that moment this route is on a knife edge: it reached the
+  // month-5 settlement with 126 coin before Phase 8 and 134 after, against a
+  // rent of 120. Eight coin bought one more paid month, pushing the first
+  // miss from day 140 to day 168 and the eviction from day 168 to day 196.
+  //
+  // Nothing about the collapse got weaker — the branch tavern is shut by the
+  // watch on day 32 rather than surviving to day 171, ends with 0 coin
+  // against the old 19, and carries MORE arrears. So the fix is the horizon
+  // rather than the claim: 210 days lets the ladder finish and keeps the
+  // strong assertion ("it loses the building") instead of softening it to
+  // "it is losing the building". If this fails again on a day-196-ish
+  // eviction, read it as the same knife edge slipping one more rent period,
+  // not as the ladder breaking.
+  it('turns a 210-day passive collapse into closure and real arrears', () => {
     const finalState = runBalanceScenario({
       botId: 'auto_profit_focused',
       difficulty: 'standard',
       seed: 'phase212-economy-passive-collapse',
-      days: 180,
+      days: 210,
       ownerActions: 'none',
       responses: 'none',
     }).finalState
@@ -107,7 +127,8 @@ describe('Phase 212 §5 required long-run strategy matrix', () => {
     // The till is spent. This was `toBe(0)` before Phase 7: a closed tavern
     // now still takes the odd coin and the sweeps no longer drain it to the
     // last penny, so the exact-zero pin no longer holds. The observed value
-    // on this route is 19, and the bound brackets it deliberately — loose
+    // on this route was 19 at 180 days and is 0 at 210, and the bound
+    // brackets both deliberately — loose
     // enough not to re-pin on every balance nudge, tight enough that a
     // regression leaving a day's operating cost (30+) in the till fails.
     expect(finalState.coin).toBeGreaterThanOrEqual(0)

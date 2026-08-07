@@ -55,8 +55,119 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > a notice ladder that ends in an eviction hearing the tavern can still
 > escape; and an inspector actually visits, grades seven dimensions against
 > live state, and leaves findings, fines and orders a follow-up re-reads.
-> **Next: ISSUE-178 (Phase 8 — the autonomous social world).** The sequence
-> is hard-ordered after that.
+> **ISSUE-178 (Phase 8 — the autonomous social world) is DONE, executed part
+> by part (8.1–8.5). Next: ISSUE-179 (Phase 9 — rivals, local arcs,
+> expeditions).** **§8.1 (factions) is done (2026-08-06).**
+> Factions are now actors rather than meters: each has goals derived from
+> live state, a budget derived from its influence, a constituency of real
+> customer groups and suppliers, a dated and decaying ledger of how it has
+> been treated, and a bounded eight-move action set (ask, back, boycott,
+> report to the watch, squeeze supply, sponsor, protect, back the rival).
+> They decide deterministically, announce the move two days before making
+> it, and each move is read by the domain that owns what it changes — the
+> customers' own forecast rule, the supplier's own price and credit
+> decision, the violence calculator, the competitor factor. The visible
+> `relationship` meter is now a summary of the ledger rather than a
+> threshold drift, and four owner actions (grant, refuse, appeal, repay)
+> mean every move can be opposed. Five `HOOK-*` families stop draining:
+> `faction_grudge_*`, `faction_revenge_*`, `faction_deception_exposed_*`,
+> `<group>_boycott_possible` and `shrine_favour_owed_*` now resolve into
+> real faction moves.
+>
+> **§8.2 (cultures) is done (2026-08-07), which closes DEP-08.** The two
+> things §8.2 names as broken are fixed at the source rather than
+> re-heuristicked: food taboo and delight now read the order lines a party
+> was actually DELIVERED (they scanned the cellar, so a crate of something a
+> culture does not eat offended them whether or not a plate ever left the
+> kitchen), and seating tension now reads actual placement and crowding from
+> the Phase 4 flow (it compared two patronage meters, so groups could
+> "conflict over seating" on a night neither sat down). On top of that:
+> comfort, familiarity, trust and tension are derived daily from that
+> evidence instead of being seeded at day zero and never written again;
+> cultures keep an accommodation history, observe the calendar, rub against
+> each other by actually sharing a room, shift their preferences toward what
+> they have been served, and pass the word weekly; and a real slight opens a
+> misunderstanding that names its own remedy, which `make_amends_to_culture`
+> settles. `seat_groups_apart` is the first policy to carry the
+> `cultural_accommodation` tag that two systems had been looking for since
+> Phase 38 without ever finding — it buys friction off and charges seats and
+> server time for it.
+>
+> **§8.3 (notable NPCs) is done (2026-08-07).** The nine notable NPCs have
+> existed since Phase 44 as names the issue-seed prose refers to; nothing
+> had ever written to one, including the `lastSeenDay` their own record
+> declares. §8.3's distinctive constraint is the design — "do not promote
+> every generated name into a full agent" — so there are two tiers.
+> Everybody gets a cheap record: what the house has had to do with them,
+> how they feel about the owner, when they are about (a market factor keeps
+> market days, a smuggler keeps nights), and what they can put behind
+> something. Only somebody the house has dealt with four times AND who
+> matters to something live — a case open, a loan outstanding, their
+> faction taking a position — is promoted to an actor, capped at four at a
+> time with a grace window so nobody flickers. The promoted get a goal, a
+> five-move action set that lands in service, factions, suppliers,
+> regulation and arcs, and a two-day announced intent; their offers carry
+> deadlines and being ignored costs more than being turned down. Also
+> closes the two culture hook families §8.2 left open
+> (`culture_walkout_risk_*`, `culture_seating_backlash_*`) — 8.2 machinery
+> that was simply missed.
+>
+> **§8.4 (the rumour network) is done (2026-08-07), which closes DEP-10 and
+> the rumour half of OBL-08.** Talk used to appear at full volume in
+> everybody's ears at once and then get quieter: a bag of records with a
+> strength and an `accuracy` that decided nothing. A rumour now has a
+> source, an audience it reached one hop at a time, a credibility separate
+> from its volume, and a version of itself that drifts from what was
+> originally said. It travels through the people the world already has —
+> promoted NPCs, factions, cultures and customer groups — and only through
+> those willing to repeat it, bounded six ways (6 audiences, 5 hops, 2
+> spreads per rumour per day, 4 a day overall, 3 shares per channel per
+> week, counter-stories one deep). Belief hardens when a story is heard
+> from two directions and falls when it is denied, countered, contradicted
+> or traced home; three owner actions (deny it, put a story about, name the
+> source) are all answers a player can be wrong to give, since denying a
+> TRUE story costs credit when the denial is tested. `rumour_pressure` now
+> reads what the town CREDITS rather than how often it is repeated, which
+> is what makes those three actions move the meter honestly. Every material
+> deletion — the daily fade, the monthly prune, the overflow — leaves a
+> cause naming what went, alongside the §1.4 grouped cause for the day's
+> drift, which is the rumour half of OBL-08; five `HOOK-*` families
+> (`rumour_escalation_*`, `rumour_denial_backfire_*`,
+> `counter_rumour_runaway_*` and their two-part forms) stop draining and
+> resolve against the live rumour. Three defects fixed on the way: nothing
+> spread at all until minted rumours were given an origin (a channel may
+> only repeat what it has heard); propagation would revive a story nobody
+> had mentioned in three months, which also made the monthly stale prune
+> dead code; and a rumour created between the day's `rumourUpdate` and a
+> save was migrated into different network fields than the uninterrupted
+> run had, which failed §5.10.
+>
+> **§8.5 (attribution becomes behavioral) is done (2026-08-07), which closes
+> DEP-11 and completes ISSUE-178.** Since Phase 37 the attribution layer has
+> produced a rich, aging, merging record of what everybody in the world
+> thinks — and exactly one rule in the whole simulation read it as an input
+> to a decision (the supplier's price). Everywhere else it fed pressure
+> calculators, issue-seed selection and report prose: belief you could read
+> about but never feel. It is now a bounded input to **six** domains' own
+> rules — supplier quotes and credit lines, customer-group forecast, regular
+> visits, staff quit risk, faction goals and target selection, and the way
+> the watch and the landlord READ the same facts — and the two words doing
+> the work are *capped* and *domain-owned*: the belief layer returns a 0–1
+> weight and each domain declares its own ceiling as a named constant.
+> Nothing outside a domain mutates that domain. The landlord and the watch
+> read only what is being said ALOUD (publicness ≥ 60), because overhearing
+> a private grudge would be the leak §8.5 forbids, and the weight is the
+> strongest single belief rather than a sum, so "how many separate things
+> went wrong" cannot accumulate the way the Wave 7 pressure stacking did.
+> `address_grievance` is the move on the other side of it, and it can be
+> played badly: answering something somebody is RIGHT about hardens it,
+> exactly as denying a true rumour does in §8.4. The two remaining Phase-8
+> hook families close here rather than with the rumour network because both
+> are promises about belief — the party the house deflected blame onto now
+> resents it (accuracy `true`, so it cannot be talked away), and a bribe that
+> gets out is believed by the watch, which then reads the next inspection
+> harder. **ISSUE-178 is complete; next is ISSUE-179 (Phase 9 — rivals,
+> local arcs, expeditions).** The sequence is hard-ordered after that.
 >
 > Everything else below — the Complete Surface resume points, the
 > onboarding arc, the standing tails — is **paused, not cancelled**, and
@@ -304,7 +415,7 @@ rather than rebuilding those routes.
 | ISSUE-175 | Expansion Phase 5 — economy: quality→cash feedback, operating costs, failure/recovery states, adaptive demand, enforceable policies | broken | done | 212 |
 | ISSUE-176 | Expansion Phase 6 — transactional suppliers: orders, deliveries, credit, invoices (OBL-04) | broken | done | 213 |
 | ISSUE-177 | Expansion Phase 7 — loans, tenancy, and a real inspection lifecycle (OBL-03 + loan/eviction half of OBL-02) | broken | done | 214 |
-| ISSUE-178 | Expansion Phase 8 — autonomous social world: faction/culture/NPC agency, rumour propagation, behavioral attribution (rumour half of OBL-08) | broken | open | 215 |
+| ISSUE-178 | Expansion Phase 8 — autonomous social world: faction/culture/NPC agency, rumour propagation, behavioral attribution (rumour half of OBL-08) | broken | done (8.1–8.5) | 215 |
 | ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | open | 216 |
 | ISSUE-180 | Expansion Phase 10 — populated teleology, causal identity with hysteresis, character arcs, earned nicknames (OBL-09 + mastery half of OBL-08) | broken | open | 217 |
 | ISSUE-181 | Expansion Phase 11 — reconnect issues, responses, pressures, feedback, memory and history to the deepened domains (closes OBL-02) | broken | open | 218 |
@@ -349,7 +460,7 @@ consequence is a direct pressure or reputation adjustment*.
 | ISSUE-175 | 5 — economy | 212 | done; supports OBL-04/05; **ISSUE-168 closed** | ISSUE-174 |
 | ISSUE-176 | 6 — suppliers | 213 | done; **OBL-04 closed** | ISSUE-175 |
 | ISSUE-177 | 7 — loans, tenancy, inspection | 214 | done; **OBL-03 closed** + loan/eviction half of **OBL-02** | ISSUE-175 |
-| ISSUE-178 | 8 — social world | 215 | rumour half of **OBL-08** | ISSUE-176, ISSUE-177 |
+| ISSUE-178 | 8 — social world | 215 | **done** — rumour half of **OBL-08** closed; DEP-08, DEP-10 and DEP-11 closed, DEP-09 NPC half | ISSUE-176, ISSUE-177 |
 | ISSUE-179 | 9 — rivals, arcs, expeditions | 216 | — | ISSUE-178 |
 | ISSUE-180 | 10 — teleology + identity | 217 | **OBL-09** + mastery half of **OBL-08** | ISSUE-179 |
 | ISSUE-181 | 11 — issues/responses refit | 218 | all of **OBL-02**; **absorbs ISSUE-169** | ISSUE-180 |

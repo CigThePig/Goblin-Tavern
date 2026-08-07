@@ -2,6 +2,7 @@
 // fields on `TavernIdentityData`.
 
 import { describe, expect, it } from 'vitest'
+import { createInitialBeliefBehaviour } from '../../src/sim/modules/attribution/beliefBehaviour'
 
 import { buildWorldOverview } from '../../src/reports/worldOverviewProjection'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
@@ -60,6 +61,7 @@ function withAttributions(
     generatedToday: [],
     lastUpdatedDay: 0,
     recentDistrustByRumour: {},
+    behaviour: createInitialBeliefBehaviour(),
   }
   return withModuleState(state, 'attribution', slice)
 }

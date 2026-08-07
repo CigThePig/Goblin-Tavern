@@ -99,6 +99,10 @@ import { createInitialObligationsModuleState } from "../contracts/obligations/st
 import { createInitialFinanceModuleState } from "../modules/finance/state";
 import { createInitialTenancyModuleState } from "../modules/tenancy/state";
 import { createInitialRegulatoryModuleState } from "../modules/regulatory/state";
+import { createInitialFactionModuleState } from "../modules/factions/factionState";
+import { createInitialCultureModuleState } from "../modules/cultures/cultureState";
+import { createInitialNpcModuleState } from "../modules/npcs/npcState";
+import { createInitialRumourModuleState } from "../modules/rumours/rumourState";
 import { createInitialEconomyModuleState } from "../modules/economy/state";
 
 // Phase 8 §8.1 — Area defaults are sourced from `areaRegistry` rather than
@@ -438,6 +442,7 @@ function createInitialCultures(): Record<string, CultureWorldState> {
       familiarity: def.defaultFamiliarity,
       comfort: def.defaultComfort,
       tension: def.defaultTension,
+      trust: def.defaultTrust,
       namingProfileId: def.namingProfileId,
       preferredStockTags: [...def.preferredStockTags],
       dislikedTags: [...def.dislikedTags],
@@ -803,6 +808,27 @@ export function createInitialTavernState(
       // conditions, no deliveries today, no price adjustments) so the
       // module's schema validates from day zero.
       suppliers: createInitialSupplierModuleState(),
+      // Expansion Phase 8 §8.1 — seed the factions slice. Before this
+      // phase the module had no state at all (its schema was an empty
+      // passthrough object); it now holds each faction's actor record,
+      // standing ledger, live stances, open requests and favours owed,
+      // so it must be present and normalised from day zero.
+      factions: createInitialFactionModuleState(),
+      // Expansion Phase 8 §8.2 — seed the cultures slice. Before this phase
+      // the module had no state at all; it now holds each culture's
+      // evidence ledger, accommodation history, dish and area experience,
+      // live misunderstandings and culture-to-culture friction.
+      cultures: createInitialCultureModuleState(),
+      // Expansion Phase 8 §8.3 — seed the npcs slice. Notable NPCs have been
+      // in `world.notableNpcs` since Phase 44 with no module state at all;
+      // this holds what the house has had to do with each of them, when they
+      // are about, what they can put behind something, and — for the few who
+      // earn it — an actor record.
+      npcs: createInitialNpcModuleState(),
+      // Expansion Phase 8 §8.4 — seed the rumours slice: the per-channel
+      // weekly budget that stops one loud voice carrying everything, and the
+      // day's spread log.
+      rumours: createInitialRumourModuleState(),
       // Phase 30 §30.6 — seed an empty regulars slice (no candidates,
       // no creations, no visits) so the module's schema validates from
       // day zero before any regular has emerged.

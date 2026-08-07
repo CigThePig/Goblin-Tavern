@@ -15,6 +15,13 @@ import type { CultureDefinition } from './cultureTypes'
 // carries (`goblin_common`). Later phases (and richer naming content)
 // can refine these, but the starter set keeps Phase 30 grounded.
 
+// Expansion Phase 8 §8.2 — three fields join each starter culture, and all
+// three exist because something that was already declared had nowhere to
+// land. `conflictTags` named a feeling with no target, so `frictionWith`
+// gives it one (culture tags, so a new culture inherits the friction without
+// editing the old ones). `defaultTrust` is the meter §8.2 asks for that
+// `CultureWorldState` did not carry. `observanceHonouredBy` is what turns
+// "their festival is today" into "and here is what keeping it looks like".
 export const cultureRegistry = new Registry<CultureDefinition>()
 
 const REQUIRED_CULTURES: CultureDefinition[] = [
@@ -32,6 +39,9 @@ const REQUIRED_CULTURES: CultureDefinition[] = [
       dislikes: ['inspection_sensitive'],
     },
     conflictTags: ['merchant_distrust'],
+    frictionWith: ['wealthy', 'outsider'],
+    defaultTrust: 75,
+    observanceHonouredBy: ['goblin_favourite', 'local'],
     defaultFamiliarity: 80,
     defaultComfort: 70,
     defaultTension: 20,
@@ -51,6 +61,9 @@ const REQUIRED_CULTURES: CultureDefinition[] = [
       dislikes: ['private'],
     },
     conflictTags: ['caravan_distrust'],
+    frictionWith: ['wealthy', 'guild'],
+    defaultTrust: 55,
+    observanceHonouredBy: ['cheap', 'payday'],
     defaultFamiliarity: 55,
     defaultComfort: 50,
     defaultTension: 35,
@@ -70,6 +83,9 @@ const REQUIRED_CULTURES: CultureDefinition[] = [
       dislikes: ['sticky_floor', 'pest_prone', 'inspection_sensitive'],
     },
     conflictTags: ['rowdy_friction'],
+    frictionWith: ['rowdy', 'dangerous'],
+    defaultTrust: 45,
+    observanceHonouredBy: ['quality_sensitive', 'private', 'market'],
     defaultFamiliarity: 40,
     defaultComfort: 35,
     defaultTension: 45,
@@ -89,6 +105,9 @@ const REQUIRED_CULTURES: CultureDefinition[] = [
       dislikes: ['private'],
     },
     conflictTags: ['merchant_friction'],
+    frictionWith: ['wealthy', 'cleanliness_sensitive'],
+    defaultTrust: 45,
+    observanceHonouredBy: ['meat', 'strong'],
     defaultFamiliarity: 35,
     defaultComfort: 45,
     defaultTension: 55,
@@ -108,6 +127,9 @@ const REQUIRED_CULTURES: CultureDefinition[] = [
       dislikes: ['pest_prone'],
     },
     conflictTags: ['local_distrust'],
+    frictionWith: ['local'],
+    defaultTrust: 50,
+    observanceHonouredBy: ['rare', 'legendary', 'quality_sensitive'],
     defaultFamiliarity: 30,
     defaultComfort: 50,
     defaultTension: 40,
@@ -132,6 +154,9 @@ const REQUIRED_CULTURES: CultureDefinition[] = [
       dislikes: ['dangerous_corner'],
     },
     conflictTags: ['outsider_distrust'],
+    frictionWith: ['outsider', 'dangerous'],
+    defaultTrust: 60,
+    observanceHonouredBy: ['festival', 'ritual', 'festival_prep'],
     defaultFamiliarity: 50,
     defaultComfort: 55,
     defaultTension: 30,
@@ -151,6 +176,9 @@ const REQUIRED_CULTURES: CultureDefinition[] = [
       dislikes: ['sticky_floor', 'pest_prone'],
     },
     conflictTags: ['local_distrust'],
+    frictionWith: ['local', 'rowdy'],
+    defaultTrust: 40,
+    observanceHonouredBy: ['private', 'quality_sensitive', 'hospitality'],
     defaultFamiliarity: 25,
     defaultComfort: 40,
     defaultTension: 45,
@@ -170,6 +198,9 @@ const REQUIRED_CULTURES: CultureDefinition[] = [
       dislikes: ['sticky_floor'],
     },
     conflictTags: ['rowdy_friction'],
+    frictionWith: ['rowdy', 'dangerous'],
+    defaultTrust: 50,
+    observanceHonouredBy: ['quality_sensitive', 'guild', 'prompt_payment'],
     defaultFamiliarity: 40,
     defaultComfort: 50,
     defaultTension: 35,

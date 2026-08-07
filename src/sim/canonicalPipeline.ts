@@ -34,6 +34,8 @@ import { weeklyModule } from './modules/weekly/index'
 import { worldModule } from './modules/world/index'
 import { cultureModule } from './modules/cultures/index'
 import { factionModule } from './modules/factions/index'
+import { npcModule } from './modules/npcs/index'
+import { rumourModule } from './modules/rumours/index'
 import { supplierModule } from './modules/suppliers/index'
 import { regularModule } from './modules/regulars/index'
 import { adventurersModule } from './modules/adventurers/index'
@@ -68,6 +70,15 @@ export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   worldModule,
   cultureModule,
   factionModule,
+  // Expansion Phase 8 §8.3 — the notable-NPC module. Runs after factions and
+  // cultures because its importance rule reads what those two have live, and
+  // its `closing` pass reads the faction moves made earlier the same day.
+  npcModule,
+  // Expansion Phase 8 §8.4 — the rumour network. Runs at `rumourUpdate`,
+  // which sits after the culture/faction/NPC passes and before
+  // `forecastTraffic`, so talk that moved this morning is believed by the
+  // time turnout is projected.
+  rumourModule,
   supplierModule,
   regularModule,
   adventurersModule,

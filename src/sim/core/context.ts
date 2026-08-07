@@ -299,6 +299,14 @@ export type SimContext = {
   addRegular(regular: RegularWorldState, meta: MutationMeta): void;
   removeRegular(id: string, meta: MutationMeta): void;
   addSocialRumour(rumour: SocialRumourState, meta: MutationMeta): void;
+  /**
+   * Expansion Phase 8 §8.4 — a rumour dying out is a MATERIAL deletion and
+   * has to leave attribution behind, which is half of `OBL-08`. Before this
+   * the only path was `delete state.world.socialRumours[id]` inside the
+   * world module's decay loop, which changed visible state with no cause
+   * naming the rumour. No-op for an unknown id, like `removeRegular`.
+   */
+  removeSocialRumour(id: string, meta: MutationMeta): void;
   addLocalEvent(event: LocalEventWorldState, meta: MutationMeta): void;
   modifyTavernIdentity(
     changes: Partial<TavernIdentityState>,

@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
 import { simulateDay } from '../../src/sim/core/engine'
+// Expansion Phase 8 §8.4 — the rumour lifecycle (decay, spread, prune)
+// moved out of `worldModule`, which owned the prune only because nothing
+// else did, into the rumour domain that now owns every transition. The
+// policy and its constants are unchanged; only the owner is.
 import {
   RUMOUR_MAX_ENTRIES,
   RUMOUR_STALE_DAYS,
   RUMOUR_STALE_STRENGTH,
-  worldModule,
-} from '../../src/sim/modules/world/worldModule'
+  rumourModule,
+} from '../../src/sim/modules/rumours/index'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import type {
   SocialRumourState,
@@ -86,9 +90,9 @@ function jumpToEndOfMonth(
 }
 
 function runEndMonthOnce(state: TavernState): TavernState {
-  // Run the worldModule alone — the prune is hook-local and we want
+  // Run the rumour module alone — the prune is hook-local and we want
   // to assert against it without entanglement from other modules.
-  return simulateDay(state, { seed: SEED }, [worldModule]).state
+  return simulateDay(state, { seed: SEED }, [rumourModule]).state
 }
 
 describe('Phase 83 / ISSUE-043 — socialRumours endMonth pruning', () => {
@@ -142,16 +146,16 @@ describe('Phase 83 / ISSUE-043 — socialRumours endMonth pruning', () => {
     ])
     state = jumpToEndOfMonth(state, RUMOUR_STALE_DAYS + 5)
     state = runEndMonthOnce(state)
-    const pruneCause = state.causes.find((c) =>
-      c.source.endsWith('rumour_prune'),
+    const pruneCause = state.causes.find(
+      (c) => c.source.endsWith('.prune') && c.tags.includes('grouped'),
     )
     expect(pruneCause).toBeDefined()
     expect(pruneCause!.tags).toContain('rumour')
     expect(pruneCause!.amount).toBe(-2)
   })
 
-  it('worldModule is wired with an endMonth hook', () => {
-    expect(worldModule.hooks?.endMonth?.length).toBeGreaterThan(0)
+  it('the rumour module is wired with an endMonth hook', () => {
+    expect(rumourModule.hooks?.endMonth?.length).toBeGreaterThan(0)
   })
 
   it('day-zero run with no rumours does not emit a prune cause', () => {
@@ -160,8 +164,8 @@ describe('Phase 83 / ISSUE-043 — socialRumours endMonth pruning', () => {
     let state = createInitialTavernState()
     state = jumpToEndOfMonth(state, RUMOUR_STALE_DAYS + 5)
     state = runEndMonthOnce(state)
-    const pruneCause = state.causes.find((c) =>
-      c.source.endsWith('rumour_prune'),
+    const pruneCause = state.causes.find(
+      (c) => c.source.endsWith('.prune') && c.tags.includes('grouped'),
     )
     expect(pruneCause).toBeUndefined()
   })

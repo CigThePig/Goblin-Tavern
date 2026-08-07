@@ -32,6 +32,10 @@ export type CauseSourceType =
   | 'faction'
   | 'supplier'
   | 'regular'
+  // Expansion Phase 8 §8.3 — see the note on the `TavernState` copy of this
+  // union: promoted NPCs act, so they can source a cause as well as receive
+  // one.
+  | 'notable_npc'
   | 'local_event'
   | 'rumour'
 

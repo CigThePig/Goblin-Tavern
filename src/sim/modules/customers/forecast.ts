@@ -6,6 +6,8 @@ import type {
 } from '../../state/TavernState'
 import type { DayType } from '../calendar/types'
 import { getCultureForecastModifier } from '../cultures/customerInfluence'
+import { getFactionForecastModifier } from '../factions/stances'
+import { getBeliefForecastModifier } from './beliefInfluence'
 import {
   getCompetitorChoiceFactorForGroup,
   getDemandFactorForGroup,
@@ -251,6 +253,15 @@ export function forecastTrafficForGroup(
   // Phase 30 §30.8 — culture influence. The helper is pure and lives in
   // the cultures module so forecasting does not own culture logic.
   const cultureInfluence = getCultureForecastModifier(state, group)
+  // Expansion Phase 8 §8.1 — a faction that speaks for this group can keep
+  // its people at home or send them here. The stance is the factions
+  // module's; what it does to turnout is decided here, in the group's own
+  // forecast rule, capped like every other term.
+  const factionInfluence = getFactionForecastModifier(state, group)
+  // Expansion Phase 8 §8.5 — what this group has come to BELIEVE about the
+  // house. The belief layer supplies a bounded weight; the size of it in
+  // bodies is decided here, in the group's own forecast rule.
+  const beliefInfluence = getBeliefForecastModifier(state, group)
   // Phase 79 / ISSUE-039 — culinary_renown lifts attraction for groups
   // that explicitly prefer rare/legendary fare.
   const renownPull = renownAttractionModifier(group, state)
@@ -269,6 +280,8 @@ export function forecastTrafficForGroup(
       satMod +
       stockMod +
       cultureInfluence.modifier +
+      factionInfluence.modifier +
+      beliefInfluence.modifier +
       renownPull -
       filthPenalty -
       priceHit +
@@ -292,6 +305,8 @@ export function forecastTrafficForGroup(
     notes.push(`Culinary renown drew rarity-minded patrons (+${renownPull}).`)
   }
   for (const note of cultureInfluence.notes) notes.push(note)
+  for (const note of factionInfluence.notes) notes.push(note)
+  for (const note of beliefInfluence.notes) notes.push(note)
   if (economyFactor < 0.98) {
     notes.push(
       `Persistent service/economic trust reduced this group's traffic (×${economyFactor.toFixed(2)}).`,

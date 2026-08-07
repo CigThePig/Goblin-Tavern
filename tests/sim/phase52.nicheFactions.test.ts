@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { simulateDay } from '../../src/sim/core/engine'
 import type { SimInput } from '../../src/sim/core/context'
 
-import { factionModule } from '../../src/sim/modules/factions'
+import { factionModule, getFactionModuleState } from '../../src/sim/modules/factions'
 import {
   ensureRequiredFactionsRegistered,
   factionRegistry,
@@ -28,8 +28,25 @@ import type {
 // engagement vs disregard) and `scrap_collectors` (waste buildup vs
 // recent cleanup credit) so all six original starter factions get
 // module-driven drift.
+//
+// Expansion Phase 8 §8.1 (repo phase 215) REPLACED the drift half of this.
+// The four trigger-pair cases below still assert exactly the same triggers
+// on exactly the same signals — that is the point of keeping them — but
+// they no longer assert a ±1 step, because §8.1 directs that "pure
+// threshold +1/-1 drift" stop being the faction layer's behaviour. What a
+// trigger produces now is a dated, readable entry in the faction's standing
+// ledger; the visible relationship is re-derived from that ledger and walks
+// toward it. So each case asserts the direction of the move AND the named
+// evidence behind it, which is strictly more than the old assertion checked.
 
 const SEED = 'phase-52-niche-factions-test'
+
+/** The standing entry a trigger wrote, by its id. */
+function standingEntry(state: TavernState, factionId: string, entryId: string) {
+  return getFactionModuleState(state).standing[factionId]?.entries.find(
+    (entry) => entry.id === entryId,
+  )
+}
 
 const NEW_FACTIONS = [
   'smugglers_ring',
@@ -163,7 +180,10 @@ describe('Phase 52 §ISSUE-012 — local_shrine trigger pair', () => {
     const stage = withCalendarTag(base, 'festival_window')
     const result = simulateDay(stage, input(), [factionModule])
     const after = result.state.world.factions['local_shrine']!.relationship
-    expect(after).toBe(before - 1)
+    expect(after).toBeLessThan(before)
+    const entry = standingEntry(result.state, 'local_shrine', 'festival_disregard')
+    expect(entry?.kind).toBe('grievance')
+    expect(entry?.readable).toContain('festival')
   })
 
   it('6. local_shrine rises when a festival tag is active AND a festival-tagged owner project is active', () => {
@@ -173,7 +193,10 @@ describe('Phase 52 §ISSUE-012 — local_shrine trigger pair', () => {
     const before = base.world.factions['local_shrine']!.relationship
     const result = simulateDay(base, input(), [factionModule])
     const after = result.state.world.factions['local_shrine']!.relationship
-    expect(after).toBe(before + 1)
+    expect(after).toBeGreaterThan(before)
+    const entry = standingEntry(result.state, 'local_shrine', 'festival_engagement')
+    expect(entry?.kind).toBe('favour')
+    expect(entry?.readable).toContain('festival')
   })
 })
 
@@ -184,7 +207,10 @@ describe('Phase 52 §ISSUE-012 — scrap_collectors trigger pair', () => {
     const before = base.world.factions['scrap_collectors']!.relationship
     const result = simulateDay(base, input(), [factionModule])
     const after = result.state.world.factions['scrap_collectors']!.relationship
-    expect(after).toBe(before - 1)
+    expect(after).toBeLessThan(before)
+    const entry = standingEntry(result.state, 'scrap_collectors', 'waste_buildup')
+    expect(entry?.kind).toBe('grievance')
+    expect(entry?.readable).toContain('waste')
   })
 
   it('8. scrap_collectors rises when maintenance pressure is low and a recent cleanup memory is present', () => {
@@ -199,7 +225,10 @@ describe('Phase 52 §ISSUE-012 — scrap_collectors trigger pair', () => {
     const before = base.world.factions['scrap_collectors']!.relationship
     const result = simulateDay(base, input(), [factionModule])
     const after = result.state.world.factions['scrap_collectors']!.relationship
-    expect(after).toBe(before + 1)
+    expect(after).toBeGreaterThan(before)
+    const entry = standingEntry(result.state, 'scrap_collectors', 'recent_cleanup_credit')
+    expect(entry?.kind).toBe('favour')
+    expect(entry?.readable).toContain('cleaned up')
   })
 })
 

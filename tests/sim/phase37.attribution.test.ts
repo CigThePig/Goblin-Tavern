@@ -36,6 +36,7 @@ import { stockModule } from '../../src/sim/modules/stock/index'
 import { supplierModule } from '../../src/sim/modules/suppliers/index'
 import { weeklyModule } from '../../src/sim/modules/weekly/index'
 import { worldModule } from '../../src/sim/modules/world/index'
+import { rumourModule } from '../../src/sim/modules/rumours/index'
 
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import type {
@@ -52,6 +53,10 @@ const MODULE_SLICE = [
   staffModule,
   customersModule,
   worldModule,
+  // Expansion Phase 8 §8.4 — rumour decay/propagation moved out of the
+  // world module into its own domain; this slice has to carry it to see
+  // the same behaviour it did before.
+  rumourModule,
   cultureModule,
   factionModule,
   supplierModule,
@@ -283,6 +288,15 @@ describe('Phase 37 §37.3 — Attribution module state', () => {
       generatedToday: [],
       lastUpdatedDay: -1,
       recentDistrustByRumour: {},
+      // Expansion Phase 8 §8.5 — the record of which beliefs are heavy
+      // enough to be changing decisions. Empty on a fresh slice for the
+      // same reason everything else here is: nobody has believed anything
+      // yet.
+      behaviour: {
+        acting: [],
+        history: [],
+        totals: { everActed: 0, answered: 0, refusedAsTrue: 0 },
+      },
     })
   })
 })
@@ -537,8 +551,18 @@ describe('Phase 37 §37.6 — Attribution propagation', () => {
     expect(
       Math.max(...attributionFed.map((rumour) => rumour.strength)),
     ).toBeGreaterThanOrEqual(50)
-    // The unfed original decays instead of accumulating forever.
-    expect(rumours[rumourId]!.strength).toBeLessThan(50)
+    // Expansion Phase 8 §8.4 — the seeded rumour is no longer "unfed".
+    // It now has a source and an audience, and the channels that heard it
+    // pass it on, so its strength is EARNED by being repeated rather than
+    // accumulated for free. Wave 7's `< 50` premise (nothing carries it,
+    // so it must fade) is retired; what has to stay true is that the
+    // strength tracks real repetition — decay under silence is covered by
+    // `phase215.rumourNetwork`.
+    const original = rumours[rumourId]!
+    const lastSimulatedDay = current.calendar.totalDaysElapsed - 1
+    expect(original.lastSpreadDay).toBe(lastSimulatedDay)
+    expect((original.audiences ?? []).length).toBeGreaterThan(1)
+    expect(original.hops ?? 0).toBeGreaterThan(0)
   })
 })
 

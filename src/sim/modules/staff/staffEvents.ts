@@ -1,6 +1,10 @@
 import { z } from 'zod'
 
 import type { SimContext } from '../../core/context'
+import {
+  beliefAgainstHouse,
+  beliefEffect,
+} from '../attribution/beliefInputs'
 import type { StaffState, TavernState } from '../../state/TavernState'
 import { clampPercent } from '../../state/normalize'
 import { staffRegistry } from '../../registries/staffRegistry'
@@ -240,6 +244,9 @@ export type QuitRiskContributor = {
 }
 
 /** Below this the risk has been answered; above the top one they walk out. */
+/** The most a staff member's belief about the owner can weigh on leaving. */
+export const MAX_QUIT_RISK_BELIEF_WEIGHT = 15
+
 export const QUIT_RISK_NO_OP_BELOW = 25
 export const QUIT_RISK_DEFER_BELOW = 55
 export const QUIT_RISK_WALKOUT_AT = 85
@@ -326,6 +333,27 @@ export function describeQuitRiskContributors(
       label: `Formally warned ${record.escalation} time(s).`,
       weight: 10,
       preventable: false,
+    })
+  }
+
+  // Expansion Phase 8 §8.5 — what they have come to BELIEVE about the owner,
+  // which is not the same thing as the trust meter below: trust is the
+  // running relationship, this is a specific thing they hold against you and
+  // can be told the substance of. Capped at 15, below `wage_arrears` (35) and
+  // `exhausted` (25) — a grievance is a reason to leave, not a reason on its
+  // own, and `QUIT_RISK_DEFER_BELOW` is 55.
+  const grievance = beliefAgainstHouse(state, { kind: 'staff', id: staffId })
+  const grievanceWeight = beliefEffect(grievance, MAX_QUIT_RISK_BELIEF_WEIGHT)
+  if (grievanceWeight >= 1) {
+    out.push({
+      id: 'blames_the_house',
+      label: `Holds something against you: ${grievance!.readable}`,
+      weight: Math.round(grievanceWeight),
+      preventable: true,
+      remedy:
+        grievance!.accuracy === 'true'
+          ? 'Put right what they are right about — talking will not settle it.'
+          : 'Hear them out and set it straight (Address Grievance).',
     })
   }
 

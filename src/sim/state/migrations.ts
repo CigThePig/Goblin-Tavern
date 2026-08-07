@@ -18,6 +18,11 @@
 import { FULL_PIPELINE } from "../canonicalPipeline";
 import type { SimulationModule } from "../core/module";
 import { createInitialWorldState, createInitialTavernState } from "./defaults";
+import { defaultRumourCredibility } from "./rumourDefaults";
+import {
+  ATTRIBUTION_MODULE_ID,
+  createInitialBeliefBehaviour,
+} from "../modules/attribution/index";
 import {
   ensureRequiredRecipesRegistered,
   recipeRegistry,
@@ -52,6 +57,27 @@ import { TENANCY_MODULE_ID } from "../modules/tenancy/types";
 import { createInitialTenancyModuleState } from "../modules/tenancy/state";
 import { REGULATORY_MODULE_ID } from "../modules/regulatory/types";
 import { createInitialRegulatoryModuleState } from "../modules/regulatory/state";
+import {
+  FACTIONS_MODULE_ID,
+  createInitialFactionModuleState,
+  normalizeFactionSlice,
+} from "../modules/factions/factionState";
+import {
+  CULTURES_MODULE_ID,
+  createInitialCultureModuleState,
+  normalizeCultureSlice,
+} from "../modules/cultures/cultureState";
+import { cultureRegistry } from "../content/cultures/cultureRegistry";
+import {
+  NPCS_MODULE_ID,
+  createInitialNpcModuleState,
+  normalizeNpcSlice,
+} from "../modules/npcs/npcState";
+import {
+  RUMOURS_MODULE_ID,
+  createInitialRumourModuleState,
+  normalizeRumourSlice,
+} from "../modules/rumours/rumourState";
 import type {
   MonthlyModuleState,
   MonthlyResult,
@@ -1166,6 +1192,299 @@ export function ensureExternalObligationSlices<
 
   if (!changed && state.modules) return state;
   return { ...state, modules: next };
+}
+
+// Expansion Phase 8 §5.7 — the rumour network fields.
+//
+// Two halves. The slice is new, so `ensureModuleSlices` would install it
+// correctly on its own; the rumour RECORDS are not, and every one in an old
+// save is missing everything §8.4 added.
+//
+// WHAT IS DERIVED, AND WHY THAT IS NOT AN INVENTION. A pre-Phase-8 rumour
+// records how loudly it is being repeated (`strength`) and whether it is
+// true (`accuracy`). Credibility is derived from those two — a strong true
+// story is one people credit, a weak false one is not — because they are
+// the same fact seen from two sides, and the save already asserts both.
+//
+// WHAT IS NOT DERIVED. `audiences` starts EMPTY, and that is the load-bearing
+// choice. It would be easy to say "everybody has heard it, it is at strength
+// 80" and hand every culture in the world a belief — but nobody in that save
+// ever heard it from anybody, and manufacturing an audience list would
+// fabricate the exact history §8.4 exists to start recording. So an old
+// rumour arrives loud and carried by nobody, and the propagation pass gives
+// it real audiences the first time somebody actually repeats it. `hops` and
+// `distortion` start at zero for the same reason: no retelling has happened
+// that anybody could point to.
+export function ensureRumourNetworkFields<
+  T extends {
+    world?: { socialRumours?: Record<string, unknown> };
+    modules?: Record<string, unknown>;
+  },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const base = createInitialRumourModuleState();
+  let nextModules: Record<string, unknown> | undefined;
+
+  const existing = current[RUMOURS_MODULE_ID];
+  if (!isRecord(existing)) {
+    nextModules = { ...current, [RUMOURS_MODULE_ID]: base };
+  } else {
+    const keys = Object.keys(base) as Array<keyof typeof base>;
+    if (!keys.every((key) => key in existing)) {
+      nextModules = {
+        ...current,
+        [RUMOURS_MODULE_ID]: normalizeRumourSlice(
+          existing as Partial<ReturnType<typeof createInitialRumourModuleState>>,
+        ),
+      };
+    }
+  }
+
+  const rumours = state.world?.socialRumours;
+  let nextRumours: Record<string, unknown> | undefined;
+  if (isRecord(rumours)) {
+    for (const [id, raw] of Object.entries(rumours)) {
+      if (!isRecord(raw)) continue;
+      if (typeof raw["credibility"] === "number") continue;
+
+      const strength =
+        typeof raw["strength"] === "number" ? (raw["strength"] as number) : 30;
+      const accuracy =
+        typeof raw["accuracy"] === "string" ? (raw["accuracy"] as string) : "unknown";
+      // Shared with the creation path so a save taken between a rumour
+      // starting and the next `rumourUpdate` migrates to exactly the values
+      // the uninterrupted run already had.
+      const credibility = defaultRumourCredibility(strength, accuracy);
+
+      nextRumours = {
+        ...(nextRumours ?? rumours),
+        [id]: {
+          ...raw,
+          credibility,
+          reach: "public",
+          audiences: [],
+          distortion: 0,
+          originalLabel: typeof raw["label"] === "string" ? raw["label"] : id,
+          hops: 0,
+        },
+      };
+    }
+  }
+
+  if (!nextModules && !nextRumours) return state;
+  return {
+    ...state,
+    ...(nextRumours
+      ? { world: { ...(state.world ?? {}), socialRumours: nextRumours } }
+      : {}),
+    ...(nextModules ? { modules: nextModules } : {}),
+  } as T;
+}
+
+// Expansion Phase 8 §5.7 — the belief-behaviour record.
+//
+// §8.5 adds one persisted field: `modules.attribution.behaviour`, the record
+// of which beliefs are heavy enough to be changing decisions.
+//
+// It installs EMPTY, and nothing is reconstructed from the beliefs already in
+// the save. That looks wasteful — the derivation is pure, and running it here
+// would fill the record immediately — but `sinceDay` is the reason not to. A
+// belief that has been acting for a fortnight reads differently from one that
+// started today, and a migration that stamped every existing belief with the
+// load day would assert a history the save cannot support. Left empty, the
+// first end-of-day pass fills it from the same beliefs with the right day on
+// them, and the only thing the player loses is one evening of "since when".
+export function ensureBeliefBehaviourFields<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const existing = current[ATTRIBUTION_MODULE_ID];
+  if (!isRecord(existing)) return state;
+  if (isRecord(existing["behaviour"])) return state;
+  return {
+    ...state,
+    modules: {
+      ...current,
+      [ATTRIBUTION_MODULE_ID]: {
+        ...existing,
+        behaviour: createInitialBeliefBehaviour(),
+      },
+    },
+  } as T;
+}
+
+// Expansion Phase 8 §5.7 — the notable-NPC agency fields.
+//
+// Unlike the faction and culture migrations there is no empty `{}` to
+// repair: the NPC layer has never had module state, so `ensureModuleSlices`
+// would install the defaults correctly on its own. This helper is named
+// anyway, for one judgement the generic sweep cannot make.
+//
+// LAST-SEEN IS NOT BACKDATED. `NotableNpcWorldState.lastSeenDay` has been
+// declared since Phase 44 and written by nothing, so every save carries nine
+// NPCs who have never been seen. The obvious repair — stamp today, or stamp
+// `firstSeenDay` — would both be inventions: one claims they were about on a
+// day nobody played, the other claims a visit at the founding. It is left
+// ABSENT, which is the true statement, and the first day the new pass finds
+// somebody about is the first day it gets a value.
+//
+// The records themselves start empty for the same reason the faction and
+// culture ledgers do: reconstructing dealings from a save that recorded none
+// would fabricate a history the player never played. Nobody starts promoted.
+export function ensureNpcAgencyFields<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const existing = current[NPCS_MODULE_ID];
+  const base = createInitialNpcModuleState();
+
+  if (!isRecord(existing)) {
+    return { ...state, modules: { ...current, [NPCS_MODULE_ID]: base } };
+  }
+
+  const keys = Object.keys(base) as Array<keyof typeof base>;
+  if (keys.every((key) => key in existing)) return state;
+
+  return {
+    ...state,
+    modules: {
+      ...current,
+      [NPCS_MODULE_ID]: normalizeNpcSlice(
+        existing as Partial<ReturnType<typeof createInitialNpcModuleState>>,
+      ),
+    },
+  };
+}
+
+// Expansion Phase 8 §5.7 — the culture agency fields.
+//
+// Two halves, for the same reason the faction migration has one: a
+// pre-Phase-8 save carries `modules.cultures = {}` — present and empty — so
+// the generic `ensureModuleSlices` sweep walks past it, and every culture in
+// `world.cultures` is missing the `trust` meter §8.2 adds.
+//
+// TRUST IS DERIVED, NOT ROLLED AND NOT DEFAULTED FLAT. The save already
+// knows how a culture feels: it carries comfort and tension the player
+// earned. Trust starts from the registry's anchor and is nudged by the gap
+// between those and their own defaults, so a culture the save had left
+// comfortable and untense starts trusting, and one it had left tense does
+// not. That reads the save rather than inventing a history — and because it
+// is arithmetic on existing fields, no RNG cursor moves and no generated
+// identity shifts (architecture rule 7).
+//
+// The slice itself is installed EMPTY. Reconstructing an evidence ledger
+// from the meters would fabricate meals nobody ate and seats nobody sat in,
+// which is the same failure as losing them.
+export function ensureCultureAgencyFields<
+  T extends {
+    world?: { cultures?: Record<string, unknown> };
+    modules?: Record<string, unknown>;
+  },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const base = createInitialCultureModuleState();
+  let next: Record<string, unknown> = current;
+  let changed = false;
+
+  const existing = current[CULTURES_MODULE_ID];
+  if (!isRecord(existing)) {
+    next = { ...next, [CULTURES_MODULE_ID]: base };
+    changed = true;
+  } else {
+    const keys = Object.keys(base) as Array<keyof typeof base>;
+    if (!keys.every((key) => key in existing)) {
+      next = {
+        ...next,
+        [CULTURES_MODULE_ID]: normalizeCultureSlice(
+          existing as Partial<ReturnType<typeof createInitialCultureModuleState>>,
+        ),
+      };
+      changed = true;
+    }
+  }
+
+  const cultures = state.world?.cultures;
+  let nextCultures: Record<string, unknown> | undefined;
+  if (isRecord(cultures)) {
+    for (const [id, raw] of Object.entries(cultures)) {
+      if (!isRecord(raw)) continue;
+      if (typeof raw["trust"] === "number") continue;
+      const def = cultureRegistry.has(id) ? cultureRegistry.get(id) : undefined;
+      const anchor = def?.defaultTrust ?? 50;
+      const comfort =
+        typeof raw["comfort"] === "number"
+          ? (raw["comfort"] as number)
+          : (def?.defaultComfort ?? 50);
+      const tension =
+        typeof raw["tension"] === "number"
+          ? (raw["tension"] as number)
+          : (def?.defaultTension ?? 50);
+      const comfortGap = comfort - (def?.defaultComfort ?? 50);
+      const tensionGap = tension - (def?.defaultTension ?? 50);
+      const trust = Math.max(
+        0,
+        Math.min(100, Math.round(anchor + comfortGap / 2 - tensionGap / 2)),
+      );
+      nextCultures = { ...(nextCultures ?? cultures), [id]: { ...raw, trust } };
+    }
+  }
+
+  if (!changed && !nextCultures) return state;
+  return {
+    ...state,
+    ...(nextCultures
+      ? { world: { ...(state.world ?? {}), cultures: nextCultures } }
+      : {}),
+    ...(changed ? { modules: next } : {}),
+  } as T;
+}
+
+// Expansion Phase 8 §5.7 — the faction agency fields.
+//
+// A save written before this phase HAS a `modules.factions` slice — it is
+// `{}`, because the module's schema was an empty passthrough object and the
+// module kept no state at all. That is precisely why this cannot be left to
+// the generic `ensureModuleSlices` sweep, which only installs slices that
+// are missing entirely and would walk straight past an empty one.
+//
+// Every field is installed EMPTY, and that is the honest choice rather than
+// a lazy one. The alternative would be to reconstruct a standing ledger
+// from the relationship meters the save already carries, which would
+// fabricate grievances and favours that nobody ever earned — inventing a
+// history the player never played is the same failure as losing one. So a
+// migrated save starts with factions that remember nothing, and their
+// meters stay exactly where the save left them until the evidence pass
+// gives the summary something real to work from. Nothing here opens a
+// demand, a stance, a favour or a scheduled event: a migrated save owes
+// nobody anything it did not already owe.
+export function ensureFactionAgencyFields<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const existing = current[FACTIONS_MODULE_ID];
+  const base = createInitialFactionModuleState();
+
+  if (!isRecord(existing)) {
+    return {
+      ...state,
+      modules: { ...current, [FACTIONS_MODULE_ID]: base },
+    };
+  }
+
+  // Present but partial (the `{}` case, and any future partial write).
+  const keys = Object.keys(base) as Array<keyof typeof base>;
+  const complete = keys.every((key) => key in existing);
+  if (complete) return state;
+
+  return {
+    ...state,
+    modules: {
+      ...current,
+      [FACTIONS_MODULE_ID]: normalizeFactionSlice(
+        existing as Partial<ReturnType<typeof createInitialFactionModuleState>>,
+      ),
+    },
+  };
 }
 
 // Expansion Phase 3 §5.7 — the workforce fields and the employment records.

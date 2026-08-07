@@ -64,6 +64,7 @@ function makeReadOnlyCtx(state: TavernState): SimContext {
     addRegular: refuse("addRegular"),
     removeRegular: refuse("removeRegular"),
     addSocialRumour: refuse("addSocialRumour"),
+    removeSocialRumour: refuse("removeSocialRumour"),
     addLocalEvent: refuse("addLocalEvent"),
     modifyLocalEvent: refuse("modifyLocalEvent"),
     modifySocialRumour: refuse("modifySocialRumour"),

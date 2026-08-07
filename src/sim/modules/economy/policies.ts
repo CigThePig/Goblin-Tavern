@@ -48,6 +48,19 @@ export const POLICY_RULES: ReadonlyArray<PolicyRule> = [
     supportWhenKept: 1,
     backlashWhenKept: 2,
   },
+  // Expansion Phase 8 §8.2 — `seat_groups_apart` needs a real enforcer like
+  // every other policy (§5.6). Seating people deliberately is a server's
+  // attention all evening, so the enforcement minutes are the highest of any
+  // policy that costs no coin: the house pays for it in floor time rather
+  // than in coin, on top of the seats it wastes.
+  {
+    policyId: 'seat_groups_apart',
+    enforcerRoles: ['server'],
+    enforcementMinutes: 50,
+    operatingCost: 0,
+    supportWhenKept: 2,
+    backlashWhenKept: 1,
+  },
   {
     policyId: 'ban_weapons_inside',
     enforcerRoles: ['cleaner_bouncer'],

@@ -335,9 +335,22 @@ describe('Phase 208 §1.1 — exact-once across every route', () => {
     // day one because the tavern rents its building from day one. It is a
     // mechanical event with a registered owner and a real record behind it,
     // which is exactly what this test is asserting the queue contains.
+    //
+    // Expansion Phase 8 §8.1 adds two more of the same kind. A quiet run is
+    // quiet for the PLAYER, not for the world: factions now act on their
+    // own, so a faction that has asked for something has a dated answer-by
+    // on the calendar, and one that has put money into the house has a date
+    // it will want the favour back. Both are mechanical, both are owned by
+    // the factions module, and both have a real record in
+    // `modules.factions` behind them — so they belong in this set for
+    // exactly the reason the rent rollover does. What the test still
+    // forbids is unchanged and is the point: no narrative expectation may
+    // appear in a run that declared no hook.
     const LEDGER_TIMEKEEPING = new Set([
       'obligation_due',
       'rent_period_rollover',
+      'faction_demand_deadline',
+      'faction_favour_due',
     ])
     let state = createInitialTavernState()
     for (let day = 0; day < 5; day += 1) {

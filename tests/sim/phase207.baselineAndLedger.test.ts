@@ -210,7 +210,7 @@ describe('Phase 207 — implementation ledger', () => {
     // is a statement about the arc's STARTING point, not an invariant — as
     // phases land, their rows legitimately move to `in-progress` and `done`.
     //
-    // What must stay true is that no row is closed ahead of its phase. This
+    // What must stay true is that no row is closed ahead of its work. This
     // is the check that would catch a row marked done to quiet a red test,
     // which the arc's conventions forbid. Bump `LANDED_PHASES` when a phase
     // completes, and never to make a failing row pass.
@@ -218,9 +218,47 @@ describe('Phase 207 — implementation ledger', () => {
     // Phase 3 (ISSUE-173), Phase 4 (ISSUE-174), Phase 5 (ISSUE-175),
     // Phase 6 (ISSUE-176), Phase 7 (ISSUE-177).
     const LANDED_PHASES = 7
-    const closedEarly = rows.filter(
-      (r) => r.status !== 'open' && Number(r.phase) > LANDED_PHASES,
-    )
+
+    // Phase 8 is being executed IN PARTS (§8.1 factions, §8.2 cultures,
+    // §8.3 notable NPCs, §8.4 rumours, §8.5 behavioural attribution), so a
+    // whole-phase watermark cannot express what has actually landed. Rather
+    // than bump `LANDED_PHASES` to 8 — which would silently exempt the four
+    // parts still to come, and is exactly the loophole this test exists to
+    // shut — the landed part names its own rows. Anything else in phase 8
+    // still fails.
+    //
+    // §8.1 (2026-08-06) closed the four faction retaliation/favour hook
+    // families. §8.2 (2026-08-07) closed the culture half, so DEP-08 —
+    // which covers factions AND cultures in one row — is now `done`.
+    // §8.3 (2026-08-07) took DEP-09 to `in-progress` (the notable-NPC half;
+    // rivals belong to Phase 9 §9.1) and closed the two culture hook
+    // families that §8.2 had left open.
+    const LANDED_PART_ROWS = new Map<string, string>([
+      ['DEP-08', 'done'],
+      ['DEP-09', 'in-progress'],
+      ['HOOK-culture_walkout_risk_*', 'done'],
+      ['HOOK-culture_seating_backlash_*', 'done'],
+      ['HOOK-faction_grudge_*', 'done'],
+      ['HOOK-faction_revenge_*', 'done'],
+      ['HOOK-faction_deception_exposed_*', 'done'],
+      ['HOOK-*_boycott_possible', 'done'],
+      ['HOOK-shrine_favour_owed_*', 'done'],
+      ['DEP-10', 'done'],
+      ['HOOK-rumour_escalation_*', 'done'],
+      ['HOOK-rumour_escalation_*_*', 'done'],
+      ['HOOK-rumour_denial_backfire_*', 'done'],
+      ['HOOK-rumour_denial_backfire_*_*', 'done'],
+      ['HOOK-counter_rumour_runaway_*', 'done'],
+      ['DEP-11', 'done'],
+      ['HOOK-rumour_blame_grudge_*_*', 'done'],
+      ['HOOK-rumour_bribe_exposed_*_*', 'done'],
+    ])
+
+    const closedEarly = rows.filter((r) => {
+      if (r.status === 'open') return false
+      if (Number(r.phase) <= LANDED_PHASES) return false
+      return LANDED_PART_ROWS.get(r.requirement_id) !== r.status
+    })
     expect(
       closedEarly.map((r) => `${r.requirement_id} (phase ${r.phase}, ${r.status})`),
     ).toEqual([])
@@ -392,10 +430,68 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       // customer groups: §7 deepens what the tavern OWES rather than what it
       // is made of, and the inspection reads the existing rooms and cellar
       // rather than adding anything to inspect.
-      runtimeModules: 37,
+      //
+      // Expansion Phase 8.1 (ISSUE-178) moves exactly one count, and that it
+      // is only one is the assertion:
+      //   * `ownerActions` 82 → 86: grant and refuse a faction's request,
+      //     appeal against a move it has made, and repay a sponsorship
+      //     before it is called in. §8.1 requires faction outcomes that can
+      //     be OPPOSED, and opposition has to be a move on the board.
+      // `factions` stays at 9 and `runtimeModules` at 37 on purpose: 8.1
+      // gives the factions that already exist goals, memory and a bounded
+      // action set inside the module that already owned them, rather than
+      // growing the cast or adding a domain.
+      //
+      // Expansion Phase 8.2 (ISSUE-178) moves the same one count again:
+      //   * `ownerActions` 86 → 90: make amends to a culture and mark an
+      //     observance, plus the enable/disable pair for `seat_groups_apart`
+      //     — the first policy in the game to carry the
+      //     `cultural_accommodation` tag that `culturalTension`'s relief
+      //     term and the old culture module had both been looking for since
+      //     Phase 38 without ever finding.
+      // `cultures` stays at 8 for the same reason `factions` stayed at 9:
+      // 8.2 deepens the cultures that exist rather than adding any.
+      //
+      // Expansion Phase 8.3 (ISSUE-178) moves two:
+      //   * `runtimeModules` 37 → 38: `npcs`. A module rather than an
+      //     extension of `world`, because §8.3's promotion rule owns a real
+      //     state transition (who is an agent) and §5.4 wants one domain per
+      //     transition.
+      //   * `ownerActions` 90 → 93: accept and decline what somebody has put
+      //     to the house, and seek somebody out — the last being how a player
+      //     DRIVES §8.3's repeated-interaction threshold rather than waiting.
+      // `notableNpcs` is unchanged: 8.3 gives the nine who already exist
+      // goals, memory, a schedule and a small action set. It promotes at
+      // most four of them at a time, and promotes none of them at day zero.
+      //
+      // Expansion Phase 8.4 (ISSUE-178) moves the same two:
+      //   * `runtimeModules` 38 → 39: `rumours`. The lifecycle sat on
+      //     `worldModule`, which owned it only because nothing else did;
+      //     `world.socialRumours` now has start, spread, contradict,
+      //     correct, decay and prune, which is a domain rather than a chore,
+      //     and §5.4 wants one owner per transition.
+      //   * `ownerActions` 93 → 96: deny it, put a story about, and name the
+      //     source. §8.4 requires correction to be reachable, and all three
+      //     are answers a player can be wrong to give — denying a TRUE story
+      //     costs credit when the denial is tested.
+      // `customerGroups`, `cultures`, `factions` and `notableNpcs` are all
+      // unchanged: the channels a rumour travels through are the people the
+      // world already has.
+      //
+      // Expansion Phase 8.5 (ISSUE-178) moves exactly one, and that it is
+      // only one is the assertion:
+      //   * `ownerActions` 96 → 97: `address_grievance`. §8.5 is six domains
+      //     ACTING on what people believe, and without a move on the other
+      //     side of it the player could only watch. Answering something
+      //     somebody is right about hardens it, so it is a move that can be
+      //     played badly.
+      // `runtimeModules` stays at 39 on purpose: belief already had a domain
+      // that owned it since Phase 37, and §8.5 makes that domain's output an
+      // input to six existing rules rather than adding a seventh owner.
+      runtimeModules: 39,
       simulationPhases: 26,
       daySegments: 3,
-      ownerActions: 82,
+      ownerActions: 97,
       staffPriorities: 12,
       pressureDomains: 21,
       feedbackDetectors: 13,

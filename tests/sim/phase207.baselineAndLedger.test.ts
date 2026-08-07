@@ -233,9 +233,20 @@ describe('Phase 207 — implementation ledger', () => {
     // §8.3 (2026-08-07) took DEP-09 to `in-progress` (the notable-NPC half;
     // rivals belong to Phase 9 §9.1) and closed the two culture hook
     // families that §8.2 had left open.
+    //
+    // Phase 9 is likewise being executed IN PARTS (§9.1 the rival actor,
+    // §9.2 local arcs, §9.3 expeditions, §9.4 month modifiers), so the same
+    // rule applies and the same loophole stays shut: §9.1 (2026-08-07)
+    // completed DEP-09 by closing its rival half, and closed the four rival
+    // hook families. DEP-12 and DEP-13 belong to §9.3 and §9.2 and are still
+    // open, so anything else in phase 9 still fails this check.
     const LANDED_PART_ROWS = new Map<string, string>([
       ['DEP-08', 'done'],
-      ['DEP-09', 'in-progress'],
+      ['DEP-09', 'done'],
+      ['HOOK-rival_retaliation_*', 'done'],
+      ['HOOK-rival_dominance_*', 'done'],
+      ['HOOK-rival_rumour_exposed_*', 'done'],
+      ['HOOK-rival_settlement_pact_*', 'done'],
       ['HOOK-culture_walkout_risk_*', 'done'],
       ['HOOK-culture_seating_backlash_*', 'done'],
       ['HOOK-faction_grudge_*', 'done'],
@@ -488,10 +499,27 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       // `runtimeModules` stays at 39 on purpose: belief already had a domain
       // that owned it since Phase 37, and §8.5 makes that domain's output an
       // input to six existing rules rather than adding a seventh owner.
-      runtimeModules: 39,
+      //
+      // Expansion Phase 9.1 (ISSUE-179) moves two, and that it is only two
+      // is the assertion:
+      //   * `runtimeModules` 39 → 40: `rival`. A module rather than three
+      //     more fields on `modules.monthly`, because §9.1 gives the
+      //     competitor a position it chose, a capability it invests in, a
+      //     purse it spends and an `ActorState` — a domain that owns real
+      //     transitions, which §5.4 wants one owner for.
+      //   * `ownerActions` 97 → 101: scout them, buy a courted crowd back,
+      //     hire out from under them, and settle. §9.1's rival can be
+      //     answered rather than only out-played, and two of the four
+      //     rebound — poaching schedules a retaliation the rival picks for
+      //     itself, settling schedules the review at which it reconsiders.
+      // Everything else is unchanged: 9.1 adds no areas, stock, recipes,
+      // customer groups, cultures, factions or arcs. The competition is a
+      // comparison between the house and one rival over the crowds the world
+      // already has.
+      runtimeModules: 40,
       simulationPhases: 26,
       daySegments: 3,
-      ownerActions: 97,
+      ownerActions: 101,
       staffPriorities: 12,
       pressureDomains: 21,
       feedbackDetectors: 13,

@@ -56,8 +56,9 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > escape; and an inspector actually visits, grades seven dimensions against
 > live state, and leaves findings, fines and orders a follow-up re-reads.
 > **ISSUE-178 (Phase 8 — the autonomous social world) is DONE, executed part
-> by part (8.1–8.5). Next: ISSUE-179 (Phase 9 — rivals, local arcs,
-> expeditions).** **§8.1 (factions) is done (2026-08-06).**
+> by part (8.1–8.5). ISSUE-179 (Phase 9) is now in progress, part by part;
+> §9.1 (the rival actor) is done (2026-08-07).** **§8.1 (factions) is done
+> (2026-08-06).**
 > Factions are now actors rather than meters: each has goals derived from
 > live state, a budget derived from its influence, a constituency of real
 > customer groups and suppliers, a dated and decaying ledger of how it has
@@ -166,8 +167,32 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > are promises about belief — the party the house deflected blame onto now
 > resents it (accuracy `true`, so it cannot be talked away), and a bribe that
 > gets out is believed by the watch, which then reads the next inspection
-> harder. **ISSUE-178 is complete; next is ISSUE-179 (Phase 9 — rivals,
-> local arcs, expeditions).** The sequence is hard-ordered after that.
+> harder. **ISSUE-178 is complete.**
+>
+> **ISSUE-179 §9.1 (the rival tavern) is done (2026-08-07), which closes the
+> rival half of DEP-09.** The competitor was three numbers in the monthly
+> slice — `pressure`, `appeal` and a `strategy` nothing ever wrote — scaling
+> every crowd's turnout by one factor. It is now a record with an
+> `ActorState`: it picks a market position from where the house is serving
+> worst, hires, moves on price and menu focus, courts named customer groups,
+> gets factions to back it, puts about a failing the simulation already has
+> (accuracy `partial`, never invented), answers what is said about it, goes
+> hard at a crowd on recorded evidence the house failed it, and digs itself
+> out of troubles that get worse while it ignores them. It announces two
+> days before it moves, like a faction. **Appeal is now derived per customer
+> group on both sides** — what that crowd thinks of drinking here against
+> what the rival has actually built — so a cheap, loud house is a
+> catastrophe for miners and an irrelevance to merchants; the swing keeps
+> the old ±20% ceiling, so a rival that has done nothing leaves turnout
+> where it was. Rival pressure and the monthly numbers became summaries OF
+> that competition rather than the model. Four owner actions answer it
+> (scout, win a crowd back, hire out from under them, settle), and the last
+> two rebound: poaching schedules a retaliation the rival picks for itself,
+> settling schedules the review at which it reconsiders. Four `HOOK-*`
+> families stop draining: `rival_retaliation_*`, `rival_dominance_*`,
+> `rival_rumour_exposed_*` and `rival_settlement_pact_*` now resolve into
+> real rival moves or explained no-ops. **Next: §9.2 (local arcs).** The
+> sequence is hard-ordered after that.
 >
 > Everything else below — the Complete Surface resume points, the
 > onboarding arc, the standing tails — is **paused, not cancelled**, and
@@ -416,7 +441,7 @@ rather than rebuilding those routes.
 | ISSUE-176 | Expansion Phase 6 — transactional suppliers: orders, deliveries, credit, invoices (OBL-04) | broken | done | 213 |
 | ISSUE-177 | Expansion Phase 7 — loans, tenancy, and a real inspection lifecycle (OBL-03 + loan/eviction half of OBL-02) | broken | done | 214 |
 | ISSUE-178 | Expansion Phase 8 — autonomous social world: faction/culture/NPC agency, rumour propagation, behavioral attribution (rumour half of OBL-08) | broken | done (8.1–8.5) | 215 |
-| ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | open | 216 |
+| ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | in progress (9.1 done) | 216 |
 | ISSUE-180 | Expansion Phase 10 — populated teleology, causal identity with hysteresis, character arcs, earned nicknames (OBL-09 + mastery half of OBL-08) | broken | open | 217 |
 | ISSUE-181 | Expansion Phase 11 — reconnect issues, responses, pressures, feedback, memory and history to the deepened domains (closes OBL-02) | broken | open | 218 |
 | ISSUE-182 | Expansion Phase 12 — ongoing difficulty, reachable Quick Day, correct planning horizon, new management surfaces, derived Help (OBL-05/06/07) | broken | open | 219 |

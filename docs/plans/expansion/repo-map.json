@@ -39,6 +39,7 @@
     "factions",
     "npcs",
     "rumours",
+    "rival",
     "suppliers",
     "regulars",
     "adventurers",
@@ -153,6 +154,7 @@
     "regulars",
     "regulatory",
     "responses",
+    "rival",
     "ruleset",
     "rumours",
     "scheduledEvents",
@@ -234,6 +236,7 @@
       "ensureNpcAgencyFields",
       "ensureRumourNetworkFields",
       "ensureBeliefBehaviourFields",
+      "ensureRivalSlice",
       "ensureModuleSlices"
     ]
   },
@@ -243,10 +246,10 @@
     "standard"
   ],
   "inventory": {
-    "runtimeModules": 39,
+    "runtimeModules": 40,
     "simulationPhases": 26,
     "daySegments": 3,
-    "ownerActions": 97,
+    "ownerActions": 101,
     "staffPriorities": 12,
     "pressureDomains": 21,
     "feedbackDetectors": 13,

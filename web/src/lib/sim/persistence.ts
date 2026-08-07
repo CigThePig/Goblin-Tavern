@@ -86,6 +86,7 @@ import {
   ensureExternalObligationSlices,
   ensureCultureAgencyFields,
   ensureNpcAgencyFields,
+  ensureRivalSlice,
   ensureRumourNetworkFields,
   ensureBeliefBehaviourFields,
   ensureFactionAgencyFields,
@@ -817,7 +818,15 @@ function migrateAndValidateState(
     const s8j = ensureRumourNetworkFields(s8i);
     // Expansion Phase 8 §8.5 — the belief-behaviour record.
     const s8k = ensureBeliefBehaviourFields(s8j);
-    const s9 = ensureModuleSlices(s8k);
+    // Expansion Phase 9 §5.7 — the rival slice. Named rather than left to
+    // the generic sweep because the sweep would install a blank one, and a
+    // blank one throws away a competition the save has already played: the
+    // rival's standing is derived from the appeal and strategy the save
+    // already records. No name is rolled here — the module opens the record
+    // from its own named stream on the first played day, so no RNG cursor
+    // moves during a load.
+    const s8l = ensureRivalSlice(s8k);
+    const s9 = ensureModuleSlices(s8l);
     const validation = safeValidateState(s9, { modules: FULL_PIPELINE });
     if (!validation.success) {
       const first = validation.errors[0];

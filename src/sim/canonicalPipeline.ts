@@ -36,6 +36,7 @@ import { cultureModule } from './modules/cultures/index'
 import { factionModule } from './modules/factions/index'
 import { npcModule } from './modules/npcs/index'
 import { rumourModule } from './modules/rumours/index'
+import { rivalModule } from './modules/rival/index'
 import { supplierModule } from './modules/suppliers/index'
 import { regularModule } from './modules/regulars/index'
 import { adventurersModule } from './modules/adventurers/index'
@@ -79,6 +80,13 @@ export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   // `forecastTraffic`, so talk that moved this morning is believed by the
   // time turnout is projected.
   rumourModule,
+  // Expansion Phase 9 §9.1 — the rival tavern as an actor. Runs at
+  // `localEventUpdate`, after the faction and rumour passes (so backing
+  // given and talk moved this morning are on the books) and before
+  // `forecastTraffic` (so a crowd courted today is felt in tonight's
+  // turnout). Declares `dependsOn: ['factions']` because the head-to-head
+  // reads faction rival-backing.
+  rivalModule,
   supplierModule,
   regularModule,
   adventurersModule,

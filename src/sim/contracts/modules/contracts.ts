@@ -350,6 +350,58 @@ export const MODULE_CONTRACTS: Readonly<Record<string, ModuleContract>> = {
       'counter_rumour_runaway',
     ],
   },
+  // Expansion Phase 9 §9.1 — the factions slice gains a declared owner.
+  //
+  // It had none, and did not need one while the factions module was the
+  // only writer. The rival changes that: `seek_faction_backing` opens a
+  // `rival_backing` stance, which is a faction record written by the
+  // domain that provoked it. A foreign write into an UNOWNED slice is
+  // exactly what `checkSliceOwnership` exists to catch, so declaring the
+  // ownership here is what makes that one write legible as deliberate
+  // rather than looking like a second owner.
+  factions: {
+    slices: [
+      { sliceId: 'factions', version: 1, access: 'owns' },
+      { sliceId: 'economy', version: 1, access: 'reads' },
+      { sliceId: 'suppliers', version: 1, access: 'reads' },
+      { sliceId: 'scheduledEvents', version: 1, access: 'writes' },
+    ],
+    readsStatePaths: ['calendar', 'customerGroups', 'pressures', 'reputation', 'world'],
+    writesStatePaths: ['world.factions', 'coin'],
+    ownsEventTypes: [
+      'faction_demand_deadline',
+      'faction_favour_due',
+      'faction_retaliation',
+    ],
+    schedulesEventTypes: [
+      'faction_demand_deadline',
+      'faction_favour_due',
+      'faction_retaliation',
+    ],
+  },
+  // Expansion Phase 9 §9.1 — the rival tavern. It owns its own slice and
+  // writes two others on purpose: the scheduled-event queue (for the four
+  // hook families it took ownership of) and the factions slice, because
+  // `seek_faction_backing` opens a `rival_backing` stance — a faction
+  // record, written deliberately by the domain that provoked it rather than
+  // duplicated here.
+  rival: {
+    slices: [
+      { sliceId: 'rival', version: 1, access: 'owns' },
+      { sliceId: 'factions', version: 1, access: 'writes' },
+      { sliceId: 'economy', version: 1, access: 'reads' },
+      { sliceId: 'scheduledEvents', version: 1, access: 'writes' },
+    ],
+    readsStatePaths: ['calendar', 'customerGroups', 'reputation', 'pressures', 'world'],
+    writesStatePaths: ['world.socialRumours'],
+    ownsEventTypes: [
+      'rival_retaliation',
+      'rival_dominance_review',
+      'rival_rumour_exposed',
+      'rival_pact_review',
+    ],
+    schedulesEventTypes: ['rival_retaliation', 'rival_pact_review'],
+  },
   regulatory: {
     slices: [
       { sliceId: 'regulatory', version: 1, access: 'owns' },

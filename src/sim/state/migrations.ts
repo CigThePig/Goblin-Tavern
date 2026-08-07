@@ -63,6 +63,11 @@ import {
   normalizeFactionSlice,
 } from "../modules/factions/factionState";
 import {
+  RIVAL_MODULE_ID,
+  createInitialRivalModuleState,
+  normalizeRivalSlice,
+} from "../modules/rival/rivalState";
+import {
   CULTURES_MODULE_ID,
   createInitialCultureModuleState,
   normalizeCultureSlice,
@@ -1753,6 +1758,60 @@ export function ensureSupplierProcurementFields<
   return {
     ...state,
     modules: { ...current, [SUPPLIERS_MODULE_ID]: next },
+  };
+}
+
+// Expansion Phase 9 §5.7 / §9.1 — the rival slice.
+//
+// The slice is brand new, so `ensureModuleSlices` would install a blank one
+// and nothing would break. It is named anyway, because a blank one would be
+// WRONG in a way the generic sweep cannot know about: every post-Phase-15
+// save already records a rival in `modules.monthly.rivalTavern` — an appeal,
+// a pressure and a strategy the player has been living with — and opening a
+// brand-new unknown newcomer would throw away competition already played.
+//
+// So the record is DERIVED from what the save already knows, not rolled:
+//
+//   - `position` comes from the recorded `strategy`, which is where the save
+//     says the rival already sits (it will be `unknown` for almost every
+//     save, because nothing before this phase ever wrote it — that is an
+//     honest reading, not a loss).
+//   - `capability` is scaled off the recorded `appeal`, so a save whose
+//     rival had pulled ahead keeps a rival that has pulled ahead, and one
+//     whose rival was an irrelevance keeps an irrelevance.
+//   - NO NAME IS ROLLED HERE. The migration cannot reach an RNG stream, and
+//     rolling one would move a cursor and shift a generated name elsewhere
+//     (architecture rule 7). The record is left out entirely and the rival
+//     module's own `ensureRival` opens it — with its name drawn once from
+//     its own named stream — on the first day the migrated save is played.
+//
+// The result is a slice that is present and valid immediately, and a rival
+// whose standing on the day the save resumes is the standing it had when the
+// save was written.
+export function ensureRivalSlice<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const existing = current[RIVAL_MODULE_ID];
+  const base = createInitialRivalModuleState();
+
+  if (isRecord(existing)) {
+    const keys = Object.keys(base) as Array<keyof typeof base>;
+    if (keys.every((key) => key in existing)) return state;
+    return {
+      ...state,
+      modules: {
+        ...current,
+        [RIVAL_MODULE_ID]: normalizeRivalSlice(
+          existing as Partial<ReturnType<typeof createInitialRivalModuleState>>,
+        ),
+      },
+    };
+  }
+
+  return {
+    ...state,
+    modules: { ...current, [RIVAL_MODULE_ID]: base },
   };
 }
 

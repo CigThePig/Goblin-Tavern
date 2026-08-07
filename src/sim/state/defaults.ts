@@ -103,6 +103,7 @@ import { createInitialFactionModuleState } from "../modules/factions/factionStat
 import { createInitialCultureModuleState } from "../modules/cultures/cultureState";
 import { createInitialNpcModuleState } from "../modules/npcs/npcState";
 import { createInitialRumourModuleState } from "../modules/rumours/rumourState";
+import { createInitialRivalModuleState } from "../modules/rival/rivalState";
 import { createInitialEconomyModuleState } from "../modules/economy/state";
 
 // Phase 8 §8.1 — Area defaults are sourced from `areaRegistry` rather than
@@ -829,6 +830,15 @@ export function createInitialTavernState(
       // weekly budget that stops one loud voice carrying everything, and the
       // day's spread log.
       rumours: createInitialRumourModuleState(),
+      // Expansion Phase 9 §9.1 — seed the rival slice: the book of houses
+      // across the road, empty until the module's first day opens the one
+      // the world starts with (its name is drawn from a named stream, which
+      // a static default cannot reach). Present from day zero for the same
+      // reason the external-obligation slices below are — the web layer's
+      // day baseline goes through the migration chain on reload, so a slice
+      // absent here and installed there would make a resumed day differ
+      // from an uninterrupted one.
+      rival: createInitialRivalModuleState(),
       // Phase 30 §30.6 — seed an empty regulars slice (no candidates,
       // no creations, no visits) so the module's schema validates from
       // day zero before any regular has emerged.

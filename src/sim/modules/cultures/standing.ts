@@ -7,6 +7,7 @@ import {
   MAX_ACCOMMODATION_HISTORY,
   MAX_CULTURE_EVIDENCE,
   MISUNDERSTANDING_LIFE_DAYS,
+  WALKOUT_LIFE_DAYS,
   bumpCultureTotal,
   createInitialCultureTotals,
   emptyCultureStanding,
@@ -17,6 +18,7 @@ import {
   netCultureStanding,
   writeCultureSlice,
 } from './cultureState'
+import { scheduleWalkoutRisk } from './cultureEvents'
 import type {
   CultureEvidenceEntry,
   CultureEvidenceKind,
@@ -67,6 +69,11 @@ const MISUNDERSTANDING_THRESHOLD = 12
  * is already in the red.
  */
 const MISUNDERSTANDING_NET_FLOOR = -15
+
+/** Days an unanswered slight stands before the crowd starts talking about leaving. */
+const WALKOUT_RISK_AFTER_DAYS = 6
+/** …and how badly they have to think of the place for it to get that far. */
+const WALKOUT_RISK_NET_FLOOR = -30
 
 /** Kinds that can open a misunderstanding, and what would fix each. */
 const REMEDIES: Partial<Record<CultureEvidenceKind, string>> = {
@@ -244,20 +251,29 @@ export function worstCultureEvidence(
  */
 export function openMisunderstanding(
   ctx: SimContext,
-  input: { cultureId: string; cause: CultureEvidenceKind; reason: string },
+  input: {
+    cultureId: string
+    cause: CultureEvidenceKind
+    reason: string
+    severity?: CultureMisunderstanding['severity']
+    remedy?: string
+  },
 ): CultureMisunderstanding | undefined {
   const culture = ctx.state.world.cultures[input.cultureId]
   if (!culture) return undefined
   if (liveMisunderstandingFor(ctx.state, input.cultureId)) return undefined
-  const remedy = REMEDIES[input.cause]
+  const remedy = input.remedy ?? REMEDIES[input.cause]
   if (!remedy) return undefined
+  const severity = input.severity ?? 'slight'
 
   const today = ctx.state.calendar.totalDaysElapsed
   const record: CultureMisunderstanding = {
     id: `misunderstanding_${input.cultureId}_${today}`,
     cultureId: input.cultureId,
+    severity,
     openedOnDay: today,
-    expiresOnDay: today + MISUNDERSTANDING_LIFE_DAYS,
+    expiresOnDay:
+      today + (severity === 'walkout' ? WALKOUT_LIFE_DAYS : MISUNDERSTANDING_LIFE_DAYS),
     reason: input.reason,
     remedy,
     cause: input.cause,
@@ -333,7 +349,27 @@ export function reviewMisunderstandings(ctx: SimContext): void {
   for (const cultureId of Object.keys(ctx.state.world.cultures).sort()) {
     const standing = getCultureModuleState(ctx.state).standing[cultureId]
     if (!standing) continue
-    if (liveMisunderstandingFor(ctx.state, cultureId)) continue
+
+    // A slight that has stood unanswered long enough becomes a walkout
+    // RISK — announced on the calendar with a warning window, so the
+    // player has a turn to answer it before the crowd actually goes. The
+    // event re-reads live state when it fires, so amends in the meantime
+    // are what stops it.
+    const live = liveMisunderstandingFor(ctx.state, cultureId)
+    if (live) {
+      if (
+        live.severity === 'slight' &&
+        today - live.openedOnDay >= WALKOUT_RISK_AFTER_DAYS &&
+        standing.net <= WALKOUT_RISK_NET_FLOOR
+      ) {
+        const culture = ctx.state.world.cultures[cultureId]!
+        scheduleWalkoutRisk(ctx, cultureId, {
+          source: 'cultures.review',
+          readable: `${culture.label} have had no answer about ${live.reason}`,
+        })
+      }
+      continue
+    }
     const todaysWorst = standing.evidence
       .filter((entry) => entry.onDay === today && isNegativeEvidence(entry.kind))
       .sort((a, b) => b.weight - a.weight)[0]

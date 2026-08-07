@@ -34,6 +34,7 @@ import { weeklyModule } from './modules/weekly/index'
 import { worldModule } from './modules/world/index'
 import { cultureModule } from './modules/cultures/index'
 import { factionModule } from './modules/factions/index'
+import { npcModule } from './modules/npcs/index'
 import { supplierModule } from './modules/suppliers/index'
 import { regularModule } from './modules/regulars/index'
 import { adventurersModule } from './modules/adventurers/index'
@@ -68,6 +69,10 @@ export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   worldModule,
   cultureModule,
   factionModule,
+  // Expansion Phase 8 §8.3 — the notable-NPC module. Runs after factions and
+  // cultures because its importance rule reads what those two have live, and
+  // its `closing` pass reads the faction moves made earlier the same day.
+  npcModule,
   supplierModule,
   regularModule,
   adventurersModule,

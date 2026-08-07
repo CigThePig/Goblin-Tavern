@@ -101,6 +101,7 @@ import { createInitialTenancyModuleState } from "../modules/tenancy/state";
 import { createInitialRegulatoryModuleState } from "../modules/regulatory/state";
 import { createInitialFactionModuleState } from "../modules/factions/factionState";
 import { createInitialCultureModuleState } from "../modules/cultures/cultureState";
+import { createInitialNpcModuleState } from "../modules/npcs/npcState";
 import { createInitialEconomyModuleState } from "../modules/economy/state";
 
 // Phase 8 §8.1 — Area defaults are sourced from `areaRegistry` rather than
@@ -817,6 +818,12 @@ export function createInitialTavernState(
       // evidence ledger, accommodation history, dish and area experience,
       // live misunderstandings and culture-to-culture friction.
       cultures: createInitialCultureModuleState(),
+      // Expansion Phase 8 §8.3 — seed the npcs slice. Notable NPCs have been
+      // in `world.notableNpcs` since Phase 44 with no module state at all;
+      // this holds what the house has had to do with each of them, when they
+      // are about, what they can put behind something, and — for the few who
+      // earn it — an actor record.
+      npcs: createInitialNpcModuleState(),
       // Phase 30 §30.6 — seed an empty regulars slice (no candidates,
       // no creations, no visits) so the module's schema validates from
       // day zero before any regular has emerged.

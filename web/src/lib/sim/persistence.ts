@@ -85,6 +85,7 @@ import {
   ensureExpansionContractSlices,
   ensureExternalObligationSlices,
   ensureCultureAgencyFields,
+  ensureNpcAgencyFields,
   ensureFactionAgencyFields,
   flipUpkeepRecipesOffMenu,
 } from "../../../../src/sim/state/migrations";
@@ -801,7 +802,12 @@ function migrateAndValidateState(
     // `trust` meter is derived from the comfort and tension the save already
     // carries rather than defaulted flat.
     const s8h = ensureCultureAgencyFields(s8g);
-    const s9 = ensureModuleSlices(s8h);
+    // Expansion Phase 8 §5.7 — the notable-NPC slice. Named rather than left
+    // to the generic sweep for one judgement: `lastSeenDay` is left ABSENT
+    // rather than backdated, because stamping any day would claim a visit
+    // nobody played.
+    const s8i = ensureNpcAgencyFields(s8h);
+    const s9 = ensureModuleSlices(s8i);
     const validation = safeValidateState(s9, { modules: FULL_PIPELINE });
     if (!validation.success) {
       const first = validation.errors[0];

@@ -71,6 +71,16 @@ export type CultureAccommodationEntry = {
 export type CultureMisunderstanding = {
   id: string
   cultureId: string
+  /**
+   * How far it has gone.
+   *
+   * A `slight` is something the house did that they have not forgiven; a
+   * `walkout` is a culture that has stopped coming over it. The two need
+   * separating because they cost different amounts of turnout and take
+   * different lengths of time to fade — and because `culture_walkout_risk_*`
+   * promises the second specifically.
+   */
+  severity: 'slight' | 'walkout'
   openedOnDay: number
   expiresOnDay: number
   /** What caused it, in the culture's own terms. */
@@ -144,6 +154,8 @@ export type CultureTotals = {
   amendsMade: number
   preferenceShifts: number
   recommendationsMade: number
+  walkouts: number
+  seatingBacklashes: number
 }
 
 export type CultureModuleState = {

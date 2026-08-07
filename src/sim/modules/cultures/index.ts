@@ -9,6 +9,7 @@ export {
   MAX_LEARNED_TAGS,
   MAX_TRACKED_SUBJECTS,
   MISUNDERSTANDING_LIFE_DAYS,
+  WALKOUT_LIFE_DAYS,
   activeFriction,
   bumpCultureTotal,
   createInitialCultureModuleState,
@@ -55,6 +56,14 @@ export {
   culturePreferredTags,
   cultureWillingness,
 } from './autonomy'
+export {
+  CULTURE_SCHEDULED_EVENTS,
+  CULTURE_SCHEDULED_EVENT_TYPES,
+  CULTURE_SEATING_BACKLASH_EVENT,
+  CULTURE_WALKOUT_EVENT,
+  ensureCultureScheduledEventsRegistered,
+  scheduleWalkoutRisk,
+} from './cultureEvents'
 export {
   getSeatSeparationFactor,
   seatSeparationStrength,

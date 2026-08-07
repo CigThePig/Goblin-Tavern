@@ -38,6 +38,9 @@ export const MAX_TRACKED_SUBJECTS = 12
 export const MISUNDERSTANDING_RETENTION_DAYS = 14
 /** Days a misunderstanding stays live before it fades of its own accord. */
 export const MISUNDERSTANDING_LIFE_DAYS = 12
+
+/** A culture that has walked out stays away longer than one merely slighted. */
+export const WALKOUT_LIFE_DAYS = 20
 /** Learned preferences and dislikes per culture. */
 export const MAX_LEARNED_TAGS = 6
 
@@ -55,6 +58,8 @@ export function createInitialCultureTotals(): CultureTotals {
     amendsMade: 0,
     preferenceShifts: 0,
     recommendationsMade: 0,
+    walkouts: 0,
+    seatingBacklashes: 0,
   }
 }
 
@@ -326,6 +331,7 @@ const StandingSchema = z.object({
 const MisunderstandingSchema = z.object({
   id: z.string(),
   cultureId: z.string(),
+  severity: z.enum(['slight', 'walkout']).default('slight'),
   openedOnDay: z.number().int(),
   expiresOnDay: z.number().int(),
   reason: z.string(),

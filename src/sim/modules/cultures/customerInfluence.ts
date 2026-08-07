@@ -58,6 +58,9 @@ const TENSION_HIGH_THRESHOLD = 75
  */
 const MISUNDERSTANDING_TURNOUT_HIT = 4
 
+/** A culture that has actually walked out withholds more, for longer. */
+const WALKOUT_TURNOUT_HIT = 7
+
 export function getCultureForecastModifier(
   state: TavernState,
   group: CustomerGroupState,
@@ -147,9 +150,15 @@ export function getCultureForecastModifier(
   // the house puts it right. This is why the remedy is named on the record.
   const misunderstanding = liveMisunderstandingFor(state, culture.id)
   if (misunderstanding) {
-    modifier -= MISUNDERSTANDING_TURNOUT_HIT
+    const hit =
+      misunderstanding.severity === 'walkout'
+        ? WALKOUT_TURNOUT_HIT
+        : MISUNDERSTANDING_TURNOUT_HIT
+    modifier -= hit
     notes.push(
-      `${culture.label} are staying away over an unresolved matter (-${MISUNDERSTANDING_TURNOUT_HIT}): ${misunderstanding.remedy}.`,
+      misunderstanding.severity === 'walkout'
+        ? `${culture.label} have walked out over an unresolved matter (-${hit}): ${misunderstanding.remedy}.`
+        : `${culture.label} are staying away over an unresolved matter (-${hit}): ${misunderstanding.remedy}.`,
     )
   }
 

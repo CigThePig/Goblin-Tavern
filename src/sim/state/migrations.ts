@@ -63,6 +63,11 @@ import {
   normalizeCultureSlice,
 } from "../modules/cultures/cultureState";
 import { cultureRegistry } from "../content/cultures/cultureRegistry";
+import {
+  NPCS_MODULE_ID,
+  createInitialNpcModuleState,
+  normalizeNpcSlice,
+} from "../modules/npcs/npcState";
 import type {
   MonthlyModuleState,
   MonthlyResult,
@@ -1177,6 +1182,49 @@ export function ensureExternalObligationSlices<
 
   if (!changed && state.modules) return state;
   return { ...state, modules: next };
+}
+
+// Expansion Phase 8 §5.7 — the notable-NPC agency fields.
+//
+// Unlike the faction and culture migrations there is no empty `{}` to
+// repair: the NPC layer has never had module state, so `ensureModuleSlices`
+// would install the defaults correctly on its own. This helper is named
+// anyway, for one judgement the generic sweep cannot make.
+//
+// LAST-SEEN IS NOT BACKDATED. `NotableNpcWorldState.lastSeenDay` has been
+// declared since Phase 44 and written by nothing, so every save carries nine
+// NPCs who have never been seen. The obvious repair — stamp today, or stamp
+// `firstSeenDay` — would both be inventions: one claims they were about on a
+// day nobody played, the other claims a visit at the founding. It is left
+// ABSENT, which is the true statement, and the first day the new pass finds
+// somebody about is the first day it gets a value.
+//
+// The records themselves start empty for the same reason the faction and
+// culture ledgers do: reconstructing dealings from a save that recorded none
+// would fabricate a history the player never played. Nobody starts promoted.
+export function ensureNpcAgencyFields<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const existing = current[NPCS_MODULE_ID];
+  const base = createInitialNpcModuleState();
+
+  if (!isRecord(existing)) {
+    return { ...state, modules: { ...current, [NPCS_MODULE_ID]: base } };
+  }
+
+  const keys = Object.keys(base) as Array<keyof typeof base>;
+  if (keys.every((key) => key in existing)) return state;
+
+  return {
+    ...state,
+    modules: {
+      ...current,
+      [NPCS_MODULE_ID]: normalizeNpcSlice(
+        existing as Partial<ReturnType<typeof createInitialNpcModuleState>>,
+      ),
+    },
+  };
 }
 
 // Expansion Phase 8 §5.7 — the culture agency fields.

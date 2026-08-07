@@ -540,6 +540,12 @@ export type CauseSourceType =
   | "faction"
   | "supplier"
   | "regular"
+  // Expansion Phase 8 §8.3 — a notable NPC can now be the SOURCE of a
+  // change, not only its target. It was already a valid `CauseTargetType`
+  // (things happened to them); §8.3 gives selected NPCs a small action set,
+  // so things now happen BECAUSE of them and the cause has to be able to say
+  // so.
+  | "notable_npc"
   | "local_event"
   | "rumour";
 

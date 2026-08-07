@@ -15,6 +15,7 @@ import { TENANCY_ACTIONS } from '../modules/tenancy/actions'
 import { REGULATORY_ACTIONS } from '../modules/regulatory/actions'
 import { FACTION_ACTIONS } from '../modules/ownerActions/factionActions'
 import { CULTURE_ACTIONS } from '../modules/ownerActions/cultureActions'
+import { NPC_ACTIONS } from '../modules/ownerActions/npcActions'
 import type { OwnerActionDefinition } from '../modules/ownerActions/types'
 
 // Phase 13 §13.1 — Owner action registry.
@@ -93,6 +94,11 @@ export function ensureRequiredOwnerActionsRegistered(): void {
     // matters. Both surface exactly when there is something to answer, and
     // the target hint carries the remedy the misunderstanding recorded.
     ...CULTURE_ACTIONS,
+    // Expansion Phase 8 §8.3 — dealing with people. Accepting and declining
+    // are the answers to what a promoted NPC puts to the house; cultivating
+    // is how a player DRIVES the repeated-interaction threshold rather than
+    // waiting for it.
+    ...NPC_ACTIONS,
   ]
   for (const def of all) {
     if (!actionRegistry.has(def.id)) {

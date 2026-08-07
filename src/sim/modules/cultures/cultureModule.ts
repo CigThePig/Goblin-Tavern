@@ -12,6 +12,7 @@ import { observeServiceEvidence } from './serviceEvidence'
 import { resolveObservances } from './observance'
 import { reviewMisunderstandings, summariseCultures } from './standing'
 import { applyPreferenceShifts, applyRecommendations } from './autonomy'
+import './cultureEvents'
 
 // Phase 27 §27.4 / Phase 30 §30.10 — Culture module.
 //

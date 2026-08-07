@@ -526,6 +526,7 @@ export const CauseEntrySchema = z.object({
     "faction",
     "supplier",
     "regular",
+    "notable_npc",
     "local_event",
     "rumour",
   ]),

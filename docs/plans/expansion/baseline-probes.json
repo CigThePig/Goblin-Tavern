@@ -2153,7 +2153,7 @@
       "collections": {
         "memories": 4,
         "history": 16,
-        "causes": 401,
+        "causes": 406,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -2689,7 +2689,7 @@
       "collections": {
         "memories": 4,
         "history": 16,
-        "causes": 401,
+        "causes": 406,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -3225,7 +3225,7 @@
       "collections": {
         "memories": 20,
         "history": 94,
-        "causes": 512,
+        "causes": 527,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -3294,7 +3294,7 @@
         }
       },
       "traffic": {
-        "total": 565,
+        "total": 548,
         "byGroup": {
           "adventurers": 37,
           "eccentric_noble": 0,
@@ -3302,9 +3302,9 @@
           "foreign_envoy": 0,
           "gourmand": 0,
           "local_goblins": 298,
-          "merchants": 54,
-          "miners": 144,
-          "ogres": 32
+          "merchants": 50,
+          "miners": 133,
+          "ogres": 30
         }
       },
       "satisfaction": {
@@ -3328,7 +3328,7 @@
         "foreign_envoy": 0,
         "gourmand": 0,
         "local_goblins": 54,
-        "merchants": 15,
+        "merchants": 14,
         "miners": 29,
         "ogres": 2
       },
@@ -3393,7 +3393,7 @@
           "condition": 60,
           "cleanliness": 0,
           "mess": 100,
-          "damage": 45,
+          "damage": 44,
           "smell": 25,
           "risk": 34,
           "upgradesInstalled": 0,
@@ -3462,7 +3462,7 @@
           "skill": 55,
           "morale": 49,
           "stress": 13,
-          "fatigue": 33,
+          "fatigue": 31,
           "loyalty": 40,
           "wage": 12,
           "paidThisWeek": true,
@@ -3649,8 +3649,8 @@
           "topCauses": []
         },
         "cultural_tension": {
-          "value": 9,
-          "trend": -1,
+          "value": 36,
+          "trend": 1,
           "topCauses": []
         },
         "debt": {
@@ -3659,8 +3659,8 @@
           "topCauses": []
         },
         "faction_anger": {
-          "value": 0,
-          "trend": 0,
+          "value": 28,
+          "trend": 1,
           "topCauses": []
         },
         "festival_readiness": {
@@ -3684,8 +3684,8 @@
           "topCauses": []
         },
         "maintenance": {
-          "value": 18,
-          "trend": 1,
+          "value": 12,
+          "trend": -1,
           "topCauses": []
         },
         "market_instability": {
@@ -3699,8 +3699,8 @@
           "topCauses": []
         },
         "policy_backlash": {
-          "value": 15,
-          "trend": 1,
+          "value": 14,
+          "trend": -1,
           "topCauses": []
         },
         "regular_customer_loss": {
@@ -3719,7 +3719,7 @@
           "topCauses": []
         },
         "rumour_pressure": {
-          "value": 45,
+          "value": 31,
           "trend": -1,
           "topCauses": []
         },
@@ -3750,8 +3750,8 @@
         }
       },
       "issues": {
-        "totalGenerated": 182,
-        "totalRejected": 73,
+        "totalGenerated": 183,
+        "totalRejected": 74,
         "seedsToday": 4,
         "surfacedToday": 4,
         "withheldToday": 2,
@@ -3759,9 +3759,9 @@
         "responsesAppliedToday": 0
       },
       "collections": {
-        "memories": 32,
+        "memories": 33,
         "history": 434,
-        "causes": 367,
+        "causes": 380,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -3777,7 +3777,7 @@
         "regulars": 11,
         "notableNpcs": 11,
         "localEvents": 1,
-        "socialRumours": 13,
+        "socialRumours": 11,
         "hireableAdventurers": 4,
         "expeditionsActive": 0,
         "expeditionsCompleted": 0,
@@ -4185,7 +4185,7 @@
           "topCauses": []
         },
         "cultural_tension": {
-          "value": 45,
+          "value": 53,
           "trend": -1,
           "topCauses": []
         },
@@ -4295,9 +4295,9 @@
         "responsesAppliedToday": 0
       },
       "collections": {
-        "memories": 26,
-        "history": 230,
-        "causes": 433,
+        "memories": 28,
+        "history": 232,
+        "causes": 449,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -4716,13 +4716,13 @@
       },
       "pressures": {
         "arc_escalation": {
-          "value": 9,
-          "trend": -1,
+          "value": 10,
+          "trend": 1,
           "topCauses": []
         },
         "cultural_tension": {
-          "value": 94,
-          "trend": -1,
+          "value": 100,
+          "trend": 1,
           "topCauses": []
         },
         "debt": {
@@ -4831,9 +4831,9 @@
         "responsesAppliedToday": 0
       },
       "collections": {
-        "memories": 23,
-        "history": 213,
-        "causes": 662,
+        "memories": 29,
+        "history": 218,
+        "causes": 677,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -5252,12 +5252,12 @@
       },
       "pressures": {
         "arc_escalation": {
-          "value": 0,
-          "trend": -1,
+          "value": 7,
+          "trend": 1,
           "topCauses": []
         },
         "cultural_tension": {
-          "value": 36,
+          "value": 69,
           "trend": -1,
           "topCauses": []
         },
@@ -5359,17 +5359,17 @@
       },
       "issues": {
         "totalGenerated": 89,
-        "totalRejected": 34,
+        "totalRejected": 33,
         "seedsToday": 4,
-        "surfacedToday": 4,
-        "withheldToday": 4,
+        "surfacedToday": 5,
+        "withheldToday": 3,
         "responsesResolvedToday": 0,
         "responsesAppliedToday": 0
       },
       "collections": {
-        "memories": 27,
-        "history": 268,
-        "causes": 553,
+        "memories": 30,
+        "history": 269,
+        "causes": 565,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -5793,7 +5793,7 @@
           "topCauses": []
         },
         "cultural_tension": {
-          "value": 65,
+          "value": 70,
           "trend": -1,
           "topCauses": []
         },
@@ -5903,9 +5903,9 @@
         "responsesAppliedToday": 0
       },
       "collections": {
-        "memories": 27,
-        "history": 274,
-        "causes": 590,
+        "memories": 28,
+        "history": 275,
+        "causes": 607,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -6324,12 +6324,12 @@
       },
       "pressures": {
         "arc_escalation": {
-          "value": 0,
+          "value": 5,
           "trend": -1,
           "topCauses": []
         },
         "cultural_tension": {
-          "value": 28,
+          "value": 51,
           "trend": -1,
           "topCauses": []
         },
@@ -6439,9 +6439,9 @@
         "responsesAppliedToday": 0
       },
       "collections": {
-        "memories": 26,
-        "history": 223,
-        "causes": 537,
+        "memories": 30,
+        "history": 228,
+        "causes": 556,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -6483,41 +6483,41 @@
         "dayOfWeek": 1,
         "totalDaysElapsed": 14
       },
-      "coin": 1058,
+      "coin": 1054,
       "ledger": {
-        "serviceCoinEarned": 2044,
-        "serviceNetCoin": 1939,
+        "serviceCoinEarned": 2040,
+        "serviceNetCoin": 1935,
         "serviceUnpaidTabs": 105,
         "weekly": {
-          "net": 299,
+          "net": 295,
           "other": -241,
           "purchases": 303,
           "rent": 0,
           "repairs": 22,
-          "sales": 898,
+          "sales": 894,
           "wages": 33,
           "waste": 0
         },
         "monthly": {
-          "net": 958,
+          "net": 954,
           "other": -469,
           "purchases": 489,
           "rent": 0,
           "repairs": 62,
-          "sales": 2044,
+          "sales": 2040,
           "wages": 66,
           "waste": 0
         }
       },
       "traffic": {
-        "total": 604,
+        "total": 603,
         "byGroup": {
           "adventurers": 65,
           "eccentric_noble": 0,
           "food_critic": 0,
           "foreign_envoy": 0,
           "gourmand": 0,
-          "local_goblins": 269,
+          "local_goblins": 268,
           "merchants": 77,
           "miners": 151,
           "ogres": 42
@@ -6758,7 +6758,7 @@
           "spoilage": 0
         },
         "mushrooms": {
-          "quantity": 25,
+          "quantity": 27,
           "quality": 55,
           "spoilage": 48.941667
         },
@@ -6823,7 +6823,7 @@
           "dish_kraken_ink": 0,
           "dish_moonpetal_mushroom": 0,
           "dish_mugs": 0,
-          "dish_mushrooms": 265,
+          "dish_mushrooms": 263,
           "dish_phoenix_pepper": 0,
           "dish_river_eel": 0,
           "dish_silvercap_truffle": 0,
@@ -6863,13 +6863,13 @@
       },
       "pressures": {
         "arc_escalation": {
-          "value": 9,
-          "trend": -1,
+          "value": 10,
+          "trend": 1,
           "topCauses": []
         },
         "cultural_tension": {
-          "value": 94,
-          "trend": -1,
+          "value": 100,
+          "trend": 1,
           "topCauses": []
         },
         "debt": {
@@ -6978,9 +6978,9 @@
         "responsesAppliedToday": 2
       },
       "collections": {
-        "memories": 50,
-        "history": 208,
-        "causes": 834,
+        "memories": 56,
+        "history": 212,
+        "causes": 850,
         "pressures": 21,
         "areas": 9,
         "stock": 22,

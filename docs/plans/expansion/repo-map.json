@@ -37,6 +37,7 @@
     "world",
     "cultures",
     "factions",
+    "npcs",
     "suppliers",
     "regulars",
     "adventurers",
@@ -143,6 +144,7 @@
     "memories",
     "meters",
     "monthly",
+    "npcs",
     "obligations",
     "openings",
     "ownerActions",
@@ -227,6 +229,7 @@
       "ensureExternalObligationSlices",
       "ensureFactionAgencyFields",
       "ensureCultureAgencyFields",
+      "ensureNpcAgencyFields",
       "ensureModuleSlices"
     ]
   },
@@ -236,10 +239,10 @@
     "standard"
   ],
   "inventory": {
-    "runtimeModules": 37,
+    "runtimeModules": 38,
     "simulationPhases": 26,
     "daySegments": 3,
-    "ownerActions": 90,
+    "ownerActions": 93,
     "staffPriorities": 12,
     "pressureDomains": 21,
     "feedbackDetectors": 13,

@@ -230,8 +230,14 @@ describe('Phase 207 — implementation ledger', () => {
     // §8.1 (2026-08-06) closed the four faction retaliation/favour hook
     // families. §8.2 (2026-08-07) closed the culture half, so DEP-08 —
     // which covers factions AND cultures in one row — is now `done`.
+    // §8.3 (2026-08-07) took DEP-09 to `in-progress` (the notable-NPC half;
+    // rivals belong to Phase 9 §9.1) and closed the two culture hook
+    // families that §8.2 had left open.
     const LANDED_PART_ROWS = new Map<string, string>([
       ['DEP-08', 'done'],
+      ['DEP-09', 'in-progress'],
+      ['HOOK-culture_walkout_risk_*', 'done'],
+      ['HOOK-culture_seating_backlash_*', 'done'],
       ['HOOK-faction_grudge_*', 'done'],
       ['HOOK-faction_revenge_*', 'done'],
       ['HOOK-faction_deception_exposed_*', 'done'],
@@ -436,10 +442,22 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       //     Phase 38 without ever finding.
       // `cultures` stays at 8 for the same reason `factions` stayed at 9:
       // 8.2 deepens the cultures that exist rather than adding any.
-      runtimeModules: 37,
+      //
+      // Expansion Phase 8.3 (ISSUE-178) moves two:
+      //   * `runtimeModules` 37 → 38: `npcs`. A module rather than an
+      //     extension of `world`, because §8.3's promotion rule owns a real
+      //     state transition (who is an agent) and §5.4 wants one domain per
+      //     transition.
+      //   * `ownerActions` 90 → 93: accept and decline what somebody has put
+      //     to the house, and seek somebody out — the last being how a player
+      //     DRIVES §8.3's repeated-interaction threshold rather than waiting.
+      // `notableNpcs` is unchanged: 8.3 gives the nine who already exist
+      // goals, memory, a schedule and a small action set. It promotes at
+      // most four of them at a time, and promotes none of them at day zero.
+      runtimeModules: 38,
       simulationPhases: 26,
       daySegments: 3,
-      ownerActions: 90,
+      ownerActions: 93,
       staffPriorities: 12,
       pressureDomains: 21,
       feedbackDetectors: 13,

@@ -102,6 +102,7 @@ import { createInitialRegulatoryModuleState } from "../modules/regulatory/state"
 import { createInitialFactionModuleState } from "../modules/factions/factionState";
 import { createInitialCultureModuleState } from "../modules/cultures/cultureState";
 import { createInitialNpcModuleState } from "../modules/npcs/npcState";
+import { createInitialRumourModuleState } from "../modules/rumours/rumourState";
 import { createInitialEconomyModuleState } from "../modules/economy/state";
 
 // Phase 8 §8.1 — Area defaults are sourced from `areaRegistry` rather than
@@ -824,6 +825,10 @@ export function createInitialTavernState(
       // are about, what they can put behind something, and — for the few who
       // earn it — an actor record.
       npcs: createInitialNpcModuleState(),
+      // Expansion Phase 8 §8.4 — seed the rumours slice: the per-channel
+      // weekly budget that stops one loud voice carrying everything, and the
+      // day's spread log.
+      rumours: createInitialRumourModuleState(),
       // Phase 30 §30.6 — seed an empty regulars slice (no candidates,
       // no creations, no visits) so the module's schema validates from
       // day zero before any regular has emerged.

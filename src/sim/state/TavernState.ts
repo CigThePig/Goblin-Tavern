@@ -934,6 +934,25 @@ export type TavernIdentityState = {
   atmosphereTags: string[];
 };
 
+/**
+ * Who has heard a rumour, and how much of it they believe.
+ *
+ * Expansion Phase 8 §8.4. `strength` alone said how loud a rumour was and
+ * nothing about who was carrying it, so a rumour could be at strength 90
+ * without a single person in the world believing anything. An audience is a
+ * culture, a faction, a customer group or a notable NPC — the actors §8.1 to
+ * §8.3 built — and its `belief` is what the decision rules read.
+ */
+export type RumourAudience = {
+  id: string;
+  kind: "culture" | "faction" | "customer_group" | "notable_npc";
+  /** 0..100. How much of it this audience takes as true. */
+  belief: number;
+  heardOnDay: number;
+  /** Who they heard it from. Absent when they were the source. */
+  fromId?: string;
+};
+
 export type SocialRumourState = {
   id: string;
   label: string;
@@ -946,6 +965,35 @@ export type SocialRumourState = {
   lastSpreadDay: number;
   tags: string[];
   involvedRefs?: EntityRef[];
+
+  // -- Expansion Phase 8 §8.4 — a rumour that actually travels ------------
+  //
+  // Every field below is optional so a pre-Phase-8 save parses unchanged;
+  // `ensureRumourNetworkFields` fills them from what the save already knows.
+
+  /**
+   * How believable it is, 0..100 — as distinct from `strength`, which is how
+   * widely it is being repeated. The two come apart constantly: a wild story
+   * everybody has heard and nobody credits is loud and weak, and a quiet
+   * word from somebody reliable is the opposite.
+   */
+  credibility?: number;
+  /** Behind closed doors, or out in the open. Public talk reaches further. */
+  reach?: "private" | "public";
+  /** Who has heard it. Bounded — see `MAX_RUMOUR_AUDIENCES`. */
+  audiences?: RumourAudience[];
+  /** 0..100. How far the telling has drifted from what was first said. */
+  distortion?: number;
+  /** What it said when it started, so the drift is legible. */
+  originalLabel?: string;
+  /** How many times it has been passed on. The anti-recursion bound. */
+  hops?: number;
+  /** The rumour that contradicts this one, when somebody has put one about. */
+  counterRumourId?: string;
+  /** Set when it was put right rather than merely forgotten. */
+  correctedOnDay?: number;
+  /** Who started it. */
+  originRef?: EntityRef;
 };
 
 export type WorldState = {

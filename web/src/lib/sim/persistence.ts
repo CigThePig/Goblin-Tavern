@@ -86,6 +86,7 @@ import {
   ensureExternalObligationSlices,
   ensureCultureAgencyFields,
   ensureNpcAgencyFields,
+  ensureRumourNetworkFields,
   ensureFactionAgencyFields,
   flipUpkeepRecipesOffMenu,
 } from "../../../../src/sim/state/migrations";
@@ -807,7 +808,13 @@ function migrateAndValidateState(
     // rather than backdated, because stamping any day would claim a visit
     // nobody played.
     const s8i = ensureNpcAgencyFields(s8h);
-    const s9 = ensureModuleSlices(s8i);
+    // Expansion Phase 8 §5.7 — the rumour network. Named because every
+    // rumour record in an old save needs its credibility derived from the
+    // strength and accuracy it already carries, and — the load-bearing part
+    // — its audience list left EMPTY rather than populated: nobody in that
+    // save ever heard it from anybody.
+    const s8j = ensureRumourNetworkFields(s8i);
+    const s9 = ensureModuleSlices(s8j);
     const validation = safeValidateState(s9, { modules: FULL_PIPELINE });
     if (!validation.success) {
       const first = validation.errors[0];

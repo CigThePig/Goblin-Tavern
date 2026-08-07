@@ -6,6 +6,7 @@ import type {
 import { cultureWillingness } from './autonomy'
 import { accommodationRate } from './standing'
 import { liveMisunderstandingFor } from './cultureState'
+import { damagingBeliefFor } from '../rumours/belief'
 
 // Phase 30 §30.8 — Culture forecast influence helper.
 //
@@ -60,6 +61,11 @@ const MISUNDERSTANDING_TURNOUT_HIT = 4
 
 /** A culture that has actually walked out withholds more, for longer. */
 const WALKOUT_TURNOUT_HIT = 7
+
+/** Belief below this is talk they have heard and shrugged at. */
+const RUMOUR_BELIEF_FLOOR = 25
+/** …and the most a believed story can be worth on its own. */
+const MAX_RUMOUR_TURNOUT_HIT = 5
 
 export function getCultureForecastModifier(
   state: TavernState,
@@ -167,6 +173,27 @@ export function getCultureForecastModifier(
   if (accommodation >= 0.75) {
     modifier += 2
     notes.push(`${culture.label} are used to being looked after here.`)
+  }
+
+  // -- Expansion Phase 8 §8.4 — what they have HEARD -----------------------
+  //
+  // §8.4 asks that rumours "alter beliefs and decisions". This is the
+  // decision: a culture that credits a bad story about the house is slower
+  // to come, and the note names the story so the player can go and answer
+  // it. It reads a bounded belief rather than a rumour's strength, because
+  // how loudly a thing is repeated is not the same as whether these
+  // particular people credit it — which is the distinction the whole
+  // network exists to draw.
+  const heard = damagingBeliefFor(state, culture.id)
+  if (heard.belief >= RUMOUR_BELIEF_FLOOR) {
+    const hit = Math.min(
+      MAX_RUMOUR_TURNOUT_HIT,
+      Math.round((heard.belief / 100) * MAX_RUMOUR_TURNOUT_HIT),
+    )
+    if (hit > 0) {
+      modifier -= hit
+      notes.push(`${culture.label} have heard things (-${hit}). ${heard.readable ?? ''}`.trim())
+    }
   }
 
   const bounded = Math.max(

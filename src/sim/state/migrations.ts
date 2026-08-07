@@ -18,6 +18,7 @@
 import { FULL_PIPELINE } from "../canonicalPipeline";
 import type { SimulationModule } from "../core/module";
 import { createInitialWorldState, createInitialTavernState } from "./defaults";
+import { defaultRumourCredibility } from "./rumourDefaults";
 import {
   ensureRequiredRecipesRegistered,
   recipeRegistry,
@@ -68,6 +69,11 @@ import {
   createInitialNpcModuleState,
   normalizeNpcSlice,
 } from "../modules/npcs/npcState";
+import {
+  RUMOURS_MODULE_ID,
+  createInitialRumourModuleState,
+  normalizeRumourSlice,
+} from "../modules/rumours/rumourState";
 import type {
   MonthlyModuleState,
   MonthlyResult,
@@ -1182,6 +1188,93 @@ export function ensureExternalObligationSlices<
 
   if (!changed && state.modules) return state;
   return { ...state, modules: next };
+}
+
+// Expansion Phase 8 §5.7 — the rumour network fields.
+//
+// Two halves. The slice is new, so `ensureModuleSlices` would install it
+// correctly on its own; the rumour RECORDS are not, and every one in an old
+// save is missing everything §8.4 added.
+//
+// WHAT IS DERIVED, AND WHY THAT IS NOT AN INVENTION. A pre-Phase-8 rumour
+// records how loudly it is being repeated (`strength`) and whether it is
+// true (`accuracy`). Credibility is derived from those two — a strong true
+// story is one people credit, a weak false one is not — because they are
+// the same fact seen from two sides, and the save already asserts both.
+//
+// WHAT IS NOT DERIVED. `audiences` starts EMPTY, and that is the load-bearing
+// choice. It would be easy to say "everybody has heard it, it is at strength
+// 80" and hand every culture in the world a belief — but nobody in that save
+// ever heard it from anybody, and manufacturing an audience list would
+// fabricate the exact history §8.4 exists to start recording. So an old
+// rumour arrives loud and carried by nobody, and the propagation pass gives
+// it real audiences the first time somebody actually repeats it. `hops` and
+// `distortion` start at zero for the same reason: no retelling has happened
+// that anybody could point to.
+export function ensureRumourNetworkFields<
+  T extends {
+    world?: { socialRumours?: Record<string, unknown> };
+    modules?: Record<string, unknown>;
+  },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const base = createInitialRumourModuleState();
+  let nextModules: Record<string, unknown> | undefined;
+
+  const existing = current[RUMOURS_MODULE_ID];
+  if (!isRecord(existing)) {
+    nextModules = { ...current, [RUMOURS_MODULE_ID]: base };
+  } else {
+    const keys = Object.keys(base) as Array<keyof typeof base>;
+    if (!keys.every((key) => key in existing)) {
+      nextModules = {
+        ...current,
+        [RUMOURS_MODULE_ID]: normalizeRumourSlice(
+          existing as Partial<ReturnType<typeof createInitialRumourModuleState>>,
+        ),
+      };
+    }
+  }
+
+  const rumours = state.world?.socialRumours;
+  let nextRumours: Record<string, unknown> | undefined;
+  if (isRecord(rumours)) {
+    for (const [id, raw] of Object.entries(rumours)) {
+      if (!isRecord(raw)) continue;
+      if (typeof raw["credibility"] === "number") continue;
+
+      const strength =
+        typeof raw["strength"] === "number" ? (raw["strength"] as number) : 30;
+      const accuracy =
+        typeof raw["accuracy"] === "string" ? (raw["accuracy"] as string) : "unknown";
+      // Shared with the creation path so a save taken between a rumour
+      // starting and the next `rumourUpdate` migrates to exactly the values
+      // the uninterrupted run already had.
+      const credibility = defaultRumourCredibility(strength, accuracy);
+
+      nextRumours = {
+        ...(nextRumours ?? rumours),
+        [id]: {
+          ...raw,
+          credibility,
+          reach: "public",
+          audiences: [],
+          distortion: 0,
+          originalLabel: typeof raw["label"] === "string" ? raw["label"] : id,
+          hops: 0,
+        },
+      };
+    }
+  }
+
+  if (!nextModules && !nextRumours) return state;
+  return {
+    ...state,
+    ...(nextRumours
+      ? { world: { ...(state.world ?? {}), socialRumours: nextRumours } }
+      : {}),
+    ...(nextModules ? { modules: nextModules } : {}),
+  } as T;
 }
 
 // Expansion Phase 8 §5.7 — the notable-NPC agency fields.

@@ -109,8 +109,38 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > deadlines and being ignored costs more than being turned down. Also
 > closes the two culture hook families §8.2 left open
 > (`culture_walkout_risk_*`, `culture_seating_backlash_*`) — 8.2 machinery
-> that was simply missed. **Next: §8.4 (rumours — the rumour half of
-> OBL-08), then 8.5.** The sequence is hard-ordered after that.
+> that was simply missed.
+>
+> **§8.4 (the rumour network) is done (2026-08-07), which closes DEP-10 and
+> the rumour half of OBL-08.** Talk used to appear at full volume in
+> everybody's ears at once and then get quieter: a bag of records with a
+> strength and an `accuracy` that decided nothing. A rumour now has a
+> source, an audience it reached one hop at a time, a credibility separate
+> from its volume, and a version of itself that drifts from what was
+> originally said. It travels through the people the world already has —
+> promoted NPCs, factions, cultures and customer groups — and only through
+> those willing to repeat it, bounded six ways (6 audiences, 5 hops, 2
+> spreads per rumour per day, 4 a day overall, 3 shares per channel per
+> week, counter-stories one deep). Belief hardens when a story is heard
+> from two directions and falls when it is denied, countered, contradicted
+> or traced home; three owner actions (deny it, put a story about, name the
+> source) are all answers a player can be wrong to give, since denying a
+> TRUE story costs credit when the denial is tested. `rumour_pressure` now
+> reads what the town CREDITS rather than how often it is repeated, which
+> is what makes those three actions move the meter honestly. Every material
+> deletion — the daily fade, the monthly prune, the overflow — leaves a
+> cause naming what went, alongside the §1.4 grouped cause for the day's
+> drift, which is the rumour half of OBL-08; five `HOOK-*` families
+> (`rumour_escalation_*`, `rumour_denial_backfire_*`,
+> `counter_rumour_runaway_*` and their two-part forms) stop draining and
+> resolve against the live rumour. Three defects fixed on the way: nothing
+> spread at all until minted rumours were given an origin (a channel may
+> only repeat what it has heard); propagation would revive a story nobody
+> had mentioned in three months, which also made the monthly stale prune
+> dead code; and a rumour created between the day's `rumourUpdate` and a
+> save was migrated into different network fields than the uninterrupted
+> run had, which failed §5.10. **Next: §8.5 (attribution becomes
+> behavioral).** The sequence is hard-ordered after that.
 >
 > Everything else below — the Complete Surface resume points, the
 > onboarding arc, the standing tails — is **paused, not cancelled**, and
@@ -358,7 +388,7 @@ rather than rebuilding those routes.
 | ISSUE-175 | Expansion Phase 5 — economy: quality→cash feedback, operating costs, failure/recovery states, adaptive demand, enforceable policies | broken | done | 212 |
 | ISSUE-176 | Expansion Phase 6 — transactional suppliers: orders, deliveries, credit, invoices (OBL-04) | broken | done | 213 |
 | ISSUE-177 | Expansion Phase 7 — loans, tenancy, and a real inspection lifecycle (OBL-03 + loan/eviction half of OBL-02) | broken | done | 214 |
-| ISSUE-178 | Expansion Phase 8 — autonomous social world: faction/culture/NPC agency, rumour propagation, behavioral attribution (rumour half of OBL-08) | broken | in progress (8.1–8.3 done) | 215 |
+| ISSUE-178 | Expansion Phase 8 — autonomous social world: faction/culture/NPC agency, rumour propagation, behavioral attribution (rumour half of OBL-08) | broken | in progress (8.1–8.4 done) | 215 |
 | ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | open | 216 |
 | ISSUE-180 | Expansion Phase 10 — populated teleology, causal identity with hysteresis, character arcs, earned nicknames (OBL-09 + mastery half of OBL-08) | broken | open | 217 |
 | ISSUE-181 | Expansion Phase 11 — reconnect issues, responses, pressures, feedback, memory and history to the deepened domains (closes OBL-02) | broken | open | 218 |
@@ -403,7 +433,7 @@ consequence is a direct pressure or reputation adjustment*.
 | ISSUE-175 | 5 — economy | 212 | done; supports OBL-04/05; **ISSUE-168 closed** | ISSUE-174 |
 | ISSUE-176 | 6 — suppliers | 213 | done; **OBL-04 closed** | ISSUE-175 |
 | ISSUE-177 | 7 — loans, tenancy, inspection | 214 | done; **OBL-03 closed** + loan/eviction half of **OBL-02** | ISSUE-175 |
-| ISSUE-178 | 8 — social world | 215 | rumour half of **OBL-08**; **8.1–8.3 done (DEP-08 closed, DEP-09 NPC half)** | ISSUE-176, ISSUE-177 |
+| ISSUE-178 | 8 — social world | 215 | rumour half of **OBL-08**; **8.1–8.4 done (DEP-08 and DEP-10 closed, DEP-09 NPC half, OBL-08 rumour half)** | ISSUE-176, ISSUE-177 |
 | ISSUE-179 | 9 — rivals, arcs, expeditions | 216 | — | ISSUE-178 |
 | ISSUE-180 | 10 — teleology + identity | 217 | **OBL-09** + mastery half of **OBL-08** | ISSUE-179 |
 | ISSUE-181 | 11 — issues/responses refit | 218 | all of **OBL-02**; **absorbs ISSUE-169** | ISSUE-180 |

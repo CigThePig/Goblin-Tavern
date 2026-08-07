@@ -807,6 +807,27 @@ export const SocialRumourStateSchema = z.object({
   lastSpreadDay: nonNegativeInt(),
   tags: z.array(z.string()),
   involvedRefs: z.array(EntityRefSchema).optional(),
+  // Expansion Phase 8 §8.4 — all optional during the migration window;
+  // `ensureRumourNetworkFields` fills them from what the save already knows.
+  credibility: meter().optional(),
+  reach: z.enum(["private", "public"]).optional(),
+  audiences: z
+    .array(
+      z.object({
+        id: z.string(),
+        kind: z.enum(["culture", "faction", "customer_group", "notable_npc"]),
+        belief: meter(),
+        heardOnDay: nonNegativeInt(),
+        fromId: z.string().optional(),
+      }),
+    )
+    .optional(),
+  distortion: meter().optional(),
+  originalLabel: z.string().optional(),
+  hops: nonNegativeInt().optional(),
+  counterRumourId: z.string().optional(),
+  correctedOnDay: nonNegativeInt().optional(),
+  originRef: EntityRefSchema.optional(),
 });
 
 export const WorldStateSchema = z.object({

@@ -315,6 +315,41 @@ export const MODULE_CONTRACTS: Readonly<Record<string, ModuleContract>> = {
       'landlord_access_request',
     ],
   },
+  // Expansion Phase 8 (ISSUE-178) — the two domains the phase adds declare
+  // themselves rather than joining the undeclared pile the §1.7 coverage
+  // ratchet exists to drive down.
+  npcs: {
+    slices: [
+      { sliceId: 'npcs', version: 1, access: 'owns' },
+      { sliceId: 'scheduledEvents', version: 1, access: 'writes' },
+    ],
+    readsStatePaths: ['calendar', 'world', 'pressures', 'reputation'],
+    writesStatePaths: ['world.notableNpcs'],
+    ownsEventTypes: ['npc_proposal_deadline'],
+    schedulesEventTypes: ['npc_proposal_deadline'],
+  },
+  rumours: {
+    // The rumour module is the only writer of `world.socialRumours` after
+    // creation — the weekly community pass and the attribution module still
+    // START rumours, and everything that happens to one after that (spread,
+    // reinforcement, contradiction, correction, decay, prune) is owned here.
+    slices: [
+      { sliceId: 'rumours', version: 1, access: 'owns' },
+      { sliceId: 'scheduledEvents', version: 1, access: 'writes' },
+    ],
+    readsStatePaths: ['calendar', 'world', 'customerGroups'],
+    writesStatePaths: ['world.socialRumours'],
+    ownsEventTypes: [
+      'rumour_escalation',
+      'rumour_denial_backfire',
+      'counter_rumour_runaway',
+    ],
+    schedulesEventTypes: [
+      'rumour_escalation',
+      'rumour_denial_backfire',
+      'counter_rumour_runaway',
+    ],
+  },
   regulatory: {
     slices: [
       { sliceId: 'regulatory', version: 1, access: 'owns' },

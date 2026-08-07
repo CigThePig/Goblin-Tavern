@@ -243,6 +243,12 @@ describe('Phase 207 — implementation ledger', () => {
       ['HOOK-faction_deception_exposed_*', 'done'],
       ['HOOK-*_boycott_possible', 'done'],
       ['HOOK-shrine_favour_owed_*', 'done'],
+      ['DEP-10', 'done'],
+      ['HOOK-rumour_escalation_*', 'done'],
+      ['HOOK-rumour_escalation_*_*', 'done'],
+      ['HOOK-rumour_denial_backfire_*', 'done'],
+      ['HOOK-rumour_denial_backfire_*_*', 'done'],
+      ['HOOK-counter_rumour_runaway_*', 'done'],
     ])
 
     const closedEarly = rows.filter((r) => {
@@ -454,10 +460,24 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       // `notableNpcs` is unchanged: 8.3 gives the nine who already exist
       // goals, memory, a schedule and a small action set. It promotes at
       // most four of them at a time, and promotes none of them at day zero.
-      runtimeModules: 38,
+      //
+      // Expansion Phase 8.4 (ISSUE-178) moves the same two:
+      //   * `runtimeModules` 38 → 39: `rumours`. The lifecycle sat on
+      //     `worldModule`, which owned it only because nothing else did;
+      //     `world.socialRumours` now has start, spread, contradict,
+      //     correct, decay and prune, which is a domain rather than a chore,
+      //     and §5.4 wants one owner per transition.
+      //   * `ownerActions` 93 → 96: deny it, put a story about, and name the
+      //     source. §8.4 requires correction to be reachable, and all three
+      //     are answers a player can be wrong to give — denying a TRUE story
+      //     costs credit when the denial is tested.
+      // `customerGroups`, `cultures`, `factions` and `notableNpcs` are all
+      // unchanged: the channels a rumour travels through are the people the
+      // world already has.
+      runtimeModules: 39,
       simulationPhases: 26,
       daySegments: 3,
-      ownerActions: 93,
+      ownerActions: 96,
       staffPriorities: 12,
       pressureDomains: 21,
       feedbackDetectors: 13,

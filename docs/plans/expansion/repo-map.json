@@ -38,6 +38,7 @@
     "cultures",
     "factions",
     "npcs",
+    "rumours",
     "suppliers",
     "regulars",
     "adventurers",
@@ -153,6 +154,7 @@
     "regulatory",
     "responses",
     "ruleset",
+    "rumours",
     "scheduledEvents",
     "service",
     "staff",
@@ -230,6 +232,7 @@
       "ensureFactionAgencyFields",
       "ensureCultureAgencyFields",
       "ensureNpcAgencyFields",
+      "ensureRumourNetworkFields",
       "ensureModuleSlices"
     ]
   },
@@ -239,10 +242,10 @@
     "standard"
   ],
   "inventory": {
-    "runtimeModules": 38,
+    "runtimeModules": 39,
     "simulationPhases": 26,
     "daySegments": 3,
-    "ownerActions": 93,
+    "ownerActions": 96,
     "staffPriorities": 12,
     "pressureDomains": 21,
     "feedbackDetectors": 13,

@@ -3294,16 +3294,16 @@
         }
       },
       "traffic": {
-        "total": 548,
+        "total": 530,
         "byGroup": {
           "adventurers": 37,
           "eccentric_noble": 0,
           "food_critic": 0,
           "foreign_envoy": 0,
           "gourmand": 0,
-          "local_goblins": 298,
+          "local_goblins": 285,
           "merchants": 50,
-          "miners": 133,
+          "miners": 128,
           "ogres": 30
         }
       },
@@ -3461,8 +3461,8 @@
           "role": "cook",
           "skill": 55,
           "morale": 49,
-          "stress": 13,
-          "fatigue": 31,
+          "stress": 12,
+          "fatigue": 28,
           "loyalty": 40,
           "wage": 12,
           "paidThisWeek": true,
@@ -3649,7 +3649,7 @@
           "topCauses": []
         },
         "cultural_tension": {
-          "value": 36,
+          "value": 28,
           "trend": 1,
           "topCauses": []
         },
@@ -3689,7 +3689,7 @@
           "topCauses": []
         },
         "market_instability": {
-          "value": 18,
+          "value": 17,
           "trend": -1,
           "topCauses": []
         },
@@ -3699,8 +3699,8 @@
           "topCauses": []
         },
         "policy_backlash": {
-          "value": 14,
-          "trend": -1,
+          "value": 15,
+          "trend": 1,
           "topCauses": []
         },
         "regular_customer_loss": {
@@ -3719,7 +3719,7 @@
           "topCauses": []
         },
         "rumour_pressure": {
-          "value": 31,
+          "value": 37,
           "trend": -1,
           "topCauses": []
         },
@@ -3759,9 +3759,9 @@
         "responsesAppliedToday": 0
       },
       "collections": {
-        "memories": 33,
-        "history": 434,
-        "causes": 380,
+        "memories": 34,
+        "history": 431,
+        "causes": 443,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -3777,7 +3777,7 @@
         "regulars": 11,
         "notableNpcs": 11,
         "localEvents": 1,
-        "socialRumours": 11,
+        "socialRumours": 17,
         "hireableAdventurers": 4,
         "expeditionsActive": 0,
         "expeditionsCompleted": 0,
@@ -3830,17 +3830,17 @@
         }
       },
       "traffic": {
-        "total": 486,
+        "total": 474,
         "byGroup": {
           "adventurers": 31,
           "eccentric_noble": 0,
           "food_critic": 0,
           "foreign_envoy": 0,
           "gourmand": 0,
-          "local_goblins": 250,
+          "local_goblins": 242,
           "merchants": 62,
-          "miners": 118,
-          "ogres": 25
+          "miners": 115,
+          "ogres": 24
         }
       },
       "satisfaction": {
@@ -3929,7 +3929,7 @@
           "condition": 60,
           "cleanliness": 0,
           "mess": 100,
-          "damage": 41,
+          "damage": 40,
           "smell": 25,
           "risk": 27,
           "upgradesInstalled": 0,
@@ -4255,7 +4255,7 @@
           "topCauses": []
         },
         "rumour_pressure": {
-          "value": 49,
+          "value": 61,
           "trend": -1,
           "topCauses": []
         },
@@ -4296,8 +4296,8 @@
       },
       "collections": {
         "memories": 28,
-        "history": 232,
-        "causes": 449,
+        "history": 229,
+        "causes": 519,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -4875,44 +4875,44 @@
         "dayOfWeek": 1,
         "totalDaysElapsed": 14
       },
-      "coin": 2215,
+      "coin": 2180,
       "ledger": {
-        "serviceCoinEarned": 3012,
-        "serviceNetCoin": 2920,
-        "serviceUnpaidTabs": 92,
+        "serviceCoinEarned": 2980,
+        "serviceNetCoin": 2882,
+        "serviceUnpaidTabs": 98,
         "weekly": {
-          "net": 232,
-          "other": -41,
-          "purchases": 374,
+          "net": 197,
+          "other": -47,
+          "purchases": 371,
           "rent": 0,
           "repairs": 18,
-          "sales": 698,
+          "sales": 666,
           "wages": 33,
           "waste": 0
         },
         "monthly": {
-          "net": 2115,
-          "other": -134,
-          "purchases": 665,
+          "net": 2080,
+          "other": -140,
+          "purchases": 662,
           "rent": 0,
           "repairs": 32,
-          "sales": 3012,
+          "sales": 2980,
           "wages": 66,
           "waste": 0
         }
       },
       "traffic": {
-        "total": 523,
+        "total": 509,
         "byGroup": {
           "adventurers": 44,
           "eccentric_noble": 0,
           "food_critic": 0,
           "foreign_envoy": 0,
           "gourmand": 0,
-          "local_goblins": 277,
-          "merchants": 63,
-          "miners": 109,
-          "ogres": 30
+          "local_goblins": 268,
+          "merchants": 60,
+          "miners": 106,
+          "ogres": 31
         }
       },
       "satisfaction": {
@@ -4930,13 +4930,13 @@
         }
       },
       "patronage": {
-        "adventurers": 14,
+        "adventurers": 13,
         "eccentric_noble": 0,
         "food_critic": 0,
         "foreign_envoy": 0,
         "gourmand": 0,
         "local_goblins": 61,
-        "merchants": 21,
+        "merchants": 22,
         "miners": 38,
         "ogres": 7
       },
@@ -5001,7 +5001,7 @@
           "condition": 60,
           "cleanliness": 0,
           "mess": 100,
-          "damage": 46,
+          "damage": 47,
           "smell": 25,
           "risk": 27,
           "upgradesInstalled": 0,
@@ -5058,8 +5058,8 @@
           "role": "cleaner_bouncer",
           "skill": 45,
           "morale": 50,
-          "stress": 33,
-          "fatigue": 10,
+          "stress": 36,
+          "fatigue": 9,
           "loyalty": 57,
           "wage": 11,
           "paidThisWeek": true,
@@ -5068,8 +5068,8 @@
         "cook": {
           "role": "cook",
           "skill": 55,
-          "morale": 53,
-          "stress": 82,
+          "morale": 55,
+          "stress": 79,
           "fatigue": 27,
           "loyalty": 52,
           "wage": 12,
@@ -5081,7 +5081,7 @@
           "skill": 50,
           "morale": 56,
           "stress": 100,
-          "fatigue": 12,
+          "fatigue": 11,
           "loyalty": 47,
           "wage": 10,
           "paidThisWeek": true,
@@ -5090,7 +5090,7 @@
       },
       "stock": {
         "ale": {
-          "quantity": 11,
+          "quantity": 13,
           "quality": 55,
           "spoilage": 0
         },
@@ -5127,7 +5127,7 @@
         "ingredients": {
           "quantity": 60,
           "quality": 45,
-          "spoilage": 59.86
+          "spoilage": 60.028125
         },
         "ironbark_honey": {
           "quantity": 0,
@@ -5151,8 +5151,8 @@
         },
         "mushrooms": {
           "quantity": 0,
-          "quality": 51,
-          "spoilage": 28.75
+          "quality": 55,
+          "spoilage": 0
         },
         "phoenix_pepper": {
           "quantity": 0,
@@ -5177,7 +5177,7 @@
         "stew": {
           "quantity": 0,
           "quality": 55,
-          "spoilage": 0
+          "spoilage": 4.353125
         },
         "sunblood_orange": {
           "quantity": 0,
@@ -5192,7 +5192,7 @@
         "wild_thyme": {
           "quantity": 4,
           "quality": 65,
-          "spoilage": 37.2
+          "spoilage": 37.452187
         },
         "wyrmheart_tea_leaves": {
           "quantity": 0,
@@ -5203,7 +5203,7 @@
       "recipes": {
         "onMenu": 3,
         "timesServed": {
-          "dish_ale": 417,
+          "dish_ale": 415,
           "dish_bog_truffle": 0,
           "dish_cave_pearl_oyster": 0,
           "dish_cut_stone": 0,
@@ -5215,12 +5215,12 @@
           "dish_kraken_ink": 0,
           "dish_moonpetal_mushroom": 0,
           "dish_mugs": 0,
-          "dish_mushrooms": 130,
+          "dish_mushrooms": 150,
           "dish_phoenix_pepper": 0,
           "dish_river_eel": 0,
           "dish_silvercap_truffle": 0,
           "dish_smoked_boar_haunch": 0,
-          "dish_stew": 170,
+          "dish_stew": 150,
           "dish_sunblood_orange": 0,
           "dish_timber": 0,
           "dish_wild_thyme": 0,
@@ -5245,19 +5245,19 @@
           "missedRentCount": 0
         },
         "inspection": {
-          "suspicion": 66,
+          "suspicion": 67,
           "warningCount": 1
         },
         "unpaidStaff": 0
       },
       "pressures": {
         "arc_escalation": {
-          "value": 7,
-          "trend": 1,
+          "value": 6,
+          "trend": -1,
           "topCauses": []
         },
         "cultural_tension": {
-          "value": 69,
+          "value": 61,
           "trend": -1,
           "topCauses": []
         },
@@ -5327,7 +5327,7 @@
           "topCauses": []
         },
         "rumour_pressure": {
-          "value": 49,
+          "value": 54,
           "trend": -1,
           "topCauses": []
         },
@@ -5359,17 +5359,17 @@
       },
       "issues": {
         "totalGenerated": 89,
-        "totalRejected": 33,
+        "totalRejected": 34,
         "seedsToday": 4,
-        "surfacedToday": 5,
-        "withheldToday": 3,
+        "surfacedToday": 4,
+        "withheldToday": 4,
         "responsesResolvedToday": 0,
         "responsesAppliedToday": 0
       },
       "collections": {
         "memories": 30,
-        "history": 269,
-        "causes": 565,
+        "history": 267,
+        "causes": 618,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -5411,56 +5411,56 @@
         "dayOfWeek": 1,
         "totalDaysElapsed": 14
       },
-      "coin": 1100,
+      "coin": 1096,
       "ledger": {
-        "serviceCoinEarned": 1974,
-        "serviceNetCoin": 1872,
-        "serviceUnpaidTabs": 102,
+        "serviceCoinEarned": 1971,
+        "serviceNetCoin": 1868,
+        "serviceUnpaidTabs": 103,
         "weekly": {
-          "net": -96,
-          "other": -45,
+          "net": -100,
+          "other": -46,
           "purchases": 372,
           "rent": 0,
           "repairs": 18,
-          "sales": 372,
+          "sales": 369,
           "wages": 33,
           "waste": 0
         },
         "monthly": {
-          "net": 1000,
-          "other": -144,
+          "net": 996,
+          "other": -145,
           "purchases": 662,
           "rent": 0,
           "repairs": 32,
-          "sales": 1974,
+          "sales": 1971,
           "wages": 136,
           "waste": 0
         }
       },
       "traffic": {
-        "total": 603,
+        "total": 584,
         "byGroup": {
-          "adventurers": 55,
+          "adventurers": 53,
           "eccentric_noble": 0,
           "food_critic": 0,
           "foreign_envoy": 0,
           "gourmand": 0,
-          "local_goblins": 265,
-          "merchants": 92,
-          "miners": 163,
-          "ogres": 28
+          "local_goblins": 258,
+          "merchants": 89,
+          "miners": 155,
+          "ogres": 29
         }
       },
       "satisfaction": {
-        "mean": 32.666667,
+        "mean": 33,
         "byGroup": {
-          "adventurers": 1,
+          "adventurers": 2,
           "eccentric_noble": 93,
           "food_critic": 74,
           "foreign_envoy": 72,
           "gourmand": 52,
           "local_goblins": 0,
-          "merchants": 2,
+          "merchants": 4,
           "miners": 0,
           "ogres": 0
         }
@@ -5535,8 +5535,8 @@
         },
         "main_room": {
           "condition": 60,
-          "cleanliness": 61,
-          "mess": 58,
+          "cleanliness": 65,
+          "mess": 54,
           "damage": 47,
           "smell": 7,
           "risk": 17,
@@ -5626,7 +5626,7 @@
       },
       "stock": {
         "ale": {
-          "quantity": 15,
+          "quantity": 16,
           "quality": 55,
           "spoilage": 0
         },
@@ -5739,7 +5739,7 @@
       "recipes": {
         "onMenu": 3,
         "timesServed": {
-          "dish_ale": 405,
+          "dish_ale": 404,
           "dish_bog_truffle": 0,
           "dish_cave_pearl_oyster": 0,
           "dish_cut_stone": 0,
@@ -5833,7 +5833,7 @@
           "topCauses": []
         },
         "market_instability": {
-          "value": 17,
+          "value": 16,
           "trend": -1,
           "topCauses": []
         },
@@ -5863,7 +5863,7 @@
           "topCauses": []
         },
         "rumour_pressure": {
-          "value": 49,
+          "value": 54,
           "trend": -1,
           "topCauses": []
         },
@@ -5878,7 +5878,7 @@
           "topCauses": []
         },
         "stock_shortage": {
-          "value": 50,
+          "value": 40,
           "trend": -1,
           "topCauses": []
         },
@@ -5905,7 +5905,7 @@
       "collections": {
         "memories": 28,
         "history": 275,
-        "causes": 607,
+        "causes": 656,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -5974,15 +5974,15 @@
         }
       },
       "traffic": {
-        "total": 506,
+        "total": 497,
         "byGroup": {
           "adventurers": 23,
           "eccentric_noble": 0,
           "food_critic": 0,
           "foreign_envoy": 0,
           "gourmand": 0,
-          "local_goblins": 297,
-          "merchants": 54,
+          "local_goblins": 289,
+          "merchants": 53,
           "miners": 110,
           "ogres": 22
         }
@@ -6152,7 +6152,7 @@
           "role": "server",
           "skill": 50,
           "morale": 56,
-          "stress": 99,
+          "stress": 97,
           "fatigue": 10,
           "loyalty": 47,
           "wage": 10,
@@ -6399,7 +6399,7 @@
           "topCauses": []
         },
         "rumour_pressure": {
-          "value": 49,
+          "value": 44,
           "trend": -1,
           "topCauses": []
         },
@@ -6440,8 +6440,8 @@
       },
       "collections": {
         "memories": 30,
-        "history": 228,
-        "causes": 556,
+        "history": 229,
+        "causes": 589,
         "pressures": 21,
         "areas": 9,
         "stock": 22,

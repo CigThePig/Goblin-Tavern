@@ -16,6 +16,7 @@ import { REGULATORY_ACTIONS } from '../modules/regulatory/actions'
 import { FACTION_ACTIONS } from '../modules/ownerActions/factionActions'
 import { CULTURE_ACTIONS } from '../modules/ownerActions/cultureActions'
 import { NPC_ACTIONS } from '../modules/ownerActions/npcActions'
+import { RUMOUR_ACTIONS } from '../modules/ownerActions/rumourActions'
 import type { OwnerActionDefinition } from '../modules/ownerActions/types'
 
 // Phase 13 §13.1 — Owner action registry.
@@ -99,6 +100,11 @@ export function ensureRequiredOwnerActionsRegistered(): void {
     // is how a player DRIVES the repeated-interaction threshold rather than
     // waiting for it.
     ...NPC_ACTIONS,
+    // Expansion Phase 8 §8.4 — DEP-10's "deny, counter, name the source".
+    // They existed as response slots on issue cards, so they were reachable
+    // only when a card happened to be dealt; as owner actions they are on
+    // the board whenever there is something being said.
+    ...RUMOUR_ACTIONS,
   ]
   for (const def of all) {
     if (!actionRegistry.has(def.id)) {

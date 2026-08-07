@@ -282,8 +282,19 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // does is move that faction's standing ledger. The traffic follows from
     // those two systems doing what they already did, with a named person
     // behind it. `finalCoin` unmoved is the evidence 8.3 added no economics.
+    //
+    // EXPANSION PHASE 8.4 moves the patrons and NOT the coin again: 922 coin
+    // and 515 patrons. A story now has to be BELIEVED before it costs the
+    // house anything, and on a route where nobody ever denies, counters or
+    // names the source of anything, damaging talk is credited and spreads
+    // — so about 4% of the crowd decides against coming. The term is capped
+    // at 5 patrons a group (`MAX_RUMOUR_TURNOUT_HIT`), for the same reason
+    // 8.2's culture layer is capped: rumour is one input among several, not
+    // the thing that decides the night. `finalCoin` unmoved for the third
+    // part running is the evidence 8.4 changed who walks through the door
+    // rather than what the tavern earns from them.
     expect(audit.finalCoin).toBe(922)
-    expect(audit.totalPatrons).toBe(536)
+    expect(audit.totalPatrons).toBe(515)
   })
 
   it('prices choices as an upper bound on the real render', () => {

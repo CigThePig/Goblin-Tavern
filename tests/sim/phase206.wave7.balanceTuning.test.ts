@@ -36,6 +36,7 @@ import {
 import { shouldRestFamily } from '../../src/sim/modules/issues/issueThreads'
 import {
   RUMOUR_DAILY_RETENTION,
+  RUMOUR_SPREADING_RETENTION,
   RUMOUR_FADE_FLOOR,
 } from '../../src/sim/modules/world/worldModule'
 import type {
@@ -181,10 +182,39 @@ describe('Wave 7 — social rumours decay daily', () => {
     const result = simulateDay(state, { seed: 'wave7-rumour-decay' }, FULL_PIPELINE)
     const strong = result.state.world.socialRumours['strong_rumour']
     expect(strong).toBeDefined()
-    expect(strong!.strength).toBeLessThanOrEqual(40 * RUMOUR_DAILY_RETENTION)
     expect(strong!.strength).toBeGreaterThan(0)
-    // 5 × 0.85 = 4.25 < floor — a rumour nobody repeats stops existing.
-    expect(result.state.world.socialRumours['faint_rumour']).toBeUndefined()
+
+    // Expansion Phase 8 §8.4 — a rumour can now be REPEATED, and one that
+    // travelled today fades at `RUMOUR_SPREADING_RETENTION` rather than the
+    // silent rate (and gains from the retelling on the way). The Wave 7
+    // property was never "every rumour is smaller tomorrow" — it is that
+    // unfed talk moves on instead of accumulating until the meter pins. So
+    // each rate is asserted against the rumour it actually applies to, and
+    // then both stories are followed to their end.
+    const dayJustRun = result.state.calendar.totalDaysElapsed - 1
+    const faint = result.state.world.socialRumours['faint_rumour']
+    if (strong!.lastSpreadDay !== dayJustRun) {
+      expect(strong!.strength).toBeLessThanOrEqual(40 * RUMOUR_DAILY_RETENTION)
+    } else {
+      // Being repeated is what keeps a story louder than silence would.
+      expect(strong!.strength).toBeGreaterThan(40 * RUMOUR_DAILY_RETENTION)
+      expect(strong!.strength).toBeLessThan(40 / RUMOUR_SPREADING_RETENTION + 10)
+    }
+    // 5 × 0.95 = 4.75 < floor — a rumour this faint that nobody picked up
+    // stops existing rather than idling below the floor.
+    if (faint) {
+      expect(faint.lastSpreadDay).toBe(dayJustRun)
+    }
+
+    let later = result.state
+    for (let day = 1; day < 30; day += 1) {
+      later = simulateDay(later, { seed: `wave7-rumour-decay/${day}` }, FULL_PIPELINE).state
+    }
+    expect(
+      later.world.socialRumours['strong_rumour'],
+      'a rumour nobody kept feeding was still going a month later',
+    ).toBeUndefined()
+    expect(later.world.socialRumours['faint_rumour']).toBeUndefined()
   })
 
   it('keeps rumour pressure off the ceiling on the audit route', () => {

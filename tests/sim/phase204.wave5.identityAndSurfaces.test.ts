@@ -188,19 +188,32 @@ describe('P3-BHV-003 — firing staff keeps the name in the report', () => {
 
 describe('P4-SEAM-005 — a seeded arc reads the same everywhere', () => {
   /**
-   * The audit's route: run naturally through the first month close on
-   * `phase4-periodic-fixed`, which seeds Rival Tavern Expansion on day 27
-   * and leaves it `seeded` while the calendar moves past its creating day.
+   * The audit's route: run naturally until an arc has just been seeded and
+   * the calendar has moved past its creating day, which is the moment the
+   * three surfaces used to disagree.
+   *
+   * Expansion Phase 9 §9.2 widened WHEN that moment can arrive. Arcs whose
+   * start gate reads live state now also get a weekly look, so the first
+   * arc of a run can appear on day 14 rather than only at a month close —
+   * and the monthly overview, which projects from a closed month, does not
+   * exist yet on day 14. The route therefore runs on until a month HAS
+   * closed, so all three surfaces are there to be compared; the property
+   * under test (a just-seeded arc, age 0, reading the same everywhere) is
+   * unchanged.
    */
   function runToFirstArc(): { state: TavernState; result: ReturnType<typeof runDay> } {
     let state = createInitialTavernState()
     let result = runDay(state, { seed: ARC_SEED })
-    for (let day = 0; day < 32; day += 1) {
+    for (let day = 0; day < 64; day += 1) {
       result = simulateDay(state, { seed: ARC_SEED }, FULL_PIPELINE)
       state = result.state
-      if (listPresentedArcs(state).length > 0) return { state, result }
+      const justSeeded = listPresentedArcs(state).some(
+        (arc) => (arc.ageDays ?? 0) === 0,
+      )
+      const overviewExists = (buildMonthlyOverview(state).arcs ?? []).length > 0
+      if (justSeeded && overviewExists) return { state, result }
     }
-    throw new Error('no local arc seeded within the first month')
+    throw new Error('no local arc seeded within two months')
   }
 
   it('separates "in play" from "counts against the seeding cap"', () => {
@@ -217,7 +230,7 @@ describe('P4-SEAM-005 — a seeded arc reads the same everywhere', () => {
 
   it('agrees on age and presence across state, report and overview', () => {
     const { state, result } = runToFirstArc()
-    const arc = listPresentedArcs(state).find((a) => a.stage === 'seeded')
+    const arc = listPresentedArcs(state).find((a) => (a.ageDays ?? 0) === 0)
     expect(arc).toBeDefined()
 
     // 1. Canonical state.

@@ -17,6 +17,7 @@ import { FACTION_ACTIONS } from '../modules/ownerActions/factionActions'
 import { CULTURE_ACTIONS } from '../modules/ownerActions/cultureActions'
 import { NPC_ACTIONS } from '../modules/ownerActions/npcActions'
 import { RIVAL_ACTIONS } from '../modules/ownerActions/rivalActions'
+import { ARC_ACTIONS } from '../modules/ownerActions/arcActions'
 import { RUMOUR_ACTIONS } from '../modules/ownerActions/rumourActions'
 import { BELIEF_ACTIONS } from '../modules/ownerActions/beliefActions'
 import type { OwnerActionDefinition } from '../modules/ownerActions/types'
@@ -119,6 +120,12 @@ export function ensureRequiredOwnerActionsRegistered(): void {
     // The last two rebound: poaching schedules a retaliation the rival picks
     // for itself, and settling schedules the review at which it reconsiders.
     ...RIVAL_ACTIONS,
+    // Expansion Phase 9 §9.2 — the player's half of a local arc. An arc with
+    // a goal and an owner pushing against it is only a contest if there are
+    // moves on this side of it too: `intervene_in_arc` takes one of the
+    // arc's own declared moves, `settle_arc` ends a close-run one as a
+    // compromise rather than gambling on the deadline.
+    ...ARC_ACTIONS,
   ]
   for (const def of all) {
     if (!actionRegistry.has(def.id)) {

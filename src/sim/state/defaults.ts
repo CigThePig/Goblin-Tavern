@@ -846,6 +846,8 @@ export function createInitialTavernState(
       // Phase 35 §35.3 — seed an empty local arcs slice (no active
       // arcs, no cooldowns, no applied effects) so the module's schema
       // validates from day zero before any arc has seeded.
+      // Expansion Phase 9 §9.2 — the slice now also carries the run book
+      // (goal, opposition, stage, deadline, interventions, outcome per arc).
       localArcs: createInitialLocalArcsModuleState(),
       // Phase 37 §37.3 — seed an empty attribution slice (no beliefs
       // yet) so the module's schema validates from day zero before any

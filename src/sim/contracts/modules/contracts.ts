@@ -350,6 +350,65 @@ export const MODULE_CONTRACTS: Readonly<Record<string, ModuleContract>> = {
       'counter_rumour_runaway',
     ],
   },
+  // Expansion Phase 9 §9.2 — the suppliers slice gains a declared owner.
+  //
+  // Same story as the factions slice in §9.1: it had none and did not need
+  // one while the suppliers module was its only writer, and an arc changed
+  // that. An arc whose owner is a supplier hardens that supplier's terms as
+  // its opposing move, and a called-in favour does the same — both through
+  // the suppliers module's own `writeSupplierAccount`. Declaring the
+  // ownership is what makes those writes legible as deliberate rather than
+  // looking like a second owner of the account.
+  suppliers: {
+    slices: [
+      { sliceId: 'suppliers', version: 1, access: 'owns' },
+      { sliceId: 'ruleset', version: 1, access: 'reads' },
+      { sliceId: 'obligations', version: 1, access: 'writes' },
+      { sliceId: 'scheduledEvents', version: 1, access: 'writes' },
+      { sliceId: 'stock', version: 1, access: 'writes' },
+    ],
+    readsStatePaths: ['calendar', 'coin', 'stock', 'world'],
+    writesStatePaths: ['coin', 'stock', 'world.suppliers'],
+  },
+  // Expansion Phase 9 §9.2 — identity reads the labels an arc earned. It
+  // stays the sole WRITER of `world.tavernIdentity`; the arc slice is a
+  // durable input it unions into what it recomputes.
+  tavernIdentity: {
+    slices: [{ sliceId: 'localArcs', version: 2, access: 'reads' }],
+    readsStatePaths: ['areas', 'reputation', 'world'],
+    writesStatePaths: ['world.tavernIdentity'],
+  },
+  // Expansion Phase 9 §9.2 — the local-arcs slice gains a declared owner.
+  //
+  // It writes three other slices on purpose. `scheduledEvents` carries the
+  // four hook families it took ownership of. `factions` and `suppliers` are
+  // the deliberate part: an arc's opposing move records a grievance in the
+  // faction's own standing ledger and hardens a supplier's own terms, rather
+  // than this module deciding what those domains conclude. Declaring them is
+  // what makes those writes legible as intentional.
+  localArcs: {
+    slices: [
+      { sliceId: 'localArcs', version: 2, access: 'owns' },
+      { sliceId: 'monthly', version: 1, access: 'reads' },
+      { sliceId: 'factions', version: 1, access: 'writes' },
+      { sliceId: 'suppliers', version: 1, access: 'writes' },
+      { sliceId: 'scheduledEvents', version: 1, access: 'writes' },
+    ],
+    readsStatePaths: ['areas', 'calendar', 'coin', 'customerGroups', 'pressures', 'reputation', 'world'],
+    writesStatePaths: ['areas', 'customerGroups', 'pressures', 'reputation', 'world.localEvents', 'world.socialRumours', 'world.tavernIdentity'],
+    ownsEventTypes: [
+      'arc_outcome_review',
+      'arc_permanent_lock',
+      'arc_backlash',
+      'arc_debt_called_in',
+    ],
+    schedulesEventTypes: [
+      'arc_outcome_review',
+      'arc_permanent_lock',
+      'arc_backlash',
+      'arc_debt_called_in',
+    ],
+  },
   // Expansion Phase 9 §9.1 — the factions slice gains a declared owner.
   //
   // It had none, and did not need one while the factions module was the

@@ -62,6 +62,8 @@ import {
   createInitialFactionModuleState,
   normalizeFactionSlice,
 } from "../modules/factions/factionState";
+import { LOCAL_ARCS_MODULE_ID } from "../modules/localArcs/types";
+import { createInitialArcRunTotals } from "../modules/localArcs/arcRuns";
 import {
   RIVAL_MODULE_ID,
   createInitialRivalModuleState,
@@ -1812,6 +1814,46 @@ export function ensureRivalSlice<
   return {
     ...state,
     modules: { ...current, [RIVAL_MODULE_ID]: base },
+  };
+}
+
+// Expansion Phase 9 §5.7 / §9.2 — the arc run book.
+//
+// Every post-Phase-35 save already HAS a `modules.localArcs` slice, so the
+// generic `ensureModuleSlices` sweep — which only fills slices that are
+// missing entirely — walks straight past it, and every reader of the new
+// run book would see `undefined`. This is the named migration that fills it.
+//
+// The judgement it makes, which the sweep could not: a save mid-way through
+// an arc gets an EMPTY run book rather than a fabricated run. Backdating a
+// goal meter would invent progress the player never made, and backdating an
+// opposition meter would invent pushing nobody did. The arc module's own
+// `ensureArcRuns` opens a real run for each live arc on the first day the
+// save is played, at the stage it was already showing — so an arc in
+// progress continues from where it was, with the contest starting level.
+export function ensureArcProgression<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const slice = current[LOCAL_ARCS_MODULE_ID];
+  if (!isRecord(slice)) return state;
+  const hasRuns = "runs" in slice;
+  const hasTotals = "runTotals" in slice;
+  const hasLabels = "earnedLabels" in slice;
+  if (hasRuns && hasTotals && hasLabels) return state;
+  return {
+    ...state,
+    modules: {
+      ...current,
+      [LOCAL_ARCS_MODULE_ID]: {
+        ...slice,
+        ...(hasRuns ? {} : { runs: {} }),
+        ...(hasTotals ? {} : { runTotals: createInitialArcRunTotals() }),
+        // Empty, not backdated: no arc in the old save ever earned a label,
+        // and inventing one would put words in the quarter's mouth.
+        ...(hasLabels ? {} : { earnedLabels: { knownFor: [], houseRules: [] } }),
+      },
+    },
   };
 }
 

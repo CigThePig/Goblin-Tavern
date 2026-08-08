@@ -205,7 +205,13 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // Post-Phase-8.3: 4.14 · 5. Selected notable NPCs now take turns, so a
     // passive tavern has somebody's announced move or unanswered offer on
     // the board on days it previously had none. The ceiling is still 5.
-    expect(audit.meanCardsPerDay).toBe(4.14)
+    //
+    // Post-Phase-9.2: 4.21 · 5. A local arc now progresses daily against a
+    // goal it can fail, so a passive tavern has a live contest on the board
+    // on days when the old monthly-age engine had it quietly ageing. Same
+    // reading as every part of Phase 8: the route gained a problem, not a
+    // worse day. The peak is unmoved.
+    expect(audit.meanCardsPerDay).toBe(4.21)
     // The peak reaches six for the first time on this route, and six is
     // WITHIN `DC-06` rather than past it. `handBudget.ts` §4 documents the
     // urgency rescue: an urgent seed that does not fit displaces the weakest
@@ -295,7 +301,10 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // rather than what the tavern earns from them.
     //
     // EXPANSION PHASE 9.1 moves the patrons by six and the coin by one: 923
-    // coin and 509 patrons. The competitor factor is no longer one global
+    // coin and 509 patrons — and Phase 9.2 moves NEITHER, which is the
+    // evidence that giving local arcs a goal, an owner and a daily contest
+    // changed what the player has to do rather than what the tavern earns.
+    // The competitor factor is no longer one global
     // meter applied to every crowd — it is the head-to-head between this
     // house and the other one, computed per customer group — so on a route
     // where the house is never cleaned, never restocked and never defended,
@@ -326,8 +335,14 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // — which is the slightly smaller passive crowd showing up in the seeds
     // the day generates, not a change to what a card offers. §9.1 adds no
     // card template and no response slot.
-    expect(audit.meanChoicesPerDay).toBe(19.89)
-    expect(audit.totalChoicesRendered).toBe(557)
+    //
+    // Phase 9.2 puts that one choice back: 19.93/day, 558 across the run.
+    // A live arc raises a seed on days the old engine left quiet, and the
+    // seed carries the choices it always carried. §9.2 likewise adds no
+    // card template and no response slot — the two arc moves it adds are
+    // OWNER ACTIONS, which this metric does not count.
+    expect(audit.meanChoicesPerDay).toBe(19.93)
+    expect(audit.totalChoicesRendered).toBe(558)
   })
 
   it('reproduces the published family-streak figure', () => {

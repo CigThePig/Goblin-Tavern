@@ -237,6 +237,7 @@
       "ensureRumourNetworkFields",
       "ensureBeliefBehaviourFields",
       "ensureRivalSlice",
+      "ensureArcProgression",
       "ensureModuleSlices"
     ]
   },
@@ -249,7 +250,7 @@
     "runtimeModules": 40,
     "simulationPhases": 26,
     "daySegments": 3,
-    "ownerActions": 101,
+    "ownerActions": 103,
     "staffPriorities": 12,
     "pressureDomains": 21,
     "feedbackDetectors": 13,
@@ -266,7 +267,7 @@
     "factions": 9,
     "suppliers": 9,
     "marketConditions": 8,
-    "localArcs": 5,
+    "localArcs": 9,
     "ventureBlueprints": 1,
     "staffRoles": 8,
     "reputationAxes": 10

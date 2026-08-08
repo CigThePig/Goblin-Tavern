@@ -191,13 +191,35 @@ function hasActiveArcForDefinition(state: TavernState, definitionId: string): bo
 
 // ---------- Candidate selection ----------
 
+/**
+ * Expansion Phase 9 §9.2 — does this definition seed off live state?
+ *
+ * A definition gated only on the calendar or a die roll is a thing that
+ * happens TO the quarter, and the monthly cadence suits it. One gated on a
+ * pressure, a reputation axis, a supplier or a faction is a thing that
+ * happens BECAUSE of how the house is being run — and a monthly-only check
+ * would miss it, because food safety can spike and settle inside a month.
+ * Those get a weekly look as well; see the module's daily hook.
+ */
+export function hasStateGate(definition: LocalArcDefinition): boolean {
+  return definition.startConditions.some(
+    (condition) =>
+      condition.kind === 'pressure_above' ||
+      condition.kind === 'reputation_axis_above' ||
+      condition.kind === 'supplier_relationship_below' ||
+      condition.kind === 'faction_tension_above',
+  )
+}
+
 export function pickArcsToStart(args: {
   ctx: SimContext
   monthlySlice: MonthlyModuleState
   cooldowns: Record<string, number>
   seenCalendarTags: readonly string[]
+  /** Narrow the candidate pool. Used by the weekly state-driven pass. */
+  filter?: (definition: LocalArcDefinition) => boolean
 }): LocalArcDefinition[] {
-  const { ctx, monthlySlice, cooldowns, seenCalendarTags } = args
+  const { ctx, monthlySlice, cooldowns, seenCalendarTags, filter } = args
   const state = ctx.state
   const today = state.calendar.totalDaysElapsed
   const activeCount = listActiveArcs(state).length
@@ -206,6 +228,7 @@ export function pickArcsToStart(args: {
 
   const candidates: LocalArcDefinition[] = []
   for (const definition of localArcRegistry.all()) {
+    if (filter && !filter(definition)) continue
     if (hasActiveArcForDefinition(state, definition.id)) continue
     if (!isCooledDown(state, cooldowns, definition.id, today)) continue
     if (!passesStartConditions(state, monthlySlice, definition, seenCalendarTags)) continue

@@ -86,6 +86,7 @@ import {
   ensureExternalObligationSlices,
   ensureCultureAgencyFields,
   ensureNpcAgencyFields,
+  ensureArcProgression,
   ensureRivalSlice,
   ensureRumourNetworkFields,
   ensureBeliefBehaviourFields,
@@ -826,7 +827,14 @@ function migrateAndValidateState(
     // from its own named stream on the first played day, so no RNG cursor
     // moves during a load.
     const s8l = ensureRivalSlice(s8k);
-    const s9 = ensureModuleSlices(s8l);
+    // Expansion Phase 9 §5.7 — the arc run book. Named rather than left to
+    // the generic sweep because every post-Phase-35 save already HAS a
+    // `modules.localArcs` slice, which the sweep skips. The run book is left
+    // EMPTY rather than backdated: fabricating a goal meter would invent
+    // progress nobody made. The module opens a real run for each live arc on
+    // the first played day, at the stage it was already showing.
+    const s8m = ensureArcProgression(s8l);
+    const s9 = ensureModuleSlices(s8m);
     const validation = safeValidateState(s9, { modules: FULL_PIPELINE });
     if (!validation.success) {
       const first = validation.errors[0];

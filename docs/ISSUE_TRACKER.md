@@ -57,7 +57,7 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > live state, and leaves findings, fines and orders a follow-up re-reads.
 > **ISSUE-178 (Phase 8 — the autonomous social world) is DONE, executed part
 > by part (8.1–8.5). ISSUE-179 (Phase 9) is now in progress, part by part;
-> §9.1 (the rival actor) is done (2026-08-07).** **§8.1 (factions) is done
+> §9.1 (the rival actor) and §9.2 (local arcs) are done.** **§8.1 (factions) is done
 > (2026-08-06).**
 > Factions are now actors rather than meters: each has goals derived from
 > live state, a budget derived from its influence, a constituency of real
@@ -191,8 +191,36 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > settling schedules the review at which it reconsiders. Four `HOOK-*`
 > families stop draining: `rival_retaliation_*`, `rival_dominance_*`,
 > `rival_rumour_exposed_*` and `rival_settlement_pact_*` now resolve into
-> real rival moves or explained no-ops. **Next: §9.2 (local arcs).** The
-> sequence is hard-ordered after that.
+> real rival moves or explained no-ops.
+>
+> **ISSUE-179 §9.2 (local arcs) is done (2026-08-08), which closes DEP-13.**
+> An arc used to age: `progressRules` keyed on `afterDays`, ticked once a
+> month, walking `seeded → rising → active → climax → resolved` on a fixed
+> clock. Nothing in the world could hurry it, slow it, win it or lose it —
+> the blight resolved on day 84 whether the cellar was spotless or crawling.
+> Arcs now progress DAILY against a stated **goal**, driven by an **owner**
+> resolved once at seed time, who makes **opposing moves** on its own cadence
+> and in its own domain (a faction's standing ledger, a supplier's terms, a
+> rumour). Stages advance on live state, **fork on branches**, and **time
+> out** into a named fallback. The player has two moves — `intervene_in_arc`
+> takes one of the arc's own declared interventions, `settle_arc` ends a
+> close-run one as a compromise — and the outcome is decided by goal minus
+> opposition: **success, compromise, failure**, each with its own aftermath
+> and, where it earns one, a **permanent change** the world keeps (an area
+> trait, a crowd's base custom, an identity label, a house rule, a supplier's
+> terms). Winning branches are gated on the MARGIN rather than goal progress
+> alone, so opposition is an opponent rather than a pacing knob, and a stage
+> that simply runs out ends on the margin so the compromise band is reachable
+> through play. The catalog covers all eight shapes §9.2 requires across nine
+> definitions — the five that existed are migrated, not duplicated, and the
+> four added are the state-driven crisis, the faction conflict, the recovery
+> arc and the arc that changes the world for good. Five `HOOK-*` families
+> stop draining: `arc_failure_*`, `blight_brand_lock_*`,
+> `arc_exploit_backlash_*`, `arc_faction_debt_*` and
+> `arc_supplier_favour_owed_*` now resolve into real arc outcomes, permanent
+> locks, owner backlashes and debts collected through the creditor's own
+> domain. **Next: §9.3 (expeditions).** The sequence is hard-ordered after
+> that.
 >
 > Everything else below — the Complete Surface resume points, the
 > onboarding arc, the standing tails — is **paused, not cancelled**, and
@@ -441,7 +469,7 @@ rather than rebuilding those routes.
 | ISSUE-176 | Expansion Phase 6 — transactional suppliers: orders, deliveries, credit, invoices (OBL-04) | broken | done | 213 |
 | ISSUE-177 | Expansion Phase 7 — loans, tenancy, and a real inspection lifecycle (OBL-03 + loan/eviction half of OBL-02) | broken | done | 214 |
 | ISSUE-178 | Expansion Phase 8 — autonomous social world: faction/culture/NPC agency, rumour propagation, behavioral attribution (rumour half of OBL-08) | broken | done (8.1–8.5) | 215 |
-| ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | in progress (9.1 done) | 216 |
+| ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | in progress (9.1–9.2 done) | 216 |
 | ISSUE-180 | Expansion Phase 10 — populated teleology, causal identity with hysteresis, character arcs, earned nicknames (OBL-09 + mastery half of OBL-08) | broken | open | 217 |
 | ISSUE-181 | Expansion Phase 11 — reconnect issues, responses, pressures, feedback, memory and history to the deepened domains (closes OBL-02) | broken | open | 218 |
 | ISSUE-182 | Expansion Phase 12 — ongoing difficulty, reachable Quick Day, correct planning horizon, new management surfaces, derived Help (OBL-05/06/07) | broken | open | 219 |

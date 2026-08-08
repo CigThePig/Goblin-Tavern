@@ -238,8 +238,9 @@ describe('Phase 207 — implementation ledger', () => {
     // §9.2 local arcs, §9.3 expeditions, §9.4 month modifiers), so the same
     // rule applies and the same loophole stays shut: §9.1 (2026-08-07)
     // completed DEP-09 by closing its rival half, and closed the four rival
-    // hook families. DEP-12 and DEP-13 belong to §9.3 and §9.2 and are still
-    // open, so anything else in phase 9 still fails this check.
+    // hook families; §9.2 (2026-08-08) closed DEP-13 and the five arc hook
+    // families. DEP-12 belongs to §9.3 and is still open, so anything else
+    // in phase 9 still fails this check.
     const LANDED_PART_ROWS = new Map<string, string>([
       ['DEP-08', 'done'],
       ['DEP-09', 'done'],
@@ -247,6 +248,14 @@ describe('Phase 207 — implementation ledger', () => {
       ['HOOK-rival_dominance_*', 'done'],
       ['HOOK-rival_rumour_exposed_*', 'done'],
       ['HOOK-rival_settlement_pact_*', 'done'],
+      // §9.2 (2026-08-08) — local arcs. DEP-13 closes with the arc layer's
+      // five hook families; DEP-12 belongs to §9.3 and is still open.
+      ['DEP-13', 'done'],
+      ['HOOK-arc_failure_*', 'done'],
+      ['HOOK-blight_brand_lock_*', 'done'],
+      ['HOOK-arc_exploit_backlash_*', 'done'],
+      ['HOOK-arc_faction_debt_*', 'done'],
+      ['HOOK-arc_supplier_favour_owed_*', 'done'],
       ['HOOK-culture_walkout_risk_*', 'done'],
       ['HOOK-culture_seating_backlash_*', 'done'],
       ['HOOK-faction_grudge_*', 'done'],
@@ -516,10 +525,26 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       // customer groups, cultures, factions or arcs. The competition is a
       // comparison between the house and one rival over the crowds the world
       // already has.
+      //
+      // Expansion Phase 9.2 (ISSUE-179) moves two, and that it is only two
+      // is the assertion:
+      //   * `localArcs` 5 → 9: §9.2 requires the catalog to collectively
+      //     exercise eight materially different shapes, and the starter five
+      //     covered four of them. The four added are the state-driven crisis,
+      //     the faction conflict, the recovery arc, and the arc that changes
+      //     the world for good. The five that existed are MIGRATED — given a
+      //     goal, an owner and interventions — rather than duplicated.
+      //   * `ownerActions` 101 → 103: `intervene_in_arc` takes one of an
+      //     arc's own declared moves, `settle_arc` ends a close-run one as a
+      //     compromise. Two rather than a verb per intervention, because the
+      //     interventions are content and the action is the seam.
+      // `runtimeModules` stays at 40 on purpose: arcs already had a module
+      // that owned them since Phase 35, and §9.2 gives that module a daily
+      // pass rather than adding a second owner.
       runtimeModules: 40,
       simulationPhases: 26,
       daySegments: 3,
-      ownerActions: 101,
+      ownerActions: 103,
       staffPriorities: 12,
       pressureDomains: 21,
       feedbackDetectors: 13,
@@ -536,7 +561,7 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       factions: 9,
       suppliers: 9,
       marketConditions: 8,
-      localArcs: 5,
+      localArcs: 9,
       ventureBlueprints: 1,
       staffRoles: 8,
       reputationAxes: 10,

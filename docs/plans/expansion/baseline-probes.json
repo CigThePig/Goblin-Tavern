@@ -3340,7 +3340,7 @@
         "filthy": 77,
         "goblinAuthentic": 73,
         "reliable": 18,
-        "respectable": 20,
+        "respectable": 21,
         "strange": 35,
         "tasty": 35
       },
@@ -3644,8 +3644,8 @@
       },
       "pressures": {
         "arc_escalation": {
-          "value": 0,
-          "trend": -1,
+          "value": 30,
+          "trend": 1,
           "topCauses": []
         },
         "cultural_tension": {
@@ -3674,8 +3674,8 @@
           "topCauses": []
         },
         "inspection": {
-          "value": 52,
-          "trend": -1,
+          "value": 64,
+          "trend": 1,
           "topCauses": []
         },
         "landlord": {
@@ -3714,12 +3714,12 @@
           "topCauses": []
         },
         "rival_tavern_pressure": {
-          "value": 11,
-          "trend": -1,
+          "value": 17,
+          "trend": 1,
           "topCauses": []
         },
         "rumour_pressure": {
-          "value": 45,
+          "value": 37,
           "trend": -1,
           "topCauses": []
         },
@@ -3750,18 +3750,18 @@
         }
       },
       "issues": {
-        "totalGenerated": 183,
-        "totalRejected": 74,
-        "seedsToday": 4,
-        "surfacedToday": 4,
+        "totalGenerated": 192,
+        "totalRejected": 78,
+        "seedsToday": 5,
+        "surfacedToday": 5,
         "withheldToday": 2,
         "responsesResolvedToday": 0,
         "responsesAppliedToday": 0
       },
       "collections": {
         "memories": 34,
-        "history": 437,
-        "causes": 450,
+        "history": 444,
+        "causes": 467,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -3776,13 +3776,13 @@
         "suppliers": 9,
         "regulars": 11,
         "notableNpcs": 11,
-        "localEvents": 1,
-        "socialRumours": 18,
+        "localEvents": 2,
+        "socialRumours": 17,
         "hireableAdventurers": 4,
         "expeditionsActive": 0,
         "expeditionsCompleted": 0,
         "responsesPending": 0,
-        "issueCooldowns": 10
+        "issueCooldowns": 11
       },
       "validation": {
         "ok": true,

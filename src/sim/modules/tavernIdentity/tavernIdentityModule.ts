@@ -25,6 +25,7 @@ import type {
 } from '../../state/TavernState'
 import type { OwnerPolicyState } from '../ownerActions/types'
 import { getOwnerActionsModuleState } from '../ownerActions/stateHelpers'
+import { getLocalArcsModuleState } from '../localArcs/state'
 
 import {
   AREA_CONDITION_FRAGMENT,
@@ -153,6 +154,15 @@ export function computeAtmosphereTags(
   return out
 }
 
+/** Derived labels first, then anything an arc permanently earned. */
+function mergeEarned(derived: string[], earned: string[]): string[] {
+  const out = [...derived]
+  for (const label of earned) {
+    if (!out.includes(label)) out.push(label)
+  }
+  return out
+}
+
 // ---------- Diff helpers ----------
 
 function stringArraysEqual(a: string[], b: string[]): boolean {
@@ -172,8 +182,25 @@ const recomputeIdentityHook: SimulationHook = (ctx: SimContext): void => {
   const areas = ctx.state.areas
   const cultures = ctx.state.world.cultures
 
-  const nextKnownFor = computeKnownFor(reputation)
-  const nextHouseRules = computeHouseRules(policies)
+  // Expansion Phase 9 §9.2 — labels a local arc PERMANENTLY earned.
+  //
+  // This module owns `knownFor` and `houseRules` and rebuilds both from
+  // scratch every morning, which is why an arc cannot simply write to them:
+  // the change would be gone by the next hook. So an arc records what it
+  // earned as durable evidence in its own slice, and it is unioned in here
+  // — one writer, and a permanent change that is actually permanent.
+  //
+  // Earned labels come AFTER the derived ones and are never trimmed by the
+  // limit, because they are facts the world decided rather than the top of a
+  // ranking: a house that made the quarter ill is known for it whether or
+  // not three reputation axes happen to be higher this week.
+  const earned = getLocalArcsModuleState(ctx.state).earnedLabels ?? {
+    knownFor: [],
+    houseRules: [],
+  }
+
+  const nextKnownFor = mergeEarned(computeKnownFor(reputation), earned.knownFor)
+  const nextHouseRules = mergeEarned(computeHouseRules(policies), earned.houseRules)
   const nextAtmosphereTags = computeAtmosphereTags(areas, cultures)
 
   const changes: Partial<TavernIdentityState> = {}

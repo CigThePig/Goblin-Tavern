@@ -37,6 +37,7 @@ import {
   writeArcSlice,
 } from './arcRuns'
 import './arcEvents'
+import './paydayEvents'
 import {
   createInitialLocalArcsModuleState,
   getLocalArcsModuleState,

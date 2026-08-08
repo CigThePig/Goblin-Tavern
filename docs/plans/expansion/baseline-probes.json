@@ -6836,13 +6836,13 @@
         }
       },
       "obligations": {
-        "pendingTotal": 4,
+        "pendingTotal": 3,
         "pendingByKind": {
-          "memory_future_hook": 3,
+          "memory_future_hook": 2,
           "future_hook": 1
         },
         "totalResolved": 45,
-        "totalApplied": 10,
+        "totalApplied": 9,
         "totalExpired": 0,
         "rent": {
           "monthlyAmount": 120,
@@ -6933,12 +6933,12 @@
           "topCauses": []
         },
         "rival_tavern_pressure": {
-          "value": 23,
+          "value": 14,
           "trend": 1,
           "topCauses": []
         },
         "rumour_pressure": {
-          "value": 34,
+          "value": 4,
           "trend": 1,
           "topCauses": []
         },
@@ -6969,8 +6969,8 @@
         }
       },
       "issues": {
-        "totalGenerated": 55,
-        "totalRejected": 10,
+        "totalGenerated": 54,
+        "totalRejected": 9,
         "seedsToday": 3,
         "surfacedToday": 3,
         "withheldToday": 0,
@@ -6978,9 +6978,9 @@
         "responsesAppliedToday": 2
       },
       "collections": {
-        "memories": 58,
-        "history": 227,
-        "causes": 955,
+        "memories": 56,
+        "history": 224,
+        "causes": 938,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -6996,11 +6996,11 @@
         "regulars": 11,
         "notableNpcs": 11,
         "localEvents": 0,
-        "socialRumours": 4,
+        "socialRumours": 3,
         "hireableAdventurers": 4,
         "expeditionsActive": 0,
         "expeditionsCompleted": 0,
-        "responsesPending": 4,
+        "responsesPending": 3,
         "issueCooldowns": 9
       },
       "validation": {

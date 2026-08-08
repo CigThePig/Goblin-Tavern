@@ -280,16 +280,29 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > keeps `currentModifier` as a projection of whatever has the most built up,
 > so the tax rent bump and the arc engine's `month_modifier` gate go on
 > reading the field they always read.
-> **Next: Phase 9 is complete except for its six open hook families;
-> ISSUE-180 (Phase 10) is next in the arc.**
+> **Next: ISSUE-180 (Phase 10) is next in the arc.**
 >
-> **Still open in Phase 9:** six `HOOK-*` families from the rival and arc
-> CONTENT — `price_war_*`, `quality_arms_race_*`, `festival_obligations_*`,
-> `payday_brawl_legend_*`, `payday_gouging_remembered_*`,
-> `payday_supplier_return_*`. All six are `arcKey`-shaped promises from the
-> seasonal-arc seed generator, and the machinery to close them exists. They
-> are arc and rival CONTENT rather than condition content, so §9.4 did not
-> touch them; they are the last thing outstanding in Phase 9.
+> **ISSUE-179 Phase 9 is complete (2026-08-08).** The last six `HOOK-*`
+> families are closed, which ends `OBL-02` for phase 9. Each was a response
+> profile telling the player something specific about what came next, drained
+> on its promised day into a zero-weight cause because no domain owned the
+> string. Each now routes to an owner and produces an authoritative change —
+> or a recorded reason why it correctly did nothing.
+>
+> | family | owner | what happens |
+> | --- | --- | --- |
+> | `price_war_*` | rival | they cut too, through their own `shift_prices` move — unless the house is no longer the cheaper pour |
+> | `quality_arms_race_*` | rival | they hire and close **half** the gap — chasing, not arriving |
+> | `payday_supplier_return_*` | localArcs → suppliers | the **order book** answers it: still buying earns a price concession, going quiet hardens the terms |
+> | `payday_gouging_remembered_*` | localArcs → factions | the faction calls the boycott through its own move, opening a real stance |
+> | `payday_brawl_legend_*` | localArcs → rumours | the legend becomes a **rumour**, so §8.4 decides who hears it and denying it stays a move the player has |
+> | `festival_obligations_*` | localArcs → factions | a real `public_backing` demand on the patron's own demand book |
+>
+> Two additions fell out of it: `housePriceLevel` and `houseQualityLevel` on
+> the appeal model, so the two houses can be compared on one scale rather
+> than through a mean advantage that mixes price and food together.
+>
+> **Next: ISSUE-180 (Phase 10 — teleology, identity and recognition).**
 >
 > Everything else below — the Complete Surface resume points, the
 > onboarding arc, the standing tails — is **paused, not cancelled**, and
@@ -538,7 +551,7 @@ rather than rebuilding those routes.
 | ISSUE-176 | Expansion Phase 6 — transactional suppliers: orders, deliveries, credit, invoices (OBL-04) | broken | done | 213 |
 | ISSUE-177 | Expansion Phase 7 — loans, tenancy, and a real inspection lifecycle (OBL-03 + loan/eviction half of OBL-02) | broken | done | 214 |
 | ISSUE-178 | Expansion Phase 8 — autonomous social world: faction/culture/NPC agency, rumour propagation, behavioral attribution (rumour half of OBL-08) | broken | done (8.1–8.5) | 215 |
-| ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | in progress (9.1–9.4 done; six hook families open) | 216 |
+| ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | done | 216 |
 | ISSUE-180 | Expansion Phase 10 — populated teleology, causal identity with hysteresis, character arcs, earned nicknames (OBL-09 + mastery half of OBL-08) | broken | open | 217 |
 | ISSUE-181 | Expansion Phase 11 — reconnect issues, responses, pressures, feedback, memory and history to the deepened domains (closes OBL-02) | broken | open | 218 |
 | ISSUE-182 | Expansion Phase 12 — ongoing difficulty, reachable Quick Day, correct planning horizon, new management surfaces, derived Help (OBL-05/06/07) | broken | open | 219 |

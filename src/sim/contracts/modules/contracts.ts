@@ -437,6 +437,15 @@ export const MODULE_CONTRACTS: Readonly<Record<string, ModuleContract>> = {
       'arc_permanent_lock',
       'arc_backlash',
       'arc_debt_called_in',
+      // Expansion Phase 9 — four more `arcKey`-shaped promises. They live
+      // here because resolving one starts by asking WHICH arc it was about,
+      // which is this module's question; what each then does is handed to
+      // the domain that owns it (a supplier's account, a faction's own
+      // boycott move, the rumour layer, a faction's demand book).
+      'payday_supplier_standing',
+      'payday_boycott_review',
+      'payday_brawl_legend',
+      'festival_obligation_review',
     ],
     schedulesEventTypes: [
       'arc_outcome_review',
@@ -494,6 +503,12 @@ export const MODULE_CONTRACTS: Readonly<Record<string, ModuleContract>> = {
       'rival_dominance_review',
       'rival_rumour_exposed',
       'rival_pact_review',
+      // Expansion Phase 9 — the two competitive families. Distinct from
+      // `rival_retaliation` because they answer a specific commercial move
+      // the house made rather than a provocation, so the move is named and
+      // the counterplay is the one that belongs to it.
+      'rival_price_war',
+      'rival_quality_race',
     ],
     schedulesEventTypes: ['rival_retaliation', 'rival_pact_review'],
   },

@@ -274,6 +274,16 @@ describe('Phase 207 — implementation ledger', () => {
       // §9.4 (2026-08-08) — month modifiers become processes. DEP-21 is the
       // §12-table depth gap §4.2 does not number.
       ['DEP-21', 'done'],
+      // Phase 9 tail (2026-08-08) — the last six hook families. Two answer a
+      // commercial move the house made and belong to the rival; four are
+      // `arcKey`-shaped promises resolved by the local-arcs module into the
+      // domain that owns each consequence.
+      ['HOOK-price_war_*', 'done'],
+      ['HOOK-quality_arms_race_*', 'done'],
+      ['HOOK-payday_supplier_return_*', 'done'],
+      ['HOOK-payday_gouging_remembered_*', 'done'],
+      ['HOOK-payday_brawl_legend_*', 'done'],
+      ['HOOK-festival_obligations_*', 'done'],
       ['HOOK-culture_walkout_risk_*', 'done'],
       ['HOOK-culture_seating_backlash_*', 'done'],
       ['HOOK-faction_grudge_*', 'done'],

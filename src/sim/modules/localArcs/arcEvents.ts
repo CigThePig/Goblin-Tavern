@@ -64,7 +64,7 @@ function noOp(reason: string, readable: string): ScheduledEventResolution {
   return { status: 'no_op', reason, readable }
 }
 
-function arcRef(arcId: string): EntityRef {
+export function arcRef(arcId: string): EntityRef {
   return { kind: 'local_event', id: arcId }
 }
 
@@ -78,7 +78,7 @@ function arcRef(arcId: string): EntityRef {
  * whichever arc happens to be running: a promise about a blight must not be
  * collected against an inspection campaign.
  */
-function arcFromHookName(
+export function arcFromHookName(
   hookName: string,
   prefix: string,
   state: TavernState,
@@ -524,13 +524,13 @@ const debtCalledInEvent: ScheduledEventDefinition = {
 }
 
 /** The faction most plausibly owed, when the arc's owner is not one. */
-function pickCreditorFaction(state: TavernState): string | undefined {
+export function pickCreditorFaction(state: TavernState): string | undefined {
   return Object.values(state.world.factions)
     .filter((faction) => faction.relationship >= 45)
     .sort((a, b) => b.influence - a.influence || a.id.localeCompare(b.id))[0]?.id
 }
 
-function pickCreditorSupplier(state: TavernState): string | undefined {
+export function pickCreditorSupplier(state: TavernState): string | undefined {
   return Object.values(state.world.suppliers)
     .filter((supplier) => supplier.relationship >= 45)
     .sort((a, b) => b.relationship - a.relationship || a.id.localeCompare(b.id))[0]?.id

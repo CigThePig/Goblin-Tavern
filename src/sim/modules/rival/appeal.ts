@@ -118,6 +118,39 @@ export function positionFitForGroup(
 }
 
 /**
+ * The house's own price posture on the rival's 0..100 capability scale.
+ *
+ * Expansion Phase 9 — added so the two houses can be compared on price
+ * DIRECTLY, which the competitive hook families need: "the rival may slash
+ * too" is only true while somebody is actually the cheaper pour, and that
+ * question cannot be answered from a mean appeal advantage (a house can be
+ * winning on food and losing on price at the same time). Derived from the
+ * same `houseTopPrice` proxy the appeal model already uses, so the two
+ * cannot disagree about what this house charges.
+ */
+export function housePriceLevel(state: TavernState): number {
+  const top = houseTopPrice(state)
+  if (top <= 0) return 50
+  return clamp100(50 + (top - 6) * 8)
+}
+
+/**
+ * The house's own quality on the rival's 0..100 capability scale.
+ *
+ * Same reason as `housePriceLevel`, and built from the two things a
+ * customer would call quality: what is actually in the barrels, and what
+ * the house is known for.
+ */
+export function houseQualityLevel(state: TavernState): number {
+  const stock = Object.values(state.stock).filter((item) => item.quantity > 0)
+  const meanQuality =
+    stock.length > 0
+      ? stock.reduce((sum, item) => sum + item.quality, 0) / stock.length
+      : 50
+  return clamp100(meanQuality * 0.7 + state.reputation.tasty * 0.3)
+}
+
+/**
  * What this group thinks of drinking THERE, 0..100.
  *
  * Nothing here is a meter somebody nudged: every term traces to a move the
@@ -240,6 +273,11 @@ export type CompetitionSummary = {
   courtedGroupIds: string[]
   liveSetbackCount: number
   underTruce: boolean
+  /** The two houses on the same scale, for the competitive hook families. */
+  housePriceLevel: number
+  rivalPriceLevel: number
+  houseQuality: number
+  rivalQuality: number
 }
 
 export function competitionSummary(
@@ -266,5 +304,9 @@ export function competitionSummary(
       (setback) => setback.recoveredOnDay === undefined,
     ).length,
     underTruce: rival.truceUntilDay !== undefined && today <= rival.truceUntilDay,
+    housePriceLevel: housePriceLevel(state),
+    rivalPriceLevel: rival.capability.priceLevel,
+    houseQuality: houseQualityLevel(state),
+    rivalQuality: rival.capability.quality,
   }
 }

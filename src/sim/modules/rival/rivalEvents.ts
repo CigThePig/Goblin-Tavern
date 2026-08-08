@@ -57,6 +57,8 @@ export const RIVAL_RETALIATION_EVENT = 'rival_retaliation'
 export const RIVAL_DOMINANCE_REVIEW_EVENT = 'rival_dominance_review'
 export const RIVAL_RUMOUR_EXPOSED_EVENT = 'rival_rumour_exposed'
 export const RIVAL_PACT_REVIEW_EVENT = 'rival_pact_review'
+export const RIVAL_PRICE_WAR_EVENT = 'rival_price_war'
+export const RIVAL_QUALITY_RACE_EVENT = 'rival_quality_race'
 
 const RivalPayloadSchema = z.object({ rivalId: z.string() })
 const RetaliationPayloadSchema = z.object({
@@ -600,6 +602,281 @@ export function scheduleRivalRetaliation(
   return result.status === 'scheduled'
 }
 
+// ---------------------------------------------------------------------------
+// rival_price_war / rival_quality_race — they answer the move the house made
+// ---------------------------------------------------------------------------
+//
+// Expansion Phase 9 — the last two rival hook families.
+//
+// These two are DIFFERENT from `rival_retaliation`, and the difference is
+// worth keeping rather than folding them into it. Retaliation is provoked:
+// somebody was poached, something was said, and the rival picks whichever
+// hostile move it can afford. These two are COMPETITIVE: the house made a
+// specific commercial move — it cut its price, or it put money into quality —
+// and the promise on the card was that the other house might match it. So the
+// move is named rather than chosen, and the counterplay is the one that
+// belongs to that move: a house that has since put its prices back up is not
+// in a price war, and a house whose quality edge has already gone has nothing
+// left for the rival to chase.
+
+/**
+ * Is the house still undercutting them?
+ *
+ * Read from the rival's own recorded price level against the house's, which
+ * is the same comparison the appeal model runs — so the answer here and the
+ * answer the customers are acting on cannot disagree.
+ */
+function houseStillUndercutting(ctx: SimContext): boolean {
+  const summary = competitionSummary(ctx.state)
+  if (!summary) return false
+  // The house is cheaper than they are, on the one scale both are read on.
+  return summary.housePriceLevel < summary.rivalPriceLevel
+}
+
+const priceWarEvent: ScheduledEventDefinition = {
+  type: RIVAL_PRICE_WAR_EVENT,
+  kind: 'mechanical',
+  ownerModuleId: RIVAL_MODULE_ID,
+  label: 'The other house may slash too',
+  payloadSchema: RivalPayloadSchema,
+  beat: 'wrap_up',
+  defaultOffsetDays: 10,
+  warningWindowDays: 4,
+  expiryDays: 5,
+  missingTarget: 'cancel',
+  exactOnceKey: ({ type, payload, scheduledForDay }) => {
+    const parsed = RivalPayloadSchema.safeParse(payload)
+    return `${type}:${parsed.success ? parsed.data.rivalId : 'unknown'}:${scheduledForDay}`
+  },
+  futureHookPrefixes: ['price_war_'],
+  fromFutureHook: ({ state }) => {
+    if (!state) return undefined
+    const rival = getRivalModuleState(state).rivals[PRIMARY_RIVAL_ID]
+    if (!rival) return undefined
+    return { payload: { rivalId: rival.id }, target: rivalRef(rival.id) }
+  },
+  resolve: (ctx, record): ScheduledEventResolution => {
+    const parsed = RivalPayloadSchema.safeParse(record.payload)
+    if (!parsed.success) {
+      return noOp('event payload named no house', record.origin.readable)
+    }
+    const rival = rivalOrNothing(ctx, parsed.data.rivalId)
+    if (!rival) return noOp('there is no such house any more', record.origin.readable)
+    const today = ctx.state.calendar.totalDaysElapsed
+
+    if (underTruce(rival, today)) {
+      return noOp(
+        `${rival.name} held their prices — there is an arrangement`,
+        record.origin.readable,
+      )
+    }
+    // THE COUNTERPLAY. A price war needs somebody still undercutting. A
+    // house that has taken its margin back in the meantime gets a recorded
+    // reason rather than a fight it walked away from.
+    if (!houseStillUndercutting(ctx)) {
+      return noOp(
+        `${rival.name} saw no need — this house is no longer the cheaper pour`,
+        record.origin.readable,
+      )
+    }
+    // Cutting on an empty purse is how a house closes, and they know it.
+    if (rival.purse < 40) {
+      return noOp(
+        `${rival.name} could not afford to fight on price`,
+        record.origin.readable,
+      )
+    }
+
+    const action = rivalActionById('shift_prices')
+    if (!action) return noOp('they have no such move', record.origin.readable)
+    const performed = performActorAction(ctx, {
+      actor: { ...rival.actor, goals: deriveRivalGoals(ctx.state, rival) },
+      action,
+      target: { kind: 'self', id: rival.id } as never,
+      goalId: 'win_the_trade',
+    })
+    persistRivalActor(ctx, rival.id, performed.actor)
+    recordRivalMove(ctx, {
+      onDay: today,
+      rivalId: rival.id,
+      actionId: action.id,
+      goalId: 'win_the_trade',
+      targetId: rival.id,
+      result: performed.outcome.result,
+      readable: performed.outcome.readable,
+    })
+    if (performed.outcome.result === 'failed') {
+      return noOp(performed.outcome.readable, record.origin.readable)
+    }
+    const readable = `${rival.name} matched the cut. It is a price war now.`
+    return {
+      status: 'resolved',
+      mutations: [
+        {
+          targetKind: 'system',
+          targetId: rival.id,
+          field: 'capability.priceLevel',
+          readable: performed.outcome.readable,
+        },
+      ],
+      readable,
+      cause: {
+        source: `${RIVAL_MODULE_ID}.price_war`,
+        sourceType: 'system',
+        target: rival.id,
+        targetType: 'global',
+        amount: 0,
+        readable,
+        tags: ['rival', 'price_war'],
+        relatedActors: [rivalRef(rival.id)],
+        relatedSystems: ['rival'],
+      },
+    }
+  },
+}
+
+const qualityRaceEvent: ScheduledEventDefinition = {
+  type: RIVAL_QUALITY_RACE_EVENT,
+  kind: 'mechanical',
+  ownerModuleId: RIVAL_MODULE_ID,
+  label: 'The other house may match the quality',
+  payloadSchema: RivalPayloadSchema,
+  beat: 'wrap_up',
+  defaultOffsetDays: 12,
+  warningWindowDays: 4,
+  expiryDays: 6,
+  missingTarget: 'cancel',
+  exactOnceKey: ({ type, payload, scheduledForDay }) => {
+    const parsed = RivalPayloadSchema.safeParse(payload)
+    return `${type}:${parsed.success ? parsed.data.rivalId : 'unknown'}:${scheduledForDay}`
+  },
+  futureHookPrefixes: ['quality_arms_race_'],
+  fromFutureHook: ({ state }) => {
+    if (!state) return undefined
+    const rival = getRivalModuleState(state).rivals[PRIMARY_RIVAL_ID]
+    if (!rival) return undefined
+    return { payload: { rivalId: rival.id }, target: rivalRef(rival.id) }
+  },
+  resolve: (ctx, record): ScheduledEventResolution => {
+    const parsed = RivalPayloadSchema.safeParse(record.payload)
+    if (!parsed.success) {
+      return noOp('event payload named no house', record.origin.readable)
+    }
+    const rival = rivalOrNothing(ctx, parsed.data.rivalId)
+    if (!rival) return noOp('there is no such house any more', record.origin.readable)
+    const today = ctx.state.calendar.totalDaysElapsed
+    const summary = competitionSummary(ctx.state)
+    if (!summary) return noOp('there is nobody to compare them with', record.origin.readable)
+
+    if (underTruce(rival, today)) {
+      return noOp(
+        `${rival.name} let the quality question lie — there is an arrangement`,
+        record.origin.readable,
+      )
+    }
+    // THE COUNTERPLAY, and it is the uncomfortable kind: an arms race only
+    // starts if the house is still visibly ahead on quality. A house that
+    // let its own standard slip since is not being chased — which is a
+    // recorded reason rather than a reward.
+    if (summary.rivalQuality >= summary.houseQuality) {
+      return noOp(
+        `${rival.name} were already a match for this house on quality`,
+        record.origin.readable,
+      )
+    }
+    if (rival.purse < 30) {
+      return noOp(
+        `${rival.name} had nothing to spend on catching up`,
+        record.origin.readable,
+      )
+    }
+
+    // Through their own hiring move: matching a quality push means paying
+    // for hands who can do the work, which is what `recruit_staff` IS. It
+    // spends their purse and takes their commitment window like any other
+    // move, so a race costs them the tempo it would have cost to plan.
+    const action = rivalActionById('recruit_staff')
+    if (!action) return noOp('they have no such move', record.origin.readable)
+    const performed = performActorAction(ctx, {
+      actor: { ...rival.actor, goals: deriveRivalGoals(ctx.state, rival) },
+      action,
+      target: { kind: 'self', id: rival.id } as never,
+      goalId: 'win_the_trade',
+    })
+    persistRivalActor(ctx, rival.id, performed.actor)
+    if (performed.outcome.result === 'failed') {
+      recordRivalMove(ctx, {
+        onDay: today,
+        rivalId: rival.id,
+        actionId: action.id,
+        goalId: 'win_the_trade',
+        targetId: rival.id,
+        result: performed.outcome.result,
+        readable: performed.outcome.readable,
+      })
+      return noOp(performed.outcome.readable, record.origin.readable)
+    }
+    // And the quality itself, which is the thing the card said they might
+    // match. Half the gap, not all of it: they are chasing, not arriving.
+    const gap = summary.houseQuality - summary.rivalQuality
+    const gained = Math.max(2, Math.round(gap / 2))
+    writeRivalSlice(
+      ctx,
+      (current) => {
+        const entry = current.rivals[rival.id]
+        if (!entry) return current
+        return {
+          ...current,
+          rivals: {
+            ...current.rivals,
+            [rival.id]: {
+              ...entry,
+              capability: {
+                ...entry.capability,
+                quality: Math.min(100, entry.capability.quality + gained),
+              },
+            },
+          },
+        }
+      },
+      'quality_race',
+    )
+    recordRivalMove(ctx, {
+      onDay: today,
+      rivalId: rival.id,
+      actionId: action.id,
+      goalId: 'win_the_trade',
+      targetId: rival.id,
+      result: performed.outcome.result,
+      readable: performed.outcome.readable,
+    })
+    const readable = `${rival.name} put money into their own kitchen to close the gap.`
+    return {
+      status: 'resolved',
+      mutations: [
+        {
+          targetKind: 'system',
+          targetId: rival.id,
+          field: 'capability.quality',
+          readable: `Quality +${gained}.`,
+        },
+      ],
+      readable,
+      cause: {
+        source: `${RIVAL_MODULE_ID}.quality_race`,
+        sourceType: 'system',
+        target: rival.id,
+        targetType: 'global',
+        amount: gained,
+        readable,
+        tags: ['rival', 'quality_arms_race'],
+        relatedActors: [rivalRef(rival.id)],
+        relatedSystems: ['rival'],
+      },
+    }
+  },
+}
+
 export function scheduleRivalPactReview(
   ctx: SimContext,
   input: { rivalId?: string; source: string; readable: string; offsetDays?: number },
@@ -626,6 +903,8 @@ export const RIVAL_SCHEDULED_EVENTS: ReadonlyArray<ScheduledEventDefinition> = [
   dominanceEvent,
   rumourExposedEvent,
   pactReviewEvent,
+  priceWarEvent,
+  qualityRaceEvent,
 ]
 
 export const RIVAL_SCHEDULED_EVENT_TYPES: ReadonlyArray<string> =

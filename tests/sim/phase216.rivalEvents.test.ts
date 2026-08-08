@@ -37,6 +37,8 @@ import {
   PRIMARY_RIVAL_ID,
   RIVAL_DOMINANCE_REVIEW_EVENT,
   RIVAL_PACT_REVIEW_EVENT,
+  RIVAL_PRICE_WAR_EVENT,
+  RIVAL_QUALITY_RACE_EVENT,
   RIVAL_RETALIATION_EVENT,
   RIVAL_RUMOUR_EXPOSED_EVENT,
   RIVAL_SCHEDULED_EVENT_TYPES,
@@ -111,10 +113,19 @@ describe('Phase 216 §9.1 — the bridge routes the rival hook families to an ow
     }
   })
 
-  it('registers exactly the four types it declares', () => {
+  it('registers exactly the types it declares', () => {
+    // Four from §9.1, plus the two competitive families the phase-9 tail
+    // added: `rival_price_war` and `rival_quality_race`. They are separate
+    // from `rival_retaliation` because they answer a COMMERCIAL move the
+    // house made rather than a provocation, so each carries its own
+    // counterplay — a house that has taken its margin back is not in a
+    // price war, and a rival already a match on quality is not chasing one.
+    // Their own coverage is in `phase216.hookClosure.test.ts`.
     expect([...RIVAL_SCHEDULED_EVENT_TYPES].sort()).toEqual([
       RIVAL_DOMINANCE_REVIEW_EVENT,
       RIVAL_PACT_REVIEW_EVENT,
+      RIVAL_PRICE_WAR_EVENT,
+      RIVAL_QUALITY_RACE_EVENT,
       RIVAL_RETALIATION_EVENT,
       RIVAL_RUMOUR_EXPOSED_EVENT,
     ].sort())

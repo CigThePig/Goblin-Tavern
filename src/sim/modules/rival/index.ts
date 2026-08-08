@@ -74,6 +74,8 @@ export {
   RIVAL_SCHEDULED_EVENTS,
   RIVAL_SCHEDULED_EVENT_TYPES,
   ensureRivalScheduledEventsRegistered,
+  RIVAL_PRICE_WAR_EVENT,
+  RIVAL_QUALITY_RACE_EVENT,
   scheduleRivalPactReview,
   scheduleRivalRetaliation,
 } from './rivalEvents'

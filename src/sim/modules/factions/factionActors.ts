@@ -761,7 +761,7 @@ export const FACTION_ACTOR_ACTION_LIST: ReadonlyArray<
 // The daily pass
 // ---------------------------------------------------------------------------
 
-function ensureActor(
+export function ensureActor(
   slice: ReturnType<typeof getFactionModuleState>,
   state: TavernState,
   faction: FactionWorldState,

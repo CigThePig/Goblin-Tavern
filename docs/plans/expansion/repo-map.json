@@ -48,6 +48,7 @@
     "service",
     "economy",
     "weekly",
+    "conditions",
     "monthly",
     "localArcs",
     "tavernIdentity",
@@ -135,6 +136,7 @@
     "areas",
     "attribution",
     "causes",
+    "conditions",
     "cultures",
     "customers",
     "economy",
@@ -240,6 +242,7 @@
       "ensureRivalSlice",
       "ensureArcProgression",
       "ensureExpeditionRunBook",
+      "ensureWorldConditions",
       "ensureModuleSlices"
     ]
   },
@@ -249,10 +252,10 @@
     "standard"
   ],
   "inventory": {
-    "runtimeModules": 40,
+    "runtimeModules": 41,
     "simulationPhases": 26,
     "daySegments": 3,
-    "ownerActions": 106,
+    "ownerActions": 109,
     "staffPriorities": 12,
     "pressureDomains": 21,
     "feedbackDetectors": 13,
@@ -417,7 +420,8 @@
     "wages",
     "weekly_net",
     "weekly_signals",
-    "welcome_back"
+    "welcome_back",
+    "world_condition"
   ],
   "futureHooks": {
     "families": 98,

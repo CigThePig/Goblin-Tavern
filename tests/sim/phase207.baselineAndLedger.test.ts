@@ -194,9 +194,19 @@ describe('Phase 207 — implementation ledger', () => {
   })
 
   it('carries a row for every simulation-depth gap the plan lists', () => {
-    // Plan §4.2 — 20 bullets, one DEP row each.
+    // Plan §4.2 — 20 numbered bullets, one DEP row each. Asserted by
+    // PRESENCE rather than by count, because §4.2's numbering is not the
+    // plan's whole list of depth gaps: the §12 table names one more for
+    // phase 9 ("Thin month modifiers") that §4.2 omits, and §9.4 is its own
+    // section. That gap is `DEP-21`. Counting would have made adding it
+    // look like a violation of the very check it belongs in.
     const dep = rows.filter((r) => r.requirement_id.startsWith('DEP-'))
-    expect(dep).toHaveLength(20)
+    for (let n = 1; n <= 20; n += 1) {
+      expect(dep.map((r) => r.requirement_id)).toContain(
+        `DEP-${String(n).padStart(2, '0')}`,
+      )
+    }
+    expect(dep.length).toBeGreaterThanOrEqual(20)
   })
 
   it('assigns every row to a phase owned by the right tracker issue', () => {
@@ -261,6 +271,9 @@ describe('Phase 207 — implementation ledger', () => {
       // phase-9 hook families belong to the rival and arc CONTENT and are
       // still open, so they still fail this check.
       ['DEP-12', 'done'],
+      // §9.4 (2026-08-08) — month modifiers become processes. DEP-21 is the
+      // §12-table depth gap §4.2 does not number.
+      ['DEP-21', 'done'],
       ['HOOK-culture_walkout_risk_*', 'done'],
       ['HOOK-culture_seating_backlash_*', 'done'],
       ['HOOK-faction_grudge_*', 'done'],
@@ -558,10 +571,29 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       // since Phase 70. What §9.3 adds is content — five routes and eight
       // road events — which no inventory count tracks, and a run book inside
       // the slice that module already owned.
-      runtimeModules: 40,
+      //
+      // Expansion Phase 9.4 (ISSUE-179) moves two, and that it is only two
+      // is the assertion:
+      //   * `runtimeModules` 40 → 41: `conditions`. A module rather than
+      //     more fields on `modules.monthly`, because §9.4 turns a label
+      //     into a lifecycle — forecast, start, a burden that accumulates,
+      //     counterplay, an ending and a scar — and those are real state
+      //     transitions, which §5.4 wants one owner for. The monthly slice
+      //     keeps `currentModifier` as a projection of what is running, so
+      //     the tax rent bump and the arc engine's `month_modifier` gate go
+      //     on reading the field they always read.
+      //   * `ownerActions` 106 → 109: `prepare_for_condition` acts on a
+      //     forecast before the thing exists, `counter_condition` works the
+      //     burden down while it runs, `exploit_condition` takes the upside
+      //     instead of only surviving it. Before this the player could not
+      //     act on a month modifier at all.
+      // Everything else is unchanged: §9.4 adds no areas, stock or arcs. The
+      // six conditions are the six modifiers that already existed, given the
+      // seven things §9.4 says each one needs.
+      runtimeModules: 41,
       simulationPhases: 26,
       daySegments: 3,
-      ownerActions: 106,
+      ownerActions: 109,
       staffPriorities: 12,
       pressureDomains: 21,
       feedbackDetectors: 13,

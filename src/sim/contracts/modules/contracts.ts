@@ -368,6 +368,24 @@ export const MODULE_CONTRACTS: Readonly<Record<string, ModuleContract>> = {
       'world.socialRumours',
     ],
   },
+  // Expansion Phase 9 §9.4 — world conditions own the process a month
+  // modifier used to only hint at. The slice is theirs; the writes outside it
+  // are the aftermath landing in the domains that own what it wrecked —
+  // areas, stock, staff, customer groups, coin and renown — because §5 is
+  // explicit that a consequence which is only a meter adjustment in this
+  // module's own slice has not actually happened to the tavern.
+  conditions: {
+    slices: [
+      { sliceId: 'conditions', version: 1, access: 'owns' },
+      { sliceId: 'monthly', version: 1, access: 'reads' },
+      // The unpaid part of a levy is recorded as a decaying `debt`
+      // adjustment rather than a direct pressure write, which is a write
+      // into the pressure module's own slice and is declared as such.
+      { sliceId: 'pressures', version: 1, access: 'writes' },
+    ],
+    readsStatePaths: ['areas', 'calendar', 'coin', 'customerGroups', 'reputation', 'staff', 'stock'],
+    writesStatePaths: ['areas', 'coin', 'customerGroups', 'pressures', 'reputation', 'staff', 'stock'],
+  },
   // Expansion Phase 9 §9.2 — the suppliers slice gains a declared owner.
   //
   // Same story as the factions slice in §9.1: it had none and did not need

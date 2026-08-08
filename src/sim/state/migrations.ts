@@ -66,6 +66,8 @@ import { LOCAL_ARCS_MODULE_ID } from "../modules/localArcs/types";
 import { createInitialArcRunTotals } from "../modules/localArcs/arcRuns";
 import { EXPEDITIONS_MODULE_ID } from "../modules/expeditions/moduleId";
 import { createInitialExpeditionsModuleState } from "../modules/expeditions/runState";
+import { CONDITIONS_MODULE_ID } from "../modules/conditions/moduleId";
+import { createInitialConditionsModuleState } from "../modules/conditions/conditionState";
 import {
   RIVAL_MODULE_ID,
   createInitialRivalModuleState,
@@ -1892,6 +1894,32 @@ export function ensureExpeditionRunBook<
   const next: Record<string, unknown> = { ...slice };
   for (const key of missing) next[key] = base[key];
   return { ...state, modules: { ...current, [EXPEDITIONS_MODULE_ID]: next } };
+}
+
+// Expansion Phase 9 §9.4 — the world-conditions run book.
+//
+// A save from before this phase has no `modules.conditions` at all, and a
+// save from the middle of it may be missing a collection the slice has since
+// grown. Both are the same fix: seed what is absent and leave what is there,
+// so an existing game keeps whatever it was already carrying and simply
+// starts hearing forecasts.
+export function ensureWorldConditions<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const slice = current[CONDITIONS_MODULE_ID];
+  const base = createInitialConditionsModuleState() as unknown as Record<
+    string,
+    unknown
+  >;
+  if (!isRecord(slice)) {
+    return { ...state, modules: { ...current, [CONDITIONS_MODULE_ID]: base } };
+  }
+  const missing = Object.keys(base).filter((key) => !(key in slice));
+  if (missing.length === 0) return state;
+  const next: Record<string, unknown> = { ...slice };
+  for (const key of missing) next[key] = base[key];
+  return { ...state, modules: { ...current, [CONDITIONS_MODULE_ID]: next } };
 }
 
 type PartialRegular = {

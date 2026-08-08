@@ -88,6 +88,7 @@ import {
   ensureNpcAgencyFields,
   ensureArcProgression,
   ensureExpeditionRunBook,
+  ensureWorldConditions,
   ensureRivalSlice,
   ensureRumourNetworkFields,
   ensureBeliefBehaviourFields,
@@ -842,7 +843,13 @@ function migrateAndValidateState(
     // finishes it on the Phase 70 roll it was commissioned under rather than
     // inventing a route, a party and terms nobody agreed.
     const s8n = ensureExpeditionRunBook(s8m);
-    const s9 = ensureModuleSlices(s8n);
+    // Expansion Phase 9 §5.7 — the world-conditions run book. Nothing is
+    // backdated: an old save starts with no forecast, nothing running and no
+    // scars, and hears about the first condition the same way a new game
+    // does. Inventing a half-finished condition would mean inventing a
+    // burden the player never let build.
+    const s8o = ensureWorldConditions(s8n);
+    const s9 = ensureModuleSlices(s8o);
     const validation = safeValidateState(s9, { modules: FULL_PIPELINE });
     if (!validation.success) {
       const first = validation.errors[0];

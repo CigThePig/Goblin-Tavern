@@ -25,6 +25,7 @@ import { memoriesModule } from './modules/memories/index'
 import { responsesModule } from './modules/responses/index'
 import { localArcsModule } from './modules/localArcs/index'
 import { monthlyModule } from './modules/monthly/index'
+import { conditionsModule } from './modules/conditions/index'
 import { ownerActionsModule } from './modules/ownerActions/index'
 import { pressuresModule } from './modules/pressures/index'
 import { serviceModule } from './modules/service/index'
@@ -95,6 +96,11 @@ export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   serviceModule,
   economyModule,
   weeklyModule,
+  // Expansion Phase 9 §9.4 — world conditions decide what is actually
+  // happening today BEFORE the monthly module projects it onto
+  // `currentModifier`, so the rent bump and the arc gates read the world
+  // as it is rather than as it was yesterday.
+  conditionsModule,
   monthlyModule,
   localArcsModule,
   tavernIdentityModule,

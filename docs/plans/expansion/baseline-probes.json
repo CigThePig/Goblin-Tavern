@@ -1742,8 +1742,8 @@
           "cleanliness": 30,
           "mess": 35,
           "damage": 20,
-          "smell": 46,
-          "risk": 42,
+          "smell": 45,
+          "risk": 41,
           "upgradesInstalled": 0,
           "upgradesInProgress": 0,
           "activeProblems": 0
@@ -2153,7 +2153,7 @@
       "collections": {
         "memories": 4,
         "history": 16,
-        "causes": 406,
+        "causes": 404,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -2278,8 +2278,8 @@
           "cleanliness": 30,
           "mess": 35,
           "damage": 20,
-          "smell": 46,
-          "risk": 42,
+          "smell": 45,
+          "risk": 41,
           "upgradesInstalled": 0,
           "upgradesInProgress": 0,
           "activeProblems": 0
@@ -2689,7 +2689,7 @@
       "collections": {
         "memories": 4,
         "history": 16,
-        "causes": 406,
+        "causes": 404,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -2814,8 +2814,8 @@
           "cleanliness": 30,
           "mess": 35,
           "damage": 20,
-          "smell": 52,
-          "risk": 54,
+          "smell": 49,
+          "risk": 51,
           "upgradesInstalled": 0,
           "upgradesInProgress": 0,
           "activeProblems": 0
@@ -2973,7 +2973,7 @@
         "firewood": {
           "quantity": 50,
           "quality": 50,
-          "spoilage": 0
+          "spoilage": 4
         },
         "frost_cap_mushroom": {
           "quantity": 0,
@@ -3224,8 +3224,8 @@
       },
       "collections": {
         "memories": 20,
-        "history": 94,
-        "causes": 527,
+        "history": 96,
+        "causes": 532,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -3294,7 +3294,7 @@
         }
       },
       "traffic": {
-        "total": 527,
+        "total": 528,
         "byGroup": {
           "adventurers": 37,
           "eccentric_noble": 0,
@@ -3304,7 +3304,7 @@
           "local_goblins": 282,
           "merchants": 50,
           "miners": 128,
-          "ogres": 30
+          "ogres": 31
         }
       },
       "satisfaction": {
@@ -3350,8 +3350,8 @@
           "cleanliness": 30,
           "mess": 35,
           "damage": 20,
-          "smell": 73,
-          "risk": 96,
+          "smell": 77,
+          "risk": 83,
           "upgradesInstalled": 0,
           "upgradesInProgress": 0,
           "activeProblems": 0
@@ -3393,7 +3393,7 @@
           "condition": 60,
           "cleanliness": 0,
           "mess": 100,
-          "damage": 44,
+          "damage": 45,
           "smell": 25,
           "risk": 34,
           "upgradesInstalled": 0,
@@ -3461,7 +3461,7 @@
           "role": "cook",
           "skill": 55,
           "morale": 49,
-          "stress": 12,
+          "stress": 0,
           "fatigue": 28,
           "loyalty": 40,
           "wage": 12,
@@ -3472,7 +3472,7 @@
           "role": "server",
           "skill": 50,
           "morale": 48,
-          "stress": 98,
+          "stress": 97,
           "fatigue": 0,
           "loyalty": 35,
           "wage": 10,
@@ -3509,7 +3509,7 @@
         "firewood": {
           "quantity": 50,
           "quality": 50,
-          "spoilage": 0
+          "spoilage": 33
         },
         "frost_cap_mushroom": {
           "quantity": 0,
@@ -3684,8 +3684,8 @@
           "topCauses": []
         },
         "maintenance": {
-          "value": 12,
-          "trend": -1,
+          "value": 18,
+          "trend": 1,
           "topCauses": []
         },
         "market_instability": {
@@ -3760,7 +3760,7 @@
       },
       "collections": {
         "memories": 34,
-        "history": 444,
+        "history": 451,
         "causes": 467,
         "pressures": 21,
         "areas": 9,
@@ -3844,10 +3844,10 @@
         }
       },
       "satisfaction": {
-        "mean": 2.222222,
+        "mean": 1.777778,
         "byGroup": {
           "adventurers": 0,
-          "eccentric_noble": 20,
+          "eccentric_noble": 16,
           "food_critic": 0,
           "foreign_envoy": 0,
           "gourmand": 0,
@@ -3886,8 +3886,8 @@
           "cleanliness": 30,
           "mess": 35,
           "damage": 20,
-          "smell": 45,
-          "risk": 54,
+          "smell": 56,
+          "risk": 65,
           "upgradesInstalled": 0,
           "upgradesInProgress": 0,
           "activeProblems": 0
@@ -3959,7 +3959,7 @@
           "activeProblems": 0
         },
         "roof": {
-          "condition": 33,
+          "condition": 47,
           "cleanliness": 50,
           "mess": 0,
           "damage": 35,
@@ -4045,7 +4045,7 @@
         "firewood": {
           "quantity": 50,
           "quality": 50,
-          "spoilage": 0
+          "spoilage": 11
         },
         "frost_cap_mushroom": {
           "quantity": 0,
@@ -4220,8 +4220,8 @@
           "topCauses": []
         },
         "maintenance": {
-          "value": 24,
-          "trend": 1,
+          "value": 12,
+          "trend": -1,
           "topCauses": []
         },
         "market_instability": {
@@ -4230,7 +4230,7 @@
           "topCauses": []
         },
         "pests": {
-          "value": 19,
+          "value": 25,
           "trend": 1,
           "topCauses": []
         },
@@ -4295,9 +4295,9 @@
         "responsesAppliedToday": 0
       },
       "collections": {
-        "memories": 28,
-        "history": 230,
-        "causes": 500,
+        "memories": 27,
+        "history": 232,
+        "causes": 510,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -4339,28 +4339,28 @@
         "dayOfWeek": 1,
         "totalDaysElapsed": 14
       },
-      "coin": 1093,
+      "coin": 1089,
       "ledger": {
-        "serviceCoinEarned": 1727,
-        "serviceNetCoin": 1633,
+        "serviceCoinEarned": 1723,
+        "serviceNetCoin": 1629,
         "serviceUnpaidTabs": 94,
         "weekly": {
-          "net": 204,
+          "net": 199,
           "other": -61,
           "purchases": 278,
           "rent": 0,
           "repairs": 27,
-          "sales": 603,
+          "sales": 598,
           "wages": 33,
           "waste": 0
         },
         "monthly": {
-          "net": 993,
+          "net": 989,
           "other": -136,
           "purchases": 464,
           "rent": 0,
           "repairs": 68,
-          "sales": 1727,
+          "sales": 1723,
           "wages": 66,
           "waste": 0
         }
@@ -4422,8 +4422,8 @@
           "cleanliness": 75,
           "mess": 17,
           "damage": 0,
-          "smell": 29,
-          "risk": 33,
+          "smell": 39,
+          "risk": 44,
           "upgradesInstalled": 0,
           "upgradesInProgress": 0,
           "activeProblems": 0
@@ -4522,7 +4522,7 @@
           "role": "cleaner_bouncer",
           "skill": 45,
           "morale": 50,
-          "stress": 3,
+          "stress": 17,
           "fatigue": 6,
           "loyalty": 57,
           "wage": 11,
@@ -4533,7 +4533,7 @@
           "role": "cook",
           "skill": 55,
           "morale": 55,
-          "stress": 8,
+          "stress": 22,
           "fatigue": 1,
           "loyalty": 52,
           "wage": 12,
@@ -4544,7 +4544,7 @@
           "role": "server",
           "skill": 50,
           "morale": 60,
-          "stress": 1,
+          "stress": 12,
           "fatigue": 1,
           "loyalty": 47,
           "wage": 10,
@@ -4554,9 +4554,9 @@
       },
       "stock": {
         "ale": {
-          "quantity": 4,
+          "quantity": 3,
           "quality": 55,
-          "spoilage": 0
+          "spoilage": 1
         },
         "bog_truffle": {
           "quantity": 0,
@@ -4581,7 +4581,7 @@
         "firewood": {
           "quantity": 70,
           "quality": 51,
-          "spoilage": 0
+          "spoilage": 11
         },
         "frost_cap_mushroom": {
           "quantity": 0,
@@ -4591,7 +4591,7 @@
         "ingredients": {
           "quantity": 60,
           "quality": 45,
-          "spoilage": 59.1
+          "spoilage": 59.25
         },
         "ironbark_honey": {
           "quantity": 0,
@@ -4639,9 +4639,9 @@
           "spoilage": 0
         },
         "stew": {
-          "quantity": 10,
+          "quantity": 12,
           "quality": 42,
-          "spoilage": 60.4
+          "spoilage": 60.55
         },
         "sunblood_orange": {
           "quantity": 0,
@@ -4656,7 +4656,7 @@
         "wild_thyme": {
           "quantity": 4,
           "quality": 65,
-          "spoilage": 26.4
+          "spoilage": 26.55
         },
         "wyrmheart_tea_leaves": {
           "quantity": 0,
@@ -4667,7 +4667,7 @@
       "recipes": {
         "onMenu": 3,
         "timesServed": {
-          "dish_ale": 276,
+          "dish_ale": 277,
           "dish_bog_truffle": 0,
           "dish_cave_pearl_oyster": 0,
           "dish_cut_stone": 0,
@@ -4684,7 +4684,7 @@
           "dish_river_eel": 0,
           "dish_silvercap_truffle": 0,
           "dish_smoked_boar_haunch": 0,
-          "dish_stew": 140,
+          "dish_stew": 138,
           "dish_sunblood_orange": 0,
           "dish_timber": 0,
           "dish_wild_thyme": 0,
@@ -4832,8 +4832,8 @@
       },
       "collections": {
         "memories": 28,
-        "history": 232,
-        "causes": 727,
+        "history": 236,
+        "causes": 726,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -4916,10 +4916,10 @@
         }
       },
       "satisfaction": {
-        "mean": 2.333333,
+        "mean": 1.888889,
         "byGroup": {
           "adventurers": 0,
-          "eccentric_noble": 21,
+          "eccentric_noble": 17,
           "food_critic": 0,
           "foreign_envoy": 0,
           "gourmand": 0,
@@ -4958,8 +4958,8 @@
           "cleanliness": 30,
           "mess": 35,
           "damage": 20,
-          "smell": 45,
-          "risk": 54,
+          "smell": 55,
+          "risk": 64,
           "upgradesInstalled": 0,
           "upgradesInProgress": 0,
           "activeProblems": 0
@@ -5058,7 +5058,7 @@
           "role": "cleaner_bouncer",
           "skill": 45,
           "morale": 50,
-          "stress": 36,
+          "stress": 28,
           "fatigue": 9,
           "loyalty": 57,
           "wage": 11,
@@ -5069,7 +5069,7 @@
           "role": "cook",
           "skill": 55,
           "morale": 55,
-          "stress": 79,
+          "stress": 71,
           "fatigue": 27,
           "loyalty": 52,
           "wage": 12,
@@ -5117,7 +5117,7 @@
         "firewood": {
           "quantity": 50,
           "quality": 50,
-          "spoilage": 0
+          "spoilage": 10
         },
         "frost_cap_mushroom": {
           "quantity": 0,
@@ -5302,7 +5302,7 @@
           "topCauses": []
         },
         "pests": {
-          "value": 19,
+          "value": 25,
           "trend": 1,
           "topCauses": []
         },
@@ -5368,8 +5368,8 @@
       },
       "collections": {
         "memories": 30,
-        "history": 272,
-        "causes": 629,
+        "history": 276,
+        "causes": 656,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -5494,8 +5494,8 @@
           "cleanliness": 75,
           "mess": 17,
           "damage": 20,
-          "smell": 41,
-          "risk": 46,
+          "smell": 29,
+          "risk": 33,
           "upgradesInstalled": 0,
           "upgradesInProgress": 0,
           "activeProblems": 0
@@ -5905,7 +5905,7 @@
       "collections": {
         "memories": 28,
         "history": 274,
-        "causes": 672,
+        "causes": 664,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -5988,10 +5988,10 @@
         }
       },
       "satisfaction": {
-        "mean": 2.333333,
+        "mean": 1.666667,
         "byGroup": {
           "adventurers": 0,
-          "eccentric_noble": 21,
+          "eccentric_noble": 15,
           "food_critic": 0,
           "foreign_envoy": 0,
           "gourmand": 0,
@@ -6030,8 +6030,8 @@
           "cleanliness": 30,
           "mess": 35,
           "damage": 20,
-          "smell": 45,
-          "risk": 54,
+          "smell": 57,
+          "risk": 66,
           "upgradesInstalled": 0,
           "upgradesInProgress": 0,
           "activeProblems": 0
@@ -6130,7 +6130,7 @@
           "role": "cleaner_bouncer",
           "skill": 45,
           "morale": 48,
-          "stress": 10,
+          "stress": 24,
           "fatigue": 8,
           "loyalty": 57,
           "wage": 11,
@@ -6141,7 +6141,7 @@
           "role": "cook",
           "skill": 55,
           "morale": 53,
-          "stress": 5,
+          "stress": 19,
           "fatigue": 25,
           "loyalty": 52,
           "wage": 12,
@@ -6152,7 +6152,7 @@
           "role": "server",
           "skill": 50,
           "morale": 56,
-          "stress": 97,
+          "stress": 100,
           "fatigue": 10,
           "loyalty": 47,
           "wage": 10,
@@ -6189,7 +6189,7 @@
         "firewood": {
           "quantity": 50,
           "quality": 50,
-          "spoilage": 0
+          "spoilage": 12
         },
         "frost_cap_mushroom": {
           "quantity": 0,
@@ -6224,7 +6224,7 @@
         "mushrooms": {
           "quantity": 0,
           "quality": 50,
-          "spoilage": 27.5
+          "spoilage": 29
         },
         "phoenix_pepper": {
           "quantity": 0,
@@ -6374,7 +6374,7 @@
           "topCauses": []
         },
         "pests": {
-          "value": 19,
+          "value": 25,
           "trend": 1,
           "topCauses": []
         },
@@ -6409,7 +6409,7 @@
           "topCauses": []
         },
         "staff_loyalty_risk": {
-          "value": 21,
+          "value": 23,
           "trend": 1,
           "topCauses": []
         },
@@ -6440,8 +6440,8 @@
       },
       "collections": {
         "memories": 30,
-        "history": 232,
-        "causes": 598,
+        "history": 237,
+        "causes": 603,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -6566,8 +6566,8 @@
           "cleanliness": 75,
           "mess": 17,
           "damage": 0,
-          "smell": 41,
-          "risk": 46,
+          "smell": 29,
+          "risk": 33,
           "upgradesInstalled": 0,
           "upgradesInProgress": 0,
           "activeProblems": 0
@@ -6608,7 +6608,7 @@
         "main_room": {
           "condition": 100,
           "cleanliness": 58,
-          "mess": 59,
+          "mess": 66,
           "damage": 5,
           "smell": 7,
           "risk": 17,
@@ -6666,7 +6666,7 @@
           "role": "cleaner_bouncer",
           "skill": 45,
           "morale": 50,
-          "stress": 17,
+          "stress": 14,
           "fatigue": 9,
           "loyalty": 57,
           "wage": 11,
@@ -6677,7 +6677,7 @@
           "role": "cook",
           "skill": 55,
           "morale": 55,
-          "stress": 22,
+          "stress": 19,
           "fatigue": 16,
           "loyalty": 52,
           "wage": 12,
@@ -6688,7 +6688,7 @@
           "role": "server",
           "skill": 50,
           "morale": 60,
-          "stress": 12,
+          "stress": 9,
           "fatigue": 4,
           "loyalty": 47,
           "wage": 10,
@@ -6979,8 +6979,8 @@
       },
       "collections": {
         "memories": 58,
-        "history": 223,
-        "causes": 934,
+        "history": 227,
+        "causes": 955,
         "pressures": 21,
         "areas": 9,
         "stock": 22,

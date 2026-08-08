@@ -19,6 +19,7 @@ import { NPC_ACTIONS } from '../modules/ownerActions/npcActions'
 import { RIVAL_ACTIONS } from '../modules/ownerActions/rivalActions'
 import { ARC_ACTIONS } from '../modules/ownerActions/arcActions'
 import { EXPEDITION_ROAD_ACTIONS } from '../modules/expeditions/expeditionActions'
+import { CONDITION_ACTIONS } from '../modules/ownerActions/conditionActions'
 import { RUMOUR_ACTIONS } from '../modules/ownerActions/rumourActions'
 import { BELIEF_ACTIONS } from '../modules/ownerActions/beliefActions'
 import type { OwnerActionDefinition } from '../modules/ownerActions/types'
@@ -132,6 +133,12 @@ export function ensureRequiredOwnerActionsRegistered(): void {
     // anybody left; these three are recall, the risk/reward answer, and the
     // rescue, and all are gated on word having actually reached the house.
     ...EXPEDITION_ROAD_ACTIONS,
+    // Expansion Phase 9 §9.4 — the player's half of a world condition. A
+    // modifier that builds a burden and pays it out at the end is only a
+    // decision if there is something to decide: prepare against a forecast
+    // before it lands, work the burden down while it runs, or take the
+    // upside instead of only surviving it.
+    ...CONDITION_ACTIONS,
   ]
   for (const def of all) {
     if (!actionRegistry.has(def.id)) {

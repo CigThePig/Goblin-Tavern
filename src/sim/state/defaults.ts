@@ -104,6 +104,7 @@ import { createInitialCultureModuleState } from "../modules/cultures/cultureStat
 import { createInitialNpcModuleState } from "../modules/npcs/npcState";
 import { createInitialRumourModuleState } from "../modules/rumours/rumourState";
 import { createInitialRivalModuleState } from "../modules/rival/rivalState";
+import { createInitialConditionsModuleState } from "../modules/conditions/conditionState";
 import { createInitialExpeditionsModuleState } from "../modules/expeditions/runState";
 import { createInitialEconomyModuleState } from "../modules/economy/state";
 
@@ -844,6 +845,10 @@ export function createInitialTavernState(
       // absent here and installed there would make a resumed day differ
       // from an uninterrupted one.
       rival: createInitialRivalModuleState(),
+      // Expansion Phase 9 §9.4 — seeded here as well as by the migration
+      // chain, because a fresh state and a reloaded one have to agree about
+      // the world's conditions from day one.
+      conditions: createInitialConditionsModuleState(),
       // Phase 30 §30.6 — seed an empty regulars slice (no candidates,
       // no creations, no visits) so the module's schema validates from
       // day zero before any regular has emerged.

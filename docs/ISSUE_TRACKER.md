@@ -253,12 +253,43 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > segment the engine had stopped reading.
 > **Next: §9.4 (month modifiers as processes).**
 >
+> **ISSUE-179 §9.4 (month modifiers) is done (2026-08-08), which closes the
+> §12 depth gap "Thin month modifiers" as `DEP-21`.** A modifier was a
+> label, three tags and a sentence: drawn once a month, subtracting one
+> point from a roof for twenty-eight days, with a single month-end twist for
+> `tax_month` and nothing else. It is now a **process** with all seven of
+> §9.4's parts. **Source** — named, and for three of the six actually
+> state-driven: a damp cellar invites mould, a house with a name draws the
+> companies, a rival who owns the roads is why nobody walks down yours.
+> **Forecast** — word reaches the house days ahead with a confidence that
+> firms up as it nears; the forecast IS the decision rather than a
+> prediction, so nothing guesses at a future day's seed and a reload cannot
+> contradict it. **Duration** — drawn per run from the condition's own
+> range, so a fortnight of rain is not a month of it. **Affected systems** —
+> declared, and the report prints them. **Counterplay** — three owner
+> actions: prepare against the forecast before the thing exists (one
+> preparation beats one countering, which is what makes being warned worth
+> anything), work the burden down repeatedly on a four-day cooldown, or take
+> the upside instead of only surviving it. **Accumulated consequences** — a
+> burden builds day by day, and whatever is still standing at the end is
+> paid out into the domain that owns it: water in the roof, spores through
+> the stores, an assessment the till could not cover becoming financial
+> pressure, plus a bounded, fading scar. **Report and history** — a World
+> Conditions section and a capped record of what came through. A house that
+> engages ends clean; a house that ignores it does not. `modules.monthly`
+> keeps `currentModifier` as a projection of whatever has the most built up,
+> so the tax rent bump and the arc engine's `month_modifier` gate go on
+> reading the field they always read.
+> **Next: Phase 9 is complete except for its six open hook families;
+> ISSUE-180 (Phase 10) is next in the arc.**
+>
 > **Still open in Phase 9:** six `HOOK-*` families from the rival and arc
 > CONTENT — `price_war_*`, `quality_arms_race_*`, `festival_obligations_*`,
 > `payday_brawl_legend_*`, `payday_gouging_remembered_*`,
 > `payday_supplier_return_*`. All six are `arcKey`-shaped promises from the
-> seasonal-arc seed generator, and the machinery to close them exists; they
-> want picking up alongside §9.4.
+> seasonal-arc seed generator, and the machinery to close them exists. They
+> are arc and rival CONTENT rather than condition content, so §9.4 did not
+> touch them; they are the last thing outstanding in Phase 9.
 >
 > Everything else below — the Complete Surface resume points, the
 > onboarding arc, the standing tails — is **paused, not cancelled**, and
@@ -507,7 +538,7 @@ rather than rebuilding those routes.
 | ISSUE-176 | Expansion Phase 6 — transactional suppliers: orders, deliveries, credit, invoices (OBL-04) | broken | done | 213 |
 | ISSUE-177 | Expansion Phase 7 — loans, tenancy, and a real inspection lifecycle (OBL-03 + loan/eviction half of OBL-02) | broken | done | 214 |
 | ISSUE-178 | Expansion Phase 8 — autonomous social world: faction/culture/NPC agency, rumour propagation, behavioral attribution (rumour half of OBL-08) | broken | done (8.1–8.5) | 215 |
-| ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | in progress (9.1–9.3 done) | 216 |
+| ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | in progress (9.1–9.4 done; six hook families open) | 216 |
 | ISSUE-180 | Expansion Phase 10 — populated teleology, causal identity with hysteresis, character arcs, earned nicknames (OBL-09 + mastery half of OBL-08) | broken | open | 217 |
 | ISSUE-181 | Expansion Phase 11 — reconnect issues, responses, pressures, feedback, memory and history to the deepened domains (closes OBL-02) | broken | open | 218 |
 | ISSUE-182 | Expansion Phase 12 — ongoing difficulty, reachable Quick Day, correct planning horizon, new management surfaces, derived Help (OBL-05/06/07) | broken | open | 219 |

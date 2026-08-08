@@ -1,4 +1,5 @@
 import type { SimContext } from '../../core/context'
+import type { TavernState } from '../../state/TavernState'
 import type { ExpandedPressureId, PressureId } from '../pressures/pressureTypes'
 
 /** Any registry pressure — the core 10 plus the expanded social/market/arc set. */
@@ -189,8 +190,27 @@ export type OwnerActionDefinition = {
   /**
    * Minutes this action costs against the daily time budget
    * (`DAY_MINUTES`). Phase 186 — see `OwnerActionApplied.timeCost`.
+   *
+   * For an action whose real cost depends on WHICH thing was picked, this
+   * is the representative cost the picker shows; `timeCostFor` is the one
+   * the budget is actually enforced against.
    */
   timeCost: number
+  /**
+   * The minutes this specific pick costs, when that is not a constant.
+   *
+   * Expansion Phase 9 — added because `intervene_in_arc` broke the day-clock
+   * contract in both directions. Its interventions declare 30 to 240 minutes
+   * and `apply` returns the intervention's own number, but every budget gate
+   * checked the definition's flat 120: a 240-minute intervention was admitted
+   * with 120 minutes left and pushed `timeSpent` past the 360-minute budget,
+   * and a 30-minute one was refused whenever fewer than 120 remained.
+   *
+   * Optional, and defaulting to `timeCost`, so the fixed-price actions —
+   * which is nearly all of them — declare nothing and behave exactly as
+   * before. Implementations must agree with what `apply` returns.
+   */
+  timeCostFor?: (state: TavernState, input: OwnerActionInput) => number
   /**
    * Phase 193 / ISSUE-160 — terse, one-line "what this does" preview for
    * the planning picker. Additive and optional: actions without one render

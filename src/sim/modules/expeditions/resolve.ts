@@ -9,6 +9,7 @@ import type {
   HireableAdventurer,
   SocialRumourState,
 } from '../../state/TavernState'
+import { recordPressureAdjustment } from '../pressures/pressureModule'
 import { applyRenownDrift } from '../service/renown'
 import { addCoin, spendCoin } from '../stock/ledger'
 
@@ -164,7 +165,8 @@ export function settleTerms(
   if (outcome === 'runner_lost') owed = 0
 
   const total = Math.max(0, owed + Math.round(run.roadCosts))
-  const affordable = Math.min(total, ctx.state.coin)
+  const affordable = Math.min(total, Math.max(0, ctx.state.coin))
+  const unpaid = Math.max(0, total - affordable)
   if (affordable > 0) {
     spendCoin(ctx, affordable, {
       category: 'other',
@@ -183,10 +185,62 @@ export function settleTerms(
     run.expeditionId,
     (current) => ({
       ...current,
-      terms: { ...current.terms, settled: true, settledCoin: affordable },
+      terms: {
+        ...current.terms,
+        settled: true,
+        settledCoin: affordable,
+        unpaidCoin: unpaid,
+      },
     }),
     'settled',
   )
+
+  // WHAT THE TILL COULD NOT COVER DOES NOT EVAPORATE. `settled` marks the
+  // reckoning as done so a reload cannot pay twice; it never meant the debt
+  // was forgiven. Runners who came back and were not paid remember it — in
+  // their own relationship, which is the field the commission form prices
+  // and the roster reads — and the shortfall goes through the pressure
+  // layer's adjustment channel so it hangs over the house rather than
+  // vanishing. Without this a player could dodge an expensive share-of-haul
+  // by spending the till down the day before the party walked in.
+  if (unpaid > 0) {
+    for (const memberId of run.partyRunnerIds) {
+      const member = ctx.state.world.hireableAdventurers[memberId]
+      if (!member) continue
+      ctx.modifyHireableAdventurer(
+        memberId,
+        {
+          relationship: Math.max(0, member.relationship - Math.min(25, unpaid)),
+        },
+        {
+          source: `${SOURCE}.unpaid`,
+          sourceType: 'system',
+          readable: `${member.name.display} came back and was not paid in full.`,
+          tags: ['expedition', 'unpaid', run.expeditionId, memberId],
+          relatedActors: [{ kind: 'other', id: memberId }],
+          relatedSystems: ['expeditions', 'adventurers'],
+        },
+      )
+    }
+    recordPressureAdjustment(
+      ctx,
+      'debt',
+      Math.min(15, Math.round(unpaid / 3)),
+      `${SOURCE}.unpaid`,
+    )
+    ctx.addCause({
+      source: `${SOURCE}.unpaid`,
+      sourceType: 'system',
+      target: run.expeditionId,
+      targetType: 'global',
+      amount: unpaid,
+      direction: 'increase',
+      weight: 8,
+      readable: `${unpaid} coin of what the party was owed went unpaid.`,
+      tags: ['expedition', 'settlement', 'unpaid'],
+      relatedSystems: ['expeditions', 'economy'],
+    })
+  }
   return affordable
 }
 

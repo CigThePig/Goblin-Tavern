@@ -557,7 +557,12 @@ function buildExpeditionsReport(ctx: SimContext): ReportSection {
         lines.push(`  options: ${run.pendingDecision.optionIds.join(', ')}`)
       }
       if (run.recalledOnDay !== undefined) {
-        lines.push(`  recalled on day ${run.recalledOnDay}; on their way back.`)
+        const reaches = run.recallReachesOnDay ?? run.recalledOnDay
+        lines.push(
+          today >= reaches
+            ? `  recalled on day ${run.recalledOnDay}; on their way back.`
+            : `  recalled on day ${run.recalledOnDay}; the order reaches them on day ${reaches}.`,
+        )
       }
       if (run.injuredRunnerIds.length > 0) {
         lines.push(`  ${run.injuredRunnerIds.length} hurt.`)

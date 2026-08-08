@@ -127,7 +127,7 @@ function buildReport(ctx: SimContext): ReportSection {
       const definition = conditionFor(entry.conditionId)
       const label = definition?.id.replace(/_/g, ' ') ?? entry.conditionId
       lines.push(
-        `${label} — day ${entry.daysActive} of about ${entry.endsOnDay - entry.startedOnDay}, from ${entry.sourceActor}${entry.arose ? ' (the house invited it)' : ''}`,
+        `${label} — day ${entry.daysActive} of about ${entry.endsOnDay - entry.startedOnDay + 1}, from ${entry.sourceActor}${entry.arose ? ' (the house invited it)' : ''}`,
       )
       lines.push(
         `  building up: ${Math.round(entry.burden)}/100${entry.preparedness > 0 ? ` (prepared ${entry.preparedness})` : ''}${entry.exploited ? ' — being worked for profit' : ''}`,

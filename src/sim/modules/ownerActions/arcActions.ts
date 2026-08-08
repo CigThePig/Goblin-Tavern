@@ -107,7 +107,17 @@ const interveneInArc: OwnerActionDefinition = {
   effectsPreview: 'Takes one of the moves this arc actually offers',
   pressureAffinity: ['arc_escalation'],
   targetType: 'global',
+  // The representative cost the picker shows. What the budget is actually
+  // enforced against is `timeCostFor` below, because the interventions
+  // declare anything from half an hour to half a day.
   timeCost: TIME_COST_STANDARD,
+  timeCostFor: (state, input) => {
+    if (!input.targetId) return TIME_COST_STANDARD
+    const parsed = parseTarget(input.targetId)
+    if (!parsed) return TIME_COST_STANDARD
+    const entry = findIntervention(state, parsed.arcId, parsed.interventionId)
+    return entry?.intervention.minuteCost ?? TIME_COST_STANDARD
+  },
   getValidTargets: interventionTargets,
   canApply: (ctx, input) => {
     if (!input.targetId) {

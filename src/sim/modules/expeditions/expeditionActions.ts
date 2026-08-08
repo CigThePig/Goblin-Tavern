@@ -99,7 +99,7 @@ function recallable(ctx: SimContext): ActionTarget[] {
         hint:
           run.phase === 'returning'
             ? 'already on their way back'
-            : `${run.phase === 'at_site' ? 'at the site' : 'still walking out'} — a recall costs the trip`,
+            : `${run.phase === 'at_site' ? 'at the site' : 'still walking out'} — a recall costs the trip, and takes ${route?.wordDelayDays ?? 0} day(s) to reach them`,
       }
     })
 }

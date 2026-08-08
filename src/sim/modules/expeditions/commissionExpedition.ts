@@ -497,6 +497,7 @@ export const commissionExpedition: OwnerActionDefinition = {
         sharePercent: termsKind === 'share_of_haul' ? 35 : 0,
         settled: false,
         settledCoin: 0,
+        unpaidCoin: 0,
       },
       phase: 'outbound',
       legIndex: 0,

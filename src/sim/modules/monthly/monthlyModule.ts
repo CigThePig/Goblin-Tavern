@@ -275,13 +275,39 @@ const startDayHook: SimulationHook = (ctx: SimContext): void => {
  */
 function projectRunningCondition(ctx: SimContext): void {
   const conditions = getConditionsModuleState(ctx.state)
-  if (conditions.active.length === 0) return
+  const slice = getMonthlyModuleState(ctx.state)
+  if (conditions.active.length === 0) {
+    // NOTHING RUNNING MEANS BACK TO THE MONTH'S OWN DRAW, not "whatever was
+    // running last". Returning early here left the last projection standing
+    // for the rest of the month, so a `tax_month` that ended on the 12th was
+    // still adding its rent bump at month end and the arc engine's
+    // `month_modifier` gate still read a condition that had stopped.
+    //
+    // Only THIS MODULE'S OWN projection is undone. A value that matches no
+    // condition which has actually run is somebody else's — the month's
+    // draw, or a caller that set it deliberately — and restoring over it
+    // would be this module deciding what a field it merely mirrors should
+    // say. So the restore is conditional on having something to restore
+    // FROM: a condition of that name in the run book's history.
+    const projectedByUs = conditions.history.some(
+      (record) => record.conditionId === slice.currentModifier.id,
+    )
+    if (!projectedByUs) return
+    const drawn = pickMonthModifier(
+      ctx.input.seed,
+      ctx.state.calendar.year,
+      ctx.state.calendar.month,
+    )
+    if (slice.currentModifier.id !== drawn.id) {
+      writeSlice(ctx, { currentModifier: drawn }, 'restore_month_draw')
+    }
+    return
+  }
   const dominant = [...conditions.active].sort(
     (a, b) => b.burden - a.burden || a.conditionId.localeCompare(b.conditionId),
   )[0]!
   const modifier = MONTH_MODIFIERS[dominant.conditionId as MonthModifierId]
   if (!modifier) return
-  const slice = getMonthlyModuleState(ctx.state)
   if (slice.currentModifier.id === modifier.id) return
   writeSlice(ctx, { currentModifier: modifier }, 'project_condition')
 }

@@ -63,6 +63,17 @@ export type ExpeditionTerms = {
   sharePercent: number
   settled: boolean
   settledCoin: number
+  /**
+   * What the house owed and could not pay.
+   *
+   * Recorded rather than forgiven. `settled` only ever meant "this has been
+   * reckoned once, do not reckon it again across a reload"; paying whatever
+   * was in the till and marking the terms settled made an expensive
+   * share-of-haul free to anybody who spent the till down before the party
+   * walked back through the door, and the difference simply disappeared.
+   * The runners remember it, which is what `unpaidCoin` is for.
+   */
+  unpaidCoin: number
 }
 
 export type ExpeditionEventRecord = {
@@ -170,7 +181,18 @@ export type ExpeditionRun = {
   foundAtSite?: boolean
   /** The search's own score, kept so the report can say how close it was. */
   searchScore?: number
+  /** The day the house GAVE the order. */
   recalledOnDay?: number
+  /**
+   * The day the order actually reaches them.
+   *
+   * Word travels at the route's own speed in both directions. An earlier
+   * draft turned the party round on the day the player clicked, which meant
+   * a recall outran every message the same route delays — the party skipped
+   * four days of outbound hazard on the Underdeep because the house had
+   * changed its mind, and the whole point of `wordDelayDays` went with it.
+   */
+  recallReachesOnDay?: number
   /**
    * The day the party turned back on their OWN decision.
    *
@@ -419,6 +441,7 @@ const TermsSchema = z.object({
   sharePercent: z.number(),
   settled: z.boolean(),
   settledCoin: z.number(),
+  unpaidCoin: z.number().optional(),
 })
 
 const EventRecordSchema = z.object({
@@ -474,6 +497,7 @@ export const ExpeditionRunSchema = z.object({
   foundAtSite: z.boolean().optional(),
   searchScore: z.number().optional(),
   recalledOnDay: z.number().int().optional(),
+  recallReachesOnDay: z.number().int().optional(),
   retreatedOnDay: z.number().int().optional(),
   reliefSentOnDay: z.number().int().optional(),
   terminal: z.enum(['returned', 'recalled', 'retreated', 'lost']).optional(),

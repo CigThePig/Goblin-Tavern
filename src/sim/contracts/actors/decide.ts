@@ -223,6 +223,40 @@ export function declareActorIntent<TTarget>(
  * recorded. A domain that performed the mutation itself and forgot one of
  * these would produce an actor that acts for free or acts twice.
  */
+/**
+ * Can this actor take this action right now?
+ *
+ * `decideActorAction` enforces commitment, budget and cooldown as part of
+ * choosing; `performActorAction` deliberately does not, because it is the
+ * "carry out what was already decided" half and re-checking there would
+ * drop intents the daily pass had legitimately committed to.
+ *
+ * That left a hole for the SCHEDULED-EVENT resolvers, which call `perform`
+ * directly without ever going through `decide`: a retaliation firing on its
+ * promised day could act while the actor was mid-commitment or the move was
+ * cooling down, and `performActorAction` would subtract the cost from a
+ * budget that could not cover it — taking the actor negative and buying an
+ * extra move. Resolvers ask this first, and report the reason when the
+ * answer is no, which is what turns a bypass into an explained no-op.
+ */
+export function actorCanPerform<TTarget>(
+  actor: ActorState,
+  action: ActorActionDefinition<TTarget>,
+  today: number,
+): { ok: true } | { ok: false; reason: string } {
+  if (actor.committedUntilDay !== undefined && today <= actor.committedUntilDay) {
+    return { ok: false, reason: 'they are already committed to something else' }
+  }
+  if (action.cost > actor.budget) {
+    return { ok: false, reason: 'they could not spare the effort for it' }
+  }
+  const readyOn = actor.cooldowns[action.id]
+  if (readyOn !== undefined && today < readyOn) {
+    return { ok: false, reason: 'they had only just done that' }
+  }
+  return { ok: true }
+}
+
 export function performActorAction<TTarget>(
   ctx: SimContext,
   input: {

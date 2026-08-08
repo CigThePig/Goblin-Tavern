@@ -7,7 +7,7 @@ import type {
   ScheduledEventDefinition,
   ScheduledEventResolution,
 } from '../../contracts/scheduledEvents/index'
-import { performActorAction } from '../../contracts/actors/index'
+import { actorCanPerform, performActorAction } from '../../contracts/actors/index'
 import {
   buildPerception as buildFactionPerception,
   deriveGoals as deriveFactionGoals,
@@ -311,6 +311,17 @@ const boycottReviewEvent: ScheduledEventDefinition = {
         `${faction.label} have nobody to keep away from the door`,
         record.origin.readable,
       )
+    }
+    // Budget, cooldown and commitment — the gates `decideActorAction` would
+    // have applied and `performActorAction` does not, because it is the
+    // carry-out half. A resolver that calls `perform` directly has to ask.
+    const available = actorCanPerform(
+      actor,
+      action,
+      ctx.state.calendar.totalDaysElapsed,
+    )
+    if (!available.ok) {
+      return noOp(`${faction.label} — ${available.reason}`, record.origin.readable)
     }
     const performed = performActorAction(ctx, {
       actor: { ...actor, goals },

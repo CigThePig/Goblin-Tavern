@@ -100,7 +100,21 @@
   const party = $derived(Math.min(partySize, maxParty))
 
   const baseProvisions = $derived(route ? routeProvisionsNeeded(route, party) : 0)
-  const provisions = $derived(baseProvisions + extraProvisions)
+  /**
+   * The spare rations actually being bought, clamped to what the engine will
+   * accept for the CURRENT route and party.
+   *
+   * `extraProvisions` is a stepper value, so it survives a change of route or
+   * party size — buy spare for a three-runner trip down the Underdeep, then
+   * drop to one runner on the Market Road, and the stepper still holds the
+   * old number. `readProvisions` in the sim clamps the total to twice what
+   * the route asks for, so without clamping here too the sheet priced and
+   * coin-gated rations the commission was never going to buy: the charge
+   * shown was wrong, and a player with exactly enough coin for the real
+   * commission could be refused the queue.
+   */
+  const spareProvisions = $derived(Math.min(extraProvisions, baseProvisions))
+  const provisions = $derived(baseProvisions + spareProvisions)
 
   const costs = $derived(
     runner && route
@@ -402,14 +416,14 @@
           <button
             type="button"
             aria-label="fewer rations"
-            onclick={() => (extraProvisions = step(extraProvisions, -2, baseProvisions))}
+            onclick={() => (extraProvisions = step(spareProvisions, -2, baseProvisions))}
             >−</button
           >
-          <span class="mono s-value">{extraProvisions}</span>
+          <span class="mono s-value">{spareProvisions}</span>
           <button
             type="button"
             aria-label="more rations"
-            onclick={() => (extraProvisions = step(extraProvisions, 2, baseProvisions))}
+            onclick={() => (extraProvisions = step(spareProvisions, 2, baseProvisions))}
             >+</button
           >
         </div>

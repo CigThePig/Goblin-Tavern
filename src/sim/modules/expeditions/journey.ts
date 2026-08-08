@@ -526,6 +526,27 @@ export function advanceExpeditionDay(
     'day',
   )
 
+  // 2b. An order given days ago catches up with them today. Checked before
+  // they walk, so the day the recall lands is the day they turn round rather
+  // than one leg later.
+  const carrying = getExpeditionRun(ctx.state, expedition.id)
+  if (
+    carrying &&
+    carrying.recallReachesOnDay !== undefined &&
+    today >= carrying.recallReachesOnDay &&
+    carrying.phase !== 'returning' &&
+    carrying.phase !== 'home'
+  ) {
+    applyRecallArrival(ctx, expedition.id)
+    queueDispatch(
+      ctx,
+      expedition.id,
+      route,
+      'progress',
+      'The recall reached them and they turned for home.',
+    )
+  }
+
   // 3. Walking, unless they are stood still waiting on an answer.
   const waiting = getExpeditionRun(ctx.state, expedition.id)?.pendingDecision
   if (!waiting) {
@@ -786,32 +807,61 @@ function retreat(run: ExpeditionRun, today: number): ExpeditionRun {
 }
 
 /** Order a party home. §9.3's recall. */
+/**
+ * Order a party home.
+ *
+ * THE ORDER TRAVELS AT THE ROUTE'S OWN SPEED. Recording the decision is
+ * immediate; the party turning round is not. On a route four days out the
+ * order takes four days to reach them, and until it does they keep walking
+ * into whatever the road has for them — which is the cost the player accepts
+ * by sending anybody that far, and the reason a recall is a decision rather
+ * than an undo button.
+ */
 export function recallExpedition(ctx: SimContext, expeditionId: string): boolean {
   const run = getExpeditionRun(ctx.state, expeditionId)
   if (!run || run.terminal !== undefined || run.phase === 'home') return false
   const route = routeFor(run.routeId)
   const today = ctx.state.calendar.totalDaysElapsed
+  const reachesOn = today + (route?.wordDelayDays ?? 0)
   writeExpeditionRun(
     ctx,
     expeditionId,
     (current) => ({
-      ...turnAround(current),
+      ...current,
       recalledOnDay: today,
-      // A recall lifts spirits: they were told to come home, not driven.
-      morale: clamp(current.morale + 8, 0, 100),
+      recallReachesOnDay: reachesOn,
     }),
-    'recalled',
+    'recall_sent',
   )
+  // Applied straight away only where word is instant, so a road trip still
+  // turns on the day it is told to.
+  if (reachesOn <= today) applyRecallArrival(ctx, expeditionId)
   if (route) {
     queueDispatch(
       ctx,
       expeditionId,
       route,
       'progress',
-      'The recall reached them and they turned for home.',
+      reachesOn <= today
+        ? 'The recall reached them and they turned for home.'
+        : `A rider went out with the recall; it will reach them on day ${reachesOn}.`,
     )
   }
   return true
+}
+
+/** The day the order lands: they turn round, and it lifts them. */
+function applyRecallArrival(ctx: SimContext, expeditionId: string): void {
+  writeExpeditionRun(
+    ctx,
+    expeditionId,
+    (current) => ({
+      ...turnAround(current),
+      // A recall lifts spirits: they were told to come home, not driven.
+      morale: clamp(current.morale + 8, 0, 100),
+    }),
+    'recalled',
+  )
 }
 
 /** Which discoveries a completed trip brought back. */

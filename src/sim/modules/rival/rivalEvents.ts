@@ -8,7 +8,7 @@ import {
   type ScheduledEventDefinition,
   type ScheduledEventResolution,
 } from '../../contracts/scheduledEvents/index'
-import { performActorAction } from '../../contracts/actors/index'
+import { actorCanPerform, performActorAction } from '../../contracts/actors/index'
 
 import { competitionSummary } from './appeal'
 import {
@@ -94,6 +94,7 @@ function chooseHostileMove(
   const rival = rivalOrNothing(ctx, rivalId)
   if (!rival) return undefined
   const perception = buildRivalPerception(ctx.state, rival)
+  const today = ctx.state.calendar.totalDaysElapsed
   const goal = {
     id: 'exploit_weakness',
     weight: 1,
@@ -102,6 +103,11 @@ function chooseHostileMove(
   for (const actionId of HOSTILE_RIVAL_ACTIONS) {
     const action = rivalActionById(actionId)
     if (!action) continue
+    // Budget, cooldown and commitment, which `decideActorAction` would have
+    // enforced and `performActorAction` does not. Skipping the check let a
+    // retaliation act mid-commitment, or on a move still cooling down, and
+    // spend a budget it did not have.
+    if (!actorCanPerform(rival.actor, action, today).ok) continue
     const targets = action.eligibleTargets(perception, ctx.state)
     let best: { target: (typeof targets)[number]; score: number } | undefined
     for (const target of targets) {
@@ -689,6 +695,8 @@ const priceWarEvent: ScheduledEventDefinition = {
 
     const action = rivalActionById('shift_prices')
     if (!action) return noOp('they have no such move', record.origin.readable)
+    const available = actorCanPerform(rival.actor, action, today)
+    if (!available.ok) return noOp(available.reason, record.origin.readable)
     const performed = performActorAction(ctx, {
       actor: { ...rival.actor, goals: deriveRivalGoals(ctx.state, rival) },
       action,
@@ -797,6 +805,8 @@ const qualityRaceEvent: ScheduledEventDefinition = {
     // move, so a race costs them the tempo it would have cost to plan.
     const action = rivalActionById('recruit_staff')
     if (!action) return noOp('they have no such move', record.origin.readable)
+    const available = actorCanPerform(rival.actor, action, today)
+    if (!available.ok) return noOp(available.reason, record.origin.readable)
     const performed = performActorAction(ctx, {
       actor: { ...rival.actor, goals: deriveRivalGoals(ctx.state, rival) },
       action,

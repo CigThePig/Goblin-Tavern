@@ -142,7 +142,12 @@ export function issueForecasts(ctx: SimContext): ConditionForecast | undefined {
   const forecast: ConditionForecast = {
     conditionId: definition.id,
     startsOnDay,
-    endsOnDay: startsOnDay + duration,
+    // `endsOnDay` is the LAST DAY IT RUNS, not the day after. The daily pass
+    // acts on the start day and on the end day alike — a condition's last
+    // day is a day it was still happening — and expiry is checked at the
+    // close of that day, so an exclusive end would give every condition
+    // `duration + 1` ticks and push it past the catalogued `maxDays`.
+    endsOnDay: startsOnDay + duration - 1,
     confidence: confidenceFor(startsOnDay - today, lead),
     heardOnDay: today,
     sourceActor: definition.source.actor,
@@ -208,7 +213,9 @@ export function promoteForecasts(ctx: SimContext): ActiveCondition[] {
     started.push({
       conditionId: entry.conditionId,
       startedOnDay: today,
-      endsOnDay: Math.max(today + definition.minDays, entry.endsOnDay),
+      // Same inclusive convention: `minDays` days of running means the last
+      // of them is `minDays - 1` days after the first.
+      endsOnDay: Math.max(today + definition.minDays - 1, entry.endsOnDay),
       burden: 0,
       peakBurden: 0,
       preparedness: entry.prepared,
@@ -244,7 +251,7 @@ export function promoteForecasts(ctx: SimContext): ActiveCondition[] {
     if (entry.arose) bumpConditionTotal(ctx, 'arisen')
     ctx.addHistory({
       category: 'state_change',
-      summary: `${definition?.source.actor ?? entry.sourceActor} — it has started, and it will run about ${entry.endsOnDay - today} day(s).`,
+      summary: `${definition?.source.actor ?? entry.sourceActor} — it has started, and it will run about ${entry.endsOnDay - today + 1} day(s).`,
       tags: ['condition', 'started', entry.conditionId],
       relatedSystems: ['conditions'],
     })
@@ -253,7 +260,7 @@ export function promoteForecasts(ctx: SimContext): ActiveCondition[] {
       sourceType: 'system',
       target: entry.conditionId,
       targetType: 'global',
-      amount: entry.endsOnDay - today,
+      amount: entry.endsOnDay - today + 1,
       direction: 'increase',
       weight: 6,
       readable: `${entry.conditionId.replace(/_/g, ' ')} began${entry.arose ? ' — the house invited it' : ''}.`,

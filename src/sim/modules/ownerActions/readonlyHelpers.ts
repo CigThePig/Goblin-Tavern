@@ -176,6 +176,27 @@ export function canOpenAction(
  * the first rejection reason when every target fails for the same
  * cause.
  */
+/**
+ * What this pick actually costs against the day's budget.
+ *
+ * Every gate asks this rather than reading `def.timeCost` directly, so an
+ * action whose cost depends on WHICH thing was picked is gated on the real
+ * number instead of a representative one.
+ */
+export function timeCostOf(
+  def: OwnerActionDefinition,
+  state: TavernState,
+  input?: OwnerActionInput,
+): number {
+  if (!def.timeCostFor || !input) return def.timeCost;
+  try {
+    const cost = def.timeCostFor(state, input);
+    return Number.isFinite(cost) && cost >= 0 ? cost : def.timeCost;
+  } catch {
+    return def.timeCost;
+  }
+}
+
 export function actionDisabledReason(
   def: OwnerActionDefinition,
   state: TavernState,
@@ -224,7 +245,12 @@ export function actionDisabledReasonForTarget(
   targetId: string | undefined,
   pointsLeft: number,
 ): string | undefined {
-  if (def.timeCost > pointsLeft) return "budget full";
+  if (
+    timeCostOf(def, state, targetId ? { actionId: def.id, targetId } : undefined) >
+    pointsLeft
+  ) {
+    return "budget full";
+  }
 
   if (!def.targetType || def.targetType === "global") {
     const verdict = canApplyAction(def, state, { actionId: def.id });
@@ -264,7 +290,7 @@ export function actionDisabledReasonForInput(
   input: OwnerActionInput,
   pointsLeft: number,
 ): string | undefined {
-  if (def.timeCost > pointsLeft) return "budget full";
+  if (timeCostOf(def, state, input) > pointsLeft) return "budget full";
 
   if (def.targetType && def.targetType !== "global") {
     if (!input.targetId) return "no target";

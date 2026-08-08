@@ -566,6 +566,169 @@ describe('Phase 216 §9.3 — recall, retreat, rescue and loss', () => {
   })
 })
 
+describe('Phase 216 §9.3 — what the house owes and cannot pay', () => {
+  it('records the shortfall rather than forgiving it', () => {
+    // The dodge this closes: pay the advance, spend the till down while the
+    // party is out, and an expensive share-of-haul or hazard bonus settled
+    // for whatever was left with the difference simply gone.
+    let state = withRunners('unpaid')
+    state = commission(
+      state,
+      9,
+      {
+        mode: 'open',
+        targetTier: 'uncommon',
+        routeId: 'market_road',
+        terms: 'hazard_bonus',
+      },
+      'unpaid',
+    )
+    const opened = liveExpeditionRuns(state)[0]!
+    const partyBefore = opened.partyRunnerIds.map(
+      (id) => state.world.hireableAdventurers[id]?.relationship ?? 0,
+    )
+    // Empty the till while they are on the road.
+    state = { ...state, coin: 0 }
+    const home = runUntilHome(state, 10, 'unpaid')
+
+    const run = getExpeditionRun(home, opened.expeditionId)
+    if (!run || !run.terms.settled) return
+    if ((run.terms.unpaidCoin ?? 0) === 0) return
+
+    // The runners remember it, in the field the roster and the commission
+    // form both read.
+    const partyAfter = opened.partyRunnerIds.map(
+      (id) => home.world.hireableAdventurers[id]?.relationship ?? 0,
+    )
+    expect(Math.min(...partyAfter)).toBeLessThan(Math.max(...partyBefore))
+    expect(
+      home.causes.some(
+        (cause) =>
+          cause.tags.includes('unpaid') && cause.tags.includes('settlement'),
+      ),
+    ).toBe(true)
+  })
+})
+
+describe('Phase 216 §9.3 — what the house owes and cannot pay', () => {
+  it('records the shortfall rather than forgiving it', () => {
+    // The dodge this closes: pay the advance, spend the till down while the
+    // party is out, and an expensive hazard bonus settles for whatever was
+    // left with the difference simply gone.
+    let state = withRunners('unpaid')
+    state = commission(
+      state,
+      9,
+      {
+        mode: 'open',
+        targetTier: 'uncommon',
+        routeId: 'market_road',
+        terms: 'hazard_bonus',
+      },
+      'unpaid',
+    )
+    const opened = liveExpeditionRuns(state)[0]!
+    const partyBefore = opened.partyRunnerIds.map(
+      (id) => state.world.hireableAdventurers[id]?.relationship ?? 0,
+    )
+    // Empty the till while they are on the road.
+    state = { ...state, coin: 0 }
+    const home = runUntilHome(state, 10, 'unpaid')
+
+    const run = getExpeditionRun(home, opened.expeditionId)
+    if (!run || !run.terms.settled) return
+    if ((run.terms.unpaidCoin ?? 0) === 0) return
+
+    // The runners remember it, in the field the roster and the commission
+    // form both read.
+    const partyAfter = opened.partyRunnerIds.map(
+      (id) => home.world.hireableAdventurers[id]?.relationship ?? 0,
+    )
+    expect(Math.min(...partyAfter)).toBeLessThan(Math.max(...partyBefore))
+    expect(
+      home.causes.some(
+        (cause) =>
+          cause.tags.includes('unpaid') && cause.tags.includes('settlement'),
+      ),
+    ).toBe(true)
+  })
+})
+
+describe('Phase 216 §9.3 — a recall travels at the road\'s own speed', () => {
+  it('does not turn the party round before the order could reach them', () => {
+    // The tradeoff `wordDelayDays` exists to create. An order that landed on
+    // the day it was given outran every message the same route delays — the
+    // party skipped days of outbound hazard because the house changed its
+    // mind, and a far route became no riskier than a near one.
+    let state = withRunners('recall')
+    state = commission(
+      state,
+      9,
+      { mode: 'open', targetTier: 'rare', routeId: 'deep_fen' },
+      'recall',
+    )
+    const opened = liveExpeditionRuns(state)[0]!
+    const route = routeFor(opened.routeId)!
+    expect(route.wordDelayDays).toBeGreaterThan(0)
+
+    // Walk them out a little, then call them home.
+    for (let day = 10; day < 13; day += 1) state = run(state, day, [], 'recall')
+    const target = offers(state, 'recall_expedition')[0]!
+    state = run(
+      state,
+      13,
+      [{ actionId: 'recall_expedition', targetId: target.id }],
+      'recall',
+    )
+    const ordered = getExpeditionRun(state, opened.expeditionId)!
+    expect(ordered.recalledOnDay).toBeDefined()
+    expect(ordered.recallReachesOnDay).toBe(
+      ordered.recalledOnDay! + route.wordDelayDays,
+    )
+    // Still walking out — the order is on the road, not with them.
+    expect(ordered.phase).not.toBe('returning')
+
+    // And it lands on the day it said it would.
+    let day = 14
+    let turned = false
+    for (let i = 0; i < route.wordDelayDays + 2 && !turned; i += 1) {
+      state = run(state, day, [], 'recall')
+      day += 1
+      const now = getExpeditionRun(state, opened.expeditionId)
+      if (now && now.phase === 'returning') {
+        expect(state.calendar.totalDaysElapsed).toBeGreaterThanOrEqual(
+          ordered.recallReachesOnDay!,
+        )
+        turned = true
+      }
+    }
+    expect(turned, 'the recall never reached them').toBe(true)
+  })
+
+  it('turns them the same day on a road where word is instant', () => {
+    let state = withRunners('recall-road')
+    state = commission(
+      state,
+      9,
+      { mode: 'open', targetTier: 'uncommon', routeId: 'market_road' },
+      'recall-road',
+    )
+    const opened = liveExpeditionRuns(state)[0]!
+    expect(routeFor(opened.routeId)!.wordDelayDays).toBe(0)
+    state = run(state, 10, [], 'recall-road')
+    const target = offers(state, 'recall_expedition')[0]
+    if (!target) return
+    state = run(
+      state,
+      11,
+      [{ actionId: 'recall_expedition', targetId: target.id }],
+      'recall-road',
+    )
+    const now = getExpeditionRun(state, opened.expeditionId)!
+    expect(now.recallReachesOnDay).toBe(now.recalledOnDay)
+  })
+})
+
 describe('Phase 216 §9.3 — what the trip leaves behind', () => {
   it('lands the haul in stock and pays the runners their experience', () => {
     let state = withRunners()

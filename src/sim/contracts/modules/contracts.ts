@@ -358,7 +358,13 @@ export const MODULE_CONTRACTS: Readonly<Record<string, ModuleContract>> = {
   // decides who hears it — and `world.hireableAdventurers` because the
   // roster is where a runner's experience and injuries live.
   expeditions: {
-    slices: [{ sliceId: 'expeditions', version: 2, access: 'owns' }],
+    slices: [
+      { sliceId: 'expeditions', version: 2, access: 'owns' },
+      // A settlement the till could not cover is recorded as a decaying
+      // `debt` adjustment rather than forgiven, which is a write into the
+      // pressure module's own slice and is declared as such.
+      { sliceId: 'pressures', version: 1, access: 'writes' },
+    ],
     readsStatePaths: ['calendar', 'coin', 'expeditions', 'stock', 'world'],
     writesStatePaths: [
       'coin',

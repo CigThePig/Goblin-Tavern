@@ -227,9 +227,34 @@ describe('Phase 216 §9.4 — duration and bounds', () => {
     const found = runUntilActive(house(), 0)
     const entry = getConditionsModuleState(found.state).active[0]!
     const definition = conditionFor(entry.conditionId)!
-    const span = entry.endsOnDay - entry.startedOnDay
+    // `endsOnDay` is the LAST DAY IT RUNS, so the span is inclusive.
+    const span = entry.endsOnDay - entry.startedOnDay + 1
     expect(span).toBeGreaterThanOrEqual(definition.minDays)
     expect(span).toBeLessThanOrEqual(definition.maxDays)
+  })
+
+  it('accrues exactly as many daily ticks as its duration promises', () => {
+    // The off-by-one this guards: the daily pass acts on the start day AND
+    // the end day, and expiry is checked at the close of the end day. An
+    // exclusive `endsOnDay` gave every condition one tick more than its
+    // drawn duration — over the catalogued `maxDays`, and a bigger
+    // aftermath than the duration promised.
+    let state = house()
+    let checked = 0
+    for (let day = 0; day < 220 && checked < 3; day += 1) {
+      const before = getConditionsModuleState(state)
+      state = run(state, day, [], `${SEED}/ticks`)
+      const after = getConditionsModuleState(state)
+      if (after.history.length <= before.history.length) continue
+      const record = after.history.at(-1)!
+      const definition = conditionFor(record.conditionId)
+      if (!definition) continue
+      const ticks = record.endedOnDay - record.startedOnDay + 1
+      expect(ticks, record.conditionId).toBeGreaterThanOrEqual(definition.minDays)
+      expect(ticks, record.conditionId).toBeLessThanOrEqual(definition.maxDays)
+      checked += 1
+    }
+    expect(checked, 'no condition ever ended').toBeGreaterThan(0)
   })
 
   it('never runs more than the declared cap at once, across a long game', () => {
@@ -547,6 +572,43 @@ describe('Phase 216 §9.4 — the monthly slice still knows what kind of month i
     expect(getMonthlyModuleState(state).currentModifier.id).toBe(
       dominant.conditionId,
     )
+  })
+
+  it('stops projecting a condition once it has ended', () => {
+    // The leak this closes: the projection stood for the rest of the month
+    // after the condition stopped, so a finished `tax_month` still added its
+    // rent bump at month end and the arc engine's `month_modifier` gate read
+    // a condition that was over.
+    let state = house()
+    let sawProjection = false
+    let checked = false
+    for (let day = 0; day < 200 && !checked; day += 1) {
+      const before = getConditionsModuleState(state)
+      state = run(state, day, [], `${SEED}/projection`)
+      const after = getConditionsModuleState(state)
+      if (after.active.length > 0) {
+        sawProjection = true
+        continue
+      }
+      if (!sawProjection || after.history.length === 0) continue
+      // Nothing is running. Give the monthly module its next pass to notice.
+      state = run(state, day + 1, [], `${SEED}/projection`)
+      const ended = new Set(
+        getConditionsModuleState(state).history.map((r) => r.conditionId),
+      )
+      const nowRunning = getConditionsModuleState(state).active
+      if (nowRunning.length > 0) continue
+      const projected = getMonthlyModuleState(state).currentModifier.id
+      // Whatever the month is called now, it is not still the name of a
+      // condition that has finished and not restarted.
+      expect(
+        ended.has(projected) &&
+          !nowRunning.some((entry) => entry.conditionId === projected),
+      ).toBe(false)
+      checked = true
+      void before
+    }
+    expect(checked, 'no condition ever ended while the month ran on').toBe(true)
   })
 })
 

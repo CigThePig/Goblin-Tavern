@@ -57,7 +57,8 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > live state, and leaves findings, fines and orders a follow-up re-reads.
 > **ISSUE-178 (Phase 8 — the autonomous social world) is DONE, executed part
 > by part (8.1–8.5). ISSUE-179 (Phase 9) is now in progress, part by part;
-> §9.1 (the rival actor) and §9.2 (local arcs) are done.** **§8.1 (factions) is done
+> §9.1 (the rival actor), §9.2 (local arcs) and §9.3 (expeditions) are
+> done.** **§8.1 (factions) is done
 > (2026-08-06).**
 > Factions are now actors rather than meters: each has goals derived from
 > live state, a budget derived from its influence, a constituency of real
@@ -219,8 +220,45 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > `arc_exploit_backlash_*`, `arc_faction_debt_*` and
 > `arc_supplier_favour_owed_*` now resolve into real arc outcomes, permanent
 > locks, owner backlashes and debts collected through the creditor's own
-> domain. **Next: §9.3 (expeditions).** The sequence is hard-ordered after
-> that.
+> domain.
+>
+> **ISSUE-179 §9.3 (expeditions) is done (2026-08-08), which closes DEP-12.**
+> A Phase 70 expedition was a wait: a runner, a tier and a day count the
+> player typed, a counter, and one roll on the last day that decided
+> everything. It is now a **journey**. A **route** sets the distance, the
+> danger, what can be found there and — the part that matters — how long
+> **word** takes to get home. A **party** goes, carrying a **loadout** that
+> is actually eaten day by day, on **contract terms** that are three
+> different bets rather than three prices. Up to four **intermediate
+> events** fire from a stream indexed by the day of the trip, some of them
+> putting a **risk/reward decision** to the house with a deadline that
+> includes the round trip — so distance costs information rather than making
+> the question impossible, and a party nobody answers takes the cautious
+> option itself. **Injury, delay, retreat, recall, rescue and loss** are
+> distinct recorded ends, and the outcome is read off the journey rather
+> than rolled for it (`ExpeditionOutcome` gained `recalled` and `retreated`,
+> because somebody making a call is not a failure). Three road actions —
+> answer the dispatch, call them home, send relief — are all gated on word
+> having actually arrived. A trip that gets there and back can bring home a
+> **discovery**, which is how the Underdeep becomes reachable at all.
+> **Who went still decides the trip:** the party's experience and
+> reliability set how often the road catches them out and how badly injuries
+> land, and the working day at the site is a real **search** — skill plus a
+> specialty match, less the tier's difficulty and whatever the journey has
+> already cost them. That is what keeps Phase 77's contract alive now that
+> the closing roll is gone (an all-journey outcome briefly made a master
+> forager and a rookie identical), and it is what `failure` now means: they
+> got there, and there was nothing there for them. The commission sheet
+> gained the route, party, loadout and terms pickers and lost the duration
+> segment the engine had stopped reading.
+> **Next: §9.4 (month modifiers as processes).**
+>
+> **Still open in Phase 9:** six `HOOK-*` families from the rival and arc
+> CONTENT — `price_war_*`, `quality_arms_race_*`, `festival_obligations_*`,
+> `payday_brawl_legend_*`, `payday_gouging_remembered_*`,
+> `payday_supplier_return_*`. All six are `arcKey`-shaped promises from the
+> seasonal-arc seed generator, and the machinery to close them exists; they
+> want picking up alongside §9.4.
 >
 > Everything else below — the Complete Surface resume points, the
 > onboarding arc, the standing tails — is **paused, not cancelled**, and
@@ -469,7 +507,7 @@ rather than rebuilding those routes.
 | ISSUE-176 | Expansion Phase 6 — transactional suppliers: orders, deliveries, credit, invoices (OBL-04) | broken | done | 213 |
 | ISSUE-177 | Expansion Phase 7 — loans, tenancy, and a real inspection lifecycle (OBL-03 + loan/eviction half of OBL-02) | broken | done | 214 |
 | ISSUE-178 | Expansion Phase 8 — autonomous social world: faction/culture/NPC agency, rumour propagation, behavioral attribution (rumour half of OBL-08) | broken | done (8.1–8.5) | 215 |
-| ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | in progress (9.1–9.2 done) | 216 |
+| ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | in progress (9.1–9.3 done) | 216 |
 | ISSUE-180 | Expansion Phase 10 — populated teleology, causal identity with hysteresis, character arcs, earned nicknames (OBL-09 + mastery half of OBL-08) | broken | open | 217 |
 | ISSUE-181 | Expansion Phase 11 — reconnect issues, responses, pressures, feedback, memory and history to the deepened domains (closes OBL-02) | broken | open | 218 |
 | ISSUE-182 | Expansion Phase 12 — ongoing difficulty, reachable Quick Day, correct planning horizon, new management surfaces, derived Help (OBL-05/06/07) | broken | open | 219 |

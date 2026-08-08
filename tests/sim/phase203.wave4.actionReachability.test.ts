@@ -35,7 +35,12 @@ import {
   TIME_COST_SHORT,
   getOwnerActionsModuleState,
 } from '../../src/sim/modules/ownerActions/stateHelpers'
-import { COMMISSION_EXPEDITION_ACTION_ID } from '../../src/sim/modules/expeditions/commissionExpedition'
+import {
+  COMMISSION_EXPEDITION_ACTION_ID,
+  SUPPLY_UNIT_COST,
+} from '../../src/sim/modules/expeditions/commissionExpedition'
+import { routeFor } from '../../src/sim/modules/expeditions/journey'
+import { routeProvisionsNeeded } from '../../src/sim/content/expeditions/expeditionRoutes'
 import {
   createLiquorLicenseVenture,
   LIQUOR_LICENSE_VENTURE_ID,
@@ -205,7 +210,15 @@ describe('P3-BHV-002 — expedition commissioning opens and completes', () => {
     expect(expedition.runnerId).toBe(runnerId)
     // Phase 77 / ISSUE-037 — the cost is the runner's wage, not a
     // free-form amount, and it is actually taken out of the till.
-    expect(expedition.costPaid).toBe(wageBase * 2)
+    // Expansion Phase 9 §9.3 — the duration is the ROUTE's, not a number
+    // the payload typed: an uncommon target defaults to the Market Road,
+    // five days there and back, and the loadout is bought on top of the
+    // wage rather than assumed into it.
+    expect(expedition.daysTotal).toBe(5)
+    expect(expedition.costPaid).toBe(
+      wageBase * expedition.daysTotal +
+        routeProvisionsNeeded(routeFor('market_road')!, 1) * SUPPLY_UNIT_COST,
+    )
     expect(
       state.causes.some(
         (c) =>
@@ -218,9 +231,9 @@ describe('P3-BHV-002 — expedition commissioning opens and completes', () => {
     )
     expect(safeValidateState(state).success).toBe(true)
 
-    // Run it out. `daysTotal` 2 resolves end-only, so three more days is
-    // ample; the assertion is that it completes NATURALLY.
-    for (let i = 0; i < 4 && state.expeditions.active.length > 0; i += 1) {
+    // Run it out. The route's own duration decides when, so sweep past it
+    // rather than counting; the assertion is that it completes NATURALLY.
+    for (let i = 0; i < 12 && state.expeditions.active.length > 0; i += 1) {
       state = runDay(state, { seed: `${SEED}-day-${i}` }).state
     }
 

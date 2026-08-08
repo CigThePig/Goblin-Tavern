@@ -147,6 +147,10 @@ export const ExpeditionOutcomeSchema = z.enum([
   "partial",
   "failure",
   "runner_lost",
+  // Expansion Phase 9 §9.3 — recalled by the house, or turned back by the
+  // party. Both are terminal and neither is a plain failure.
+  "recalled",
+  "retreated",
 ]);
 
 export const ExpeditionSchema = z.object({

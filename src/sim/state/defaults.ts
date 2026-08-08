@@ -104,6 +104,7 @@ import { createInitialCultureModuleState } from "../modules/cultures/cultureStat
 import { createInitialNpcModuleState } from "../modules/npcs/npcState";
 import { createInitialRumourModuleState } from "../modules/rumours/rumourState";
 import { createInitialRivalModuleState } from "../modules/rival/rivalState";
+import { createInitialExpeditionsModuleState } from "../modules/expeditions/runState";
 import { createInitialEconomyModuleState } from "../modules/economy/state";
 
 // Phase 8 §8.1 — Area defaults are sourced from `areaRegistry` rather than
@@ -830,6 +831,10 @@ export function createInitialTavernState(
       // weekly budget that stops one loud voice carrying everything, and the
       // day's spread log.
       rumours: createInitialRumourModuleState(),
+      // Expansion Phase 9 §9.3 — seed the expeditions run book: the route,
+      // party, loadout, terms and condition of every trip, plus what the
+      // house has learned about ways it did not know before.
+      expeditions: createInitialExpeditionsModuleState(),
       // Expansion Phase 9 §9.1 — seed the rival slice: the book of houses
       // across the road, empty until the module's first day opens the one
       // the world starts with (its name is drawn from a named stream, which

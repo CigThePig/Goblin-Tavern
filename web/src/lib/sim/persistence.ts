@@ -87,6 +87,7 @@ import {
   ensureCultureAgencyFields,
   ensureNpcAgencyFields,
   ensureArcProgression,
+  ensureExpeditionRunBook,
   ensureRivalSlice,
   ensureRumourNetworkFields,
   ensureBeliefBehaviourFields,
@@ -834,7 +835,14 @@ function migrateAndValidateState(
     // progress nobody made. The module opens a real run for each live arc on
     // the first played day, at the stage it was already showing.
     const s8m = ensureArcProgression(s8l);
-    const s9 = ensureModuleSlices(s8m);
+    // Expansion Phase 9 §5.7 — the expedition run book. Named rather than
+    // left to the generic sweep because `modules.expeditions` already exists
+    // in every save as an EMPTY passthrough object, which the sweep skips.
+    // An expedition already on the road gets no run record: the module
+    // finishes it on the Phase 70 roll it was commissioned under rather than
+    // inventing a route, a party and terms nobody agreed.
+    const s8n = ensureExpeditionRunBook(s8m);
+    const s9 = ensureModuleSlices(s8n);
     const validation = safeValidateState(s9, { modules: FULL_PIPELINE });
     if (!validation.success) {
       const first = validation.errors[0];

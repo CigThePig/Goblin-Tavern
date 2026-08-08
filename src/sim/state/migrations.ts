@@ -64,6 +64,8 @@ import {
 } from "../modules/factions/factionState";
 import { LOCAL_ARCS_MODULE_ID } from "../modules/localArcs/types";
 import { createInitialArcRunTotals } from "../modules/localArcs/arcRuns";
+import { EXPEDITIONS_MODULE_ID } from "../modules/expeditions/moduleId";
+import { createInitialExpeditionsModuleState } from "../modules/expeditions/runState";
 import {
   RIVAL_MODULE_ID,
   createInitialRivalModuleState,
@@ -1855,6 +1857,41 @@ export function ensureArcProgression<
       },
     },
   };
+}
+
+// Expansion Phase 9 §5.7 / §9.3 — the expedition run book.
+//
+// `modules.expeditions` existed before this phase as an EMPTY PASSTHROUGH —
+// the module had no state of its own, so the slice was `{}` if it was there
+// at all. The generic `ensureModuleSlices` sweep only fills slices that are
+// missing entirely, so a save carrying that empty object would walk straight
+// past it and every reader of the run book would see `undefined`.
+//
+// The judgement the sweep cannot make: an expedition already on the road
+// gets NO run record. Inventing one would mean inventing a route it was
+// never sent down, a party that was never assembled, supplies nobody bought
+// and terms nobody agreed. The module's own `resolveLegacyExpedition` path
+// finishes those trips on the Phase 70 end-only roll they were commissioned
+// under, which is the honest reading of a commission made before any of this
+// existed. New commissions get the full journey.
+export function ensureExpeditionRunBook<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const slice = current[EXPEDITIONS_MODULE_ID];
+  const base = createInitialExpeditionsModuleState() as unknown as Record<
+    string,
+    unknown
+  >;
+  if (!isRecord(slice)) {
+    return { ...state, modules: { ...current, [EXPEDITIONS_MODULE_ID]: base } };
+  }
+  const keys = Object.keys(base);
+  const missing = keys.filter((key) => !(key in slice));
+  if (missing.length === 0) return state;
+  const next: Record<string, unknown> = { ...slice };
+  for (const key of missing) next[key] = base[key];
+  return { ...state, modules: { ...current, [EXPEDITIONS_MODULE_ID]: next } };
 }
 
 type PartialRegular = {

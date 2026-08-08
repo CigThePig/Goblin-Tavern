@@ -350,6 +350,24 @@ export const MODULE_CONTRACTS: Readonly<Record<string, ModuleContract>> = {
       'counter_rumour_runaway',
     ],
   },
+  // Expansion Phase 9 §9.3 — the expeditions slice stops being an empty
+  // passthrough and starts carrying the journey: route, party, loadout,
+  // terms, position, condition, events, the pending question and the
+  // dispatch queue. It writes `world.socialRumours` on purpose — a
+  // legendary haul or a lost party is talked about, and the rumour layer
+  // decides who hears it — and `world.hireableAdventurers` because the
+  // roster is where a runner's experience and injuries live.
+  expeditions: {
+    slices: [{ sliceId: 'expeditions', version: 2, access: 'owns' }],
+    readsStatePaths: ['calendar', 'coin', 'expeditions', 'stock', 'world'],
+    writesStatePaths: [
+      'coin',
+      'expeditions',
+      'stock',
+      'world.hireableAdventurers',
+      'world.socialRumours',
+    ],
+  },
   // Expansion Phase 9 §9.2 — the suppliers slice gains a declared owner.
   //
   // Same story as the factions slice in §9.1: it had none and did not need

@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest'
 import { simulateDay } from '../../src/sim/core/engine'
 import { FULL_PIPELINE } from '../../src/sim/canonicalPipeline'
 import { runOneDay } from '../../src/sim/testing/simRunner'
-import { COMMISSION_EXPEDITION_ACTION_ID } from '../../src/sim/modules/expeditions/index'
+import {
+  COMMISSION_EXPEDITION_ACTION_ID,
+  routeFor,
+} from '../../src/sim/modules/expeditions/index'
+import { SUPPLY_UNIT_COST } from '../../src/sim/modules/expeditions/commissionExpedition'
+import { routeProvisionsNeeded } from '../../src/sim/content/expeditions/expeditionRoutes'
 import { createInitialTavernState } from '../../src/sim/state/defaults'
 import type {
   HireableAdventurer,
@@ -24,6 +29,9 @@ import type {
 // Phase 77 fixes all three. Tests below assert the new behaviours.
 
 const SEED = 'phase-77-adventurer-economy'
+
+/** What the default loadout for a solo `rare` commission costs. */
+const KIT = routeProvisionsNeeded(routeFor('oldwood_verge')!, 1) * SUPPLY_UNIT_COST
 
 function withCoin(state: TavernState, coin: number): TavernState {
   return { ...state, coin }
@@ -64,10 +72,27 @@ function patchAdventurer(
   }
 }
 
+// Expansion Phase 9 §9.3 — the trip's length belongs to the route, so these
+// sweeps run on until the journey ends rather than counting days.
+function runUntilResolved(
+  state: TavernState,
+  seedTag: string,
+  maxDays = 24,
+): TavernState {
+  let current = state
+  for (let i = 0; i < maxDays && current.expeditions.active.length > 0; i += 1) {
+    current = runOneDay(current, { seed: `${SEED}-${seedTag}-${i}` }).state
+  }
+  return current
+}
+
 describe('Phase 77 / ISSUE-037 — wageBase / specialty / activeFlags wiring', () => {
   it('expedition cost is wageBase * daysTotal, not input.amount', () => {
-    // Alpha: wageBase 6, 5-day open run → cost 30.
-    // Beta: wageBase 4, 5-day open run → cost 20.
+    // Expansion Phase 9 §9.3 — a `rare` target with no route named goes down
+    // the Oldwood Verge, and the trip's length and provisioning are the
+    // route's rather than the payload's. The point the test defends is
+    // unchanged: the WAGE sets the price, so the better runner costs more
+    // for the same trip.
     const state = withCoin(createInitialTavernState(), 200)
     const alpha = runOneDay(state, {
       seed: `${SEED}-cost-alpha`,
@@ -75,14 +100,14 @@ describe('Phase 77 / ISSUE-037 — wageBase / specialty / activeFlags wiring', (
         commission('hireable_adv_alpha', 'open', { targetTier: 'rare' }, 5),
       ],
     })
-    expect(alpha.state.expeditions.active[0]?.costPaid).toBe(30)
+    expect(alpha.state.expeditions.active[0]?.costPaid).toBe(6 * 9 + KIT)
     const beta = runOneDay(state, {
       seed: `${SEED}-cost-beta`,
       ownerActions: [
         commission('hireable_adv_beta', 'open', { targetTier: 'rare' }, 5),
       ],
     })
-    expect(beta.state.expeditions.active[0]?.costPaid).toBe(20)
+    expect(beta.state.expeditions.active[0]?.costPaid).toBe(4 * 9 + KIT)
   })
 
   it('insufficient coin rejects the commission with the wage-formula reason', () => {
@@ -102,42 +127,37 @@ describe('Phase 77 / ISSUE-037 — wageBase / specialty / activeFlags wiring', (
     //   - alpha: experience 60, reliability 60, specialty 'rare'
     //   - non-specialist: a patched copy of alpha with specialty null
     // The seeds are otherwise identical. Specialist must win more.
+    // PAIRED, on one shared seed sequence. An earlier version gave the two
+    // lines different seed tags, so they walked different journeys and the
+    // comparison was two independent samples of a noisy statistic — it could
+    // and did come out backwards on an unlucky draw. Sharing the seeds makes
+    // the specialty the ONLY difference between the runs, which is what the
+    // test claims to be measuring.
     function sweep(
       runnerId: string,
       patch: Partial<HireableAdventurer>,
-      tag: string,
     ): number {
       let successes = 0
       for (let trial = 0; trial < 30; trial += 1) {
-        let s = withCoin(createInitialTavernState(), 200)
+        let s = withCoin(createInitialTavernState(), 300)
         s = patchAdventurer(s, runnerId, patch)
         s = runOneDay(s, {
-          seed: `${SEED}-${tag}-${trial}`,
+          seed: `${SEED}-specialty-${trial}`,
           ownerActions: [
             commission(runnerId, 'open', { targetTier: 'rare' }, 3),
           ],
         }).state
-        for (let i = 0; i < 3; i += 1) {
-          s = runOneDay(s, { seed: `${SEED}-${tag}-${trial}-${i}` }).state
-        }
+        s = runUntilResolved(s, `specialty-${trial}`)
         const rec = s.expeditions.completed[0]
         if (rec && rec.outcome === 'success') successes += 1
       }
       return successes
     }
-    const specialist = sweep(
-      'hireable_adv_alpha',
-      { specialty: 'rare' },
-      'spec',
-    )
-    const generalist = sweep(
-      'hireable_adv_alpha',
-      { specialty: null },
-      'gen',
-    )
-    // +0.10 success bias against a base ~0.5 with the same RNG should
-    // produce a measurable edge. Use a soft inequality so a single
-    // unlucky seed doesn't flake the test.
+    const specialist = sweep('hireable_adv_alpha', { specialty: 'rare' })
+    const generalist = sweep('hireable_adv_alpha', { specialty: null })
+    // Expansion Phase 9 §9.3 — the bias now lands on the SEARCH at the site
+    // rather than on a closing roll, which is why the same journey can end
+    // in a find for one and nothing for the other.
     expect(specialist).toBeGreaterThan(generalist)
   })
 
@@ -161,9 +181,7 @@ describe('Phase 77 / ISSUE-037 — wageBase / specialty / activeFlags wiring', (
           commission('hireable_adv_alpha', 'open', { targetTier: 'rare' }, 2),
         ],
       }).state
-      for (let i = 0; i < 2; i += 1) {
-        s = runOneDay(s, { seed: `${SEED}-fail-${trial}-${i}` }).state
-      }
+      s = runUntilResolved(s, `fail-${trial}`)
       const rec = s.expeditions.completed[0]
       const runner = s.world.hireableAdventurers['hireable_adv_alpha']
       if (rec && rec.outcome === 'failure' && runner) {

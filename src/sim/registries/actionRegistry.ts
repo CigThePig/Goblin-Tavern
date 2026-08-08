@@ -18,6 +18,7 @@ import { CULTURE_ACTIONS } from '../modules/ownerActions/cultureActions'
 import { NPC_ACTIONS } from '../modules/ownerActions/npcActions'
 import { RIVAL_ACTIONS } from '../modules/ownerActions/rivalActions'
 import { ARC_ACTIONS } from '../modules/ownerActions/arcActions'
+import { EXPEDITION_ROAD_ACTIONS } from '../modules/expeditions/expeditionActions'
 import { RUMOUR_ACTIONS } from '../modules/ownerActions/rumourActions'
 import { BELIEF_ACTIONS } from '../modules/ownerActions/beliefActions'
 import type { OwnerActionDefinition } from '../modules/ownerActions/types'
@@ -126,6 +127,11 @@ export function ensureRequiredOwnerActionsRegistered(): void {
     // arc's own declared moves, `settle_arc` ends a close-run one as a
     // compromise rather than gambling on the deadline.
     ...ARC_ACTIONS,
+    // Expansion Phase 9 §9.3 — the moves available while a party is still
+    // out there. Before this the only expedition decision was made before
+    // anybody left; these three are recall, the risk/reward answer, and the
+    // rescue, and all are gated on word having actually reached the house.
+    ...EXPEDITION_ROAD_ACTIONS,
   ]
   for (const def of all) {
     if (!actionRegistry.has(def.id)) {

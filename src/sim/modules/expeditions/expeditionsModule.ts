@@ -16,6 +16,27 @@ import type {
 import { createRng, type SimRng } from '../../core/rng'
 import { applyRenownDrift } from '../service/renown'
 import { resolveExpedition, updateActiveExpedition } from './state'
+import { EXPEDITIONS_MODULE_ID } from './moduleId'
+import {
+  ExpeditionsModuleStateSchema as ExpeditionsRunSchema,
+  arrivedDispatches,
+  dispatchesInTransit,
+  getExpeditionRun,
+  getExpeditionsModuleState,
+  liveExpeditionRuns,
+  pruneExpeditionRuns,
+  writeExpeditionsSlice,
+} from './runState'
+import { advanceExpeditionDay, routeFor } from './journey'
+import {
+  applyRenown,
+  applyWorldEffects,
+  buildHaul,
+  closeRecord,
+  haulValue,
+  outcomeFor,
+  settleTerms,
+} from './resolve'
 
 // Build the expedition's named RNG streams from the seed stored on the
 // expedition at commission time, not from the resolution day's input
@@ -41,7 +62,7 @@ function expeditionStream(expedition: Expedition, name: string): SimRng {
 //   - Target tier (rare > uncommon, legendary > rare) → lower base.
 //   - Targeted mode is harder than open mode by ~20% at every tier.
 
-export const EXPEDITIONS_MODULE_ID = 'expeditions'
+export { EXPEDITIONS_MODULE_ID }
 
 const RUNNER_LOST_BASE_CHANCE = 0.04
 const TARGETED_PENALTY = 0.15
@@ -199,6 +220,10 @@ function applyRunnerUpdate(
   runner: HireableAdventurer,
   outcome: ExpeditionOutcome,
   expeditionId: string,
+  // Expansion Phase 9 §9.3 — hurt ON THE ROAD, as distinct from the trip
+  // having failed. A party can come back successful with somebody limping,
+  // and the roster should say so.
+  injuredOnTheRoad = false,
 ): void {
   if (outcome === 'runner_lost') {
     ctx.removeHireableAdventurer(runner.id, {
@@ -233,10 +258,17 @@ function applyRunnerUpdate(
     experience = clamp(experience + 3)
     reliability = clamp(reliability + 1)
     relationship = clamp(relationship + 2)
+  } else if (outcome === 'recalled' || outcome === 'retreated') {
+    // Coming home when told to, or knowing when to stop, is not a failing.
+    // Nothing is learned and nothing is lost.
+    relationship = clamp(relationship + 1)
   } else {
     // failure
     reliability = clamp(reliability - 5)
     if (!nextFlags.includes('injured')) nextFlags.push('injured')
+  }
+  if (injuredOnTheRoad && !nextFlags.includes('injured')) {
+    nextFlags.push('injured')
   }
   ctx.modifyHireableAdventurer(
     runner.id,
@@ -328,46 +360,115 @@ function writeOutcomeMemory(
   })
 }
 
+/**
+ * Expansion Phase 9 §9.3 — the daily pass.
+ *
+ * Phase 70's tick added one to `daysElapsed` and, on the last day, made a
+ * single roll that decided the entire trip. What runs now is a JOURNEY:
+ * each expedition walks a leg, eats, may meet something, may be asked a
+ * question, may be hurt, delayed, turned back, recalled or lost — and only
+ * resolves when the party is actually home or actually gone.
+ *
+ * `daysElapsed` is still maintained, because the report, the commission
+ * form and the existing tests all read it. It is now a description of how
+ * long they have been out rather than the thing that decides anything.
+ */
 const startDayHook: SimulationHook = (ctx: SimContext): void => {
   if (ctx.state.expeditions.active.length === 0) return
-  const active = [...ctx.state.expeditions.active]
-  for (const expedition of active) {
-    const nextDaysElapsed = expedition.daysElapsed + 1
+  for (const expedition of [...ctx.state.expeditions.active]) {
     updateActiveExpedition(ctx, expedition.id, {
-      daysElapsed: nextDaysElapsed,
+      daysElapsed: expedition.daysElapsed + 1,
     })
-    if (nextDaysElapsed < expedition.daysTotal) continue
 
-    // Resolve.
-    const runner = ctx.state.world.hireableAdventurers[expedition.runnerId]
-    if (!runner) {
-      // Runner has been removed (e.g. by a prior runner_lost). Drop
-      // the expedition without resolving.
-      const today = ctx.state.calendar.totalDaysElapsed + 1
-      const record: ExpeditionRecord = {
-        id: expedition.id,
-        runnerId: expedition.runnerId,
-        mode: expedition.mode,
-        targetTier: expedition.targetTier,
-        targetIngredientId: expedition.targetIngredientId,
-        daysTotal: expedition.daysTotal,
-        costPaid: expedition.costPaid,
-        startedDay: expedition.startedDay,
-        resolvedDay: today,
-        outcome: 'failure',
-        returnedIngredients: [],
-      }
-      resolveExpedition(ctx, expedition.id, record)
+    const run = getExpeditionRun(ctx.state, expedition.id)
+    if (!run) {
+      // No run record — an expedition commissioned before this phase, or a
+      // fixture built by hand. Fall back to the Phase 70 behaviour so the
+      // trip still ends rather than running forever.
+      resolveLegacyExpedition(ctx, expedition)
       continue
     }
-    const rng = expeditionStream(expedition, `expedition_${expedition.id}`)
-    const outcome = rollOutcome(rng, runner, {
-      ...expedition,
-      daysElapsed: nextDaysElapsed,
-    })
-    const returned = buildReturnedIngredients(ctx, expedition, outcome)
-    const today = ctx.state.calendar.totalDaysElapsed + 1
-    const record: ExpeditionRecord = {
+
+    advanceExpeditionDay(ctx, expedition)
+
+    const after = getExpeditionRun(ctx.state, expedition.id)
+    if (!after) continue
+    const done =
+      after.terminal !== undefined ||
+      after.phase === 'home'
+    if (!done) continue
+
+    finishExpedition(ctx, expedition)
+  }
+}
+
+/** Bring a party in and settle up. */
+function finishExpedition(ctx: SimContext, expedition: Expedition): void {
+  const run = getExpeditionRun(ctx.state, expedition.id)
+  if (!run) return
+
+  // A party that got home having been recalled or having turned back is
+  // recorded as such rather than as a failure — somebody made a call, and
+  // the record should say who.
+  // A recall beats a retreat when both happened: the house's order is what
+  // actually brought them in, whatever the party had already decided.
+  const terminal =
+    run.terminal ??
+    (run.recalledOnDay !== undefined
+      ? 'recalled'
+      : run.retreatedOnDay !== undefined
+        ? 'retreated'
+        : 'returned')
+  if (run.terminal === undefined) {
+    writeExpeditionsSlice(
+      ctx,
+      (current) => {
+        const held = current.runs[expedition.id]
+        if (!held) return current
+        return {
+          ...current,
+          runs: { ...current.runs, [expedition.id]: { ...held, terminal } },
+        }
+      },
+      'home',
+    )
+  }
+  const finished = getExpeditionRun(ctx.state, expedition.id)!
+  // One recorded fact, not a reconstruction from the event log.
+  const atSite = finished.reachedSiteOnDay !== undefined
+  const outcome = outcomeFor(finished)
+  const haul = buildHaul(expedition, finished, outcome, atSite)
+
+  if (haul.length > 0) writeIngredientsToStock(ctx, haul, expedition.id)
+
+  for (const runnerId of finished.partyRunnerIds) {
+    const runner = ctx.state.world.hireableAdventurers[runnerId]
+    if (!runner) continue
+    applyRunnerUpdate(
+      ctx,
+      runner,
+      outcome === 'runner_lost' ? 'runner_lost' : outcome,
+      expedition.id,
+      finished.injuredRunnerIds.includes(runnerId),
+    )
+  }
+
+  settleTerms(ctx, finished, outcome, haulValue(haul))
+  const leader = ctx.state.world.hireableAdventurers[expedition.runnerId]
+  closeRecord(ctx, expedition, finished, outcome, haul)
+  if (leader) writeOutcomeMemory(ctx, expedition, leader, outcome, haul)
+  applyRenown(ctx, finished, leader, outcome)
+  applyWorldEffects(ctx, finished, outcome, haul, atSite)
+}
+
+/** The Phase 70 end-only roll, for an expedition with no run record. */
+function resolveLegacyExpedition(ctx: SimContext, expedition: Expedition): void {
+  const daysElapsed = expedition.daysElapsed + 1
+  if (daysElapsed < expedition.daysTotal) return
+  const today = ctx.state.calendar.totalDaysElapsed + 1
+  const runner = ctx.state.world.hireableAdventurers[expedition.runnerId]
+  if (!runner) {
+    resolveExpedition(ctx, expedition.id, {
       id: expedition.id,
       runnerId: expedition.runnerId,
       mode: expedition.mode,
@@ -377,34 +478,102 @@ const startDayHook: SimulationHook = (ctx: SimContext): void => {
       costPaid: expedition.costPaid,
       startedDay: expedition.startedDay,
       resolvedDay: today,
-      outcome,
-      returnedIngredients: returned,
-    }
-    // Order: write ingredients first (so stock causes show the
-    // proximate effect), then update the runner, then move the
-    // expedition into the completed log, then memory + renown.
-    if (returned.length > 0) {
-      writeIngredientsToStock(ctx, returned, expedition.id)
-    }
-    applyRunnerUpdate(ctx, runner, outcome, expedition.id)
-    resolveExpedition(ctx, expedition.id, record)
-    writeOutcomeMemory(ctx, expedition, runner, outcome, returned)
-    applyRenownEffect(ctx, expedition, runner, outcome)
+      outcome: 'failure',
+      returnedIngredients: [],
+    })
+    return
   }
+  const rng = expeditionStream(expedition, `expedition_${expedition.id}`)
+  const outcome = rollOutcome(rng, runner, { ...expedition, daysElapsed })
+  const returned = buildReturnedIngredients(ctx, expedition, outcome)
+  if (returned.length > 0) writeIngredientsToStock(ctx, returned, expedition.id)
+  applyRunnerUpdate(ctx, runner, outcome, expedition.id, false)
+  resolveExpedition(ctx, expedition.id, {
+    id: expedition.id,
+    runnerId: expedition.runnerId,
+    mode: expedition.mode,
+    targetTier: expedition.targetTier,
+    targetIngredientId: expedition.targetIngredientId,
+    daysTotal: expedition.daysTotal,
+    costPaid: expedition.costPaid,
+    startedDay: expedition.startedDay,
+    resolvedDay: today,
+    outcome,
+    returnedIngredients: returned,
+  })
+  writeOutcomeMemory(ctx, expedition, runner, outcome, returned)
+  applyRenownEffect(ctx, expedition, runner, outcome)
+}
+
+/** §5.11 — prune the closed tail of the run book. */
+const endDayHook: SimulationHook = (ctx: SimContext): void => {
+  const slice = getExpeditionsModuleState(ctx.state)
+  const today = ctx.state.calendar.totalDaysElapsed
+  const resolvedDayFor = new Map(
+    ctx.state.expeditions.completed.map((record) => [record.id, record.resolvedDay]),
+  )
+  const pruned = pruneExpeditionRuns(slice.runs, today, (run) =>
+    resolvedDayFor.get(run.expeditionId),
+  )
+  if (Object.keys(pruned).length === Object.keys(slice.runs).length) return
+  writeExpeditionsSlice(ctx, (current) => ({ ...current, runs: pruned }), 'prune')
 }
 
 function buildExpeditionsReport(ctx: SimContext): ReportSection {
   const slice = ctx.state.expeditions
+  const today = ctx.state.calendar.totalDaysElapsed
   const lines: string[] = []
+
   if (slice.active.length === 0) {
     lines.push('No active expeditions.')
   } else {
     for (const e of slice.active) {
+      const run = getExpeditionRun(ctx.state, e.id)
+      const route = run ? routeFor(run.routeId) : undefined
+      if (!run || !route) {
+        lines.push(
+          `${e.id} — ${e.mode} (${e.targetTier ?? e.targetIngredientId ?? '—'}) day ${e.daysElapsed}/${e.daysTotal} runner=${e.runnerId}`,
+        )
+        continue
+      }
+      // Expansion Phase 9 §9.3 — what the house KNOWS, which is not the same
+      // as what is happening. Position and condition come from dispatches
+      // that have actually arrived; anything still on the road is reported
+      // as being on the road, not as fact.
       lines.push(
-        `${e.id} — ${e.mode} (${e.targetTier ?? e.targetIngredientId ?? '—'}) day ${e.daysElapsed}/${e.daysTotal} runner=${e.runnerId}`,
+        `${route.label} — ${run.partyRunnerIds.length === 1 ? 'one runner' : `${run.partyRunnerIds.length} runners`}, out ${e.daysElapsed} day(s) of about ${e.daysTotal}`,
       )
+      const arrived = arrivedDispatches(run, today)
+      const latest = arrived[arrived.length - 1]
+      lines.push(`  last word: ${latest ? latest.readable : 'none yet'}`)
+      const inTransit = dispatchesInTransit(run, today)
+      if (inTransit.length > 0) {
+        lines.push(`  ${inTransit.length} message(s) still on the road.`)
+      }
+      if (run.pendingDecision) {
+        lines.push(
+          `  THEY ARE WAITING ON AN ANSWER: ${run.pendingDecision.prompt} (they act on day ${run.pendingDecision.deadlineDay})`,
+        )
+        lines.push(`  options: ${run.pendingDecision.optionIds.join(', ')}`)
+      }
+      if (run.recalledOnDay !== undefined) {
+        lines.push(`  recalled on day ${run.recalledOnDay}; on their way back.`)
+      }
+      if (run.injuredRunnerIds.length > 0) {
+        lines.push(`  ${run.injuredRunnerIds.length} hurt.`)
+      }
     }
   }
+
+  const runs = liveExpeditionRuns(ctx.state)
+  if (runs.length > 0) {
+    const known = getExpeditionsModuleState(ctx.state).knownDiscoveries
+    if (known.length > 0) {
+      lines.push('')
+      lines.push(`Known ways: ${known.map((k) => k.replace(/_/g, ' ')).join(', ')}`)
+    }
+  }
+
   if (slice.completed.length > 0) {
     const recent = slice.completed.slice(-5)
     lines.push('')
@@ -420,13 +589,23 @@ function buildExpeditionsReport(ctx: SimContext): ReportSection {
     source: EXPEDITIONS_MODULE_ID,
     title: 'Expeditions',
     lines,
+    data: {
+      active: slice.active.length,
+      awaitingAnswer: runs.filter((run) => run.pendingDecision !== undefined).length,
+      wordInTransit: runs.reduce(
+        (sum, run) => sum + dispatchesInTransit(run, today).length,
+        0,
+      ),
+      knownDiscoveries: getExpeditionsModuleState(ctx.state).knownDiscoveries,
+    },
   }
 }
 
-const ExpeditionsModuleStateSchema = z
-  .object({})
-  .passthrough()
-  .optional()
+// Expansion Phase 9 §9.3 — the slice was an empty passthrough because the
+// module had no state of its own. It now carries the run book: the route,
+// party, loadout and terms of every trip, its position, condition, event log,
+// pending question and dispatch queue, plus what the house has learned.
+const ExpeditionsModuleStateSchema = ExpeditionsRunSchema
 
 // Compile-time hint that StockRarity is still part of the slice
 // contract — referenced by `targetTierBaseSuccess`. The unused-export
@@ -435,7 +614,7 @@ void (null as unknown as StockRarity)
 
 export const expeditionsModule: SimulationModule = {
   id: EXPEDITIONS_MODULE_ID,
-  version: '0.1.0',
+  version: '0.2.0',
   // The module depends on `adventurers` because resolution writes back
   // to the hireable roster (runner stats / runner_lost removal). It
   // depends on `stock` because successful hauls land ingredients in
@@ -443,6 +622,7 @@ export const expeditionsModule: SimulationModule = {
   dependsOn: ['stock', 'adventurers'],
   hooks: {
     startDay: [startDayHook],
+    endDay: [endDayHook],
   },
   buildReport: buildExpeditionsReport,
   stateSchema: ExpeditionsModuleStateSchema,

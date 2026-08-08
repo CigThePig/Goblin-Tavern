@@ -1,13 +1,18 @@
 // Phase 119+120 / ISSUE-058+059 — CommissionExpeditionSheet smoke tests.
 //
 // Coverage:
-// 1. Renders the four step sections (runner / mode / target / duration)
-//    with the Queue button initially disabled (no runner picked).
-// 2. Picking a runner + open mode + a duration enables the Queue button
-//    and surfaces a live cost preview.
+// 1. Renders the step sections (runner / mode / target / route / loadout /
+//    terms) with the Queue button initially disabled (no runner picked).
+// 2. Picking a runner + open mode enables the Queue button and surfaces a
+//    live cost preview.
+//
 // 3. ISSUE-059 — when the stockRegistry read throws, the targeted mode
 //    block shows an inline aria-live note with the error message
 //    instead of an empty ingredient list.
+//
+// Expansion Phase 9 §9.3 — the duration segment is gone: the trip's length
+// belongs to the route the player picks, and the cost preview is the
+// advance plus the loadout rather than a wage-times-days guess.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte'
@@ -83,8 +88,11 @@ describe('CommissionExpeditionSheet — smoke (Phase 119+120 / ISSUE-058+059)', 
     })
     const runnerBtn = screen.getByRole('button', { name: /lurka/i })
     await fireEvent.click(runnerBtn)
-    // Open mode is the default → cost preview appears + Queue enables.
-    expect(screen.getByText(/cost:\s*15c/i)).toBeTruthy() // wage 3 × default 5 days
+    // Open mode + `uncommon` is the default, which routes to the Market
+    // Road: five days there and back at wage 3 = 15 advance, plus the seven
+    // rations the route asks for at 2 coin each.
+    expect(screen.getByText(/cost:\s*29c/i)).toBeTruthy()
+    expect(screen.getByText(/The Market Road/)).toBeTruthy()
     const queue = screen.getByRole('button', { name: /^queue$/i })
     expect(queue.hasAttribute('disabled')).toBe(false)
   })

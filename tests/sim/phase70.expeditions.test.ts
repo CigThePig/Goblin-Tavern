@@ -4,7 +4,12 @@ import { createInitialTavernState } from '../../src/sim/state/defaults'
 import { validateState } from '../../src/sim/state/validation'
 import { FULL_PIPELINE } from '../../src/sim/canonicalPipeline'
 import { runOneDay } from '../../src/sim/testing/simRunner'
-import { COMMISSION_EXPEDITION_ACTION_ID } from '../../src/sim/modules/expeditions/index'
+import {
+  COMMISSION_EXPEDITION_ACTION_ID,
+  routeFor,
+} from '../../src/sim/modules/expeditions/index'
+import { SUPPLY_UNIT_COST } from '../../src/sim/modules/expeditions/commissionExpedition'
+import { routeProvisionsNeeded } from '../../src/sim/content/expeditions/expeditionRoutes'
 import type {
   Expedition,
   ExpeditionRecord,
@@ -52,6 +57,22 @@ function runDays(state: TavernState, days: number, seedTag = ''): TavernState {
   return current
 }
 
+// Expansion Phase 9 §9.3 — a trip's length is a property of the ROUTE now,
+// not a number the commission typed, so these tests sweep until the journey
+// ends instead of counting days. Each caller still supplies its own seed
+// sequence, which is what the determinism and isolation cases are about.
+function runUntilResolved(
+  state: TavernState,
+  seedTag: string,
+  maxDays = 24,
+): TavernState {
+  let current = state
+  for (let i = 0; i < maxDays && current.expeditions.active.length > 0; i += 1) {
+    current = runOneDay(current, { seed: `${SEED}-${seedTag}-${i}` }).state
+  }
+  return current
+}
+
 describe('Phase 70 — expedition subsystem', () => {
   it('initial state has empty active and completed lists', () => {
     const state = createInitialTavernState()
@@ -67,9 +88,8 @@ describe('Phase 70 — expedition subsystem', () => {
   })
 
   it('commission_expedition adds an active expedition and reserves the runner', () => {
-    // Phase 77 / ISSUE-037 — cost is `runner.wageBase * daysTotal`,
-    // not the legacy free-form `input.amount` value. Alpha has
-    // wageBase 6; 5-day expedition → cost 30.
+    // Phase 77 / ISSUE-037 — cost is derived from `runner.wageBase`, not
+    // the legacy free-form `input.amount` value. Alpha has wageBase 6.
     let state = withCoin(createInitialTavernState(), 200)
     const runnerId = 'hireable_adv_alpha'
     state = runOneDay(state, {
@@ -89,8 +109,15 @@ describe('Phase 70 — expedition subsystem', () => {
     expect(exp.runnerId).toBe(runnerId)
     expect(exp.mode).toBe('open')
     expect(exp.targetTier).toBe('rare')
-    expect(exp.daysTotal).toBe(5)
-    expect(exp.costPaid).toBe(30)
+    // Expansion Phase 9 §9.3 — a `rare` target with no route named defaults
+    // to the safest known route that can actually yield it (the Oldwood
+    // Verge, eight travel days plus a working day), and the party's
+    // provisions are bought on top of the wage.
+    expect(exp.daysTotal).toBe(9)
+    expect(exp.costPaid).toBe(
+      6 * exp.daysTotal +
+        routeProvisionsNeeded(routeFor('oldwood_verge')!, 1) * SUPPLY_UNIT_COST,
+    )
     // The runner is reserved.
     const runner = state.world.hireableAdventurers[runnerId]!
     expect(runner.currentExpeditionId).toBe(exp.id)
@@ -168,8 +195,8 @@ describe('Phase 70 — expedition subsystem', () => {
       seed: `${SEED}-determinism`,
       ownerActions: [commissionAction],
     }).state
-    // Tick both forward 4 more days.
-    for (let i = 0; i < 4; i += 1) {
+    // Tick both forward on the SAME seed sequence until the trip ends.
+    for (let i = 0; i < 24 && stateA.expeditions.active.length > 0; i += 1) {
       stateA = runOneDay(stateA, { seed: `${SEED}-determinism-${i}` }).state
       stateB = runOneDay(stateB, { seed: `${SEED}-determinism-${i}` }).state
     }
@@ -204,11 +231,11 @@ describe('Phase 70 — expedition subsystem', () => {
     }
     const saved = JSON.parse(JSON.stringify(live)) as unknown
     const reloaded = validateState(saved)
-    // Continue both from this point for 2 more days. Resolution
-    // happens at day 5 (commission day + 5 ticks).
+    // Continue both from this point until the trip ends, on one shared
+    // seed sequence — the reloaded line must walk the same journey.
     let liveAfter = live
     let reloadedAfter = reloaded
-    for (let i = 0; i < 3; i += 1) {
+    for (let i = 0; i < 24 && liveAfter.expeditions.active.length > 0; i += 1) {
       liveAfter = runOneDay(liveAfter, { seed: `${SEED}-save-tail-${i}` }).state
       reloadedAfter = runOneDay(reloadedAfter, {
         seed: `${SEED}-save-tail-${i}`,
@@ -253,12 +280,10 @@ describe('Phase 70 — expedition subsystem', () => {
     // expedition RNG stream was derived from the resolution day's
     // base seed. After the fix the stored `expedition.seed` keeps
     // the outcome stable.
-    for (let i = 0; i < 3; i += 1) {
+    for (let i = 0; i < 24 && stateA.expeditions.active.length > 0; i += 1) {
       stateA = runOneDay(stateA, { seed: `iso-A-${i}` }).state
       stateB = runOneDay(stateB, { seed: `iso-B-${i}` }).state
     }
-    stateA = runOneDay(stateA, { seed: 'iso-A-resolve' }).state
-    stateB = runOneDay(stateB, { seed: 'iso-B-resolve' }).state
     expect(stateA.expeditions.completed.length).toBe(1)
     expect(stateB.expeditions.completed.length).toBe(1)
     const recA = stateA.expeditions.completed[0]!
@@ -268,10 +293,12 @@ describe('Phase 70 — expedition subsystem', () => {
   })
 
   it('runner_lost outcome removes the runner from hireableAdventurers', () => {
-    // Force a runner_lost outcome by patching state to give the
-    // runner extremely low reliability and a legendary target. We
-    // commission, sweep days forward, and check the completed log
-    // and roster.
+    // Expansion Phase 9 §9.3 — a party is lost because of how it was SENT,
+    // not because a closing roll went badly. So this forces the loss the way
+    // a player would cause it: the worst runner in the house, pointed at a
+    // legendary target (which routes them up the Broken Scree), carrying no
+    // provisions at all. Hunger drives morale and hazard, and hazard is the
+    // ladder a party comes off.
     let state = withCoin(createInitialTavernState(), 200)
     state = {
       ...state,
@@ -299,15 +326,13 @@ describe('Phase 70 — expedition subsystem', () => {
           commission(
             'hireable_adv_gamma',
             'targeted',
-            { targetIngredientId: 'phoenix_pepper' },
+            { targetIngredientId: 'phoenix_pepper', provisions: 0 },
             40,
             3,
           ),
         ],
       }).state
-      for (let i = 0; i < 3; i += 1) {
-        s = runOneDay(s, { seed: `lost-${trial}-${i}` }).state
-      }
+      s = runUntilResolved(s, `lost-${trial}`)
       const completed = s.expeditions.completed
       if (completed.length > 0 && completed[0]!.outcome === 'runner_lost') {
         foundLost = true
@@ -357,9 +382,7 @@ describe('Phase 70 — expedition subsystem', () => {
         ),
       ],
     }).state
-    for (let i = 0; i < 3; i += 1) {
-      state = runOneDay(state, { seed: `${SEED}-cap-${i}` }).state
-    }
+    state = runUntilResolved(state, 'cap')
     expect(state.expeditions.completed.length).toBeLessThanOrEqual(50)
   })
 
@@ -401,9 +424,7 @@ describe('Phase 70 — expedition subsystem', () => {
           ),
         ],
       }).state
-      for (let i = 0; i < 3; i += 1) {
-        s = runOneDay(s, { seed: `haul-${trial}-${i}` }).state
-      }
+      s = runUntilResolved(s, `haul-${trial}`)
       const completed = s.expeditions.completed[0]
       if (completed && (completed.outcome === 'success' || completed.outcome === 'partial')) {
         bestState = s
@@ -412,12 +433,19 @@ describe('Phase 70 — expedition subsystem', () => {
     }
     expect(bestState).not.toBeNull()
     expect(bestState!.stock['moonpetal_mushroom']!.quantity).toBeGreaterThan(0)
-    // Renown should have moved up on a success.
+    // Renown should have moved up on a success. Asserted through the CAUSE
+    // rather than the meter: the trip now takes a dozen days, over which the
+    // house's ordinary renown drift moves the same number for reasons that
+    // have nothing to do with the expedition, so comparing the meter to its
+    // day-zero value measures the tavern rather than the trip.
     const final = bestState!.expeditions.completed[0]!
     if (final.outcome === 'success') {
-      expect(bestState!.reputation.culinary_renown).toBeGreaterThan(
-        state.reputation.culinary_renown,
-      )
+      expect(
+        bestState!.causes.some(
+          (c) =>
+            c.tags.includes('expedition_success') && c.direction === 'increase',
+        ),
+      ).toBe(true)
     }
   })
 })

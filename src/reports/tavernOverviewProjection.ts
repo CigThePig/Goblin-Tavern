@@ -278,7 +278,16 @@ export type CompletedExpeditionRow = {
   runnerId: string
   runnerName: string
   resolvedDay: number
-  outcome: 'success' | 'partial' | 'failure' | 'runner_lost'
+  // Expansion Phase 9 §9.3 — mirrors `ExpeditionOutcome`, which gained
+  // `recalled` and `retreated` when a trip became something the house or the
+  // party could end deliberately.
+  outcome:
+    | 'success'
+    | 'partial'
+    | 'failure'
+    | 'runner_lost'
+    | 'recalled'
+    | 'retreated'
   returnedIngredients: {
     ingredientId: string
     ingredientLabel: string

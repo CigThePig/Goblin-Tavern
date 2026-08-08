@@ -239,8 +239,9 @@ describe('Phase 207 — implementation ledger', () => {
     // rule applies and the same loophole stays shut: §9.1 (2026-08-07)
     // completed DEP-09 by closing its rival half, and closed the four rival
     // hook families; §9.2 (2026-08-08) closed DEP-13 and the five arc hook
-    // families. DEP-12 belongs to §9.3 and is still open, so anything else
-    // in phase 9 still fails this check.
+    // families; §9.3 (2026-08-08) closed DEP-12. The six remaining phase-9
+    // hook families are still open, so anything else in phase 9 still fails
+    // this check.
     const LANDED_PART_ROWS = new Map<string, string>([
       ['DEP-08', 'done'],
       ['DEP-09', 'done'],
@@ -256,6 +257,10 @@ describe('Phase 207 — implementation ledger', () => {
       ['HOOK-arc_exploit_backlash_*', 'done'],
       ['HOOK-arc_faction_debt_*', 'done'],
       ['HOOK-arc_supplier_favour_owed_*', 'done'],
+      // §9.3 (2026-08-08) — expeditions. DEP-12 closes; the six remaining
+      // phase-9 hook families belong to the rival and arc CONTENT and are
+      // still open, so they still fail this check.
+      ['DEP-12', 'done'],
       ['HOOK-culture_walkout_risk_*', 'done'],
       ['HOOK-culture_seating_backlash_*', 'done'],
       ['HOOK-faction_grudge_*', 'done'],
@@ -541,10 +546,22 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       // `runtimeModules` stays at 40 on purpose: arcs already had a module
       // that owned them since Phase 35, and §9.2 gives that module a daily
       // pass rather than adding a second owner.
+      //
+      // Expansion Phase 9.3 (ISSUE-179) moves exactly one, and that it is
+      // only one is the assertion:
+      //   * `ownerActions` 103 → 106: `answer_expedition_dispatch`,
+      //     `recall_expedition` and `send_relief_to_expedition`. Once a
+      //     party was on the road the player had no move at all, and §9.3
+      //     names recall, retreat, rescue and risk/reward decisions among
+      //     the things an expedition must support.
+      // `runtimeModules` stays at 40 again: expeditions already had a module
+      // since Phase 70. What §9.3 adds is content — five routes and eight
+      // road events — which no inventory count tracks, and a run book inside
+      // the slice that module already owned.
       runtimeModules: 40,
       simulationPhases: 26,
       daySegments: 3,
-      ownerActions: 103,
+      ownerActions: 106,
       staffPriorities: 12,
       pressureDomains: 21,
       feedbackDetectors: 13,

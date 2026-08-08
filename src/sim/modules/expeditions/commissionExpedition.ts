@@ -6,6 +6,21 @@ import type {
   ExpeditionTargetTier,
 } from '../../state/TavernState'
 import { addExpedition } from './state'
+import {
+  availableRoutes,
+  routeFor,
+} from './journey'
+import {
+  routeProvisionsNeeded,
+  routeTravelDays,
+  type ExpeditionRoute,
+} from '../../content/expeditions/expeditionRoutes'
+import {
+  getExpeditionsModuleState,
+  openExpeditionRun,
+  type ExpeditionRun,
+  type ExpeditionTermsKind,
+} from './runState'
 import { spendCoin } from '../stock/ledger'
 import type {
   OwnerActionDefinition,
@@ -52,12 +67,99 @@ function readTargetIngredient(input: OwnerActionInput): string | null {
   return typeof opt === 'string' && opt.length > 0 ? opt : null
 }
 
-function readDaysTotal(input: OwnerActionInput): number | null {
-  const opt = input.options?.['daysTotal']
-  if (typeof opt !== 'number' || !Number.isFinite(opt)) return null
-  if (!Number.isInteger(opt) || opt < 1) return null
-  return opt
+// Expansion Phase 9 §9.3 — the commission is now four more decisions than
+// it was: where they go, who goes, what they carry, and what they are hired
+// on. Each is read leniently and defaulted to the cautious answer, because
+// the form is one of several entry points and an omitted field should
+// produce a safe trip rather than a rejection.
+
+function readRouteId(input: OwnerActionInput): string | null {
+  const opt = input.options?.['routeId']
+  return typeof opt === 'string' && opt.length > 0 ? opt : null
 }
+
+function readPartySize(input: OwnerActionInput): number {
+  const opt = input.options?.['partySize']
+  if (typeof opt !== 'number' || !Number.isFinite(opt)) return 1
+  return Math.max(1, Math.min(MAX_PARTY_SIZE, Math.round(opt)))
+}
+
+function readTermsKind(input: OwnerActionInput): ExpeditionTermsKind {
+  const opt = input.options?.['terms']
+  if (opt === 'flat_fee' || opt === 'share_of_haul' || opt === 'hazard_bonus') {
+    return opt
+  }
+  return 'flat_fee'
+}
+
+/**
+ * Provisions bought for the trip.
+ *
+ * Defaults to exactly what the route asks for, so a player who does not
+ * engage with the loadout is neither punished nor protected — they get the
+ * trip the route describes. Buying more is insurance against delay; buying
+ * less is a gamble the journey will price.
+ */
+function readProvisions(
+  input: OwnerActionInput,
+  route: ExpeditionRoute,
+  partySize: number,
+): number {
+  const opt = input.options?.['provisions']
+  const needed = routeProvisionsNeeded(route, partySize)
+  if (typeof opt !== 'number' || !Number.isFinite(opt)) return needed
+  return Math.max(0, Math.min(needed * 2, Math.round(opt)))
+}
+
+function readMedicine(input: OwnerActionInput): number {
+  const opt = input.options?.['medicine']
+  if (typeof opt !== 'number' || !Number.isFinite(opt)) return 0
+  return Math.max(0, Math.min(3, Math.round(opt)))
+}
+
+function readGear(input: OwnerActionInput): number {
+  const opt = input.options?.['gear']
+  if (typeof opt !== 'number' || !Number.isFinite(opt)) return 0
+  return Math.max(0, Math.min(3, Math.round(opt)))
+}
+
+/**
+ * The route a commission gets when the player named a target but not a place.
+ *
+ * §9.3 makes the target a consequence of the route, which cuts both ways: a
+ * commission that names `rare` and no route is asking to be sent somewhere
+ * rare things are, not to be refused because the nearest road only has
+ * mushrooms on it. The default is the SAFEST known route that can actually
+ * fill the request — `availableRoutes` is already sorted by danger, so the
+ * first match is the least dangerous one, and a player who wants the richer
+ * haul has to name the worse road themselves.
+ */
+export function pickDefaultRoute(
+  routes: ExpeditionRoute[],
+  wanted: ExpeditionTargetTier | null,
+): ExpeditionRoute | undefined {
+  if (!wanted) return routes[0]
+  return routes.find((route) => route.yields.includes(wanted)) ?? undefined
+}
+
+/** The tier a commission is really asking for, whichever mode it used. */
+function requestedTier(input: OwnerActionInput): ExpeditionTargetTier | null {
+  const mode = readMode(input)
+  if (mode === 'open') return readTargetTier(input)
+  const ingredientId = readTargetIngredient(input)
+  if (!ingredientId || !stockRegistry.has(ingredientId)) return null
+  const rarity = stockRegistry.get(ingredientId).defaultState.rarity
+  return rarity === 'uncommon' || rarity === 'rare' || rarity === 'legendary'
+    ? rarity
+    : null
+}
+
+/** The most runners one commission may send. */
+export const MAX_PARTY_SIZE = 3
+/** Coin per unit of provisions, medicine and gear. */
+export const SUPPLY_UNIT_COST = 2
+export const MEDICINE_UNIT_COST = 12
+export const GEAR_UNIT_COST = 15
 
 // Phase 77 / ISSUE-037 — cost is derived from the runner's wageBase
 // and the chosen daysTotal, not the player's `input.amount` value
@@ -68,6 +170,43 @@ function computeCost(
 ): number {
   const value = runner.wageBase * daysTotal
   return Number.isFinite(value) && value >= 0 ? value : 0
+}
+
+/**
+ * Expansion Phase 9 §9.3 — what a commission costs, broken out.
+ *
+ * The ADVANCE depends on the terms, which is the whole point of having
+ * terms: a flat fee is paid in full up front, a share of the haul costs
+ * almost nothing to start and everything if it goes well, and a hazard
+ * bonus sits between the two. The loadout is bought outright either way —
+ * provisions are provisions whoever is paying the runner.
+ */
+export function commissionCosts(
+  runner: { wageBase: number },
+  route: ExpeditionRoute,
+  partySize: number,
+  loadout: { provisions: number; gear: number; medicine: number },
+  terms: ExpeditionTermsKind,
+): { advance: number; loadout: number; agreed: number; total: number } {
+  const days = routeTravelDays(route) + 1
+  const wage = computeCost(runner, days) * partySize
+  const agreed =
+    terms === 'flat_fee'
+      ? wage
+      : terms === 'share_of_haul'
+        ? Math.round(wage * 0.25)
+        : Math.round(wage * 0.6)
+  const advance =
+    terms === 'flat_fee'
+      ? agreed
+      : terms === 'share_of_haul'
+        ? Math.round(agreed * 0.4)
+        : Math.round(agreed * 0.5)
+  const kit =
+    loadout.provisions * SUPPLY_UNIT_COST +
+    loadout.medicine * MEDICINE_UNIT_COST +
+    loadout.gear * GEAR_UNIT_COST
+  return { advance, loadout: kit, agreed, total: advance + kit }
 }
 
 /** Adventurers who are neither out on a job nor recovering from one. */
@@ -176,14 +315,28 @@ export const commissionExpedition: OwnerActionDefinition = {
         reason: 'commission_expedition requires options.mode of "open" or "targeted".',
       }
     }
-    const daysTotal = readDaysTotal(input)
-    if (daysTotal === null) {
+    // Expansion Phase 9 §9.3 — the duration is a consequence of WHERE they
+    // are sent, not a number the player types. A route that has not been
+    // discovered yet is not on the board at all.
+    const known = getExpeditionsModuleState(ctx.state).knownDiscoveries
+    const routeId = readRouteId(input)
+    const routes = availableRoutes(ctx.state, known)
+    const wanted = requestedTier(input)
+    const route = routeId
+      ? routes.find((entry) => entry.id === routeId)
+      : pickDefaultRoute(routes, wanted)
+    if (!route) {
       return {
         ok: false,
-        code: 'invalid_days_total',
-        reason: 'commission_expedition requires options.daysTotal as a positive integer.',
+        code: routeId ? 'unknown_route' : 'no_route_yields_tier',
+        reason: routeId
+          ? `Nobody knows a way called '${routeId}'.`
+          : wanted
+            ? `Nobody knows a way to anything ${wanted} yet.`
+            : 'There is nowhere to send anybody.',
       }
     }
+    const daysTotal = routeTravelDays(route) + 1
     if (mode === 'open') {
       const tier = readTargetTier(input)
       if (!tier) {
@@ -191,6 +344,17 @@ export const commissionExpedition: OwnerActionDefinition = {
           ok: false,
           code: 'invalid_target_tier',
           reason: 'Open expeditions require options.targetTier (uncommon/rare/legendary).',
+        }
+      }
+      // §9.3 — a target is a consequence of the route. Asking the Market
+      // Road for something legendary is not an expensive gamble, it is a
+      // request nobody can fill, and it is refused rather than silently
+      // downgraded.
+      if (!route.yields.includes(tier)) {
+        return {
+          ok: false,
+          code: 'tier_not_on_route',
+          reason: `${route.label} does not yield ${tier} — it yields ${route.yields.join(', ')}.`,
         }
       }
     } else {
@@ -223,12 +387,24 @@ export const commissionExpedition: OwnerActionDefinition = {
         }
       }
     }
-    const cost = computeCost(runner, daysTotal)
-    if (ctx.state.coin < cost) {
+    const partySize = Math.min(readPartySize(input), availableRunners(ctx).length)
+    const loadout = {
+      provisions: readProvisions(input, route, partySize),
+      gear: readGear(input),
+      medicine: readMedicine(input),
+    }
+    const costs = commissionCosts(
+      runner,
+      route,
+      partySize,
+      loadout,
+      readTermsKind(input),
+    )
+    if (ctx.state.coin < costs.total) {
       return {
         ok: false,
         code: 'insufficient_coin',
-        reason: `Need ${cost} coin (wage ${runner.wageBase}/day × ${daysTotal}d) to commission this expedition; have ${ctx.state.coin}.`,
+        reason: `Need ${costs.total} coin up front for ${route.label} (${costs.advance} advance + ${costs.loadout} supplies); have ${ctx.state.coin}.`,
       }
     }
     return { ok: true }
@@ -236,8 +412,40 @@ export const commissionExpedition: OwnerActionDefinition = {
   apply: (ctx, input) => {
     const runner = ctx.state.world.hireableAdventurers[input.targetId!]!
     const mode = readMode(input)!
-    const daysTotal = readDaysTotal(input)!
-    const cost = computeCost(runner, daysTotal)
+    const known = getExpeditionsModuleState(ctx.state).knownDiscoveries
+    const routes = availableRoutes(ctx.state, known)
+    const routeId = readRouteId(input)
+    const route =
+      (routeId ? routes.find((entry) => entry.id === routeId) : undefined) ??
+      pickDefaultRoute(routes, requestedTier(input)) ??
+      routes[0]!
+    const daysTotal = routeTravelDays(route) + 1
+
+    // The party: the named runner leads, and anybody else free comes along
+    // in a stable order so the same commission builds the same party.
+    const others = availableRunners(ctx)
+      .filter((candidate) => candidate.id !== runner.id)
+      .sort((a, b) => b.experience - a.experience || a.id.localeCompare(b.id))
+    const partySize = Math.min(readPartySize(input), 1 + others.length)
+    const partyRunnerIds = [
+      runner.id,
+      ...others.slice(0, Math.max(0, partySize - 1)).map((entry) => entry.id),
+    ]
+
+    const loadout = {
+      provisions: readProvisions(input, route, partyRunnerIds.length),
+      gear: readGear(input),
+      medicine: readMedicine(input),
+    }
+    const termsKind = readTermsKind(input)
+    const costs = commissionCosts(
+      runner,
+      route,
+      partyRunnerIds.length,
+      loadout,
+      termsKind,
+    )
+    const cost = costs.total
     const targetTier = mode === 'open' ? readTargetTier(input) : null
     const targetIngredientId =
       mode === 'targeted' ? readTargetIngredient(input) : null
@@ -275,26 +483,66 @@ export const commissionExpedition: OwnerActionDefinition = {
     }
     addExpedition(ctx, expedition)
 
-    // Reflect the assignment on the runner so other modules can see
-    // they're unavailable.
-    ctx.modifyHireableAdventurer(
-      runner.id,
-      { currentExpeditionId: expedition.id, daysSinceLastJob: 0 },
-      {
-        source: 'expedition.commission',
-        sourceType: 'system',
-        readable: `${runner.name.display} commissioned for expedition ${expedition.id}.`,
-        tags: ['expedition', 'commission', expedition.id, runner.id],
-        relatedActors: [{ kind: 'other', id: runner.id }],
-        relatedSystems: ['expeditions', 'adventurers'],
+    // Expansion Phase 9 §9.3 — the journey's own record, opened in the same
+    // pass as the expedition so the two cannot drift.
+    const run: ExpeditionRun = {
+      expeditionId: expedition.id,
+      routeId: route.id,
+      partyRunnerIds,
+      loadout,
+      terms: {
+        kind: termsKind,
+        advanceCoin: costs.advance,
+        agreedCoin: costs.agreed - costs.advance,
+        sharePercent: termsKind === 'share_of_haul' ? 35 : 0,
+        settled: false,
+        settledCoin: 0,
       },
-    )
+      phase: 'outbound',
+      legIndex: 0,
+      legsTotal: route.legs,
+      dayInLeg: 0,
+      supplies: loadout.provisions,
+      hungryDays: 0,
+      medicine: loadout.medicine,
+      // Gear is spent up front and shows up as a party that starts steadier
+      // and in less danger, rather than as a meter nobody sees.
+      morale: Math.min(100, 65 + loadout.gear * 5),
+      hazard: Math.max(0, Math.round(route.danger / 4) - loadout.gear * 3),
+      delayDays: 0,
+      injuredRunnerIds: [],
+      events: [],
+      dispatches: [],
+      haulBonus: 1,
+      discoveries: [],
+      roadCosts: 0,
+    }
+    openExpeditionRun(ctx, run)
+
+    // Reflect the assignment on every runner who went, so other modules can
+    // see they are unavailable.
+    for (const memberId of partyRunnerIds) {
+      const member = ctx.state.world.hireableAdventurers[memberId]
+      if (!member) continue
+      ctx.modifyHireableAdventurer(
+        memberId,
+        { currentExpeditionId: expedition.id, daysSinceLastJob: 0 },
+        {
+          source: 'expedition.commission',
+          sourceType: 'system',
+          readable: `${member.name.display} commissioned for expedition ${expedition.id}.`,
+          tags: ['expedition', 'commission', expedition.id, memberId],
+          relatedActors: [{ kind: 'other', id: memberId }],
+          relatedSystems: ['expeditions', 'adventurers'],
+        },
+      )
+    }
 
     ctx.addHistory({
       category: 'owner_action',
-      summary: `Commissioned ${runner.name.display} for a ${mode} expedition (${
+      summary: `Commissioned ${runner.name.display} down ${route.label} for a ${mode} expedition (${
         targetTier ?? targetIngredientId
-      }) over ${daysTotal} days.`,
+      }) over about ${daysTotal} days.`,
       tags: ['expedition', 'commission', expedition.id],
       relatedActors: [{ kind: 'other', id: runner.id }],
       relatedSystems: ['expeditions'],
@@ -302,8 +550,14 @@ export const commissionExpedition: OwnerActionDefinition = {
     })
 
     const effects: string[] = [
-      `Commissioned ${runner.name.display} (${mode} mode, ${daysTotal}-day run).`,
+      `${route.label}: ${partyRunnerIds.length === 1 ? runner.name.display : `${runner.name.display} and ${partyRunnerIds.length - 1} other(s)`}, about ${daysTotal} days.`,
+      route.readable,
+      `Carrying ${loadout.provisions} provisions${loadout.medicine > 0 ? `, ${loadout.medicine} medicine` : ''}${loadout.gear > 0 ? `, ${loadout.gear} gear` : ''}.`,
+      `On ${termsKind.replace(/_/g, ' ')} terms — ${costs.advance} coin advance, ${costs.agreed - costs.advance} on return.`,
       `Spent ${cost} coin up front.`,
+      route.wordDelayDays > 0
+        ? `Word from that far out takes ${route.wordDelayDays} day(s) to reach the house.`
+        : 'Word from the road reaches the house the same day.',
     ]
 
     return {
@@ -315,6 +569,10 @@ export const commissionExpedition: OwnerActionDefinition = {
       data: {
         expeditionId: expedition.id,
         runnerId: runner.id,
+        routeId: route.id,
+        partyRunnerIds,
+        loadout,
+        terms: termsKind,
         mode,
         targetTier,
         targetIngredientId,

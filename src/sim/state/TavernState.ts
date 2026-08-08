@@ -804,7 +804,13 @@ export type ExpeditionOutcome =
   | "success"
   | "partial"
   | "failure"
-  | "runner_lost";
+  | "runner_lost"
+  // Expansion Phase 9 §9.3 — a trip can now END rather than only succeed or
+  // fail. `recalled` is the house ordering them home; `retreated` is the
+  // party deciding for themselves. Both are distinct from a failure: they
+  // came back, with whatever they had, because somebody made a call.
+  | "recalled"
+  | "retreated";
 
 export type Expedition = {
   id: string;

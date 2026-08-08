@@ -138,6 +138,7 @@
     "cultures",
     "customers",
     "economy",
+    "expeditions",
     "factions",
     "feedback",
     "finance",
@@ -238,6 +239,7 @@
       "ensureBeliefBehaviourFields",
       "ensureRivalSlice",
       "ensureArcProgression",
+      "ensureExpeditionRunBook",
       "ensureModuleSlices"
     ]
   },
@@ -250,7 +252,7 @@
     "runtimeModules": 40,
     "simulationPhases": 26,
     "daySegments": 3,
-    "ownerActions": 103,
+    "ownerActions": 106,
     "staffPriorities": 12,
     "pressureDomains": 21,
     "feedbackDetectors": 13,

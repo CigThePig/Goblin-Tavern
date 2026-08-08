@@ -721,6 +721,14 @@ function fireEventIfAny(
   )
   bumpExpeditionTotal(ctx, 'eventsFired')
   queueDispatch(ctx, expedition.id, route, 'event', definition.readable)
+  // An injury is TROUBLE, and word of it travels like any other news. Sending
+  // it as a dated dispatch is what lets `send_relief_to_expedition` be gated
+  // on the house having actually heard, instead of reading the party's live
+  // injury list — which was omniscient, and made the delayed-information
+  // gate meaningless on exactly the remote routes it exists for.
+  if (injured) {
+    queueDispatch(ctx, expedition.id, route, 'trouble', 'Somebody is hurt.')
+  }
 }
 
 /**
@@ -742,7 +750,19 @@ function checkTrouble(
   const today = ctx.state.calendar.totalDaysElapsed
 
   if (run.hazard >= LOSS_HAZARD_THRESHOLD) {
-    const rng = journeyStream(expedition.seed, expedition.id, 'loss', run.events.length)
+    // INDEXED BY THE DAY OF THE TRIP, for the same reason the event roll is.
+    // Indexing by `run.events.length` rebuilt an identical stream on every
+    // hazardous day where nothing else happened, so a party that survived
+    // the first check could not be lost on any later one until its event
+    // count changed — and once it hit the event cap the result was frozen
+    // for the rest of the trip. The day is monotonic and reproducible from
+    // the commission, which is what makes the risk daily AND replayable.
+    const rng = journeyStream(
+      expedition.seed,
+      expedition.id,
+      'loss',
+      today - expedition.startedDay,
+    )
     // Even at the top of the ladder it is a chance rather than a certainty,
     // and relief already sent halves it — which is what makes a rescue
     // worth paying for rather than a consolation.

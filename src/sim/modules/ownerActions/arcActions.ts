@@ -106,7 +106,7 @@ const interveneInArc: OwnerActionDefinition = {
   tags: ['arc', 'local_event', 'intervention'],
   effectsPreview: 'Takes one of the moves this arc actually offers',
   pressureAffinity: ['arc_escalation'],
-  targetType: 'global',
+  targetType: 'composite',
   // The representative cost the picker shows. What the budget is actually
   // enforced against is `timeCostFor` below, because the interventions
   // declare anything from half an hour to half a day.
@@ -241,7 +241,7 @@ const settleArcAction: OwnerActionDefinition = {
   tags: ['arc', 'local_event', 'compromise'],
   effectsPreview: 'Ends a close-run arc as a compromise rather than gambling on it',
   pressureAffinity: ['arc_escalation'],
-  targetType: 'global',
+  targetType: 'composite',
   timeCost: TIME_COST_STANDARD,
   getValidTargets: settleableArcs,
   canApply: (ctx, input) => {

@@ -235,6 +235,9 @@ const startDayHook: SimulationHook = (ctx: SimContext): void => {
       inspection: slice.inspection,
       rivalTavern: slice.rivalTavern,
       currentModifier: modifier,
+      // The month's own draw, kept so a §9.4 projection can be undone
+      // without recomputing from a seed that has moved on since.
+      monthDraw: modifier,
       accumulator: emptyAccumulator(),
       // Phase 91 — preserve cross-month persistent fields so the
       // Reports → Monthly screen reads truth across the full next
@@ -283,24 +286,30 @@ function projectRunningCondition(ctx: SimContext): void {
     // still adding its rent bump at month end and the arc engine's
     // `month_modifier` gate still read a condition that had stopped.
     //
-    // Only THIS MODULE'S OWN projection is undone. A value that matches no
-    // condition which has actually run is somebody else's — the month's
-    // draw, or a caller that set it deliberately — and restoring over it
-    // would be this module deciding what a field it merely mirrors should
-    // say. So the restore is conditional on having something to restore
-    // FROM: a condition of that name in the run book's history.
+    // Only THIS MODULE'S OWN projection is undone, and it is undone back to
+    // THE STORED DRAW rather than to a recomputed one. `pickMonthModifier`
+    // is keyed on the seed, and the seed changes every day in real play, so
+    // recomputing on day 20 would restore a modifier this month never had.
+    //
+    // "Ours to undo" means a condition of that name ended INSIDE this month.
+    // Scoping it to the month matters: an unscoped history check would let a
+    // condition from two months ago trigger a restore on any later
+    // condition-free day, moving the rent and the arc gates for a month it
+    // had nothing to do with.
+    const drawn = slice.monthDraw
+    if (!drawn || slice.currentModifier.id === drawn.id) return
+    // `calendar.day` is the day within the month, so the month opened this
+    // many days ago. Derived rather than stored: one fewer optional field to
+    // migrate, and the calendar is the authority on where the month began.
+    const monthStart =
+      ctx.state.calendar.totalDaysElapsed - (ctx.state.calendar.day - 1)
     const projectedByUs = conditions.history.some(
-      (record) => record.conditionId === slice.currentModifier.id,
+      (record) =>
+        record.conditionId === slice.currentModifier.id &&
+        record.endedOnDay >= monthStart,
     )
     if (!projectedByUs) return
-    const drawn = pickMonthModifier(
-      ctx.input.seed,
-      ctx.state.calendar.year,
-      ctx.state.calendar.month,
-    )
-    if (slice.currentModifier.id !== drawn.id) {
-      writeSlice(ctx, { currentModifier: drawn }, 'restore_month_draw')
-    }
+    writeSlice(ctx, { currentModifier: drawn }, 'restore_month_draw')
     return
   }
   const dominant = [...conditions.active].sort(
@@ -811,6 +820,7 @@ const MonthlyModuleStateSchema = z.object({
   inspection: InspectionStateSchema,
   rivalTavern: RivalTavernStateSchema,
   currentModifier: ModifierSchema,
+  monthDraw: ModifierSchema.optional(),
   accumulator: AccumulatorSchema,
   lastMonthlyResult: MonthlyResultSchema.optional(),
   monthlyHistory: z.array(MonthlyResultSchema),

@@ -75,7 +75,7 @@ export function buildLocalArcsReport(ctx: SimContext): ReportSection | null {
       lines.push(
         `    standing at ${run.goalProgress} against ${run.opposition}` +
           (run.deadlineDay !== undefined
-            ? `, ${Math.max(0, run.deadlineDay - today)} day(s) left`
+            ? `, ${Math.max(0, run.deadlineDay - today + 1)} day(s) left`
             : ''),
       )
       if (stage && stage.advanceWhen.length > 0) {

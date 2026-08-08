@@ -37,6 +37,22 @@ export type OwnerActionTargetType =
   | 'project'
   | 'policy'
   | 'recipe'
+  /**
+   * The action has its own target list whose ids are not entities of a
+   * single known kind — a live arc plus one of its declared interventions,
+   * a running condition plus one of its counter-moves, a party on the road
+   * plus the option they are waiting on.
+   *
+   * Expansion Phase 9 — added because these actions were all declaring
+   * `global`, which is what the picker reads as "takes no target". It then
+   * asked `canApply` with an empty input, got `missing_target` back, and
+   * left the row permanently disabled with its target list never opened —
+   * so most of this arc's player counterplay was unreachable through the
+   * UI. `composite` routes them down the same `getValidTargets` path every
+   * other targeted action uses; nothing renders per-entity-kind, so the
+   * picker needed no change to handle it.
+   */
+  | 'composite'
   | 'global'
 
 // Phase 33 §33.2 — Category metadata on each action definition. Lets the

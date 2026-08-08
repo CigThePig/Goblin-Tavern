@@ -265,10 +265,19 @@ describe('Phase 216 §9.1 — rival_rumour_exposed brings the word home', () => 
     let state = runDays(trading(), 8)
     const rival = getPrimaryRival(state)!
 
-    // The house has put a word about them. Started through the ordinary
-    // rumour path, so it is a real rumour rather than a flag.
+    // The house has put a word about them. Both traces the real response
+    // leaves: the MEMORY `spread_counter_rumour` writes — which is the
+    // evidence the resolver keys on, because that profile creates no
+    // rumour record of its own — and a rumour in the store, so the
+    // correction half has something to correct.
     state = withSetup(state, 'counter_rumour', (ctx) => {
       const today = ctx.state.calendar.totalDaysElapsed
+      ctx.addMemory({
+        id: `rival_counter_rumour_${rival.id}`,
+        label: 'The house put a story about the competition.',
+        actors: [{ kind: 'system', id: rival.id }],
+        tags: ['rival', 'rumour', 'counter'],
+      })
       const rumour: SocialRumourState = {
         id: 'house_word_about_rival',
         label: `Somebody has been saying ${rival.name} waters the ale.`,
@@ -334,7 +343,9 @@ describe('Phase 216 §9.1 — rival_rumour_exposed brings the word home', () => 
     const outcomes = outcomesFor(state, RIVAL_RUMOUR_EXPOSED_EVENT)
     expect(outcomes.length).toBeGreaterThan(0)
     expect(outcomes[0]!.status).toBe('no_op')
-    expect(outcomes[0]!.reason).toMatch(/died down/)
+    // The house never put any word about, so there is nothing to be caught
+    // at — which is a different sentence from "it faded", and the honest one.
+    expect(outcomes[0]!.reason).toMatch(/never put any word about/)
   })
 })
 

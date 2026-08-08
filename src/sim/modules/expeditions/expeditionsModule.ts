@@ -441,6 +441,15 @@ function finishExpedition(ctx: SimContext, expedition: Expedition): void {
 
   if (haul.length > 0) writeIngredientsToStock(ctx, haul, expedition.id)
 
+  // CAPTURED BEFORE THE PARTY IS TOUCHED. On `runner_lost` the loop below
+  // removes every member from the roster, the leader included, so looking
+  // them up afterwards returned `undefined` — and the two consequences that
+  // need the leader were silently skipped: no memory of the trip was
+  // written, and `applyRenown` could not apply the loss penalty, which is
+  // scaled by how well the house knew them. The legacy single-runner path
+  // kept both, so a lost party lost less than a lost runner.
+  const leader = ctx.state.world.hireableAdventurers[expedition.runnerId]
+
   for (const runnerId of finished.partyRunnerIds) {
     const runner = ctx.state.world.hireableAdventurers[runnerId]
     if (!runner) continue
@@ -454,7 +463,6 @@ function finishExpedition(ctx: SimContext, expedition: Expedition): void {
   }
 
   settleTerms(ctx, finished, outcome, haulValue(haul))
-  const leader = ctx.state.world.hireableAdventurers[expedition.runnerId]
   closeRecord(ctx, expedition, finished, outcome, haul)
   if (leader) writeOutcomeMemory(ctx, expedition, leader, outcome, haul)
   applyRenown(ctx, finished, leader, outcome)

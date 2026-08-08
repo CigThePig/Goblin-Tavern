@@ -123,6 +123,27 @@
   )
   const cost = $derived(costs?.total ?? 0)
 
+  /**
+   * What is owed when they come back — stated as precisely as it honestly
+   * can be, which is not the same for all three terms.
+   *
+   * Only a flat fee has a number now. `settleTerms` ignores `agreedCoin` for
+   * a share and charges a cut of whatever the haul turns out to be worth; a
+   * hazard bonus adds a hazard-scaled amount and a payment per injury on top
+   * of its base. Printing `agreed - advance` for those two showed a precise
+   * liability that is never the one charged, which is exactly the number a
+   * player would compare the three terms on.
+   */
+  const returnLiability = $derived.by(() => {
+    if (!costs) return ''
+    const balance = costs.agreed - costs.advance
+    if (terms === 'flat_fee') return `${balance}c owed on return`
+    if (terms === 'share_of_haul') {
+      return `plus 35% of whatever the haul is worth, on return`
+    }
+    return `${balance}c on return, plus more the worse the going was`
+  })
+
   // Rare ingredients catalog from the registry (uncommon / rare / legendary).
   // Phase 120 / ISSUE-059 — Wrap the registry read so a throw renders a
   // small inline note instead of bubbling through the App boundary and
@@ -481,7 +502,7 @@
     {#if runner && route && costs}
       <p class="cost-preview mono">
         cost: {cost}c ({costs.advance}c advance + {costs.loadout}c supplies)
-        · {costs.agreed - costs.advance}c owed on return
+        · {returnLiability}
         · you have {gameStore.state.coin}c
       </p>
     {/if}

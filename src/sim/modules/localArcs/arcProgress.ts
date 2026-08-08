@@ -551,9 +551,17 @@ export function computeStageTransition(
     }
   }
 
+  // STRICTLY PAST THE DEADLINE, not on it. Arc progression runs at
+  // `localEventUpdate` — Segment A, before the morning pause — while owner
+  // actions run in Segment B, so `>=` timed the arc out before the player
+  // could take an intervention on the day the report had been counting down
+  // to. They saw "0 days left" and the move was already refused because the
+  // run had gone terminal that morning. Firing the day AFTER makes the
+  // deadline day the last day it can be acted on, which is what a deadline
+  // means and what the ordering note above already claimed.
   if (
     run.deadlineDay !== undefined &&
-    state.calendar.totalDaysElapsed >= run.deadlineDay &&
+    state.calendar.totalDaysElapsed > run.deadlineDay &&
     stage.onTimeout
   ) {
     return {

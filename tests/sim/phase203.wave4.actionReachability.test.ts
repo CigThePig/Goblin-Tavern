@@ -250,6 +250,68 @@ describe('P3-BHV-002 — expedition commissioning opens and completes', () => {
   })
 })
 
+// ── Expansion Phase 9 — composite-target actions open ───────────────
+
+describe('Expansion Phase 9 — an action with its own target list opens', () => {
+  // The same failure `P3-BHV-002` found, one arc later and eight actions
+  // wide. An action that declares `global` is read by every picker as
+  // "takes no target", so `actionDisabledReason` asks `canApply` with an
+  // empty input, gets `missing_target` back, and leaves the row disabled
+  // with its target list never opened. Phase 9 added eight actions that
+  // take a composite target — an arc plus one of its interventions, a
+  // condition plus one of its counter-moves, a party plus the option they
+  // are waiting on — and every one of them declared `global`, which put
+  // most of the arc's player counterplay out of reach through the UI.
+  const COMPOSITE_ACTIONS = [
+    'intervene_in_arc',
+    'settle_arc',
+    'prepare_for_condition',
+    'counter_condition',
+    'exploit_condition',
+    'answer_expedition_dispatch',
+    'recall_expedition',
+    'send_relief_to_expedition',
+  ]
+
+  it('declares a target type the picker will walk targets for', () => {
+    for (const id of COMPOSITE_ACTIONS) {
+      const def = actionRegistry.get(id)
+      expect(def.targetType, id).toBe('composite')
+      expect(def.getValidTargets, id).toBeDefined()
+    }
+  })
+
+  it('never reports missing_target as the reason a row is disabled', () => {
+    // `missing_target` is what an unfilled form says about itself. Surfaced
+    // as a row's disabled reason it means the picker asked the wrong
+    // question, and the row can never be enabled however the world looks.
+    const state = freshState()
+    for (const id of COMPOSITE_ACTIONS) {
+      const reason = actionDisabledReason(actionRegistry.get(id), state, DAY_MINUTES)
+      expect(reason ?? '', id).not.toMatch(/targetId|missing target/i)
+    }
+  })
+
+  it('enables the row once the world offers something to act on', () => {
+    // Played far enough that at least one arc is live, so `intervene_in_arc`
+    // has real targets. Reached by playing rather than by injection.
+    let state = { ...freshState(), coin: 9000 }
+    for (let day = 0; day < 60; day += 1) {
+      state = runDay(state, { seed: `${SEED}-composite-${day}` }).state
+    }
+    const withTargets = COMPOSITE_ACTIONS.filter(
+      (id) => listValidTargets(actionRegistry.get(id), state).length > 0,
+    )
+    expect(withTargets.length, 'nothing was on offer after two months').toBeGreaterThan(0)
+    for (const id of withTargets) {
+      expect(
+        actionDisabledReason(actionRegistry.get(id), state, DAY_MINUTES),
+        id,
+      ).toBeUndefined()
+    }
+  })
+})
+
 // ── P6-COMP-005 — owner time is named, spent and enforced ───────────
 
 describe('P6-COMP-005 — an owner-time claim costs owner time', () => {

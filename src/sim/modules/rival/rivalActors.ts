@@ -1244,10 +1244,21 @@ export function runRivalActor(ctx: SimContext): void {
     // Re-check on the day it lands, not the day it was decided: a house that
     // has won its crowd back, settled with them, or fixed the failing they
     // meant to talk about has removed the reason, and the move is dropped.
+    // A truce takes HOSTILE moves off the board, which is what the pact
+    // says and what `underTruce` documents. Dropping every due intent
+    // instead froze the rival entirely: `recover_setback` explicitly serves
+    // KEEP_THE_PEACE and could never be performed during an arrangement, and
+    // hiring, answering a rumour and putting their own house in order went
+    // with it — so settling with them stopped them running their business
+    // rather than stopping them coming after yours.
+    const truced =
+      action !== undefined &&
+      underTruce(rival, today) &&
+      HOSTILE_RIVAL_ACTIONS.includes(action.id)
     const stillEligible =
       action !== undefined &&
       target !== undefined &&
-      !underTruce(rival, today) &&
+      !truced &&
       action
         .eligibleTargets(perception, ctx.state)
         .some((candidate) => candidate.kind === target.kind && candidate.id === target.id) &&

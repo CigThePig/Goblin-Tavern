@@ -233,6 +233,20 @@ const permanentLockEvent: ScheduledEventDefinition = {
     const run = getArcRun(ctx.state, parsed.data.arcId)
     if (!run) return noOp('that arc is no longer on the books', record.origin.readable)
 
+    // A CLOSED ARC CANNOT LOCK ANYTHING IN. The run record outlives the arc
+    // for the report's sake, so this lookup succeeds long after the outcome
+    // is set — and an arc that ended inside the warning window with progress
+    // still under 55 was branding the house permanently for something that
+    // was already over. The other three arc resolvers no-op a closed run;
+    // this one did not, and a `knownFor` label is the least reversible thing
+    // any of them can do.
+    if (run.outcome !== undefined) {
+      return noOp(
+        `that arc already ended in ${run.outcome}, so there was nothing left to lean into`,
+        record.origin.readable,
+      )
+    }
+
     // THE COUNTERPLAY. Leaning into something is only a brand while you are
     // still leaning. A house that spent the window putting the problem right
     // instead has nothing to lock in.

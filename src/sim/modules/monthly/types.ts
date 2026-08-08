@@ -240,6 +240,21 @@ export type MonthlyModuleState = {
 
   /** The modifier active for the current in-progress month. */
   currentModifier: MonthModifier
+  /**
+   * The month's OWN draw, kept so a projection can be undone.
+   *
+   * Expansion Phase 9 §9.4 made `currentModifier` a projection of whatever
+   * world condition is running, which means it has to be restorable when
+   * nothing is. Recomputing the draw at restore time is not good enough:
+   * `pickMonthModifier` is keyed on the seed, and the browser builds a
+   * different per-day seed for every day, so a recompute on day 20 returns a
+   * different modifier from the one the month actually opened with. Storing
+   * it is the only way the restore lands back on the same month.
+   *
+   * Optional so pre-§9.4 saves parse; absent means "no projection has
+   * happened", and the restore leaves the field alone.
+   */
+  monthDraw?: MonthModifier
   /** The accumulator buffer for the in-progress month. */
   accumulator: MonthlyAccumulator
   /**

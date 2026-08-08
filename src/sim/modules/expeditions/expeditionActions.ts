@@ -116,17 +116,27 @@ function inTrouble(ctx: SimContext): ActionTarget[] {
       const known = run.dispatches.filter(
         (dispatch) => dispatch.arrivesOnDay <= today,
       )
-      const badNews = known.some(
+      // ONLY WHAT WORD HAS BROUGHT. The `|| run.injuredRunnerIds.length > 0`
+      // fallback that used to sit here read the party's live injury list,
+      // which is updated the moment somebody is hurt — so on every remote
+      // route the house could send relief days before it could possibly have
+      // heard, and the delayed-information gate this action is built around
+      // did nothing on exactly the trips it exists for. Injuries now send a
+      // `trouble` dispatch of their own, so the news arrives on the route's
+      // own schedule like everything else.
+      return known.some(
         (dispatch) => dispatch.kind === 'trouble' || dispatch.kind === 'terminal',
       )
-      return badNews || run.injuredRunnerIds.length > 0
     })
     .map((run) => {
       const route = routeFor(run.routeId)
       return {
         id: run.expeditionId,
         label: route?.label ?? run.routeId,
-        hint: `${run.injuredRunnerIds.length} hurt — relief halves the chance of losing them`,
+        hint:
+          run.injuredRunnerIds.length > 0
+            ? `${run.injuredRunnerIds.length} hurt — relief halves the chance of losing them`
+            : 'word came back bad — relief halves the chance of losing them',
       }
     })
 }
@@ -141,7 +151,7 @@ const answerDispatch: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['expedition', 'decision'],
   effectsPreview: 'Answers the question a party on the road is waiting on',
-  targetType: 'global',
+  targetType: 'composite',
   timeCost: TIME_COST_QUICK,
   getValidTargets: openQuestions,
   canApply: (ctx, input) => {
@@ -207,7 +217,7 @@ const recall: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['expedition', 'recall'],
   effectsPreview: 'Orders a party home with whatever they have',
-  targetType: 'global',
+  targetType: 'composite',
   timeCost: TIME_COST_QUICK,
   getValidTargets: recallable,
   canApply: (ctx, input) => {
@@ -257,7 +267,7 @@ const sendRelief: OwnerActionDefinition = {
   category: 'immediate',
   tags: ['expedition', 'rescue'],
   effectsPreview: 'Sends supplies and hands to a party in trouble',
-  targetType: 'global',
+  targetType: 'composite',
   timeCost: TIME_COST_SHORT,
   getValidTargets: inTrouble,
   canApply: (ctx, input) => {

@@ -58,6 +58,8 @@ export const RIVAL_DOMINANCE_REVIEW_EVENT = 'rival_dominance_review'
 export const RIVAL_RUMOUR_EXPOSED_EVENT = 'rival_rumour_exposed'
 export const RIVAL_PACT_REVIEW_EVENT = 'rival_pact_review'
 export const RIVAL_PRICE_WAR_EVENT = 'rival_price_war'
+/** How far a matched cut takes their price level down. */
+const PRICE_WAR_CUT = 12
 export const RIVAL_QUALITY_RACE_EVENT = 'rival_quality_race'
 
 const RivalPayloadSchema = z.object({ rivalId: z.string() })
@@ -371,12 +373,36 @@ const rumourExposedEvent: ScheduledEventDefinition = {
     const rival = rivalOrNothing(ctx, parsed.data.rivalId)
     if (!rival) return noOp('there is no such house any more', record.origin.readable)
 
-    // The word the house put ABOUT THEM specifically — a rumour whose
-    // subject is the rival and which the rival did not start itself. Being
-    // merely tagged `rival` is not enough: half the talk in a competitive
-    // town carries that tag, and correcting somebody else's story would be
-    // an invented consequence. If it has already faded or been put right,
-    // there is nothing left to be caught at.
+    // DID THIS HOUSE ACTUALLY PUT ANY WORD ABOUT?
+    //
+    // The response that promises this — `spread_counter_rumour` — leaves a
+    // MEMORY (`rival_counter_rumour_<rivalId>`) and some pressure. It does
+    // not create a `SocialRumourState`, so there is no rumour record of the
+    // house's own to find. An earlier draft searched for one anyway, taking
+    // any sufficiently strong untrue rumour touching the rival that the
+    // rival had not started itself — which meant it either no-opped because
+    // the house's word was never in the store, or corrected and blamed the
+    // house for a third party's story it had nothing to do with.
+    //
+    // The memory is the evidence, and it is the evidence the profile
+    // actually writes. No memory, no word put about, nothing to be caught
+    // at — and the no-op says exactly that.
+    const spreadIt = ctx.state.memories.some(
+      (memory) =>
+        memory.id === `rival_counter_rumour_${rival.id}` ||
+        memory.id.startsWith(`rival_counter_rumour_${rival.id}`),
+    )
+    if (!spreadIt) {
+      return noOp(
+        'this house never put any word about them',
+        record.origin.readable,
+      )
+    }
+
+    const today = ctx.state.calendar.totalDaysElapsed
+    // If a matching story IS in the store — the house put one about by some
+    // other route since — it is corrected too. Optional, because being
+    // caught at it does not depend on a rumour record existing.
     const theirs = Object.values(ctx.state.world.socialRumours)
       .filter(
         (rumour) =>
@@ -389,35 +415,29 @@ const rumourExposedEvent: ScheduledEventDefinition = {
             (rumour.involvedRefs ?? []).some((ref) => ref.id === rival.id)),
       )
       .sort((a, b) => b.strength - a.strength || a.id.localeCompare(b.id))[0]
-    if (!theirs) {
-      return noOp(
-        'the word this house put about had already died down',
-        record.origin.readable,
+    if (theirs) {
+      ctx.modifySocialRumour(
+        theirs.id,
+        {
+          correctedOnDay: today,
+          credibility: 0,
+          strength: Math.max(1, Math.round(theirs.strength / 4)),
+          accuracy: 'false',
+        },
+        {
+          source: `${RIVAL_MODULE_ID}.rumour_exposed`,
+          sourceType: 'system',
+          target: theirs.id,
+          targetType: 'rumour',
+          amount: -theirs.strength,
+          direction: 'decrease',
+          readable: `The word about ${rival.name} was traced back to this house.`,
+          tags: ['rival', 'rumour', 'exposed'],
+          relatedActors: [rivalRef(rival.id)],
+          relatedSystems: ['rumours', 'rival'],
+        },
       )
     }
-
-    const today = ctx.state.calendar.totalDaysElapsed
-    ctx.modifySocialRumour(
-      theirs.id,
-      {
-        correctedOnDay: today,
-        credibility: 0,
-        strength: Math.max(1, Math.round(theirs.strength / 4)),
-        accuracy: 'false',
-      },
-      {
-        source: `${RIVAL_MODULE_ID}.rumour_exposed`,
-        sourceType: 'system',
-        target: theirs.id,
-        targetType: 'rumour',
-        amount: -theirs.strength,
-        direction: 'decrease',
-        readable: `The word about ${rival.name} was traced back to this house.`,
-        tags: ['rival', 'rumour', 'exposed'],
-        relatedActors: [rivalRef(rival.id)],
-        relatedSystems: ['rumours', 'rival'],
-      },
-    )
     // Being caught at it is a grievance they carry, not a meter: it becomes
     // a reason for the next hostile move rather than a number.
     const scheduled = scheduleRivalRetaliation(ctx, {
@@ -427,27 +447,52 @@ const rumourExposedEvent: ScheduledEventDefinition = {
       offsetDays: 4,
     })
     const readable = `The word this house put about ${rival.name} was traced back here.`
+    if (!scheduled && !theirs) {
+      // Nothing was corrected and they are not answering it — there is no
+      // authoritative change to claim, so say so rather than report one.
+      return noOp(
+        `${rival.name} knew who started it but let it lie`,
+        record.origin.readable,
+      )
+    }
     return {
       status: 'resolved',
       mutations: [
-        {
-          targetKind: 'rumour',
-          targetId: theirs.id,
-          field: 'accuracy',
-          readable,
-        },
+        ...(theirs
+          ? [
+              {
+                targetKind: 'rumour',
+                targetId: theirs.id,
+                field: 'accuracy',
+                readable,
+              },
+            ]
+          : []),
+        ...(scheduled
+          ? [
+              {
+                targetKind: 'system',
+                targetId: rival.id,
+                field: 'retaliation',
+                readable: `${rival.name} know who started it.`,
+              },
+            ]
+          : []),
       ],
       readable: scheduled ? `${readable} They are deciding what to do about it.` : readable,
       cause: {
         source: `${RIVAL_MODULE_ID}.rumour_exposed`,
         sourceType: 'system',
-        target: theirs.id,
-        targetType: 'rumour',
-        amount: -theirs.strength,
-        direction: 'decrease',
+        target: theirs?.id ?? rival.id,
+        targetType: theirs ? 'rumour' : 'global',
+        amount: theirs ? -theirs.strength : 0,
+        direction: theirs ? 'decrease' : 'neutral',
         readable,
         tags: ['rival', 'rumour', 'exposed'],
-        relatedActors: [rivalRef(rival.id), { kind: 'rumour', id: theirs.id }],
+        relatedActors: [
+          rivalRef(rival.id),
+          ...(theirs ? [{ kind: 'rumour' as const, id: theirs.id }] : []),
+        ],
         relatedSystems: ['rumours', 'rival'],
       },
     }
@@ -697,6 +742,7 @@ const priceWarEvent: ScheduledEventDefinition = {
     if (!action) return noOp('they have no such move', record.origin.readable)
     const available = actorCanPerform(rival.actor, action, today)
     if (!available.ok) return noOp(available.reason, record.origin.readable)
+    const before = rival.capability.priceLevel
     const performed = performActorAction(ctx, {
       actor: { ...rival.actor, goals: deriveRivalGoals(ctx.state, rival) },
       action,
@@ -716,6 +762,38 @@ const priceWarEvent: ScheduledEventDefinition = {
     if (performed.outcome.result === 'failed') {
       return noOp(performed.outcome.readable, record.origin.readable)
     }
+    // THE MOVE HAS TO BE A CUT. `shift_prices` picks its own direction from
+    // the overall appeal gap, so a rival who is ahead on quality or reach
+    // takes its margin back UP — and the resolution would then report a
+    // matched cut while the price had gone the other way. The action is
+    // still performed, because that is what spends their purse and takes
+    // their cooldown and commitment; the direction is this event's to
+    // insist on, exactly as `rival_quality_race` writes the quality gain
+    // rather than trusting `recruit_staff` to have produced one.
+    const afterMove =
+      getRivalModuleState(ctx.state).rivals[rival.id]?.capability.priceLevel ?? before
+    const cut = Math.max(0, Math.min(100, before - PRICE_WAR_CUT))
+    if (afterMove > cut) {
+      writeRivalSlice(
+        ctx,
+        (current) => {
+          const entry = current.rivals[rival.id]
+          if (!entry) return current
+          return {
+            ...current,
+            rivals: {
+              ...current.rivals,
+              [rival.id]: {
+                ...entry,
+                capability: { ...entry.capability, priceLevel: cut },
+              },
+            },
+          }
+        },
+        'price_war_cut',
+      )
+    }
+    const landed = Math.min(afterMove, cut)
     const readable = `${rival.name} matched the cut. It is a price war now.`
     return {
       status: 'resolved',
@@ -724,7 +802,7 @@ const priceWarEvent: ScheduledEventDefinition = {
           targetKind: 'system',
           targetId: rival.id,
           field: 'capability.priceLevel',
-          readable: performed.outcome.readable,
+          readable: `Their price level ${before} → ${landed}.`,
         },
       ],
       readable,

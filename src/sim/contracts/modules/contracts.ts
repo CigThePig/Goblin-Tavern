@@ -402,8 +402,9 @@ export const MODULE_CONTRACTS: Readonly<Record<string, ModuleContract>> = {
       'staff',
       'stock',
       // Adventurer season claims the roster among the systems it touches,
-      // and now actually reaches it.
+      // and now actually reaches it; quiet roads claims the suppliers.
       'world.hireableAdventurers',
+      'world.suppliers',
     ],
   },
   // Expansion Phase 9 §9.2 — the suppliers slice gains a declared owner.

@@ -283,13 +283,39 @@ export const commissionExpedition: OwnerActionDefinition = {
         reason: 'No adventurer is free to send right now.',
       }
     }
-    // Affordable at the smallest commission the form can produce: one
-    // day with the cheapest free runner. Anything more expensive is the
-    // form's own business to gate, against the choices being made there.
-    const cheapest = runners.reduce(
-      (lo, r) => Math.min(lo, computeCost(r, 1)),
-      Number.POSITIVE_INFINITY,
-    )
+    // AFFORDABLE AT THE CHEAPEST COMMISSION THE FORM CAN ACTUALLY PRODUCE.
+    //
+    // This used to price one day of the cheapest runner's wage — a shape no
+    // commission can have any more, because §9.3 derives the duration from
+    // a route and the shortest of those is five days with a loadout to buy.
+    // So the Stock panel enabled the button for a player who could not
+    // afford any configuration the form offers, and every attempt bounced
+    // off `canApply`. The real floor is the cheapest known route, a party
+    // of one, the loadout that route asks for, and the terms with the
+    // smallest advance.
+    const known = getExpeditionsModuleState(ctx.state).knownDiscoveries
+    const routes = availableRoutes(ctx.state, known)
+    if (routes.length === 0) {
+      return {
+        ok: false,
+        code: 'no_route_available',
+        reason: 'There is nowhere to send anybody.',
+      }
+    }
+    let cheapest = Number.POSITIVE_INFINITY
+    for (const runner of runners) {
+      for (const route of routes) {
+        const loadout = {
+          provisions: routeProvisionsNeeded(route, 1),
+          gear: 0,
+          medicine: 0,
+        }
+        for (const terms of ['flat_fee', 'share_of_haul', 'hazard_bonus'] as const) {
+          const costs = commissionCosts([runner], route, loadout, terms)
+          if (costs.total < cheapest) cheapest = costs.total
+        }
+      }
+    }
     if (ctx.state.coin < cheapest) {
       return {
         ok: false,

@@ -16,6 +16,7 @@ import {
   noteArcRun,
   openArcRun,
   writeArcRun,
+  writeArcSlice,
   type ArcRun,
 } from './arcRuns'
 import {
@@ -28,9 +29,15 @@ import {
   stageFor,
 } from './arcProgress'
 import { closeArcRun } from './arcOutcomes'
-import { applyArcEffect } from './arcEffects'
+import { applyArcEffect, makeAppliedEffectRecord } from './arcEffects'
 import { localArcRegistry as arcDefinitions } from '../../content/events/localArcRegistry'
-import { LOCAL_ARCS_MODULE_ID } from './types'
+import {
+  LOCAL_ARCS_MODULE_ID,
+  type LocalArcsAppliedEffectRecord,
+} from './types'
+
+/** §5.11 — the applied-effect trace is a report tail, so it is capped. */
+const MAX_RECENT_APPLIED_EFFECTS = 40
 
 // Expansion Phase 9 §9.2 — the daily pass.
 //
@@ -239,8 +246,35 @@ export function runArcDailyPass(ctx: SimContext): void {
       // arc's ambient monthly weight.
       if (nextStage.effects && arcDefinitions.has(entered.definitionId)) {
         const definition = arcDefinitions.get(entered.definitionId)
+        const applied: LocalArcsAppliedEffectRecord[] = []
         for (const effect of nextStage.effects) {
-          applyArcEffect({ ctx, arc: arcAfter, definition, effect })
+          const application = applyArcEffect({ ctx, arc: arcAfter, definition, effect })
+          applied.push(
+            makeAppliedEffectRecord({
+              application,
+              day: ctx.state.calendar.totalDaysElapsed,
+            }),
+          )
+        }
+        // PERSIST WHAT `applyArcEffect` HANDED BACK. Three of the effect
+        // kinds — `market_condition`, `calendar_tag` and `issue_seed_tag` —
+        // deliberately mutate nothing and return an application for the
+        // caller to record; the monthly path collects them into
+        // `recentlyAppliedEffects`, and this loop threw them away. So a
+        // stage that was supposed to put `cheap_mushrooms` on the market or
+        // a tag on the calendar did nothing at all.
+        if (applied.length > 0) {
+          writeArcSlice(
+            ctx,
+            (current) => ({
+              ...current,
+              recentlyAppliedEffects: [
+                ...current.recentlyAppliedEffects,
+                ...applied,
+              ].slice(-MAX_RECENT_APPLIED_EFFECTS),
+            }),
+            'stage_effects',
+          )
         }
       }
     }

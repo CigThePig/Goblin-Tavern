@@ -628,6 +628,14 @@ export function advanceExpeditionDay(
       readable: 'The trip ended.',
     }
   }
+  // A PARTY THROUGH THE DOOR CANNOT BE LOST ON THE DOORSTEP. `advanceLeg`
+  // can set `phase: 'home'` this very tick, and running the trouble check
+  // anyway meant a party that walked in with high hazard could still fail
+  // its loss roll — marked lost, a terminal dispatch queued, and the people
+  // removed from a roster they had already reported back to.
+  if (afterEvent.phase === 'home') {
+    return { expeditionId: expedition.id, readable: 'They are home.' }
+  }
   return checkTrouble(ctx, expedition, afterEvent, route)
 }
 
@@ -981,14 +989,27 @@ function applyRecallArrival(ctx: SimContext, expeditionId: string, today: number
   writeExpeditionRun(
     ctx,
     expeditionId,
-    (current) => ({
-      ...turnAround(current),
+    (current) => {
+      const {
+        pendingDecision: _moot,
+        pendingAnswer: _alsoMoot,
+        ...rest
+      } = current
+      return {
+      ...turnAround(rest),
       // Stamped on ARRIVAL, not on sending. It is what makes the trip a
       // recall rather than a trip that happened to have an order chasing it.
       recallArrivedOnDay: today,
+      // AND THE QUESTION IS MOOT — destructured off above. A party waiting
+      // on an answer is stood still by the walking guard; leaving
+      // `pendingDecision` in place after a recall landed kept them standing
+      // there eating for days after the report said they had turned for
+      // home. Being called home answers whatever they were asking.
+      //
       // A recall lifts spirits: they were told to come home, not driven.
       morale: clamp(current.morale + 8, 0, 100),
-    }),
+      }
+    },
     'recalled',
   )
 }

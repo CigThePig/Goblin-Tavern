@@ -32,6 +32,7 @@
     quoteOwnerAction,
     type OwnerActionQuote,
   } from '../../../../src/sim/modules/ownerActions/quoteOwnerAction'
+  import { timeCostOf } from '../../../../src/sim/modules/ownerActions/readonlyHelpers'
   import type { OwnerActionDefinition } from '../../../../src/sim/registries/actionRegistry'
   import type {
     ActionTarget,
@@ -220,13 +221,24 @@
   }
 
   function queueFor(def: OwnerActionDefinition, target?: ActionTarget) {
+    // RESERVE WHAT THIS PICK ACTUALLY COSTS. The engine gates and charges
+    // through `timeCostFor`, but the queue stored the definition's flat
+    // number — so a 30-minute arc intervention reserved 120 and became
+    // unpickable with an hour left, while a 240-minute one reserved 120 and
+    // let later picks look like they fit until the day ran and the engine
+    // rejected them. The two have to agree.
+    const timeCost = timeCostOf(
+      def,
+      gameStore.state,
+      target ? { actionId: def.id, targetId: target.id } : undefined,
+    )
     addPick({
       actionId: def.id,
       label: def.label,
       category: def.category,
       targetType: def.targetType,
       ...(target ? { targetId: target.id, targetLabel: target.label } : {}),
-      timeCost: def.timeCost,
+      timeCost,
       ...(activeReason ? { contextReason: activeReason } : {}),
     })
   }

@@ -257,6 +257,33 @@ export function haulValue(haul: ExpeditionReturnedIngredient[]): number {
 }
 
 /**
+ * The tier of what actually came back.
+ *
+ * Read from the haul, not from the route. `route.yields.includes(...)` is
+ * the best the route COULD have produced, and on a multi-tier route like
+ * the Broken Scree that meant a rare haul earned the legendary rumour and
+ * the legendary renown boost — the house celebrated for something it did
+ * not bring home.
+ */
+function haulTier(
+  haul: ExpeditionReturnedIngredient[],
+): ExpeditionTargetTier | undefined {
+  const order: ExpeditionTargetTier[] = ['uncommon', 'rare', 'legendary']
+  let best: ExpeditionTargetTier | undefined
+  for (const entry of haul) {
+    if (!stockRegistry.has(entry.ingredientId)) continue
+    const rarity = stockRegistry.get(entry.ingredientId).defaultState.rarity
+    if (rarity !== 'uncommon' && rarity !== 'rare' && rarity !== 'legendary') {
+      continue
+    }
+    if (best === undefined || order.indexOf(rarity) > order.indexOf(best)) {
+      best = rarity
+    }
+  }
+  return best
+}
+
+/**
  * What the world makes of it.
  *
  * §9.3's "effects on stock, world actors, rumours, and future
@@ -281,7 +308,7 @@ export function applyWorldEffects(
   // Talk.
   const worthTalkingAbout =
     outcome === 'runner_lost' ||
-    (outcome === 'success' && route.yields.includes('legendary'))
+    (outcome === 'success' && haulTier(haul) === 'legendary')
   if (worthTalkingAbout) {
     const rumourId = `expedition_word_${run.expeditionId}`
     if (!ctx.state.world.socialRumours[rumourId]) {
@@ -340,15 +367,30 @@ export function applyRenown(
   run: ExpeditionRun,
   leader: HireableAdventurer | undefined,
   outcome: ExpeditionOutcome,
+  haul: ExpeditionReturnedIngredient[] = [],
 ): void {
   const route = routeFor(run.routeId)
   if (!route) return
   if (outcome === 'success') {
-    const boost = route.yields.includes('legendary')
-      ? 7
-      : route.yields.includes('rare')
-        ? 4
-        : 2
+    // Scaled by WHAT CAME BACK, not by the best the route could have
+    // produced. A rare haul off the Broken Scree was earning the legendary
+    // boost because the route can also yield legendary — the house paid in
+    // reputation for something it did not bring home. Falls back to the
+    // route only when the haul says nothing, which is the recalled and
+    // retreated shapes that do not reach here anyway.
+    const tier = haulTier(haul)
+    const boost =
+      tier === 'legendary'
+        ? 7
+        : tier === 'rare'
+          ? 4
+          : tier === 'uncommon'
+            ? 2
+            : route.yields.includes('legendary')
+              ? 7
+              : route.yields.includes('rare')
+                ? 4
+                : 2
     applyRenownDrift(ctx, boost, {
       source: `${SOURCE}.renown`,
       readable: `A party came back from ${route.label} with something worth having.`,

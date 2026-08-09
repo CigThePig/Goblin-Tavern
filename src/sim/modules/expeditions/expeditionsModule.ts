@@ -481,7 +481,7 @@ function finishExpedition(ctx: SimContext, expedition: Expedition): void {
   settleTerms(ctx, finished, outcome, haulValue(haul))
   closeRecord(ctx, expedition, finished, outcome, haul)
   if (leader) writeOutcomeMemory(ctx, expedition, leader, outcome, haul)
-  applyRenown(ctx, finished, leader, outcome)
+  applyRenown(ctx, finished, leader, outcome, haul)
   applyWorldEffects(ctx, finished, outcome, haul, atSite)
 }
 

@@ -120,14 +120,50 @@ export function applyConditionDay(ctx: SimContext, entry: ActiveCondition): void
     }
     case 'quiet_roads': {
       // The one condition whose daily face is kind: nobody is coming, so
-      // the staff get their breath back. The cost is the trade that is not
-      // happening, which is the burden rather than the day.
+      // the staff get their breath back.
       for (const staff of Object.values(ctx.state.staff)) {
         if (staff.stress <= 0) continue
         ctx.modifyStaff(
           staff.id,
           { stress: clampPercent(staff.stress - 1) },
           { source: `${SOURCE}.quiet_roads`, reason: 'quiet_shifts' },
+        )
+      }
+      // AND THE TRADE THAT IS NOT HAPPENING. The condition declares
+      // `customers.traffic` and `suppliers` among the systems it touches,
+      // and neither the customer forecast nor supplier processing reads the
+      // active condition — so for ten to eighteen days the roads were empty
+      // in the report and completely normal in the simulation. The people
+      // who would have walked in stop walking in, and the suppliers who
+      // would have arrived take longer to.
+      // Through LOYALTY, not patronage. Loyalty is what the appeal model
+      // reads to decide who actually turns out, so this suppresses trade
+      // for as long as the roads are empty — and it comes back when they
+      // are not. Taking it out of `patronage` instead emptied the pool a
+      // point a day: over a fortnight the smaller crowds went to zero and
+      // never returned, which is a group being destroyed rather than a
+      // quiet spell. The PERSISTENT loss is the aftermath's to hand out,
+      // and it already does exactly that when the burden goes unanswered.
+      for (const group of Object.values(ctx.state.customerGroups)) {
+        if (group.patronage <= 0 || group.loyalty <= 0) continue
+        ctx.modifyCustomerGroup(
+          group.id,
+          { loyalty: clampPercent(group.loyalty - bite(1)) },
+          { source: `${SOURCE}.quiet_roads`, reason: 'nobody_is_travelling' },
+        )
+      }
+      for (const supplier of Object.values(ctx.state.world.suppliers)) {
+        if (supplier.reliability <= 0) continue
+        ctx.modifySupplier(
+          supplier.id,
+          { reliability: clampPercent(supplier.reliability - bite(1)) },
+          {
+            source: `${SOURCE}.quiet_roads`,
+            sourceType: 'system',
+            readable: `${supplier.label} cannot get anything down an empty road.`,
+            tags: ['condition', 'quiet_roads', supplier.id],
+            relatedSystems: ['conditions', 'suppliers'],
+          },
         )
       }
       break

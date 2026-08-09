@@ -3294,7 +3294,7 @@
         }
       },
       "traffic": {
-        "total": 528,
+        "total": 526,
         "byGroup": {
           "adventurers": 37,
           "eccentric_noble": 0,
@@ -3303,8 +3303,8 @@
           "gourmand": 0,
           "local_goblins": 282,
           "merchants": 50,
-          "miners": 128,
-          "ogres": 31
+          "miners": 127,
+          "ogres": 30
         }
       },
       "satisfaction": {
@@ -3393,7 +3393,7 @@
           "condition": 60,
           "cleanliness": 0,
           "mess": 100,
-          "damage": 45,
+          "damage": 44,
           "smell": 25,
           "risk": 34,
           "upgradesInstalled": 0,
@@ -3674,7 +3674,7 @@
           "topCauses": []
         },
         "inspection": {
-          "value": 64,
+          "value": 75,
           "trend": 1,
           "topCauses": []
         },
@@ -3684,12 +3684,12 @@
           "topCauses": []
         },
         "maintenance": {
-          "value": 18,
-          "trend": 1,
+          "value": 12,
+          "trend": -1,
           "topCauses": []
         },
         "market_instability": {
-          "value": 17,
+          "value": 20,
           "trend": -1,
           "topCauses": []
         },
@@ -3714,12 +3714,12 @@
           "topCauses": []
         },
         "rival_tavern_pressure": {
-          "value": 17,
+          "value": 13,
           "trend": 1,
           "topCauses": []
         },
         "rumour_pressure": {
-          "value": 37,
+          "value": 45,
           "trend": -1,
           "topCauses": []
         },
@@ -3751,17 +3751,17 @@
       },
       "issues": {
         "totalGenerated": 192,
-        "totalRejected": 78,
+        "totalRejected": 79,
         "seedsToday": 5,
         "surfacedToday": 5,
-        "withheldToday": 2,
+        "withheldToday": 3,
         "responsesResolvedToday": 0,
         "responsesAppliedToday": 0
       },
       "collections": {
         "memories": 34,
-        "history": 452,
-        "causes": 477,
+        "history": 459,
+        "causes": 548,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -3777,7 +3777,7 @@
         "regulars": 11,
         "notableNpcs": 11,
         "localEvents": 2,
-        "socialRumours": 17,
+        "socialRumours": 18,
         "hireableAdventurers": 4,
         "expeditionsActive": 0,
         "expeditionsCompleted": 0,
@@ -4902,7 +4902,7 @@
         }
       },
       "traffic": {
-        "total": 509,
+        "total": 508,
         "byGroup": {
           "adventurers": 44,
           "eccentric_noble": 0,
@@ -4912,7 +4912,7 @@
           "local_goblins": 270,
           "merchants": 59,
           "miners": 105,
-          "ogres": 31
+          "ogres": 30
         }
       },
       "satisfaction": {
@@ -5001,7 +5001,7 @@
           "condition": 60,
           "cleanliness": 0,
           "mess": 100,
-          "damage": 47,
+          "damage": 46,
           "smell": 25,
           "risk": 27,
           "upgradesInstalled": 0,
@@ -5058,7 +5058,7 @@
           "role": "cleaner_bouncer",
           "skill": 45,
           "morale": 50,
-          "stress": 28,
+          "stress": 25,
           "fatigue": 9,
           "loyalty": 57,
           "wage": 11,
@@ -5245,7 +5245,7 @@
           "missedRentCount": 0
         },
         "inspection": {
-          "suspicion": 67,
+          "suspicion": 66,
           "warningCount": 1
         },
         "unpaidStaff": 0
@@ -5297,7 +5297,7 @@
           "topCauses": []
         },
         "market_instability": {
-          "value": 17,
+          "value": 18,
           "trend": -1,
           "topCauses": []
         },
@@ -5322,7 +5322,7 @@
           "topCauses": []
         },
         "rival_tavern_pressure": {
-          "value": 16,
+          "value": 17,
           "trend": 1,
           "topCauses": []
         },
@@ -5369,7 +5369,7 @@
       "collections": {
         "memories": 30,
         "history": 276,
-        "causes": 656,
+        "causes": 713,
         "pressures": 21,
         "areas": 9,
         "stock": 22,
@@ -6908,7 +6908,7 @@
           "topCauses": []
         },
         "market_instability": {
-          "value": 5,
+          "value": 6,
           "trend": 1,
           "topCauses": []
         },
@@ -6980,7 +6980,7 @@
       "collections": {
         "memories": 57,
         "history": 227,
-        "causes": 955,
+        "causes": 1011,
         "pressures": 21,
         "areas": 9,
         "stock": 22,

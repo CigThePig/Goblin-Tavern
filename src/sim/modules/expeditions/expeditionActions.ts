@@ -66,6 +66,9 @@ function openQuestions(ctx: SimContext): ActionTarget[] {
   for (const run of liveExpeditionRuns(ctx.state)) {
     const pending = run.pendingDecision
     if (!pending) continue
+    // An answer already on the road is an answer. Offering the question
+    // again would let the house send a second rider after the first.
+    if (run.pendingAnswer) continue
     const route = routeFor(run.routeId)
     if (!route) continue
     // The question only exists for the house once the dispatch carrying it
@@ -183,7 +186,34 @@ const answerDispatch: OwnerActionDefinition = {
     const run = getExpeditionRun(ctx.state, parsed.expeditionId)!
     const route = routeFor(run.routeId)
     const prompt = run.pendingDecision?.prompt ?? ''
-    const answered = resolveDecision(ctx, expedition, parsed.optionId, false)
+    const today = ctx.state.calendar.totalDaysElapsed
+    const delay = route?.wordDelayDays ?? 0
+    const reachesOn = today + delay
+    // THE ANSWER RIDES OUT. Applying it here landed the player's choice on
+    // the party the moment it was made — supplies spent, hazard moved,
+    // sometimes the whole trip turned round, days before the rider could
+    // have got there. The deadline already allows for the round trip; this
+    // is the other half of that clock. Where word is instant it still
+    // resolves on the spot.
+    let answered = false
+    if (delay <= 0) {
+      answered = resolveDecision(ctx, expedition, parsed.optionId, false)
+    } else if (run.pendingDecision) {
+      writeExpeditionRun(
+        ctx,
+        parsed.expeditionId,
+        (current) => ({
+          ...current,
+          pendingAnswer: {
+            optionId: parsed.optionId,
+            sentOnDay: today,
+            reachesOnDay: reachesOn,
+          },
+        }),
+        'answer_sent',
+      )
+      answered = true
+    }
     const after = getExpeditionRun(ctx.state, parsed.expeditionId)
     return {
       actionId: 'answer_expedition_dispatch',
@@ -194,7 +224,9 @@ const answerDispatch: OwnerActionDefinition = {
       effects: answered
         ? [
             prompt,
-            `Word went back: ${parsed.optionId.replace(/_/g, ' ')}.`,
+            delay > 0
+              ? `Word went back: ${parsed.optionId.replace(/_/g, ' ')} — it reaches them on day ${reachesOn}.`
+              : `Word went back: ${parsed.optionId.replace(/_/g, ' ')}.`,
             ...(after && after.injuredRunnerIds.length > run.injuredRunnerIds.length
               ? ['Somebody was hurt doing it.']
               : []),
@@ -310,18 +342,21 @@ const sendRelief: OwnerActionDefinition = {
       tags: ['expedition', 'rescue'],
       relatedSystems: ['expeditions'],
     })
+    // RELIEF TRAVELS. Adding the supplies and halving the loss chance on the
+    // day the player paid rescued a party in the Underdeep four days before
+    // anybody could have reached them. `reliefSentOnDay` still marks it as
+    // sent — which is what stops a second one going out — and the journey
+    // applies what it carries when it gets there.
+    const reachesOn = today + (route?.wordDelayDays ?? 0)
     writeExpeditionRun(
       ctx,
       input.targetId!,
       (current) => ({
         ...current,
         reliefSentOnDay: today,
-        supplies: current.supplies + 6,
-        medicine: current.medicine + 1,
-        morale: Math.min(100, current.morale + 15),
-        hazard: Math.max(0, current.hazard - 12),
+        reliefReachesOnDay: reachesOn,
       }),
-      'relief',
+      'relief_sent',
     )
     bumpExpeditionTotal(ctx, 'reliefsSent')
     return {
@@ -332,7 +367,9 @@ const sendRelief: OwnerActionDefinition = {
       timeCost: TIME_COST_SHORT,
       effects: [
         `Relief went out to ${route?.label ?? 'the road'} — provisions, medicine and hands.`,
-        'It halves the chance of losing them outright.',
+        reachesOn > today
+          ? `It reaches them on day ${reachesOn}, and halves the chance of losing them from then on.`
+          : 'It halves the chance of losing them outright.',
         `Spent ${RELIEF_COST} coin.`,
       ],
       data: { expeditionId: input.targetId!, coinSpent: RELIEF_COST },

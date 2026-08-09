@@ -556,7 +556,20 @@ const pactReviewEvent: ScheduledEventDefinition = {
         },
         'pact_renewed',
       )
-      const readable = `${rival.name} were glad to keep to the arrangement for another three weeks.`
+      // AND ANOTHER REVIEW WITH IT. The event that reached this branch is
+      // already resolved, so without scheduling the next one the truce would
+      // simply lapse in three weeks and hostile moves would resume with no
+      // reconsideration and no pact-broken outcome. A renewal is a new
+      // arrangement and needs the same day in the diary the first one got.
+      const renewed = scheduleRivalPactReview(ctx, {
+        rivalId: rival.id,
+        source: `${RIVAL_MODULE_ID}.pact_renewed`,
+        readable: `The arrangement with ${rival.name} comes up again.`,
+        offsetDays: 21,
+      })
+      const readable = renewed
+        ? `${rival.name} were glad to keep to the arrangement for another three weeks. It comes up again after that.`
+        : `${rival.name} were glad to keep to the arrangement for another three weeks.`
       return {
         status: 'resolved',
         mutations: [

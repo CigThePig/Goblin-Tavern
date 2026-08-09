@@ -559,10 +559,30 @@ function buildExpeditionsReport(ctx: SimContext): ReportSection {
         lines.push(`  ${inTransit.length} message(s) still on the road.`)
       }
       if (run.pendingDecision) {
-        lines.push(
-          `  THEY ARE WAITING ON AN ANSWER: ${run.pendingDecision.prompt} (they act on day ${run.pendingDecision.deadlineDay})`,
-        )
-        lines.push(`  options: ${run.pendingDecision.optionIds.join(', ')}`)
+        // ONLY ONCE THE MESSAGE HAS ARRIVED. `pendingDecision` is written
+        // the day the party asks, so printing it straight away told the
+        // player exactly what a party four days out wanted days before the
+        // tavern could have heard — the report's own knowledge boundary,
+        // which the rest of this section keeps, broken by the one line that
+        // matters most. The action was already gated; the report was not.
+        const askedReached =
+          run.pendingDecision.askedOnDay + route.wordDelayDays <= today
+        if (askedReached) {
+          lines.push(
+            `  THEY ARE WAITING ON AN ANSWER: ${run.pendingDecision.prompt} (they act on day ${run.pendingDecision.deadlineDay})`,
+          )
+          lines.push(`  options: ${run.pendingDecision.optionIds.join(', ')}`)
+          if (run.pendingAnswer) {
+            lines.push(
+              `  the house's answer is on the road; it reaches them on day ${run.pendingAnswer.reachesOnDay}.`,
+            )
+          }
+        } else {
+          lines.push('  something happened out there; word has not reached the house yet.')
+        }
+      }
+      if (run.reliefReachesOnDay !== undefined && run.reliefArrivedOnDay === undefined) {
+        lines.push(`  relief is on the road; it reaches them on day ${run.reliefReachesOnDay}.`)
       }
       if (run.recalledOnDay !== undefined) {
         const reaches = run.recallReachesOnDay ?? run.recalledOnDay

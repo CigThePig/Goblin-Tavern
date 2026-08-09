@@ -526,9 +526,12 @@ export function advanceExpeditionDay(
     'day',
   )
 
-  // 2b. An order given days ago catches up with them today. Checked before
-  // they walk, so the day the recall lands is the day they turn round rather
-  // than one leg later.
+  // 2b. ORDERS GIVEN DAYS AGO CATCH UP WITH THEM TODAY. Checked before they
+  // walk, so the day something lands is the day it changes what they do
+  // rather than one leg later. All three of the house's moves ride out at
+  // the route's own speed — the recall, the answer to a question they
+  // asked, and the relief — because a route four days out has to be four
+  // days out in both directions or the delay is only a caption.
   const carrying = getExpeditionRun(ctx.state, expedition.id)
   if (
     carrying &&
@@ -544,6 +547,54 @@ export function advanceExpeditionDay(
       route,
       'progress',
       'The recall reached them and they turned for home.',
+    )
+  }
+
+  const withAnswer = getExpeditionRun(ctx.state, expedition.id)
+  if (withAnswer?.pendingAnswer && today >= withAnswer.pendingAnswer.reachesOnDay) {
+    const optionId = withAnswer.pendingAnswer.optionId
+    // The party may have run out of patience and answered it themselves
+    // while the rider was out. Then the reply is simply too late, and it is
+    // dropped rather than applied on top of what they already did.
+    if (withAnswer.pendingDecision) {
+      resolveDecision(ctx, expedition, optionId, false)
+    }
+    writeExpeditionRun(
+      ctx,
+      expedition.id,
+      (current) => {
+        const { pendingAnswer: _landed, ...rest } = current
+        return rest
+      },
+      'answer_arrived',
+    )
+  }
+
+  const withRelief = getExpeditionRun(ctx.state, expedition.id)
+  if (
+    withRelief?.reliefReachesOnDay !== undefined &&
+    withRelief.reliefArrivedOnDay === undefined &&
+    today >= withRelief.reliefReachesOnDay
+  ) {
+    writeExpeditionRun(
+      ctx,
+      expedition.id,
+      (current) => ({
+        ...current,
+        reliefArrivedOnDay: today,
+        supplies: current.supplies + 6,
+        medicine: current.medicine + 1,
+        morale: clamp(current.morale + 15, 0, 100),
+        hazard: clamp(current.hazard - 12, 0, 100),
+      }),
+      'relief_arrived',
+    )
+    queueDispatch(
+      ctx,
+      expedition.id,
+      route,
+      'progress',
+      'The relief found them.',
     )
   }
 
@@ -767,7 +818,10 @@ function checkTrouble(
     // and relief already sent halves it — which is what makes a rescue
     // worth paying for rather than a consolation.
     const base = (run.hazard - LOSS_HAZARD_THRESHOLD) / 40 + 0.1
-    const chance = run.reliefSentOnDay !== undefined ? base / 2 : base
+    // Relief halves it once it has ARRIVED, not when it was sent. Reading
+    // `reliefSentOnDay` meant a party in the Underdeep was rescued on the
+    // day the player paid, four days before anybody could have reached them.
+    const chance = run.reliefArrivedOnDay !== undefined ? base / 2 : base
     if (rng.float() < chance) {
       writeExpeditionRun(
         ctx,

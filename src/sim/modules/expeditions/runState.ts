@@ -194,6 +194,21 @@ export type ExpeditionRun = {
    */
   recallReachesOnDay?: number
   /**
+   * An answer riding out to a party that asked something.
+   *
+   * Word travels both ways at the route's speed. Applying the player's
+   * choice on the day they made it meant a decision taken in the tavern
+   * changed what a party four days out was doing before the rider had left
+   * the yard — supplies spent, hazard moved, somebody hurt, sometimes the
+   * whole trip turned round. The deadline already allows for the round
+   * trip; this is the other half of the same clock.
+   */
+  pendingAnswer?: { optionId: string; sentOnDay: number; reachesOnDay: number }
+  /** The day relief is due to reach them. */
+  reliefReachesOnDay?: number
+  /** The day it actually did. Until then it is still on the road. */
+  reliefArrivedOnDay?: number
+  /**
    * The day the party turned back on their OWN decision.
    *
    * Distinct from `recalledOnDay`, and the distinction is the point: §9.3
@@ -498,6 +513,15 @@ export const ExpeditionRunSchema = z.object({
   searchScore: z.number().optional(),
   recalledOnDay: z.number().int().optional(),
   recallReachesOnDay: z.number().int().optional(),
+  pendingAnswer: z
+    .object({
+      optionId: z.string(),
+      sentOnDay: z.number().int(),
+      reachesOnDay: z.number().int(),
+    })
+    .optional(),
+  reliefReachesOnDay: z.number().int().optional(),
+  reliefArrivedOnDay: z.number().int().optional(),
   retreatedOnDay: z.number().int().optional(),
   reliefSentOnDay: z.number().int().optional(),
   terminal: z.enum(['returned', 'recalled', 'retreated', 'lost']).optional(),

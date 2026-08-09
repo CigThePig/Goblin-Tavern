@@ -253,6 +253,37 @@ export function applyScarDrag(ctx: SimContext): void {
         }
         break
       }
+      case 'tax_month': {
+        // An unpaid assessment is remembered by the people who assess. This
+        // switch had no `tax_month` case at all, so the scar the aftermath
+        // creates sat in the report under "Still being felt" for sixty days
+        // changing nothing — an advertised lingering consequence that was
+        // inert while still occupying the scar cap. What it costs is
+        // standing with the landlord, who is the party the levy runs
+        // through and who already has a pressure ladder that reads it.
+        const monthly = ctx.state.modules['monthly'] as
+          | { landlord?: { pressure?: number } }
+          | undefined
+        const current = monthly?.landlord?.pressure
+        if (typeof current === 'number') {
+          ctx.modifyModuleState<Record<string, unknown>>(
+            'monthly',
+            (slice) => {
+              const base = (slice ?? {}) as Record<string, unknown>
+              const landlord = (base['landlord'] ?? {}) as Record<string, unknown>
+              return {
+                ...base,
+                landlord: {
+                  ...landlord,
+                  pressure: clampPercent(current + strength),
+                },
+              }
+            },
+            { source: `${SOURCE}.scar`, reason: 'the_assessment_is_remembered' },
+          )
+        }
+        break
+      }
       default:
         break
     }

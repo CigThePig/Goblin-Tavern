@@ -566,6 +566,108 @@ describe('Phase 216 §9.3 — recall, retreat, rescue and loss', () => {
   })
 })
 
+describe("Phase 216 §9.3 — the house's orders travel too", () => {
+  it('does not land an answer, or relief, before it could reach them', () => {
+    // Delayed information has to cut BOTH ways. Gating what the house hears
+    // while letting what the house decides teleport made the far routes no
+    // darker than the near ones: a party four days out had its supplies
+    // spent, its hazard moved and sometimes its whole trip turned round on
+    // the day the player clicked.
+    let state = withRunners('orders')
+    state = commission(
+      state,
+      9,
+      { mode: 'open', targetTier: 'rare', routeId: 'deep_fen' },
+      'orders',
+    )
+    const opened = liveExpeditionRuns(state)[0]!
+    const route = routeFor(opened.routeId)!
+    expect(route.wordDelayDays).toBeGreaterThan(0)
+
+    // Walk them until a question is actually on the board for the house.
+    let day = 10
+    let question: { id: string } | undefined
+    for (let i = 0; i < 20 && !question; i += 1) {
+      state = run(state, day, [], 'orders')
+      day += 1
+      question = offers(state, 'answer_expedition_dispatch')[0]
+    }
+    if (question) {
+      const before = getExpeditionRun(state, opened.expeditionId)!
+      state = run(
+        state,
+        day,
+        [{ actionId: 'answer_expedition_dispatch', targetId: question.id }],
+        'orders',
+      )
+      day += 1
+      const sent = getExpeditionRun(state, opened.expeditionId)!
+      // On the road, not with them: the question is still open and the
+      // answer is recorded as in transit.
+      expect(sent.pendingAnswer).toBeDefined()
+      expect(sent.pendingAnswer!.reachesOnDay).toBe(
+        sent.pendingAnswer!.sentOnDay + route.wordDelayDays,
+      )
+      expect(sent.supplies).toBe(before.supplies - route.provisionsPerDay * before.partyRunnerIds.length)
+      // And the same question is not offered a second time.
+      expect(offers(state, 'answer_expedition_dispatch').map((t) => t.id)).not.toContain(
+        question.id,
+      )
+    }
+
+    // Relief, if the house has heard bad news, is the same story.
+    const relief = offers(state, 'send_relief_to_expedition')[0]
+    if (relief) {
+      state = run(
+        state,
+        day,
+        [{ actionId: 'send_relief_to_expedition', targetId: relief.id }],
+        'orders',
+      )
+      const sent = getExpeditionRun(state, opened.expeditionId)
+      if (sent) {
+        expect(sent.reliefSentOnDay).toBeDefined()
+        expect(sent.reliefReachesOnDay).toBe(
+          sent.reliefSentOnDay! + route.wordDelayDays,
+        )
+        // Nothing arrives on the day it was paid for.
+        expect(sent.reliefArrivedOnDay).toBeUndefined()
+      }
+    }
+  })
+
+  it('refuses a named ingredient the chosen route cannot yield', () => {
+    // Open mode already refuses a tier the route cannot produce. Targeted
+    // mode checked only that the ingredient was not common, so asking for a
+    // legendary BY NAME on the Market Road walked straight past the whole
+    // danger-and-discovery progression.
+    let state = withRunners('yields')
+    const runner = freeRunners(state)[0]!
+    const legendary = Object.values(state.stock).find(
+      (item) => item.rarity === 'legendary',
+    )
+    if (!legendary) return
+    const before = liveExpeditionRuns(state).length
+    state = run(
+      state,
+      9,
+      [
+        {
+          actionId: 'commission_expedition',
+          targetId: runner.id,
+          options: {
+            mode: 'targeted',
+            targetIngredientId: legendary.id,
+            routeId: 'market_road',
+          },
+        },
+      ],
+      'yields',
+    )
+    expect(liveExpeditionRuns(state).length).toBe(before)
+  })
+})
+
 describe('Phase 216 §9.3 — what the house owes and cannot pay', () => {
   it('records the shortfall rather than forgiving it', () => {
     // The dodge this closes: pay the advance, spend the till down while the

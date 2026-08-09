@@ -386,6 +386,20 @@ export const commissionExpedition: OwnerActionDefinition = {
           reason: `Targeted expeditions only fetch uncommon/rare/legendary ingredients; '${ingredientId}' is common.`,
         }
       }
+      // AND THE ROUTE HAS TO BE ABLE TO YIELD IT. Open mode already refuses
+      // a tier the route cannot produce; targeted mode checked only that the
+      // ingredient was not common, so naming a legendary ingredient
+      // alongside `routeId: 'market_road'` passed — and `tierForRun` then
+      // read the ingredient's own rarity and `buildHaul` handed it over.
+      // That is the whole danger-and-discovery progression bypassed by
+      // asking for the thing by name instead of by tier.
+      if (!route.yields.includes(rarity)) {
+        return {
+          ok: false,
+          code: 'tier_not_on_route',
+          reason: `${route.label} does not yield ${rarity} — it yields ${route.yields.join(', ')}.`,
+        }
+      }
     }
     const partySize = Math.min(readPartySize(input), availableRunners(ctx).length)
     const loadout = {

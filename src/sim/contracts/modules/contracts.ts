@@ -383,7 +383,10 @@ export const MODULE_CONTRACTS: Readonly<Record<string, ModuleContract>> = {
   conditions: {
     slices: [
       { sliceId: 'conditions', version: 1, access: 'owns' },
-      { sliceId: 'monthly', version: 1, access: 'reads' },
+      // A tax scar is remembered by the landlord, who is the party the levy
+      // runs through — so the scar's drag lands on `monthly.landlord`
+      // rather than on a meter of this module's own.
+      { sliceId: 'monthly', version: 1, access: 'writes' },
       // The unpaid part of a levy is recorded as a decaying `debt`
       // adjustment rather than a direct pressure write, which is a write
       // into the pressure module's own slice and is declared as such.

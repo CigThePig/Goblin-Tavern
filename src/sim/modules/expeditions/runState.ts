@@ -194,6 +194,16 @@ export type ExpeditionRun = {
    */
   recallReachesOnDay?: number
   /**
+   * The day the order actually reached them and they turned round.
+   *
+   * Distinct from `recalledOnDay`, which is only when the house GAVE it. A
+   * party can walk home under its own steam before a late order catches up,
+   * and classifying the trip on the order having been sent turned a normal
+   * success into a recall — a worse haul and a different record for a
+   * message that never arrived.
+   */
+  recallArrivedOnDay?: number
+  /**
    * An answer riding out to a party that asked something.
    *
    * Word travels both ways at the route's speed. Applying the player's
@@ -422,7 +432,18 @@ export function pruneExpeditionRuns(
       live.push(run)
       continue
     }
-    const day = closedOnDayFor(run) ?? 0
+    const day = closedOnDayFor(run)
+    if (day === undefined) {
+      // Terminal, but the house has not finished with it: a lost party
+      // whose word is still on the road has no completed record yet.
+      // Defaulting the closed day to 0 aged it instantly, so after day 60
+      // the run was deleted the same night while the expedition stayed in
+      // `expeditions.active` — and the next morning it fell into the
+      // legacy-resolution path, which could overwrite the recorded loss and
+      // leave the rest of the party marked busy for good.
+      live.push(run)
+      continue
+    }
     if (today - day > CLOSED_RUN_RETENTION_DAYS) continue
     closed.push({ run, day })
   }
@@ -513,6 +534,7 @@ export const ExpeditionRunSchema = z.object({
   searchScore: z.number().optional(),
   recalledOnDay: z.number().int().optional(),
   recallReachesOnDay: z.number().int().optional(),
+  recallArrivedOnDay: z.number().int().optional(),
   pendingAnswer: z
     .object({
       optionId: z.string(),

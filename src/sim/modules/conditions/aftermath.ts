@@ -2,7 +2,7 @@ import type { SimContext } from '../../core/context'
 import { conditionFor } from '../../content/conditions/conditionDefinitions'
 import { recordPressureAdjustment } from '../pressures/pressureModule'
 import { applyRenownDrift } from '../service/renown'
-import { spendCoin } from '../stock/ledger'
+import { addCoin, spendCoin } from '../stock/ledger'
 
 import {
   SCAR_LIFETIME_DAYS,
@@ -68,6 +68,25 @@ export function resolveCondition(
   // it also left a mess, because those are two different things that
   // happened to the same fortnight.
   if (entry.exploited && entry.exploitGain > 0) {
+    // IT HAS TO PAY IN COIN, not only in renown. Every exploit costs coin
+    // to buy — `take_the_companys_coin` is 25 — and converting the whole
+    // gain into reputation made the one option the catalogue describes as
+    // explicitly profitable a guaranteed net loss however long the
+    // condition ran. The gain is trade the house worked for while the
+    // weather was against it, so it comes back as takings, with the
+    // reputation on top rather than instead.
+    const takings = Math.max(1, Math.round(entry.exploitGain))
+    addCoin(ctx, takings, {
+      category: 'sales',
+      source: `${SOURCE}.exploited`,
+      sourceType: 'system',
+      target: 'coin',
+      targetType: 'coin',
+      amount: takings,
+      readable: `The house made ${takings} coin out of the ${label}.`,
+      tags: ['condition', 'exploited', entry.conditionId],
+      relatedSystems: ['conditions', 'economy'],
+    })
     applyRenownDrift(ctx, Math.min(6, Math.round(entry.exploitGain / 6)), {
       source: `${SOURCE}.exploited`,
       readable: `The house made something of the ${label}.`,

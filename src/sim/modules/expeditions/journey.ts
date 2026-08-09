@@ -553,7 +553,7 @@ export function advanceExpeditionDay(
     carrying.phase !== 'returning' &&
     carrying.phase !== 'home'
   ) {
-    applyRecallArrival(ctx, expedition.id)
+    applyRecallArrival(ctx, expedition.id, today)
     queueDispatch(
       ctx,
       expedition.id,
@@ -902,7 +902,7 @@ export function recallExpedition(ctx: SimContext, expeditionId: string): boolean
   )
   // Applied straight away only where word is instant, so a road trip still
   // turns on the day it is told to.
-  if (reachesOn <= today) applyRecallArrival(ctx, expeditionId)
+  if (reachesOn <= today) applyRecallArrival(ctx, expeditionId, today)
   if (route) {
     queueDispatch(
       ctx,
@@ -977,12 +977,15 @@ function applyArrivedAnswer(
 }
 
 /** The day the order lands: they turn round, and it lifts them. */
-function applyRecallArrival(ctx: SimContext, expeditionId: string): void {
+function applyRecallArrival(ctx: SimContext, expeditionId: string, today: number): void {
   writeExpeditionRun(
     ctx,
     expeditionId,
     (current) => ({
       ...turnAround(current),
+      // Stamped on ARRIVAL, not on sending. It is what makes the trip a
+      // recall rather than a trip that happened to have an order chasing it.
+      recallArrivedOnDay: today,
       // A recall lifts spirits: they were told to come home, not driven.
       morale: clamp(current.morale + 8, 0, 100),
     }),

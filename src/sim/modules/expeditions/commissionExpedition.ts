@@ -182,14 +182,22 @@ function computeCost(
  * provisions are provisions whoever is paying the runner.
  */
 export function commissionCosts(
-  runner: { wageBase: number },
+  party: ReadonlyArray<{ wageBase: number }>,
   route: ExpeditionRoute,
-  partySize: number,
   loadout: { provisions: number; gear: number; medicine: number },
   terms: ExpeditionTermsKind,
 ): { advance: number; loadout: number; agreed: number; total: number } {
   const days = routeTravelDays(route) + 1
-  const wage = computeCost(runner, days) * partySize
+  // EVERY MEMBER AT THEIR OWN RATE. Multiplying the leader's wage by the
+  // party size priced companions the form picks automatically — by highest
+  // experience — at whatever the leader happens to earn: a cheap leader
+  // brought expensive veterans at the cheap rate, and an expensive one
+  // overcharged for cheap companions. The party is a list of people who are
+  // each owed something, so it is summed rather than multiplied.
+  const wage = party.reduce(
+    (sum, member) => sum + computeCost(member, days),
+    0,
+  )
   const agreed =
     terms === 'flat_fee'
       ? wage
@@ -207,6 +215,27 @@ export function commissionCosts(
     loadout.medicine * MEDICINE_UNIT_COST +
     loadout.gear * GEAR_UNIT_COST
   return { advance, loadout: kit, agreed, total: advance + kit }
+}
+
+/**
+ * Who actually goes, in the order they are picked.
+ *
+ * The leader is the runner the player named; the rest come along by
+ * experience, in a stable order so the same commission builds the same
+ * party. Shared between `canApply` and `apply` so the price quoted at the
+ * gate is the price charged — they used to build the party twice, by
+ * slightly different routes.
+ */
+function buildParty(
+  ctx: SimContext,
+  leader: { id: string; wageBase: number; experience: number },
+  requested: number,
+): Array<{ id: string; wageBase: number; experience: number }> {
+  const others = availableRunners(ctx)
+    .filter((candidate) => candidate.id !== leader.id)
+    .sort((a, b) => b.experience - a.experience || a.id.localeCompare(b.id))
+  const size = Math.max(1, Math.min(requested, 1 + others.length))
+  return [leader, ...others.slice(0, size - 1)]
 }
 
 /** Adventurers who are neither out on a job nor recovering from one. */
@@ -401,19 +430,15 @@ export const commissionExpedition: OwnerActionDefinition = {
         }
       }
     }
-    const partySize = Math.min(readPartySize(input), availableRunners(ctx).length)
+    // The same party `apply` will actually send, so the gate prices what the
+    // player will be charged rather than an approximation of it.
+    const party = buildParty(ctx, runner, readPartySize(input))
     const loadout = {
-      provisions: readProvisions(input, route, partySize),
+      provisions: readProvisions(input, route, party.length),
       gear: readGear(input),
       medicine: readMedicine(input),
     }
-    const costs = commissionCosts(
-      runner,
-      route,
-      partySize,
-      loadout,
-      readTermsKind(input),
-    )
+    const costs = commissionCosts(party, route, loadout, readTermsKind(input))
     if (ctx.state.coin < costs.total) {
       return {
         ok: false,
@@ -439,12 +464,8 @@ export const commissionExpedition: OwnerActionDefinition = {
     // in a stable order so the same commission builds the same party.
     const others = availableRunners(ctx)
       .filter((candidate) => candidate.id !== runner.id)
-      .sort((a, b) => b.experience - a.experience || a.id.localeCompare(b.id))
-    const partySize = Math.min(readPartySize(input), 1 + others.length)
-    const partyRunnerIds = [
-      runner.id,
-      ...others.slice(0, Math.max(0, partySize - 1)).map((entry) => entry.id),
-    ]
+    const party = buildParty(ctx, runner, readPartySize(input))
+    const partyRunnerIds = party.map((member) => member.id)
 
     const loadout = {
       provisions: readProvisions(input, route, partyRunnerIds.length),
@@ -452,13 +473,7 @@ export const commissionExpedition: OwnerActionDefinition = {
       medicine: readMedicine(input),
     }
     const termsKind = readTermsKind(input)
-    const costs = commissionCosts(
-      runner,
-      route,
-      partyRunnerIds.length,
-      loadout,
-      termsKind,
-    )
+    const costs = commissionCosts(party, route, loadout, termsKind)
     const cost = costs.total
     const targetTier = mode === 'open' ? readTargetTier(input) : null
     const targetIngredientId =

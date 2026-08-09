@@ -423,10 +423,14 @@ function finishExpedition(ctx: SimContext, expedition: Expedition): void {
   // recorded as such rather than as a failure — somebody made a call, and
   // the record should say who.
   // A recall beats a retreat when both happened: the house's order is what
-  // actually brought them in, whatever the party had already decided.
+  // actually brought them in, whatever the party had already decided. But
+  // only an order that ARRIVED counts — a returning party can reach home
+  // before a late one catches up, and reading `recalledOnDay` alone let a
+  // recall sent on the last day retroactively turn a success into a recall,
+  // with the smaller haul that goes with it, for a message they never got.
   const terminal =
     run.terminal ??
-    (run.recalledOnDay !== undefined
+    (run.recallArrivedOnDay !== undefined
       ? 'recalled'
       : run.retreatedOnDay !== undefined
         ? 'retreated'
@@ -604,8 +608,19 @@ function buildExpeditionsReport(ctx: SimContext): ReportSection {
             : `  recalled on day ${run.recalledOnDay}; the order reaches them on day ${reaches}.`,
         )
       }
+      // ONLY WHAT WORD HAS BROUGHT, here too. An injury is written to the
+      // run the moment it happens; printing the count unconditionally told
+      // the player a remote party was hurt days before the tavern could
+      // have heard — and let them recall on it, while the relief action
+      // beside it correctly waited for the dispatch. The count is the news,
+      // so it waits for the news.
       if (run.injuredRunnerIds.length > 0) {
-        lines.push(`  ${run.injuredRunnerIds.length} hurt.`)
+        const hurtWordHome = run.dispatches.some(
+          (dispatch) =>
+            (dispatch.kind === 'trouble' || dispatch.kind === 'terminal') &&
+            dispatch.arrivesOnDay <= today,
+        )
+        if (hurtWordHome) lines.push(`  ${run.injuredRunnerIds.length} hurt.`)
       }
     }
   }

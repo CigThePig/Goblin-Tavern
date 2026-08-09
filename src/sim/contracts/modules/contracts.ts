@@ -392,8 +392,19 @@ export const MODULE_CONTRACTS: Readonly<Record<string, ModuleContract>> = {
       // into the pressure module's own slice and is declared as such.
       { sliceId: 'pressures', version: 1, access: 'writes' },
     ],
-    readsStatePaths: ['areas', 'calendar', 'coin', 'customerGroups', 'reputation', 'staff', 'stock'],
-    writesStatePaths: ['areas', 'coin', 'customerGroups', 'pressures', 'reputation', 'staff', 'stock'],
+    readsStatePaths: ['areas', 'calendar', 'coin', 'customerGroups', 'reputation', 'staff', 'stock', 'world'],
+    writesStatePaths: [
+      'areas',
+      'coin',
+      'customerGroups',
+      'pressures',
+      'reputation',
+      'staff',
+      'stock',
+      // Adventurer season claims the roster among the systems it touches,
+      // and now actually reaches it.
+      'world.hireableAdventurers',
+    ],
   },
   // Expansion Phase 9 §9.2 — the suppliers slice gains a declared owner.
   //

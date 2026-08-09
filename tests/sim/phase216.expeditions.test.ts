@@ -676,6 +676,45 @@ describe("Phase 216 §9.3 — the house's orders travel too", () => {
     }
   })
 
+  it('prices each party member at their own wage', () => {
+    // The companions are picked automatically, by experience — so pricing
+    // the group at the leader's rate let a cheap leader bring expensive
+    // veterans cheaply, and an expensive one overcharge for cheap ones.
+    let state = withRunners('wages')
+    const free = freeRunners(state)
+    if (free.length < 2) return
+    const leader = free[0]!
+    state = commission(
+      state,
+      9,
+      {
+        mode: 'open',
+        targetTier: 'uncommon',
+        routeId: 'market_road',
+        partySize: 2,
+        provisions: 0,
+        medicine: 0,
+        gear: 0,
+      },
+      'wages',
+    )
+    const opened = liveExpeditionRuns(state)[0]
+    if (!opened || opened.partyRunnerIds.length < 2) return
+    const record = state.expeditions.active.find(
+      (entry) => entry.id === opened.expeditionId,
+    )!
+    const days = record.daysTotal
+    const wages = opened.partyRunnerIds.map(
+      (id) => free.find((runner) => runner.id === id)?.wageBase ?? 0,
+    )
+    const summed = wages.reduce((total, wage) => total + wage, 0) * days
+    // Flat fee with no loadout: the advance IS the summed wage bill.
+    expect(record.costPaid).toBe(summed)
+    // And that is genuinely different from the leader-times-size price the
+    // old formula produced, or this test proves nothing.
+    expect(summed).not.toBe(leader.wageBase * days * wages.length)
+  })
+
   it('refuses a named ingredient the chosen route cannot yield', () => {
     // Open mode already refuses a tier the route cannot produce. Targeted
     // mode checked only that the ingredient was not common, so asking for a

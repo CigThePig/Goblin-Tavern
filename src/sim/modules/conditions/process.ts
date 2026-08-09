@@ -141,6 +141,32 @@ export function applyConditionDay(ctx: SimContext, entry: ActiveCondition): void
           { source: `${SOURCE}.adventurer_season`, reason: 'boots_on_the_tables' },
         )
       }
+      // AND THE COMPANIES ARE ACTUALLY ABOUT. The condition declared
+      // `world.hireableAdventurers` among the systems it touches, the
+      // report printed that claim every day, and nothing anywhere read it —
+      // so the season's whole premise, that companies are forming up and
+      // moving through, was inert. Runners idle on the roster get their
+      // reckoning of days-since-last-job wound back, which is what the
+      // hiring and drift rules read: there is work about, and the people to
+      // do it are around to be hired.
+      for (const adventurer of Object.values(ctx.state.world.hireableAdventurers)) {
+        if (adventurer.currentExpeditionId !== null) continue
+        if (adventurer.daysSinceLastJob <= 0) continue
+        ctx.modifyHireableAdventurer(
+          adventurer.id,
+          {
+            daysSinceLastJob: Math.max(0, adventurer.daysSinceLastJob - 2),
+          },
+          {
+            source: `${SOURCE}.adventurer_season`,
+            sourceType: 'system',
+            readable: `${adventurer.name.display} is about while the companies are moving.`,
+            tags: ['condition', 'adventurer_season', adventurer.id],
+            relatedActors: [{ kind: 'other', id: adventurer.id }],
+            relatedSystems: ['conditions', 'adventurers'],
+          },
+        )
+      }
       break
     }
     default:

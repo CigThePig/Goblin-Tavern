@@ -122,9 +122,26 @@
   const spareProvisions = $derived(Math.min(extraProvisions, baseProvisions))
   const provisions = $derived(baseProvisions + spareProvisions)
 
+  /**
+   * The party the engine will actually send: the named leader, then the
+   * most experienced of whoever else is free, in the same order
+   * `buildParty` uses. Priced member by member, because the companions the
+   * form picks automatically can earn more or less than the leader.
+   */
+  const partyMembers = $derived.by(() => {
+    if (!runner) return []
+    const others = availableRunners
+      .filter((candidate: AdventurerRow) => candidate.id !== runner.id)
+      .sort(
+        (a: AdventurerRow, b: AdventurerRow) =>
+          b.experience - a.experience || a.id.localeCompare(b.id),
+      )
+    return [runner, ...others.slice(0, Math.max(0, party - 1))]
+  })
+
   const costs = $derived(
     runner && route
-      ? commissionCosts(runner, route, party, { provisions, medicine, gear }, terms)
+      ? commissionCosts(partyMembers, route, { provisions, medicine, gear }, terms)
       : null,
   )
   const cost = $derived(costs?.total ?? 0)

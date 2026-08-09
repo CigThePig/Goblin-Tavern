@@ -72,7 +72,8 @@ export function outcomeFor(run: ExpeditionRun): ExpeditionOutcome {
   // its own outcome, which is why §9.3 lists retreat and recall apart from
   // failure.
   if (run.reachedSiteOnDay === undefined) {
-    if (run.recalledOnDay !== undefined) return 'recalled'
+    // Arrived, not merely sent — see `finishExpedition`.
+    if (run.recallArrivedOnDay !== undefined) return 'recalled'
     if (run.retreatedOnDay !== undefined) return 'retreated'
     return 'failure'
   }

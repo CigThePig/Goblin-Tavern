@@ -557,6 +557,66 @@ describe('Phase 216 §9.4 — the accumulated consequence', () => {
   })
 })
 
+describe('Phase 216 §9.4 — an exploited condition pays in coin', () => {
+  it('banks takings, not only renown', () => {
+    // Every exploit COSTS coin to buy. Converting the whole gain into
+    // reputation made the one option the catalogue calls explicitly
+    // profitable a guaranteed net loss however long the condition ran.
+    let state = house(30000)
+    let found = false
+    for (let day = 0; day < 200 && !found; day += 1) {
+      const target = offers(state, 'exploit_condition')[0]
+      state = run(
+        state,
+        day,
+        target ? [{ actionId: 'exploit_condition', targetId: target.id }] : [],
+        `${SEED}/exploit`,
+      )
+      const record = getConditionsModuleState(state).history.at(-1)
+      if (record && record.exploited && record.exploitGain > 0) {
+        expect(
+          state.causes.some(
+            (cause) =>
+              cause.tags.includes('exploited') && cause.targetType === 'coin',
+          ),
+          'the exploit paid no coin',
+        ).toBe(true)
+        found = true
+      }
+    }
+    expect(found, 'no condition was ever exploited to a close').toBe(true)
+  })
+})
+
+describe('Phase 216 §9.4 — adventurer season reaches the roster', () => {
+  it('does something to the adventurers it says it touches', () => {
+    // The condition declared `world.hireableAdventurers` among its affected
+    // systems and the report printed that claim daily, while nothing
+    // anywhere read it — the season's whole premise was inert.
+    const definition = conditionFor('adventurer_season')!
+    expect(definition.affects).toContain('world.hireableAdventurers')
+
+    let state = house()
+    let sawSeason = false
+    for (let day = 0; day < 220 && !sawSeason; day += 1) {
+      const before = state
+      state = run(state, day, [], `${SEED}/season`)
+      const active = getConditionsModuleState(state).active
+      if (!active.some((entry) => entry.conditionId === 'adventurer_season')) {
+        continue
+      }
+      const moved = Object.values(state.world.hireableAdventurers).some(
+        (adventurer) =>
+          adventurer.currentExpeditionId === null &&
+          adventurer.daysSinceLastJob <
+            (before.world.hireableAdventurers[adventurer.id]?.daysSinceLastJob ?? 0),
+      )
+      if (moved) sawSeason = true
+    }
+    expect(sawSeason, 'the season never touched the roster').toBe(true)
+  })
+})
+
 describe('Phase 216 §9.4 — the monthly slice still knows what kind of month it is', () => {
   it('projects the running condition onto currentModifier', () => {
     const found = runUntilActive(house(), 0)

@@ -25,6 +25,7 @@ import { memoriesModule } from './modules/memories/index'
 import { responsesModule } from './modules/responses/index'
 import { localArcsModule } from './modules/localArcs/index'
 import { monthlyModule } from './modules/monthly/index'
+import { conditionsModule } from './modules/conditions/index'
 import { ownerActionsModule } from './modules/ownerActions/index'
 import { pressuresModule } from './modules/pressures/index'
 import { serviceModule } from './modules/service/index'
@@ -36,6 +37,7 @@ import { cultureModule } from './modules/cultures/index'
 import { factionModule } from './modules/factions/index'
 import { npcModule } from './modules/npcs/index'
 import { rumourModule } from './modules/rumours/index'
+import { rivalModule } from './modules/rival/index'
 import { supplierModule } from './modules/suppliers/index'
 import { regularModule } from './modules/regulars/index'
 import { adventurersModule } from './modules/adventurers/index'
@@ -79,6 +81,13 @@ export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   // `forecastTraffic`, so talk that moved this morning is believed by the
   // time turnout is projected.
   rumourModule,
+  // Expansion Phase 9 §9.1 — the rival tavern as an actor. Runs at
+  // `localEventUpdate`, after the faction and rumour passes (so backing
+  // given and talk moved this morning are on the books) and before
+  // `forecastTraffic` (so a crowd courted today is felt in tonight's
+  // turnout). Declares `dependsOn: ['factions']` because the head-to-head
+  // reads faction rival-backing.
+  rivalModule,
   supplierModule,
   regularModule,
   adventurersModule,
@@ -87,6 +96,11 @@ export const FULL_PIPELINE: ReadonlyArray<SimulationModule> = [
   serviceModule,
   economyModule,
   weeklyModule,
+  // Expansion Phase 9 §9.4 — world conditions decide what is actually
+  // happening today BEFORE the monthly module projects it onto
+  // `currentModifier`, so the rent bump and the arc gates read the world
+  // as it is rather than as it was yesterday.
+  conditionsModule,
   monthlyModule,
   localArcsModule,
   tavernIdentityModule,

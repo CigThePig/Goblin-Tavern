@@ -1,6 +1,7 @@
 import type { SimContext } from '../../core/context'
 import type { CustomerGroupState, TavernState } from '../../state/TavernState'
 import { isOverdue, listObligations, outstandingAmount } from '../../contracts/obligations/index'
+import { competitorChoiceFactorForGroup } from '../rival/appeal'
 import { getFactionRivalBacking } from '../factions/stances'
 import type { DailyServiceResult, ServiceModuleState } from '../service/types'
 
@@ -144,13 +145,31 @@ export function advanceEconomyModifiers(
   }
 }
 
-/** Rival appeal turns the monthly opponent into a real group-specific choice. */
+/**
+ * Rival appeal turns the monthly opponent into a real group-specific choice.
+ *
+ * Expansion Phase 9 §9.1 replaced the SOURCE of the number without changing
+ * its shape or its bounds. It used to read one global meter
+ * (`monthly.rivalTavern.appeal`) that nothing the rival did ever wrote; it
+ * now reads the head-to-head in `rival/appeal.ts`, where what this group
+ * thinks of drinking here is compared against what the rival has actually
+ * built and how hard it is courting THIS crowd. Same ±20% ceiling, same
+ * susceptibility term, same clamp — so a rival that has done nothing leaves
+ * turnout exactly where it was.
+ *
+ * The pre-Phase-9 rule is kept as the fallback for a state with no rival
+ * slice yet (an old save mid-migration, or a fixture built by hand), so this
+ * function has an answer before the rival module's first pass runs.
+ */
 export function getCompetitorChoiceFactorForGroup(
   state: TavernState,
   groupId: string,
 ): number {
   const group = state.customerGroups[groupId]
   if (!group) return 1
+  const fromRival = competitorChoiceFactorForGroup(state, groupId)
+  if (fromRival !== undefined) return fromRival
+
   const monthly = state.modules['monthly'] as
     | { rivalTavern?: { appeal?: number } }
     | undefined

@@ -35,7 +35,12 @@ import {
   TIME_COST_SHORT,
   getOwnerActionsModuleState,
 } from '../../src/sim/modules/ownerActions/stateHelpers'
-import { COMMISSION_EXPEDITION_ACTION_ID } from '../../src/sim/modules/expeditions/commissionExpedition'
+import {
+  COMMISSION_EXPEDITION_ACTION_ID,
+  SUPPLY_UNIT_COST,
+} from '../../src/sim/modules/expeditions/commissionExpedition'
+import { routeFor } from '../../src/sim/modules/expeditions/journey'
+import { routeProvisionsNeeded } from '../../src/sim/content/expeditions/expeditionRoutes'
 import {
   createLiquorLicenseVenture,
   LIQUOR_LICENSE_VENTURE_ID,
@@ -205,7 +210,15 @@ describe('P3-BHV-002 — expedition commissioning opens and completes', () => {
     expect(expedition.runnerId).toBe(runnerId)
     // Phase 77 / ISSUE-037 — the cost is the runner's wage, not a
     // free-form amount, and it is actually taken out of the till.
-    expect(expedition.costPaid).toBe(wageBase * 2)
+    // Expansion Phase 9 §9.3 — the duration is the ROUTE's, not a number
+    // the payload typed: an uncommon target defaults to the Market Road,
+    // five days there and back, and the loadout is bought on top of the
+    // wage rather than assumed into it.
+    expect(expedition.daysTotal).toBe(5)
+    expect(expedition.costPaid).toBe(
+      wageBase * expedition.daysTotal +
+        routeProvisionsNeeded(routeFor('market_road')!, 1) * SUPPLY_UNIT_COST,
+    )
     expect(
       state.causes.some(
         (c) =>
@@ -218,9 +231,9 @@ describe('P3-BHV-002 — expedition commissioning opens and completes', () => {
     )
     expect(safeValidateState(state).success).toBe(true)
 
-    // Run it out. `daysTotal` 2 resolves end-only, so three more days is
-    // ample; the assertion is that it completes NATURALLY.
-    for (let i = 0; i < 4 && state.expeditions.active.length > 0; i += 1) {
+    // Run it out. The route's own duration decides when, so sweep past it
+    // rather than counting; the assertion is that it completes NATURALLY.
+    for (let i = 0; i < 12 && state.expeditions.active.length > 0; i += 1) {
       state = runDay(state, { seed: `${SEED}-day-${i}` }).state
     }
 
@@ -234,6 +247,68 @@ describe('P3-BHV-002 — expedition commissioning opens and completes', () => {
       state.world.hireableAdventurers[runnerId]?.currentExpeditionId,
     ).toBeNull()
     expect(safeValidateState(state).success).toBe(true)
+  })
+})
+
+// ── Expansion Phase 9 — composite-target actions open ───────────────
+
+describe('Expansion Phase 9 — an action with its own target list opens', () => {
+  // The same failure `P3-BHV-002` found, one arc later and eight actions
+  // wide. An action that declares `global` is read by every picker as
+  // "takes no target", so `actionDisabledReason` asks `canApply` with an
+  // empty input, gets `missing_target` back, and leaves the row disabled
+  // with its target list never opened. Phase 9 added eight actions that
+  // take a composite target — an arc plus one of its interventions, a
+  // condition plus one of its counter-moves, a party plus the option they
+  // are waiting on — and every one of them declared `global`, which put
+  // most of the arc's player counterplay out of reach through the UI.
+  const COMPOSITE_ACTIONS = [
+    'intervene_in_arc',
+    'settle_arc',
+    'prepare_for_condition',
+    'counter_condition',
+    'exploit_condition',
+    'answer_expedition_dispatch',
+    'recall_expedition',
+    'send_relief_to_expedition',
+  ]
+
+  it('declares a target type the picker will walk targets for', () => {
+    for (const id of COMPOSITE_ACTIONS) {
+      const def = actionRegistry.get(id)
+      expect(def.targetType, id).toBe('composite')
+      expect(def.getValidTargets, id).toBeDefined()
+    }
+  })
+
+  it('never reports missing_target as the reason a row is disabled', () => {
+    // `missing_target` is what an unfilled form says about itself. Surfaced
+    // as a row's disabled reason it means the picker asked the wrong
+    // question, and the row can never be enabled however the world looks.
+    const state = freshState()
+    for (const id of COMPOSITE_ACTIONS) {
+      const reason = actionDisabledReason(actionRegistry.get(id), state, DAY_MINUTES)
+      expect(reason ?? '', id).not.toMatch(/targetId|missing target/i)
+    }
+  })
+
+  it('enables the row once the world offers something to act on', () => {
+    // Played far enough that at least one arc is live, so `intervene_in_arc`
+    // has real targets. Reached by playing rather than by injection.
+    let state = { ...freshState(), coin: 9000 }
+    for (let day = 0; day < 60; day += 1) {
+      state = runDay(state, { seed: `${SEED}-composite-${day}` }).state
+    }
+    const withTargets = COMPOSITE_ACTIONS.filter(
+      (id) => listValidTargets(actionRegistry.get(id), state).length > 0,
+    )
+    expect(withTargets.length, 'nothing was on offer after two months').toBeGreaterThan(0)
+    for (const id of withTargets) {
+      expect(
+        actionDisabledReason(actionRegistry.get(id), state, DAY_MINUTES),
+        id,
+      ).toBeUndefined()
+    }
   })
 })
 

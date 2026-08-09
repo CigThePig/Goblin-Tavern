@@ -103,6 +103,9 @@ import { createInitialFactionModuleState } from "../modules/factions/factionStat
 import { createInitialCultureModuleState } from "../modules/cultures/cultureState";
 import { createInitialNpcModuleState } from "../modules/npcs/npcState";
 import { createInitialRumourModuleState } from "../modules/rumours/rumourState";
+import { createInitialRivalModuleState } from "../modules/rival/rivalState";
+import { createInitialConditionsModuleState } from "../modules/conditions/conditionState";
+import { createInitialExpeditionsModuleState } from "../modules/expeditions/runState";
 import { createInitialEconomyModuleState } from "../modules/economy/state";
 
 // Phase 8 §8.1 — Area defaults are sourced from `areaRegistry` rather than
@@ -829,6 +832,23 @@ export function createInitialTavernState(
       // weekly budget that stops one loud voice carrying everything, and the
       // day's spread log.
       rumours: createInitialRumourModuleState(),
+      // Expansion Phase 9 §9.3 — seed the expeditions run book: the route,
+      // party, loadout, terms and condition of every trip, plus what the
+      // house has learned about ways it did not know before.
+      expeditions: createInitialExpeditionsModuleState(),
+      // Expansion Phase 9 §9.1 — seed the rival slice: the book of houses
+      // across the road, empty until the module's first day opens the one
+      // the world starts with (its name is drawn from a named stream, which
+      // a static default cannot reach). Present from day zero for the same
+      // reason the external-obligation slices below are — the web layer's
+      // day baseline goes through the migration chain on reload, so a slice
+      // absent here and installed there would make a resumed day differ
+      // from an uninterrupted one.
+      rival: createInitialRivalModuleState(),
+      // Expansion Phase 9 §9.4 — seeded here as well as by the migration
+      // chain, because a fresh state and a reloaded one have to agree about
+      // the world's conditions from day one.
+      conditions: createInitialConditionsModuleState(),
       // Phase 30 §30.6 — seed an empty regulars slice (no candidates,
       // no creations, no visits) so the module's schema validates from
       // day zero before any regular has emerged.
@@ -836,6 +856,8 @@ export function createInitialTavernState(
       // Phase 35 §35.3 — seed an empty local arcs slice (no active
       // arcs, no cooldowns, no applied effects) so the module's schema
       // validates from day zero before any arc has seeded.
+      // Expansion Phase 9 §9.2 — the slice now also carries the run book
+      // (goal, opposition, stage, deadline, interventions, outcome per arc).
       localArcs: createInitialLocalArcsModuleState(),
       // Phase 37 §37.3 — seed an empty attribution slice (no beliefs
       // yet) so the module's schema validates from day zero before any

@@ -123,11 +123,62 @@ function seedArcRecord(
   }
 }
 
+/**
+ * A definition that runs on the PHASE 35 AGE SPINE and nothing else.
+ *
+ * Expansion Phase 9 §9.2 gave every shipped arc a `progression` — a goal, an
+ * owner, state-driven stages, interventions and outcomes — and the daily
+ * pass owns those arcs from then on. That is the point of the phase, so the
+ * age-spine tests below cannot keep asserting it against `mushroom_blight`:
+ * the blight no longer resolves on day 84 regardless of what the house did,
+ * which is exactly what §9.2 set out to change.
+ *
+ * The age spine is still live code — it is the fallback for a definition
+ * with no progression, which is what an old save's arc and a hand-built
+ * fixture both are — so it still needs covering. This clone of the blight's
+ * original spine, deliberately carrying NO progression, is what covers it.
+ */
+const LEGACY_AGE_ARC_ID = 'legacy_age_arc'
+
+if (!localArcRegistry.has(LEGACY_AGE_ARC_ID)) {
+  localArcRegistry.register({
+    id: LEGACY_AGE_ARC_ID,
+    type: 'mushroom_blight',
+    label: 'Legacy Age Arc',
+    tags: ['supplier', 'mushrooms', 'food', 'shortage', 'market'],
+    minDurationDays: 28,
+    maxDurationDays: 84,
+    // Never seeds on its own: these tests hand-place it, and a candidate
+    // that could seed would change which arcs the seeding passes pick.
+    startConditions: [{ kind: 'pressure_above', id: 'debt', threshold: 999 }],
+    progressRules: [
+      { fromStage: 'seeded', toStage: 'rising', afterDays: 14 },
+      { fromStage: 'rising', toStage: 'active', afterDays: 28 },
+      { fromStage: 'active', toStage: 'climax', afterDays: 56 },
+      { fromStage: 'climax', toStage: 'resolved', afterDays: 84 },
+    ],
+    effects: [
+      { kind: 'pressure_delta', id: 'stock_shortage', amount: 8 },
+      { kind: 'pressure_delta', id: 'food_safety', amount: 4 },
+      { kind: 'market_condition', id: 'cheap_mushrooms' },
+      { kind: 'calendar_tag', id: 'mushroom_blight' },
+      { kind: 'issue_seed_tag', id: 'supplier_suspicious_goods' },
+      { kind: 'issue_seed_tag', id: 'stock_shortage' },
+      { kind: 'issue_seed_tag', id: 'food_quality' },
+    ],
+    possibleIssueSeedTags: [
+      'supplier_suspicious_goods',
+      'stock_shortage',
+      'food_quality',
+    ],
+  })
+}
+
 function makeArcRecord(overrides: Partial<LocalEventWorldState>): LocalEventWorldState {
   return {
     id: 'arc:fixture',
-    definitionId: 'mushroom_blight',
-    label: 'Mushroom Blight',
+    definitionId: LEGACY_AGE_ARC_ID,
+    label: 'Legacy Age Arc',
     startedDay: 1,
     intensity: 20,
     relatedFactionIds: [],
@@ -292,6 +343,17 @@ describe('Phase 35 — Codex review fixes', () => {
     //     setup runs from month 1; if the monthly seeding pass happens
     //     to land on day 28 of month 2 with the festival tag in the
     //     month-tag history, festival_approaching could be a candidate.
+    //   - the_road_moves: Expansion Phase 9 §9.2 added it, and it is the
+    //     only newcomer with no gate at all (a bare random weight), so it
+    //     is a live candidate that can win the weighted pick. Disqualified
+    //     the same way `inspection_campaign` is — a recently-resolved
+    //     instance, which costs no active slot and trips the repeat
+    //     cooldown.
+    //   - sickness_in_the_quarter, guild_turf_dispute, back_from_the_brink:
+    //     also added by §9.2, and all three are STATE-gated (live food
+    //     safety, faction anger, debt). A well-stocked house in month one
+    //     satisfies none of them, so they disqualify themselves — which is
+    //     the same property `hasStateGate` exists to express.
     // That leaves miner_payday_boom as the only candidate after the fix.
     let base = plentyOfStock(withCoin(createInitialTavernState(), 500))
     base = seedArcRecord(
@@ -323,6 +385,17 @@ describe('Phase 35 — Codex review fixes', () => {
         definitionId: 'inspection_campaign',
         stage: 'resolved',
         ageDays: 56,
+        startedDay: 0,
+        lastUpdatedDay: 0,
+      }),
+    )
+    base = seedArcRecord(
+      base,
+      makeArcRecord({
+        id: 'arc:rm:cooldown',
+        definitionId: 'the_road_moves',
+        stage: 'resolved',
+        ageDays: 40,
         startedDay: 0,
         lastUpdatedDay: 0,
       }),
@@ -489,11 +562,11 @@ describe('Phase 35 §35.9 — Arc causes, memories, and history', () => {
     const seeded = seedArcRecord(base, fixture)
     const after = runMonths(seeded, 1)
     const resolvedHistory = after.history.filter(
-      (h) => h.tags.includes('resolved') && h.tags.includes('mushroom_blight'),
+      (h) => h.tags.includes('resolved') && h.tags.includes(LEGACY_AGE_ARC_ID),
     )
     expect(resolvedHistory.length).toBeGreaterThan(0)
     const resolvedMemory = after.memories.find(
-      (m) => m.id === 'local_arc_resolved:mushroom_blight',
+      (m) => m.id === `local_arc_resolved:${LEGACY_AGE_ARC_ID}`,
     )
     expect(resolvedMemory).toBeDefined()
   })
@@ -617,7 +690,7 @@ describe('Phase 35 §35.10 — Caps and cooldowns', () => {
     const resolvedArc = afterOne.world.localEvents['arc:mb:cooling']
     expect(resolvedArc!.stage).toBe('resolved')
     const slice = getLocalArcsModuleState(afterOne)
-    expect(slice.cooldowns['mushroom_blight']).toBeGreaterThan(
+    expect(slice.cooldowns[LEGACY_AGE_ARC_ID]).toBeGreaterThan(
       afterOne.calendar.totalDaysElapsed - 1,
     )
   })

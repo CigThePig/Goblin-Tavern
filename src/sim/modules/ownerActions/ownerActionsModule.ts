@@ -11,7 +11,7 @@ import {
 } from '../../registries/actionRegistry'
 
 import { describeTargetLabel } from './actionDefinitions'
-import { listValidTargets } from './readonlyHelpers'
+import { listValidTargets, timeCostOf } from './readonlyHelpers'
 import {
   DAY_MINUTES,
   OWNER_ACTIONS_MODULE_ID,
@@ -135,7 +135,11 @@ const applyOwnerActionsHook: SimulationHook = (ctx: SimContext): void => {
       continue
     }
     const def = actionRegistry.get(input.actionId)
-    if (timeSpent + def.timeCost > budget) {
+    // Priced on THIS pick, not on the definition's representative cost —
+    // otherwise an action whose interventions range 30 to 240 minutes is
+    // admitted on a flat 120 and can push the day past its budget.
+    const cost = timeCostOf(def, ctx.state, input)
+    if (timeSpent + cost > budget) {
       rejected.push({
         actionId: input.actionId,
         ...(input.targetId !== undefined ? { targetId: input.targetId } : {}),
@@ -169,6 +173,12 @@ const applyOwnerActionsHook: SimulationHook = (ctx: SimContext): void => {
         : undefined
 
     const result = def.apply(ctx, input)
+    // The gate and the charge must be the same number. A definition whose
+    // `timeCostFor` disagreed with what `apply` returns would re-open the
+    // hole this closes, so the charge is taken from what was gated.
+    if (result.timeCost !== cost) {
+      result.timeCost = Math.max(result.timeCost, cost)
+    }
     // Rebuilt in the schema's key order rather than spread-and-append.
     // `readable` diff lines JSON.stringify this record, and a zod parse on
     // reload rebuilds it in schema order — so appending `targetLabel` last

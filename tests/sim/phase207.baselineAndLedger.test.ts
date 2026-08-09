@@ -194,9 +194,19 @@ describe('Phase 207 — implementation ledger', () => {
   })
 
   it('carries a row for every simulation-depth gap the plan lists', () => {
-    // Plan §4.2 — 20 bullets, one DEP row each.
+    // Plan §4.2 — 20 numbered bullets, one DEP row each. Asserted by
+    // PRESENCE rather than by count, because §4.2's numbering is not the
+    // plan's whole list of depth gaps: the §12 table names one more for
+    // phase 9 ("Thin month modifiers") that §4.2 omits, and §9.4 is its own
+    // section. That gap is `DEP-21`. Counting would have made adding it
+    // look like a violation of the very check it belongs in.
     const dep = rows.filter((r) => r.requirement_id.startsWith('DEP-'))
-    expect(dep).toHaveLength(20)
+    for (let n = 1; n <= 20; n += 1) {
+      expect(dep.map((r) => r.requirement_id)).toContain(
+        `DEP-${String(n).padStart(2, '0')}`,
+      )
+    }
+    expect(dep.length).toBeGreaterThanOrEqual(20)
   })
 
   it('assigns every row to a phase owned by the right tracker issue', () => {
@@ -233,9 +243,47 @@ describe('Phase 207 — implementation ledger', () => {
     // §8.3 (2026-08-07) took DEP-09 to `in-progress` (the notable-NPC half;
     // rivals belong to Phase 9 §9.1) and closed the two culture hook
     // families that §8.2 had left open.
+    //
+    // Phase 9 is likewise being executed IN PARTS (§9.1 the rival actor,
+    // §9.2 local arcs, §9.3 expeditions, §9.4 month modifiers), so the same
+    // rule applies and the same loophole stays shut: §9.1 (2026-08-07)
+    // completed DEP-09 by closing its rival half, and closed the four rival
+    // hook families; §9.2 (2026-08-08) closed DEP-13 and the five arc hook
+    // families; §9.3 (2026-08-08) closed DEP-12. The six remaining phase-9
+    // hook families are still open, so anything else in phase 9 still fails
+    // this check.
     const LANDED_PART_ROWS = new Map<string, string>([
       ['DEP-08', 'done'],
-      ['DEP-09', 'in-progress'],
+      ['DEP-09', 'done'],
+      ['HOOK-rival_retaliation_*', 'done'],
+      ['HOOK-rival_dominance_*', 'done'],
+      ['HOOK-rival_rumour_exposed_*', 'done'],
+      ['HOOK-rival_settlement_pact_*', 'done'],
+      // §9.2 (2026-08-08) — local arcs. DEP-13 closes with the arc layer's
+      // five hook families; DEP-12 belongs to §9.3 and is still open.
+      ['DEP-13', 'done'],
+      ['HOOK-arc_failure_*', 'done'],
+      ['HOOK-blight_brand_lock_*', 'done'],
+      ['HOOK-arc_exploit_backlash_*', 'done'],
+      ['HOOK-arc_faction_debt_*', 'done'],
+      ['HOOK-arc_supplier_favour_owed_*', 'done'],
+      // §9.3 (2026-08-08) — expeditions. DEP-12 closes; the six remaining
+      // phase-9 hook families belong to the rival and arc CONTENT and are
+      // still open, so they still fail this check.
+      ['DEP-12', 'done'],
+      // §9.4 (2026-08-08) — month modifiers become processes. DEP-21 is the
+      // §12-table depth gap §4.2 does not number.
+      ['DEP-21', 'done'],
+      // Phase 9 tail (2026-08-08) — the last six hook families. Two answer a
+      // commercial move the house made and belong to the rival; four are
+      // `arcKey`-shaped promises resolved by the local-arcs module into the
+      // domain that owns each consequence.
+      ['HOOK-price_war_*', 'done'],
+      ['HOOK-quality_arms_race_*', 'done'],
+      ['HOOK-payday_supplier_return_*', 'done'],
+      ['HOOK-payday_gouging_remembered_*', 'done'],
+      ['HOOK-payday_brawl_legend_*', 'done'],
+      ['HOOK-festival_obligations_*', 'done'],
       ['HOOK-culture_walkout_risk_*', 'done'],
       ['HOOK-culture_seating_backlash_*', 'done'],
       ['HOOK-faction_grudge_*', 'done'],
@@ -488,10 +536,74 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       // `runtimeModules` stays at 39 on purpose: belief already had a domain
       // that owned it since Phase 37, and §8.5 makes that domain's output an
       // input to six existing rules rather than adding a seventh owner.
-      runtimeModules: 39,
+      //
+      // Expansion Phase 9.1 (ISSUE-179) moves two, and that it is only two
+      // is the assertion:
+      //   * `runtimeModules` 39 → 40: `rival`. A module rather than three
+      //     more fields on `modules.monthly`, because §9.1 gives the
+      //     competitor a position it chose, a capability it invests in, a
+      //     purse it spends and an `ActorState` — a domain that owns real
+      //     transitions, which §5.4 wants one owner for.
+      //   * `ownerActions` 97 → 101: scout them, buy a courted crowd back,
+      //     hire out from under them, and settle. §9.1's rival can be
+      //     answered rather than only out-played, and two of the four
+      //     rebound — poaching schedules a retaliation the rival picks for
+      //     itself, settling schedules the review at which it reconsiders.
+      // Everything else is unchanged: 9.1 adds no areas, stock, recipes,
+      // customer groups, cultures, factions or arcs. The competition is a
+      // comparison between the house and one rival over the crowds the world
+      // already has.
+      //
+      // Expansion Phase 9.2 (ISSUE-179) moves two, and that it is only two
+      // is the assertion:
+      //   * `localArcs` 5 → 9: §9.2 requires the catalog to collectively
+      //     exercise eight materially different shapes, and the starter five
+      //     covered four of them. The four added are the state-driven crisis,
+      //     the faction conflict, the recovery arc, and the arc that changes
+      //     the world for good. The five that existed are MIGRATED — given a
+      //     goal, an owner and interventions — rather than duplicated.
+      //   * `ownerActions` 101 → 103: `intervene_in_arc` takes one of an
+      //     arc's own declared moves, `settle_arc` ends a close-run one as a
+      //     compromise. Two rather than a verb per intervention, because the
+      //     interventions are content and the action is the seam.
+      // `runtimeModules` stays at 40 on purpose: arcs already had a module
+      // that owned them since Phase 35, and §9.2 gives that module a daily
+      // pass rather than adding a second owner.
+      //
+      // Expansion Phase 9.3 (ISSUE-179) moves exactly one, and that it is
+      // only one is the assertion:
+      //   * `ownerActions` 103 → 106: `answer_expedition_dispatch`,
+      //     `recall_expedition` and `send_relief_to_expedition`. Once a
+      //     party was on the road the player had no move at all, and §9.3
+      //     names recall, retreat, rescue and risk/reward decisions among
+      //     the things an expedition must support.
+      // `runtimeModules` stays at 40 again: expeditions already had a module
+      // since Phase 70. What §9.3 adds is content — five routes and eight
+      // road events — which no inventory count tracks, and a run book inside
+      // the slice that module already owned.
+      //
+      // Expansion Phase 9.4 (ISSUE-179) moves two, and that it is only two
+      // is the assertion:
+      //   * `runtimeModules` 40 → 41: `conditions`. A module rather than
+      //     more fields on `modules.monthly`, because §9.4 turns a label
+      //     into a lifecycle — forecast, start, a burden that accumulates,
+      //     counterplay, an ending and a scar — and those are real state
+      //     transitions, which §5.4 wants one owner for. The monthly slice
+      //     keeps `currentModifier` as a projection of what is running, so
+      //     the tax rent bump and the arc engine's `month_modifier` gate go
+      //     on reading the field they always read.
+      //   * `ownerActions` 106 → 109: `prepare_for_condition` acts on a
+      //     forecast before the thing exists, `counter_condition` works the
+      //     burden down while it runs, `exploit_condition` takes the upside
+      //     instead of only surviving it. Before this the player could not
+      //     act on a month modifier at all.
+      // Everything else is unchanged: §9.4 adds no areas, stock or arcs. The
+      // six conditions are the six modifiers that already existed, given the
+      // seven things §9.4 says each one needs.
+      runtimeModules: 41,
       simulationPhases: 26,
       daySegments: 3,
-      ownerActions: 97,
+      ownerActions: 109,
       staffPriorities: 12,
       pressureDomains: 21,
       feedbackDetectors: 13,
@@ -508,7 +620,7 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       factions: 9,
       suppliers: 9,
       marketConditions: 8,
-      localArcs: 5,
+      localArcs: 9,
       ventureBlueprints: 1,
       staffRoles: 8,
       reputationAxes: 10,

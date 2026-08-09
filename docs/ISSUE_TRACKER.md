@@ -56,8 +56,10 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > escape; and an inspector actually visits, grades seven dimensions against
 > live state, and leaves findings, fines and orders a follow-up re-reads.
 > **ISSUE-178 (Phase 8 — the autonomous social world) is DONE, executed part
-> by part (8.1–8.5). Next: ISSUE-179 (Phase 9 — rivals, local arcs,
-> expeditions).** **§8.1 (factions) is done (2026-08-06).**
+> by part (8.1–8.5). ISSUE-179 (Phase 9) is now in progress, part by part;
+> §9.1 (the rival actor), §9.2 (local arcs) and §9.3 (expeditions) are
+> done.** **§8.1 (factions) is done
+> (2026-08-06).**
 > Factions are now actors rather than meters: each has goals derived from
 > live state, a budget derived from its influence, a constituency of real
 > customer groups and suppliers, a dated and decaying ledger of how it has
@@ -166,8 +168,141 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > are promises about belief — the party the house deflected blame onto now
 > resents it (accuracy `true`, so it cannot be talked away), and a bribe that
 > gets out is believed by the watch, which then reads the next inspection
-> harder. **ISSUE-178 is complete; next is ISSUE-179 (Phase 9 — rivals,
-> local arcs, expeditions).** The sequence is hard-ordered after that.
+> harder. **ISSUE-178 is complete.**
+>
+> **ISSUE-179 §9.1 (the rival tavern) is done (2026-08-07), which closes the
+> rival half of DEP-09.** The competitor was three numbers in the monthly
+> slice — `pressure`, `appeal` and a `strategy` nothing ever wrote — scaling
+> every crowd's turnout by one factor. It is now a record with an
+> `ActorState`: it picks a market position from where the house is serving
+> worst, hires, moves on price and menu focus, courts named customer groups,
+> gets factions to back it, puts about a failing the simulation already has
+> (accuracy `partial`, never invented), answers what is said about it, goes
+> hard at a crowd on recorded evidence the house failed it, and digs itself
+> out of troubles that get worse while it ignores them. It announces two
+> days before it moves, like a faction. **Appeal is now derived per customer
+> group on both sides** — what that crowd thinks of drinking here against
+> what the rival has actually built — so a cheap, loud house is a
+> catastrophe for miners and an irrelevance to merchants; the swing keeps
+> the old ±20% ceiling, so a rival that has done nothing leaves turnout
+> where it was. Rival pressure and the monthly numbers became summaries OF
+> that competition rather than the model. Four owner actions answer it
+> (scout, win a crowd back, hire out from under them, settle), and the last
+> two rebound: poaching schedules a retaliation the rival picks for itself,
+> settling schedules the review at which it reconsiders. Four `HOOK-*`
+> families stop draining: `rival_retaliation_*`, `rival_dominance_*`,
+> `rival_rumour_exposed_*` and `rival_settlement_pact_*` now resolve into
+> real rival moves or explained no-ops.
+>
+> **ISSUE-179 §9.2 (local arcs) is done (2026-08-08), which closes DEP-13.**
+> An arc used to age: `progressRules` keyed on `afterDays`, ticked once a
+> month, walking `seeded → rising → active → climax → resolved` on a fixed
+> clock. Nothing in the world could hurry it, slow it, win it or lose it —
+> the blight resolved on day 84 whether the cellar was spotless or crawling.
+> Arcs now progress DAILY against a stated **goal**, driven by an **owner**
+> resolved once at seed time, who makes **opposing moves** on its own cadence
+> and in its own domain (a faction's standing ledger, a supplier's terms, a
+> rumour). Stages advance on live state, **fork on branches**, and **time
+> out** into a named fallback. The player has two moves — `intervene_in_arc`
+> takes one of the arc's own declared interventions, `settle_arc` ends a
+> close-run one as a compromise — and the outcome is decided by goal minus
+> opposition: **success, compromise, failure**, each with its own aftermath
+> and, where it earns one, a **permanent change** the world keeps (an area
+> trait, a crowd's base custom, an identity label, a house rule, a supplier's
+> terms). Winning branches are gated on the MARGIN rather than goal progress
+> alone, so opposition is an opponent rather than a pacing knob, and a stage
+> that simply runs out ends on the margin so the compromise band is reachable
+> through play. The catalog covers all eight shapes §9.2 requires across nine
+> definitions — the five that existed are migrated, not duplicated, and the
+> four added are the state-driven crisis, the faction conflict, the recovery
+> arc and the arc that changes the world for good. Five `HOOK-*` families
+> stop draining: `arc_failure_*`, `blight_brand_lock_*`,
+> `arc_exploit_backlash_*`, `arc_faction_debt_*` and
+> `arc_supplier_favour_owed_*` now resolve into real arc outcomes, permanent
+> locks, owner backlashes and debts collected through the creditor's own
+> domain.
+>
+> **ISSUE-179 §9.3 (expeditions) is done (2026-08-08), which closes DEP-12.**
+> A Phase 70 expedition was a wait: a runner, a tier and a day count the
+> player typed, a counter, and one roll on the last day that decided
+> everything. It is now a **journey**. A **route** sets the distance, the
+> danger, what can be found there and — the part that matters — how long
+> **word** takes to get home. A **party** goes, carrying a **loadout** that
+> is actually eaten day by day, on **contract terms** that are three
+> different bets rather than three prices. Up to four **intermediate
+> events** fire from a stream indexed by the day of the trip, some of them
+> putting a **risk/reward decision** to the house with a deadline that
+> includes the round trip — so distance costs information rather than making
+> the question impossible, and a party nobody answers takes the cautious
+> option itself. **Injury, delay, retreat, recall, rescue and loss** are
+> distinct recorded ends, and the outcome is read off the journey rather
+> than rolled for it (`ExpeditionOutcome` gained `recalled` and `retreated`,
+> because somebody making a call is not a failure). Three road actions —
+> answer the dispatch, call them home, send relief — are all gated on word
+> having actually arrived. A trip that gets there and back can bring home a
+> **discovery**, which is how the Underdeep becomes reachable at all.
+> **Who went still decides the trip:** the party's experience and
+> reliability set how often the road catches them out and how badly injuries
+> land, and the working day at the site is a real **search** — skill plus a
+> specialty match, less the tier's difficulty and whatever the journey has
+> already cost them. That is what keeps Phase 77's contract alive now that
+> the closing roll is gone (an all-journey outcome briefly made a master
+> forager and a rookie identical), and it is what `failure` now means: they
+> got there, and there was nothing there for them. The commission sheet
+> gained the route, party, loadout and terms pickers and lost the duration
+> segment the engine had stopped reading.
+> **Next: §9.4 (month modifiers as processes).**
+>
+> **ISSUE-179 §9.4 (month modifiers) is done (2026-08-08), which closes the
+> §12 depth gap "Thin month modifiers" as `DEP-21`.** A modifier was a
+> label, three tags and a sentence: drawn once a month, subtracting one
+> point from a roof for twenty-eight days, with a single month-end twist for
+> `tax_month` and nothing else. It is now a **process** with all seven of
+> §9.4's parts. **Source** — named, and for three of the six actually
+> state-driven: a damp cellar invites mould, a house with a name draws the
+> companies, a rival who owns the roads is why nobody walks down yours.
+> **Forecast** — word reaches the house days ahead with a confidence that
+> firms up as it nears; the forecast IS the decision rather than a
+> prediction, so nothing guesses at a future day's seed and a reload cannot
+> contradict it. **Duration** — drawn per run from the condition's own
+> range, so a fortnight of rain is not a month of it. **Affected systems** —
+> declared, and the report prints them. **Counterplay** — three owner
+> actions: prepare against the forecast before the thing exists (one
+> preparation beats one countering, which is what makes being warned worth
+> anything), work the burden down repeatedly on a four-day cooldown, or take
+> the upside instead of only surviving it. **Accumulated consequences** — a
+> burden builds day by day, and whatever is still standing at the end is
+> paid out into the domain that owns it: water in the roof, spores through
+> the stores, an assessment the till could not cover becoming financial
+> pressure, plus a bounded, fading scar. **Report and history** — a World
+> Conditions section and a capped record of what came through. A house that
+> engages ends clean; a house that ignores it does not. `modules.monthly`
+> keeps `currentModifier` as a projection of whatever has the most built up,
+> so the tax rent bump and the arc engine's `month_modifier` gate go on
+> reading the field they always read.
+> **Next: ISSUE-180 (Phase 10) is next in the arc.**
+>
+> **ISSUE-179 Phase 9 is complete (2026-08-08).** The last six `HOOK-*`
+> families are closed, which ends `OBL-02` for phase 9. Each was a response
+> profile telling the player something specific about what came next, drained
+> on its promised day into a zero-weight cause because no domain owned the
+> string. Each now routes to an owner and produces an authoritative change —
+> or a recorded reason why it correctly did nothing.
+>
+> | family | owner | what happens |
+> | --- | --- | --- |
+> | `price_war_*` | rival | they cut too, through their own `shift_prices` move — unless the house is no longer the cheaper pour |
+> | `quality_arms_race_*` | rival | they hire and close **half** the gap — chasing, not arriving |
+> | `payday_supplier_return_*` | localArcs → suppliers | the **order book** answers it: still buying earns a price concession, going quiet hardens the terms |
+> | `payday_gouging_remembered_*` | localArcs → factions | the faction calls the boycott through its own move, opening a real stance |
+> | `payday_brawl_legend_*` | localArcs → rumours | the legend becomes a **rumour**, so §8.4 decides who hears it and denying it stays a move the player has |
+> | `festival_obligations_*` | localArcs → factions | a real `public_backing` demand on the patron's own demand book |
+>
+> Two additions fell out of it: `housePriceLevel` and `houseQualityLevel` on
+> the appeal model, so the two houses can be compared on one scale rather
+> than through a mean advantage that mixes price and food together.
+>
+> **Next: ISSUE-180 (Phase 10 — teleology, identity and recognition).**
 >
 > Everything else below — the Complete Surface resume points, the
 > onboarding arc, the standing tails — is **paused, not cancelled**, and
@@ -416,7 +551,7 @@ rather than rebuilding those routes.
 | ISSUE-176 | Expansion Phase 6 — transactional suppliers: orders, deliveries, credit, invoices (OBL-04) | broken | done | 213 |
 | ISSUE-177 | Expansion Phase 7 — loans, tenancy, and a real inspection lifecycle (OBL-03 + loan/eviction half of OBL-02) | broken | done | 214 |
 | ISSUE-178 | Expansion Phase 8 — autonomous social world: faction/culture/NPC agency, rumour propagation, behavioral attribution (rumour half of OBL-08) | broken | done (8.1–8.5) | 215 |
-| ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | open | 216 |
+| ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | done | 216 |
 | ISSUE-180 | Expansion Phase 10 — populated teleology, causal identity with hysteresis, character arcs, earned nicknames (OBL-09 + mastery half of OBL-08) | broken | open | 217 |
 | ISSUE-181 | Expansion Phase 11 — reconnect issues, responses, pressures, feedback, memory and history to the deepened domains (closes OBL-02) | broken | open | 218 |
 | ISSUE-182 | Expansion Phase 12 — ongoing difficulty, reachable Quick Day, correct planning horizon, new management surfaces, derived Help (OBL-05/06/07) | broken | open | 219 |

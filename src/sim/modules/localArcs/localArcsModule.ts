@@ -22,11 +22,22 @@ import { applyArcEffect, makeAppliedEffectRecord } from './arcEffects'
 import {
   computeArcProgress,
   createArcInstance,
+  hasStateGate,
   listActiveArcs,
   listAllArcs,
   pickArcsToStart,
 } from './arcEngine'
 import { buildLocalArcsReport } from './report'
+import { ensureArcRuns, runArcDailyPass } from './arcDay'
+import {
+  ArcRunSchema,
+  ArcRunTotalsSchema,
+  getArcRuns,
+  pruneArcRuns,
+  writeArcSlice,
+} from './arcRuns'
+import './arcEvents'
+import './paydayEvents'
 import {
   createInitialLocalArcsModuleState,
   getLocalArcsModuleState,
@@ -157,6 +168,38 @@ function collectArcTagBundles(state: TavernState): ArcTagBundles {
 // ---------- Daily hook ----------
 
 const localEventUpdateHook: SimulationHook = (ctx: SimContext): void => {
+  // Expansion Phase 9 §9.2 — the arcs actually PROGRESS here now.
+  //
+  // Before this phase the daily hook only rebuilt derived tag sets, and
+  // every stage transition waited for `endMonth`. §9.2's headline is "move
+  // arcs from mostly monthly age progression toward event- and state-driven
+  // stages", so the owner's opposing moves, the stage transitions, the
+  // timeouts and the outcomes all run daily, against live state. The monthly
+  // tick below keeps the legacy age spine for definitions carrying no
+  // progression, and keeps owning arc SEEDING.
+  runArcDailyPass(ctx)
+
+  // Expansion Phase 9 §9.2 — a weekly look for the STATE-DRIVEN arcs.
+  //
+  // Seeding stayed monthly through Phase 35 because every arc was gated on
+  // the calendar or a die roll, and a month is the right grain for those.
+  // The shapes this phase adds are not: a sickness arc seeds off live food
+  // safety and a recovery arc off live debt, and both can rise and settle
+  // well inside a month — so a monthly-only check would make the two
+  // genuinely state-driven shapes almost unreachable.
+  //
+  // Only definitions carrying a state gate get the weekly look. The cap,
+  // the per-definition cooldown and the one-arc-per-pass rule are the same
+  // ones the monthly pass uses, so this widens WHEN an arc can catch a
+  // condition without widening how many can run.
+  if (ctx.state.calendar.dayOfWeek === 1) {
+    seedStateDrivenArcs(ctx)
+    // Open the run in the same pass that seeded the arc, so there is never
+    // a day on which an arc exists with no contest behind it — which the
+    // report would have to describe as an arc nobody is running.
+    ensureArcRuns(ctx)
+  }
+
   // Refresh aggregated tag bundles so downstream consumers see a
   // current snapshot. Active-arc bookkeeping mostly happens on the
   // monthly tick; the daily hook just rebuilds the derived sets.
@@ -206,6 +249,34 @@ function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
   return true
 }
 
+/**
+ * The weekly state-driven seeding pass. At most one arc, same caps.
+ */
+function seedStateDrivenArcs(ctx: SimContext): void {
+  const slice = getLocalArcsModuleState(ctx.state)
+  const today = ctx.state.calendar.totalDaysElapsed
+  const picked = pickArcsToStart({
+    ctx,
+    monthlySlice: getMonthlyModuleState(ctx.state),
+    cooldowns: slice.cooldowns,
+    seenCalendarTags: slice.monthlyCalendarTagsSeen,
+    filter: hasStateGate,
+  })
+  for (const def of picked) {
+    const instance = createArcInstance({ definition: def, today })
+    addArcToWorld(ctx, instance)
+    ctx.addHistory({
+      category: 'monthly',
+      summary: `Local arc started: ${instance.label}.`,
+      tags: ['local_arc', 'start', 'state_driven', def.id],
+      relatedActors: [],
+      relatedLocations: [],
+      relatedSystems: ['local_arcs'],
+      mechanicalRefs: [instance.id],
+    })
+  }
+}
+
 // ---------- Monthly tick ----------
 
 const endMonthHook: SimulationHook = (ctx: SimContext): void => {
@@ -219,10 +290,23 @@ const endMonthHook: SimulationHook = (ctx: SimContext): void => {
   const cooldowns = { ...slice.cooldowns }
   const recentlyApplied: LocalArcsAppliedEffectRecord[] = []
 
-  // 1. Progress existing arcs.
+  // 1. Progress existing arcs on the legacy age spine.
+  //
+  // Expansion Phase 9 §9.2 — SKIPPED for any arc whose definition carries a
+  // progression, because the daily pass already owns that arc's stages. Two
+  // engines advancing the same record would double-count its age and could
+  // walk it past a stage the player was still inside. The age spine stays
+  // for definitions without a progression: an old save's arc, or a fixture
+  // built against the Phase 35 shape.
   for (const arc of listAllArcs(ctx.state)) {
     if (arc.stage === undefined) continue
     if (isTerminalArcStage(arc.stage)) continue
+    if (
+      localArcRegistry.has(arc.definitionId) &&
+      localArcRegistry.get(arc.definitionId).progression !== undefined
+    ) {
+      continue
+    }
     const outcome = computeArcProgress(arc, today)
     if (!outcome) {
       // Still age the arc even when no stage transition fires so the
@@ -469,11 +553,33 @@ const LocalArcsModuleStateSchema = z.object({
   cooldowns: z.record(z.string(), z.number().int().min(0)),
   recentlyAppliedEffects: z.array(LocalArcsAppliedEffectRecordSchema),
   monthlyCalendarTagsSeen: z.array(z.string()),
+  // Expansion Phase 9 §9.2 — the run book. Optional so a pre-Phase-9 slice
+  // parses unchanged; `ensureArcProgression` fills it on load.
+  runs: z.record(z.string(), ArcRunSchema).optional(),
+  runTotals: ArcRunTotalsSchema.optional(),
+  earnedLabels: z
+    .object({ knownFor: z.array(z.string()), houseRules: z.array(z.string()) })
+    .optional(),
 })
+
+/**
+ * Expansion Phase 9 §5.11 — prune the run book.
+ *
+ * Live runs are already bounded by `MAX_ACTIVE_LOCAL_ARCS`; what needs a
+ * rule is the closed tail, which a long game would otherwise grow by one
+ * record per arc per season forever.
+ */
+const endDayHook: SimulationHook = (ctx: SimContext): void => {
+  const today = ctx.state.calendar.totalDaysElapsed
+  const runs = getArcRuns(ctx.state)
+  const pruned = pruneArcRuns(runs, today)
+  if (Object.keys(pruned).length === Object.keys(runs).length) return
+  writeArcSlice(ctx, (current) => ({ ...current, runs: pruned }), 'prune_runs')
+}
 
 export const localArcsModule: SimulationModule = {
   id: LOCAL_ARCS_MODULE_ID,
-  version: '0.1.0',
+  version: '0.2.0',
   // Arcs read the monthly module's `currentModifier` and (eventually)
   // its accumulator-driven outputs. Running after the monthly module
   // keeps Phase 35 §35.5's "after the existing monthly resolution but
@@ -482,6 +588,7 @@ export const localArcsModule: SimulationModule = {
   hooks: {
     localEventUpdate: [localEventUpdateHook],
     endMonth: [endMonthHook],
+    endDay: [endDayHook],
   },
   buildReport,
   validate: validateLocalArcs,

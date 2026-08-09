@@ -16,6 +16,10 @@ import { REGULATORY_ACTIONS } from '../modules/regulatory/actions'
 import { FACTION_ACTIONS } from '../modules/ownerActions/factionActions'
 import { CULTURE_ACTIONS } from '../modules/ownerActions/cultureActions'
 import { NPC_ACTIONS } from '../modules/ownerActions/npcActions'
+import { RIVAL_ACTIONS } from '../modules/ownerActions/rivalActions'
+import { ARC_ACTIONS } from '../modules/ownerActions/arcActions'
+import { EXPEDITION_ROAD_ACTIONS } from '../modules/expeditions/expeditionActions'
+import { CONDITION_ACTIONS } from '../modules/ownerActions/conditionActions'
 import { RUMOUR_ACTIONS } from '../modules/ownerActions/rumourActions'
 import { BELIEF_ACTIONS } from '../modules/ownerActions/beliefActions'
 import type { OwnerActionDefinition } from '../modules/ownerActions/types'
@@ -111,6 +115,30 @@ export function ensureRequiredOwnerActionsRegistered(): void {
     // this the player could only watch it happen. Answering something they
     // are RIGHT about hardens it, so the move can be the wrong one.
     ...BELIEF_ACTIONS,
+    // Expansion Phase 9 §9.1 — the player's half of the competition. A rival
+    // that can only be answered by improving your own numbers is weather
+    // with a name on it; these four act on the rival's own record — go and
+    // look, buy a courted crowd back, hire out from under them, or settle.
+    // The last two rebound: poaching schedules a retaliation the rival picks
+    // for itself, and settling schedules the review at which it reconsiders.
+    ...RIVAL_ACTIONS,
+    // Expansion Phase 9 §9.2 — the player's half of a local arc. An arc with
+    // a goal and an owner pushing against it is only a contest if there are
+    // moves on this side of it too: `intervene_in_arc` takes one of the
+    // arc's own declared moves, `settle_arc` ends a close-run one as a
+    // compromise rather than gambling on the deadline.
+    ...ARC_ACTIONS,
+    // Expansion Phase 9 §9.3 — the moves available while a party is still
+    // out there. Before this the only expedition decision was made before
+    // anybody left; these three are recall, the risk/reward answer, and the
+    // rescue, and all are gated on word having actually reached the house.
+    ...EXPEDITION_ROAD_ACTIONS,
+    // Expansion Phase 9 §9.4 — the player's half of a world condition. A
+    // modifier that builds a burden and pays it out at the end is only a
+    // decision if there is something to decide: prepare against a forecast
+    // before it lands, work the burden down while it runs, or take the
+    // upside instead of only surviving it.
+    ...CONDITION_ACTIONS,
   ]
   for (const def of all) {
     if (!actionRegistry.has(def.id)) {

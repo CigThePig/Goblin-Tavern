@@ -86,6 +86,10 @@ import {
   ensureExternalObligationSlices,
   ensureCultureAgencyFields,
   ensureNpcAgencyFields,
+  ensureArcProgression,
+  ensureExpeditionRunBook,
+  ensureWorldConditions,
+  ensureRivalSlice,
   ensureRumourNetworkFields,
   ensureBeliefBehaviourFields,
   ensureFactionAgencyFields,
@@ -817,7 +821,35 @@ function migrateAndValidateState(
     const s8j = ensureRumourNetworkFields(s8i);
     // Expansion Phase 8 §8.5 — the belief-behaviour record.
     const s8k = ensureBeliefBehaviourFields(s8j);
-    const s9 = ensureModuleSlices(s8k);
+    // Expansion Phase 9 §5.7 — the rival slice. Named rather than left to
+    // the generic sweep because the sweep would install a blank one, and a
+    // blank one throws away a competition the save has already played: the
+    // rival's standing is derived from the appeal and strategy the save
+    // already records. No name is rolled here — the module opens the record
+    // from its own named stream on the first played day, so no RNG cursor
+    // moves during a load.
+    const s8l = ensureRivalSlice(s8k);
+    // Expansion Phase 9 §5.7 — the arc run book. Named rather than left to
+    // the generic sweep because every post-Phase-35 save already HAS a
+    // `modules.localArcs` slice, which the sweep skips. The run book is left
+    // EMPTY rather than backdated: fabricating a goal meter would invent
+    // progress nobody made. The module opens a real run for each live arc on
+    // the first played day, at the stage it was already showing.
+    const s8m = ensureArcProgression(s8l);
+    // Expansion Phase 9 §5.7 — the expedition run book. Named rather than
+    // left to the generic sweep because `modules.expeditions` already exists
+    // in every save as an EMPTY passthrough object, which the sweep skips.
+    // An expedition already on the road gets no run record: the module
+    // finishes it on the Phase 70 roll it was commissioned under rather than
+    // inventing a route, a party and terms nobody agreed.
+    const s8n = ensureExpeditionRunBook(s8m);
+    // Expansion Phase 9 §5.7 — the world-conditions run book. Nothing is
+    // backdated: an old save starts with no forecast, nothing running and no
+    // scars, and hears about the first condition the same way a new game
+    // does. Inventing a half-finished condition would mean inventing a
+    // burden the player never let build.
+    const s8o = ensureWorldConditions(s8n);
+    const s9 = ensureModuleSlices(s8o);
     const validation = safeValidateState(s9, { modules: FULL_PIPELINE });
     if (!validation.success) {
       const first = validation.errors[0];

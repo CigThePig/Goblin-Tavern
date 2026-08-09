@@ -1,4 +1,5 @@
 import type { SimContext } from '../../core/context'
+import { recordPressureAdjustment } from '../pressures/pressureModule'
 import type {
   LocalArcDefinition,
   LocalArcEffect,
@@ -89,7 +90,22 @@ export function applyArcEffect(args: {
           relatedActors: [{ kind: 'local_event' as const, id: arc.id }],
           relatedSystems: ['local_arcs', 'monthly'],
         }
+        // BOTH, which is the shape `ctxApplier` established for exactly
+        // this problem. The direct write is what makes the shove visible on
+        // the day it lands; the ADJUSTMENT is what makes it survive. Every
+        // canonical pressure is recomputed from its own calculator, and a
+        // bare `modifyPressure` changes nothing that calculator reads — so
+        // on its own the arc's shove was put straight back the next time the
+        // pressures were worked out, and never reached the following day's
+        // arc gates or reports. Recorded, it is combined with the calculated
+        // value and decays on the ruleset's schedule.
         ctx.modifyPressure(effect.id, effect.amount, cause)
+        recordPressureAdjustment(
+          ctx,
+          effect.id,
+          effect.amount,
+          `${SOURCE}.${arc.id}.${effect.id}`,
+        )
         ctx.addCause(cause)
       }
       break

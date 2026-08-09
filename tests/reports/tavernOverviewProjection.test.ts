@@ -388,7 +388,8 @@ describe('buildTavernOverview — after activity', () => {
     expect(active.runnerName.length).toBeGreaterThan(0)
     expect(active.mode).toBe('open')
     expect(active.targetTier).toBe('uncommon')
-    expect(active.daysTotal).toBe(3)
+    // Expansion Phase 9 §9.3 — the Market Road is five days there and back.
+    expect(active.daysTotal).toBe(5)
     expect(active.progressFraction).toBeGreaterThanOrEqual(0)
     // The adventurer should now be busy.
     const adv = data.stock.supplyPipeline.hireableAdventurers.find(
@@ -400,16 +401,21 @@ describe('buildTavernOverview — after activity', () => {
     const r2 = runCardlessSim({
       initialState: state,
       seed: `${SEED_PREFIX}.exp-finish`,
-      days: 4,
+      days: 6,
     })
     state = r2.finalState
     data = buildTavernOverview(state)
     expect(data.stock.supplyPipeline.activeExpeditions.length).toBe(0)
     expect(data.stock.supplyPipeline.recentCompletions.length).toBe(1)
     const completed = data.stock.supplyPipeline.recentCompletions[0]!
-    expect(['success', 'partial', 'failure', 'runner_lost']).toContain(
-      completed.outcome,
-    )
+    expect([
+      'success',
+      'partial',
+      'failure',
+      'runner_lost',
+      'recalled',
+      'retreated',
+    ]).toContain(completed.outcome)
   })
 
   it('flags low-stock and spoiling counts based on thresholds', () => {

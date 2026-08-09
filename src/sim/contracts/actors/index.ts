@@ -27,6 +27,7 @@ export {
   decideActorAction,
   declareActorIntent,
   orderActorState,
+  actorCanPerform,
   performActorAction,
   type DecideInput,
 } from './decide'

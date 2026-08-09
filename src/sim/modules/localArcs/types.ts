@@ -1,4 +1,5 @@
 import type { LocalArcEffect, LocalArcStage } from '../../content/events/localArcTypes'
+import type { ArcRun, ArcRunTotals } from './arcRuns'
 
 // Phase 35 §35.3 — Local arcs module state shape.
 //
@@ -54,4 +55,28 @@ export type LocalArcsModuleState = {
    * via the monthly seeding pass.
    */
   monthlyCalendarTagsSeen: string[]
+  /**
+   * Expansion Phase 9 §9.2 — the per-arc run record: the goal the house is
+   * chasing, how hard the arc's owner is pushing back, which stage it is in
+   * and when that stage runs out, what the player has done about it, and how
+   * it ended. Keyed by arc id, which is the join to the `world.localEvents`
+   * record that carries the arc's identity and its legible summary.
+   *
+   * Optional so a pre-Phase-9 slice parses unchanged; `ensureArcProgression`
+   * fills it, and every accessor normalises.
+   */
+  runs?: Record<string, ArcRun>
+  runTotals?: ArcRunTotals
+  /**
+   * Expansion Phase 9 §9.2 — identity an arc PERMANENTLY earned.
+   *
+   * `world.tavernIdentity.knownFor` and `.houseRules` are recomputed from
+   * scratch every day by the identity module, which owns them. An arc that
+   * wrote them directly would have its "permanent" change silently erased
+   * the following morning — the exact kind of promise this arc exists to
+   * stop making. So the arc records the label HERE, as durable evidence,
+   * and the identity module unions it into what it computes. One writer,
+   * one durable input, and a permanent change that is actually permanent.
+   */
+  earnedLabels?: { knownFor: string[]; houseRules: string[] }
 }

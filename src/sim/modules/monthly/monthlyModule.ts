@@ -33,9 +33,11 @@ import { computeReputationShifts, getReputationTier } from './reputation'
 import { computeUpgradeReadiness } from './upgradeReadiness'
 import { resolveRivalTavern } from './rival'
 import { MONTH_MODIFIERS, pickMonthModifier } from './modifiers'
+import { getConditionsModuleState } from '../conditions/conditionState'
 import { buildMonthlyReportSection } from './report'
 import type {
   MonthModifier,
+  MonthModifierId,
   MonthlyAccumulator,
   MonthlyEconomyTotals,
   MonthlyModuleState,
@@ -233,6 +235,9 @@ const startDayHook: SimulationHook = (ctx: SimContext): void => {
       inspection: slice.inspection,
       rivalTavern: slice.rivalTavern,
       currentModifier: modifier,
+      // The month's own draw, kept so a §9.4 projection can be undone
+      // without recomputing from a seed that has moved on since.
+      monthDraw: modifier,
       accumulator: emptyAccumulator(),
       // Phase 91 — preserve cross-month persistent fields so the
       // Reports → Monthly screen reads truth across the full next
@@ -247,80 +252,73 @@ const startDayHook: SimulationHook = (ctx: SimContext): void => {
     replaceSlice(ctx, fresh, 'reset_month')
   }
 
-  // Apply the active modifier's daily mechanical nudge. Effects are
-  // intentionally small; multi-day exposure is what makes them matter.
-  applyMonthModifierDailyEffects(ctx)
+  // Expansion Phase 9 §9.4 — the month's headline is now a PROJECTION of
+  // what is actually running.
+  //
+  // The daily nudge that used to live here has gone to the conditions
+  // module, which owns the process: a condition has a source, a forecast, a
+  // duration that is not "one month", counterplay, an accumulating burden
+  // and an aftermath. What stays here is the single field the rest of the
+  // sim reads — the arc engine's `month_modifier` gate, the tax rent bump
+  // and the monthly report all ask "what kind of month is this?" and none
+  // of them wants to learn about durations.
+  //
+  // When nothing is running the field is left exactly as the month's draw
+  // set it, rather than being blanked. A month with no condition in it is
+  // still a month, and the draw is what names it.
+  projectRunningCondition(ctx)
 }
 
-function applyMonthModifierDailyEffects(ctx: SimContext): void {
+/**
+ * Mirror the dominant running condition onto `currentModifier`.
+ *
+ * Dominant means "the one that has built up the most", which is the honest
+ * answer when two are running: the month is remembered as the one where the
+ * cellar went, not the one where it also rained a bit.
+ */
+function projectRunningCondition(ctx: SimContext): void {
+  const conditions = getConditionsModuleState(ctx.state)
   const slice = getMonthlyModuleState(ctx.state)
-  const modifier = slice.currentModifier
-  switch (modifier.id) {
-    case 'rainy_month': {
-      const roof = ctx.state.areas['roof']
-      if (roof && roof.condition < 90 && roof.damage > 0) {
-        ctx.modifyArea(
-          roof.id,
-          { condition: clampPercent(roof.condition - 1) },
-          { source: `${SOURCE}.rainy_month`, reason: 'rainy_month_drift' },
-        )
-      }
-      break
-    }
-    case 'festival_month': {
-      const mainRoom = ctx.state.areas['main_room']
-      if (mainRoom) {
-        ctx.modifyArea(
-          mainRoom.id,
-          { mess: clampPercent(mainRoom.mess + 1) },
-          { source: `${SOURCE}.festival_month`, reason: 'festival_mess' },
-        )
-      }
-      break
-    }
-    case 'mold_bloom': {
-      const cellar = ctx.state.areas['cellar']
-      if (cellar) {
-        ctx.modifyArea(
-          cellar.id,
-          {
-            smell: clampPercent(cellar.smell + 1),
-            risk: clampPercent(cellar.risk + 1),
-          },
-          { source: `${SOURCE}.mold_bloom`, reason: 'mold_bloom_drift' },
-        )
-      }
-      break
-    }
-    case 'quiet_roads': {
-      for (const staff of Object.values(ctx.state.staff)) {
-        if (staff.stress <= 0) continue
-        ctx.modifyStaff(
-          staff.id,
-          { stress: clampPercent(staff.stress - 1) },
-          { source: `${SOURCE}.quiet_roads`, reason: 'quiet_roads_recovery' },
-        )
-      }
-      break
-    }
-    case 'adventurer_season': {
-      const mainRoom = ctx.state.areas['main_room']
-      if (mainRoom) {
-        ctx.modifyArea(
-          mainRoom.id,
-          { damage: clampPercent(mainRoom.damage + 1) },
-          {
-            source: `${SOURCE}.adventurer_season`,
-            reason: 'adventurer_season_wear',
-          },
-        )
-      }
-      break
-    }
-    case 'tax_month':
-      // tax_month effect is applied at endMonth (extra rent due).
-      break
+  if (conditions.active.length === 0) {
+    // NOTHING RUNNING MEANS BACK TO THE MONTH'S OWN DRAW, not "whatever was
+    // running last". Returning early here left the last projection standing
+    // for the rest of the month, so a `tax_month` that ended on the 12th was
+    // still adding its rent bump at month end and the arc engine's
+    // `month_modifier` gate still read a condition that had stopped.
+    //
+    // Only THIS MODULE'S OWN projection is undone, and it is undone back to
+    // THE STORED DRAW rather than to a recomputed one. `pickMonthModifier`
+    // is keyed on the seed, and the seed changes every day in real play, so
+    // recomputing on day 20 would restore a modifier this month never had.
+    //
+    // "Ours to undo" means a condition of that name ended INSIDE this month.
+    // Scoping it to the month matters: an unscoped history check would let a
+    // condition from two months ago trigger a restore on any later
+    // condition-free day, moving the rent and the arc gates for a month it
+    // had nothing to do with.
+    const drawn = slice.monthDraw
+    if (!drawn || slice.currentModifier.id === drawn.id) return
+    // `calendar.day` is the day within the month, so the month opened this
+    // many days ago. Derived rather than stored: one fewer optional field to
+    // migrate, and the calendar is the authority on where the month began.
+    const monthStart =
+      ctx.state.calendar.totalDaysElapsed - (ctx.state.calendar.day - 1)
+    const projectedByUs = conditions.history.some(
+      (record) =>
+        record.conditionId === slice.currentModifier.id &&
+        record.endedOnDay >= monthStart,
+    )
+    if (!projectedByUs) return
+    writeSlice(ctx, { currentModifier: drawn }, 'restore_month_draw')
+    return
   }
+  const dominant = [...conditions.active].sort(
+    (a, b) => b.burden - a.burden || a.conditionId.localeCompare(b.conditionId),
+  )[0]!
+  const modifier = MONTH_MODIFIERS[dominant.conditionId as MonthModifierId]
+  if (!modifier) return
+  if (slice.currentModifier.id === modifier.id) return
+  writeSlice(ctx, { currentModifier: modifier }, 'project_condition')
 }
 
 function applyWeeklyEconomyToMonthly(
@@ -822,6 +820,7 @@ const MonthlyModuleStateSchema = z.object({
   inspection: InspectionStateSchema,
   rivalTavern: RivalTavernStateSchema,
   currentModifier: ModifierSchema,
+  monthDraw: ModifierSchema.optional(),
   accumulator: AccumulatorSchema,
   lastMonthlyResult: MonthlyResultSchema.optional(),
   monthlyHistory: z.array(MonthlyResultSchema),

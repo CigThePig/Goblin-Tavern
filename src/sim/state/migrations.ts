@@ -62,6 +62,17 @@ import {
   createInitialFactionModuleState,
   normalizeFactionSlice,
 } from "../modules/factions/factionState";
+import { LOCAL_ARCS_MODULE_ID } from "../modules/localArcs/types";
+import { createInitialArcRunTotals } from "../modules/localArcs/arcRuns";
+import { EXPEDITIONS_MODULE_ID } from "../modules/expeditions/moduleId";
+import { createInitialExpeditionsModuleState } from "../modules/expeditions/runState";
+import { CONDITIONS_MODULE_ID } from "../modules/conditions/moduleId";
+import { createInitialConditionsModuleState } from "../modules/conditions/conditionState";
+import {
+  RIVAL_MODULE_ID,
+  createInitialRivalModuleState,
+  normalizeRivalSlice,
+} from "../modules/rival/rivalState";
 import {
   CULTURES_MODULE_ID,
   createInitialCultureModuleState,
@@ -1754,6 +1765,161 @@ export function ensureSupplierProcurementFields<
     ...state,
     modules: { ...current, [SUPPLIERS_MODULE_ID]: next },
   };
+}
+
+// Expansion Phase 9 §5.7 / §9.1 — the rival slice.
+//
+// The slice is brand new, so `ensureModuleSlices` would install a blank one
+// and nothing would break. It is named anyway, because a blank one would be
+// WRONG in a way the generic sweep cannot know about: every post-Phase-15
+// save already records a rival in `modules.monthly.rivalTavern` — an appeal,
+// a pressure and a strategy the player has been living with — and opening a
+// brand-new unknown newcomer would throw away competition already played.
+//
+// So the record is DERIVED from what the save already knows, not rolled:
+//
+//   - `position` comes from the recorded `strategy`, which is where the save
+//     says the rival already sits (it will be `unknown` for almost every
+//     save, because nothing before this phase ever wrote it — that is an
+//     honest reading, not a loss).
+//   - `capability` is scaled off the recorded `appeal`, so a save whose
+//     rival had pulled ahead keeps a rival that has pulled ahead, and one
+//     whose rival was an irrelevance keeps an irrelevance.
+//   - NO NAME IS ROLLED HERE. The migration cannot reach an RNG stream, and
+//     rolling one would move a cursor and shift a generated name elsewhere
+//     (architecture rule 7). The record is left out entirely and the rival
+//     module's own `ensureRival` opens it — with its name drawn once from
+//     its own named stream — on the first day the migrated save is played.
+//
+// The result is a slice that is present and valid immediately, and a rival
+// whose standing on the day the save resumes is the standing it had when the
+// save was written.
+export function ensureRivalSlice<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const existing = current[RIVAL_MODULE_ID];
+  const base = createInitialRivalModuleState();
+
+  if (isRecord(existing)) {
+    const keys = Object.keys(base) as Array<keyof typeof base>;
+    if (keys.every((key) => key in existing)) return state;
+    return {
+      ...state,
+      modules: {
+        ...current,
+        [RIVAL_MODULE_ID]: normalizeRivalSlice(
+          existing as Partial<ReturnType<typeof createInitialRivalModuleState>>,
+        ),
+      },
+    };
+  }
+
+  return {
+    ...state,
+    modules: { ...current, [RIVAL_MODULE_ID]: base },
+  };
+}
+
+// Expansion Phase 9 §5.7 / §9.2 — the arc run book.
+//
+// Every post-Phase-35 save already HAS a `modules.localArcs` slice, so the
+// generic `ensureModuleSlices` sweep — which only fills slices that are
+// missing entirely — walks straight past it, and every reader of the new
+// run book would see `undefined`. This is the named migration that fills it.
+//
+// The judgement it makes, which the sweep could not: a save mid-way through
+// an arc gets an EMPTY run book rather than a fabricated run. Backdating a
+// goal meter would invent progress the player never made, and backdating an
+// opposition meter would invent pushing nobody did. The arc module's own
+// `ensureArcRuns` opens a real run for each live arc on the first day the
+// save is played, at the stage it was already showing — so an arc in
+// progress continues from where it was, with the contest starting level.
+export function ensureArcProgression<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const slice = current[LOCAL_ARCS_MODULE_ID];
+  if (!isRecord(slice)) return state;
+  const hasRuns = "runs" in slice;
+  const hasTotals = "runTotals" in slice;
+  const hasLabels = "earnedLabels" in slice;
+  if (hasRuns && hasTotals && hasLabels) return state;
+  return {
+    ...state,
+    modules: {
+      ...current,
+      [LOCAL_ARCS_MODULE_ID]: {
+        ...slice,
+        ...(hasRuns ? {} : { runs: {} }),
+        ...(hasTotals ? {} : { runTotals: createInitialArcRunTotals() }),
+        // Empty, not backdated: no arc in the old save ever earned a label,
+        // and inventing one would put words in the quarter's mouth.
+        ...(hasLabels ? {} : { earnedLabels: { knownFor: [], houseRules: [] } }),
+      },
+    },
+  };
+}
+
+// Expansion Phase 9 §5.7 / §9.3 — the expedition run book.
+//
+// `modules.expeditions` existed before this phase as an EMPTY PASSTHROUGH —
+// the module had no state of its own, so the slice was `{}` if it was there
+// at all. The generic `ensureModuleSlices` sweep only fills slices that are
+// missing entirely, so a save carrying that empty object would walk straight
+// past it and every reader of the run book would see `undefined`.
+//
+// The judgement the sweep cannot make: an expedition already on the road
+// gets NO run record. Inventing one would mean inventing a route it was
+// never sent down, a party that was never assembled, supplies nobody bought
+// and terms nobody agreed. The module's own `resolveLegacyExpedition` path
+// finishes those trips on the Phase 70 end-only roll they were commissioned
+// under, which is the honest reading of a commission made before any of this
+// existed. New commissions get the full journey.
+export function ensureExpeditionRunBook<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const slice = current[EXPEDITIONS_MODULE_ID];
+  const base = createInitialExpeditionsModuleState() as unknown as Record<
+    string,
+    unknown
+  >;
+  if (!isRecord(slice)) {
+    return { ...state, modules: { ...current, [EXPEDITIONS_MODULE_ID]: base } };
+  }
+  const keys = Object.keys(base);
+  const missing = keys.filter((key) => !(key in slice));
+  if (missing.length === 0) return state;
+  const next: Record<string, unknown> = { ...slice };
+  for (const key of missing) next[key] = base[key];
+  return { ...state, modules: { ...current, [EXPEDITIONS_MODULE_ID]: next } };
+}
+
+// Expansion Phase 9 §9.4 — the world-conditions run book.
+//
+// A save from before this phase has no `modules.conditions` at all, and a
+// save from the middle of it may be missing a collection the slice has since
+// grown. Both are the same fix: seed what is absent and leave what is there,
+// so an existing game keeps whatever it was already carrying and simply
+// starts hearing forecasts.
+export function ensureWorldConditions<
+  T extends { modules?: Record<string, unknown> },
+>(state: T): T {
+  const current = (state.modules ?? {}) as Record<string, unknown>;
+  const slice = current[CONDITIONS_MODULE_ID];
+  const base = createInitialConditionsModuleState() as unknown as Record<
+    string,
+    unknown
+  >;
+  if (!isRecord(slice)) {
+    return { ...state, modules: { ...current, [CONDITIONS_MODULE_ID]: base } };
+  }
+  const missing = Object.keys(base).filter((key) => !(key in slice));
+  if (missing.length === 0) return state;
+  const next: Record<string, unknown> = { ...slice };
+  for (const key of missing) next[key] = base[key];
+  return { ...state, modules: { ...current, [CONDITIONS_MODULE_ID]: next } };
 }
 
 type PartialRegular = {

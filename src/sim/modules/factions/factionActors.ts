@@ -761,7 +761,7 @@ export const FACTION_ACTOR_ACTION_LIST: ReadonlyArray<
 // The daily pass
 // ---------------------------------------------------------------------------
 
-function ensureActor(
+export function ensureActor(
   slice: ReturnType<typeof getFactionModuleState>,
   state: TavernState,
   faction: FactionWorldState,
@@ -902,6 +902,33 @@ export function runFactionActors(ctx: SimContext): void {
 }
 
 /** Every announced-but-not-yet-taken faction move. Read by the report. */
+/**
+ * Write one faction's actor back to the slice.
+ *
+ * The daily pass rebuilds the whole `actors` map at once, which is fine for
+ * a pass that touches every faction — but a SCHEDULED EVENT acts on exactly
+ * one of them, out of band, and needs the same bookkeeping to stick. Without
+ * it the faction spends nothing: `performActorAction` returns an actor with
+ * its budget drawn down, the move's cooldown set, its commitment window
+ * taken and any announced intent cleared, and discarding that returned actor
+ * let it take the move for free and still carry out something it had already
+ * announced, or spend the same allowance again the next day.
+ */
+export function persistFactionActor(
+  ctx: SimContext,
+  factionId: string,
+  actor: ActorState,
+): void {
+  writeFactionSlice(
+    ctx,
+    (current) => ({
+      ...current,
+      actors: { ...current.actors, [factionId]: orderActorState(actor) },
+    }),
+    'actor_persisted',
+  )
+}
+
 export function listFactionIntents(state: {
   modules: Record<string, unknown>
 }): Array<{

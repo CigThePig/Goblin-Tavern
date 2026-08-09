@@ -350,6 +350,189 @@ export const MODULE_CONTRACTS: Readonly<Record<string, ModuleContract>> = {
       'counter_rumour_runaway',
     ],
   },
+  // Expansion Phase 9 §9.3 — the expeditions slice stops being an empty
+  // passthrough and starts carrying the journey: route, party, loadout,
+  // terms, position, condition, events, the pending question and the
+  // dispatch queue. It writes `world.socialRumours` on purpose — a
+  // legendary haul or a lost party is talked about, and the rumour layer
+  // decides who hears it — and `world.hireableAdventurers` because the
+  // roster is where a runner's experience and injuries live.
+  expeditions: {
+    slices: [
+      { sliceId: 'expeditions', version: 2, access: 'owns' },
+      // A settlement the till could not cover is recorded as a decaying
+      // `debt` adjustment rather than forgiven, which is a write into the
+      // pressure module's own slice and is declared as such.
+      { sliceId: 'pressures', version: 1, access: 'writes' },
+    ],
+    readsStatePaths: ['calendar', 'coin', 'expeditions', 'stock', 'world'],
+    writesStatePaths: [
+      'coin',
+      'expeditions',
+      'stock',
+      'world.hireableAdventurers',
+      'world.socialRumours',
+    ],
+  },
+  // Expansion Phase 9 §9.4 — world conditions own the process a month
+  // modifier used to only hint at. The slice is theirs; the writes outside it
+  // are the aftermath landing in the domains that own what it wrecked —
+  // areas, stock, staff, customer groups, coin and renown — because §5 is
+  // explicit that a consequence which is only a meter adjustment in this
+  // module's own slice has not actually happened to the tavern.
+  conditions: {
+    slices: [
+      { sliceId: 'conditions', version: 1, access: 'owns' },
+      // A tax scar is remembered by the landlord, who is the party the levy
+      // runs through — so the scar's drag lands on `monthly.landlord`
+      // rather than on a meter of this module's own.
+      { sliceId: 'monthly', version: 1, access: 'writes' },
+      // The unpaid part of a levy is recorded as a decaying `debt`
+      // adjustment rather than a direct pressure write, which is a write
+      // into the pressure module's own slice and is declared as such.
+      { sliceId: 'pressures', version: 1, access: 'writes' },
+    ],
+    readsStatePaths: ['areas', 'calendar', 'coin', 'customerGroups', 'reputation', 'staff', 'stock', 'world'],
+    writesStatePaths: [
+      'areas',
+      'coin',
+      'customerGroups',
+      'pressures',
+      'reputation',
+      'staff',
+      'stock',
+      // Adventurer season claims the roster among the systems it touches,
+      // and now actually reaches it; quiet roads claims the suppliers.
+      'world.hireableAdventurers',
+      'world.suppliers',
+    ],
+  },
+  // Expansion Phase 9 §9.2 — the suppliers slice gains a declared owner.
+  //
+  // Same story as the factions slice in §9.1: it had none and did not need
+  // one while the suppliers module was its only writer, and an arc changed
+  // that. An arc whose owner is a supplier hardens that supplier's terms as
+  // its opposing move, and a called-in favour does the same — both through
+  // the suppliers module's own `writeSupplierAccount`. Declaring the
+  // ownership is what makes those writes legible as deliberate rather than
+  // looking like a second owner of the account.
+  suppliers: {
+    slices: [
+      { sliceId: 'suppliers', version: 1, access: 'owns' },
+      { sliceId: 'ruleset', version: 1, access: 'reads' },
+      { sliceId: 'obligations', version: 1, access: 'writes' },
+      { sliceId: 'scheduledEvents', version: 1, access: 'writes' },
+      { sliceId: 'stock', version: 1, access: 'writes' },
+    ],
+    readsStatePaths: ['calendar', 'coin', 'stock', 'world'],
+    writesStatePaths: ['coin', 'stock', 'world.suppliers'],
+  },
+  // Expansion Phase 9 §9.2 — identity reads the labels an arc earned. It
+  // stays the sole WRITER of `world.tavernIdentity`; the arc slice is a
+  // durable input it unions into what it recomputes.
+  tavernIdentity: {
+    slices: [{ sliceId: 'localArcs', version: 2, access: 'reads' }],
+    readsStatePaths: ['areas', 'reputation', 'world'],
+    writesStatePaths: ['world.tavernIdentity'],
+  },
+  // Expansion Phase 9 §9.2 — the local-arcs slice gains a declared owner.
+  //
+  // It writes three other slices on purpose. `scheduledEvents` carries the
+  // four hook families it took ownership of. `factions` and `suppliers` are
+  // the deliberate part: an arc's opposing move records a grievance in the
+  // faction's own standing ledger and hardens a supplier's own terms, rather
+  // than this module deciding what those domains conclude. Declaring them is
+  // what makes those writes legible as intentional.
+  localArcs: {
+    slices: [
+      { sliceId: 'localArcs', version: 2, access: 'owns' },
+      { sliceId: 'monthly', version: 1, access: 'reads' },
+      { sliceId: 'factions', version: 1, access: 'writes' },
+      { sliceId: 'suppliers', version: 1, access: 'writes' },
+      { sliceId: 'scheduledEvents', version: 1, access: 'writes' },
+    ],
+    readsStatePaths: ['areas', 'calendar', 'coin', 'customerGroups', 'pressures', 'reputation', 'world'],
+    writesStatePaths: ['areas', 'customerGroups', 'pressures', 'reputation', 'world.localEvents', 'world.socialRumours', 'world.tavernIdentity'],
+    ownsEventTypes: [
+      'arc_outcome_review',
+      'arc_permanent_lock',
+      'arc_backlash',
+      'arc_debt_called_in',
+      // Expansion Phase 9 — four more `arcKey`-shaped promises. They live
+      // here because resolving one starts by asking WHICH arc it was about,
+      // which is this module's question; what each then does is handed to
+      // the domain that owns it (a supplier's account, a faction's own
+      // boycott move, the rumour layer, a faction's demand book).
+      'payday_supplier_standing',
+      'payday_boycott_review',
+      'payday_brawl_legend',
+      'festival_obligation_review',
+    ],
+    schedulesEventTypes: [
+      'arc_outcome_review',
+      'arc_permanent_lock',
+      'arc_backlash',
+      'arc_debt_called_in',
+    ],
+  },
+  // Expansion Phase 9 §9.1 — the factions slice gains a declared owner.
+  //
+  // It had none, and did not need one while the factions module was the
+  // only writer. The rival changes that: `seek_faction_backing` opens a
+  // `rival_backing` stance, which is a faction record written by the
+  // domain that provoked it. A foreign write into an UNOWNED slice is
+  // exactly what `checkSliceOwnership` exists to catch, so declaring the
+  // ownership here is what makes that one write legible as deliberate
+  // rather than looking like a second owner.
+  factions: {
+    slices: [
+      { sliceId: 'factions', version: 1, access: 'owns' },
+      { sliceId: 'economy', version: 1, access: 'reads' },
+      { sliceId: 'suppliers', version: 1, access: 'reads' },
+      { sliceId: 'scheduledEvents', version: 1, access: 'writes' },
+    ],
+    readsStatePaths: ['calendar', 'customerGroups', 'pressures', 'reputation', 'world'],
+    writesStatePaths: ['world.factions', 'coin'],
+    ownsEventTypes: [
+      'faction_demand_deadline',
+      'faction_favour_due',
+      'faction_retaliation',
+    ],
+    schedulesEventTypes: [
+      'faction_demand_deadline',
+      'faction_favour_due',
+      'faction_retaliation',
+    ],
+  },
+  // Expansion Phase 9 §9.1 — the rival tavern. It owns its own slice and
+  // writes two others on purpose: the scheduled-event queue (for the four
+  // hook families it took ownership of) and the factions slice, because
+  // `seek_faction_backing` opens a `rival_backing` stance — a faction
+  // record, written deliberately by the domain that provoked it rather than
+  // duplicated here.
+  rival: {
+    slices: [
+      { sliceId: 'rival', version: 1, access: 'owns' },
+      { sliceId: 'factions', version: 1, access: 'writes' },
+      { sliceId: 'economy', version: 1, access: 'reads' },
+      { sliceId: 'scheduledEvents', version: 1, access: 'writes' },
+    ],
+    readsStatePaths: ['calendar', 'customerGroups', 'reputation', 'pressures', 'world'],
+    writesStatePaths: ['world.socialRumours'],
+    ownsEventTypes: [
+      'rival_retaliation',
+      'rival_dominance_review',
+      'rival_rumour_exposed',
+      'rival_pact_review',
+      // Expansion Phase 9 — the two competitive families. Distinct from
+      // `rival_retaliation` because they answer a specific commercial move
+      // the house made rather than a provocation, so the move is named and
+      // the counterplay is the one that belongs to it.
+      'rival_price_war',
+      'rival_quality_race',
+    ],
+    schedulesEventTypes: ['rival_retaliation', 'rival_pact_review'],
+  },
   regulatory: {
     slices: [
       { sliceId: 'regulatory', version: 1, access: 'owns' },

@@ -1,4 +1,5 @@
 import type { SimContext } from '../../core/context'
+import type { TavernState } from '../../state/TavernState'
 import type { ExpandedPressureId, PressureId } from '../pressures/pressureTypes'
 
 /** Any registry pressure — the core 10 plus the expanded social/market/arc set. */
@@ -36,6 +37,22 @@ export type OwnerActionTargetType =
   | 'project'
   | 'policy'
   | 'recipe'
+  /**
+   * The action has its own target list whose ids are not entities of a
+   * single known kind — a live arc plus one of its declared interventions,
+   * a running condition plus one of its counter-moves, a party on the road
+   * plus the option they are waiting on.
+   *
+   * Expansion Phase 9 — added because these actions were all declaring
+   * `global`, which is what the picker reads as "takes no target". It then
+   * asked `canApply` with an empty input, got `missing_target` back, and
+   * left the row permanently disabled with its target list never opened —
+   * so most of this arc's player counterplay was unreachable through the
+   * UI. `composite` routes them down the same `getValidTargets` path every
+   * other targeted action uses; nothing renders per-entity-kind, so the
+   * picker needed no change to handle it.
+   */
+  | 'composite'
   | 'global'
 
 // Phase 33 §33.2 — Category metadata on each action definition. Lets the
@@ -189,8 +206,27 @@ export type OwnerActionDefinition = {
   /**
    * Minutes this action costs against the daily time budget
    * (`DAY_MINUTES`). Phase 186 — see `OwnerActionApplied.timeCost`.
+   *
+   * For an action whose real cost depends on WHICH thing was picked, this
+   * is the representative cost the picker shows; `timeCostFor` is the one
+   * the budget is actually enforced against.
    */
   timeCost: number
+  /**
+   * The minutes this specific pick costs, when that is not a constant.
+   *
+   * Expansion Phase 9 — added because `intervene_in_arc` broke the day-clock
+   * contract in both directions. Its interventions declare 30 to 240 minutes
+   * and `apply` returns the intervention's own number, but every budget gate
+   * checked the definition's flat 120: a 240-minute intervention was admitted
+   * with 120 minutes left and pushed `timeSpent` past the 360-minute budget,
+   * and a 30-minute one was refused whenever fewer than 120 remained.
+   *
+   * Optional, and defaulting to `timeCost`, so the fixed-price actions —
+   * which is nearly all of them — declare nothing and behave exactly as
+   * before. Implementations must agree with what `apply` returns.
+   */
+  timeCostFor?: (state: TavernState, input: OwnerActionInput) => number
   /**
    * Phase 193 / ISSUE-160 — terse, one-line "what this does" preview for
    * the planning picker. Additive and optional: actions without one render

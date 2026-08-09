@@ -12,6 +12,7 @@ import {
 import { getServicePriceMultiplier } from '../../economy/policies'
 import { recipeRegistry } from '../../../registries/recipeRegistry'
 import { effectiveQuality, isPerishable } from '../../stock/spoilage'
+import { getPrimaryRival } from '../../rival/rivalState'
 
 // Expansion Phase 4 §4.2 — customer choice, scored.
 //
@@ -199,11 +200,14 @@ function noveltyTerm(recipe: RecipeState, dayType: string): number {
 /**
  * §4.2 "competitor appeal".
  *
- * There is no rival tavern in state until Phase 9, so this reads the signal
- * that DOES exist today: a live local event tagged as competition pulls trade
- * toward whatever the competition is good at, and away from the ordinary
- * rounds. Wired now, on real state, so Phase 9 gives it a rival to point at
- * rather than having to introduce the term.
+ * Phase 4 wired this on the only competition signal that existed then — a
+ * local event tagged `competition` — with a note that Phase 9 would give it
+ * a rival to point at. Expansion Phase 9 §9.1 is that: the other house has
+ * a position and a menu focus it actually chose, so what it is good at is
+ * now a fact rather than an intensity number, and it pulls trade away from
+ * whatever it leads with. The local-event term is kept alongside it: a
+ * competition arc and a standing rival are different pressures on the same
+ * choice, and only one of them has to be live.
  */
 function competitorTerm(state: TavernState, recipe: RecipeState): number {
   let signal = 0
@@ -216,6 +220,34 @@ function competitorTerm(state: TavernState, recipe: RecipeState): number {
     if (recipeRegistry.has(recipe.id)) {
       const def = recipeRegistry.get(recipe.id)
       signal += def.demandTier === 'common' ? -0.8 * pull : 0.3 * pull
+    }
+  }
+
+  const rival = getPrimaryRival(state)
+  if (rival && rival.position !== 'unknown' && recipeRegistry.has(recipe.id)) {
+    const def = recipeRegistry.get(recipe.id)
+    // Reach is how many people have heard what they do; without it a
+    // position is a decision nobody has acted on yet.
+    const pull = Math.min(1, rival.capability.reach / 100)
+    const undercutting = Math.max(0, (50 - rival.capability.priceLevel) / 50)
+    switch (rival.menuFocus) {
+      case 'rounds':
+        // A cheap house leading with rounds takes the ordinary pint first.
+        if (def.demandTier === 'common') signal -= (0.5 + undercutting * 0.4) * pull
+        else signal += 0.2 * pull
+        break
+      case 'food':
+        if (recipe.tags.includes('food')) signal -= 0.5 * pull
+        else signal += 0.15 * pull
+        break
+      case 'spectacle':
+        if (recipe.tags.includes('alcohol')) signal -= 0.35 * pull
+        break
+      case 'comfort':
+        if (recipe.tags.includes('quality_sensitive')) signal -= 0.35 * pull
+        break
+      default:
+        break
     }
   }
   return clampTerm(signal)

@@ -39,6 +39,7 @@
     "factions",
     "npcs",
     "rumours",
+    "rival",
     "suppliers",
     "regulars",
     "adventurers",
@@ -47,6 +48,7 @@
     "service",
     "economy",
     "weekly",
+    "conditions",
     "monthly",
     "localArcs",
     "tavernIdentity",
@@ -134,9 +136,11 @@
     "areas",
     "attribution",
     "causes",
+    "conditions",
     "cultures",
     "customers",
     "economy",
+    "expeditions",
     "factions",
     "feedback",
     "finance",
@@ -153,6 +157,7 @@
     "regulars",
     "regulatory",
     "responses",
+    "rival",
     "ruleset",
     "rumours",
     "scheduledEvents",
@@ -234,6 +239,10 @@
       "ensureNpcAgencyFields",
       "ensureRumourNetworkFields",
       "ensureBeliefBehaviourFields",
+      "ensureRivalSlice",
+      "ensureArcProgression",
+      "ensureExpeditionRunBook",
+      "ensureWorldConditions",
       "ensureModuleSlices"
     ]
   },
@@ -243,10 +252,10 @@
     "standard"
   ],
   "inventory": {
-    "runtimeModules": 39,
+    "runtimeModules": 41,
     "simulationPhases": 26,
     "daySegments": 3,
-    "ownerActions": 97,
+    "ownerActions": 109,
     "staffPriorities": 12,
     "pressureDomains": 21,
     "feedbackDetectors": 13,
@@ -263,7 +272,7 @@
     "factions": 9,
     "suppliers": 9,
     "marketConditions": 8,
-    "localArcs": 5,
+    "localArcs": 9,
     "ventureBlueprints": 1,
     "staffRoles": 8,
     "reputationAxes": 10
@@ -411,7 +420,8 @@
     "wages",
     "weekly_net",
     "weekly_signals",
-    "welcome_back"
+    "welcome_back",
+    "world_condition"
   ],
   "futureHooks": {
     "families": 98,

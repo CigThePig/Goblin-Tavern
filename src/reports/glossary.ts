@@ -456,8 +456,15 @@ const MECHANIC_TERMS: GlossaryTerm[] = [
     id: 'month_modifier',
     label: 'Month Modifier',
     category: 'mechanic',
-    oneLine: 'A monthly flavor effect that shapes daily nudges and occasional surprises.',
-    longer: 'Picked deterministically per (seed, year, month): rainy_month, festival_month, tax_month, mold_bloom, quiet_roads, or adventurer_season. Each carries small daily effects and sometimes a month-end twist.',
+    oneLine: 'What kind of month this is — the world condition currently running.',
+    longer: 'A projection of the world condition with the most built up right now: rainy_month, festival_month, tax_month, mold_bloom, quiet_roads, or adventurer_season. See World Condition for the process behind it. Tax months still add a rent bump at month end.',
+  },
+  {
+    id: 'world_condition',
+    label: 'World Condition',
+    category: 'mechanic',
+    oneLine: 'Weather, seasons, levies and blooms — each one a process with a warning, a length and a reckoning.',
+    longer: 'Every condition has a named source, a forecast that reaches the house days ahead with a confidence that firms up, a duration of its own rather than a calendar month, and declared systems it touches. While it runs it BUILDS UP a burden. You can prepare against the forecast before it lands, work the burden down repeatedly while it runs, or take the upside instead of only surviving it. Whatever burden is still standing when it ends is paid out — water in the roof, spores through the stores, an assessment the till could not cover — and leaves a fading scar. A house that keeps at it ends owing nothing.',
   },
   {
     id: 'rival_tavern',

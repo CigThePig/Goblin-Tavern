@@ -53,7 +53,11 @@ import {
   getSupplierAccount,
   writeSupplierAccount,
 } from '../../src/sim/modules/suppliers/state'
-import { activeStance, openDemandFor } from '../../src/sim/modules/factions/factionState'
+import {
+  activeStance,
+  getFactionModuleState,
+  openDemandFor,
+} from '../../src/sim/modules/factions/factionState'
 
 const SEED = 'phase216/hook-closure'
 
@@ -480,6 +484,39 @@ describe('Phase 216 — payday_boycott_review', () => {
     // pressure nudge this module decided on its behalf.
     const factionId = outcome.mutations![0]!.targetId
     expect(activeStance(after, factionId, 'boycott')).toBeDefined()
+  })
+
+  it("spends the faction's own budget and cooldown on the move", () => {
+    // `performActorAction` returns the actor with its allowance drawn down,
+    // the boycott's cooldown set and its commitment taken. Discarding that
+    // let the faction call this boycott for free and still act again.
+    const base = withANonFactionArc()
+    const arcId = nonFactionArcId(base)
+    const state = withSetup(base, 'gouged-spend', (ctx) => {
+      for (const faction of Object.values(ctx.state.world.factions)) {
+        ctx.modifyFaction(
+          faction.id,
+          { relationship: Math.max(0, faction.relationship - 20) },
+          { source: 'test', reason: 'gouged_on_payday_night' },
+        )
+      }
+    })
+    const after = fire(
+      state,
+      'boycott-spend',
+      PAYDAY_BOYCOTT_REVIEW_EVENT,
+      { kind: 'local_event', id: arcId },
+      { arcId },
+    )
+    const outcome = outcomesFor(after, PAYDAY_BOYCOTT_REVIEW_EVENT)[0]!
+    if (outcome.status !== 'resolved') return
+    const factionId = outcome.mutations![0]!.targetId
+    const actor = getFactionModuleState(after).actors[factionId]
+    expect(actor, 'the faction actor was never written back').toBeDefined()
+    expect(actor!.cooldowns['call_boycott']).toBeGreaterThan(
+      after.calendar.totalDaysElapsed,
+    )
+    expect(actor!.lastActedOnDay).toBeDefined()
   })
 
   it('says so when the aggrieved faction has nobody to keep away', () => {

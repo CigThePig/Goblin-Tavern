@@ -393,9 +393,21 @@ const startDayHook: SimulationHook = (ctx: SimContext): void => {
 
     const after = getExpeditionRun(ctx.state, expedition.id)
     if (!after) continue
-    const done =
-      after.terminal !== undefined ||
-      after.phase === 'home'
+    // A party that walked back through the door is known about the moment
+    // they arrive. A party that was LOST is not: `checkTrouble` queues a
+    // terminal dispatch that travels at the route's speed, and finishing
+    // the expedition before it lands took the trip off the active list,
+    // wrote `runner_lost` into recent resolutions and struck the runners
+    // off the roster — the house learning the worst days before the message
+    // could reach it, through the one boundary this module is careful about
+    // everywhere else.
+    const today = ctx.state.calendar.totalDaysElapsed
+    const wordIsHome =
+      after.terminal !== 'lost' ||
+      after.dispatches.some(
+        (dispatch) => dispatch.kind === 'terminal' && dispatch.arrivesOnDay <= today,
+      )
+    const done = (after.terminal !== undefined || after.phase === 'home') && wordIsHome
     if (!done) continue
 
     finishExpedition(ctx, expedition)

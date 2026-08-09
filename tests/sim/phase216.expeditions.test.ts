@@ -636,6 +636,46 @@ describe("Phase 216 §9.3 — the house's orders travel too", () => {
     }
   })
 
+  it('keeps a lost party out there until the word reaches the house', () => {
+    // The house learning the worst before the message could arrive — the
+    // one boundary this module is careful about everywhere else. A lost
+    // party used to leave the active list, land in recent resolutions and
+    // come off the roster on the day it happened.
+    let state = withRunners('lost-word')
+    state = commission(
+      state,
+      9,
+      { mode: 'open', targetTier: 'rare', routeId: 'deep_fen', provisions: 0 },
+      'lost-word',
+    )
+    const opened = liveExpeditionRuns(state)[0]
+    if (!opened) return
+    const route = routeFor(opened.routeId)!
+    expect(route.wordDelayDays).toBeGreaterThan(0)
+
+    let day = 10
+    for (let i = 0; i < 40; i += 1) {
+      const before = getExpeditionRun(state, opened.expeditionId)
+      state = run(state, day, [], 'lost-word')
+      day += 1
+      const now = getExpeditionRun(state, opened.expeditionId)
+      if (!before || !now) break
+      if (now.terminal !== 'lost') continue
+      // The day they were lost: the house has not been told, so the trip is
+      // still on the active list and the runners are still on the roster.
+      const stillActive = state.expeditions.active.some(
+        (entry) => entry.id === opened.expeditionId,
+      )
+      const terminalWord = now.dispatches.find(
+        (dispatch) => dispatch.kind === 'terminal',
+      )
+      if (terminalWord && terminalWord.arrivesOnDay > state.calendar.totalDaysElapsed) {
+        expect(stillActive, 'the loss was reported before word arrived').toBe(true)
+      }
+      return
+    }
+  })
+
   it('refuses a named ingredient the chosen route cannot yield', () => {
     // Open mode already refuses a tier the route cannot produce. Targeted
     // mode checked only that the ingredient was not common, so asking for a

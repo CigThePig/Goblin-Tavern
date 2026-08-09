@@ -134,9 +134,11 @@
                 · paid {exp.costPaid}c
               </p>
               <MeterBar
-                label="day {exp.daysElapsed} of {exp.daysTotal}"
+                label={exp.daysElapsed > exp.daysTotal
+                  ? `day ${exp.daysElapsed}, past the ${exp.daysTotal} the road was good for`
+                  : `day ${exp.daysElapsed} of about ${exp.daysTotal}`}
                 value={exp.daysElapsed}
-                max={exp.daysTotal}
+                max={exp.daysExpected}
                 mode="wellness"
               />
             </li>

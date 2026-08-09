@@ -64,8 +64,14 @@
   let medicine = $state(0)
   let gear = $state(0)
 
+  // Both reasons the engine will refuse somebody. `isBusy` alone counted an
+  // injured idle runner as available, so the party-size cap offered two and
+  // `commissionExpedition` — which filters injuries out — clamped it to one:
+  // an inflated price on the form, and a smaller party than it promised.
   const availableRunners = $derived(
-    pipeline.hireableAdventurers.filter((a: AdventurerRow) => !a.isBusy),
+    pipeline.hireableAdventurers.filter(
+      (a: AdventurerRow) => !a.isBusy && !a.isInjured,
+    ),
   )
 
   const runner = $derived<AdventurerRow | null>(

@@ -253,9 +253,12 @@ export type ActiveExpeditionRow = {
   targetTier: 'uncommon' | 'rare' | 'legendary' | null
   targetIngredientId: string | null
   targetIngredientLabel?: string
+  /** The route's nominal duration. An ESTIMATE — the road can add days. */
   daysTotal: number
   daysElapsed: number
   daysRemaining: number
+  /** `daysTotal`, or the days already spent when the trip has run over. */
+  daysExpected: number
   costPaid: number
   progressFraction: number
 }
@@ -270,6 +273,15 @@ export type AdventurerRow = {
   wageBase: number
   daysSinceLastJob: number
   isBusy: boolean
+  /**
+   * Recovering from a prior trip, so the sim will not commission them.
+   *
+   * Distinct from `isBusy`, which only means "already on an expedition".
+   * The commission form counted an injured idle runner as available and
+   * priced a party the engine then silently clamped, so the charge shown
+   * was wrong and the party queued smaller than the form promised.
+   */
+  isInjured: boolean
   currentExpeditionId: string | null
 }
 
@@ -837,10 +849,17 @@ function projectSupplyPipeline(state: TavernState): SupplyPipelineData {
       const targetIngredientLabel = exp.targetIngredientId
         ? stockRegistry.get(exp.targetIngredientId)?.label
         : undefined
+      // `daysTotal` is the ROUTE's nominal duration, and weather, washouts
+      // and days spent waiting on an answer all push a real trip past it.
+      // Dividing by the nominal total rendered "day 15 of 13" sitting at
+      // 100%, which reads as a stuck bar rather than a late party. The
+      // denominator grows with the trip so the fraction stays honest, and
+      // `daysTotal` is surfaced as the estimate it always was.
       const daysRemaining = Math.max(0, exp.daysTotal - exp.daysElapsed)
+      const daysExpected = Math.max(exp.daysTotal, exp.daysElapsed)
       const progressFraction =
-        exp.daysTotal > 0
-          ? Math.max(0, Math.min(1, exp.daysElapsed / exp.daysTotal))
+        daysExpected > 0
+          ? Math.max(0, Math.min(1, exp.daysElapsed / daysExpected))
           : 0
       const row: ActiveExpeditionRow = {
         id: exp.id,
@@ -852,6 +871,7 @@ function projectSupplyPipeline(state: TavernState): SupplyPipelineData {
         daysTotal: exp.daysTotal,
         daysElapsed: exp.daysElapsed,
         daysRemaining,
+        daysExpected,
         costPaid: exp.costPaid,
         progressFraction,
       }
@@ -902,6 +922,7 @@ function projectAdventurer(adv: HireableAdventurer): AdventurerRow {
     wageBase: adv.wageBase,
     daysSinceLastJob: adv.daysSinceLastJob,
     isBusy: adv.currentExpeditionId !== null,
+    isInjured: adv.activeFlags.includes('injured'),
     currentExpeditionId: adv.currentExpeditionId,
   }
 }

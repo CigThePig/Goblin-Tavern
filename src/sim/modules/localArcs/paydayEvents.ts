@@ -12,6 +12,7 @@ import {
   buildPerception as buildFactionPerception,
   deriveGoals as deriveFactionGoals,
   ensureActor as ensureFactionActor,
+  persistFactionActor,
   FACTION_ACTOR_ACTION_LIST,
 } from '../factions/factionActors'
 import { openDemandRecord } from '../factions/factionEvents'
@@ -329,6 +330,14 @@ const boycottReviewEvent: ScheduledEventDefinition = {
       target,
       goalId: goal.id,
     })
+    // The spend has to stick. `performActorAction` returns the actor with
+    // its budget drawn down, the boycott's cooldown set, its commitment
+    // window taken and any announced intent cleared — and discarding that
+    // let the faction call this boycott for free, then still carry out
+    // whatever it had already announced or spend the same allowance again
+    // tomorrow. The rival resolvers persist their actor for exactly this
+    // reason; this one was not.
+    persistFactionActor(ctx, factionId, performed.actor)
     if (performed.outcome.result !== 'succeeded') {
       return noOp(performed.outcome.readable, record.origin.readable)
     }

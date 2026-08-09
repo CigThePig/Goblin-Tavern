@@ -498,9 +498,22 @@ export function advanceExpeditionDay(
   if (!route) return undefined
   const today = ctx.state.calendar.totalDaysElapsed
 
-  // 1. A question nobody answered in time is answered by the party.
-  if (run.pendingDecision && today >= run.pendingDecision.deadlineDay) {
-    resolveDecision(ctx, expedition, run.pendingDecision.defaultOptionId, true)
+  // 1. AN ANSWER DUE TODAY ARRIVES BEFORE THE PARTY GIVES UP WAITING.
+  //
+  // `openQuestions` offers an answer whenever it can get there by the
+  // deadline — `today + wordDelayDays <= deadlineDay` — so a reply landing
+  // exactly ON the deadline is one the house was explicitly invited to
+  // send. Resolving the default first threw that reply away: the default
+  // cleared `pendingDecision`, the arrival block found nothing to apply,
+  // and the player had spent an action on an answer that never happened.
+  // The rider gets there in the morning; the party stops waiting at the end
+  // of the day.
+  applyArrivedAnswer(ctx, expedition, route, today)
+
+  // 2. A question nobody answered in time is answered by the party.
+  const afterAnswer = getExpeditionRun(ctx.state, expedition.id) ?? run
+  if (afterAnswer.pendingDecision && today >= afterAnswer.pendingDecision.deadlineDay) {
+    resolveDecision(ctx, expedition, afterAnswer.pendingDecision.defaultOptionId, true)
   }
 
   // 2. The day is spent: rations go whether they are walking or waiting.
@@ -547,26 +560,6 @@ export function advanceExpeditionDay(
       route,
       'progress',
       'The recall reached them and they turned for home.',
-    )
-  }
-
-  const withAnswer = getExpeditionRun(ctx.state, expedition.id)
-  if (withAnswer?.pendingAnswer && today >= withAnswer.pendingAnswer.reachesOnDay) {
-    const optionId = withAnswer.pendingAnswer.optionId
-    // The party may have run out of patience and answered it themselves
-    // while the rider was out. Then the reply is simply too late, and it is
-    // dropped rather than applied on top of what they already did.
-    if (withAnswer.pendingDecision) {
-      resolveDecision(ctx, expedition, optionId, false)
-    }
-    writeExpeditionRun(
-      ctx,
-      expedition.id,
-      (current) => {
-        const { pendingAnswer: _landed, ...rest } = current
-        return rest
-      },
-      'answer_arrived',
     )
   }
 
@@ -922,6 +915,65 @@ export function recallExpedition(ctx: SimContext, expeditionId: string): boolean
     )
   }
   return true
+}
+
+/**
+ * A reply that reaches the party today.
+ *
+ * Two things have to be re-checked on arrival rather than trusted from the
+ * day it was sent. The party may have run out of patience and answered it
+ * themselves, in which case the reply is simply too late. And they have
+ * been EATING while it travelled: an option that needed supplies when the
+ * house chose it may no longer be one they can take, and applying it anyway
+ * granted the reward while `applyEventEffects` quietly clamped the
+ * overspend to zero. If what was asked for is no longer possible they do
+ * the cautious thing instead, and word of that goes home.
+ */
+function applyArrivedAnswer(
+  ctx: SimContext,
+  expedition: Expedition,
+  route: ExpeditionRoute,
+  today: number,
+): void {
+  const run = getExpeditionRun(ctx.state, expedition.id)
+  if (!run?.pendingAnswer || today < run.pendingAnswer.reachesOnDay) return
+  const optionId = run.pendingAnswer.optionId
+  const clear = (reason: string) =>
+    writeExpeditionRun(
+      ctx,
+      expedition.id,
+      (current) => {
+        const { pendingAnswer: _landed, ...rest } = current
+        return rest
+      },
+      reason,
+    )
+
+  const pending = run.pendingDecision
+  if (!pending) {
+    clear('answer_too_late')
+    return
+  }
+  const definition = expeditionEventRegistry.has(pending.eventId)
+    ? expeditionEventRegistry.get(pending.eventId)
+    : undefined
+  const stillPossible =
+    definition !== undefined &&
+    affordableOptions(definition, run).some((option) => option.id === optionId)
+  if (!stillPossible) {
+    queueDispatch(
+      ctx,
+      expedition.id,
+      route,
+      'event',
+      'The word came too late to do what it asked; they did what they could.',
+    )
+    resolveDecision(ctx, expedition, pending.defaultOptionId, true)
+    clear('answer_no_longer_possible')
+    return
+  }
+  resolveDecision(ctx, expedition, optionId, false)
+  clear('answer_arrived')
 }
 
 /** The day the order lands: they turn round, and it lifts them. */

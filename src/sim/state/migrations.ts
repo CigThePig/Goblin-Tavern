@@ -1946,3 +1946,18 @@ function readStaffNameDisplay(value: unknown): string | undefined {
 }
 
 export {};
+
+
+/** Expansion progression: preserve every legacy licence and mastery entry.
+ * New evidence begins on the next played day; never invent past work or witnesses.
+ */
+export function ensureAmbitionProgression<T extends { modules?: Record<string, unknown> }>(state: T): T {
+  const modules = state.modules ?? {};
+  const ventures = (modules.ventures ?? {}) as { records?: Record<string, unknown> };
+  const identity = (modules.tavernIdentity ?? {}) as { evidence?: Record<string, unknown>; lastObservedDay?: number };
+  if (ventures.records && identity.evidence && identity.lastObservedDay !== undefined) return state;
+  return { ...state, modules: { ...modules,
+    ventures: { ...ventures, records: ventures.records ?? {} },
+    tavernIdentity: { ...identity, evidence: identity.evidence ?? {}, lastObservedDay: identity.lastObservedDay ?? -1 },
+  } };
+}

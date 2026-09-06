@@ -1,3 +1,4 @@
+import { ventureWorkQuote } from '../ventures/ambitionQueries'
 import { actionRegistry } from '../../registries/actionRegistry'
 import { clampPercent } from '../../state/normalize'
 import type { TavernState } from '../../state/TavernState'
@@ -330,6 +331,15 @@ export function quoteOwnerAction(
         summary: `${item.label} price ${item.salePrice}→${after} · Demand risk shifts with price`,
         statChanges: [statChange('stock', item.id, item.label, 'salePrice', item.salePrice, after)],
         risks: delta > 0 ? ['Higher prices may reduce satisfaction for price-sensitive customers.'] : ['Lower prices reduce coin per sale.'],
+      }
+      break
+    }
+    case 'work_on_venture': {
+      const work = ventureWorkQuote(state, input.targetId ?? '')
+      quote = { ...base, title: work.option?.label ?? 'Work on an ambition',
+        cost: { coin: work.option?.coin ?? 0 },
+        summary: work.option ? `${work.option.minutes} minutes${work.option.material ? ` and ${work.option.material.quantity} ${work.option.material.id}` : ''} for one work session.` : 'Choose a current venture stage.',
+        ...(work.blocked ? { warnings: [work.blocked] } : {}),
       }
       break
     }

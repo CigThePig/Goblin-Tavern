@@ -552,7 +552,7 @@ function observeDay(input: {
     // ranked higher-is-better must not reward attempts that applied
     // nothing. "Resolved" here means the profile actually applied.
     responsesResolved: resolvedToday.filter(
-      (record) => record.outcome !== 'skipped_unaffordable',
+      (record) => record.outcome === undefined || record.outcome === 'applied',
     ).length,
     responsesSkippedUnaffordable: resolvedToday.filter(
       (record) => record.outcome === 'skipped_unaffordable',

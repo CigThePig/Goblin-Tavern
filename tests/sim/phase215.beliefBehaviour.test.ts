@@ -178,6 +178,9 @@ describe('Phase 215 §8.5 — six domains read it, and each caps it themselves',
     const base = runDays(resented(), 6)
     const groupId = 'local_goblins'
     const believed = believing(base, 'forecast', { kind: 'customer_group', id: groupId })
+    // `believing` plays a setup day. Play the same day in the control so
+    // day type, identity evidence and workforce age do not confound blame.
+    const control = withSetup(base, 'forecast', () => {})
 
     const forecastFor = (state: TavernState): number => {
       const next = simulateDay(state, { seed: `${SEED}/forecast` }, FULL_PIPELINE).state
@@ -186,7 +189,7 @@ describe('Phase 215 §8.5 — six domains read it, and each caps it themselves',
       }
       return slice.forecasts?.find((f) => f.groupId === groupId)?.expected ?? 0
     }
-    const before = forecastFor(base)
+    const before = forecastFor(control)
     const after = forecastFor(believed)
     expect(after).toBeLessThan(before)
     // …and the belief layer cannot be the thing that empties the room.

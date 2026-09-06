@@ -752,7 +752,7 @@ const MECHANIC_TERMS: GlossaryTerm[] = [
     label: 'Nickname',
     category: 'mechanic',
     oneLine: 'A name people in the area call your tavern — emerges from sustained, public rumours.',
-    longer: 'Nicknames live in `state.world.socialRumours` tagged "nickname". The strip surfaces up to two by strength; only rumours whose accuracy is not "false" appear.',
+    longer: 'The crowd can name the house after at least five public days of a distinctive reputation and 25 witnessed visits. Nicknames record who started them. Continued evidence reinforces them; contradiction, correction and fading can remove them. Tavern → Ambitions shows the evidence.',
   },
   // Phase 97 — Missed-opportunity affordance on the daily report.
   {

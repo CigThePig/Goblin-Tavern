@@ -785,6 +785,8 @@ export function createInitialTavernState(
     // its state schema (registered on the module) validates this shape via
     // Phase 6 §6.1.1 composition.
     modules: {
+      ventures: { records: {} },
+      tavernIdentity: { evidence: {}, lastObservedDay: -1 },
       stock: createInitialStockModuleState(),
       // Phase 13 §13.1 — seed an empty owner-actions slice so the
       // module's schema validation passes even on day zero before any

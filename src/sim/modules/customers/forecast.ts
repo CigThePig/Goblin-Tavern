@@ -1,3 +1,5 @@
+import { identityTrafficModifier } from '../tavernIdentity/evidence'
+import { ventureTrafficBonus } from '../ventures/ambitionEffects'
 import type { SimContext } from '../../core/context'
 import type {
   CustomerGroupState,
@@ -265,6 +267,8 @@ export function forecastTrafficForGroup(
   // Phase 79 / ISSUE-039 — culinary_renown lifts attraction for groups
   // that explicitly prefer rare/legendary fare.
   const renownPull = renownAttractionModifier(group, state)
+  const ambitionPull = ventureTrafficBonus(state, group)
+  const identityPull = identityTrafficModifier(state, group)
 
   // Small deterministic jitter so identical inputs still feel like
   // distinct days when reports are read in sequence. Pulled from
@@ -282,7 +286,7 @@ export function forecastTrafficForGroup(
       cultureInfluence.modifier +
       factionInfluence.modifier +
       beliefInfluence.modifier +
-      renownPull -
+      renownPull + ambitionPull.amount + identityPull.amount -
       filthPenalty -
       priceHit +
       jitter
@@ -304,6 +308,7 @@ export function forecastTrafficForGroup(
   if (renownPull > 0) {
     notes.push(`Culinary renown drew rarity-minded patrons (+${renownPull}).`)
   }
+  notes.push(...ambitionPull.notes, ...identityPull.notes)
   for (const note of cultureInfluence.notes) notes.push(note)
   for (const note of factionInfluence.notes) notes.push(note)
   for (const note of beliefInfluence.notes) notes.push(note)

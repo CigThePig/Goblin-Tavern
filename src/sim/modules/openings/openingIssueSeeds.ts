@@ -36,6 +36,9 @@ export const openingIssueSeedGenerator: IssueSeedGenerator = {
       if (record.status !== 'active') continue
       const blueprint = getVentureBlueprint(record.blueprintId)
       if (!blueprint) continue
+      // Multi-part ambitions choose a named partner in Tavern → Ambitions.
+      // The licence retains its original card path.
+      if (blueprint.ambition) continue
       // Already committed (venture exists): the openings module retires the
       // record next morning, but guard here too so the card never double-renders.
       if (ctx.state.ventures[record.blueprintId]) continue

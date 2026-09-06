@@ -125,9 +125,11 @@ describe('Phase 13 — Owner action registry', () => {
     for (const def of actionRegistry.all()) {
       // Phase 92 added `toggle_recipe_menu` as a zero-time logistical
       // toggle (flipping `RecipeState.onMenu` doesn't represent owner
-      // labor). Every other action costs a positive span of minutes
+      // labor). Pausing/abandoning an ambition also ends a commitment without
+      // performing work; resumption and investment still cost real time.
+      // Every other action costs a positive span of minutes
       // (Phase 186 Cluster 3 — the AP economy is now time).
-      if (def.id === 'toggle_recipe_menu') {
+      if (['toggle_recipe_menu', 'pause_venture', 'abandon_venture'].includes(def.id)) {
         expect(def.timeCost).toBe(0)
       } else {
         expect(def.timeCost).toBeGreaterThanOrEqual(1)

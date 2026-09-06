@@ -13,6 +13,7 @@
   import StockPanel from '../components/tavern/StockPanel.svelte'
   import RecipesPanel from '../components/tavern/RecipesPanel.svelte'
   import StaffPanel from '../components/tavern/StaffPanel.svelte'
+  import AmbitionsPanel from '../components/tavern/AmbitionsPanel.svelte'
   import ProjectsPanel from '../components/tavern/ProjectsPanel.svelte'
   import ActionQueueChip from '../components/tavern/ActionQueueChip.svelte'
   import ActionPicker from '../components/ActionPicker.svelte'
@@ -21,7 +22,7 @@
   import type { TavernOverviewData } from '../../../../src/reports/tavernOverviewProjection'
   import { safeProject, type ProjectionSlot } from '../sim/projectionSlot'
 
-  type Subview = 'areas' | 'stock' | 'recipes' | 'staff' | 'projects'
+  type Subview = 'areas' | 'stock' | 'recipes' | 'staff' | 'projects' | 'ambitions'
 
   const TABS: { id: Subview; label: string }[] = [
     { id: 'areas', label: 'Areas' },
@@ -29,6 +30,7 @@
     { id: 'recipes', label: 'Recipes' },
     { id: 'staff', label: 'Staff' },
     { id: 'projects', label: 'Projects' },
+    { id: 'ambitions', label: 'Ambitions' },
   ]
 
   // Phase 93 / ISSUE-053 — Subview lives on the store and persists
@@ -72,6 +74,8 @@
         <RecipesPanel data={data.data.recipes} />
       {:else if subview === 'staff'}
         <StaffPanel data={data.data.staff} />
+      {:else if subview === 'ambitions'}
+        <AmbitionsPanel />
       {:else if subview === 'projects'}
         <ProjectsPanel data={data.data.projects} />
       {/if}

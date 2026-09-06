@@ -118,7 +118,7 @@ export type ReportResolvedIntent = {
   /** The choice's target, resolved to a display name. Secondary. */
   targetLabel?: string
   /** Wave 1: `skipped_unaffordable` rows say so instead of implying success. */
-  outcome?: 'applied' | 'skipped_unaffordable'
+  outcome?: 'applied' | 'skipped_unaffordable' | 'skipped_unavailable'
   /** Player-readable reason when the outcome is not `applied`. */
   note?: string
 }

@@ -10,6 +10,7 @@
     "dev",
     "ledger:check",
     "preview",
+    "progression:lab",
     "repo:map",
     "sample:card-choices",
     "test",
@@ -165,7 +166,9 @@
     "staff",
     "stock",
     "suppliers",
+    "tavernIdentity",
     "tenancy",
+    "ventures",
     "weekly"
   ],
   "topLevelStateSlices": [
@@ -243,6 +246,7 @@
       "ensureArcProgression",
       "ensureExpeditionRunBook",
       "ensureWorldConditions",
+      "ensureAmbitionProgression",
       "ensureModuleSlices"
     ]
   },
@@ -255,7 +259,7 @@
     "runtimeModules": 41,
     "simulationPhases": 26,
     "daySegments": 3,
-    "ownerActions": 109,
+    "ownerActions": 114,
     "staffPriorities": 12,
     "pressureDomains": 21,
     "feedbackDetectors": 13,
@@ -273,7 +277,7 @@
     "suppliers": 9,
     "marketConditions": 8,
     "localArcs": 9,
-    "ventureBlueprints": 1,
+    "ventureBlueprints": 7,
     "staffRoles": 8,
     "reputationAxes": 10
   },

@@ -12,6 +12,7 @@
 
 import { spawn } from 'node:child_process'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 
 // Pull `--tier=<fast|heavy|all>` out of the args and pass it to vitest via the
 // TEST_TIER env var (vitest.config.ts reads it). Doing the env injection here —
@@ -30,11 +31,11 @@ for (const arg of rawArgs) {
 const childEnv = { ...process.env }
 if (tier) childEnv.TEST_TIER = tier
 
-const args = ['vitest', 'run', ...vitestArgs]
+const args = [fileURLToPath(new URL('../node_modules/vitest/vitest.mjs', import.meta.url)), 'run', ...vitestArgs]
 
 // Inherit stdio for live output, but also capture so we can post-parse
 // the summary. Use a tee via pipe + write-through.
-const child = spawn('npx', args, {
+const child = spawn(process.execPath, args, {
   stdio: ['inherit', 'pipe', 'pipe'],
   env: childEnv,
 })
@@ -66,7 +67,7 @@ child.on('close', (code) => {
     /Test Files\s+(?:(\d+)\s+failed\s+\|\s+)?(\d+)\s+passed\s+\((\d+)\)/,
   )
   if (testFilesMatch) {
-    const passed = Number(testFilesMatch[2])
+    const passed = Number(testFilesMatch[2]) + Number(testFilesMatch[1] ?? 0)
     const collected = Number(testFilesMatch[3])
     if (passed !== collected) {
       failures.push(
@@ -80,7 +81,7 @@ child.on('close', (code) => {
     /\bTests\s+(?:(\d+)\s+failed\s+\|\s+)?(\d+)\s+passed\s+\((\d+)\)/,
   )
   if (testsMatch) {
-    const passed = Number(testsMatch[2])
+    const passed = Number(testsMatch[2]) + Number(testsMatch[1] ?? 0)
     const collected = Number(testsMatch[3])
     if (passed !== collected) {
       failures.push(
@@ -88,6 +89,10 @@ child.on('close', (code) => {
       )
     }
   }
+
+  // A process that exits without a summary has not demonstrated a passing
+  // suite. In particular, never silently accept a dropped launcher process.
+  if (!testFilesMatch || !testsMatch) failures.push('vitest did not report a complete test summary')
 
   // Unhandled errors / worker crashes — vitest reports these but exits 0.
   if (/Vitest caught \d+ unhandled error/i.test(combined)) {

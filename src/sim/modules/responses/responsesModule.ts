@@ -33,6 +33,7 @@ import {
   type ResponsesModuleState,
 } from './types'
 import type { IssueSeed } from '../issues/issueSeedTypes'
+import { ventureResponseBlocker } from '../ventures/responseEligibility'
 
 // Phase 41 / ISSUE-001 — Responses module.
 //
@@ -275,6 +276,16 @@ const applyResponsesHook: SimulationHook = (ctx: SimContext): void => {
       | { selectionLabel?: unknown; targetRef?: { kind?: unknown; id?: unknown } }
       | undefined
     const cost = immediateCoinCost(profile)
+    const unavailable = ventureResponseBlocker(ctx.state, profile)
+    if (unavailable) {
+      recordResolvedIntent(ctx, {
+        intentId: intent.id, seedId: seed.id, responseSlotId: slot.id,
+        profileId: profile.id, verb: intent.verb, resolvedOn: today,
+        outcome: 'skipped_unavailable', note: unavailable,
+        ...(typeof meta?.selectionLabel === 'string' ? { selectionLabel: meta.selectionLabel } : {}),
+      })
+      continue
+    }
     if (cost > ctx.state.coin) {
       ctx.addLog(
         {

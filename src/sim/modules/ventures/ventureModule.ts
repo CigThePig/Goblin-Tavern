@@ -1,8 +1,11 @@
+import { reportVentures } from './ventureReport'
 import type { SimulationHook, SimulationModule } from '../../core/module'
 import type { SimContext } from '../../core/context'
 import { advanceLifecycleEntry, resolveBranchingMilestone, type LifecycleTrigger } from '../kernel'
 import { createLiquorLicenseVenture, LIQUOR_LICENSE_VENTURE_ID } from './liquorLicense'
 import { getVentureBlueprint } from './ventureCatalog'
+import { advanceAmbition } from './ambitionLifecycle'
+import { VentureModuleStateSchema } from './ambitionState'
 
 // Phase 1 (teleology) proved the spine on one hardcoded venture via a
 // dev-only spawn. Phase 2 makes openings the real entry path: a committed
@@ -34,6 +37,7 @@ const endDayHook: SimulationHook = (ctx) => {
     if (entry.status !== 'active') continue
     const blueprint = getVentureBlueprint(entry.id)
     if (!blueprint) continue
+    if (blueprint.ambition) { advanceAmbition(ctx, entry); continue }
     advanceLifecycleEntry(ctx, entry, blueprint.definition, investmentTrigger, (id, changes, meta) => ctx.modifyVenture(id, changes, meta))
   }
 }
@@ -42,5 +46,6 @@ export const ventureModule: SimulationModule = {
   id: 'ventures',
   version: '0.2.0',
   dependsOn: ['kernel'],
-  hooks: { startDay: [startDayHook], endDay: [endDayHook] },
+  hooks: { startDay: [startDayHook], endDay: [endDayHook], generateReports: [reportVentures] },
+  stateSchema: VentureModuleStateSchema,
 }

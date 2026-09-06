@@ -1,5 +1,16 @@
 # Goblin Tavern
 
+> **Latest upgrade (2026-09-06):** ISSUE-180 / expansion Phase 10 is in progress.
+> Tavern → Ambitions exposes seven ventures with five registered lifecycle
+> actions. `modules.ventures` stores named partners and paid work;
+> `modules.tavernIdentity` stores bounded public evidence. Nicknames now have a
+> natural producer (OBL-09 closed), and staff careers consume actual assignments.
+> `npm run progression:lab -- --days=28 --goal=venture_supplier_compact` reproduces
+> a normal-play route. The ledger records remaining Phase 10 scope; do not mark
+> the phase done from the catalogue count alone. Pull requests run both test
+> tiers, TypeScript/Svelte checks and the production build on Node 24.
+
+
 A text-based goblin tavern management simulation built **simulation-first**: a headless rules engine ships before any card content, UI, or narrative writing is added on top.
 
 ## Dev commands

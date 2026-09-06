@@ -22,6 +22,7 @@ import { EXPEDITION_ROAD_ACTIONS } from '../modules/expeditions/expeditionAction
 import { CONDITION_ACTIONS } from '../modules/ownerActions/conditionActions'
 import { RUMOUR_ACTIONS } from '../modules/ownerActions/rumourActions'
 import { BELIEF_ACTIONS } from '../modules/ownerActions/beliefActions'
+import { VENTURE_ACTIONS } from '../modules/ownerActions/ventureActions'
 import type { OwnerActionDefinition } from '../modules/ownerActions/types'
 
 // Phase 13 §13.1 — Owner action registry.
@@ -139,6 +140,7 @@ export function ensureRequiredOwnerActionsRegistered(): void {
     // before it lands, work the burden down while it runs, or take the
     // upside instead of only surviving it.
     ...CONDITION_ACTIONS,
+    ...VENTURE_ACTIONS,
   ]
   for (const def of all) {
     if (!actionRegistry.has(def.id)) {

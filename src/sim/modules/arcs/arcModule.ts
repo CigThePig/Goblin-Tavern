@@ -1,3 +1,5 @@
+import { seedCareerArcs, advanceCareerArcs } from './careerArcs'
+import { getStaffModuleState } from '../staff/workforceState'
 import type { SimulationHook, SimulationModule } from '../../core/module'
 import type { SimContext } from '../../core/context'
 import type { TeleologyEntry } from '../../state/TavernState'
@@ -49,7 +51,7 @@ function seedAndAttachHardcodedArc(ctx: SimContext): void {
 
   ctx.addArc(createStaffMasteryArc(label, day), {
     source: 'arcs.spawn',
-    readable: `${label} begins, tracked alongside their loyalty.`,
+    readable: `${label} begins, tracked through their working days and loyalty.`,
     tags: ['teleology', 'arc', 'spawn', STAFF_MASTERY_ARC_ID],
   })
 
@@ -141,7 +143,11 @@ function autonomousArcTick(ctx: SimContext): void {
     const subjectId = readArcSubjectId(entry)
     if (!subjectId) continue
     const staff = ctx.state.staff[subjectId]
-    if (!staff) continue
+    if (!staff) {
+      ctx.modifyArc(entry.id, { status: 'failed', stage: 'departed', updatedAtDay: ctx.state.calendar.totalDaysElapsed }, { source: 'arcs.departed', readable: `${entry.label} ended when its subject left.`, tags: ['teleology', 'arc', entry.id, 'departed'] })
+      continue
+    }
+    if (!getStaffModuleState(ctx.state).roster.some(row => row.staffId === subjectId && row.available && row.contribution > 0)) continue
 
     syncProvenTag(ctx, ctx.state.arcs[id]!, staff.loyalty)
     accrueProgress(ctx, ctx.state.arcs[id]!, staff.loyalty)
@@ -157,12 +163,12 @@ function autonomousArcTick(ctx: SimContext): void {
 
 const startDayHook: SimulationHook = (ctx) => {
   seedAndAttachHardcodedArc(ctx)
-  autonomousArcTick(ctx)
+  seedCareerArcs(ctx)
 }
 
 export const arcModule: SimulationModule = {
   id: 'arcs',
   version: '0.2.0',
   dependsOn: ['kernel'],
-  hooks: { startDay: [startDayHook] },
+  hooks: { startDay: [startDayHook], endDay: [autonomousArcTick, advanceCareerArcs] },
 }

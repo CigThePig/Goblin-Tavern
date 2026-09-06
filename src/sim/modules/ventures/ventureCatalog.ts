@@ -1,5 +1,7 @@
 import type { TavernState, TeleologyEntry } from '../../state/TavernState'
 import type { LifecycleDefinition } from '../kernel'
+import type { AmbitionDefinition } from './ambitionTypes'
+import { AMBITION_BLUEPRINTS } from './ambitionCatalog'
 import {
   createLiquorLicenseVenture,
   liquorLicenseDefinition,
@@ -21,6 +23,7 @@ import {
 // the spawned entry's id equals its blueprint id. The catalog is keyed by
 // that shared id.
 export type VentureBlueprint = {
+  ambition?: AmbitionDefinition
   id: string
   label: string
   /** Build the initial lifecycle entry for `state.ventures[id]`. */
@@ -68,6 +71,7 @@ export const VENTURE_BLUEPRINTS: Record<string, VentureBlueprint> = {
       declineHint: 'Leave the licence for now',
     },
   },
+  ...AMBITION_BLUEPRINTS,
 }
 
 export function getVentureBlueprint(id: string): VentureBlueprint | undefined {

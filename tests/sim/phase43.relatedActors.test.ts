@@ -407,6 +407,9 @@ describe('Phase 43 — arcEffects raw cause relatedActors', () => {
     const capturedCauses: Array<{ relatedActors?: unknown; tags?: string[] }> = []
     const ctx = {
       state: base,
+      modifyModuleState: (id: string, update: (current: unknown) => unknown) => {
+        base.modules[id] = update(base.modules[id])
+      },
       modifyPressure: () => {},
       modifyReputation: () => {},
       modifyCustomerGroup: () => {},
@@ -458,6 +461,9 @@ describe('Phase 43 — arcEffects raw cause relatedActors', () => {
     const capturedMetas: Array<{ relatedActors?: unknown }> = []
     const ctx = {
       state: base,
+      modifyModuleState: (id: string, update: (current: unknown) => unknown) => {
+        base.modules[id] = update(base.modules[id])
+      },
       modifyPressure: () => {},
       modifyReputation: () => {},
       modifyCustomerGroup: (

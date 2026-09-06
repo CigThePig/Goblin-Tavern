@@ -300,6 +300,10 @@ describe('Phase 207 — implementation ledger', () => {
       ['DEP-11', 'done'],
       ['HOOK-rumour_blame_grudge_*_*', 'done'],
       ['HOOK-rumour_bribe_exposed_*_*', 'done'],
+      // Phase 10 is partially implemented, not declared wholly closed.
+      ['OBL-09', 'done'],
+      ['DEP-14', 'in-progress'],
+      ['DEP-15', 'in-progress'],
     ])
 
     const closedEarly = rows.filter((r) => {
@@ -603,7 +607,8 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       runtimeModules: 41,
       simulationPhases: 26,
       daySegments: 3,
-      ownerActions: 109,
+      // Phase 10 adds five ambition lifecycle controls and six blueprints.
+      ownerActions: 114,
       staffPriorities: 12,
       pressureDomains: 21,
       feedbackDetectors: 13,
@@ -621,7 +626,7 @@ describe('Phase 207 — plan §3 starting inventory', () => {
       suppliers: 9,
       marketConditions: 8,
       localArcs: 9,
-      ventureBlueprints: 1,
+      ventureBlueprints: 7,
       staffRoles: 8,
       reputationAxes: 10,
     })

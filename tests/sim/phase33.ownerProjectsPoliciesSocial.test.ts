@@ -203,8 +203,10 @@ describe('Phase 33 — Projects (§33.4 / §33.5), as Expansion Phase 2 left the
     expect(PROJECT_STARTERS).toEqual([])
     for (const def of actionRegistry.all()) {
       if (def.category !== 'project') continue
-      // Every project-category action is now part of the upgrade lifecycle,
-      // which writes the upgrade record and nothing else.
+      // Ambitions consume installed upgrades; they do not build a competing
+      // copy. Their lifecycle is intentionally separate from construction.
+      if (['start_venture', 'work_on_venture', 'pause_venture', 'resume_venture', 'abandon_venture'].includes(def.id)) continue
+      // All remaining project actions belong to construction.
       expect(def.id.startsWith('start_') || def.id.endsWith('_area_upgrade')).toBe(
         true,
       )

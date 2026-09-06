@@ -89,6 +89,7 @@ import {
   ensureArcProgression,
   ensureExpeditionRunBook,
   ensureWorldConditions,
+  ensureAmbitionProgression,
   ensureRivalSlice,
   ensureRumourNetworkFields,
   ensureBeliefBehaviourFields,
@@ -146,7 +147,8 @@ export type TavernSubview =
   | "stock"
   | "recipes"
   | "staff"
-  | "projects";
+  | "projects"
+  | "ambitions";
 export type WorldSubview =
   | "regulars"
   | "suppliers"
@@ -286,6 +288,7 @@ const VALID_TAVERN_SUBVIEWS: ReadonlySet<TavernSubview> = new Set([
   "recipes",
   "staff",
   "projects",
+  "ambitions",
 ]);
 const VALID_WORLD_SUBVIEWS: ReadonlySet<WorldSubview> = new Set([
   "regulars",
@@ -849,7 +852,8 @@ function migrateAndValidateState(
     // does. Inventing a half-finished condition would mean inventing a
     // burden the player never let build.
     const s8o = ensureWorldConditions(s8n);
-    const s9 = ensureModuleSlices(s8o);
+    const s8p = ensureAmbitionProgression(s8o);
+    const s9 = ensureModuleSlices(s8p);
     const validation = safeValidateState(s9, { modules: FULL_PIPELINE });
     if (!validation.success) {
       const first = validation.errors[0];

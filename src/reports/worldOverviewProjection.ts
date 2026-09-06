@@ -542,7 +542,7 @@ function projectNicknames(state: TavernState): string[] {
   const rumours = Object.values(state.world.socialRumours ?? {})
   if (rumours.length === 0) return []
   const candidates = rumours
-    .filter((r) => r.accuracy !== 'false' && (r.tags ?? []).includes('nickname'))
+    .filter((r) => r.accuracy !== 'false' && r.correctedOnDay === undefined && r.strength >= 20 && (r.tags ?? []).includes('nickname'))
     .slice()
     .sort((a, b) => {
       if (b.strength !== a.strength) return b.strength - a.strength

@@ -159,10 +159,17 @@ export function derivePriorityModifiers(
     // for this member means they were not on it, and they contribute nothing.
     const assignment = byStaffId.get(staff.id)
     const assignmentFactor =
-      roster === undefined || roster.length === 0
+      roster === undefined
         ? 1
         : (assignment?.contribution ?? 0)
     if (assignmentFactor <= 0) continue
+    // Earned through a supported kitchen initiative; disappears from service
+    // when its owner is absent. A title alone never staffs a kitchen.
+    const earnedBonus = (tag: string, amount: number) =>
+      staff.tags.includes(tag) ? amount : staff.tags.includes(`${tag}_steady`) ? amount / 2 : 0
+    result.foodQualityModifier += earnedBonus('kitchen_mentor', 0.5) * assignmentFactor
+    result.serviceSpeed += earnedBonus('trusted_host', 0.4) * assignmentFactor
+    result.messControl += earnedBonus('house_steward', 0.4) * assignmentFactor
 
     const eff = summary.effectiveness * assignmentFactor
     result.foodQualityModifier += scaleByEffectiveness(

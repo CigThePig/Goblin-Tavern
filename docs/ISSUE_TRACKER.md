@@ -26,6 +26,17 @@ Grade: `broken` · `thin` · `solid` · `design`.
 
 ## Current work
 
+> **2026-09-06 — ISSUE-180 is in progress.** The large progression upgrade adds
+> six ambitions alongside the licence, a Tavern Ambitions screen with explicit
+> partner/work/cost controls, three staff career paths, evidence-based identity,
+> and naturally earned nicknames (**OBL-09 closed**). Its lab exercises real
+> registered actions from a fresh game, and the persistence contract crosses
+> every day beat. CI now checks pull requests as well as the local gates.
+> **Phase 10 remains open** for deeper failure/scar branches, broader staff
+> actor-contact development, and the remaining identity consumers. DEP-14 and
+> DEP-15 in the implementation ledger record what shipped and what remains.
+
+
 > ### 🔒 All development is paused outside `docs/plans/GOBLIN_TAVERN_SIMULATION_EXPANSION_WORK_PLAN.md` (2026-07-29)
 >
 > The Simulation Expansion and Obligation-Closure plan is the **only
@@ -280,7 +291,7 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > keeps `currentModifier` as a projection of whatever has the most built up,
 > so the tax rent bump and the arc engine's `month_modifier` gate go on
 > reading the field they always read.
-> **Next: ISSUE-180 (Phase 10) is next in the arc.**
+> **Current: ISSUE-180 (Phase 10) — see the 2026-09-06 update above.**
 >
 > **ISSUE-179 Phase 9 is complete (2026-08-08).** The last six `HOOK-*`
 > families are closed, which ends `OBL-02` for phase 9. Each was a response
@@ -302,7 +313,7 @@ Grade: `broken` · `thin` · `solid` · `design`.
 > the appeal model, so the two houses can be compared on one scale rather
 > than through a mean advantage that mixes price and food together.
 >
-> **Next: ISSUE-180 (Phase 10 — teleology, identity and recognition).**
+> **Current: ISSUE-180 (Phase 10 — teleology, identity and recognition), in progress.**
 >
 > Everything else below — the Complete Surface resume points, the
 > onboarding arc, the standing tails — is **paused, not cancelled**, and
@@ -552,7 +563,7 @@ rather than rebuilding those routes.
 | ISSUE-177 | Expansion Phase 7 — loans, tenancy, and a real inspection lifecycle (OBL-03 + loan/eviction half of OBL-02) | broken | done | 214 |
 | ISSUE-178 | Expansion Phase 8 — autonomous social world: faction/culture/NPC agency, rumour propagation, behavioral attribution (rumour half of OBL-08) | broken | done (8.1–8.5) | 215 |
 | ISSUE-179 | Expansion Phase 9 — rival actor, state-driven local arcs, deeper expeditions, month modifiers as processes | thin | done | 216 |
-| ISSUE-180 | Expansion Phase 10 — populated teleology, causal identity with hysteresis, character arcs, earned nicknames (OBL-09 + mastery half of OBL-08) | broken | open | 217 |
+| ISSUE-180 | Expansion Phase 10 — populated teleology, causal identity with hysteresis, character arcs, earned nicknames (OBL-09 + mastery half of OBL-08) | thin | in-progress | 217 |
 | ISSUE-181 | Expansion Phase 11 — reconnect issues, responses, pressures, feedback, memory and history to the deepened domains (closes OBL-02) | broken | open | 218 |
 | ISSUE-182 | Expansion Phase 12 — ongoing difficulty, reachable Quick Day, correct planning horizon, new management surfaces, derived Help (OBL-05/06/07) | broken | open | 219 |
 | ISSUE-183 | Expansion Phase 13 — migration, long-run balance matrix, performance, obligation-closure audit, release proof | broken | open | 220 |

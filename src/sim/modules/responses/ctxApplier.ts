@@ -29,6 +29,7 @@ import {
 } from "./types";
 import { makePendingId } from "./pendingHelpers";
 import { getVentureBlueprint } from "../ventures/ventureCatalog";
+import { writeVentureRecord } from "../ventures/ambitionState";
 import { recordPressureAdjustment } from "../pressures/pressureModule";
 import { payRentFromResponse } from "../monthly/rent";
 import { RENT_PAYMENT_EFFECT_TARGET } from "../monthly/types";
@@ -472,6 +473,7 @@ export function applyEffectViaCtx(
         },
         { source, readable, tags: ["response", ...preview.tags] },
       );
+      if (amount > 0) writeVentureRecord(ctx, id, { lastWorkedDay: ctx.state.calendar.totalDaysElapsed, blockedDays: 0 });
       return { ...preview, applied: true };
     }
     if (field === "stage" || field === "status") {

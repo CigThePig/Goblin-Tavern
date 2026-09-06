@@ -211,7 +211,9 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // on days when the old monthly-age engine had it quietly ageing. Same
     // reading as every part of Phase 8: the route gained a problem, not a
     // worse day. The peak is unmoved.
-    expect(audit.meanCardsPerDay).toBe(4.21)
+    // Phase 10: public identity and earned nicknames change the passive route.
+    // One extra card over 28 days; the six-card urgent-rescue cap is unchanged.
+    expect(audit.meanCardsPerDay).toBe(4.25)
     // The peak reaches six for the first time on this route, and six is
     // WITHIN `DC-06` rather than past it. `handBudget.ts` §4 documents the
     // urgency rescue: an urgent seed that does not fit displaces the weakest
@@ -314,7 +316,9 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // not move at all: §9.1 changed which house a crowd prefers, not what
     // the tavern earns from the ones who still come or how loud its day is.
     expect(audit.finalCoin).toBe(923)
-    expect(audit.totalPatrons).toBe(509)
+    // Phase 10: 25 additional patrons follow established identity. Coin is
+    // still 923: a stocked, staffed service must convert turnout to income.
+    expect(audit.totalPatrons).toBe(534)
   })
 
   it('prices choices as an upper bound on the real render', () => {
@@ -341,8 +345,9 @@ describe('Wave 7 harness — agreement with the published calibration route', ()
     // seed carries the choices it always carried. §9.2 likewise adds no
     // card template and no response slot — the two arc moves it adds are
     // OWNER ACTIONS, which this metric does not count.
-    expect(audit.meanChoicesPerDay).toBe(19.93)
-    expect(audit.totalChoicesRendered).toBe(558)
+    // Phase 10: the extra card carries three choices; no hand-budget change.
+    expect(audit.meanChoicesPerDay).toBe(20.04)
+    expect(audit.totalChoicesRendered).toBe(561)
   })
 
   it('reproduces the published family-streak figure', () => {

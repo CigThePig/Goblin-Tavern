@@ -1,3 +1,6 @@
+import { identityEvidence, observeIdentity } from './evidence'
+import { updateEarnedNicknames } from './nicknames'
+import type { ServiceModuleState } from '../service/types'
 // Phase 95 — Tavern Identity module.
 //
 // Recomputes `state.world.tavernIdentity.{knownFor, houseRules,
@@ -44,7 +47,14 @@ import {
 
 export const TAVERN_IDENTITY_MODULE_ID = 'tavernIdentity'
 
-const TavernIdentityModuleStateSchema = z.object({}).passthrough().optional()
+const TavernIdentityModuleStateSchema = z.object({
+  evidence: z.record(z.string(), z.object({
+    label: z.string(), kind: z.enum(['knownFor', 'atmosphere']), strength: z.number().min(0).max(7),
+    supportedDays: z.number().int().min(0).max(365), publicDays: z.number().int().min(0).max(30),
+    witnesses: z.number().int().min(0).max(100000), lastSupportedDay: z.number().int().min(0),
+  })).optional(),
+  lastObservedDay: z.number().int().min(-1).optional(),
+}).passthrough().optional()
 
 // ---------- Pure computers ----------
 
@@ -199,9 +209,17 @@ const recomputeIdentityHook: SimulationHook = (ctx: SimContext): void => {
     houseRules: [],
   }
 
-  const nextKnownFor = mergeEarned(computeKnownFor(reputation), earned.knownFor)
+  const service = (ctx.state.modules.service as ServiceModuleState | undefined)?.result
+  const witnesses = Object.values(service?.trafficByGroup ?? {}).reduce((sum, n) => sum + n, 0)
+  const observed = observeIdentity(ctx.state, { knownFor: computeKnownFor(reputation), atmosphere: computeAtmosphereTags(areas, cultures) }, witnesses)
+  // One observation per played day; opening a report or reloading cannot earn evidence.
+  if (identityEvidence(ctx.state).lastObservedDay !== ctx.state.calendar.totalDaysElapsed) {
+    ctx.modifyModuleState('tavernIdentity', () => observed.evidence, { source: 'tavernIdentity', reason: 'identity_evidence' })
+    updateEarnedNicknames(ctx, service)
+  }
+  const nextKnownFor = mergeEarned(observed.knownFor, earned.knownFor)
   const nextHouseRules = mergeEarned(computeHouseRules(policies), earned.houseRules)
-  const nextAtmosphereTags = computeAtmosphereTags(areas, cultures)
+  const nextAtmosphereTags = observed.atmosphereTags
 
   const changes: Partial<TavernIdentityState> = {}
   if (!stringArraysEqual(current.knownFor, nextKnownFor)) {

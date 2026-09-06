@@ -1,3 +1,4 @@
+import { ventureSupplierFactor } from '../ventures/ambitionEffects'
 import { marketConditionRegistry } from '../../content/suppliers/marketConditionRegistry'
 import { supplierRegistry } from '../../content/suppliers/supplierRegistry'
 import { stockRegistry } from '../../registries/stockRegistry'
@@ -633,6 +634,9 @@ export function quoteSupplierOrder(
     supplier,
     getSupplierModuleState(state).activeMarketConditions,
   )
+  const compact = ventureSupplierFactor(state, supplier.id)
+  unitPrice *= compact.multiplier
+  factors.push(...compact.notes)
   if (termsFactor !== 1) {
     unitPrice *= termsFactor
     factors.push(`tavern standing moves supplier terms ×${termsFactor.toFixed(2)}`)

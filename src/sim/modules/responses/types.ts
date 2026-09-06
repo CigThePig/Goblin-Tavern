@@ -86,7 +86,7 @@ export type PendingResponseEntry = {
  * spent the coin this one needed; nothing of its profile was applied.
  * Optional so records written before the wave still parse.
  */
-export type ResolvedIntentOutcome = 'applied' | 'skipped_unaffordable'
+export type ResolvedIntentOutcome = 'applied' | 'skipped_unaffordable' | 'skipped_unavailable'
 
 /** Phase 202 / audit Wave 3 — one drained pending entry, as the report reads it. */
 export type DrainedConsequenceRecord = {
@@ -255,7 +255,7 @@ const ResolvedIntentRecordSchema = z.object({
   resolvedOn: z.number().int(),
   // Wave 1 outcome + Wave 3 player-facing wording. Listed so a zod parse
   // does not strip them out of a loaded save.
-  outcome: z.enum(['applied', 'skipped_unaffordable']).optional(),
+  outcome: z.enum(['applied', 'skipped_unaffordable', 'skipped_unavailable']).optional(),
   note: z.string().optional(),
   selectionLabel: z.string().optional(),
   targetRef: z.object({ kind: z.string(), id: z.string() }).optional(),

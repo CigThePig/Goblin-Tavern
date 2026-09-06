@@ -38,6 +38,7 @@
 -->
 <script lang="ts">
   import { untrack } from 'svelte'
+  import AmbitionsTeaser from '../components/AmbitionsTeaser.svelte'
   import PressureRibbon from '../components/PressureRibbon.svelte'
   import Icon from '../components/Icon.svelte'
   import MetricLink from '../components/links/MetricLink.svelte'
@@ -564,6 +565,7 @@
     <section class="block" aria-label="Pressures">
       <h2 class="block-label section-label">Rising</h2>
       <PressureRibbon />
+      <AmbitionsTeaser />
     </section>
 
     <section class="block" aria-label="Morning">

@@ -47,7 +47,13 @@ export function calculateRumourPressure(
   // changing what people credit rather than by deducting points.
   let totalStrength = 0
   let falseStrength = 0
-  for (const rumour of Object.values(ctx.state.world.socialRumours)) {
+  // A fond name is recognition, not a scandal to suppress. Unflattering
+  // nicknames still contribute; established positive identity must not create
+  // false-accusation pressure merely because three names are repeated.
+  const pressingRumours = Object.values(ctx.state.world.socialRumours).filter(r =>
+    !r.tags.includes('earned_nickname') || r.tags.includes('identity:an unfussy floor') || r.tags.includes('identity:a rough edge') || r.accuracy === 'false' || r.accuracy === 'partial',
+  )
+  for (const rumour of pressingRumours) {
     const credited = (rumour.strength * (rumour.credibility ?? 50)) / 100
     totalStrength += credited
     if (rumour.accuracy === 'false' || rumour.accuracy === 'partial') {
@@ -72,7 +78,7 @@ export function calculateRumourPressure(
   // an amount as well counted the loudest rumours twice (up to ~30 extra
   // points at the old slope). The entries stay for their actor refs and
   // readable lines; `weight` keeps them ranked in cause displays.
-  const sortedRumours = Object.values(ctx.state.world.socialRumours)
+  const sortedRumours = pressingRumours
     .filter((r) => r.strength >= 30)
     .sort((a, b) => b.strength - a.strength)
     .slice(0, 3)

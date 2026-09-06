@@ -54,8 +54,15 @@ child.stderr.on('data', (chunk) => {
   stderrBuf += str
 })
 
+// Vitest emits ANSI styling on GitHub-hosted runners. Parse a plain-text copy
+// so terminal control sequences cannot make a valid summary look incomplete.
+function stripAnsi(value) {
+  return value.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '')
+}
+
 child.on('close', (code) => {
   const combined = stdoutBuf + stderrBuf
+  const parsedOutput = stripAnsi(combined)
   const failures = []
 
   if (code !== 0) {
@@ -63,7 +70,7 @@ child.on('close', (code) => {
   }
 
   // "Test Files  X passed (Y)" — X must equal Y.
-  const testFilesMatch = combined.match(
+  const testFilesMatch = parsedOutput.match(
     /Test Files\s+(?:(\d+)\s+failed\s+\|\s+)?(\d+)\s+passed\s+\((\d+)\)/,
   )
   if (testFilesMatch) {
@@ -77,7 +84,7 @@ child.on('close', (code) => {
   }
 
   // "Tests  X passed (Y)" — same shape.
-  const testsMatch = combined.match(
+  const testsMatch = parsedOutput.match(
     /\bTests\s+(?:(\d+)\s+failed\s+\|\s+)?(\d+)\s+passed\s+\((\d+)\)/,
   )
   if (testsMatch) {
@@ -95,10 +102,10 @@ child.on('close', (code) => {
   if (!testFilesMatch || !testsMatch) failures.push('vitest did not report a complete test summary')
 
   // Unhandled errors / worker crashes — vitest reports these but exits 0.
-  if (/Vitest caught \d+ unhandled error/i.test(combined)) {
+  if (/Vitest caught \d+ unhandled error/i.test(parsedOutput)) {
     failures.push('vitest reported one or more unhandled errors during the run')
   }
-  if (/Worker exited unexpectedly/i.test(combined)) {
+  if (/Worker exited unexpectedly/i.test(parsedOutput)) {
     failures.push('a vitest worker exited unexpectedly mid-run')
   }
 
